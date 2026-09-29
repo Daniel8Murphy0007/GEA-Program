@@ -1,0 +1,23 @@
+{
+  "entry": "chicxulub_m0077a_pwave_velocity",
+  "kind": "REAL_SONIC_VELOCITY_PROFILE",
+  "well": "IODP Hole 364-M0077A (Chicx-03B), CHICXULUB IMPACT CRATER PEAK RING, Yucatan shelf, Gulf of Mexico (21.4502 N, -89.9494 E; water depth just 19.8 m - the shallowest site in the catalogue) - IODP Expedition 364 (2016), mission-specific platform L/B MYRTLE; the borehole through the peak ring of the crater left by the K-Pg dinosaur-extinction impactor 66 Ma",
+  "operator_on_log": "IODP Expedition 364 Scientists (Gulick & Morgan co-chiefs) - shipboard discrete-sample P-wave measurements; ESO mission-specific platform operations",
+  "source_database": "PANGAEA, dataset doi:10.1594/PANGAEA.883479 ('P-wave velocity of discrete samples from IODP Hole 364-M0077A'); related to IODP Exp 364 Scientific Prospectus (doi:10.14379/iodp.sp.364.2016)",
+  "source_url": "https://doi.pangaea.de/10.1594/PANGAEA.883479?format=textfile",
+  "license": "Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file's own header. Attribution: IODP Expedition 364 Scientists / PANGAEA / IODP",
+  "fetch_date": "2026-08-26",
+  "fetch_method": "read-only HTTPS fetch of the PANGAEA textfile export - COMPLETE dataset (2,170 data points = 717 rows x 3 always-present parameters + 19 comments; depth is GEOCODE) in one fetch; transcription PROVEN by the file's own per-row checksum (see below)",
+  "coverage": "COMPLETE DATASET: 717 discrete-sample P-wave velocities, 506.17 -> 1334.51 mbsf - 828 m continuously through the post-impact sediments, suevite, impact melt rock, and the SHOCKED PEAK-RING GRANITE of the Chicxulub crater. Vp = 1,535-5,352 m/s; in the granite basement Vp runs ~3,500-4,900 m/s, far below intact granite's ~5,500-6,000 - the pervasive shock damage of the K-Pg impact, measured sample by sample.",
+  "curves": [
+    "Depth sed [m] (index; file order preserved - NOT depth-sorted, as archived)",
+    "Vp [m/s]",
+    "Top [mbsf] (section top)",
+    "Sample label (verbatim, quality)",
+    "Comment (19 verbatim QC notes: poor/bad/weird signal x15, dolerite, dyke?, QAQC, short sample)"
+  ],
+  "transcription_checksum": "The dataset carries its own per-row checksum: Depth sed = Top + (midpoint of the label's cm interval)/100 EXACTLY, including fractional intervals ('232R-1,91-93.5' -> 1116.4125) and the decimal-start oddity ('299R-2,84.1-96' -> 1321.3005). Verified to 1e-4 on ALL 717 rows after transcription - any copying error in label, Top, or Depth would break the identity.",
+  "source_anomaly_disclosure": "Preserved verbatim from the source archive: (1) sample 44R-3,54-56 appears TWICE with different velocities (3,082 and 3,118 m/s - a repeat measurement archived as two rows, 1.2% spread); (2) the file is NOT depth-sorted - among other displacements, the cores 37R-40R block (608-618 mbsf) is archived near the END of the file between the 274R and 276R rows; (3) 19 rows carry shipboard QC comments ('poor signal', 'bad signal', 'weird signal', 'dolerite', 'dyke?', 'QAQC', 'short sample') kept verbatim; (4) row 243R-1 appears twice at different intervals (58-60 and 16-18 cm - two different samples, not a duplicate).",
+  "purpose": "twenty-ninth catalogue entry - the CHICXULUB IMPACT CRATER joins as region SEVENTEEN: the catalogue's first impact structure, first mission-specific-platform entry (L/B Myrtle), and shallowest water depth (19.8 m); scientifically the heaviest single entry yet - the velocity profile through the peak ring of the impact that ended the Cretaceous, where the measured Vp deficit relative to intact granite IS the shock damage that built the peak ring",
+  "verified": "717 rows; Size identity 3N+C = 3x717+19 = 2,170 exact vs header declaration; per-row midpoint checksum on ALL 717 rows; Vp extremes 1,535-5,352; granite-zone deficit (no row in 828 m reaches 5,400 m/s); repeat pair 44R-3 pinned; non-monotonic archival order pinned; 19 QC comments counted; gate-pinned; source URL serves the identical dataset"
+}

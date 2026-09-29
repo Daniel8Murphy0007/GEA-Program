@@ -1,0 +1,24 @@
+{
+  "entry": "dsdp_504b_physical_properties",
+  "kind": "REAL_PHYSICAL_PROPERTIES_COMPLETE",
+  "well": "DSDP Hole 69-504B (Costa Rica Rift flank; 1.2272 N, -83.7302 E; seafloor -3,460 m) - SITE 504B, the same hole as entry 18's borehole fluids: the deepest hole in oceanic crust, here at its BIRTH (Leg 69 drilled the first 489 m in 1979)",
+  "operator_on_log": "DSDP Leg 69, GLOMAR CHALLENGER (1979) - the catalogue's first Glomar Challenger data; shipboard density-porosity measurements on recovered basalt core; dataset Cann, White & Langseth via the DSDP/NGDC archive",
+  "source_database": "PANGAEA, dataset doi:10.1594/PANGAEA.221630 ('Physical properties of Hole 69-504B'); from the DSDP CD-ROM archive (NGDC/NOAA 1989); related to Init. Repts. DSDP 69 (doi:10.2973/dsdp.proc.69.1983)",
+  "source_url": "https://doi.pangaea.de/10.1594/PANGAEA.221630?format=textfile",
+  "license": "Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file's own header. Attribution: Cann, White & Langseth / PANGAEA / DSDP-NGDC",
+  "fetch_date": "2026-08-25",
+  "fetch_method": "read-only HTTPS fetch of the PANGAEA textfile export (text/tab-separated-values) - COMPLETE dataset (366 data points = 61 samples x 6 parameters) in one fetch",
+  "coverage": "COMPLETE DATASET: 61 basalt core samples, 281.12 -> 484.06 mbsf (the upper pillow-basalt section of 504B as first drilled): water content, POROSITY (2.66-11.39 vol%), wet-bulk density (2.73-2.95 g/cm3), grain density (2.94-3.03 g/cm3), with per-sample DSDP core labels.",
+  "curves": [
+    "Depth sed [m] (index)",
+    "Water wm [%]",
+    "Poros [% vol]",
+    "WBD wet-bulk density [g/cm3]",
+    "Density grain [g/cm3]",
+    "Top [mbsf] section datum",
+    "Sample label (verbatim, quality)"
+  ],
+  "science_disclosure": "THE SELF-AUDITING DATASET: porosity, grain density and bulk density are linked by the identity WBD = phi*rho_w + (1-phi)*rho_grain. The file carries all three, so the gate verifies the dataset against its own physics on all 61 rows (mean absolute closure ~0.01 g/cm3 at seawater rho_w = 1.025) - a 1979 laboratory's internal consistency, re-audited on every gate run. The porosity-depth structure (fresh massive units at ~2.7% vs altered/brecciated horizons at 10-11%) is the young-crust alteration story in numbers.",
+  "purpose": "twenty-second catalogue entry - FIFTEENTH kind (physical properties: porosity/density family) and the catalogue's FIRST DSDP-ERA entry (Glomar Challenger, 1979 - scientific ocean drilling's founding vessel). Hole 504B becomes the catalogue's third multi-dataset family (entry 18 fluids at >160C ambient + entry 22 physical properties of the same rock those fluids react with).",
+  "verified": "61 samples; depth/porosity/density endpoints and extremes; the WBD identity closure computed live across all rows; per-sample labels; in-file license/coordinates to meta; gate-pinned; source URL serves the identical dataset"
+}

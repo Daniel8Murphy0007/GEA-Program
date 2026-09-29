@@ -1,0 +1,20 @@
+{
+  "entry": "odp_1027c_cork_temperature",
+  "kind": "REAL_OBSERVATORY_PROFILE_COMPLETE",
+  "well": "ODP Hole 168-1027C, Juan de Fuca Ridge eastern flank, North Pacific (47.7565 N, -127.731 E; seafloor -2,656 m; crustal age 3.586 Ma) - a CORK (Circulation Obviation Retrofit Kit) SEALED-BOREHOLE OBSERVATORY: the real-world permanent downhole monitoring installation",
+  "operator_on_log": "ODP Leg 168 (1996) drilling + CORK installation; thermistor-string measurements Davis & Becker (2002); multi-year service record in the file's own Comment block (data recoveries 1997/1999/2000, logger REPLACED 1999, status 'Operational (pressure only)')",
+  "source_database": "PANGAEA, dataset doi:10.1594/PANGAEA.722627 ('(Appendix 1) Temperature measurements of CORK installation on ODP Hole 168-1027C'); supplement to Davis & Becker (2002), Earth Planet. Sci. Lett. 204, 231-248, doi:10.1016/S0012-821X(02)00982-2",
+  "source_url": "https://doi.pangaea.de/10.1594/PANGAEA.722627?format=textfile",
+  "license": "Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file's own header. Attribution: Davis & Becker (2002) / PANGAEA / ODP",
+  "fetch_date": "2026-08-25",
+  "fetch_method": "read-only HTTPS fetch of the PANGAEA textfile export (text/tab-separated-values) - COMPLETE dataset (19 data points) with self-describing header in one fetch",
+  "coverage": "COMPLETE DATASET: 10 thermistor stations, 0 -> 612.3 mbsf, TWO epochs at the same depths: 'installation' (1996, drilling-disturbed) and '1999' (after ~3 years sealed, near-equilibrium). The file's Comment block carries the full observatory service history AND the formation-pressure summary (initial -69 kPa -> equilibrium -26 kPa relative to hydrostatic: young crust slightly UNDERpressured).",
+  "curves": [
+    "Depth sed [m] (index)",
+    "t [degC] (1999) - sealed near-equilibrium profile",
+    "t [degC] (installation) - drilling-disturbed profile"
+  ],
+  "science_disclosure": "The two-epoch structure IS the entry's meaning: the drilling-disturbed state (2.5-19.6 degC) recovering to the natural state (17.5-60.7 degC) after three sealed years - the disturbed-vs-equilibrium distinction the KTB temperature entries could only DISCLOSE is here MEASURED on both sides. The sealed profile shows the Davis-Becker result: a steep conductive sediment gradient (~104 degC/km - young hot crust) collapsing to an ISOTHERMAL basement section (60.6-60.7 degC across 596.8-612.3 m) - vigorous hydrothermal circulation homogenizing the upper basement. Surface station has no installation-epoch value (blank in source, NaN here).",
+  "purpose": "TWENTIETH catalogue entry - the thematic crown: a real PERMANENT DOWNHOLE OBSERVATORY (thirteenth kind, region TWELVE) - the physical instrument class this entire simulator package models (sealed borehole, multi-year monitoring, data recoveries, a logger replacement: the ServiceLifeSimulator's world as history), carrying the disturbed->equilibrium recovery the catalogue's honesty pins have pointed at since entry 12",
+  "verified": "10 stations x 2 epochs; endpoints and extremes; +42.6 degC three-year recovery at 586.8 m; basement isothermality vs installation-epoch spread; ~104 degC/km sediment gradient; blank surface cell -> NaN; in-file license/coordinates to meta; gate-pinned; source URL serves the identical dataset"
+}

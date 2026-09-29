@@ -1,0 +1,17 @@
+{
+  "entry": "l07_01_nl_excerpt",
+  "kind": "REAL_WELL_LOG_EXCERPT",
+  "well": "L07-01 (Petroland), Dutch North Sea offshore, Netherlands; NLOG Unique Borehole Id 7264; Lat 53.722768 / Long 4.796468; logged 1971; TD 3,934 m",
+  "operator_on_log": "PETROLAND",
+  "source_database": "NLOG - Netherlands Oil and Gas portal (open by mandate, nlog.nl), redistributed in the public andymcdgeo/Andys_YouTube_Notebooks GitHub repository (welly_data/NLOG_LIS_LAS_3164_7264_l0701_1971_comp.las)",
+  "source_url": "https://raw.githubusercontent.com/andymcdgeo/Andys_YouTube_Notebooks/main/welly_data/NLOG_LIS_LAS_3164_7264_l0701_1971_comp.las",
+  "license": "NLOG open data (Dutch mandate); redistribution repository public; attribution to NLOG and well L07-01 (UBID 7264)",
+  "fetch_date": "2026-08-24",
+  "fetch_method": "read-only HTTPS fetch (text/plain), size-capped by the fetch tool",
+  "coverage": "VERBATIM EXCERPT: full header (populated fields verbatim; blank admin lines omitted and disclosed here) + data rows 3915.8-3910.9 m (50 rows, deep quad-combo section with live GR/DT/RHOB/NPHI). Full file spans 3928.0 -> 64.9 m at -0.1 m step.",
+  "curves": ["DEPT.M", "GR.GAPI", "DT.US/F", "RHOB.G/C3", "NPHI.V/V"],
+  "temperature_data": "NONE - quad-combo composite; no BHT in the parameter block either; profile conversion uses DERIVED gradients, labeled (Rule 7)",
+  "dialect_notes": "DESCENDING depth index (STEP = -0.1 m, logged bottom-up 3,928 -> 64.9 m) - the catalogue's first descending-index well, exercising order-agnostic ingest (the engine's profile loader sorts on load); LIS-decode NLOG export naming; tab characters inside header lines (LATI/LONG).",
+  "purpose": "eighth catalogue well - EIGHTH region (NETHERLANDS, Dutch North Sea); 1971 offshore vintage; descending-index dialect coverage",
+  "verified": "50 rows verbatim (GR[0] = 122.553802 GAPI); descending index preserved through ingest; converter output loads into the engine via the sorting profile loader; gate-pinned"
+}

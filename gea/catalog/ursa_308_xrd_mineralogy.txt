@@ -1,0 +1,46 @@
+/* DATA DESCRIPTION:
+Citation:	Day-Stirrat, Ruarri J; Flemings, Peter B; You, Yao; Aplin, Andrew C; van der Pluijm, Ben A (2012): (Table 2) Bulk mineralogy and clay minerals from IODP Holes 308-U1322D and 308-U1324B [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.787952, 
+	In supplement to: Day-Stirrat, RJ et al. (2012): The fabric of consolidation in Gulf of Mexico mudstones. Marine Geology, 295-298, 77-85, https://doi.org/10.1016/j.margeo.2011.12.003
+Project(s):	Integrated Ocean Drilling Program / International Ocean Discovery Program (IODP) (URI: https://www.iodp.org/)
+Coverage:	MEDIAN LATITUDE: 28.001494 * MEDIAN LONGITUDE: -89.001369 * SOUTH-BOUND LATITUDE: 28.001329 * WEST-BOUND LONGITUDE: -89.002318 * NORTH-BOUND LATITUDE: 28.001660 * EAST-BOUND LONGITUDE: -89.000420
+	MINIMUM DEPTH, sediment/rock: 71.5 m * MAXIMUM DEPTH, sediment/rock: 354.1 m
+Event(s):	308-U1322D * LATITUDE: 28.001660 * LONGITUDE: -89.000420 * ELEVATION: -1318.9 m * RECOVERY: 27.21 m * CAMPAIGN: Exp308 (Gulf of Mexico Hydrogeology) * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 3 cores; 26.8 m cored; 101.5 % recovered; 148.2 m drilled; 175 m penetrated
+	308-U1324B * LATITUDE: 28.001329 * LONGITUDE: -89.002318 * ELEVATION: -1056.8 m * RECOVERY: 569.92 m * CAMPAIGN: Exp308 (Gulf of Mexico Hydrogeology) * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 74 cores; 608.2 m cored; 93.7 % recovered; 0 m drilled; 608.2 m penetrated
+Parameter(s):	Event label (Event)
+	DEPTH, sediment/rock [m] (Depth sed) * GEOCODE
+	Sample, optional label/labor no (Lab no) * PI: Day-Stirrat, Ruarri J
+	Quartz [%] (Qz) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD)
+	Plagioclase [%] (Pl) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD)
+	Kalifeldspar [%] (Kfs) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD)
+	Calcite [%] (Cal) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD)
+	Dolomite [%] (Dol) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD)
+	Siderite [%] (Sd) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD)
+	Pyrite, FeS2 [%] (Py) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD)
+	Halite [%] (Hl) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD)
+	Gypsum [%] (Gp) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD)
+	Amphibole [%] (Amp) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD)
+	Clinoptilolite [%] (Cpt) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD)
+	Muscovite [%] (Ms) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD)
+	Illite+Illite-smectite [%] (Ill+Ill-Sme) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD)
+	Kaolinite [%] (Kln) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD)
+	Chlorite [%] (Chl) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD)
+	Mica [%] (Mica) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD) * COMMENT: Tri-mica
+	Hydrobiotite [%] (Hydrobt) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD)
+	Talc [%] (Tlc) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD)
+	Clay minerals [%] (Clay min) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD) * COMMENT: Total Clay
+	Carbonates [%] (Carb) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD) * COMMENT: Total Carbonate
+	Quartz and Feldspar [%] (Qz+Fsp) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD) * COMMENT: Total Quartz + Feldspar
+	Total [%] (Total) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD)
+	Chlorite [%] (Chl) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD) * COMMENT: In <2µm clay size
+	Kaolinite [%] (Kln) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD) * COMMENT: In <2µm clay size
+	Illite [%] (Ill) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD) * COMMENT: In <2µm clay size
+	Mixed layer illite/smectite [%] (Ill/Sme) * PI: Day-Stirrat, Ruarri J * METHOD/DEVICE: X-ray diffraction (XRD) * COMMENT: In <2µm clay size
+	Expandability [%] (Expandability) * PI: Day-Stirrat, Ruarri J
+License:	Creative Commons Attribution 3.0 Unported (CC-BY-3.0) (URI: https://creativecommons.org/licenses/by/3.0/)
+Size:	112 data points
+*/
+Event	Depth sed [m]	Lab no	Qz [%]	Pl [%]	Kfs [%]	Cal [%]	Dol [%]	Sd [%]	Py [%]	Hl [%]	Gp [%]	Amp [%]	Cpt [%]	Ms [%]	Ill+Ill-Sme [%]	Kln [%]	Chl [%]	Mica [%] (Tri-mica)	Hydrobt [%]	Tlc [%]	Clay min [%] (Total Clay)	Carb [%] (Total Carbonate)	Qz+Fsp [%] (Total Quartz + Feldspar)	Total [%]	Chl [%] (In <2µm clay size)	Kln [%] (In <2µm clay size)	Ill [%] (In <2µm clay size)	Ill/Sme [%] (In <2µm clay size)	Expandability [%]
+308-U1322D	71.5	U1322D 002 H02WR	18.8	5.6	4.0	7.5	6.7	1.9	0.4	0.4	0	0.0	1.3	5.0	42.4	3.5	2.3	0	0	0.5	53.7	16.5	28.4	100.3	2	2	16	80	85
+308-U1322D	74.5	U1322D 002 H04WR	21.6	6.9	5.2	4.6	7.4	1.1	0.7	0.5	0	0.0	0.0	4.5	40.8	3.9	2.9	0	0	0.0	52.1	13.6	33.7	100.1	4	4	21	72	85
+308-U1324B	178.7	U1324B 020 H06WR	20.1	8.2	6.8	11.0	16.0	1.7	0.5	0.0	0	1.3	0.0	4.7	25.4	0.7	3.6	0	0	0.0	34.4	28.7	35.1	100.0	7	4	28	60	75
+308-U1324B	354.1	U1324B 044 H01WR	20.8	10.5	7.3	4.7	11.3	1.5	0.0	0.0	0	2.4	0.0	4.3	29.7	3.9	3.6	0	0	0.0	41.5	17.5	38.6	100.0	7	8	17	68	75

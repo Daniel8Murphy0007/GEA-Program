@@ -1,0 +1,20 @@
+{
+  "entry": "elgygytgyn_5011_turbidites",
+  "kind": "REAL_EVENT_DEPOSIT_INVENTORY",
+  "well": "ICDP site 5011-1 - LAKE EL'GYGYTGYN, Chukotka, NE Arctic Russia (67.4997 N, 172.1039 E; lake water depth 169.5 m), a 3.6-Myr-old METEORITE IMPACT CRATER lake 100 km north of the Arctic Circle holding the longest continuous terrestrial climate record of the Arctic; ICDP El'gygytgyn Drilling Project (2009, drilled from lake ice - BASIS 'Sampling on land'), composite profile to 313.3 m",
+  "operator_on_log": "Brigham-Grette, Melles, Minyuk, Andreev, Tarasov, DeConto, Koenig, Nowaczyk, Wennrich, Rosen, Haltia-Hovi, Cook, Gebhardt, Meyer-Jacob, Snyder & Herzschuh - the complete turbidite (mass-flow event deposit) inventory of the composite profile, the intervals excised to isolate the pelagic climate signal of the Science 2013 record",
+  "source_database": "PANGAEA, dataset doi:10.1594/PANGAEA.808833 ('Turbidites in composite profile of ICDP site 5011-1 in Lake Elgygytgyn, NE Russia'); supplement to Brigham-Grette et al. 2013, Science 340, 1421-1427 (doi:10.1126/science.1233137)",
+  "source_url": "https://doi.pangaea.de/10.1594/PANGAEA.808833?format=textfile",
+  "license": "Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file's own header. Attribution: Brigham-Grette et al. / PANGAEA / ICDP",
+  "fetch_date": "2026-08-27",
+  "fetch_method": "read-only HTTPS fetch of the PANGAEA textfile export - COMPLETE dataset (360 data points per the header's own Size declaration = 180 intervals x 2 depth bounds, EXACT) in one fetch",
+  "coverage": "COMPLETE DATASET: all 180 turbidite intervals identified in the composite profile, 7.504-313.326 m - thicknesses 0.021 m to the 3.344-m monster at 85.187 m; 36.717 m of event deposits in total (12.0% of the 305.8-m span); 113 events above 143.5 m (Pleistocene) versus 67 below - the stepped-cooling instability signal in event-count form",
+  "curves": [
+    "Depth top [m] 7.504-313.326 (serves as the stream index - the file declares NO geocode; both columns are parameters)",
+    "Depth bot [m] (each interval's base)",
+    "no other channels - the dataset IS the event inventory"
+  ],
+  "source_anomaly_disclosure": "No internal inconsistencies detected - the inventory closes against its own geometry: every one of the 180 intervals has positive thickness and every one of the 179 successive gaps is non-negative (perfectly ordered, non-overlapping; the tightest separation is 4 mm at 298.724/298.728 m); noted verbatim: the event LOCATION field spells 'Sibiria', and the longest turbidite-free reach is 24.807 m (222.694-247.501 m) in the Pliocene section",
+  "purpose": "FORTIETH catalogue entry - THE MILESTONE REACHES THE ARCTIC BY LAND: entry 30 reached the North Pole by icebreaker (ACEX); entry 40 reaches 3.6 million years of Arctic climate through lake ice above a METEORITE CRATER - CHUKOTKA / EL'GYGYTGYN joins as region TWENTY-EIGHT (the catalogue's first impact-crater lake, first Russian site, first drilled-from-ice platform, pairing the Chicxulub impact entry AND the Dead Sea lake entry) and the event-deposit inventory is kind TWENTY-NINE: not a scan of one event (the Dead Sea debrite) but the COMPLETE CATALOGUE of every mass-flow a basin recorded - the exact intervals the Science authors excised so the Pliocene-warmth signal could be read clean; and a milestone coincidence carried for the record: this lake's inventory contains an interval at 172.052-172.131 m, numerically the same window the Dead Sea debrite scan occupies in ITS core",
+  "verified": "180 intervals / 360 counted cells against the header's own Size declaration (EXACT); all thicknesses positive (0.021-3.344 m, maximum at 85.187 m); all 179 gaps non-negative (strict non-overlapping depth order, minimum 0.004 m); total event thickness 36.717 m = 12.0% of the 305.822-m span; 113/67 Pleistocene/Pliocene event split; largest turbidite-free reach 24.807 m; gate-pinned; source URL serves the identical dataset"
+}

@@ -1,0 +1,82 @@
+/* DATA DESCRIPTION:
+Citation:	Cann, Joe R; White, S M; Langseth, Marcus G (2004): Physical properties of Hole 69-504B [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.221630
+Related to:	DSDP (1989): Data from the Deep Sea Drilling Project. Sediment, hard rock and reference files. National Geophysical Data Center, National Environmental Satellite, Data and Information Service, National Oceanic and Atmospheric Administration, U.S. Department of Commerce, 1, CD-ROM
+	Wilkens, Roy H; Schrader, Ed L; Sancetta, Constance A; Noack, Y; Mottl, Michael J; Moorby, S A; Migdisov, Areg A; Levi, Shaul; Laverne, Christine; Karato, Shun-ichiro; Jones, S C; Hubberten, Hans-Wolfgang; Furuta, Toshio; Borella, Peter E; Bender, Michael L; Beiersdorf, Helmut; Becker, Keir; Barrett, T J; Adamson, Andrew C; von Herzen, Richard P; Honnorez, Jose J; Zoback, Mark D; Ponomarev, Vladmir N; Pertsev, Nikolay N; Nekhoroshkov, Vladislav L; Natland, James H; Lawrence, James R; Anderson, Roger N; Cann, Joe R; White, S M; Langseth, Marcus G (1983): Initial Reports of the Deep Sea Drilling Project. U. S. Government Printing Office, Washington, LXIX, 864 pp, https://doi.org/10.2973/dsdp.proc.69.1983
+Further details:	Density-porosity data - background and methods. hdl:10013/epic.32345.d001
+Project(s):	Deep Sea Drilling Project (DSDP) (URI: https://www.deepseadrilling.org/)
+Coverage:	LATITUDE: 1.227200 * LONGITUDE: -83.730200
+	DATE/TIME START: 1979-10-07T00:00:00 * DATE/TIME END: 1979-10-07T00:00:00
+	MINIMUM DEPTH, sediment/rock: 281.12 m * MAXIMUM DEPTH, sediment/rock: 484.06 m
+Event(s):	69-504B * LATITUDE: 1.227200 * LONGITUDE: -83.730200 * DATE/TIME: 1979-10-07T00:00:00 * ELEVATION: -3460.0 m * PENETRATION: 489 m * RECOVERY: 262 m * CAMPAIGN: Leg69 * BASIS: Glomar Challenger (URI: https://www-odp.tamu.edu:443/glomar.html) * METHOD/DEVICE: Drilling/drill rig (DRILL)
+Parameter(s):	DEPTH, sediment/rock [m] (Depth sed) * GEOCODE
+	Sample code/label (Sample label) * METHOD/DEVICE: DSDP/ODP/IODP sample designation (URI: hdl:10013/epic.27914.d001)
+	Section Top in meters below surface [mbsf] (Top)
+	Water content, wet mass [%] (Water wm)
+	Porosity [% vol] (Poros)
+	Density, wet bulk [g/cm**3] (WBD)
+	Density, grain [g/cm**3] (Density grain)
+License:	Creative Commons Attribution 3.0 Unported (CC-BY-3.0) (URI: https://creativecommons.org/licenses/by/3.0/)
+Size:	366 data points
+*/
+Depth sed [m]	Sample label	Top [mbsf]	Water wm [%]	Poros [% vol]	WBD [g/cm**3]	Density grain [g/cm**3]
+281.12	69-504B-4-1,112	280.00	3.73	10.30	2.76	2.96
+282.53	69-504B-4-2,103	280.00	0.93	2.71	2.91	2.96
+284.24	69-504B-4-3,124	280.00	2.71	7.66	2.83	2.98
+284.93	69-504B-4-4,43	280.00	2.49	7.11	2.85	3.00
+287.26	69-504B-4-5,126	280.00	1.71	4.92	2.88	2.98
+290.08	69-504B-5-1,58	289.50	2.26	6.54	2.90	3.03
+291.42	69-504B-5-2,42	289.50	1.69	4.86	2.88	2.98
+299.05	69-504B-6-1,55	298.50	2.48	6.97	2.81	2.95
+300.41	69-504B-6-2,41	298.50	2.07	5.97	2.88	3.00
+307.84	69-504B-7-1,34	307.50	1.50	4.32	2.88	2.96
+310.00	69-504B-7-2,100	307.50	0.91	2.66	2.91	2.97
+311.78	69-504B-7-3,128	307.50	1.50	4.35	2.90	2.99
+312.36	69-504B-7-4,36	307.50	1.43	4.15	2.90	2.98
+313.53	69-504B-7-5,3	307.50	1.12	3.25	2.91	2.98
+317.14	69-504B-8-1,64	316.50	1.46	4.25	2.92	3.00
+318.87	69-504B-8-2,87	316.50	1.77	5.14	2.91	3.01
+320.23	69-504B-8-3,73	316.50	2.54	7.21	2.84	2.98
+321.59	69-504B-8-4,59	316.50	2.35	6.75	2.87	3.01
+326.02	69-504B-9-1,52	325.50	1.17	3.37	2.89	2.96
+327.74	69-504B-9-2,74	325.50	2.14	6.16	2.87	2.99
+336.12	69-504B-10-2,12	334.50	2.43	6.90	2.85	2.98
+343.70	69-504B-11-1,20	343.50	1.45	4.25	2.92	3.01
+345.77	69-504B-11-2,77	343.50	2.02	5.78	2.87	2.98
+346.78	69-504B-11-3,28	343.50	2.24	6.37	2.85	2.97
+353.01	69-504B-12-1,51	352.50	3.23	9.07	2.81	2.99
+355.08	69-504B-12-2,108	352.50	1.20	3.54	2.94	3.01
+362.91	69-504B-13-1,141	361.50	2.51	7.14	2.84	2.98
+364.00	69-504B-13-2,100	361.50	2.17	6.18	2.85	2.97
+365.22	69-504B-13-3,72	361.50	1.98	5.71	2.88	2.99
+366.16	69-504B-13-4,16	361.50	2.30	6.57	2.86	2.99
+370.90	69-504B-14-1,40	370.50	3.12	8.75	2.81	2.98
+376.78	69-504B-15-2,28	375.00	1.85	5.34	2.88	2.99
+379.39	69-504B-15-3,139	375.00	1.53	4.46	2.91	3.00
+380.81	69-504B-15-4,131	375.00	1.17	3.45	2.94	3.01
+381.53	69-504B-15-5,53	375.00	2.96	8.36	2.83	3.00
+384.21	69-504B-16-1,21	384.00	2.26	6.49	2.87	3.00
+385.57	69-504B-16-2,7	384.00	2.25	6.40	2.85	2.98
+387.67	69-504B-16-3,67	384.00	1.58	4.60	2.92	3.01
+388.35	69-504B-16-3,135	384.00	1.55	4.49	2.90	2.99
+389.54	69-504B-16-4,104	384.00	2.07	5.91	2.86	2.98
+393.97	69-504B-17-1,97	393.00	1.37	3.97	2.91	2.99
+395.55	69-504B-17-2,105	393.00	2.07	5.96	2.89	3.01
+398.72	69-504B-18-1,72	398.00	4.18	11.39	2.73	2.95
+404.04	69-504B-19-1,104	403.00	1.86	5.28	2.84	2.94
+405.39	69-504B-19-2,89	403.00	1.39	4.09	2.95	3.03
+413.17	69-504B-20-1,117	412.00	1.66	4.78	2.88	2.98
+422.39	69-504B-21-1,139	421.00	2.37	6.75	2.85	2.98
+423.10	69-504B-21-2,60	421.00	2.19	6.25	2.85	2.97
+425.24	69-504B-21-3,124	421.00	1.52	4.39	2.90	2.99
+426.87	69-504B-21-4,137	421.00	2.16	6.16	2.86	2.98
+430.63	69-504B-22-1,63	430.00	1.91	5.48	2.87	2.98
+439.91	69-504B-23-1,91	439.00	1.39	4.06	2.93	3.01
+449.03	69-504B-24-1,103	448.00	2.01	5.75	2.86	2.97
+450.15	69-504B-24-2,65	448.00	1.76	5.10	2.90	3.00
+451.78	69-504B-24-3,78	448.00	1.13	3.32	2.94	3.01
+459.34	69-504B-25-2,84	457.00	1.88	5.42	2.88	2.99
+467.10	69-504B-27-1,110	466.00	1.71	4.93	2.88	2.98
+475.96	69-504B-28-1,96	475.00	1.74	5.02	2.89	2.99
+478.57	69-504B-28-3,57	475.00	1.30	3.81	2.92	3.00
+480.74	69-504B-28-4,124	475.00	1.80	5.17	2.87	2.97
+484.06	69-504B-29-1,6	484.00	3.98	10.86	2.73	2.94

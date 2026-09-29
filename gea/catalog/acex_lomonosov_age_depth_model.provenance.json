@@ -1,0 +1,23 @@
+{
+  "entry": "acex_lomonosov_age_depth_model",
+  "kind": "REAL_AGE_DEPTH_MODEL",
+  "well": "IODP Exp 302 Composite Site (ACEX), LOMONOSOV RIDGE, CENTRAL ARCTIC OCEAN (87.8900 N, 137.6500 E - 235 km from the North Pole, the closest any scientific drilling data comes to it; water depth -1,251 m) - Arctic Coring Expedition (2004), drilled from the icebreaker Vidar Viking with two escort icebreakers managing the moving sea ice; the composite record splices Holes M0002A/M0003A/M0004A/M0004C into one virtual core",
+  "operator_on_log": "Backman, Jakobsson, Frank, O'Regan, Moran et al. (14 authors) - the canonical ACEX age model, Paleoceanography 23 PA1S03 (doi:10.1029/2007PA001476); control points from 10Be profiles, biostratigraphy (P. clithridium, Azolla, A. augustum) and magnetostratigraphy (chron C25n)",
+  "source_database": "PANGAEA, dataset doi:10.1594/PANGAEA.705517 ('(Table 1) Age-Depth control points and sedimentation rates of IODP Exp302 sediments')",
+  "source_url": "https://doi.pangaea.de/10.1594/PANGAEA.705517?format=textfile",
+  "license": "Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file's own header. Attribution: Backman et al. / PANGAEA / IODP",
+  "fetch_date": "2026-08-26",
+  "fetch_method": "read-only HTTPS fetch of the PANGAEA textfile export - COMPLETE dataset (38 data points = every non-empty cell across the 5 counted parameters on 10 rows; depth is GEOCODE) in one fetch",
+  "coverage": "COMPLETE DATASET: the age-depth backbone of the first-ever scientific drilling of the central Arctic Ocean - 10 control points (A-G plus hiatus bounds), 0-399.63 mcd spanning 0-55,904 ka (56 million years of Arctic history), with per-interval sedimentation rates 0.80-2.43 cm/ka.",
+  "curves": [
+    "Depth sed [mcd] (index)",
+    "Age model [ka]",
+    "SR sedimentation rate [cm/ka]",
+    "Sample comment = control-point letters A-G (quality)",
+    "Comm + Interval comm (verbatim in file: 10Be, biostratigraphy and chron C25n tie-point descriptions)"
+  ],
+  "hiatuses_in_the_data": "BOTH ACEX hiatuses are encoded in the table's structure: (1) the 26.2-Myr mid-Cenozoic hiatus appears as a DUPLICATE-DEPTH PAIR - 198.70 m carries two ages, 18,200 and 44,400 ka: the same centimetre of seafloor is both early Miocene and middle Eocene; (2) the 2.2-Myr middle-late Miocene hiatus sits between 135.49 m (9,360 ka) and 140.44 m (11,560 ka).",
+  "source_anomaly_disclosure": "The source header's own Comment field is TRUNCATED IN THE ARCHIVE - it ends mid-sentence at 'Paleogene: (404.8-198.7) m/(56.2-44.4) Ma. Average sedimentation' with the Paleogene average rate cut off (re-derivable: 206.1 m / 11.8 Ma = 17.5 m/Myr). Preserved verbatim, including the cut. Note also the header's 404.8 m full-section base vs the table's 399.63 m deepest control point (chron C25n) - consistent, not contradictory.",
+  "purpose": "thirtieth catalogue entry - a MILESTONE ENTRY: the CENTRAL ARCTIC OCEAN joins as region EIGHTEEN at 87.89 N (235 km from the North Pole - the catalogue now literally reaches from pole to pole through 30 entries), first icebreaker-drilled data, first composite virtual core, and AGE-DEPTH GEOCHRONOLOGY is kind NINETEEN - the catalogue's first time axis: every earlier entry measures the state of the subsurface, this one dates it",
+  "verified": "10 rows / 38 counted cells against the header Size declaration; ALL six sedimentation rates re-derived live from the control points (five interval rates as delta-depth/delta-age between the correct hiatus-aware bounds + the 135.49 m rate from the surface); header-average identity 198.7/16.0 = 12.4 m/Myr re-derived; duplicate-depth hiatus pair pinned; endpoints; gate-pinned; source URL serves the identical dataset"
+}

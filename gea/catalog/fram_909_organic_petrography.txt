@@ -1,0 +1,40 @@
+/* DATA DESCRIPTION:
+Citation:	Knies, Jochen; Mann, Ute (2002): Organic carbon chemistry of ODP Hole 151-909C (Table 1) [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.746742, 
+	Supplement to: Knies, J; Mann, U (2002): Depositional environment and source rock potential of Miocene strata from the central Fram Strait: introduction of a new computing tool for simulating organic facies variations. Marine and Petroleum Geology, 19(7), 811-828, https://doi.org/10.1016/S0264-8172(02)00090-9
+Abstract:	Organic-rich sediments were recognized in early Miocene strata from the Norwegian-Greenland Sea during ODP Leg 151. Three organic-geochemical subunits were distinguished in Hole 909C using detailed organic-geochemical and microscopic analyses. TOC (up to 3 wt%), HI (up to 200 mg HC/g TOC), and d13Corg values (~24–26 per mil) indicate the predominance of terrestrial type III organic matter in Subunit 3 (~18–16.2 Ma). Biomarker and vitrinite reflectance values (R0 ~0.5%) point to rather fresh immature terrestrial organic matter supplied by river discharge from adjacent vegetated coastal areas. Although the sediments of Subunit 3 have a fair (to good) source rock potential they are insufficiently mature to generate significant amounts of oil or gas. To test if the moderate generation potential and source rock quality of Subunit 3 are applicable to the entire area, the computer software OF-Mod was applied. Several modelling runs testing the most probable depositional scenarios result, even under conservative assumptions, in the formation of good to excellent source rocks towards the basin margins.
+Project(s):	Ocean Drilling Program (ODP) (URI: https://www-odp.tamu.edu:443/)
+Coverage:	LATITUDE: 78.584900 * LONGITUDE: 3.070400
+	DATE/TIME START: 1993-08-31T12:01:00 * DATE/TIME END: 1993-09-11T16:30:00
+	MINIMUM DEPTH, sediment/rock: 879.34 m * MAXIMUM DEPTH, sediment/rock: 1056.91 m
+Event(s):	151-909C * LATITUDE: 78.584900 * LONGITUDE: 3.070400 * DATE/TIME START: 1993-08-31T12:01:00 * DATE/TIME END: 1993-09-11T16:30:00 * ELEVATION: -2529.0 m * PENETRATION: 1061.8 m * RECOVERY: 604.77 m * LOCATION: North Greenland Sea * CAMPAIGN: Leg151 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 103 cores; 976.8 m cored; 0 m drilled; 61.9 % recovery
+Parameter(s):	Sample code/label (Sample label) * PI: Knies, Jochen (jochen.knies@ngu.no) * METHOD/DEVICE: DSDP/ODP/IODP sample designation (URI: hdl:10013/epic.27914.d001)
+	DEPTH, sediment/rock [m] (Depth sed) * GEOCODE
+	AGE [ka BP] (Age) * GEOCODE
+	Carbon, organic, total [%] (TOC) * PI: Knies, Jochen (jochen.knies@ngu.no) * METHOD/DEVICE: Rock eval pyrolysis (Behar et al., 2001) (URI: https://doi.org/10.2516/ogst:2001013)
+	Carbon, organic, terrestrial matter [%] (C org ter) * PI: Knies, Jochen (jochen.knies@ngu.no) * METHOD/DEVICE: Rock eval pyrolysis (Behar et al., 2001) (URI: https://doi.org/10.2516/ogst:2001013)
+	Carbon, organic, marine matter [%] (C org mar) * PI: Knies, Jochen (jochen.knies@ngu.no) * METHOD/DEVICE: Rock eval pyrolysis (Behar et al., 2001) (URI: https://doi.org/10.2516/ogst:2001013)
+	Sedimentation rate [cm/ka] (SR) * PI: Knies, Jochen (jochen.knies@ngu.no) * METHOD/DEVICE: Calculated
+	Density, dry bulk [g/cm**3] (DBD) * PI: Knies, Jochen (jochen.knies@ngu.no)
+	Accumulation rate, terrestrial organic matter [g/m**2/ka] (Acc rate TOC ter) * PI: Knies, Jochen (jochen.knies@ngu.no) * METHOD/DEVICE: Calculated
+	Accumulation rate, marine organic matter [g/m**2/ka] (Acc rate TOC mar) * PI: Knies, Jochen (jochen.knies@ngu.no) * METHOD/DEVICE: Calculated
+	Hydrogen index, mass HC, per unit mass total organic carbon [mg/g] (HI, HC/TOC) * PI: Knies, Jochen (jochen.knies@ngu.no) * METHOD/DEVICE: Rock eval pyrolysis (Behar et al., 2001) (URI: https://doi.org/10.2516/ogst:2001013)
+	Paleoproductivity as carbon [g/m**2/a] (PP C) * PI: Knies, Jochen (jochen.knies@ngu.no) * METHOD/DEVICE: Calculated
+	Vitrinite [%] (Vitr) * PI: Knies, Jochen (jochen.knies@ngu.no) * METHOD/DEVICE: Rock eval pyrolysis (Behar et al., 2001) (URI: https://doi.org/10.2516/ogst:2001013) * COMMENT: vitrinite + huminite
+	Liptodetrinite [%] (Liptodetrinite) * PI: Knies, Jochen (jochen.knies@ngu.no) * METHOD/DEVICE: Rock eval pyrolysis (Behar et al., 2001) (URI: https://doi.org/10.2516/ogst:2001013)
+	Alginite [%] (Alginite) * PI: Knies, Jochen (jochen.knies@ngu.no) * METHOD/DEVICE: Rock eval pyrolysis (Behar et al., 2001) (URI: https://doi.org/10.2516/ogst:2001013) * COMMENT: marine alginite including phyto-/zooclasts
+License:	Creative Commons Attribution 3.0 Unported (CC-BY-3.0) (URI: https://creativecommons.org/licenses/by/3.0/)
+Size:	156 data points
+*/
+Sample label	Depth sed [m]	Age [ka BP]	TOC [%]	C org ter [%]	C org mar [%]	SR [cm/ka]	DBD [g/cm**3]	Acc rate TOC ter [g/m**2/ka]	Acc rate TOC mar [g/m**2/ka]	HI, HC/TOC [mg/g]	PP C [g/m**2/a]	Vitr [%]	Liptodetrinite [%]	Alginite [%]
+151-909C-83R-3,124-12	879.34	12050	1.07	1.02	0.05	3.34	1.94	0.07	0.004	33.3	18.0	90.52	4.49	4.99
+151-909C-86R-1,120-12	905.30	12820	1.22	1.14	0.08	3.34	1.89	0.08	0.005	39.5	24.7	87.50	6.25	6.25
+151-909C-91R-1,124-12	953.64	14270	0.79	0.76	0.03	3.34	1.97	0.05	0.002	52.3	12.7	91.27	4.57	4.16
+151-909C-94R-2,124-12	984.04	15180	1.13	1.06	0.07	3.34	2.05	0.08	0.005	78.4	23.8	86.36	7.07	6.57
+151-909C-99R-1,124-12	1030.44	16580	1.40	1.34	0.06	3.34	2.18	0.10	0.004	105.0	22.3	91.38	4.55	4.08
+151-909C-100R-1,31-33	1039.11	16840	1.44	1.22	0.22	3.34	1.89	0.09	0.014	94.4	50.5	81.78	2.60	15.62
+151-909C-100R-1,140	1040.20	16870	1.07	0.95	0.12	3.34	1.92	0.07	0.007	117.8	33.2	84.59	4.66	10.75
+151-909C-101R-1,120-12	1049.60	17150	1.97	1.63	0.34	3.34	2.01	0.13	0.023	130.0	71.9	79.69	2.90	17.41
+151-909C-102R-2,4-6	1054.24	17290	1.78	1.44	0.34	3.34	2.21	0.13	0.025	152.3	76.9	78.21	2.79	18.99
+151-909C-102R-2,105-10	1055.24	17310	2.87	2.43	0.44	3.34	2.21	0.21	0.033	176.7	92.3	81.78	6.13	15.27
+151-909C-102R-3,30-32	1056.00	17340	2.70	2.28	0.42	3.34	2.21	0.20	0.031	162.2	89.3	77.85	6.70	15.45
+151-909C-102R-3,121-12	1056.91	17370	1.51	1.26	0.25	3.34	2.05	0.10	0.017	155.3	58.6	79.64	3.54	16.83

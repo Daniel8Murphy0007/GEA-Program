@@ -1,0 +1,26 @@
+{
+  "entry": "nankai_megasplay_shear_strength",
+  "kind": "REAL_SHEAR_STRENGTH_SLOPE_STABILITY",
+  "well": "IODP Holes 315-C0001E, 316-C0004C, 316-C0008A - NANKAI TROUGH accretionary complex offshore Japan (33.21-33.24 N, 136.71-136.73 E; seafloors -2,198 to -2,751 m), spanning the MEGASPLAY out-of-sequence thrust fault; NanTroSEIZE Stage 1 (2007-2008)",
+  "operator_on_log": "Ikari, Strasser, Saffer & Kopf (MARUM/Penn State) laboratory shear-strength measurements on NanTroSEIZE slope-sediment cores; drilling by D/V CHIKYU (the catalogue's first Chikyu-drilled entry)",
+  "source_database": "PANGAEA, dataset doi:10.1594/PANGAEA.786715 ('(Table 1) Experimental shear strength values for IODP Exp315 and Exp316 holes'); supplement to Ikari et al. 2011, EPSL 312, 453-462 (doi:10.1016/j.epsl.2011.10.024)",
+  "source_url": "https://doi.pangaea.de/10.1594/PANGAEA.786715?format=textfile",
+  "license": "Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file's own header. Attribution: Ikari/Strasser/Saffer/Kopf / PANGAEA / IODP",
+  "fetch_date": "2026-08-26",
+  "fetch_method": "read-only HTTPS fetch of the PANGAEA textfile export - COMPLETE dataset (150 data points = 15 rows x 10 counted parameters; depth is GEOCODE, Event is metadata) in one fetch, full paper abstract preserved in the header",
+  "coverage": "COMPLETE DATASET: 15 laboratory shear-strength measurements on slope sediments from three holes across the Nankai megasplay fault zone, 7.91-121.29 mbsf: clay fraction 31.2-59.0%, vertical stress 130-2,060 kPa, effective stress 50-850 kPa, shear strength 40-470 kPa, per-hole seafloor slopes 3/7/12 degrees, plus per-sample best-fit parameters (A, B, C) and R^2 = 0.995-1.000.",
+  "curves": [
+    "Depth sed [m] (index)",
+    "<2 um clay fraction [%]",
+    "SigmaV total vertical stress [kPa]",
+    "SigmaV ef effective vertical stress [kPa]",
+    "Tau shear strength [kPa]",
+    "Angle seafloor slope [deg]",
+    "best-fit A/B/C",
+    "R**2",
+    "Event + Sample label (verbatim; Event rides as quality)"
+  ],
+  "source_anomaly_disclosure": "SOURCE LABELING INCONSISTENCY preserved verbatim: the ten rows belonging to Expedition 316 holes carry Event labels '316-C0004C' / '316-C0008A' but sample labels prefixed '315-C0004C...' / '315-C0008A...' - the expedition number inside the sample designation contradicts the event label (C0004C and C0008A were drilled on Exp 316; the '315-' prefixes are a source-table typo). Detected by cross-checking the two label columns; carried unchanged with this disclosure.",
+  "purpose": "twenty-sixth catalogue entry - a DOUBLE FIRST: the NANKAI TROUGH joins as region FOURTEEN (the catalogue's first subduction-zone accretionary prism and first Chikyu-drilled data) and laboratory shear strength of slope sediments is kind EIGHTEEN (the soft-sediment counterpart to the KTB crystalline-rock strength tables); carries live slope-stability physics: the gate re-derives the paper's headline static-stability conclusion on every run",
+  "verified": "15 rows / 150 counted cells against the header Size declaration; stress-ratio buoyancy band sigma'_v/sigma_v within [0.35, 0.42] on all 15 rows across all three holes; static factor-of-safety Tau > sigma'_v*sin(slope)*cos(slope) on all 15 rows (paper's 'slopes stable under static conditions' re-derived live); 315/316 label inconsistency pinned; R^2 >= 0.995 on all rows; gate-pinned; source URL serves the identical dataset"
+}

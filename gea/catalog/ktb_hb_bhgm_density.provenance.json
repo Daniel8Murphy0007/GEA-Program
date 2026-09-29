@@ -1,0 +1,22 @@
+{
+  "entry": "ktb_hb_bhgm_density",
+  "kind": "REAL_DENSITY_PROFILE_COMPLETE",
+  "well": "KTB-Oberpfalz HB (Main Hole), German Continental Deep Drilling Program - the same well as entries 12 (temperature) and 14 (trajectory)",
+  "operator_on_log": "EDCON Company (USA) borehole gravity meter; recorded in the KTB project and the KTB deep crustal lab (KTB-TO) in 1996; edited Univ. Bochum Geophysics (Dr. U. Casten, I. Heyde), 11-Mar-1998 - all per the in-file header",
+  "source_database": "KTB Information System (ICDP legacy data site) - logging/bhgm/hb1/07008400 (BHGM 700-8,400 m, cased and open hole); modern canonical citation: Kueck et al. (2021), KTB Borehole Measurements, GFZ Data Services (KTB borehole logging data family)",
+  "source_url": "https://data.icdp-online.org/sites/ktb/data/logging/bhgm/hb1/07008400.htm",
+  "license": "ICDP/GFZ scientific data, freely accessible via the public KTB Information System. Attribution: KTB / GFZ / Univ. Bochum (Casten, Heyde) / EDCON / Kueck et al. (2021)",
+  "fetch_date": "2026-08-25",
+  "fetch_method": "read-only HTTPS fetch of the legacy page (text/html rendering of the 9.1 KB ASCII file) - the COMPLETE file fit within the fetch window",
+  "coverage": "COMPLETE FILE: all 197 stations, 0 -> 8,400 m MD (TVD to 8,364.0 m), verbatim. Full reduction constants preserved in-header: absolute gravity 980941.62 mGal (IGSN71), IGF 1967, free-air gradient -0.3085 mGal/m, reduction density 2.742 g/cm3, stated average well density 2.752 g/cm3.",
+  "curves": [
+    "DEPT (m)",
+    "TVD (m)",
+    "GRAV observed gravity (mGals)",
+    "BANO Bouguer anomaly (mGals)",
+    "RHO apparent density (g/cm3)"
+  ],
+  "data_disclosures": "Surface station (0 m) carries RHO = 0.000 - the gravity reference tie, NOT a rock density; any density integral must handle it as such. GRAV is NOT strictly monotonic: repeat/tie stations (e.g. 7,162 m reading below 7,160 m) and a run-boundary discontinuity between 5,990 and 6,000 m (the tool-size change the header lists) are REAL survey structure, preserved verbatim. Station spacing is irregular (5 -> 300 m). The deep TVD divergence (MD 8,400 -> TVD 8,364.0, i.e. 36 m) is the HB's deep deviation - complementing entry 14's capture, which ends at 2,803 m where the hole is still near-perfectly vertical.",
+  "purpose": "fifteenth catalogue entry - the catalogue's first REAL DENSITY PROFILE (NINTH kind): in-situ apparent density of the crust from borehole gravimetry, 2.55-2.95 g/cm3 over 8.4 km. This is the PRESSURE-side ingredient: overburden stress = integral of rho*g*dz from measured density. With entries 12 + 14, KTB-HB now carries temperature, trajectory AND density - the closed stream can describe this well's thermal state, geometry, and overburden entirely from catalogued real data.",
+  "verified": "197 stations (measured; an initial 189 estimate corrected); endpoints, surface-tie RHO=0 handling, density range, run-boundary discontinuity, and the live overburden integral (~226 MPa ~ 32,800 psi at TD) gate-pinned; source URL serves the identical file for independent re-verification"
+}

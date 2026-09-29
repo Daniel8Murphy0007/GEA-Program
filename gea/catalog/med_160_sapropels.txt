@@ -1,0 +1,43 @@
+/* DATA DESCRIPTION:
+Citation:	Nijenhuis, Ivar A; de Lange, Gert J (2000): (Table 1) Sapropel analysis from ODP Sites 160-964, 160-966, 160-967 and 160-969 [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.767464, 
+	Supplement to: Nijenhuis, IA; de Lange, GJ (2000): Geochemical constraints on Pliocene sapropel formation in the eastern Mediterranean. Marine Geology, 163(1-4), 41-63, https://doi.org/10.1016/S0025-3227(99)00093-6
+Abstract:	Seventeen eastern Mediterranean Pliocene sapropels from ODP Sites 964, 966, 967 and 969, some of which are coeval, have been analysed for their geochemistry. The sapropels are characterized by very high organic carbon contents (up to 30%) which are reported to be the result of both increased productivity and improved preservation. Although the organic matter in the sapropels is mainly of marine origin, the d13Corg values and C/N ratios appear "terrestrial". This is the result of anaerobic organic matter degradation which preferentially removed nitrogen- and 13C-rich organic components. A comparison with Ti/Al profiles, which mimic the precession index, and a calculation of organic carbon accumulation rates indicate that sedimentation rates were at most 30% lower or at most 50% higher during sapropel formation. Thus, sapropel formation lasted from between 2000 and 10,000 years at Site 964 to between 4500 and 12,000 years at Site 967. A synthesis of new data and a comparison with existing models indicates that productivity, which increased due to extra nutrients supplied as a result of winter mixing and as a result of enhanced input by the Nile, was the driving mechanism behind sapropel formation. The resulting sapropel formation was simultaneous at different depths, but lasted longer in the part of the basin closest to the Nile.
+Project(s):	Ocean Drilling Program (ODP) (URI: https://www-odp.tamu.edu:443/)
+Coverage:	MEDIAN LATITUDE: 34.590986 * MEDIAN LONGITUDE: 26.202671 * SOUTH-BOUND LATITUDE: 33.796400 * WEST-BOUND LONGITUDE: 17.750000 * NORTH-BOUND LATITUDE: 36.260800 * EAST-BOUND LONGITUDE: 32.725600
+	DATE/TIME START: 1995-03-20T02:00:00 * DATE/TIME END: 1995-04-16T17:55:00
+	MINIMUM ELEVATION: -3661.0 m * MAXIMUM ELEVATION: -926.0 m
+Event(s):	160-964D * LATITUDE: 36.260600 * LONGITUDE: 17.750000 * DATE/TIME START: 1995-03-20T02:00:00 * DATE/TIME END: 1995-03-20T16:45:00 * ELEVATION: -3660.0 m * PENETRATION: 108.6 m * RECOVERY: 112.2 m * LOCATION: Eastern Basin * CAMPAIGN: Leg160 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 12 cores; 108.6 m cored; 0 m drilled; 103.3 % recovery
+	160-964E * LATITUDE: 36.260800 * LONGITUDE: 17.750000 * DATE/TIME START: 1995-03-20T16:45:00 * DATE/TIME END: 1995-03-21T00:45:00 * ELEVATION: -3661.0 m * PENETRATION: 85.5 m * RECOVERY: 54.32 m * LOCATION: Eastern Basin * CAMPAIGN: Leg160 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 6 cores; 53 m cored; 0 m drilled; 102.5 % recovery
+	160-966C * LATITUDE: 33.796400 * LONGITUDE: 32.701400 * DATE/TIME START: 1995-03-28T13:12:00 * DATE/TIME END: 1995-03-29T03:20:00 * ELEVATION: -926.0 m * PENETRATION: 127 m * RECOVERY: 101.6 m * LOCATION: Eastern Basin * CAMPAIGN: Leg160 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 17 cores; 127 m cored; 0 m drilled; 80 % recovery
+	160-967B * LATITUDE: 34.068300 * LONGITUDE: 32.725300 * DATE/TIME START: 1995-04-02T11:40:00 * DATE/TIME END: 1995-04-03T00:40:00 * ELEVATION: -2555.0 m * PENETRATION: 121.5 m * RECOVERY: 126.61 m * LOCATION: Eastern Basin * CAMPAIGN: Leg160 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 14 cores; 121.5 m cored; 0 m drilled; 104.2 % recovery
+	160-967C * LATITUDE: 34.071100 * LONGITUDE: 32.725600 * DATE/TIME START: 1995-04-03T00:40:00 * DATE/TIME END: 1995-04-03T11:50:00 * ELEVATION: -2553.0 m * PENETRATION: 114.4 m * RECOVERY: 119.55 m * LOCATION: Eastern Basin * CAMPAIGN: Leg160 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 13 cores; 114.4 m cored; 0 m drilled; 104.5 % recovery
+	160-969D * LATITUDE: 33.838600 * LONGITUDE: 24.883300 * DATE/TIME START: 1995-04-15T17:45:00 * DATE/TIME END: 1995-04-16T05:55:00 * ELEVATION: -2192.0 m * PENETRATION: 116.2 m * RECOVERY: 118.54 m * LOCATION: Eastern Basin * CAMPAIGN: Leg160 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 13 cores; 116.2 m cored; 0 m drilled; 102 % recovery
+	160-969E * LATITUDE: 33.841100 * LONGITUDE: 24.883100 * DATE/TIME START: 1995-04-16T17:55:00 * DATE/TIME END: 1995-04-16T15:20:00 * ELEVATION: -2201.0 m * PENETRATION: 97.9 m * RECOVERY: 100.23 m * LOCATION: Eastern Basin * CAMPAIGN: Leg160 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 11 core; 97.9 m cored; 0 m drilled; 102.4 % recovery
+Parameter(s):	Event label (Event)
+	Sample code/label (Sample label) * PI: Nijenhuis, Ivar A * METHOD/DEVICE: DSDP/ODP/IODP sample designation (URI: hdl:10013/epic.27914.d001)
+	Sample code/label 2 (Sample label 2) * PI: Nijenhuis, Ivar A
+	Interval comments (Interval comm) * PI: Nijenhuis, Ivar A * COMMENT: Top and bottom of Sapropel layer in Core-Section [cm]
+	Comment (Comment) * PI: Nijenhuis, Ivar A * COMMENT: Cycle code after Lourens et al. (1996, doi:10.1029/96PA01125)
+	Age model [ka] (Age model) * PI: Nijenhuis, Ivar A * COMMENT: "Lagged'' means corrected for the time lag observed between the last precession minimum and the onset of S1 formation.
+	Sedimentation rate [cm/ka] (SR) * PI: Nijenhuis, Ivar A * COMMENT: # = These numbers are approximate because the total cycle thickness could not be determined exactly from Emeis et al. (1996, doi:10.2973/odp.proc.ir.160.1996).
+License:	Creative Commons Attribution 3.0 Unported (CC-BY-3.0) (URI: https://creativecommons.org/licenses/by/3.0/)
+Size:	89 data points
+*/
+Event	Sample label	Sample label 2	Interval comm	Comment	Age model [ka]	SR [cm/ka]
+160-964D	160-964D-5H-7,2	160-964D-5H-CC,51	11.5-24.8	i-152	1565	#2.05
+160-964D	160-964D-10H-1,92-133		103-110	i-282A	2945	2.14
+160-964E	160-964E-6H-5,55-152		87-104	i-290	3038	2.98
+160-964E	160-964E-6H-6,0-45		36,164	i-292A	3060	2.98
+160-966C	160-966C-5H-2,141	160-966C-5H-3,28	0	i-284	2967	1.66
+160-966C	160-966C-5H-3,135	160-966C-5H-4,25	147-216	i-292C	3060	1.89
+160-966C	160-966C-5H-4,25-65		33-52	i-294A	3082	1.89
+160-967B	160-967B-6H-2,95-150		115.5-134	i-156A	1603	2.91
+160-967C	160-967C-6H-2,17,5-61		30.2-47	i-176A	1808	#2.58
+160-967C	160-967C-7H-6,70-130		93-114	i-250A	2589	2.77
+160-967C	160-967C-8H-4,95-151		114-130	i-282B	2945	2.09
+160-967C	160-967C-8H-6,26-68		37-58	i-292B	3060	2.07
+160-967C	160-967C-8H-6,68-120		77-97	i-294B	3082	2.07
+160-969D	160-969D-4H-5,0-80		35-52	i-156B	1603	2.69
+160-969D	160-969D-5H-2,16-98		41-73	i-176B	1808	3.68
+160-969E	160-969E-6H-1,110	160-969E-6H-2,20	135-148	i-250B	2589	#4.23
+160-969E	160-969E-6H-6,19-52		26-40	i-282C	2945	1.98

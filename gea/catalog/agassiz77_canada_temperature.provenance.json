@@ -1,0 +1,17 @@
+{
+  "entry": "agassiz77_canada_temperature",
+  "kind": "REAL_TEMPERATURE_PROFILE_COMPLETE",
+  "well": "Agassiz77 borehole, Agassiz Ice Cap, Ellesmere Island, Canadian Arctic North (approx 80.7 N, -73.1 E per database metadata); drilled/measured 1977",
+  "operator_on_log": "Canadian ice-core program lineage (Fisher/Clarke/Waddington; Zdanowicz-provided data per database metadata)",
+  "source_database": "Greenland and Canadian Arctic ice temperature profiles database (GEUS): Lokkegaard et al. 2023, The Cryosphere 17, 3829-3845, doi:10.5194/tc-17-3829-2023; data DOI 10.22008/FK2/3BVF9V (GEUS Dataverse); science lineage: Clarke, Fisher & Waddington 1987 (IAHS vol. 170, 169-180); redistributed in the public GEUS GitHub repository (boreholes/Agassiz77/data.csv)",
+  "source_url": "https://raw.githubusercontent.com/GEUS-Glaciology-and-Climate/greenland_ice_borehole_temperature_profiles/main/boreholes/Agassiz77/data.csv",
+  "license": "open science database (The Cryosphere CC-BY publication; GEUS Dataverse); attribution to Lokkegaard et al. 2023 and the Canadian Agassiz program lineage",
+  "fetch_date": "2026-08-24",
+  "fetch_method": "read-only HTTPS fetch (text/plain) - COMPLETE file",
+  "coverage": "COMPLETE FILE: all 67 stations, 10.91-340.91 m at 5 m spacing, verbatim (database-stated coverage 97% of the 341 m thickness). Database metadata notes: ice thickness in data does not match Vinther (2008) and the location is approximate - carried honestly as the database's own caveat.",
+  "curves": ["d (depth, m)", "t (temperature, degC) - MEASURED TEMPERATURE, 5 m stations"],
+  "temperature_data": "Second continuous MEASURED temperature profile: 67 stations, -24.16 degC near surface warming monotonically below ~16 m to -16.74 degC at 340.91 m - a classic High Arctic ice-cap thermal profile (no deep glacial minimum: the cap is thin relative to GISP2).",
+  "dialect_notes": "GEUS d,t CSV with space-after-comma values (parser handles); the catalogue's second temperature-CSV entry.",
+  "purpose": "seventh catalogue entry - SEVENTH region (CANADA, Ellesmere Island); second MEASURED_CURVES-tier well; 1977 vintage (the catalogue's oldest measurement)",
+  "verified": "67 stations; endpoints verbatim; MEASURED_CURVES derivation; gate-pinned"
+}

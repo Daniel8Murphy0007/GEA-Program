@@ -1,0 +1,38 @@
+/* DATA DESCRIPTION:
+Citation:	Stanislowski, Katja; Ikari, Matt J (2025): Cohesion experiment details and measurements of samples from IODP Hole 362-U1480G (Table 3) [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.966083, 
+	In: Stanislowski, K; Ikari, MJ (2025): Frictional behavior of input sediment to the Sumatra subduction zone from IODP Site 362-U1480 [dataset bundled publication]. PANGAEA, https://doi.org/10.1594/PANGAEA.966244
+Keyword(s):	earthquake; friction; rate-and-state; seismogenesis; subduction zone input
+Related to:	Stanislowski, Katja; Hüpers, Andre; Fagereng, Åke; Ikari, Matt J (2025): Weak, frictionally unstable input sediments explain shallow seismogenesis at the north Sumatran subduction zone. Geology, 53(4), 360-364, https://doi.org/10.1130/G52910.1
+Project(s):	Integrated Ocean Drilling Program / International Ocean Discovery Program (IODP) (URI: https://www.iodp.org/)
+Funding:	European Research Council (ERC), grant/award no. 714430: Plate-rate experimental deformation: Aseismic, transient or seismic fault slip (URI: https://doi.org/10.3030/714430)
+Coverage:	LATITUDE: 3.034250 * LONGITUDE: 91.605617
+	MINIMUM DEPTH, sediment/rock: 1250.11 m * MAXIMUM DEPTH, sediment/rock: 1359.76 m
+Event(s):	362-U1480G * LATITUDE: 3.034250 * LONGITUDE: 91.605617 * ELEVATION: -4147.5 m * CAMPAIGN: Exp362 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html)
+Comment:	Printed version: values in italics: corrected for side friction effects
+Parameter(s):	Type of study (Study type) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de)
+	Experiment (Exp) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de)
+	Sample code/label (Sample label) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de) * METHOD/DEVICE: IODP Depth Scale Terminology (URI: hdl:10013/epic.50267.d001)
+	DEPTH, sediment/rock [m] (Depth sed) * GEOCODE * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de) * COMMENT: mbsf
+	Effective vertical stress [MPa] (Eff vert stress) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de) * METHOD/DEVICE: Calculated * COMMENT: In-Situ
+	Effective normal stress [MPa] (Eff normal stress) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de) * METHOD/DEVICE: Direct-shear device * COMMENT: Consolidation
+	Condition (Cond) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de)
+	Cohesion [kPa] (C) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de) * METHOD/DEVICE: Direct-shear device
+	Cohesion coefficient (C coef) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de) * METHOD/DEVICE: Calculated
+License:	Creative Commons Attribution 4.0 International (CC-BY-4.0) (URI: https://creativecommons.org/licenses/by/4.0/)
+Status:	Curation Level: Enhanced curation (URI: https://wiki.pangaea.de/wiki/Curation_levels)
+Size:	91 data points
+*/
+Study type	Exp	Sample label	Depth sed [m]	Eff vert stress [MPa]	Eff normal stress [MPa]	Cond	C [kPa]	C coef
+Laboratory experiment	KS068	362-U1480G-54R-1	1250.11	13.0		intact	188	0.014
+Laboratory experiment	KS084	362-U1480G-54R-1	1250.11		13.22	powder	302	0.023
+Laboratory experiment	KS066	362-U1480G-60R-1	1309.34		13.91	powder	563	0.040
+Laboratory experiment	KS131	362-U1480G-60R-1	1309.34		13.68	powder	578	0.042
+Laboratory experiment	KS071	362-U1480G-60R-3	1311.93		13.91	powder	710	0.051
+Laboratory experiment	KS076	362-U1480G-60R-6	1314.12	13.7		intact	417	0.030
+Laboratory experiment	KS088	362-U1480G-60R-6	1314.12		13.98	powder	632	0.045
+Laboratory experiment	KS061	362-U1480G-61R-1	1318.32	13.8		intact	733	0.053
+Laboratory experiment	KS100	362-U1480G-61R-1	1318.32		14.03	powder	267	0.019
+Laboratory experiment	KS082	362-U1480G-61R-3	1321.70		14.03	powder	899	0.064
+Laboratory experiment	KS063	362-U1480G-62R-5	1333.23	13.9		intact	366	0.026
+Laboratory experiment	KS106	362-U1480G-62R-5	1333.23		10.71	powder	657	0.061
+Laboratory experiment	KS091	362-U1480G-65R-3	1359.76		12.06	powder	990	0.082

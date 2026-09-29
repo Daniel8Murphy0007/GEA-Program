@@ -1,0 +1,21 @@
+{
+  "entry": "odp_1027b_thermal_conductivity",
+  "kind": "REAL_THERMAL_CONDUCTIVITY_COMPLETE",
+  "well": "ODP Hole 168-1027B, Juan de Fuca Ridge eastern flank (47.7569 N, -127.730 E; seafloor -2,657 m) - SITE 1027, the sister hole of entry 20's CORK observatory (1027C), ~30 m away at the same site",
+  "operator_on_log": "ODP Leg 168 shipboard physical-properties programme (needle-probe FULL and half-space HALF measurements on recovered core, per Blum 1997 handbook, cited in-file); dataset Davis, Fisher, Firth & Shipboard Scientific Party via the JANUS database",
+  "source_database": "PANGAEA, dataset doi:10.1594/PANGAEA.792214 ('Thermal conductivity of ODP Hole 168-1027B'); JANUS shipboard data (ODP/TAMU 2005); related to Proc. ODP Init. Repts. 168 (doi:10.2973/odp.proc.ir.168.1997)",
+  "source_url": "https://doi.pangaea.de/10.1594/PANGAEA.792214?format=textfile",
+  "license": "Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file's own header. Attribution: Davis et al. / Shipboard Scientific Party / PANGAEA / ODP-JANUS",
+  "fetch_date": "2026-08-25",
+  "fetch_method": "read-only HTTPS fetch of the PANGAEA textfile export (text/tab-separated-values) - COMPLETE dataset (160 data points = 32 measurements x 5 parameters) in one fetch; DOI found by probing the JANUS sequential numbering (1024A = 792208 -> first probe 792214 hit 1027B)",
+  "coverage": "COMPLETE DATASET as archived: 32 needle-probe measurements. The depth distribution is BIMODAL IN THE SOURCE: 5 measurements at 0.65-3.40 m and 27 at 445.76-518.91 m, with no archived values between - preserved as-is, disclosed, not interpolated. Probe metadata (FULL vs HALF type, system and probe IDs) travels with every measurement.",
+  "curves": [
+    "Depth sed [m] (mbsf, index)",
+    "k thermal conductivity [W/m/K]",
+    "Sample label (verbatim, per-sample quality)",
+    "Probe Type / System ID / Probe ID (instrument lineage)"
+  ],
+  "science_disclosure": "THE CLOSURE ENTRY: with entry 20 (1027C CORK sealed temperature profile) this makes Site 1027 the first site where conductive HEAT FLOW is computed live from two catalogued datasets of the same site: q = k x dT/dz over the overlapping 445-519 m interval (mean k ~1.43 W/m/K; sealed gradient ~0.091 K/m between the bracketing 446.8 and 581.8 m thermistors) ~ 0.13 W/m2 (~130 mW/m2) - young-crust heat flow an order of magnitude above continental, computed not quoted. The harmonic mean (the physically appropriate average for layered media) is also computed and pinned as a range beside the arithmetic mean.",
+  "purpose": "twenty-first catalogue entry - FOURTEENTH kind (thermal conductivity): the ingredient that turns a temperature gradient into a heat flux; Site 1027 becomes the catalogue's second multi-dataset site family (after KTB-HB) and its first with a cross-dataset PHYSICS closure computed in the gate",
+  "verified": "32 measurements; endpoints and k range; bimodal depth distribution pinned as source structure; live heat-flow computation from entries 20+21 pinned as a range; probe-type split (5 FULL / 27 HALF) pinned; in-file license/coordinates to meta; source URL serves the identical dataset"
+}

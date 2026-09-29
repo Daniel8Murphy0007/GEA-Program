@@ -1,0 +1,40 @@
+/* IODP TABLE TRANSCRIPTION:
+Citation:	Flemings, P.B., Long, H., et al. (2008): Data report: penetrometer measurements of in situ temperature and pressure, IODP Expedition 308. In Flemings, P.B., Behrmann, J.H., John, C.M., and the Expedition 308 Scientists, Proc. IODP, 308. doi:10.2204/iodp.proc.308.203.2008
+Table:	T2. In situ temperature and pressure results interpreted from the DVTPP and T2P deployments during IODP Expedition 308.
+Source:	https://publications.iodp.org/proceedings/308/203/203_t2.htm
+License:	IODP publications are Public Domain, Public Access, and Open Access as defined by the Budapest Open Access Initiative (BOAI 2002) per the publisher's stated policy at https://publications.iodp.org/policies.html ("read, download, copy, distribute ... pass them as data to software ... for any other lawful purpose"); the 2008 volume pages carry no in-file license statement - license established at publisher-policy level, disclosed in the provenance sidecar
+Notes:	VERBATIM table notes: BOH = bottom of hole. Only deployments used to interpret the in situ conditions are included in this table. The temperature/dual pressure (T2P) probe has two pressure ports. The T2P temperature reached equilibrium with the formation temperature at the end of the deployment; therefore, no extrapolation was applied. See Table T3 for heading definitions.
+*/
+Deployment	Hole	BOH mbsf	BOH mbsl	uh MPa	sigmav MPa	Decay time min	uend MPa	u0 1/t MPa	u0 1/sqrt(t) MPa	Tend degC	T 1/t degC
+DVTP-P1	U1320A	203.4	1673.4	16.81	18.43	42				9.22	9.10
+DVTP-P2	U1320A	289.9	1759.9	17.68	20.09	13				11.08	10.90
+DVTP-P3	U1324B	229.1	1285.9	12.92	14.72	50				9.49	9.47
+DVTP-P4	U1324B	362.4	1419.2	14.26	17.26	47				11.68	11.63
+DVTP-P6	U1324B	464.3	1521.1	15.28	19.27	34	14.80	15.07	15.69	12.96	12.82
+DVTP-P7	U1324B	493.1	1549.9	15.57	19.83	31				13.40	13.25
+DVTP-P8	U1324B	521.9	1578.7	15.86	20.39	41				13.81	13.67
+DVTP-P10	U1324B	560.4	1617.2	16.25	21.15	32	19.97	18.41	16.58	14.54	14.42
+DVTP-P12	U1324B	608.2	1665.0	16.73	22.11	61	18.80	18.39	17.69	16.09	15.70
+DVTP-P13	U1324C	250	1305.7	13.12	15.11	90	14.61	14.22	13.78	10.00	9.79
+DVTP-P15	U1324C	505	1560.7	15.68	20.06	93	16.84	16.74	16.74	12.31	13.50
+DVTP-P17	U1322C	100	1418.9	14.25	14.95	91	14.64	14.58	14.52	7.04	6.99
+DVTP-P18	U1322C	220	1538.9	15.46	17.20	62	16.28	16.35	16.45	9.84	9.75
+DVTP-P19	U1322C	238	1556.9	15.64	17.55	93	16.47	16.23	15.97	10.03	10.03
+DVTP-P20	U1322D	175	1493.9	15.01	16.35	60	16.28	16.16	16.01	8.45	8.43
+T2P_2	U1319A	80.5	1510.1	15.17	15.71	35	15.71; 16.35	15.63; 16.25	15.54; 16.13	7.23	
+T2P_3	U1320A	126.3	1596.3	16.04	17.04	52	16.27	16.23	16.17	6.99	
+T2P_4	U1320A	213	1683.0	16.91	18.61	25				8.99	
+T2P_5	U1324B	51.3	1108.1	11.13	11.44	34	11.37; 11.65	11.37; 11.61	11.36; 11.54	5.78	
+T2P_6	U1324B	89.3	1146.1	11.51	12.11	25	12.09	12.00	11.88	6.31	
+T2P_7	U1324B	117.8	1174.6	11.80	12.63	31	12.90	12.68	12.42	7.00	
+T2P_8	U1324B	136.3	1193.1	11.99	12.98	30	13.23	12.96	12.67	7.35	
+T2P_12	U1324C	50	1105.7	11.11	11.42	60	11.21; 11.56	11.20; 11.44	11.18; 11.31	5.66	
+T2P_13	U1324C	100	1155.7	11.61	12.30	60	11.93; 12.39	11.92; 12.21	11.91; 12.01	6.65	
+T2P_14	U1324C	150	1205.7	12.11	13.24	60	12.69; 13.10	12.67; 12.97	12.65; 12.82	7.57	
+T2P_15	U1324C	200	1255.7	12.61	14.18	60	14.09; 14.44	13.91; 14.12	13.72; 13.77	8.58	
+T2P_16	U1324C	300	1355.7	13.62	16.06	90	14.42; 15.20	14.37; 14.58	14.31; 13.87	10.29	
+T2P_19	U1322B	134.3	1453.8	14.60	15.60	30	15.08; 15.22	15.02; 15.19	14.95; 15.13	7.89	
+T2P_20	U1322B	157.8	1477.3	14.84	16.04	60	15.41; 15.60	15.47; 15.60	15.55; 15.59	8.47	
+T2P_23	U1322C	150	1468.9	14.76	15.89	60	15.29; 15.99	15.29; 15.78	15.30; 15.55	8.26	
+T2P_24	U1322C	200	1518.9	15.26	16.83	60	16.34; 17.16	16.25; 16.86	16.15; 16.54	9.28	
+T2P_27	U1322D	100	1418.9	14.25	14.95	45	14.69; 15.11	14.70; 14.99	14.72; 14.87	7.11	

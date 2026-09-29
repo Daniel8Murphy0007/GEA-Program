@@ -1,0 +1,22 @@
+{
+  "entry": "med_160_sapropels",
+  "kind": "REAL_SAPROPEL_STRATIGRAPHY",
+  "well": "ODP Holes 160-964D/E (Ionian Basin, -3,660 m), 160-966C (Eratosthenes Seamount, -926 m), 160-967B/C (-2,555 m) and 160-969D/E (Mediterranean Ridge, -2,192 m) - EASTERN MEDITERRANEAN SEA (33.80-36.26 N, 17.75-32.73 E); ODP Leg 160 (1995), the sapropel expedition - the basin whose whole deep water column repeatedly went ANOXIC",
+  "operator_on_log": "Nijenhuis & de Lange (Utrecht) - the Pliocene sapropel registry: layer intervals, astronomical cycle codes after Lourens et al. 1996 (cited with DOI in the file's own header), lagged insolation ages, and per-cycle sedimentation rates; drilling by JOIDES Resolution",
+  "source_database": "PANGAEA, dataset doi:10.1594/PANGAEA.767464 ('(Table 1) Sapropel analysis from ODP Sites 160-964, 160-966, 160-967 and 160-969'); supplement to Nijenhuis & de Lange 2000, Marine Geology 163, 41-63 (doi:10.1016/S0025-3227(99)00093-6); full paper abstract preserved in the header",
+  "source_url": "https://doi.pangaea.de/10.1594/PANGAEA.767464?format=textfile",
+  "license": "Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file's own header and license-checked BEFORE cataloguing. Attribution: Nijenhuis/de Lange / PANGAEA / ODP",
+  "fetch_date": "2026-08-28",
+  "fetch_method": "read-only HTTPS fetch of the PANGAEA textfile export - COMPLETE dataset (89 data points per the header's own Size declaration, re-counted EXACT at gate time: 17 rows x 5 base cells + 4 second-labels, Event excluded; no depth geocode - the ordinal label-indexed route) in one fetch",
+  "coverage": "COMPLETE DATASET: all SEVENTEEN Pliocene sapropels of the study - the paper's own headline count as the row count - across four sites spanning the eastern basin: layer intervals in core-section cm, astronomical i-cycle codes, lagged insolation ages 1,565-3,082 ka, sedimentation rates 1.66-4.23 cm/ka (three flagged approximate with the archive's own # marker)",
+  "curves": [
+    "ordinal index (no depth geocode; positions ride in the ODP labels + interval comments)",
+    "Age model [ka] 1565-3082 (lagged insolation ages per the header's own note)",
+    "SR [cm/ka] 1.66-4.23 (three #-flagged approximate values preserved as strings)",
+    "i-cycle codes (Lourens astronomical nomenclature) + layer intervals verbatim",
+    "Event rides as per-row quality; 4 two-label spanning layers"
+  ],
+  "source_anomaly_disclosure": "THREE European-formatting fossils preserved verbatim: (1) sample label '160-967C-6H-2,17,5-61' carries a DECIMAL COMMA inside the position field (17,5 = 17.5 cm) - a continental-European notation artifact living inside an ODP label; (2) interval comment '36,164' uses a comma where every other row uses a dash (36-164); (3) one interval comment is the bare string '0' (966C-5H-2, a layer starting at the section top); also preserved: three sedimentation rates carry the archive's own '#' approximate-value flag as literal string prefixes, exactly as published",
+  "purpose": "forty-eighth catalogue entry - the EASTERN MEDITERRANEAN joins as region THIRTY-FIVE (the last major absent basin: the sea whose deep water repeatedly suffocated) and SAPROPEL STRATIGRAPHY is kind THIRTY-SEVEN - dated basin-wide ANOXIA-event layers with astronomical cycle codes, distinct from the catalogue's instantaneous event deposits (turbidites, debrites): these are millennia-long ocean-state failures paced by Earth's precession; and the paper's central claim closes as arithmetic on every gate run: the i-cycle letter suffixes mark the SAME sapropel at different sites, and ALL SIX multi-site cycles carry IDENTICAL ages across sites (i-282 = 2,945 ka at three sites, i-292 = 3,060 ka at three, i-294/156/176/250 each at two) - 'sapropel formation was simultaneous at different depths', proven by nine single-valued age sets",
+  "verified": "17 rows / 89 counted cells against the header's own Size declaration (EXACT - the 4 second-labels close it); the row count IS the abstract's own 'Seventeen'; 9 distinct i-cycles ALL single-aged, with the 6 multi-site cycles (3+3+2+2+2+2 = 14 site-occurrences) age-identical across sites; SR range [1.66, 4.23] with exactly 3 #-flagged rows pinned; all three formatting fossils pinned; gate-pinned; source URL serves the identical dataset"
+}

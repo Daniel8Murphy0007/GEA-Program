@@ -1,0 +1,22 @@
+{
+  "entry": "odp_1165b_thermal_conductivity",
+  "kind": "REAL_THERMAL_CONDUCTIVITY_COMPLETE",
+  "well": "ODP Hole 188-1165B, Prydz Bay continental rise, ANTARCTIC margin (Indian Ocean sector; -64.3797 S, 67.2190 E; seafloor -3,538 m) - ODP Leg 188 (2000), JOIDES Resolution",
+  "operator_on_log": "ODP Leg 188 shipboard physical-properties programme (full-space needle probe, per Blum 1997 handbook cited in-file); dataset O'Brien, Cooper, Richter & Shipboard Scientific Party via the JANUS database",
+  "source_database": "PANGAEA, dataset doi:10.1594/PANGAEA.792386 ('Thermal conductivity of ODP Hole 188-1165B'); JANUS shipboard data (ODP/TAMU 2005); related to Proc. ODP Init. Repts. 188 (doi:10.2973/odp.proc.ir.188.2001)",
+  "source_url": "https://doi.pangaea.de/10.1594/PANGAEA.792386?format=textfile",
+  "license": "Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file's own header. Attribution: O'Brien et al. / Shipboard Scientific Party / PANGAEA / ODP-JANUS",
+  "fetch_date": "2026-08-25",
+  "fetch_method": "read-only HTTPS fetch of the PANGAEA textfile export (text/tab-separated-values) - COMPLETE dataset (486 data points = 81 measurements x 6 parameters) in one fetch",
+  "coverage": "COMPLETE DATASET: 81 needle-probe measurements, 3.75 -> 503.65 mbsf through the Prydz Bay glacio-marine drift; k = 0.432-1.062 W/m/K. The Comment column carries the THREE RAW REPLICATE readings behind every archived value - the dataset ships its own repeatability record.",
+  "curves": [
+    "Depth sed [m] (index)",
+    "k thermal conductivity [W/m/K] (= mean of the three replicates)",
+    "Sample label (verbatim, quality)",
+    "Probe Type / System ID / Probe ID",
+    "Comment = raw replicate triplets (verbatim in file)"
+  ],
+  "source_anomaly_disclosure": "ONE SOURCE ARCHIVAL TYPO, DETECTED BY THE DATA'S OWN STRUCTURE and preserved verbatim: at 317.350 m the replicate triplet reads '1.013, 0.016, 1.031' while the archived k is 1.0200 - the mean of the printed replicates (0.687) does NOT reproduce the archived value, but replacing the second replicate with 1.016 does exactly. The 0.016 is a dropped leading digit in the SOURCE archive (JANUS/PANGAEA chain), carried here unchanged with this disclosure; the other 80 rows reproduce their archived mean from their replicates to within rounding.",
+  "purpose": "twenty-third catalogue entry - ANTARCTICA joins as region THIRTEEN (the catalogue's first Southern Hemisphere polar margin, completing a pole-to-pole span with Greenland and the Canadian Arctic); second thermal-conductivity dataset (Site 1027 pairing kind); and the second self-auditing structure this week: replicate-mean verification on all 81 rows, which is ALSO what caught the source typo",
+  "verified": "81 measurements; endpoints and k extremes; replicate-mean identity verified live on 80 of 81 rows with the single non-closing row pinned AS the disclosed source typo; per-sample labels; in-file license/coordinates to meta; gate-pinned; source URL serves the identical dataset"
+}

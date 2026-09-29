@@ -1,0 +1,30 @@
+/* DATA DESCRIPTION:
+Citation:	Katz, Barry J (2001): (Table T2) Total organic carbon content, hydrocarbon characteristics and hydrogen and oxygen index of samples from ODP Hole 180-1109D [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.787052, 
+	In supplement to: Katz, BJ (2001): Geochemical investigation of Sites 1108 and 1109, Leg 180. In: Huchon, P; Taylor, B; Klaus, A (eds.) Proceedings of the Ocean Drilling Program, Scientific Results, College Station, TX (Ocean Drilling Program), 180, 1-19, https://doi.org/10.2973/odp.proc.sr.180.151.2001
+Project(s):	Ocean Drilling Program (ODP) (URI: https://www-odp.tamu.edu:443/)
+Coverage:	LATITUDE: -9.506330 * LONGITUDE: 151.572580
+	DATE/TIME START: 1998-06-27T08:00:00 * DATE/TIME END: 1998-07-04T00:15:00
+	MINIMUM DEPTH, sediment/rock: 688.23 m * MAXIMUM DEPTH, sediment/rock: 706.36 m
+Event(s):	180-1109D * LATITUDE: -9.506330 * LONGITUDE: 151.572580 * DATE/TIME START: 1998-06-27T08:00:00 * DATE/TIME END: 1998-07-04T00:15:00 * ELEVATION: -2211.0 m * PENETRATION: 802 m * RECOVERY: 299.87 m * LOCATION: Solomon Sea * CAMPAIGN: Leg180 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 51 core; 449.2 m cored; 352.8 m drilled; 66.8 % recovery
+Parameter(s):	Sample code/label (Sample label) * PI: Katz, Barry J * METHOD/DEVICE: DSDP/ODP/IODP sample designation (URI: hdl:10013/epic.27914.d001)
+	DEPTH, sediment/rock [m] (Depth sed) * GEOCODE * COMMENT: mbsf
+	Carbon, organic, total [%] (TOC) * PI: Katz, Barry J * METHOD/DEVICE: Element analyser CS, LECO
+	Hydrocarbon yield, S1, per unit sediment mass [mg/g] (S1 HC/sed) * PI: Katz, Barry J * METHOD/DEVICE: Rock eval pyrolysis (Espitalié et al. 1977) (URI: https://doi.org/10.2516/ogst:1977002)
+	Hydrocarbon yield, S2, per unit sediment mass [mg/g] (S2 HC/sed) * PI: Katz, Barry J * METHOD/DEVICE: Rock eval pyrolysis (Espitalié et al. 1977) (URI: https://doi.org/10.2516/ogst:1977002)
+	Hydrogen index, mass HC, per unit mass total organic carbon [mg/g] (HI, HC/TOC) * PI: Katz, Barry J
+	Oxygen index, mass CO2, per unit mass total organic carbon [mg/g] (OI, CO2/TOC) * PI: Katz, Barry J
+	Transformation ratio (S1/(S1 + S2)) * PI: Katz, Barry J
+	Pyrolysis temperature maximum [°C] (Tmax) * PI: Katz, Barry J
+License:	Creative Commons Attribution 3.0 Unported (CC-BY-3.0) (URI: https://creativecommons.org/licenses/by/3.0/)
+Size:	68 data points
+*/
+Sample label	Depth sed [m]	TOC [%]	S1 HC/sed [mg/g]	S2 HC/sed [mg/g]	HI, HC/TOC [mg/g]	OI, CO2/TOC [mg/g]	S1/(S1 + S2)	Tmax [°C]
+180-1109D-37R-2,73-75	688.23	17.33	1.60	12.61	73	7	0.11	415
+180-1109D-38R-1,124-125	696.84	32.86	5.03	49.69	151	63	0.09	424
+180-1109D-38R-2,29-31	697.21	27.69	11.45	86.92	314	41	0.12	397
+180-1109D-38R-2,90-92	697.90	22.99	1.97	12.38	54	61	0.14	401
+180-1109D-38R-5,21-22	701.51	1.46	0.09	0.75	51	80		
+180-1109D-38R-5,132-134	702.62	1.80	0.10	0.24	13	82		
+180-1109D-38R-6,37-39	703.17	5.66	0.34	1.78	31	71	0.16	403
+180-1109D-39R-1,16-18	705.46	3.31	0.24	1.42	43	72	0.14	414
+180-1109D-39R-1,106-108	706.36	14.07	1.08	7.11	51	68	0.13	399

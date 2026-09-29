@@ -1,0 +1,27 @@
+{
+  "entry": "odp_504b_dike_elastic_moduli",
+  "kind": "REAL_ELASTIC_MODULI_PRESSURE_SWEEP",
+  "well": "ODP Hole 111-504B, Costa Rica Rift flank, Panama Basin (1.2269 N, -83.7303 E; seafloor -3,474 m) - the deepest hole in oceanic crust; Leg 111 (1986) deepened it to 1,562.1 m into the SHEETED DIKE complex",
+  "operator_on_log": "Christensen, Wepfer & Baud (Purdue) laboratory ultrasonic measurements on Leg 111 dike cores; published Proc. ODP Sci. Results 111 (doi:10.2973/odp.proc.sr.111.153.1989)",
+  "source_database": "PANGAEA, dataset doi:10.1594/PANGAEA.754017 ('(Table 1) Compressional- and shear-wave velocities and elastic constants of samples of ODP Hole 111-504B sheeted dike rocks')",
+  "source_url": "https://doi.pangaea.de/10.1594/PANGAEA.754017?format=textfile",
+  "license": "Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file's own header. Attribution: Christensen/Wepfer/Baud / PANGAEA / ODP",
+  "fetch_date": "2026-08-26",
+  "fetch_method": "read-only HTTPS fetch of the PANGAEA textfile export - COMPLETE dataset (519 data points = 63 rows, verified cell-by-cell against the header's own Size declaration) in one fetch",
+  "coverage": "COMPLETE DATASET: 8 sheeted-dike core samples (142R-163R), each swept through confining pressures 200 -> 6,000 bar (0.02-0.6 GPa): Vp 6,170-6,960 m/s, Vs 3,400-3,820 m/s, Vp/Vs, Poisson's ratio, bulk and shear moduli, plus ambient wet-bulk density (2.94-3.00 g/cm3) and porosity (0.2-0.7%). The catalogue's FIRST pressure-swept laboratory dataset and first elastic-moduli kind.",
+  "curves": [
+    "ordinal measurement number (index; no depth column in source - per-sample labels ride as quality)",
+    "WBD [g/cm**3] (ambient, first row of each sample)",
+    "Poros [% vol]",
+    "P [bar] (confining pressure)",
+    "Vp [m/s]",
+    "Vs [m/s]",
+    "Vp/Vs",
+    "Pois r",
+    "Bulk mod [MPa]",
+    "Shear mod [MPa]"
+  ],
+  "source_anomaly_disclosure": "TWO structural quirks preserved verbatim from the source archive: (1) sample 148R-1,50-52 lacks both its wet-bulk density and its 400-bar step (7 pressure rows where siblings have 8); (2) sample 161R-1,17-19 carries NINE rows - an out-of-sequence 6000-bar row LEADS its pressure sweep (before the 200-bar row) and 6000 bar therefore appears twice with different values (6900/3770 vs 6890/3790 m/s) - while the immediately preceding sample 155R-1,67-69 is MISSING its 6000-bar row entirely, and the orphan row continues 155R's pressure trend exactly (4000 bar: 6850/3750 -> 6900/3770). Consistent with a one-row attribution slip in the source table; carried unchanged with this disclosure, detected by the monotonic-pressure structure of the sweep itself.",
+  "purpose": "twenty-fourth catalogue entry - 504B becomes a THREE-dataset site family spanning three expeditions and 24 years of measurement type (Leg 69 1979 physical properties, Leg 111 1986 dike elastic moduli, Leg 137 1991 borehole fluids); kind SIXTEEN; and the densest self-audit yet: the table carries FOUR internally-derivable quantities (Vp/Vs, Poisson, bulk modulus, shear modulus) that the gate re-derives from Vp, Vs and density on every run",
+  "verified": "63 rows / 519 cells against the header Size declaration; Vp/Vs recomputed on all 63 rows; Poisson recomputed from velocities on all 63 rows; shear modulus rho*Vs^2 and bulk modulus rho*(Vp^2 - 4/3 Vs^2) recomputed on all 56 density-bearing rows within the table's 1000-MPa rounding; both source anomalies pinned; gate-pinned; source URL serves the identical dataset"
+}

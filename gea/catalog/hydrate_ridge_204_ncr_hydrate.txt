@@ -1,0 +1,60 @@
+/* DATA DESCRIPTION:
+Citation:	Riedel, Michael; Long, Philip E; Collett, Tim S (2006): (Table 1) Results of core-NCR (Non-Contact Resistivity) data analyses from ODP Leg 204 [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.726488, 
+	Supplement to: Riedel, M et al. (2006): Estimates of in situ gas hydrate concentration from resistivity monitoring of gas hydrate bearing sediments during temperature equilibration. Marine Geology, 227(3-4), 215-225, https://doi.org/10.1016/j.margeo.2005.10.007
+Abstract:	As part of Ocean Drilling Program Leg 204 at southern Hydrate Ridge off Oregon we have monitored changes in sediment electrical resistivity during controlled gas hydrate dissociation experiments. Two cores were used, each filled with gas hydrate bearing sediments(predominantly mud/silty mud). One core was from Site 1249 (1249F-9H3), 42.1 m below seafloor (mbsf) and the other from Site 1248 (1248C-4X1), 28.8 mbsf. At Site 1247, a third experiment was conducted on a core without gas hydrate (1247B-2H1, 3.6 mbsf). First, the cores were imaged using an infra-red (IR) camera upon recovery to map the gas hydrate occurrence through dissociation cooling. Over a period of several hours, successive runs on the multi-sensor track (includes sensors for P-wave velocity, resistivity, magnetic susceptibility and gamma-ray density) were carried out complemented by X-ray imaging on core 1249F-9H3. After complete equilibration to room temperature (17-18 8C) and complete gas hydrate dissociation, the final measurement of electrical resistivity was used to calculate pore-water resistivity and salinities. The calculated pore-water freshening after dissociation is equivalent to a gas hydrate concentration in situ of 35-70% along core 1249F-9H3 and 20-35% for core 1248C-4X1 assuming seawater salinity of in situ pore fluid. Detailed analysis of the IR scan, X-ray images and split-core photographs showed the hydrate mainly occurred disseminated throughout the core. Additionally, in core 1249F-9H3, a single hydrate filled vein, approximately 10 cm long and dipping at about 658, was identified. Analyses of the logging-while-drilling (LWD) resistivity data revealed a structural dip of 40-808 in the interval between 40 and 44 mbsf. We further analyzed all resistivity data measured on the recovered core during Leg 204. Generally poor data quality due to gas cracks allowed analyses to be carried out only at selected intervals at Sites 1244, 1245, 1246, 1247, 1248, 1249, and 1252. With a few exceptions, data from these intervals yield low to no gas hydrate concentration, which corresponds to estimates from downhole resistivity logs. However, since the gas cracking may be the result of gas hydrate dissociation, this is a biased sampling. Cores that had contained some gas hydrate may have been excluded.
+Project(s):	Ocean Drilling Program (ODP) (URI: https://www-odp.tamu.edu:443/)
+Coverage:	MEDIAN LATITUDE: 44.580963 * MEDIAN LONGITUDE: -125.135414 * SOUTH-BOUND LATITUDE: 44.570530 * WEST-BOUND LONGITUDE: -125.152500 * NORTH-BOUND LATITUDE: 44.586180 * EAST-BOUND LONGITUDE: -125.092810
+	DATE/TIME START: 2002-08-01T13:45:00 * DATE/TIME END: 2002-09-01T00:00:00
+	MINIMUM DEPTH, sediment/rock: 4.35 m * MAXIMUM DEPTH, sediment/rock: 147.35 m
+Event(s):	204-1244E * LATITUDE: 44.586180 * LONGITUDE: -125.119530 * DATE/TIME START: 2002-08-18T23:00:00 * DATE/TIME END: 2002-08-22T01:45:00 * ELEVATION: -893.3 m * PENETRATION: 250 m * RECOVERY: 137.73 m * LOCATION: North Pacific Ocean * CAMPAIGN: Leg204 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 19 cores; 135.8 m cored; 114.2 m drilled; 101.4 % recovery
+	204-1245B * LATITUDE: 44.585980 * LONGITUDE: -125.149100 * DATE/TIME START: 2002-08-06T07:15:00 * DATE/TIME END: 2002-08-09T15:45:00 * ELEVATION: -869.7 m * PENETRATION: 473.7 m * RECOVERY: 418.02 m * LOCATION: North Pacific Ocean * CAMPAIGN: Leg204 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 53 cores; 471.7 m cored; 2 m drilled; 88.6 % recovery
+	204-1246B * LATITUDE: 44.586060 * LONGITUDE: -125.135380 * DATE/TIME START: 2002-08-11T04:00:00 * DATE/TIME END: 2002-08-11T22:45:00 * ELEVATION: -849.4 m * PENETRATION: 136.7 m * RECOVERY: 135.38 m * LOCATION: North Pacific Ocean * CAMPAIGN: Leg204 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 16 cores; 136.7 m cored; 0 m drilled; 99 % recovery
+	204-1247B * LATITUDE: 44.577650 * LONGITUDE: -125.151280 * DATE/TIME START: 2002-08-22T06:45:00 * DATE/TIME END: 2002-08-24T19:15:00 * ELEVATION: -834.3 m * PENETRATION: 220 m * RECOVERY: 211.98 m * LOCATION: North Pacific Ocean * CAMPAIGN: Leg204 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 27 cores; 217 m cored; 3 m drilled; 97.7 % recovery
+	204-1248C * LATITUDE: 44.574230 * LONGITUDE: -125.152500 * DATE/TIME START: 2002-08-01T13:45:00 * DATE/TIME END: 2002-08-02T12:30:00 * ELEVATION: -829.6 m * PENETRATION: 149 m * RECOVERY: 101.44 m * LOCATION: North Pacific Ocean * CAMPAIGN: Leg204 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 17 cores; 149 m cored; 0 m drilled; 68.1 % recovery
+	204-1249F * LATITUDE: 44.570530 * LONGITUDE: -125.147300 * DATE/TIME START: 2002-08-05T08:30:00 * DATE/TIME END: 2002-08-06T07:15:00 * ELEVATION: -777.2 m * PENETRATION: 90 m * RECOVERY: 57.37 m * LOCATION: North Pacific Ocean * CAMPAIGN: Leg204 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 16 cores; 82.5 m cored; 7.5 m drilled; 69.5 % recovery
+	204-1252A * LATITUDE: 44.586110 * LONGITUDE: -125.092810 * DATE/TIME START: 2002-08-29T21:00:00 * DATE/TIME END: 2002-09-01T00:00:00 * ELEVATION: -1039.2 m * PENETRATION: 259.8 m * RECOVERY: 253.62 m * LOCATION: North Pacific Ocean * CAMPAIGN: Leg204 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 28 cores; 259.8 m cored; 0 m drilled; 97.6 % recovery
+Parameter(s):	Event label (Event)
+	Sample code/label (Sample label) * PI: Riedel, Michael (https://orcid.org/0000-0001-5729-4482, mriedel@geomar.de) * METHOD/DEVICE: DSDP/ODP/IODP sample designation (URI: hdl:10013/epic.27914.d001)
+	Sample code/label 2 (Sample label 2) * PI: Riedel, Michael (https://orcid.org/0000-0001-5729-4482, mriedel@geomar.de) * METHOD/DEVICE: DSDP/ODP/IODP sample designation (URI: hdl:10013/epic.27914.d001)
+	DEPTH, sediment/rock [m] (Depth sed) * GEOCODE
+	Depth, top/min [m] (Depth top) * PI: Riedel, Michael (https://orcid.org/0000-0001-5729-4482, mriedel@geomar.de)
+	Depth, bottom/max [m] (Depth bot) * PI: Riedel, Michael (https://orcid.org/0000-0001-5729-4482, mriedel@geomar.de)
+	Hydrate [%] (Hydrate) * PI: Riedel, Michael (https://orcid.org/0000-0001-5729-4482, mriedel@geomar.de) * COMMENT: average hydrate, minimum
+	Hydrate [%] (Hydrate) * PI: Riedel, Michael (https://orcid.org/0000-0001-5729-4482, mriedel@geomar.de) * COMMENT: average hydrate, maximum
+	Comment (Comment) * PI: Riedel, Michael (https://orcid.org/0000-0001-5729-4482, mriedel@geomar.de)
+License:	Creative Commons Attribution 3.0 Unported (CC-BY-3.0) (URI: https://creativecommons.org/licenses/by/3.0/)
+Size:	172 data points
+*/
+Event	Sample label	Sample label 2	Depth sed [m]	Depth top [m]	Depth bot [m]	Hydrate [%] (average hydrate, minimum)	Hydrate [%] (average hydrate, maximum)	Comment
+204-1244E	204-1244E-14H-6		101.20	100.70	101.70	0	10	
+204-1244E	204-1244E-18H-3		125.30	124.80	125.80	0	0	
+204-1245B	204-1245B-5H-2	204-1245B-5H-3	45.00	43.50	46.50	0	0	
+204-1245B	204-1245B-10H-2		87.56	87.00	88.13	0	5	
+204-1245B	204-1245B-11H-2		51.70	96.00	7.40	0	0	
+204-1245B	204-1245B-12H-5	204-1245B-12H-7	112.25	111.00	113.50	0	15	
+204-1245B	204-1245B-15X-1	204-1245B-15X-3	130.00	128.00	132.00	0	0	
+204-1246B	204-1246B-2H-1		16.00	14.00	18.00	0	0	
+204-1247B	204-1247B-6H-1	204-1247B-6H-2	40.78	38.95	42.60	0	5	
+204-1247B	204-1247B-8H-4		58.55	57.80	59.30	0	5	
+204-1247B	204-1247B-9H-4	204-1247B-9H-5	68.10	66.60	69.60	0	0	
+204-1247B	204-1247B-10H-3		75.60	75.20	76.00	0	0	
+204-1247B	204-1247B-10H-4		77.20	76.70	77.70	0	5	
+204-1247B	204-1247B-11H-4		86.10	85.30	86.90	0	5	
+204-1247B	204-1247B-12H-6		97.60	96.60	98.60	0	0	
+204-1247B	204-1247B-14H-1	204-1247B-15X-4	112.55	106.80	118.30	0	0	
+204-1247B	204-1247B-2H-1		4.35	3.60	5.10	0	0	Monitoring experiment cores
+204-1248C	204-1248C-3X-3		20.00	18.00	22.00	0	10	
+204-1248C	204-1248C-8H-1	204-1248C-8H-2	68.50	67.00	70.00	0	0	
+204-1248C	204-1248C-9H-5		83.00	82.00	84.00	0	0	
+204-1248C	204-1248C-11H-3		98.00	97.00	99.00	0	5	
+204-1248C	204-1248C-12H-1		105.40	105.00	105.80	0	0	
+204-1248C	204-1248C-13H-3		118.25	117.80	118.70	0	0	
+204-1248C	204-1248C-4X-1		29.03	28.80	29.26	20	35	Monitoring experiment cores
+204-1249F	204-1249F-10H-3		51.20	50.40	52.00	70	70	
+204-1249F	204-1249F-15H-1	204-1249F-15H-3	74.00	73.00	75.00	55	55	
+204-1249F	204-1249F-9H-3		42.96	42.21	43.71	30	75	Monitoring experiment cores
+204-1252A	204-1252A-10H-5		86.50	85.70	87.30	0	0	
+204-1252A	204-1252A-11H-3		94.22	93.85	94.60	0	0	
+204-1252A	204-1252A-14H-3		123.10	122.50	123.70	0	0	
+204-1252A	204-1252A-16X-2		136.90	136.40	137.40	0	0	
+204-1252A	204-1252A-17X-2	204-1252A-17X-3	147.35	146.00	148.70	0	0	

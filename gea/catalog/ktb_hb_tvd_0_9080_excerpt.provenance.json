@@ -1,0 +1,20 @@
+{
+  "entry": "ktb_hb_tvd_0_9080_excerpt",
+  "kind": "REAL_DEVIATION_SURVEY_EXCERPT",
+  "well": "KTB-Oberpfalz HB (Hauptbohrung / Main Hole), German Continental Deep Drilling Program - the same well as catalogue entry 12 (hlog246 temperature); TD 9,101 m",
+  "operator_on_log": "KTB program final logging data set - TVD (true vertical depth) computed from the borehole geometry surveys; 'Starting point (= 0 m) is the surface start point of the main borehole' (in-file)",
+  "source_database": "KTB Information System (ICDP legacy data site) - logging/tvd/hb1/00009080 (TVD 0 - 9,080 m); modern canonical citation: Kueck et al. (2021), KTB Borehole Measurements, GFZ Data Services (KTB borehole logging data family)",
+  "source_url": "https://data.icdp-online.org/sites/ktb/data/logging/tvd/hb1/00009080.htm",
+  "license": "ICDP/GFZ scientific data, freely accessible via the public KTB Information System. Attribution: KTB / GFZ / Kueck et al. (2021)",
+  "fetch_date": "2026-08-25",
+  "fetch_method": "read-only HTTPS fetch of the legacy page (text/html rendering of the ASCII file); the 167 KB source (full 0-9,080 m) exceeds the fetch window - first 2,804 complete rows captured (0 -> 2,803 m), truncated partial row DROPPED",
+  "coverage": "EXCERPT: header verbatim + rows for MD 0 -> 2,803 m at exact 1 m sampling (2,804 rows) of the full 0 -> 9,080 m file. The deep spiral-deviation section of the HB (below ~7,500 m) is OUTSIDE this capture - what IS captured is the vertical-drilling-system section, where the world's deepest research borehole is also among the straightest: |TVD - MD| <= 0.35 m over 2.8 km.",
+  "curves": [
+    "DEPT (logging depth / MD, m)",
+    "TVD (true vertical depth, m)"
+  ],
+  "datum_disclosure": "TVD(0) = 0.15239 m at MD 0 and TVD exceeds MD by ~0.15 m over the top ~1,400 m: a fixed ~0.152 m (half-foot) DATUM OFFSET between the TVD reference and the MD start point, present in the source and preserved verbatim - NOT 'corrected' here. Geometric TVD<=MD reasoning applies only after removing this documented offset.",
+  "transcription_disclosure": "Transcribed from the HTML rendering of the ASCII file. The 2,804 rows are highly regular (1 m steps, 5-significant-figure F4 TVD values in long constant-suffix runs); they were reproduced by run-faithful transcription: every run boundary and every exceptional row (32 of them, e.g. 25->25.146, 98->98.143, 933->933.08, the 1912 and 2066 suffix rollovers) was read directly from the capture and hard-coded, then the written file was structurally verified against the capture (row count, exact MD sequence, TVD monotonicity, drift envelope, 16 spot rows). The source URL serves the full file for independent byte-level re-verification.",
+  "purpose": "fourteenth catalogue entry - SECOND real well trajectory, and the opposite extreme from the first: L06-06 is a real DEVIATED S-well, KTB-HB is the vertical-drilling-system showpiece (near-perfect verticality to 2.8 km) - a real NULL CONTROL for the engine's MD->TVD physics; pairs with entry 12 to make KTB-HB the first well with BOTH temperature and trajectory in the catalogue",
+  "verified": "2,804 rows; exact 1 m MD sequence; |TVD-MD| <= 0.35 m; datum offset 0.15239 preserved; monotonic TVD; survey() port upgrade verified; gate-pinned"
+}

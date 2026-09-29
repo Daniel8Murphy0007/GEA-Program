@@ -1,0 +1,81 @@
+/* DATA DESCRIPTION:
+Citation:	Cann, Joe R; White, S M; Langseth, Marcus G (2005): Sound velocity of Hole 69-504B [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.229754
+Related to:	DSDP (1989): Data from the Deep Sea Drilling Project. Sediment, hard rock and reference files. National Geophysical Data Center, National Environmental Satellite, Data and Information Service, National Oceanic and Atmospheric Administration, U.S. Department of Commerce, 1, CD-ROM
+	Wilkens, Roy H; Schrader, Ed L; Sancetta, Constance A; Noack, Y; Mottl, Michael J; Moorby, S A; Migdisov, Areg A; Levi, Shaul; Laverne, Christine; Karato, Shun-ichiro; Jones, S C; Hubberten, Hans-Wolfgang; Furuta, Toshio; Borella, Peter E; Bender, Michael L; Beiersdorf, Helmut; Becker, Keir; Barrett, T J; Adamson, Andrew C; von Herzen, Richard P; Honnorez, Jose J; Zoback, Mark D; Ponomarev, Vladmir N; Pertsev, Nikolay N; Nekhoroshkov, Vladislav L; Natland, James H; Lawrence, James R; Anderson, Roger N; Cann, Joe R; White, S M; Langseth, Marcus G (1983): Initial Reports of the Deep Sea Drilling Project. U. S. Government Printing Office, Washington, LXIX, 864 pp, https://doi.org/10.2973/dsdp.proc.69.1983
+Further details:	Sonic velocity - background and methods. hdl:10013/epic.32354.d001
+Project(s):	Deep Sea Drilling Project (DSDP) (URI: https://www.deepseadrilling.org/)
+Coverage:	LATITUDE: 1.227200 * LONGITUDE: -83.730200
+	DATE/TIME START: 1979-10-07T00:00:00 * DATE/TIME END: 1979-10-07T00:00:00
+	MINIMUM DEPTH, sediment/rock: 279.08 m * MAXIMUM DEPTH, sediment/rock: 484.04 m
+Event(s):	69-504B * LATITUDE: 1.227200 * LONGITUDE: -83.730200 * DATE/TIME: 1979-10-07T00:00:00 * ELEVATION: -3460.0 m * PENETRATION: 489 m * RECOVERY: 262 m * CAMPAIGN: Leg69 * BASIS: Glomar Challenger (URI: https://www-odp.tamu.edu:443/glomar.html) * METHOD/DEVICE: Drilling/drill rig (DRILL)
+Parameter(s):	DEPTH, sediment/rock [m] (Depth sed) * GEOCODE
+	Sample code/label (Sample label) * METHOD/DEVICE: DSDP/ODP/IODP sample designation (URI: hdl:10013/epic.27914.d001)
+	Velocity, compressional wave [m/s] (Vp) * METHOD/DEVICE: Sonic digital tool (SDT)
+	Sample comment (Sample comment) * COMMENT: Split code/Orientation/Instrument code
+License:	Creative Commons Attribution 3.0 Unported (CC-BY-3.0) (URI: https://creativecommons.org/licenses/by/3.0/)
+Size:	189 data points
+*/
+Depth sed [m]	Sample label	Vp [m/s]	Sample comment
+279.08	69-504B-3-1,108	5541	-/-/F
+281.08	69-504B-4-1,108	6390	-/-/F
+282.51	69-504B-4-2,101	6212	-/-/F
+284.22	69-504B-4-3,122	5775	-/-/F
+284.91	69-504B-4-4,41	5556	-/-/F
+287.24	69-504B-4-5,124	5716	-/-/F
+290.07	69-504B-5-1,57	5668	-/-/F
+291.41	69-504B-5-2,41	5645	-/-/F
+299.05	69-504B-6-1,55	5670	-/-/F
+300.35	69-504B-6-2,35	5717	-/-/F
+307.83	69-504B-7-1,33	6260	-/-/F
+309.98	69-504B-7-2,98	5829	-/-/F
+311.77	69-504B-7-3,127	5768	-/-/F
+312.35	69-504B-7-4,35	6041	-/-/F
+313.53	69-504B-7-5,3	5910	-/-/F
+317.13	69-504B-8-1,63	5935	-/-/F
+318.86	69-504B-8-2,86	5767	-/-/F
+320.23	69-504B-8-3,73	5771	-/-/F
+321.58	69-504B-8-4,58	5692	-/-/F
+326.01	69-504B-9-1,51	6044	-/-/F
+327.73	69-504B-9-2,73	5616	-/-/F
+336.11	69-504B-10-2,11	5595	-/-/F
+343.69	69-504B-11-1,19	6037	-/-/F
+345.76	69-504B-11-2,76	5895	-/-/F
+346.77	69-504B-11-3,27	5860	-/-/F
+353.00	69-504B-12-1,50	5666	-/-/F
+355.07	69-504B-12-2,107	6012	-/-/F
+362.90	69-504B-13-1,140	5429	-/-/F
+364.00	69-504B-13-2,100	5669	-/-/F
+365.21	69-504B-13-3,71	5728	-/-/F
+366.15	69-504B-13-4,15	5662	-/-/F
+370.89	69-504B-14-1,39	5555	-/-/F
+376.76	69-504B-15-2,26	5797	-/-/F
+379.38	69-504B-15-3,138	5793	-/-/F
+380.79	69-504B-15-4,129	6220	-/-/F
+381.52	69-504B-15-5,52	5378	-/-/F
+384.20	69-504B-16-1,20	5570	-/-/F
+385.56	69-504B-16-2,6	5321	-/-/F
+387.66	69-504B-16-3,66	5888	-/-/F
+388.34	69-504B-16-3,134	5880	-/-/F
+389.55	69-504B-16-4,105	5884	-/-/F
+393.96	69-504B-17-1,96	5980	-/-/F
+395.54	69-504B-17-2,104	5866	-/-/F
+398.71	69-504B-18-1,71	5114	-/-/F
+404.01	69-504B-19-1,101	5859	-/-/F
+405.36	69-504B-19-2,86	6270	-/-/F
+413.09	69-504B-20-1,109	5584	-/-/F
+422.37	69-504B-21-1,137	5546	-/-/F
+423.09	69-504B-21-2,59	5671	-/-/F
+425.23	69-504B-21-3,123	5738	-/-/F
+426.86	69-504B-21-4,136	5829	-/-/F
+430.62	69-504B-22-1,62	5944	-/-/F
+439.88	69-504B-23-1,88	6185	-/-/F
+449.00	69-504B-24-1,100	5667	-/-/F
+450.12	69-504B-24-2,62	5875	-/-/F
+451.76	69-504B-24-3,76	6000	-/-/F
+459.33	69-504B-25-2,83	5727	-/-/F
+467.09	69-504B-27-1,109	5748	-/-/F
+475.95	69-504B-28-1,95	5841	-/-/F
+478.56	69-504B-28-3,56	5815	-/-/F
+480.73	69-504B-28-4,123	5600	-/-/F
+484.04	69-504B-29-1,4	5105	-/-/F
+484.04	69-504B-29-1,4	5136	-/-/F

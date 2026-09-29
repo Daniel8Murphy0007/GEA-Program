@@ -1,0 +1,22 @@
+{
+  "entry": "iodp_u1324_pore_pressure",
+  "kind": "REAL_PRESSURE_MEASUREMENTS_COMPLETE",
+  "well": "IODP Site 308-U1324 (Holes B and C), Ursa Basin, continental slope offshore Louisiana, GULF OF MEXICO (28.0013 N, -89.0023 E; seafloor -1,056 m) - IODP Expedition 308 (Gulf of Mexico Hydrogeology), JOIDES Resolution, 2005",
+  "operator_on_log": "Pore-pressure penetrometers (T2P dual-sensor tip+shaft probe; DVTP-P) deployed in-situ; analyses Flemings, Long, Dugan, Germaine, John, Behrmann, Sawyer + Expedition 308 Scientists (2008)",
+  "source_database": "PANGAEA, dataset doi:10.1594/PANGAEA.725472 ('(Table 1) In situ pore pressure measurements of IODP Site 308-U1324'); supplement to Flemings et al. (2008), Earth Planet. Sci. Lett. 269, 309-325, doi:10.1016/j.epsl.2007.12.005",
+  "source_url": "https://doi.pangaea.de/10.1594/PANGAEA.725472?format=textfile",
+  "license": "Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file's own header. Attribution: Flemings et al. (2008) / PANGAEA / IODP",
+  "fetch_date": "2026-08-25",
+  "fetch_method": "read-only HTTPS fetch of the PANGAEA textfile export (text/tab-separated-values) - the COMPLETE dataset (152 data points) with self-describing header in one fetch",
+  "coverage": "COMPLETE DATASET: all 18 penetrometer deployments, 50.0 -> 608.2 mbsf, with per-station HYDROSTATIC fluid pressure (u2) and OVERBURDEN pressure baselines in-file, dissipation time, sensor position (shaft vs tip), four equilibrium-pressure estimates per the paper's extrapolation methods (u end, u*-1/t, u*-1/sqrt(t), Delta ut), and 5% error bars.",
+  "curves": [
+    "Depth sed [m] (mbsf, index; DUPLICATE depths are real - tip and shaft sensors of the same T2P deployment report separately)",
+    "u2 hydrostatic [kPa]",
+    "Overburden [kPa]",
+    "u end / u*-1/t / u*-1/sqrt(t) / Delta ut [MPa]",
+    "Error [+/-]"
+  ],
+  "science_disclosure": "The paper's finding, present in the data: MEASURED pore pressure exceeds hydrostatic at essentially every station (Delta ut up to 5.60 MPa at 608.2 m, where u_end 18.80 MPa vs hydrostatic 16.73 and overburden 22.11) - high shallow OVERPRESSURE under rapid Mississippi-fan sedimentation, the documented preconditioner of the submarine landslides at this site. Baselines and measurements travel TOGETHER in one file, so overpressure is computed, not asserted. Quirks preserved verbatim: T2P tip rows carry blank baseline cells (reported per-deployment once); the 300/505 m stations share an overburden value as printed in the source; extrapolation-method spread (u end vs u* variants) is the paper's own disclosed uncertainty.",
+  "purpose": "nineteenth catalogue entry - the catalogue's LAST MISSING PHYSICAL QUANTITY arrives: measured downhole PRESSURE (TWELFTH kind), in region ELEVEN (Gulf of Mexico). This is the reconciler's THE-FIND scenario in real data: measured pressure vs a hydrostatic baseline, residual = real overpressure. Also the second REAL dual-sensor instrument (T2P tip+shaft) after the KTB twin-temperature sonde.",
+  "verified": "18 deployments; depth/pressure endpoints; overpressure-above-hydrostatic computed live at every baselined station; the 608.2 m headline station pinned exactly; duplicate-depth tip/shaft structure and blank-baseline padding pinned; in-file license/coordinates parsed to meta; source URL serves the identical dataset"
+}

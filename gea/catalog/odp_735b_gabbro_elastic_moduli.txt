@@ -1,0 +1,127 @@
+/* DATA DESCRIPTION:
+Citation:	Iturrino, Gerardo J; Christensen, Nikolas I; Kirby, Stephen; Salisbury, Matthew H (1991): (Table 4) Average compressional- and share-wave velocities and elastic constants for ODP Hole 118-735B gabbros [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.757872, 
+	In supplement to: Iturrino, GJ et al. (1991): Seismic velocities and elastic properties of oceanic gabbroic rocks from Hole 735B. In: Von Herzen, RP; Robinson, PT; et al. (eds.), Proceedings of the Ocean Drilling Program, Scientific Results, College Station, TX (Ocean Drilling Program), 118, 227-244, https://doi.org/10.2973/odp.proc.sr.118.151.1991
+Project(s):	Ocean Drilling Program (ODP) (URI: https://www-odp.tamu.edu:443/)
+Coverage:	LATITUDE: -32.724000 * LONGITUDE: 57.266200
+	DATE/TIME START: 1987-12-06T04:45:00 * DATE/TIME END: 1987-12-11T01:00:00
+	MINIMUM ELEVATION: -731.0 m * MAXIMUM ELEVATION: -731.0 m
+Event(s):	118-735B * LATITUDE: -32.724000 * LONGITUDE: 57.266200 * DATE/TIME START: 1987-12-06T04:45:00 * DATE/TIME END: 1987-12-11T01:00:00 * ELEVATION: -731.0 m * PENETRATION: 500.7 m * RECOVERY: 434.81 m * LOCATION: South Indian Ridge, South Indian Ocean * CAMPAIGN: Leg118 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 88 cores; 500.7 m cored; 0 m drilled; 86.8 % recovery
+Parameter(s):	Sample code/label (Sample label) * PI: Iturrino, Gerardo J * METHOD/DEVICE: DSDP/ODP/IODP sample designation (URI: hdl:10013/epic.27914.d001)
+	Density [g/cm**3] (Density) * PI: Iturrino, Gerardo J
+	Porosity [% vol] (Poros) * PI: Iturrino, Gerardo J
+	Sample comment (Sample comment) * PI: Iturrino, Gerardo J
+	Pressure [bar] (P) * PI: Iturrino, Gerardo J
+	Velocity, compressional wave [m/s] (Vp) * PI: Iturrino, Gerardo J
+	Velocity, shear wave [m/s] (Vs) * PI: Iturrino, Gerardo J
+	Velocity, compressional/shear wave ratio (Vp/Vs) * PI: Iturrino, Gerardo J
+	Poisson's ratio (Pois r) * PI: Iturrino, Gerardo J
+	Bulk modulus [MPa] (Bulk mod) * PI: Iturrino, Gerardo J
+	Shear modulus [MPa] (Shear mod) * PI: Iturrino, Gerardo J
+License:	Creative Commons Attribution 3.0 Unported (CC-BY-3.0) (URI: https://creativecommons.org/licenses/by/3.0/)
+Size:	1144 data points
+*/
+Sample label	Density [g/cm**3]	Poros [% vol]	Sample comment	P [bar]	Vp [m/s]	Vs [m/s]	Vp/Vs	Pois r	Bulk mod [MPa]	Shear mod [MPa]
+118-735B-23R-2,34-36	2.93	0.5	Olivine gabbro, 4% olivine, 53% plagioclase, 34% clinopyroxene, 8% amphibole, 1% phyllosilicates	100	6740	3710	1.81	0.28	79000	41000
+118-735B-23R-2,34-36	2.93	0.5	Olivine gabbro, 4% olivine, 53% plagioclase, 34% clinopyroxene, 8% amphibole, 1% phyllosilicates	200	6830	3740	1.82	0.28	82000	41000
+118-735B-23R-2,34-36	2.93	0.5	Olivine gabbro, 4% olivine, 53% plagioclase, 34% clinopyroxene, 8% amphibole, 1% phyllosilicates	400	6930	3780	1.83	0.29	85000	42000
+118-735B-23R-2,34-36	2.93	0.5	Olivine gabbro, 4% olivine, 53% plagioclase, 34% clinopyroxene, 8% amphibole, 1% phyllosilicates	600	7000	3800	1.84	0.29	87000	42000
+118-735B-23R-2,34-36	2.93	0.5	Olivine gabbro, 4% olivine, 53% plagioclase, 34% clinopyroxene, 8% amphibole, 1% phyllosilicates	800	7040	3820	1.85	0.29	89000	43000
+118-735B-23R-2,34-36	2.93	0.5	Olivine gabbro, 4% olivine, 53% plagioclase, 34% clinopyroxene, 8% amphibole, 1% phyllosilicates	1000	7080	3830	1.85	0.29	90000	43000
+118-735B-23R-2,34-36	2.93	0.5	Olivine gabbro, 4% olivine, 53% plagioclase, 34% clinopyroxene, 8% amphibole, 1% phyllosilicates	1500	7130	3850	1.85	0.29	91000	44000
+118-735B-23R-2,34-36	2.93	0.5	Olivine gabbro, 4% olivine, 53% plagioclase, 34% clinopyroxene, 8% amphibole, 1% phyllosilicates	2000	7150	3860	1.85	0.29	92000	44000
+118-735B-26R-1,62-64	2.93	0.2	Altered olivine gabbro, 2% olivine, 50% plagioclase, 31% amphibole, 10% phyllosilicates, 5% clinopyroxene, 2% oxides	100	6530	3730	1.75	0.26	71000	41000
+118-735B-26R-1,62-64	2.93	0.2	Altered olivine gabbro, 2% olivine, 50% plagioclase, 31% amphibole, 10% phyllosilicates, 5% clinopyroxene, 2% oxides	200	6600	3760	1.76	0.26	72000	41000
+118-735B-26R-1,62-64	2.93	0.2	Altered olivine gabbro, 2% olivine, 50% plagioclase, 31% amphibole, 10% phyllosilicates, 5% clinopyroxene, 2% oxides	400	6690	3800	1.76	0.26	74000	42000
+118-735B-26R-1,62-64	2.93	0.2	Altered olivine gabbro, 2% olivine, 50% plagioclase, 31% amphibole, 10% phyllosilicates, 5% clinopyroxene, 2% oxides	600	6740	3830	1.76	0.26	76000	43000
+118-735B-26R-1,62-64	2.93	0.2	Altered olivine gabbro, 2% olivine, 50% plagioclase, 31% amphibole, 10% phyllosilicates, 5% clinopyroxene, 2% oxides	800	6770	3850	1.76	0.26	77000	43000
+118-735B-26R-1,62-64	2.93	0.2	Altered olivine gabbro, 2% olivine, 50% plagioclase, 31% amphibole, 10% phyllosilicates, 5% clinopyroxene, 2% oxides	1000	6800	3870	1.76	0.26	77000	44000
+118-735B-26R-1,62-64	2.93	0.2	Altered olivine gabbro, 2% olivine, 50% plagioclase, 31% amphibole, 10% phyllosilicates, 5% clinopyroxene, 2% oxides	1500	6840	3890	1.76	0.26	78000	44000
+118-735B-26R-1,62-64	2.93	0.2	Altered olivine gabbro, 2% olivine, 50% plagioclase, 31% amphibole, 10% phyllosilicates, 5% clinopyroxene, 2% oxides	2000	6870	3900	1.76	0.26	79000	45000
+118-735B-42R-4, 62-64	2.92	0.6	Olivine gabbro, 16% olivine, 55% plagioclase, 25% clinopyroxene, 3% amphibole, phyllosilicates < 1%, oxides < 1%	100	6620	3760	1.76	0.26	73000	41000
+118-735B-42R-4, 62-64	2.92	0.6	Olivine gabbro, 16% olivine, 55% plagioclase, 25% clinopyroxene, 3% amphibole, phyllosilicates < 1%, oxides < 1%	200	6680	3790	1.76	0.26	74000	42000
+118-735B-42R-4, 62-64	2.92	0.6	Olivine gabbro, 16% olivine, 55% plagioclase, 25% clinopyroxene, 3% amphibole, phyllosilicates < 1%, oxides < 1%	400	6750	3830	1.76	0.26	76000	43000
+118-735B-42R-4, 62-64	2.92	0.6	Olivine gabbro, 16% olivine, 55% plagioclase, 25% clinopyroxene, 3% amphibole, phyllosilicates < 1%, oxides < 1%	600	6800	3860	1.76	0.26	77000	44000
+118-735B-42R-4, 62-64	2.92	0.6	Olivine gabbro, 16% olivine, 55% plagioclase, 25% clinopyroxene, 3% amphibole, phyllosilicates < 1%, oxides < 1%	800	6830	3870	1.76	0.26	78000	44000
+118-735B-42R-4, 62-64	2.92	0.6	Olivine gabbro, 16% olivine, 55% plagioclase, 25% clinopyroxene, 3% amphibole, phyllosilicates < 1%, oxides < 1%	1000	6850	3880	1.76	0.26	79000	44000
+118-735B-42R-4, 62-64	2.92	0.6	Olivine gabbro, 16% olivine, 55% plagioclase, 25% clinopyroxene, 3% amphibole, phyllosilicates < 1%, oxides < 1%	1500	6880	3900	1.77	0.26	79000	45000
+118-735B-42R-4, 62-64	2.92	0.6	Olivine gabbro, 16% olivine, 55% plagioclase, 25% clinopyroxene, 3% amphibole, phyllosilicates < 1%, oxides < 1%	2000	6900	3910	1.77	0.26	80000	45000
+118-735B-46R-2,21-23	2.99	0.9	Olivine-bearing Gabbro, 3% olivine, 70% plagioclase, 26% clinopyroxene, amphibole < 1%, oxides < 1%	100	6760	3750	1.80	0.28	80000	42000
+118-735B-46R-2,21-23	2.99	0.9	Olivine-bearing Gabbro, 3% olivine, 70% plagioclase, 26% clinopyroxene, amphibole < 1%, oxides < 1%	200	6810	3790	1.80	0.28	82000	43000
+118-735B-46R-2,21-23	2.99	0.9	Olivine-bearing Gabbro, 3% olivine, 70% plagioclase, 26% clinopyroxene, amphibole < 1%, oxides < 1%	400	6880	3830	1.80	0.28	83000	44000
+118-735B-46R-2,21-23	2.99	0.9	Olivine-bearing Gabbro, 3% olivine, 70% plagioclase, 26% clinopyroxene, amphibole < 1%, oxides < 1%	600	6920	3850	1.80	0.28	84000	44000
+118-735B-46R-2,21-23	2.99	0.9	Olivine-bearing Gabbro, 3% olivine, 70% plagioclase, 26% clinopyroxene, amphibole < 1%, oxides < 1%	800	6950	3870	1.80	0.28	85000	45000
+118-735B-46R-2,21-23	2.99	0.9	Olivine-bearing Gabbro, 3% olivine, 70% plagioclase, 26% clinopyroxene, amphibole < 1%, oxides < 1%	1000	6980	3880	1.80	0.28	86000	45000
+118-735B-46R-2,21-23	2.99	0.9	Olivine-bearing Gabbro, 3% olivine, 70% plagioclase, 26% clinopyroxene, amphibole < 1%, oxides < 1%	1500	7020	3890	1.80	0.28	87000	45000
+118-735B-46R-2,21-23	2.99	0.9	Olivine-bearing Gabbro, 3% olivine, 70% plagioclase, 26% clinopyroxene, amphibole < 1%, oxides < 1%	2000	7050	3900	1.80	0.28	88000	45000
+118-735B-48R-4,82-84	3.27	0.8	Fe-Ti Oxide Grabbo, 1% olivine, 48% plagioclase, 30% clinopyroxene, 12% oxides, 5% amphibole, 3% phyllosilicates, 1% orthopyroxene	100	6540	3700	1.77	0.26	80000	45000
+118-735B-48R-4,82-84	3.27	0.8	Fe-Ti Oxide Grabbo, 1% olivine, 48% plagioclase, 30% clinopyroxene, 12% oxides, 5% amphibole, 3% phyllosilicates, 1% orthopyroxene	200	6610	3740	1.77	0.26	82000	46000
+118-735B-48R-4,82-84	3.27	0.8	Fe-Ti Oxide Grabbo, 1% olivine, 48% plagioclase, 30% clinopyroxene, 12% oxides, 5% amphibole, 3% phyllosilicates, 1% orthopyroxene	400	6680	3780	1.77	0.27	84000	47000
+118-735B-48R-4,82-84	3.27	0.8	Fe-Ti Oxide Grabbo, 1% olivine, 48% plagioclase, 30% clinopyroxene, 12% oxides, 5% amphibole, 3% phyllosilicates, 1% orthopyroxene	600	6730	3810	1.77	0.27	85000	47000
+118-735B-48R-4,82-84	3.27	0.8	Fe-Ti Oxide Grabbo, 1% olivine, 48% plagioclase, 30% clinopyroxene, 12% oxides, 5% amphibole, 3% phyllosilicates, 1% orthopyroxene	800	6760	3820	1.77	0.27	86000	48000
+118-735B-48R-4,82-84	3.27	0.8	Fe-Ti Oxide Grabbo, 1% olivine, 48% plagioclase, 30% clinopyroxene, 12% oxides, 5% amphibole, 3% phyllosilicates, 1% orthopyroxene	1000	6790	3840	1.77	0.27	87000	48000
+118-735B-48R-4,82-84	3.27	0.8	Fe-Ti Oxide Grabbo, 1% olivine, 48% plagioclase, 30% clinopyroxene, 12% oxides, 5% amphibole, 3% phyllosilicates, 1% orthopyroxene	1500	6840	3860	1.77	0.27	88000	49000
+118-735B-48R-4,82-84	3.27	0.8	Fe-Ti Oxide Grabbo, 1% olivine, 48% plagioclase, 30% clinopyroxene, 12% oxides, 5% amphibole, 3% phyllosilicates, 1% orthopyroxene	2000	6890	3870	1.78	0.27	90000	49000
+118-735B-50R-4,87-89	2.93	0.7	Fe-Ti Oxide Gabbro, 73% plagioclase, 15% clinopyroxene, 6% ox, 5% amphibole, 1% phyllosilicates	100	6350	3510	1.81	0.28	70000	36000
+118-735B-50R-4,87-89	2.93	0.7	Fe-Ti Oxide Gabbro, 73% plagioclase, 15% clinopyroxene, 6% ox, 5% amphibole, 1% phyllosilicates	200	6410	3540	1.81	0.28	71000	37000
+118-735B-50R-4,87-89	2.93	0.7	Fe-Ti Oxide Gabbro, 73% plagioclase, 15% clinopyroxene, 6% ox, 5% amphibole, 1% phyllosilicates	400	6470	3590	1.80	0.28	72000	38000
+118-735B-50R-4,87-89	2.93	0.7	Fe-Ti Oxide Gabbro, 73% plagioclase, 15% clinopyroxene, 6% ox, 5% amphibole, 1% phyllosilicates	600	6510	3620	1.80	0.28	73000	38000
+118-735B-50R-4,87-89	2.93	0.7	Fe-Ti Oxide Gabbro, 73% plagioclase, 15% clinopyroxene, 6% ox, 5% amphibole, 1% phyllosilicates	800	6550	3640	1.80	0.28	74000	39000
+118-735B-50R-4,87-89	2.93	0.7	Fe-Ti Oxide Gabbro, 73% plagioclase, 15% clinopyroxene, 6% ox, 5% amphibole, 1% phyllosilicates	1000	6570	3650	1.80	0.28	74000	39000
+118-735B-50R-4,87-89	2.93	0.7	Fe-Ti Oxide Gabbro, 73% plagioclase, 15% clinopyroxene, 6% ox, 5% amphibole, 1% phyllosilicates	1500	6610	3680	1.80	0.28	75000	40000
+118-735B-50R-4,87-89	2.93	0.7	Fe-Ti Oxide Gabbro, 73% plagioclase, 15% clinopyroxene, 6% ox, 5% amphibole, 1% phyllosilicates	2000	6640	3690	1.80	0.28	76000	40000
+118-735B-52R-4,69-71	3.17	0.6	Fe-Ti Oxide Gabbro, 38% plagioclase, 38% clinopyroxene, 15% oxides, 8% amphibole, 1% phyllosilicates	100	6490	3590	1.81	0.28	79000	41000
+118-735B-52R-4,69-71	3.17	0.6	Fe-Ti Oxide Gabbro, 38% plagioclase, 38% clinopyroxene, 15% oxides, 8% amphibole, 1% phyllosilicates	200	6540	3610	1.81	0.28	81000	41000
+118-735B-52R-4,69-71	3.17	0.6	Fe-Ti Oxide Gabbro, 38% plagioclase, 38% clinopyroxene, 15% oxides, 8% amphibole, 1% phyllosilicates	400	6600	3630	1.82	0.28	83000	42000
+118-735B-52R-4,69-71	3.17	0.6	Fe-Ti Oxide Gabbro, 38% plagioclase, 38% clinopyroxene, 15% oxides, 8% amphibole, 1% phyllosilicates	600	6640	3640	1.83	0.29	84000	42000
+118-735B-52R-4,69-71	3.17	0.6	Fe-Ti Oxide Gabbro, 38% plagioclase, 38% clinopyroxene, 15% oxides, 8% amphibole, 1% phyllosilicates	800	6670	3650	1.83	0.29	85000	42000
+118-735B-52R-4,69-71	3.17	0.6	Fe-Ti Oxide Gabbro, 38% plagioclase, 38% clinopyroxene, 15% oxides, 8% amphibole, 1% phyllosilicates	1000	6690	3650	1.83	0.29	86000	42000
+118-735B-52R-4,69-71	3.17	0.6	Fe-Ti Oxide Gabbro, 38% plagioclase, 38% clinopyroxene, 15% oxides, 8% amphibole, 1% phyllosilicates	1500	6740	3670	1.84	0.29	87000	43000
+118-735B-52R-4,69-71	3.17	0.6	Fe-Ti Oxide Gabbro, 38% plagioclase, 38% clinopyroxene, 15% oxides, 8% amphibole, 1% phyllosilicates	2000	6780	3680	1.84	0.29	89000	43000
+118-735B-55R-4,130-133	3.24	0.2	Foliated Fe-Ti Oxide Gabbro, 4% olivine, 55% plagioclase, 25% clinopyroxene, 10 oxides, 5% amphibole, 1% orthopyroxene	100	6570	3630	1.81	0.28	83000	43000
+118-735B-55R-4,130-133	3.24	0.2	Foliated Fe-Ti Oxide Gabbro, 4% olivine, 55% plagioclase, 25% clinopyroxene, 10 oxides, 5% amphibole, 1% orthopyroxene	200	6620	3650	1.81	0.28	84000	43000
+118-735B-55R-4,130-133	3.24	0.2	Foliated Fe-Ti Oxide Gabbro, 4% olivine, 55% plagioclase, 25% clinopyroxene, 10 oxides, 5% amphibole, 1% orthopyroxene	400	6670	3680	1.81	0.28	86000	44000
+118-735B-55R-4,130-133	3.24	0.2	Foliated Fe-Ti Oxide Gabbro, 4% olivine, 55% plagioclase, 25% clinopyroxene, 10 oxides, 5% amphibole, 1% orthopyroxene	600	6710	3690	1.82	0.28	87000	44000
+118-735B-55R-4,130-133	3.24	0.2	Foliated Fe-Ti Oxide Gabbro, 4% olivine, 55% plagioclase, 25% clinopyroxene, 10 oxides, 5% amphibole, 1% orthopyroxene	800	6730	3710	1.82	0.28	88000	45000
+118-735B-55R-4,130-133	3.24	0.2	Foliated Fe-Ti Oxide Gabbro, 4% olivine, 55% plagioclase, 25% clinopyroxene, 10 oxides, 5% amphibole, 1% orthopyroxene	1000	6750	3720	1.82	0.28	88000	45000
+118-735B-55R-4,130-133	3.24	0.2	Foliated Fe-Ti Oxide Gabbro, 4% olivine, 55% plagioclase, 25% clinopyroxene, 10 oxides, 5% amphibole, 1% orthopyroxene	1500	6780	3730	1.82	0.28	89000	45000
+118-735B-55R-4,130-133	3.24	0.2	Foliated Fe-Ti Oxide Gabbro, 4% olivine, 55% plagioclase, 25% clinopyroxene, 10 oxides, 5% amphibole, 1% orthopyroxene	2000	6810	3740	1.82	0.28	90000	45000
+118-735B-57R-2,134-138	2.91	0.3	Olivine-bearing Gabbro, 2% olivine, 54% plagioclase, 15% clinopyroxene, 16% amphibole, 12% phyllosilicates, 1% oxides	100	6550	3750	1.75	0.26	70000	41000
+118-735B-57R-2,134-138	2.91	0.3	Olivine-bearing Gabbro, 2% olivine, 54% plagioclase, 15% clinopyroxene, 16% amphibole, 12% phyllosilicates, 1% oxides	200	6610	3770	1.75	0.26	72000	41000
+118-735B-57R-2,134-138	2.91	0.3	Olivine-bearing Gabbro, 2% olivine, 54% plagioclase, 15% clinopyroxene, 16% amphibole, 12% phyllosilicates, 1% oxides	400	6680	3790	1.76	0.26	74000	42000
+118-735B-57R-2,134-138	2.91	0.3	Olivine-bearing Gabbro, 2% olivine, 54% plagioclase, 15% clinopyroxene, 16% amphibole, 12% phyllosilicates, 1% oxides	600	6730	3810	1.77	0.26	76000	42000
+118-735B-57R-2,134-138	2.91	0.3	Olivine-bearing Gabbro, 2% olivine, 54% plagioclase, 15% clinopyroxene, 16% amphibole, 12% phyllosilicates, 1% oxides	800	6760	3820	1.77	0.27	77000	42000
+118-735B-57R-2,134-138	2.91	0.3	Olivine-bearing Gabbro, 2% olivine, 54% plagioclase, 15% clinopyroxene, 16% amphibole, 12% phyllosilicates, 1% oxides	1000	6780	3820	1.77	0.27	77000	43000
+118-735B-57R-2,134-138	2.91	0.3	Olivine-bearing Gabbro, 2% olivine, 54% plagioclase, 15% clinopyroxene, 16% amphibole, 12% phyllosilicates, 1% oxides	1500	6820	3840	1.78	0.27	78000	43000
+118-735B-57R-2,134-138	2.91	0.3	Olivine-bearing Gabbro, 2% olivine, 54% plagioclase, 15% clinopyroxene, 16% amphibole, 12% phyllosilicates, 1% oxides	2000	6840	3840	1.78	0.27	79000	43000
+118-735B-58R-2,33-35	2.84	0.1	Olivine Gabbro, 10% olivine, 77% plagioclase, 6% amphibole, 5% clinopyroxene, 2% oxides	100	6650	3650	1.82	0.28	75000	38000
+118-735B-58R-2,33-35	2.84	0.1	Olivine Gabbro, 10% olivine, 77% plagioclase, 6% amphibole, 5% clinopyroxene, 2% oxides	200	6710	3680	1.82	0.29	77000	38000
+118-735B-58R-2,33-35	2.84	0.1	Olivine Gabbro, 10% olivine, 77% plagioclase, 6% amphibole, 5% clinopyroxene, 2% oxides	400	6780	3720	1.83	0.29	78000	39000
+118-735B-58R-2,33-35	2.84	0.1	Olivine Gabbro, 10% olivine, 77% plagioclase, 6% amphibole, 5% clinopyroxene, 2% oxides	600	6820	3740	1.83	0.29	79000	40000
+118-735B-58R-2,33-35	2.84	0.1	Olivine Gabbro, 10% olivine, 77% plagioclase, 6% amphibole, 5% clinopyroxene, 2% oxides	800	6850	3750	1.82	0.29	80000	40000
+118-735B-58R-2,33-35	2.84	0.1	Olivine Gabbro, 10% olivine, 77% plagioclase, 6% amphibole, 5% clinopyroxene, 2% oxides	1000	6870	3760	1.82	0.29	80000	40000
+118-735B-58R-2,33-35	2.84	0.1	Olivine Gabbro, 10% olivine, 77% plagioclase, 6% amphibole, 5% clinopyroxene, 2% oxides	1500	6900	3780	1.82	0.29	81000	41000
+118-735B-58R-2,33-35	2.84	0.1	Olivine Gabbro, 10% olivine, 77% plagioclase, 6% amphibole, 5% clinopyroxene, 2% oxides	2000	6920	3790	1.82	0.29	82000	41000
+118-735B-63R-6,28-30	2.91	0.3	Amphibolitized Olivine Gabbro, 4% olivine, 50% plagioclase, 35% amphibole, 10% clinopyroxene, phyllosilicates < 1%, oxides < 1%	100	6680	3740	1.78	0.27	75000	41000
+118-735B-63R-6,28-30	2.91	0.3	Amphibolitized Olivine Gabbro, 4% olivine, 50% plagioclase, 35% amphibole, 10% clinopyroxene, phyllosilicates < 1%, oxides < 1%	200	6740	3770	1.79	0.27	77000	41000
+118-735B-63R-6,28-30	2.91	0.3	Amphibolitized Olivine Gabbro, 4% olivine, 50% plagioclase, 35% amphibole, 10% clinopyroxene, phyllosilicates < 1%, oxides < 1%	400	6810	3810	1.79	0.27	79000	42000
+118-735B-63R-6,28-30	2.91	0.3	Amphibolitized Olivine Gabbro, 4% olivine, 50% plagioclase, 35% amphibole, 10% clinopyroxene, phyllosilicates < 1%, oxides < 1%	600	6860	3830	1.79	0.27	80000	43000
+118-735B-63R-6,28-30	2.91	0.3	Amphibolitized Olivine Gabbro, 4% olivine, 50% plagioclase, 35% amphibole, 10% clinopyroxene, phyllosilicates < 1%, oxides < 1%	800	6890	3850	1.79	0.27	81000	43000
+118-735B-63R-6,28-30	2.91	0.3	Amphibolitized Olivine Gabbro, 4% olivine, 50% plagioclase, 35% amphibole, 10% clinopyroxene, phyllosilicates < 1%, oxides < 1%	1000	6910	3860	1.79	0.27	81000	43000
+118-735B-63R-6,28-30	2.91	0.3	Amphibolitized Olivine Gabbro, 4% olivine, 50% plagioclase, 35% amphibole, 10% clinopyroxene, phyllosilicates < 1%, oxides < 1%	1500	6960	3880	1.79	0.27	83000	44000
+118-735B-63R-6,28-30	2.91	0.3	Amphibolitized Olivine Gabbro, 4% olivine, 50% plagioclase, 35% amphibole, 10% clinopyroxene, phyllosilicates < 1%, oxides < 1%	2000	6990	3890	1.80	0.28	84000	44000
+118-735B-69R-4,138-140	2.97	0.2	Olivine Gabbro, 8% olivine, 55% plagioclase, 35% clinopyroxene, 2% amphibole, oxides < 1%	100	6860	3860	1.78	0.27	81000	44000
+118-735B-69R-4,138-140	2.97	0.2	Olivine Gabbro, 8% olivine, 55% plagioclase, 35% clinopyroxene, 2% amphibole, oxides < 1%	200	6970	3900	1.79	0.27	84000	45000
+118-735B-69R-4,138-140	2.97	0.2	Olivine Gabbro, 8% olivine, 55% plagioclase, 35% clinopyroxene, 2% amphibole, oxides < 1%	400	7120	3950	1.80	0.28	89000	46000
+118-735B-69R-4,138-140	2.97	0.2	Olivine Gabbro, 8% olivine, 55% plagioclase, 35% clinopyroxene, 2% amphibole, oxides < 1%	600	7190	3980	1.81	0.28	91000	47000
+118-735B-69R-4,138-140	2.97	0.2	Olivine Gabbro, 8% olivine, 55% plagioclase, 35% clinopyroxene, 2% amphibole, oxides < 1%	800	7240	4000	1.81	0.28	92000	47000
+118-735B-69R-4,138-140	2.97	0.2	Olivine Gabbro, 8% olivine, 55% plagioclase, 35% clinopyroxene, 2% amphibole, oxides < 1%	1000	7260	4010	1.81	0.28	93000	48000
+118-735B-69R-4,138-140	2.97	0.2	Olivine Gabbro, 8% olivine, 55% plagioclase, 35% clinopyroxene, 2% amphibole, oxides < 1%	1500	7300	4030	1.81	0.28	94000	48000
+118-735B-69R-4,138-140	2.97	0.2	Olivine Gabbro, 8% olivine, 55% plagioclase, 35% clinopyroxene, 2% amphibole, oxides < 1%	2000	7310	4040	1.81	0.28	94000	49000
+118-735B-83R-4,95-97	2.98	0.2	Porphroclastic Olivine Metagabbro, 15% olivine, 50% plagioclase, 32% clinopyroxene, 2% amphibole, 1% oxides, tracee phyllosilicates	100	6710	3790	1.77	0.27	77000	43000
+118-735B-83R-4,95-97	2.98	0.2	Porphroclastic Olivine Metagabbro, 15% olivine, 50% plagioclase, 32% clinopyroxene, 2% amphibole, 1% oxides, tracee phyllosilicates	200	6840	3830	1.78	0.27	81000	44000
+118-735B-83R-4,95-97	2.98	0.2	Porphroclastic Olivine Metagabbro, 15% olivine, 50% plagioclase, 32% clinopyroxene, 2% amphibole, 1% oxides, tracee phyllosilicates	400	6990	3880	1.80	0.28	86000	45000
+118-735B-83R-4,95-97	2.98	0.2	Porphroclastic Olivine Metagabbro, 15% olivine, 50% plagioclase, 32% clinopyroxene, 2% amphibole, 1% oxides, tracee phyllosilicates	600	7080	3910	1.81	0.28	89000	46000
+118-735B-83R-4,95-97	2.98	0.2	Porphroclastic Olivine Metagabbro, 15% olivine, 50% plagioclase, 32% clinopyroxene, 2% amphibole, 1% oxides, tracee phyllosilicates	800	7150	3940	1.82	0.28	91000	46000
+118-735B-83R-4,95-97	2.98	0.2	Porphroclastic Olivine Metagabbro, 15% olivine, 50% plagioclase, 32% clinopyroxene, 2% amphibole, 1% oxides, tracee phyllosilicates	1000	7190	3950	1.82	0.28	92000	47000
+118-735B-83R-4,95-97	2.98	0.2	Porphroclastic Olivine Metagabbro, 15% olivine, 50% plagioclase, 32% clinopyroxene, 2% amphibole, 1% oxides, tracee phyllosilicates	1500	7260	3980	1.82	0.29	94000	47000
+118-735B-83R-4,95-97	2.98	0.2	Porphroclastic Olivine Metagabbro, 15% olivine, 50% plagioclase, 32% clinopyroxene, 2% amphibole, 1% oxides, tracee phyllosilicates	2000	7300	4000	1.83	0.29	96000	48000

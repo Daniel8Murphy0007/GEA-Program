@@ -1,0 +1,17 @@
+{
+  "entry": "gisp2_greenland_temperature",
+  "kind": "REAL_TEMPERATURE_PROFILE_COMPLETE",
+  "well": "GISP2 (Greenland Ice Sheet Project 2) borehole, Summit, Greenland - one of the deep ice-core boreholes; USGS precision temperature log (Clow), the profile whose shape records the last glacial period",
+  "operator_on_log": "USGS temperature logging (G. D. Clow); GISP2 drilling program",
+  "source_database": "Greenland and Canadian Arctic ice temperature profiles database (GEUS): Lokkegaard et al. 2023, The Cryosphere 17, 3829-3845, doi:10.5194/tc-17-3829-2023; data DOI 10.22008/FK2/3BVF9V (GEUS Dataverse); redistributed in the public GEUS-Glaciology-and-Climate/greenland_ice_borehole_temperature_profiles GitHub repository (boreholes/GISP2/data.csv)",
+  "source_url": "https://raw.githubusercontent.com/GEUS-Glaciology-and-Climate/greenland_ice_borehole_temperature_profiles/main/boreholes/GISP2/data.csv",
+  "license": "open science database (Copernicus/The Cryosphere CC-BY publication; GEUS Dataverse); attribution to Lokkegaard et al. 2023, Mankoff et al. 2022 (10.22008/FK2/3BVF9V), and the GISP2/USGS measurement lineage (Clow)",
+  "fetch_date": "2026-08-24",
+  "fetch_method": "read-only HTTPS fetch (text/plain) - the COMPLETE file fit within the fetch window",
+  "coverage": "COMPLETE FILE: all 598 stations, 72.61-3053.15 m (surface firn to bedrock), verbatim. Transcription integrity: endpoints, row count, the -32.1345 degC minimum at 1495 m, and multiple sampled values are gate-verified; the source URL serves the identical file for independent re-verification.",
+  "curves": ["d (depth, m)", "t (temperature, degC) - CONTINUOUS MEASURED TEMPERATURE, 5 m stations"],
+  "temperature_data": "THE TEMPERATURE-CURVE PRIZE: the catalogue's first continuous MEASURED temperature-vs-depth profile - 598 real stations from -31.41 degC near surface through the -32.13 degC glacial-memory minimum (1495 m) to -9.29 degC at the bed. Exercises the converter's TOP tier (MEASURED_CURVES) with real data for the first time.",
+  "dialect_notes": "temperature-profile CSV (d,t header) - the catalogue's first non-LAS entry; ingested via read_temperature_csv into a depth-indexed LiveStream with a TEMP channel (DEGC), then las_to_profile hits the MEASURED_CURVES tier (C-to-F conversion branch).",
+  "purpose": "sixth catalogue entry - the MEASURED_CURVES tier exercised with real data; sixth region (Greenland); ice borehole disclosed as such (pressure conversion remains DERIVED hydrostatic, labeled)",
+  "verified": "598 stations; endpoints + minimum verbatim; MEASURED_CURVES derivation with degC->degF conversion; gate-pinned"
+}

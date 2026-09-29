@@ -1,0 +1,22 @@
+{
+  "entry": "ktb_hb_rockmech_compress",
+  "kind": "REAL_ROCK_MECHANICS_COMPLETE",
+  "well": "KTB-Oberpfalz HB/HB1a/HB1g (Main Hole), German Continental Deep Drilling Program - same well as entries 12 (temperature), 14 (trajectory), 15 (BHGM density)",
+  "operator_on_log": "KTB field laboratory rock-mechanics programme: uniaxial compressive-strength tests on Main Hole cores (1991-1993), with E-modulus, rock type, foliation dip, sample names/sections and sampling timestamps as recorded",
+  "source_database": "KTB Information System (ICDP legacy data site) - rockmech/compress/cores/hb1 ('COMPRESSIVE STRENGTH OF CORES OF THE KTB MAIN HOLE') - the companion to entry 16's VB table",
+  "source_url": "https://data.icdp-online.org/sites/ktb/data/rockmech/compress/cores/hb1.htm",
+  "license": "ICDP/GFZ scientific data, freely accessible via the public KTB Information System. Attribution: KTB / GFZ / Kueck et al. (2021) KTB data family",
+  "fetch_date": "2026-08-25",
+  "fetch_method": "read-only HTTPS fetch of the legacy page (text/html rendering of the 2.5 KB ASCII table) - the COMPLETE file fit within the fetch window",
+  "coverage": "COMPLETE FILE: all 21 samples verbatim, 4,151.40 -> 7,400.30 m - the Main Hole's sparse coring programme (the HB was mostly cutting-drilled; core is rare and deep). 20 of 21 samples are amphibolite (AMP, UCS 96.6-307.9 MPa); one MUS-GNS at 5,282 m (49.1 MPa, dip 60 deg).",
+  "curves": [
+    "DEPTH (m)",
+    "NAME OF SAMPLE / SECTION / DATE OF SAMPLING / ROCK TYPE (strings, verbatim in file)",
+    "COMPRESSIVE STRENGTH (MPa)",
+    "E_MODUL (GPa)",
+    "DIP OF FOLIATION (deg, I2)"
+  ],
+  "rendering_ambiguity_disclosure": "Same TAB-collapse ambiguity as entry 16, same handling: trailing tokens assigned by DECLARED TYPE only; trailing integers that could be either an integer-valued E-modulus or a dip are REFUSED (NaN + raw token in a per-row quality flag). Source URL carried for byte-level resolution.",
+  "purpose": "seventeenth catalogue entry - completes the KTB STRENGTH PAIR (Main + Pilot): the gate now compares the two holes' rock strength live (deep HB amphibolites vs the VB's mixed weak-gneiss/strong-amphibolite section) and extends the strength-vs-overburden count to 4.2-7.4 km depths, where even 100+ MPa amphibolites begin to fall below the density-derived overburden - the mechanical squeeze of true depth, counted from data",
+  "verified": "21 samples; endpoints and extremes; single-gneiss row; refused-ambiguous count; HB-vs-VB strength comparison and deep strength-vs-overburden count gate-pinned; source URL serves the identical table for independent re-verification"
+}

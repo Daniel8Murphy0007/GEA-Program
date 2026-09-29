@@ -1,0 +1,27 @@
+{
+  "entry": "odp_1274a_mantle_peridotite_mad",
+  "kind": "REAL_PHYSICAL_PROPERTIES_COMPLETE",
+  "well": "ODP Hole 209-1274A, MID-ATLANTIC RIDGE 15deg 20min Fracture Zone area (15.6478 N, -46.6764 E; seafloor -3,939.8 m) - Leg 209 (2003), JOIDES Resolution; 155.8 m penetration, 22.2% recovery of SERPENTINIZED MANTLE PERIDOTITE (harzburgite/dunite), the residual mantle exposed on the seafloor at a magma-starved slow-spreading ridge",
+  "operator_on_log": "ODP Leg 209 shipboard moisture-and-density programme (Blum 1997 handbook, method C gas pycnometry on every sample); Kelemen, Kikawa & Miller co-chiefs; dataset via the JANUS database",
+  "source_database": "PANGAEA, dataset doi:10.1594/PANGAEA.259148 ('Moisture and density measured on ODP Hole 209-1274A'); JANUS shipboard data (ODP/TAMU 2005); related to Proc. ODP Init. Repts. 209 (doi:10.2973/odp.proc.ir.209.2004)",
+  "source_url": "https://doi.pangaea.de/10.1594/PANGAEA.259148?format=textfile",
+  "license": "Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file's own header. Attribution: Miller/Kelemen/Kikawa/Shipboard Scientific Party / PANGAEA / ODP-JANUS",
+  "fetch_date": "2026-08-26",
+  "fetch_method": "read-only HTTPS fetch of the PANGAEA textfile export - COMPLETE dataset (180 data points = 18 rows x 10 counted parameters; depth is GEOCODE) in one fetch; DOI located by sequential-DOI walk of the leg-ordered JANUS MAD series (Leg 204 at 259099 -> Leg 209 Hole 1271A at 259145 -> 1274A at 259148, three probes)",
+  "coverage": "COMPLETE DATASET: 18 moisture-and-density measurements on serpentinized peridotite cores, 17.79-146.93 mbsf: wet-bulk density 2.444-2.796 g/cm3, dry-bulk 2.344-2.781, GRAIN DENSITY 2.588-2.823 g/cm3 (fresh peridotite would be ~3.3 - the deficit IS the serpentinization), porosity 1.3-9.7%, water contents, void ratio, all method C.",
+  "curves": [
+    "Depth sed [m] (index)",
+    "Depth comp [mcd]",
+    "Water wm/dm [%]",
+    "WBD [g/cm**3]",
+    "DBD [g/cm**3]",
+    "Density grain [g/cm**3]",
+    "Poros [% vol]",
+    "Void Ratio",
+    "Method comm (C)",
+    "Sample label (verbatim, quality)"
+  ],
+  "source_anomaly_disclosure": "No archival anomalies detected: all five closure identities (WBD from porosity+grain, DBD from porosity+grain, void ratio from porosity, and both water contents from WBD/DBD) close on all 18 rows within rounding - the cleanest fully-interlocked table in the catalogue to date. Sampling gaps (e.g. 104 -> 146 mbsf) reflect the hole's 22.2% hard-rock recovery, preserved as-is.",
+  "purpose": "twenty-eighth catalogue entry - the MID-ATLANTIC RIDGE joins as region SIXTEEN and THE LADDER GOES BELOW THE CRUST: after sediments -> pillow basalts (504B Leg 69) -> sheeted dikes (504B Leg 111) -> layer-3 gabbro (735B Leg 118), Hole 1274A adds SERPENTINIZED MANTLE PERIDOTITE - the catalogue now spans the full oceanic lithosphere section from seafloor mud to the mantle; and the dataset is a five-identity self-audit in which every derived column closes against every other on every row",
+  "verified": "18 rows / 180 counted cells against the header Size declaration; WBD = phi*rho_w + (1-phi)*rho_grain and DBD = (1-phi)*rho_grain and e = phi/(1-phi) and water contents (WBD-DBD)/WBD, (WBD-DBD)/DBD all re-derived on all 18 rows; grain-density serpentinization band 2.588-2.823 pinned; endpoints; gate-pinned; source URL serves the identical dataset"
+}

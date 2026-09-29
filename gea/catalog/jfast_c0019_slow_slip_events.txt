@@ -1,0 +1,35 @@
+/* DATA DESCRIPTION:
+Citation:	Ikari, Matt J; Ito, Yoshihiro; Ujiie, Kohtaro; Kopf, Achim J (2015): Slow slip event measurements of IODP Hole 343-C0019 [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.858800, 
+	In supplement to: Ikari, MJ et al. (2015): Spectrum of slip behaviour in Tohoku fault zone samples at plate tectonic slip rates. Nature Geoscience, 8(11), 870-874, https://doi.org/10.1038/ngeo2547
+Project(s):	Integrated Ocean Drilling Program / International Ocean Discovery Program (IODP) (URI: https://www.iodp.org/)
+Coverage:	LATITUDE: 37.938905 * LONGITUDE: 143.913473
+	DATE/TIME START: 2012-05-11T00:00:00 * DATE/TIME END: 2012-05-24T00:00:00
+	MINIMUM ELEVATION: -6887.5 m * MAXIMUM ELEVATION: -6887.5 m
+Event(s):	343-C0019E * LATITUDE: 37.938905 * LONGITUDE: 143.913473 * DATE/TIME START: 2012-05-11T00:00:00 * DATE/TIME END: 2012-05-24T00:00:00 * ELEVATION: -6887.5 m * RECOVERY: 53.31 m * CAMPAIGN: Exp343 (Japan Trench Fast Drilling Project) * BASIS: Chikyu (URI: https://en.wikipedia.org/wiki/Chiky%C5%AB) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 21 cores; 137 m cored; 43 % recovered; 707.5 m drilled; 844.5 m penetrated
+Parameter(s):	Experiment (Exp) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de)
+	Sample code/label (Sample label) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de)
+	Sample comment (Sample comment) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de)
+	Comment (Comment) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de)
+	Time in seconds [s] (Time sec) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de) * COMMENT: loadup time
+	Displacement [mm] (DIS) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de) * COMMENT: loadup
+	Shear stress [kPa] (Tau) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de) * COMMENT: increase
+	Friction coefficient (µ) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de) * COMMENT: increase
+	Shear stress [kPa] (Tau) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de) * COMMENT: drop
+	Friction coefficient (µ) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de) * COMMENT: drop
+	Shear strength, maximum [kPa] (Shear str max) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de)
+	Percentage [%] (Perc) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de) * COMMENT: stress drop
+	Distance [µm] (Distance) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de) * COMMENT: slip
+	Duration [s] (Duration) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de)
+	Sliding velocity [µm/s] (V) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de) * COMMENT: mininum velocity
+	Sliding velocity [µm/s] (V) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de) * COMMENT: maximum velocity
+License:	Creative Commons Attribution 3.0 Unported (CC-BY-3.0) (URI: https://creativecommons.org/licenses/by/3.0/)
+Size:	83 data points
+*/
+Exp	Sample label	Sample comment	Comment	Time sec [s] (loadup time)	DIS [mm] (loadup)	Tau [kPa] (increase)	µ (increase)	Tau [kPa] (drop)	µ (drop)	Shear str max [kPa]	Perc [%] (stress drop)	Distance [µm] (slip)	Duration [s]	V [µm/s] (mininum velocity)	V [µm/s] (maximum velocity)
+B379	343-C0019E-17R-1	intact		74138	0.1866	122.8	0.0017	109.7	0.016	1835.2	5.98	46.7	11510.0	0.0022	0.0032
+B379	343-C0019E-17R-1	intact		50474	0.1231	97.6	0.0136	121.9	0.017	1865.8	6.54	49.0	11606.0	0.0021	0.0079
+B384	343-C0019E-17R-1	intact		19556	0.0408	66.4	0.0009	51.1	0.007	1735.2	2.95	25.3	7310.0	0.0005	0.0039
+B384	343-C0019E-17R-1	intact		49185	0.1284	88.4	0.0123	118.8	0.017	1828.9	6.49	61.9	14580.0	0.0019	0.0063
+B405	343-C0019E-17R-1	powder		65921	0.1582	90.2	0.0127	76.3	0.011	1703.2	4.48	56.3	9107.5	0.0017	0.0065
+B385	343-C0019E-17R-1	powder	*no SSE												
+B525	343-C0019E-17R-1	powder	*no SSE												

@@ -1,0 +1,17 @@
+{
+  "entry": "university_6_17_no1_tx_excerpt",
+  "kind": "REAL_WELL_LOG_EXCERPT",
+  "well": "UNIVERSITY 6-17 NO.1, Wildcat field, Section 17, Reagan County, Texas, USA; API 42-303-34774 (UWI 42303347740000); logged by Halliburton Energy Services 06-21-97 (run TWO, unit from Odessa)",
+  "operator_on_log": "Halliburton Energy Services (service company; University Lands well)",
+  "source_database": "Texas University Lands public well data, distributed as the sample dataset of the public toddheitmann/PetroPy GitHub repository (petrophysics library)",
+  "source_url": "https://raw.githubusercontent.com/toddheitmann/PetroPy/master/petropy/data/42303347740000.las",
+  "license": "PetroPy repository is MIT-licensed; underlying log is a University Lands/Texas public well record; attribution to PetroPy and API 42-303-34774",
+  "fetch_date": "2026-08-24",
+  "fetch_method": "read-only HTTPS fetch (text/plain), size-capped by the fetch tool",
+  "coverage": "VERBATIM EXCERPT: full header (condensed to populated fields, all values verbatim; blank admin lines omitted and disclosed here) + data rows 2747.0-2771.5 ft (50 rows, run TWO sonic interval: C13/C24/DT/SPHI recorded, other curves NULL in this interval). Full file spans 2587.0-9110.0 ft at 0.5 ft step.",
+  "curves": ["DEPT.F", "CALI.INCH", "DPHI.DECP", "GR.GAPI", "NPHI.DECP", "PE.B/E", "RHOB.G/C3", "PHIX.DECP", "C13.INCH", "C24.INCH", "DT.US/F", "SPHI.DECP", "GR3", "ILD.OHMM", "ILM.OHMM", "SGRD.OHMM", "SP.MV"],
+  "temperature_data": "REAL MEASURED ANCHORS in the header: BHT = 141.0 DEGF at TD 9097.0 ft (MRT identical); mud sample temperature 74.0 DEGF. Second real BHT in the catalogue - and the first in DEGF, exercising the converter's no-conversion unit branch.",
+  "dialect_notes": "LAS VERSION 1.2 - the catalogue's THIRD LAS version dialect (after 2.0 unwrapped and 2.0 wrapped); depths in FEET (first imperial-depth well, converter depth_unit='ft' path); leading-space header lines; 17 curves.",
+  "purpose": "fourth real catalogue well - Texas/Permian-region (Energy One home turf); LAS 1.2 + imperial-depth + DEGF-BHT coverage",
+  "verified": "ingests via uqff_ports.read_las; BHT/MRT/TDL captured to meta; DERIVED_FROM_MEASURED_BHT profile in feet; gate-pinned"
+}

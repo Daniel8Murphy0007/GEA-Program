@@ -1,0 +1,68 @@
+/* DATA DESCRIPTION:
+Citation:	Magenheim, Andrew J; Spivack, Arthur J; Alt, Jeffrey C; Bayhurst, Gregory; Chan, Lui-Heung; Zuleger, Evelyn; Gieskes, Joris M (1995): (Table 3) Geochemistry of borehole fluids of ODP Hole 137-504B [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.805957,
+	Supplement to: Magenheim, AJ et al. (1995): Borehole fluid chemistry in Hole 504B, Leg 137: formation water or in-situ reaction? In: Erzinger, J; Becker, K; Dick, HJB; Stokking, LB (eds.), Proceedings of the Ocean Drilling Program, Scientific Results, College Station, TX (Ocean Drilling Program), 137, 141-152, https://doi.org/10.2973/odp.proc.sr.137140.024.1995
+Abstract:	Circulation of seawater through basaltic basement for several million years after crustal emplacement has been inferred from studies of surface heat flow, and may play a significant role in the exchange of elements between the oceanic crust and seawater. Without direct observation of the fluid chemistry, interpretations regarding the extent and timing of this exchange must be based on the integrated signal of alteration found in sampled basalts. Much interest has thus been expressed in obtaining and analyzing fluids directly from basaltic formations.
+	It has been proposed that open oceanic boreholes can be used as oceanic groundwater wells to obtain fluids that are circulating within the formation. Water samples were collected from the open borehole in Hole 504B prior to drilling operations on Leg 137, with the original intention of collecting formation fluids from the surrounding basaltic rocks. Past results have yielded ambiguous conclusions as to the origin of the fluids recovered-specifically, whether or not the fluids were true formation fluids or merely the result of reaction of seawater in the borehole environment.
+	The chemistry of eight borehole fluid samples collected during Leg 137 is discussed in this paper. Large changes in major, minor, and isotopic compositions relative to unaltered seawater were observed in the borehole fluids. Compositional changes increased with depth in the borehole. The samples exhibit the effect of simple mixing of seawater, throughout the borehole, with a single reacted fluid component. Analysis and interpretation of the results from Leg 137 in light of past results suggest that the chemical signals observed may originate predominantly from reaction with basaltic rubble residing at the bottom of the hole during the interim between drilling legs. Although this endeavor apparently did not recover formation waters, information on the nature of reaction between seawater and basalt at the prevalent temperatures in Hole 504B (>160°C) has been gained that can be related to reconstruction of the alteration history of the oceanic crust. Isotopic analyses allow calculation of element-specific water/rock mass ratios (Li and Sr) and are related to the extent of chemical exchange between the borehole fluids and basalt.
+Project(s):	Ocean Drilling Program (ODP) (URI: https://www-odp.tamu.edu:443/)
+Coverage:	LATITUDE: 1.226900 * LONGITUDE: -83.730300
+	DATE/TIME START: 1991-04-07T13:10:00 * DATE/TIME END: 1991-04-29T01:00:00
+	MINIMUM DEPTH, sediment/rock: 350 m * MAXIMUM DEPTH, sediment/rock: 1550 m
+Event(s):	137-504B * LATITUDE: 1.226900 * LONGITUDE: -83.730300 * DATE/TIME START: 1991-04-07T13:10:00 * DATE/TIME END: 1991-04-29T01:00:00 * ELEVATION: -3474.0 m * PENETRATION: 1621.5 m * RECOVERY: 8.77 m * LOCATION: North Pacific Ocean * CAMPAIGN: Leg137 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 8 cores; 48.6 m cored; 0 m drilled; 18 % recovery
+Parameter(s):	Sample code/label (Sample label) * PI: Magenheim, Andrew J
+	DEPTH, sediment/rock [m] (Depth sed) * GEOCODE * COMMENT: mbsf
+	pH (pH) * PI: Magenheim, Andrew J * METHOD/DEVICE: pH electrode (Micro-pH; Aquabase, Kanagawa, Japan)
+	Alkalinity, total [mmol(Eq)/l] (AT) * PI: Magenheim, Andrew J * METHOD/DEVICE: Alkalinity titration, ph-controlled (URI: http://www.marum.de/en/Alkalinity_pH.html)
+	Salinity (Sal) * PI: Magenheim, Andrew J * METHOD/DEVICE: Refractometer, Goldberg
+	Chloride [mmol/l] (Cl-) * PI: Magenheim, Andrew J * METHOD/DEVICE: Potentiometric
+	Magnesium ion [mmol/l] (Mg2+) * PI: Magenheim, Andrew J * METHOD/DEVICE: Titration
+	Calcium ion [mmol/l] (Ca2+) * PI: Magenheim, Andrew J * METHOD/DEVICE: EGTA titration (Tsunogai et al., 1968) (URI: https://doi.org/10.1016/0039-9140(68)80247-4%C2%A0)
+	Sulfate [mmol/l] ([SO4]2-) * PI: Magenheim, Andrew J * METHOD/DEVICE: Colorimetry
+	Silicic acid [µmol/l] (Si(OH)4) * PI: Magenheim, Andrew J * METHOD/DEVICE: Colorimetry
+	Sodium ion [mmol/l] (Na+) * PI: Magenheim, Andrew J * METHOD/DEVICE: Atomic emission spectroscopy (AES)
+	Potassium ion [mmol/l] (K+) * PI: Magenheim, Andrew J * METHOD/DEVICE: Atomic emission spectroscopy (AES)
+	Strontium [µmol/l] (Sr) * PI: Magenheim, Andrew J * METHOD/DEVICE: Atomic emission spectroscopy (AES)
+	Lithium [µmol/l] (Li) * PI: Magenheim, Andrew J * METHOD/DEVICE: Atomic emission spectroscopy (AES)
+	Ammonium [µmol/l] ([NH4]+) * PI: Magenheim, Andrew J * METHOD/DEVICE: Colorimetry
+	Nitrate [µmol/l] ([NO3]-) * PI: Magenheim, Andrew J * METHOD/DEVICE: Colorimetry
+	Nitrite [µmol/l] ([NO2]-) * PI: Magenheim, Andrew J * METHOD/DEVICE: Colorimetry
+	Phosphate [µmol/l] ([PO4]3-) * PI: Magenheim, Andrew J * METHOD/DEVICE: Colorimetry
+	Bromine [µmol/l] (Br) * PI: Magenheim, Andrew J * METHOD/DEVICE: Colorimetry
+	Iodine [µmol/l] (I) * PI: Magenheim, Andrew J * METHOD/DEVICE: Colorimetry
+	Iron [µmol/l] (Fe) * PI: Magenheim, Andrew J * METHOD/DEVICE: Atomic emission spectroscopy (AES)
+	Manganese [µmol/l] (Mn) * PI: Magenheim, Andrew J * METHOD/DEVICE: Atomic emission spectroscopy (AES)
+	Boron [µmol/l] (B) * PI: Magenheim, Andrew J * METHOD/DEVICE: Isotope dilution inductively coupled plasma mass spectrometry (URI: https://doi.org/10.1016/S0009-2541(97)00091-0)
+	δ11B, standard deviation [±] (δ11B std dev) * PI: Magenheim, Andrew J * METHOD/DEVICE: Thermal Ionization Mass Spectrometry (TIMS)
+	δ34S [‰ CDT] (δ34S) * PI: Magenheim, Andrew J * METHOD/DEVICE: Isotope ratio mass spectrometry (URI: https://en.wikipedia.org/wiki/Isotope_ratio_mass_spectrometry)
+	Helium-3/Helium-4 ratio [10**-4] (3He/4He) * PI: Magenheim, Andrew J
+	δ18O, water [‰ SMOW] (δ18O H2O) * PI: Magenheim, Andrew J * METHOD/DEVICE: Isotope ratio mass spectrometry (URI: https://en.wikipedia.org/wiki/Isotope_ratio_mass_spectrometry)
+	δ Deuterium, water [‰ SMOW] (δD H2O) * PI: Magenheim, Andrew J * METHOD/DEVICE: Isotope ratio mass spectrometry (URI: https://en.wikipedia.org/wiki/Isotope_ratio_mass_spectrometry)
+	δ13C [‰ PDB] (δ13C) * PI: Magenheim, Andrew J * METHOD/DEVICE: Isotope ratio mass spectrometry (URI: https://en.wikipedia.org/wiki/Isotope_ratio_mass_spectrometry)
+	Strontium-87/Strontium-86 ratio (87Sr/86Sr) * PI: Magenheim, Andrew J * METHOD/DEVICE: Thermal Ionization Mass Spectrometry (TIMS)
+	δ6Li [‰] (δ6Li) * PI: Magenheim, Andrew J * METHOD/DEVICE: Thermal Ionization Mass Spectrometry (TIMS)
+	Lanthanum [µg/kg] (La) * PI: Magenheim, Andrew J * METHOD/DEVICE: Inductively coupled plasma - mass spectrometry (ICP-MS)
+	Cerium [µg/kg] (Ce) * PI: Magenheim, Andrew J * METHOD/DEVICE: Inductively coupled plasma - mass spectrometry (ICP-MS)
+	Praseodymium [mg/kg] (Pr) * PI: Magenheim, Andrew J * METHOD/DEVICE: Inductively coupled plasma - mass spectrometry (ICP-MS)
+	Neodymium [mg/kg] (Nd) * PI: Magenheim, Andrew J * METHOD/DEVICE: Inductively coupled plasma - mass spectrometry (ICP-MS)
+	Samarium [mg/kg] (Sm) * PI: Magenheim, Andrew J * METHOD/DEVICE: Inductively coupled plasma - mass spectrometry (ICP-MS)
+	Europium [mg/kg] (Eu) * PI: Magenheim, Andrew J * METHOD/DEVICE: Inductively coupled plasma - mass spectrometry (ICP-MS)
+	Gadolinium [mg/kg] (Gd) * PI: Magenheim, Andrew J * METHOD/DEVICE: Inductively coupled plasma - mass spectrometry (ICP-MS)
+	Terbium [mg/kg] (Tb) * PI: Magenheim, Andrew J * METHOD/DEVICE: Inductively coupled plasma - mass spectrometry (ICP-MS)
+	Dysprosium [mg/kg] (Dy) * PI: Magenheim, Andrew J * METHOD/DEVICE: Inductively coupled plasma - mass spectrometry (ICP-MS)
+	Holmium [mg/kg] (Ho) * PI: Magenheim, Andrew J * METHOD/DEVICE: Inductively coupled plasma - mass spectrometry (ICP-MS)
+	Erbium [mg/kg] (Er) * PI: Magenheim, Andrew J * METHOD/DEVICE: Inductively coupled plasma - mass spectrometry (ICP-MS)
+	Thulium [mg/kg] (Tm) * PI: Magenheim, Andrew J * METHOD/DEVICE: Inductively coupled plasma - mass spectrometry (ICP-MS)
+	Ytterbium [mg/kg] (Yb) * PI: Magenheim, Andrew J * METHOD/DEVICE: Inductively coupled plasma - mass spectrometry (ICP-MS)
+	Lutetium [mg/kg] (Lu) * PI: Magenheim, Andrew J * METHOD/DEVICE: Inductively coupled plasma - mass spectrometry (ICP-MS)
+License:	Creative Commons Attribution 3.0 Unported (CC-BY-3.0) (URI: https://creativecommons.org/licenses/by/3.0/)
+Size:	318 data points
+*/
+Sample label	Depth sed [m]	pH	AT [mmol(Eq)/l]	Sal	Cl- [mmol/l]	Mg2+ [mmol/l]	Ca2+ [mmol/l]	[SO4]2- [mmol/l]	Si(OH)4 [µmol/l]	Na+ [mmol/l]	K+ [mmol/l]	Sr [µmol/l]	Li [µmol/l]	[NH4]+ [µmol/l]	[NO3]- [µmol/l]	[NO2]- [µmol/l]	[PO4]3- [µmol/l]	Br [µmol/l]	I [µmol/l]	Fe [µmol/l]	Mn [µmol/l]	B [µmol/l]	δ11B std dev [±]	δ34S [‰ CDT]	3He/4He [10**-4]	δ18O H2O [‰ SMOW]	δD H2O [‰ SMOW]	δ13C [‰ PDB]	87Sr/86Sr	δ6Li [‰]	La [µg/kg]	Ce [µg/kg]	Pr [mg/kg]	Nd [mg/kg]	Sm [mg/kg]	Eu [mg/kg]	Gd [mg/kg]	Tb [mg/kg]	Dy [mg/kg]	Ho [mg/kg]	Er [mg/kg]	Tm [mg/kg]	Yb [mg/kg]	Lu [mg/kg]
+BL-001M	350	6.87	2.32	34.2	554.0	54.02	10.7	29.6	19	481	10.5	86.2	37.6	24	23.50	1.38	0.00	821	19.8	338	50	386		20.1	48400	0.44	-3.3	-1.1	0.709212		0.647	0.896	0.000070	0.000214	0.000028	0.000043	0.000041	0.000007	0.000022	0.000003	0.000015	0.000004	0.000014	0.000005
+BL-002M	520	7.20	2.50	34.8	552.9	50.74	13.5	27.0	395	473	10.1	87.6	33.5	4	22.50	2.49	0.29	816	18.0	437	35	416	37.9			0.11	-8.9	-2.1	0.709210		0.887	3.275	0.000183	0.000542	0.000071	0.000017	0.000081	0.000010	0.000025	0.000004	0.000018	0.000004	0.000015	0.000005
+BB-003M	800	7.13	2.10	34.8	553.2	45.29	19.8	23.1	951	462	9.6	81.9	34.4	16	6.25	3.45	0.50	799	50.6	191	59	422			11030	1.58	-4.9		0.708854		0.479	0.609	0.000050	0.000155	0.000022	0.000011	0.000029	0.000005	0.000014	0.000002	0.000011	0.000002	0.000009	0.000003
+BL-004M	950	7.27	2.03	35.2	555.0	53.67	10.3	28.0	27	473	10.1	86.0	32.0	6	38.80	0.23	0.00	829	9.2			407	37.9	20.0	10390	0.38	-5.4	-2.1
+BB-005M	1100	6.82	1.90	34.1	556.9	42.32	22.8	19.9	1213	449	9.4	75.0	39.6	16	8.59	2.82	0.70	819	21.9	202	75	423		19.7	40010	0.02	-6.5	-1.2	0.708627	-24.6	0.604	0.667	0.000077	0.000240	0.000023	0.000021	0.000035	0.000005	0.000015	0.000002	0.000010	0.000002	0.000008	0.000003
+BB-007M	1400	7.08	1.90	34.0	557.8	43.92	21.9	20.2	1066	455	9.5	79.1	37.7	17	8.07	1.44	0.29	813	21.8	180	75	423	38.3	19.7	13010	0.02	-7.6	-1.4	0.708750		0.513	0.593	0.000052	0.000170	0.000025	0.000019	0.000033	0.000005	0.000014	0.000002	0.000010	0.000002	0.000007	0.000003
+BL-008M	1500	5.66	1.74	33.4	564.3	26.88	43.0	6.1	1802	409	8.4	66.3	53.3	35	1.06	0.33	0.70	812	37.0	686	116	381	37.4	19.5		-0.13	-5.2	-2.1	0.707575	-18.0	1.005	0.688	0.000068	0.000215	0.000052	0.000104	0.000070	0.000007	0.000022	0.000004	0.000014	0.000004	0.000016	0.000006
+BB-009M	1550	5.84		33.5	559.9	35.91	31.2	14.4	1728	433	8.9	72.0	46.9	24	2.75	0.25	0.70	821	27.3	237	97	412				-0.05	-5.7	-2.2	0.708240	-22.0	0.472	0.652	0.000060	0.000189	0.000030	0.000029	0.000041	0.000006	0.000020	0.000003	0.000014	0.000003	0.000012	0.000004

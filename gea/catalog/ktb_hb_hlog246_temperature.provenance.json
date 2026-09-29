@@ -1,0 +1,22 @@
+{
+  "entry": "ktb_hb_hlog246_temperature",
+  "kind": "REAL_TEMPERATURE_PROFILE_EXCERPT",
+  "well": "KTB-Oberpfalz HB (Hauptbohrung / Main Hole), German Continental Deep Drilling Program (KTB), Windischeschenbach, Bavaria, GERMANY - the deepest research borehole complex on Earth (HB TD 9,101 m; max logging depth 9,085 m; ~265 degC at TD)",
+  "operator_on_log": "Niedersaechsisches Landesamt f. Bodenforschung (NLfB) logging, KTB program; log HB-246, engineer KUEHR, witness KRUSCHE",
+  "source_database": "KTB Information System (ICDP legacy data site, data.icdp-online.org/sites/ktb) - temperature log hlog246 (KTB-HB, logged 02 Jan 1994); modern canonical citation: Kueck et al. (2021), KTB Borehole Measurements: Temperature Logs, GFZ Data Services, doi:10.5880/GFZ.KTB.BM.temperature",
+  "source_url": "https://data.icdp-online.org/sites/ktb/data/logging/temp/hb1/hlog246.htm",
+  "license": "ICDP/GFZ scientific data, freely accessible via the public KTB Information System; the 2021 GFZ Data Services republication (doi:10.5880/GFZ.KTB.BM.temperature) carries the canonical citation. Attribution: KTB / GFZ German Research Centre for Geosciences / Kueck, Conze, Bram, Draxler, Zoth, Kessels, Haenel (2021)",
+  "fetch_date": "2026-08-25",
+  "fetch_method": "read-only HTTPS fetch of the legacy per-log page (text/html rendering of the ASCII log); the 68 KB source exceeds the fetch window - first 1,589 complete rows captured, trailing partial row at the truncation boundary DROPPED, not guessed. (The GFZ 2021 republication wraps the full ASCII set in a 12 MB ZIP this environment cannot fetch - the legacy per-log route is the text-accessible path.)",
+  "coverage": "EXCERPT: original header block verbatim (remarks, tool, PT1000 sensor, calibration GAIN/OFFS, times, datum) + first 1,589 rows of log HB-246: 7,743.14 -> 7,985.15 m at 0.1524 m (half-foot) sampling. TMP3 169.67 degC at top of capture, 183.58 degC at bottom, in-capture maximum 185.53 degC at 7,974.94 m.",
+  "curves": [
+    "DEPT (depth, m)",
+    "TMP3 (temperature, degC - PT1000 sensor at tool bottom)",
+    "HTEN (head tension, lbf)",
+    "MRES (mud resistivity, ohmm)"
+  ],
+  "disturbance_disclosure": "This is a MUD-TEMPERATURE log, NOT an equilibrium profile: per the in-file header, circulation stopped 09:00 01/01/94 and the logger was at bottom 07:45 02/01/94 (~22.75 h shut-in). Per the GFZ data report (STR 21/03), all KTB single temperature logs reflect the temporary, drilling-disturbed temperature field; the best equilibrium approximation is the 1996-2000 log set (ZIP-bound, not text-accessible). The values here are real measurements of what the sonde read - carried as such, not as formation equilibrium temperature.",
+  "format_disclosure": "Transcribed from the legacy site's HTML rendering of the ASCII log; the '!'-prefixed header lines and space-separated data rows are preserved as rendered (the HTML wrapper markup is not part of the record).",
+  "purpose": "twelfth catalogue entry - the catalogue's first HOT temperature data (both prior measured T-curves are ice boreholes): 170-185 degC crystalline rock at 7.7-8.0 km, HPHT-simulator-relevant regime; NINTH region (Germany); first KTB/.dat dialect (read_ktb_dat)",
+  "verified": "1,589 rows; first row 7743.1392/169.67, in-capture max 185.53, last row 7985.1504/183.58 gate-pinned; 22.75 h shut-in disclosure pinned; source URL serves the full log for independent re-verification"
+}

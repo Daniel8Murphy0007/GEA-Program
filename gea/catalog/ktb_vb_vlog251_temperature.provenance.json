@@ -1,0 +1,24 @@
+{
+  "entry": "ktb_vb_vlog251_temperature",
+  "kind": "REAL_TEMPERATURE_PROFILE_EXCERPT",
+  "well": "KTB-Oberpfalz VB1A (Vorbohrung / Pilot Hole), German Continental Deep Drilling Program (KTB), Windischeschenbach, Bavaria, GERMANY - the 4,001 m pilot hole of the KTB complex",
+  "operator_on_log": "Niedersaechsisches Landesamt f. Bodenforschung (NLfB) logging, KTB program; log VB-251, TEMP/DF sonde (calibrated 19/10/88), engineer KUEHR",
+  "source_database": "KTB Information System (ICDP legacy data site, data.icdp-online.org/sites/ktb) - temperature log vlog251 (KTB-VB, logged 07 Nov 1988); modern canonical citation: Kueck et al. (2021), KTB Borehole Measurements: Temperature Logs, GFZ Data Services, doi:10.5880/GFZ.KTB.BM.temperature",
+  "source_url": "https://data.icdp-online.org/sites/ktb/data/logging/temp/vb1/vlog251.htm",
+  "license": "ICDP/GFZ scientific data, freely accessible via the public KTB Information System; canonical citation via the 2021 GFZ Data Services republication. Attribution: KTB / GFZ / Kueck, Conze, Bram, Draxler, Zoth, Kessels, Haenel (2021)",
+  "fetch_date": "2026-08-25",
+  "fetch_method": "read-only HTTPS fetch of the legacy per-log page (text/html rendering of the ASCII log); 51.3 KB captured of the 53 KB source - the capture ends on a COMPLETE row at 3,432.96 m (consistent with sonde position at the 3,425 m stand-up noted in the header); whether a few trailing rows exist beyond the fetch window cannot be confirmed and is NOT claimed",
+  "coverage": "EXCERPT (near-complete): original header verbatim + 1,082 rows at 0.1524 m sampling, 3,268.22 -> 3,432.96 m; TMP1 95.374 -> 101.06 degC, TMP2 94.442 -> 100.43 degC",
+  "curves": [
+    "DEPT (depth, m)",
+    "TMP1 (temp. sensor 1, degC)",
+    "TMP2 (temp. sensor 2, 1140 mm above sensor 1, degC)",
+    "GR (natural gamma activity, API)",
+    "HTEN (head tension, lbf)",
+    "MRES (mud resistivity, ohmm)"
+  ],
+  "instrument_disclosure": "TWIN-SENSOR temperature tool: two calibrated sensors 1,140 mm apart on one sonde, in-file accuracy statement 'absolute = 0.05 deg C; relative = 0.01 deg C' - a REAL cited instrument spec and a real twin-channel instrument whose per-row offset (TMP1-TMP2, the trailing sensor reading the just-disturbed mud ~0.5-0.9 degC cooler) is the physical analogue of the simulator's twin-leg comparison. Real instrument artifacts preserved verbatim: sensor-settling frozen run at the start of the log (TMP1 = 95.374 repeated while the sensors equilibrate) and the head-tension collapse 274 -> 111 lbf at ~3,416 m as the tool approaches the 3,425 m stand-up.",
+  "disturbance_disclosure": "DISTURBED during-drilling log (1988 drilling campaign): header records 'GEBOHRT BIS 00:30 2/11' (drilled until 2 Nov) and TCS 11:00 29/10, logged 07 Nov - days, not months, of recovery; NOT an equilibrium profile. The header's TLAB field carries NO value in the source - it is NOT invented here (the reader leaves it absent).",
+  "purpose": "thirteenth catalogue entry - the KTB PILOT HOLE joins the Main Hole (first field/complex with two catalogued boreholes in the same kind-family); first multi-curve KTB log (6 columns) driving the read_ktb_dat DYNAMIC column-block parser; first REAL twin-sensor instrument in the catalogue",
+  "verified": "1,082 rows; first/last rows, twin-sensor mean offset, settling run, HTEN collapse, and TLAB-absent refusal gate-pinned; source URL serves the log for independent re-verification"
+}

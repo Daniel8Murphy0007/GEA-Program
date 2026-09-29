@@ -1,0 +1,26 @@
+/* DATA DESCRIPTION:
+Citation:	Davis, Earl E; Becker, Keir (2002): (Appendix 1) Temperature measurements of CORK installation on ODP Hole 168-1027C [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.722627,
+	In supplement to: Davis, EE; Becker, K (2002): Observations of natural-state fluid pressures and temperatures in young oceanic crust and inferences regarding hydrothermal circulation. Earth and Planetary Science Letters, 204(1-2), 231-248, https://doi.org/10.1016/S0012-821X(02)00982-2
+Project(s):	Ocean Drilling Program (ODP) (URI: https://www-odp.tamu.edu:443/)
+Coverage:	LATITUDE: 47.756500 * LONGITUDE: -127.731000
+	DATE/TIME START: 1996-07-15T09:15:00 * DATE/TIME END: 1996-07-17T07:30:00
+	MINIMUM DEPTH, sediment/rock: 0.0 m * MAXIMUM DEPTH, sediment/rock: 612.3 m
+Event(s):	168-1027C * LATITUDE: 47.756500 * LONGITUDE: -127.731000 * DATE/TIME START: 1996-07-15T09:15:00 * DATE/TIME END: 1996-07-17T07:30:00 * ELEVATION: -2656.2 m * PENETRATION: 632.4 m * RECOVERY: 29.13 m * LOCATION: Juan de Fuca Ridge, North Pacific Ocean * CAMPAIGN: Leg168 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 5 cores; 47.6 m cored; 0 m drilled; 61.2 % recovery
+Comment:	Crustal age: 3.586 Ma; Cased hole opened into basement: 96-07-16 08:45; End of drilling and circulation: 96-07-17 12:15; CORK Installation: 96-07-21 19:00; First data recovery: 97-10-02 21:00; Second data recovery: 99-09-13 21:00; Logger replaced: 99-09-27 11:00; Third data recovery: 00-08-11 20:00; Current status: Operational (pressure only); Seafloor depth: 2656.1 m; Top of diabase sill: 575.5 m; Base of diabase sill: 590.7 m; Basement depth: 613.7 m; Casing depth: 578.4 m; Fill depth: 632.4 m; Total depth: 632.4 m; Pressure sensor offset (borehole - seafloor): 50 kPa; Initial formation-fluid pressure: -69 kPa; Equilibrium formation pressure: -26 kPa
+Parameter(s):	DEPTH, sediment/rock [m] (Depth sed) * GEOCODE
+	Temperature, in rock/sediment [°C] (t) * PI: Davis, Earl E (edavis@nrcan.gc.ca) * METHOD/DEVICE: CORK, circulation obviation retrofit kit * COMMENT: 1999
+	Temperature, in rock/sediment [°C] (t) * PI: Davis, Earl E (edavis@nrcan.gc.ca) * METHOD/DEVICE: CORK, circulation obviation retrofit kit * COMMENT: installation
+License:	Creative Commons Attribution 3.0 Unported (CC-BY-3.0) (URI: https://creativecommons.org/licenses/by/3.0/)
+Size:	19 data points
+*/
+Depth sed [m]	t [°C] (1999)	t [°C] (installation)
+0.0	1.8
+176.8	17.5	2.5
+311.8	32.6	5.4
+446.8	47.5	10.4
+581.8	59.8	17.3
+586.8	60.0	17.4
+596.8	60.6	19.5
+601.8	60.7	19.5
+606.8	60.6	19.6
+612.3	60.6	18.5

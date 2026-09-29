@@ -1,0 +1,91 @@
+/* DATA DESCRIPTION:
+Citation:	Taylor, Elliott; Leonard, John (1990): Geotechnical and physical properties from whole-round consolidations samples of ODP Leg 110 holes (Table 1) [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.747753, 
+	Supplement to: Taylor, E; Leonard, J (1990): Sediment consolidation and permeability at the Barbados Forearc. In: Moore, JC; Mascle, A; et al. (eds.), Proceedings of the Ocean Drilling Program, Scientific Results, College Station, TX (Ocean Drilling Program), 110, 289-308, https://doi.org/10.2973/odp.proc.sr.110.152.1990
+Abstract:	Sediments cored from the Barbados Ridge accretionary complex at ODP Sites 671, 672, and 676 are progressively underconsolidated with depth. Very low measured intergranular permeabilities contribute substantially to the probable excess pore-water pressures that account for the underconsolidated behavior. The estimated pore pressures immediately overlying the incipient decollement at the reference site are nearly equal to the overburden stress. Data show that the pore fluids within the fine-grained sediments of the complex are absorbing the tectonic shock of underthrusting as they are accreted, effectively leading to "lubricated subduction" of the underthrust Oligocene and older sediments. Lateral compression and dewatering by fracture permeability is taking place in the accreted section despite apparent underconsolidation, resulting in limited pore-volume reduction and sediment strengthening from east to west on the ridge.
+Project(s):	Ocean Drilling Program (ODP) (URI: https://www-odp.tamu.edu:443/)
+Coverage:	MEDIAN LATITUDE: 15.529850 * MEDIAN LONGITUDE: -58.715613 * SOUTH-BOUND LATITUDE: 15.524700 * WEST-BOUND LONGITUDE: -58.810000 * NORTH-BOUND LATITUDE: 15.540000 * EAST-BOUND LONGITUDE: -58.641000
+	DATE/TIME START: 1986-06-27T08:15:00 * DATE/TIME END: 1986-08-14T00:30:00
+	MINIMUM DEPTH, sediment/rock: 4.40 m * MAXIMUM DEPTH, sediment/rock: 496.70 m
+Event(s):	110-671A * LATITUDE: 15.525800 * LONGITUDE: -58.732500 * DATE/TIME START: 1986-06-27T08:15:00 * DATE/TIME END: 1986-06-28T12:45:00 * ELEVATION: -4942.0 m * PENETRATION: 5 m * RECOVERY: 5.02 m * LOCATION: North Atlantic Ocean * CAMPAIGN: Leg110 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 1 core; 5 m cored; 0 m drilled; 100.4 % recovery
+	110-671B * LATITUDE: 15.525800 * LONGITUDE: -58.732500 * DATE/TIME START: 1986-06-28T12:45:00 * DATE/TIME END: 1986-07-10T23:15:00 * ELEVATION: -4942.0 m * PENETRATION: 691.2 m * RECOVERY: 553.13 m * LOCATION: North Atlantic Ocean * CAMPAIGN: Leg110 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 74 cores; 691.2 m cored; 0 m drilled; 80 % recovery
+	110-671C * LATITUDE: 15.528000 * LONGITUDE: -58.732800 * DATE/TIME START: 1986-07-10T23:15:00 * DATE/TIME END: 1986-07-15T07:30:00 * ELEVATION: -4947.0 m * PENETRATION: 514.7 m * RECOVERY: 16.66 m * LOCATION: North Atlantic Ocean * CAMPAIGN: Leg110 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 2 cores; 19 m cored; 0 m drilled; 87.7 % recovery
+	110-671D * LATITUDE: 15.524700 * LONGITUDE: -58.731300 * DATE/TIME START: 1986-08-06T23:30:00 * DATE/TIME END: 1986-08-10T07:15:00 * ELEVATION: -4953.0 m * PENETRATION: 461 m * LOCATION: North Atlantic Ocean * CAMPAIGN: Leg110 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 1 core; 9 m cored; 0 m drilled; 0 % recovery
+	110-672A * LATITUDE: 15.540000 * LONGITUDE: -58.641000 * DATE/TIME START: 1986-07-15T11:10:00 * DATE/TIME END: 1986-07-22T12:15:00 * ELEVATION: -4984.0 m * PENETRATION: 493.8 m * RECOVERY: 382.62 m * LOCATION: North Atlantic Ocean * CAMPAIGN: Leg110 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 53 cores; 493.8 m cored; 0 m drilled; 77.5 % recovery
+	110-673A * LATITUDE: 15.531700 * LONGITUDE: -58.810000 * DATE/TIME START: 1986-07-22T18:30:00 * DATE/TIME END: 1986-07-23T23:00:00 * ELEVATION: -4678.0 m * PENETRATION: 36.4 m * RECOVERY: 33.33 m * LOCATION: North Atlantic Ocean * CAMPAIGN: Leg110 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 4 cores; 36.4 m cored; 0 m drilled; 91.6 % recovery
+	110-673B * LATITUDE: 15.532000 * LONGITUDE: -58.641500 * DATE/TIME START: 1986-07-23T23:00:00 * DATE/TIME END: 1986-07-28T12:00:00 * ELEVATION: -4689.0 m * PENETRATION: 330.6 m * RECOVERY: 247.05 m * LOCATION: North Atlantic Ocean * CAMPAIGN: Leg110 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 35 cores; 330.6 m cored; 0 m drilled; 74.7 % recovery
+	110-676A * LATITUDE: 15.530800 * LONGITUDE: -58.703300 * DATE/TIME START: 1986-08-10T11:15:00 * DATE/TIME END: 1986-08-14T00:30:00 * ELEVATION: -5070.0 m * PENETRATION: 310.2 m * RECOVERY: 262.09 m * LOCATION: North Atlantic Ocean * CAMPAIGN: Leg110 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 33 cores; 310.2 m cored; 0 m drilled; 84.5 % recovery
+Parameter(s):	Event label (Event)
+	Sample code/label (Sample label) * PI: Taylor, Elliott * METHOD/DEVICE: DSDP/ODP/IODP sample designation (URI: hdl:10013/epic.27914.d001)
+	Sample comment (Sample comment) * PI: Taylor, Elliott
+	DEPTH, sediment/rock [m] (Depth sed) * GEOCODE
+	Lithology/composition/facies (Lithology) * PI: Taylor, Elliott
+	Epoch (Epoch) * PI: Taylor, Elliott
+	Density, wet bulk [g/cm**3] (WBD) * PI: Taylor, Elliott
+	Water content, wet mass [%] (Water wm) * PI: Taylor, Elliott
+	Density, grain [g/cm**3] (Density grain) * PI: Taylor, Elliott
+	Porosity [% vol] (Poros) * PI: Taylor, Elliott
+	Void Ratio description (Void Ratio) * PI: Taylor, Elliott * COMMENT: initial
+	Overburden pressure [kPa] (Overb press) * PI: Taylor, Elliott * COMMENT: effective overburden stress
+	Preconsolidation pressure [kPa] (Pc) * PI: Taylor, Elliott * COMMENT: max
+	Preconsolidation pressure [kPa] (Pc) * PI: Taylor, Elliott * COMMENT: min
+	Comment (Comment) * PI: Taylor, Elliott * COMMENT: PC max/min
+	Overconsolidation ratio (Pc/Po) * PI: Taylor, Elliott * COMMENT: max
+	Comment 2 (continued) (Comm 2) * PI: Taylor, Elliott * COMMENT: OCD max
+	Overconsolidation ratio (Pc/Po) * PI: Taylor, Elliott * COMMENT: min
+	Comment 3 (continued) (Comm 3) * PI: Taylor, Elliott * COMMENT: OCD min
+	Coefficient (Coeff) * PI: Taylor, Elliott * COMMENT: of permeability at Pc (cm/s)
+	Compression index (Cc) * PI: Taylor, Elliott
+	Comment 4 (continued) (Comm 4) * PI: Taylor, Elliott * COMMENT: Cc index
+	Shear strength, primary [kPa] (Shear str) * PI: Taylor, Elliott * COMMENT: vane
+	Sand [%] (Sand) * PI: Taylor, Elliott
+	Silt [%] (Silt) * PI: Taylor, Elliott
+	Size fraction < 0.002 mm, clay [%] (<2 µm) * PI: Taylor, Elliott
+	Calcium carbonate [%] (CaCO3) * PI: Taylor, Elliott * COMMENT: ship
+	Liquid limit (Liq limit) * PI: Taylor, Elliott * COMMENT: Atterberg limits
+	Plastic limit (Plastic limit) * PI: Taylor, Elliott * COMMENT: Atterberg limits
+	Plastic index (Plastic index) * PI: Taylor, Elliott * COMMENT: Atterberg limits
+License:	Creative Commons Attribution 3.0 Unported (CC-BY-3.0) (URI: https://creativecommons.org/licenses/by/3.0/)
+Size:	874 data points
+*/
+Event	Sample label	Sample comment	Depth sed [m]	Lithology	Epoch	WBD [g/cm**3]	Water wm [%]	Density grain [g/cm**3]	Poros [% vol]	Void Ratio (initial)	Overb press [kPa] (effective overburden stress)	Pc [kPa] (max)	Pc [kPa] (min)	Comment (PC max/min)	Pc/Po (max)	Comm 2 (OCD max)	Pc/Po (min)	Comm 3 (OCD min)	Coeff (of permeability at Pc (cm/s))	Cc	Comm 4 (Cc index)	Shear str [kPa] (vane)	Sand [%]	Silt [%]	<2 µm [%]	CaCO3 [%] (ship)	Liq limit (Atterberg limits)	Plastic limit (Atterberg limits)	Plastic index (Atterberg limits)
+110-671A	110-671A-1H-3		4.40	marl/chalk/Ls	early Pleistocene	1.50	111.0	2.75	74.0	2.85	20	45	35		25		15		0.000001060	0.75		21.50	6.6	32.2	61.2	10.00	128.0	42.1	86.0
+110-671B	110-671B-3H-3	triaxial	20.95	calcareous mudstone	early Pleistocene	1.52	83.0	2.88	66.8	2.39	105	140			35				0.000000828							38.70	155.0	74.0	81.0
+110-671B	110-671B-3H-3		21.30	calcareous mudstone	early Pleistocene	1.66	66.9	2.66	62.4	1.66	107	160	125		53		18		0.000000336	0.62		34.00	5.7	47.3	47.0	38.70	84.0	30.1	54.0
+110-671B	110-671B-3H-4		22.90	calcareous mudstone	early Pleistocene	1.59	81.8	2.91	70.2	2.32	115	50	40		-65		-75					28.82				38.70			
+110-671B	110-671B-7H-3	triaxial	59.36	marl	late Pliocene	1.73	48.0	2.94	58.9	1.42	346	166			-180							187.00				43.80	78.0	37.0	41.0
+110-671B	110-671B-7H-4	triaxial	60.83	marl	late Pliocene	1.70	53.0	2.93	61.9	1.55	357	166			-191											30.00	88.0	39.0	49.0
+110-671B	110-671B-9H-2	vertical	76.80	marl	early Pliocene	1.77	52.9	2.81	58.5	1.41	468	400	350	vertical	-68	vertical	-118		0.000000086	0.50	vertical	65.00	6.6	17.6	75.5	29.70	86.8	31.2	52.0
+110-671B	110-671B-9H-2	horizontal	76.90	marl	early Pliocene	1.77	52.9	2.81	58.5	1.41	469	750	720	horizontal	281	horizontal	251		0.000000467	0.54	horizontal	65.00	6.6	17.6	75.5	29.70	86.8	31.2	52.0
+110-671B	110-671B-10H-3	triaxial	87.79	marl	early Pliocene	1.72	49.0	2.86	61.4	1.4	547	240			-307							290.00				41.30	101.0	49.0	52.0
+110-671B	110-671B-10H-4	triaxial	89.33	marl	early Pliocene	1.71	54.0	2.85	58.8	1.26	558	240			-318							195.00				40.80	85.0	35.0	50.0
+110-671B	110-671B-15X-4		135.50	mudstone/ash	early Pleistocene	1.58	66.3	2.84	69.5	2.05	850	280	120		-570		-730		0.000000042	0.60						14.30			
+110-671B	110-671B-17X-2		151.50	calcareous mudstone	early Pleistocene	1.67	67.0	2.72	62.4	1.66	1003	600	530		-403		-473		0.000000095	0.72		44.00	3.3	42.8	53.7	1.00	175.0	40.9	134.0
+110-671B	110-671B-22X-2		199.10	calcareous mudstone	early Pleistocene	1.84	47.8	2.65	53.2	1.14	1365	520	480		-845		-885		0.000000012	0.31		72.00	0.7	29.1	70.2	19.90	135.0	32.2	103.0
+110-671D	110-671D-NAC-1		452.70	claystone	late Miocene?	1.65	69.3	2.52	60.9	1.56	3472											117.00	0.0	30.6	69.4	0.20	128.0	46.1	82.6
+110-671D	110-671D-NAC-2		454.10	claystone	late Miocene?	1.75	58.9	2.67	58.4	1.41	3483											108.00	0.0	19.8	80.2	0.30	123.0	52.4	71.0
+110-671C	110-671C-1X-1		496.70	claystone	late Miocene?	1.58	69.8	2.92	58.4	2.04	3808	3000			-808				0.000000000							0.30			
+110-672A	110-672A-2H-3	vertical	7.70	calcareous mudstone	early Pleistocene	1.60	90.3	2.96	69.8	2.32	36	200	175	vertical	164	vertical	139	vertical	0.000002650	0.85	vertical	19.50	20.1	34.9	43.5	35.00	87.4	87.4	56.0
+110-672A	110-672A-2H-3	horizontal	7.80	calcareous mudstone	early Pleistocene	1.60	90.3	2.96	69.8	2.32	37	130	100	horizontal	93	horizontal	43	horizontal	0.000762000	0.47	horizontal	19.50	20.1	34.9	43.5	35.00	87.4	87.4	56.0
+110-672A	110-672A-5H-3	triaxial	36.24	calcareous mudstone	late Pliocene	1.44	106.0	2.81	69.0	2.98	183	196		triaxial	13				0.000000037			134.00				48.60	142.0	142.0	100.0
+110-672A	110-672A-7H-3		55.20	calcareous mudstone	late Pliocene	1.61	77.9	2.74	67.1	2.04	300	310	200		10		-100		0.000008920	0.85		43.00	21.3	53.2	24.9	27.60	116.0	116.0	81.0
+110-672A	110-672A-11H-3		93.50	calcareous mudstone	early Plocene	1.24	56.6	2.65	69.8	2.31	540	340	300		-200		-240		0.000000093	0.62		93.00	3.4	28.2	68.3	41.50	113.0	113.0	80.0
+110-672A	110-672A-11H-4	triaxial	94.74	calcareous mudstone	early Pliocene	1.53	80.0		68.0		548	460		triaxial	-88											31.70	132.0	132.0	72.0
+110-672A	110-672A-13H-3		112.30	calcareous mudstone	late Miocene	1.68	66.9	2.64	62.7	1.68	669	380	260		-289		-409		0.000000107	0.54		87.60	0.8	21.5	77.8	7.80	141.0	141.0	99.0
+110-672A	110-672A-19X-3	vertical	165.80	calcareous mudstone	late Miocene?	1.48	120.0	2.65	74.5	2.92	982	66	53	vertical	-916	vertical	-929	vertical	0.000000250	0.65	vertical		0.4	32.6	67.0	0.00	165.0	165.0	97.0
+110-672A	110-672A-19X-3	vertical	165.90	calcareous mudstone	late Miocene?	1.60	103.0	2.96	72.9	2.69	983	175	140	horizontal	-808	vertical	-843	vertical	0.000000057	1.03	vertical		0.4	32.6	67.0	0.00	165.0	165.0	97.0
+110-672A	110-672A-24X-3		213.30	claystone	late Oligocene	1.72	60.9	2.70	59.8	1.49	1231	405	340		-826		-891		0.000008860	0.50		108.00	0.0	12.6	87.4	0.15	150.0	150.0	115.0
+110-673A	110-673A-2H-3-1	vertical	12.40	claystone	Pleistocene/Miocene?	1.67	81.9	2.62	63.5	1.74	76	240	228	vertical	164	vertical	152	vertical	0.000000428	0.44	vertical	41.50	1.7	45.1	53.2	0.00	142.0	57.1	85.0
+110-673A	110-673A2H-3-2	vertical	12.50	claystone	Pleistocene/Miocene?	1.67	81.9	2.62	63.5	1.74	77	300	260	vertical	223	vertical	183	vertical	0.000000647	0.67	vertical	41.50	1.7	45.1	53.2	0.00	142.0	57.1	85.0
+110-673B	110-673B-2H-3		12.00	claystone	early Pleistocene	1.57	80.7	2.67	68.6	2.19	75	300	250		225		175		0.000000035	0.78		41.50	0.8	29.9	69.4	0.70	142.0	40.1	102.0
+110-676A	110-676A-2H-3	triaxial	10.64	calcareous mudstone	early Pleistocene	1.45	109.0	2.95	72.9	3.23	51	20		triaxial	-31				0.000000032										
+110-676A	110-676A-3H-3	vertical	20.10	calcareous mudstone	early Pleistocene	1.62	73.4	2.85	67.4	2.04	107	25	12	vertical	-82	vertical	-95	vertical				72.00				30.10	131.0	43.0	88.0
+110-676A	110-676A-3H-3	horizontal	20.20	calcareous mudstone	early Pleistocene	1.63	73.4	2.90	67.8	2.08	108	108	70	horizontal	0		-38	horizontal				48.98				19.20			
+110-676A	110-676A-5H-3	triaxial	39.12	calcareous mudstone	early Pleistocene	1.54	83.0	2.86	74.6	2.36	248	33		triaxial	-215				0.000000106			48.98				19.20			
+110-676A	110-676A-6H-3	vertical	48.70	calcareous mudstone	early Pleistocene	1.56	72.3	2.53	64.4	1.79	265	30	15	vertical	-235	vertical	-250	vertical				211.00				18.60	126.0	46.0	80.0
+110-676A	110-676A-6H-3	horizontal	48.80	calcareous mudstone	early Pleistocene	1.56	72.3	2.51	64.2	1.77	266	30	20	horizontal	-236	horizontal	-246	horizontal				57.64				18.60			
+110-676A	110-676A-8H-3	triaxial	67.65	calcareous mudstone	late Pliocene	1.68	57.0	2.84	60.5	1.62	390	52		triaxial	-338				0.000000014			57.64				18.60			
+110-676A	110-676A-9H-3	vertical	77.20	calcareous mudstone	late Pliocene	1.76	54.6	2.64	57.4	1.35	448	320	285	vertical	-128	vertical	-163	vertical	0.000000201	0.40	vertical	205.00				48.00	84.0	33.0	51.0
+110-676A	110-676A-9H-3	horizontal	77.25	calcareous mudstone	late Pliocene	1.76	54.6	2.64	57.4	1.35	449	310	250	horizontal	-139	horizontal	-199	horizontal	0.000000152	0.54	horizontal	108.63	13.3	43.7	43.1	38.01	132.0	31.1	101.0
+110-676A	110-676A-11H-4	triaxial	97.63	calcareous mudstone	late Pliocene	1.74	48.0		57.5		592	400		triaxial	-192							108.63	13.3	43.7	43.1	36.01	132.0	31.1	101.0
+110-676A	110-676A-12X-3	vertical	105.60	calcareous mudstone	late Pliocene	1.78	48.2	2.70	55.4	1.24	647	420	350	vertical	-227	vertical	-297	vertical	0.000000156	0.50	vertical					30.90	77.0	13.0	64.0
+110-676A	110-676A-12X-3	horizontal	105.70	calcareous mudstone	late Pliocene	1.78	48.2	2.70	55.4	1.24	648	360	300	horizontal	-288	horizontal	-348	horizontal	0.000000061	0.44	horizontal	123.22	2.2	22.7	75.1	22.23	98.5	29.8	68.7

@@ -1,0 +1,22 @@
+{
+  "entry": "hydrate_ridge_204_ncr_hydrate",
+  "kind": "REAL_GAS_HYDRATE_CONCENTRATION",
+  "well": "ODP Holes 204-1244E, 1245B, 1246B, 1247B, 1248C, 1249F, 1252A - SOUTHERN HYDRATE RIDGE, Cascadia margin offshore Oregon, North Pacific (44.57-44.59 N, 125.09-125.15 W; seafloors -777.2 to -1,039.2 m), the type locality for seafloor gas-hydrate research; ODP Leg 204 (2002), sample intervals 4.35-147.35 mbsf spanning the gas hydrate stability zone",
+  "operator_on_log": "Riedel, Long & Collett (GSC/PNNL/USGS) non-contact resistivity (NCR) analyses on recovered core - multi-sensor-track resistivity monitored through controlled hydrate dissociation, pore-water freshening converted to in-situ hydrate concentration; drilling by JOIDES Resolution",
+  "source_database": "PANGAEA, dataset doi:10.1594/PANGAEA.726488 ('(Table 1) Results of core-NCR data analyses from ODP Leg 204'); supplement to Riedel et al. 2006, Marine Geology 227, 215-225 (doi:10.1016/j.margeo.2005.10.007); full paper abstract preserved in the file's own header",
+  "source_url": "https://doi.pangaea.de/10.1594/PANGAEA.726488?format=textfile",
+  "license": "Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file's own header. Attribution: Riedel/Long/Collett / PANGAEA / ODP",
+  "fetch_date": "2026-08-27",
+  "fetch_method": "read-only HTTPS fetch of the PANGAEA textfile export - COMPLETE dataset (172 data points per the header's own Size declaration, re-counted at gate time as non-empty body cells excluding Event + geocode columns, EXACT: 32 rows x 5 base cells + 9 second-labels + 3 comments) in one fetch",
+  "coverage": "COMPLETE DATASET: 32 analyzed core intervals across seven holes of Leg 204 - min/max in-situ gas hydrate concentration [pct of pore space] from resistivity-monitored dissociation: 25 background intervals at 0-15 pct, the three-experiment monitoring design (1247B-2H-1 hydrate-FREE control 0/0; 1248C-4X-1 moderate 20-35; 1249F-9H-3 massive 30-75), and the southern-summit 1249F intervals at 55-70 - the highest hydrate saturations in the catalogue",
+  "curves": [
+    "Depth sed [m] 4.35-147.35 (GEOCODE = midpoint of top/bottom, re-derived on all 32 rows)",
+    "Depth top / Depth bot [m] (interval bounds)",
+    "Hydrate [%] (average hydrate, minimum) 0-70",
+    "Hydrate [%] (average hydrate, maximum) 0-75",
+    "Event rides as per-row quality; Sample label / Sample label 2 / 'Monitoring experiment cores' comments verbatim in file"
+  ],
+  "source_anomaly_disclosure": "TWO source quirks preserved verbatim: (1) row 204-1245B-11H-2 carries top = 96.00 m and bottom = 7.40 m - bottom ABOVE top by 88.6 m, physically impossible for a core section; the plausible reading is that '97.40' lost its leading 9, and the archive's own geocode 51.70 = (96.00 + 7.40)/2 EXACTLY - the midpoint arithmetic faithfully propagated the typo, making the row internally consistent with its own corruption (also out of depth order between 87.56 and 112.25); detected by the bottom<top audit, carried unchanged; (2) the header abstract states the 1249F-9H3 monitoring experiment yielded '35-70 pct' while Table 1 archives 30-75 for the same core - an abstract-vs-table discrepancy in the source, both preserved verbatim, not reconciled",
+  "purpose": "thirty-fourth catalogue entry - the CASCADIA MARGIN joins as region TWENTY-TWO and in-situ GAS HYDRATE CONCENTRATION is kind TWENTY-THREE: the first drilling-hazard quantity in the catalogue (hydrate dissociation destabilizes boreholes, floods logs with gas cracks, and blinds resistivity tools - the abstract's own 'biased sampling' warning about gas-crack data exclusion is preserved in the file), measured by resistivity petrophysics - the same physical channel this product's wireline simulations carry; the summit-vs-flanks structure is re-derived by the gate: every interval outside Site 1249 and the 1248C-4X-1 experiment is <= 15 pct while the southern-summit intervals reach 55-75",
+  "verified": "32 rows / 172 counted cells against the header's own Size declaration (EXACT, closing only with the 9 second-labels + 3 comment cells); geocode = (top+bottom)/2 re-derived on ALL 32 rows within 0.005 m (including the corrupted 11H-2 row - the archive is consistent with its own typo); exactly ONE bottom<top row (the disclosed typo); min <= max hydrate on all rows; the three monitoring cores match the abstract's design; all 25 non-summit background rows at min = 0 and max <= 15; abstract-vs-table discrepancy disclosed; gate-pinned; source URL serves the identical dataset"
+}

@@ -1,0 +1,63 @@
+/* DATA DESCRIPTION:
+Citation:	Savov, Ivan P; Guggino, Steve; Ryan, Jeffrey; Fryer, Patricia B; Mottl, Michael J (2005): (Table T2) Major and trace elements of serpentine muds from ODP Site 195-1200 [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.778374, 
+	In supplement to: Savov, IP et al. (2005): Geochemistry of serpentinite muds and metamorphic rocks from the Mariana forearc, ODP Sites 1200 and 778-779, South Chamorro and Conical Seamounts. In: Shinohara, M; Salisbury, MH; Richter, C (eds.) Proceedings of the Ocean Drilling Program, Scientific Results, College Station, TX (Ocean Drilling Program), 195, 1-49, https://doi.org/10.2973/odp.proc.sr.195.103.2005
+Project(s):	Ocean Drilling Program (ODP) (URI: https://www-odp.tamu.edu:443/)
+Coverage:	MEDIAN LATITUDE: 13.783560 * MEDIAN LONGITUDE: 146.003090 * SOUTH-BOUND LATITUDE: 13.783350 * WEST-BOUND LONGITUDE: 146.002850 * NORTH-BOUND LATITUDE: 13.784060 * EAST-BOUND LONGITUDE: 146.003300
+	DATE/TIME START: 2001-03-10T21:00:00 * DATE/TIME END: 2001-03-29T02:00:00
+	MINIMUM DEPTH, sediment/rock: 0.15 m * MAXIMUM DEPTH, sediment/rock: 108.71 m
+Event(s):	195-1200A * LATITUDE: 13.783410 * LONGITUDE: 146.003100 * DATE/TIME START: 2001-03-10T21:00:00 * DATE/TIME END: 2001-03-13T15:35:00 * ELEVATION: -2910.3 m * PENETRATION: 147.2 m * RECOVERY: 11.56 m * LOCATION: North Pacific Ocean * CAMPAIGN: Leg195 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 16 cores; 147.2 m cored; 0 m drilled; 7.9 % recovery
+	195-1200B * LATITUDE: 13.783400 * LONGITUDE: 146.003300 * DATE/TIME START: 2001-03-13T15:35:00 * DATE/TIME END: 2001-03-14T14:30:00 * ELEVATION: -2911.3 m * PENETRATION: 98 m * LOCATION: North Pacific Ocean * CAMPAIGN: Leg195 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 0 cores; 0 m cored; 0 m drilled
+	195-1200D * LATITUDE: 13.784060 * LONGITUDE: 146.002850 * DATE/TIME START: 2001-03-26T05:00:00 * DATE/TIME END: 2001-03-27T12:30:00 * ELEVATION: -2931.0 m * PENETRATION: 44.4 m * RECOVERY: 22 m * LOCATION: North Pacific Ocean * CAMPAIGN: Leg195 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 10 cores; 21.9 m cored; 22.5 m drilled; 100.5 % recovery
+	195-1200E * LATITUDE: 13.783350 * LONGITUDE: 146.003100 * DATE/TIME START: 2001-03-27T12:30:00 * DATE/TIME END: 2001-03-28T11:15:00 * ELEVATION: -2911.0 m * PENETRATION: 56.4 m * RECOVERY: 38.06 m * LOCATION: North Pacific Ocean * CAMPAIGN: Leg195 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 10 cores; 54.4 m cored; 2 m drilled; 70 % recovery
+	195-1200F * LATITUDE: 13.783580 * LONGITUDE: 146.003100 * DATE/TIME START: 2001-03-28T11:15:00 * DATE/TIME END: 2001-03-29T02:00:00 * ELEVATION: -2911.0 m * PENETRATION: 16.3 m * RECOVERY: 16.28 m * LOCATION: North Pacific Ocean * CAMPAIGN: Leg195 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 3 cores; 16.3 m cored; 0 m drilled; 99.9 % recovery
+Comment:	Sediment depth is given in mbsf. Shore-based analysis.
+Parameter(s):	Event label (Event)
+	Sample code/label (Sample label) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: DSDP/ODP/IODP sample designation (URI: hdl:10013/epic.27914.d001)
+	DEPTH, sediment/rock [m] (Depth sed) * GEOCODE
+	Silicon dioxide [%] (SiO2) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP)
+	Titanium dioxide [%] (TiO2) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP)
+	Aluminium oxide [%] (Al2O3) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP)
+	Iron oxide, Fe2O3 [%] (Fe2O3) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP) * COMMENT: Fe2O3T
+	Manganese oxide [%] (MnO) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP)
+	Magnesium oxide [%] (MgO) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP)
+	Calcium oxide [%] (CaO) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP)
+	Sodium oxide [%] (Na2O) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP)
+	Potassium oxide [%] (K2O) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP)
+	Elements, total [%] (Total) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP)
+	Loss on ignition [%] (LOI) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP)
+	Scandium [mg/kg] (Sc) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP)
+	Vanadium [mg/kg] (V) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP)
+	Chromium [mg/kg] (Cr) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP)
+	Nickel [mg/kg] (Ni) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP)
+	Strontium [mg/kg] (Sr) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP)
+	Barium [mg/kg] (Ba) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP)
+	Zirconium [mg/kg] (Zr) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP)
+	Yttrium [mg/kg] (Y) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP)
+	Boron [mg/kg] (B) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP)
+	Lithium [mg/kg] (Li) * PI: Savov, Ivan P (https://orcid.org/0000-0003-4218-4365) * METHOD/DEVICE: Direct current plasma emission spectrometry (DCP)
+License:	Creative Commons Attribution 3.0 Unported (CC-BY-3.0) (URI: https://creativecommons.org/licenses/by/3.0/)
+Size:	432 data points
+*/
+Event	Sample label	Depth sed [m]	SiO2 [%]	TiO2 [%]	Al2O3 [%]	Fe2O3 [%]	MnO [%]	MgO [%]	CaO [%]	Na2O [%]	K2O [%]	Total [%]	LOI [%]	Sc [mg/kg]	V [mg/kg]	Cr [mg/kg]	Ni [mg/kg]	Sr [mg/kg]	Ba [mg/kg]	Zr [mg/kg]	Y [mg/kg]	B [mg/kg]	Li [mg/kg]
+195-1200A	195-1200A-9R-1,77-79	71.17		0.08							0.03		16.30	10.8	38.2		3652		4.4	12.3	98.3		2.4
+195-1200A	195-1200A-9R-1,27-29	70.67	43.42	0.00	1.15	8.66	0.13	43.22	0.94	0.15	0.07	97.74	14.57	12.1	46.7	3263	5377	14.3	30.0	13.3	185.5		3.4
+195-1200A	195-1200A-9R-1,63-65	71.03	44.82	0.04	0.79	8.01	0.11	44.54	0.46	0.08	0.04	98.92	14.20	22.6	85.4	2011	4738	10.5	13.0	19.4	61.1	19.2	2.4
+195-1200A	195-1200A-13R-1,1-3	108.71	43.75	0.06	0.72	8.35	0.12	45.39	0.65	0.05	0.03	99.14	15.00	15.4	58.0	2929	5584	19.8	5.1	13.4	64.4	13.2	1.3
+195-1200B	195-1200B-2H-1,52-54	31.22	42.91	0.01	0.78	8.18	0.12	47.31	0.58	0.09	0.02	100.01	14.20	8.4	18.6	2210	3377	15.3	3.3	6.2	59.9		
+195-1200D	195-1200D-1H-1,15-17	0.15	41.73	0.05	1.12	6.77	0.07	38.23	9.80	0.11	0.05	97.94	16.45	11.2	43.7	2950	2648	1756.6	10.6	13.3	72.3		
+195-1200D	195-1200D-2H-1,124-126	8.14	43.94	0.01	0.60	8.12	0.11	46.68	0.34	0.04	0.02	99.87	15.09	16.6	72.0	3114	4145	6.9	5.2	14.2	63.4	28.5	
+195-1200D	195-1200D-2H-2,81-83	9.21	43.61	0.02	0.42	8.64	0.12	47.71	0.68	0.04	0.02	101.25	13.00	10.9	44.1	2507	4537	59.6	3.6	12.1	57.9	10.5	
+195-1200D	195-1200D-1H-2,118-120	2.68	43.30	0.04	0.51	8.07	0.11	47.09	0.57	0.06	0.06	99.77	17.20	12.6	53.1	2243	6162	52.6	5.7	13.9	60.3	24.2	
+195-1200D	195-1200D-8H-1,119-121	26.19	35.76	3.92	21.16	13.21	0.18	3.04	21.33	0.28	0.03	95.00	7.60	43.1	216.0	54	130	321.5	317.4	23.4	127.2		
+195-1200D	195-1200D-1H-2,100-102	2.50	43.30	0.01	0.38	7.93	0.10	45.66	0.12	0.08	0.03	97.62	14.60	16.8	56.6	2461	4737	3.5	8.6	15.2	60.3		
+195-1200D	195-1200D-5H-1,6-9	13.76	42.94	0.01	0.77	8.81	0.14	45.38	0.30	0.16	0.04	98.52	18.70	19.8	73.6	2973	4486	15.2	10.1	14.0	72.4		
+195-1200D	195-1200D-1H-1,54-56	0.54	45.15	0.01	1.04	8.19	0.10	43.04	0.45	0.40	0.04	98.42	21.20	19.7	64.8	3748	5297	71.3	8.8	19.1	65.6		
+195-1200D	195-1200D-8H-1,127-129	26.27									0.03		15.10	12.2	44.9		3492		4.0	10.6	51.7		21.1
+195-1200D	195-1200D-1H-3,116-118	4.16	43.90	0.00	1.43	8.14	0.12	46.01	0.24	0.03	0.05	99.90	15.98	6.4	16.7	2382	5240	4.7	0.8	7.7	57.5		
+195-1200E	195-1200E-2H-3,34-36	9.44	44.66	0.00	1.47	8.30	0.12	42.64	1.13	0.14	0.03	98.56	14.22	7.7	25.9	2344	4399	20.2	13.9	11.2	55.9	19.5	
+195-1200E	195-1200E-5H-1,40-42	18.00	43.43	0.00	0.57	8.27	0.12	45.61	0.60	0.03	0.05	98.67	16.94	12.2	47.0	2698	5443	12.4	10.7	12.5	526.0	9.8	
+195-1200E	195-1200E-5H-2,84-86	19.89	43.55	0.07	0.84	8.23	0.12	44.65	0.66	0.05	0.03	98.20	16.77	14.1	52.6	2639	5000	15.3	11.4	14.7	62.2	16.7	
+195-1200E	195-1200E-5H-1,37-39	17.97	42.78	0.00	1.12	8.21	0.12	45.98	0.68	0.06	0.03	99.01	16.00	20.0	80.9	2874	5332	9.4	13.9	16.8	199.0		
+195-1200F	195-1200F-1H-4,6-8	4.56	44.67	0.06	0.93	8.11	0.12	45.62	0.85	0.15	0.03	100.58	15.50	17.2	62.6	1942	3527	30.0	14.2	20.6	56.5		
+195-1200F	195-1200F-2H-2,3-5	9.23	45.18	0.00	1.26	7.73	0.11	43.58	1.33	0.16	0.03	99.43	14.30	11.2	37.2	1966	3052	9.5	7.4	13.3	53.7		
+195-1200F	195-1200F-1H-5,18-20	6.18	43.50	0.06	0.83	8.08	0.12	45.50	0.75	0.11	0.04	98.98	14.90	1.7	3.2	2274	3504	12.5	11.6	6.2	49.9		

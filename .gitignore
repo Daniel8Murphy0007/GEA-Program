@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+build/
+dist/
+*.egg-info/
+.venv/
+/dashboard/
+/drift_monitor/
+/well_tests/
+/config_store/
+/sbom/
+/sla_report/
+/fat_sat/
+/model_cards/
+/client_report/
+gea/catalog_operator/

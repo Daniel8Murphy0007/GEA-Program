@@ -1,0 +1,23 @@
+{
+  "entry": "woodlark_1109_rock_eval",
+  "kind": "REAL_ROCK_EVAL_PYROLYSIS",
+  "well": "ODP Hole 180-1109D - WOODLARK BASIN, Solomon Sea, offshore Papua New Guinea (9.5063 S, 151.5726 E; seafloor -2,211 m), the type locality for ACTIVE low-angle normal-fault continental rifting (the Moresby detachment); ODP Leg 180 (1998), the organic-rich Miocene interval 688.23-706.36 mbsf",
+  "operator_on_log": "Katz, Barry J (Texaco) - LECO TOC + Rock-Eval pyrolysis per Espitalie et al. 1977 (the founding method paper, cited with DOI in the file's own header): S1/S2 hydrocarbon yields, hydrogen and oxygen indices, transformation ratio, Tmax; drilling by JOIDES Resolution",
+  "source_database": "PANGAEA, dataset doi:10.1594/PANGAEA.787052 ('(Table T2) TOC, hydrocarbon characteristics and hydrogen and oxygen index, ODP Hole 180-1109D'); supplement to Katz 2001, Proc. ODP Sci. Results 180, 1-19 (doi:10.2973/odp.proc.sr.180.151.2001)",
+  "source_url": "https://doi.pangaea.de/10.1594/PANGAEA.787052?format=textfile",
+  "license": "Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file's own header and license-checked BEFORE cataloguing. Attribution: Katz / PANGAEA / ODP",
+  "fetch_date": "2026-08-28",
+  "fetch_method": "read-only HTTPS fetch of the PANGAEA textfile export - COMPLETE dataset (68 data points per the header's own Size declaration, re-counted EXACT at gate time: 9 sample labels + 59 numeric cells with the geocode excluded - note this dataset's counting convention includes the label column, measured not assumed) in one fetch",
+  "coverage": "COMPLETE DATASET: 9 source-rock screening analyses through the organic-rich interval - TOC 1.46-32.86 pct, S1 0.09-11.45 and S2 0.24-86.92 mg HC/g rock, HI 13-314, OI 7-82, transformation ratio 0.09-0.16, Tmax 397-424 C; the full Rock-Eval parameter suite of petroleum-systems screening",
+  "curves": [
+    "Depth sed [m] mbsf 688.23-706.36 (GEOCODE)",
+    "TOC [%] (LECO) 1.46-32.86",
+    "S1 / S2 [mg HC/g sed] (Rock-Eval per Espitalie 1977)",
+    "HI [mg HC/g TOC] 13-314 + OI [mg CO2/g TOC] 7-82",
+    "Transformation ratio S1/(S1+S2) + Tmax [degC]",
+    "ODP sample labels verbatim (counted by the archive's own Size convention)"
+  ],
+  "source_anomaly_disclosure": "No internal inconsistencies detected - the archive closes against its own definitions: HI = S2/TOC x 100 re-derives on ALL 9 rows within 0.47 units of the archived integers, and the transformation ratio S1/(S1+S2) re-derives on all 7 populated rows within 0.005; noted for the record: TR and Tmax are BLANK on exactly the same two rows (the two lowest-S2 samples, 0.75 and 0.24 mg/g, where the S2 peak is too small for a reliable Tmax) although TR is arithmetically computable there - the archive's own quality judgment, preserved as blanks",
+  "purpose": "forty-third catalogue entry - the WOODLARK BASIN / SOLOMON SEA joins as region THIRTY-ONE (the type locality of active low-angle-normal-fault rifting) and ROCK-EVAL PYROLYSIS is kind THIRTY-TWO: the petroleum-systems screening quantity itself, the first source-rock assessment data in an energy-industry catalogue - and the verdict re-derives as arithmetic on every gate run: SPECTACULAR RICHNESS WITHOUT MATURITY - TOC to 32.86 pct and S2 to 86.92 mg/g (genuine source potential in the Miocene coaly interval), yet every measured Tmax sits at 397-424 C, below the ~435 C oil-window threshold (thermally immature), with 8 of 9 samples at HI < 160 (gas-prone Type III/IV terrestrial organic matter) - a source rock that has everything except time and temperature",
+  "verified": "9 rows / 68 counted cells against the header's own Size declaration (EXACT under the measured convention: labels counted, geocode excluded); HI identity 9/9 within 0.47; transformation-ratio identity 7/7 within 0.005; TR/Tmax blank-coupling pinned on the two low-S2 rows; all Tmax < 435 with range 397-424; TOC maximum 32.86 and S2 maximum 86.92 pinned; 8/9 rows below HI 160; gate-pinned; source URL serves the identical dataset"
+}

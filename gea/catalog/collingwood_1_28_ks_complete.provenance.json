@@ -1,0 +1,17 @@
+{
+  "entry": "collingwood_1_28_ks_complete",
+  "kind": "REAL_WELL_LOG_COMPLETE",
+  "well": "COLLINGWOOD 1-28 (Amoco Production), Nicholas field, Stanton County, Kansas, USA; API 15-187-20743 (KGS ID 1001178549); Sec 28-T30S-R39W; Lat 37.41565 / Long -101.58701; logged by Halliburton 31-MAY-94",
+  "operator_on_log": "AMOCO PROD",
+  "source_database": "Kansas Geological Survey LAS archive (the in-file header carries the KGS update history and the KGS archive path /WellLogs/Guy/100-Amoco/disc09), redistributed as a real-data test example in the public kinverarity1/lasio GitHub repository",
+  "source_url": "https://raw.githubusercontent.com/kinverarity1/lasio/main/tests/examples/1001178549.las",
+  "license": "lasio repository is MIT-licensed; underlying log is a Kansas public well record (KGS archive; in-file version banner notes RILEYS DATASHARE origin); attribution to KGS, lasio, and API 15-187-20743",
+  "fetch_date": "2026-08-24",
+  "fetch_method": "read-only HTTPS fetch (text/plain)",
+  "coverage": "COMPLETE FILE - the catalogue's FIRST non-excerpted entry: the entire public file verbatim, a 5-station KGS interval slice (1783.50-1784.50 ft at 0.25 ft step). The KGS archived this short interval; the excerpting was theirs, not ours, and their update-history comments ride along in-file.",
+  "curves": ["DEPT.FT + 26 curves: GSGR/GSTK/GST/GSK/GSTH/GSUR (spectral gamma family), NCNPL, DLDPL/DLDC/DLPE/DLDN/DLCL/DLTN (litho-density family), IDGR, ACCL1/ACCL2/ACTC/ACAPL (acoustic family), IDIM/IDID/IDIDC/IDL3/IDTN/IDSP (induction family), MEL1/ME (microlog)"],
+  "temperature_data": "REAL BHT = 125.0 DEGF in the parameter block (third real BHT in the catalogue). NO TD parameter present (CSGL 1791 ft only), so the converter honestly falls to DERIVED_GRADIENTS rather than fabricating a BHT anchor line without a TD - the tier logic's refusal branch exercised by real data.",
+  "dialect_notes": "WRAP. YES with 27 curves (second wrapped well, different record shape: depth line + 4 lines of 7/7/7/5 values); non-standard '~Asc DEPTH' section line; KGS '#' update-history comments before ~Version; column-name '#' comments between ~P and data.",
+  "purpose": "fifth real catalogue well - KANSAS (closing the loop on the source table's #1 entry, reached via redistribution); first COMPLETE file; wrapped-shape diversity; the BHT-without-TD honest-fallback case",
+  "verified": "ingests via uqff_ports.read_las wrapped path; 5 records x 27 curves; IDGR/ACTC/IDSP verbatim; BHT captured, TD absent, converter falls to DERIVED_GRADIENTS; gate-pinned"
+}

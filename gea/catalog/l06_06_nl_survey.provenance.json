@@ -1,0 +1,17 @@
+{
+  "entry": "l06_06_nl_survey",
+  "kind": "REAL_DEVIATION_SURVEY_COMPLETE",
+  "well": "L06-06, Dutch North Sea offshore, Netherlands (NLOG); deep well, survey to MD 5,605 (TVD 5,595.27)",
+  "operator_on_log": "not stated in the survey file; NLOG-archived well",
+  "source_database": "NLOG - Netherlands Oil and Gas portal (open by mandate, nlog.nl), redistributed in the public andymcdgeo/Andys_YouTube_Notebooks GitHub repository (welly_data/L06-06_Survey.csv)",
+  "source_url": "https://raw.githubusercontent.com/andymcdgeo/Andys_YouTube_Notebooks/main/welly_data/L06-06_Survey.csv",
+  "license": "NLOG open data (Dutch mandate); redistribution repository public; attribution to NLOG and well L06-06",
+  "fetch_date": "2026-08-24",
+  "fetch_method": "read-only HTTPS fetch (text/plain) - COMPLETE file",
+  "coverage": "COMPLETE FILE: all 200 survey stations verbatim, MD 74.2 -> 5,605 with measured inclination (0-5.82 deg), azimuth, TVD, and X/Y offsets at every station. UNITS NOT DECLARED IN-FILE: the header says only 'Depth'; NLOG convention is metres, but the ambiguity is recorded here rather than resolved by assumption - MD/TVD are used RELATIVE to each other, which is unit-invariant.",
+  "curves": ["Depth (MD)", "Deviation (inclination, deg)", "Azimuth (deg)", "TrueVertical Depth", "X Offset", "Y Offset"],
+  "temperature_data": "NONE - trajectory data",
+  "dialect_notes": "survey CSV with long-form headers ('TrueVertical Depth') - the catalogue's first REAL_DEVIATION_SURVEY kind; ingested via read_survey_csv into a DeviationSurvey (MD->TVD direct, no minimum-curvature reconstruction needed since TVD is measured in-file). Duplicate-MD tie-on stations present (e.g. 1437.4/1438) - real survey practice, preserved.",
+  "purpose": "ninth catalogue entry - the FIRST REAL WELL TRAJECTORY: DeviationSurvey runs on measured MD/TVD instead of synthetic kickoff shapes; a gently deviated S-shaped deep well (max inclination 5.82 deg, ~137 max lateral offset)",
+  "verified": "200 stations; endpoints verbatim (74.2/74.17 and 5605/5595.27); TVD <= MD at every station; engine MD->TVD integration; gate-pinned"
+}

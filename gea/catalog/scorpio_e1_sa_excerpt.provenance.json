@@ -1,0 +1,17 @@
+{
+  "entry": "scorpio_e1_sa_excerpt",
+  "kind": "REAL_WELL_LOG_EXCERPT",
+  "well": "Scorpio E1, Mt Eba, South Australia (UWI 6038-187), logged 15/03/2015",
+  "operator_on_log": "not stated on log (COMP blank); cased-hole stratigraphy purpose stated",
+  "source_database": "South Australian government well 6038-187, redistributed as a real-data test example in the public kinverarity1/lasio GitHub repository (the reference LAS library, maintained by a South Australian government hydrogeologist)",
+  "source_url": "https://raw.githubusercontent.com/kinverarity1/lasio/main/tests/examples/6038187_v1.2.las",
+  "license": "lasio repository is MIT-licensed; underlying log is a South Australian public well record; attribution to the lasio project and SA well 6038-187",
+  "fetch_date": "2026-08-24",
+  "fetch_method": "read-only HTTPS fetch (text/plain), size-capped by the fetch tool",
+  "coverage": "VERBATIM EXCERPT: full original header + data rows 30.60-33.55 m (60 rows, open-hole interval with varied values). The full file spans 0.05-136.60 m at 0.05 m step; excerpt boundaries disclosed in-file via # comments.",
+  "curves": ["DEPT.M", "CALI.MM", "DFAR.G/CM3", "DNEAR.G/CM3", "GAMN.GAPI", "NEUT.CPS", "PR.OHM/M", "SP.MV", "COND.MS/M"],
+  "temperature_curve": "NONE - stratigraphy log; profile conversion uses DERIVED gradients, labeled (Rule 7)",
+  "dialect_notes": "exercises a DIFFERENT LAS dialect than the Volve entry: NULL = -99999 (not -999.25), # divider comment lines throughout the header, ~A line carrying inline column headers, free-text parameter values",
+  "purpose": "second real catalogue well; LAS-dialect diversity for the las2 port",
+  "verified": "ingests via uqff_ports.read_las; gate-pinned"
+}

@@ -1,0 +1,18 @@
+{
+  "entry": "volve_15_9_19a_core_excerpt",
+  "kind": "REAL_CORE_ANALYSIS_EXCERPT",
+  "well": "15/9-19 A (Volve field area, North Sea, Norway) - conventional core analysis, cores 1-7 in the source file",
+  "operator_on_log": "Equinor/Statoil Volve program (laboratory core analysis)",
+  "source_database": "Equinor Volve open dataset, redistributed in the public andymcdgeo/Andys_YouTube_Notebooks GitHub repository (Data/15_9-19A-CORE.csv)",
+  "source_url": "https://raw.githubusercontent.com/andymcdgeo/Andys_YouTube_Notebooks/main/Data/15_9-19A-CORE.csv",
+  "license": "Equinor Open Data Licence (Volve dataset); redistribution repository public; attribution to Equinor Volve and well 15/9-19 A",
+  "fetch_date": "2026-08-24",
+  "fetch_method": "read-only HTTPS fetch (text/plain), size-capped by the fetch tool (capture reached sample 728 at 3999.95 m)",
+  "coverage": "VERBATIM EXCERPT: CORE 1 COMPLETE (samples 1-76, 3838.6-3853.8 m) + the core-2 ultra-high-permeability streak (samples 107-117, 3860.2-3863.2 m, incl. the 20,800 mD maximum). The source file continues beyond the captured window; sample gaps between the two blocks are disclosed here.",
+  "curves": ["DEPTH (core-shifted depth, m)", "OrigDepth (driller depth, m)", "CORE_NO", "SAMPLE", "CKHG/CKHL (horizontal permeability gas/Klinkenberg-liquid, mD)", "CKVG/CKVL (vertical permeability, mD)", "CPOR (core porosity, %)", "CPORV + So/Sw (saturation-sample porosity %, oil/water saturations %)", "CGD/CGDV (grain density, g/cc)"],
+  "units_note": "units are NOT in the CSV header; the unit assignments above follow standard Volve/conventional-core-analysis mnemonic conventions and are recorded here as interpretive, not in-file",
+  "temperature_data": "NONE - laboratory core data",
+  "dialect_notes": "core-analysis CSV (DEPTH,OrigDepth,CORE_NO header) - the catalogue's first REAL_CORE_ANALYSIS kind; two depth columns (core-shifted vs driller) preserved; saturation samples interleave with plug samples (mutually blank columns - real lab practice); permeability spans 0.15 to 20,800 mD in this excerpt alone",
+  "purpose": "tenth catalogue entry - a NEW KIND: laboratory ground truth (core plugs) alongside logs, curves, and a trajectory; the calibration endpoint a petrophysics layer would tie logs to",
+  "verified": "87 samples verbatim (first plug CKHG 13.8 mD / CPOR 17%; 20,800 mD maximum); blanks -> NaN; depth-indexed stream; gate-pinned"
+}

@@ -1,0 +1,44 @@
+/* DATA DESCRIPTION:
+Citation:	Miller, D Jay; Kelemen, Peter B; Kikawa, Eiichi; Shipboard Scientific Party (2005): Moisture and density measured on ODP Hole 209-1274A [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.259148
+Related to:	Kelemen, Peter B; Kikawa, Eiichi; Miller, David J; et al. (2004): Proceedings of the Ocean Drilling Program, 209 Initial Reports. Proceedings of the Ocean Drilling Program, Ocean Drilling Program, 209, online, https://doi.org/10.2973/odp.proc.ir.209.2004
+	ODP/TAMU (2005): JANUS Database. Ocean Drilling Program, Texas A&M University, College Station TX 77845-9547, USA; (data copied from Janus 2005-02 to 2005-06), https://www-odp.tamu.edu:443/database/
+Further details:	Blum, Peter (1997): Moisture and density (by mass and volume). Physical properties handbook: a guide to the shipboard measurement of physical properties of deep-sea cores, hdl:10013/epic.40058.d002
+Project(s):	Ocean Drilling Program (ODP) (URI: https://www-odp.tamu.edu:443/)
+Coverage:	LATITUDE: 15.647780 * LONGITUDE: -46.676360
+	DATE/TIME START: 2003-06-15T00:30:00 * DATE/TIME END: 2003-06-18T21:45:00
+	MINIMUM DEPTH, sediment/rock: 17.790 m * MAXIMUM DEPTH, sediment/rock: 146.930 m
+Event(s):	209-1274A * LATITUDE: 15.647780 * LONGITUDE: -46.676360 * DATE/TIME START: 2003-06-15T00:30:00 * DATE/TIME END: 2003-06-18T21:45:00 * ELEVATION: -3939.8 m * PENETRATION: 155.8 m * RECOVERY: 34.65 m * LOCATION: North Atlantic Ocean * CAMPAIGN: Leg209 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 28 cores; 155.8 m cored; 0 m drilled; 22.2 % recovery
+Comment:	Method A: wet-bulk volume measured with special volume sampler; method B: wet-bulk volume measured by gas pycnometry; method C: dry volume measured by gas pycnometry
+Parameter(s):	DEPTH, sediment/rock [m] (Depth sed) * GEOCODE
+	Depth, composite [mcd] (Depth comp) * PI: Shipboard Scientific Party
+	Sample code/label (Sample label) * PI: Shipboard Scientific Party * METHOD/DEVICE: DSDP/ODP/IODP sample designation (URI: hdl:10013/epic.27914.d001)
+	Water content, wet mass [%] (Water wm) * PI: Shipboard Scientific Party
+	Water content, dry mass [%] (Water dm) * PI: Shipboard Scientific Party
+	Density, wet bulk [g/cm**3] (WBD) * PI: Shipboard Scientific Party
+	Density, dry bulk [g/cm**3] (DBD) * PI: Shipboard Scientific Party
+	Density, grain [g/cm**3] (Density grain) * PI: Shipboard Scientific Party
+	Porosity [% vol] (Poros) * PI: Shipboard Scientific Party
+	Void Ratio description (Void Ratio) * PI: Shipboard Scientific Party
+	Method comment (Method comm) * PI: Shipboard Scientific Party
+License:	Creative Commons Attribution 3.0 Unported (CC-BY-3.0) (URI: https://creativecommons.org/licenses/by/3.0/)
+Size:	180 data points
+*/
+Depth sed [m]	Depth comp [mcd]	Sample label	Water wm [%]	Water dm [%]	WBD [g/cm**3]	DBD [g/cm**3]	Density grain [g/cm**3]	Poros [% vol]	Void Ratio	Method comm
+17.790	17.790	209-1274A-3R-1,89-91	0.6	0.6	2.748	2.732	2.774	1.5	0.015	C
+21.850	21.850	209-1274A-4R-1,55-57	0.8	0.8	2.720	2.699	2.755	2.0	0.021	C
+27.550	27.550	209-1274A-5R-1,125-127	1.8	1.8	2.603	2.556	2.678	4.6	0.048	C
+27.960	27.960	209-1274A-5R-2,22-24	1.4	1.4	2.623	2.585	2.683	3.6	0.038	C
+31.740	31.740	209-1274A-6R-2,29-31	1.6	1.6	2.605	2.564	2.672	4.1	0.042	C
+33.340	33.340	209-1274A-6R-3,52-54	0.5	0.5	2.796	2.781	2.823	1.5	0.015	C
+36.320	36.320	209-1274A-7R-1,52-54	0.7	0.7	2.726	2.706	2.758	1.9	0.019	C
+36.780	36.780	209-1274A-7R-1,98-100	1.3	1.3	2.653	2.619	2.708	3.3	0.034	C
+41.060	41.060	209-1274A-8R-1,106-108	0.5	0.5	2.626	2.612	2.647	1.3	0.013	C
+55.640	55.640	209-1274A-11R-1,74-76	1.2	1.2	2.606	2.574	2.657	3.1	0.032	C
+60.340	60.340	209-1274A-12R-1,94-96	1.7	1.7	2.568	2.525	2.635	4.2	0.044	C
+69.680	69.680	209-1274A-14R-1,68-70	1.4	1.4	2.568	2.533	2.624	3.5	0.036	C
+75.010	75.010	209-1274A-15R-1,101-103	1.9	1.9	2.520	2.472	2.594	4.7	0.049	C
+85.310	85.310	209-1274A-16R-2,17-19	1.6	1.7	2.525	2.484	2.588	4.0	0.042	C
+89.940	89.940	209-1274A-17R-2,19-21	1.8	1.8	2.557	2.512	2.628	4.4	0.046	C
+104.350	104.350	209-1274A-20R-1,145-147	4.1	4.2	2.444	2.344	2.596	9.7	0.108	C
+146.450	146.450	209-1274A-27R-1,35-37	3.5	3.6	2.474	2.388	2.607	8.4	0.092	C
+146.930	146.930	209-1274A-27R-1,83-85	1.1	1.1	2.615	2.587	2.660	2.8	0.028	C

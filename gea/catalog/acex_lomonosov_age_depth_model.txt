@@ -1,0 +1,28 @@
+/* DATA DESCRIPTION:
+Citation:	Backman, Jan; Jakobsson, Martin; Frank, Martin; Sangiorgi, Francesca; Brinkhuis, Henk; Stickley, Catherine E; O'Regan, Matthew; Lovlie, Reidar; Palike, Heiko; Spofforth, David J A; Gattacceca, Jerome; Moran, Kathryn; King, John W; Heil, Chip (2008): (Table 1) Age-Depth control points and sedimentation rates of IODP Exp302 sediments [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.705517, 
+	In supplement to: Backman, J et al. (2008): Age model and core-seismic integration for the Cenozoic Arctic Coring Expedition sediments from the Lomonosov Ridge. Paleoceanography, 23(1), PA1S03, https://doi.org/10.1029/2007PA001476
+Project(s):	Integrated Ocean Drilling Program / International Ocean Discovery Program (IODP) (URI: https://www.iodp.org/)
+Coverage:	LATITUDE: 87.890000 * LONGITUDE: 137.650000
+	MINIMUM DEPTH, sediment/rock: 0.00 m * MAXIMUM DEPTH, sediment/rock: 399.63 m
+Event(s):	302-CompSite (ACEX) * LATITUDE: 87.890000 * LONGITUDE: 137.650000 * ELEVATION: -1251.0 m * CAMPAIGN: Exp302 (Arctic Coring Expedition, ACEX) * BASIS: CCGS Captain Molly Kool (Vidar Viking) (URI: https://en.wikipedia.org/wiki/CCGS_Captain_Molly_Kool) * METHOD/DEVICE: Composite Core (COMPCORE) * COMMENT: Virtual core composed of spliced cores from Holes M0002A, M0003A, M0004A and M0004C. Virtual position and water depth is calculated as the mean of all Exp302 sites.
+Comment:	Depth is given in meter composite depth (mcd) ! Neogene: 198.7 m/(18.2-2.2) Ma; total time interval minus 2.2 Ma long hiatus. Average sedimentation rate: 12.4 m/MA; Paleogene: (404.8-198.7) m/(56.2-44.4) Ma. Average sedimentation
+Parameter(s):	DEPTH, sediment/rock [m] (Depth sed) * GEOCODE
+	Age model [ka] (Age model) * PI: Backman, Jan (backman@geo.su.se) * METHOD/DEVICE: Age model, composite
+	Sample comment (Sample comment) * PI: Backman, Jan (backman@geo.su.se) * COMMENT: Depth control points
+	Age, comment (Comm) * PI: Backman, Jan (backman@geo.su.se)
+	Interval comments (Interval comm) * PI: Backman, Jan (backman@geo.su.se) * COMMENT: Interval between depth control points
+	Sedimentation rate [cm/ka] (SR) * PI: Backman, Jan (backman@geo.su.se) * METHOD/DEVICE: Calculated, see reference(s)
+License:	Creative Commons Attribution 3.0 Unported (CC-BY-3.0) (URI: https://creativecommons.org/licenses/by/3.0/)
+Size:	38 data points
+*/
+Depth sed [m]	Age model [ka]	Sample comment	Comm	Interval comm	SR [cm/ka]
+0.00	0	A	top of section		
+135.49	9360		deepest 10Be sample above middle-late Miocene hiatus		1.45
+140.44	11560		next deeper 10Be sample, middle-late Miocene hiatus		
+151.28	12310	B	deepest 10Be sample	A-B	1.45
+198.70	18200	C	midpoint Burdigalian stage equals young end of Cenozoic hiatus	B-C	0.80
+198.70	44400		extrapolate up from D, to old end of Cenozoic hiatus		
+202.95	44600	D	last abundant occurrence of P. clithridium	D-E	2.43
+299.95	48600	E	last occurrence of Azolla spp.	E-F	1.27
+381.42	55000	F	last occurrence of A. augustum	F-G	2.01
+399.63	55904	G	top chron C25n		

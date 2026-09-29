@@ -1,0 +1,52 @@
+/* DATA DESCRIPTION:
+Citation:	Davis, Earl E; Fisher, Andrew T; Firth, John V; Shipboard Scientific Party (2005): Thermal conductivity of ODP Hole 168-1027B [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.792214
+Related to:	Davis, Earl E; Fisher, Andrew T; Firth, John V; et al. (1997): Proceedings of the Ocean Drilling Program, 168 Initial Reports. Proceedings of the Ocean Drilling Program, Ocean Drilling Program, 168, online, https://doi.org/10.2973/odp.proc.ir.168.1997
+	ODP/TAMU (2005): JANUS Database. Ocean Drilling Program, Texas A&M University, College Station TX 77845-9547, USA; (data copied from Janus 2005-02 to 2005-06), https://www-odp.tamu.edu:443/database/
+Further details:	Blum, Peter (1997): Thermal conductivity. Physical properties handbook: a guide to the shipboard measurement of physical properties of deep-sea cores, hdl:10013/epic.40058.d008
+Project(s):	Ocean Drilling Program (ODP) (URI: https://www-odp.tamu.edu:443/)
+Coverage:	LATITUDE: 47.756900 * LONGITUDE: -127.730000
+	DATE/TIME START: 1996-07-01T09:00:00 * DATE/TIME END: 1996-07-06T09:45:00
+	MINIMUM DEPTH, sediment/rock: 0.650 m * MAXIMUM DEPTH, sediment/rock: 518.910 m
+Event(s):	168-1027B * LATITUDE: 47.756900 * LONGITUDE: -127.730000 * DATE/TIME START: 1996-07-01T09:00:00 * DATE/TIME END: 1996-07-06T09:45:00 * ELEVATION: -2657.0 m * PENETRATION: 577.9 m * RECOVERY: 414.91 m * LOCATION: Juan de Fuca Ridge, North Pacific Ocean * CAMPAIGN: Leg168 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 62 cores; 577.9 m cored; 0 m drilled; 71.8 % recovery
+Parameter(s):	DEPTH, sediment/rock [m] (Depth sed) * GEOCODE * COMMENT: mbsf
+	Sample code/label (Sample label) * PI: Shipboard Scientific Party * METHOD/DEVICE: DSDP/ODP/IODP sample designation (URI: hdl:10013/epic.27914.d001)
+	Conductivity, thermal [W/m/K] (k) * PI: Shipboard Scientific Party
+	Probe Type (Probe Type) * PI: Shipboard Scientific Party
+	Identification (ID) * PI: Shipboard Scientific Party * COMMENT: System ID
+	Identification (ID) * PI: Shipboard Scientific Party * COMMENT: Probe ID
+License:	Creative Commons Attribution 3.0 Unported (CC-BY-3.0) (URI: https://creativecommons.org/licenses/by/3.0/)
+Size:	160 data points
+*/
+Depth sed [m] (mbsf)	Sample label	k [W/m/K]	Probe Type	ID (System ID)	ID (Probe ID)
+0.650	168-1027B-1H-1,65-65	0.8383	FULL	4	364
+0.800	168-1027B-1H-1,80-80	1.6989	FULL	4	364
+2.100	168-1027B-1H-2,60-60	1.1849	FULL	4	365
+2.500	168-1027B-1H-2,100-100	1.0466	FULL	4	365
+3.400	168-1027B-1H-3,40-40	1.0460	FULL	4	366
+445.760	168-1027B-48X-2,36-78	1.4050	HALF	3	794
+445.815	168-1027B-48X-2,41.5-70.5	1.3460	HALF	3	794
+447.180	168-1027B-48X-3,28-61	1.2520	HALF	3	794
+447.250	168-1027B-48X-3,35-66	1.2810	HALF	3	794
+447.330	168-1027B-48X-3,43-72	1.3220	HALF	3	794
+474.425	168-1027B-51X-2,32.5-64.5	1.3730	HALF	3	794
+474.560	168-1027B-51X-2,46-76	1.4460	HALF	3	794
+477.340	168-1027B-51X-4,24-71.5	1.6180	HALF	3	794
+477.350	168-1027B-51X-4,25-50	1.5040	HALF	3	794
+477.475	168-1027B-51X-4,37.5-74.5	1.5880	HALF	3	794
+477.615	168-1027B-51X-4,51.5-77	1.7210	HALF	3	794
+482.470	168-1027B-52X-1,27-61	1.3580	HALF	3	794
+482.505	168-1027B-52X-1,30.5-74.5	1.4040	HALF	3	794
+482.550	168-1027B-52X-1,35-64	1.3770	HALF	3	794
+482.555	168-1027B-52X-1,35.5-69.5	1.3840	HALF	3	794
+482.565	168-1027B-52X-1,36.5-66	1.2780	HALF	3	794
+482.570	168-1027B-52X-1,37-80	1.3780	HALF	3	794
+482.575	168-1027B-52X-1,37.5-69	1.3680	HALF	3	794
+496.470	168-1027B-53X-4,27-61	1.3430	HALF	3	794
+496.495	168-1027B-53X-4,29.5-55.5	1.3620	HALF	3	794
+496.505	168-1027B-53X-4,30.5-58	1.3730	HALF	3	794
+511.305	168-1027B-55X-1,30.5-71.5	1.5040	HALF	3	794
+511.335	168-1027B-55X-1,33.5-77	1.5400	HALF	3	794
+511.395	168-1027B-55X-1,39.5-77	1.5310	HALF	3	794
+518.830	168-1027B-55X-6,33-65	1.5180	HALF	3	794
+518.905	168-1027B-55X-6,40.5-66	1.5420	HALF	3	794
+518.910	168-1027B-55X-6,41-78.5	1.5610	HALF	3	794

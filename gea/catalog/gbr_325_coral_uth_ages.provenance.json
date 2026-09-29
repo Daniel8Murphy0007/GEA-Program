@@ -1,0 +1,23 @@
+{
+  "entry": "gbr_325_coral_uth_ages",
+  "kind": "REAL_UTH_RADIOMETRIC_GEOCHRONOLOGY",
+  "well": "IODP Holes 325-M0031A/M0033A/M0035A/M0036A/M0039A (Hydrographers Passage) and 325-M0053A/M0057A (Noggin Pass) - GREAT BARRIER REEF, Australia (17.10-19.68 S, 146.56-150.24 E), DROWNED FOSSIL REEFS on the shelf edge at -42.3 to -108.6 m; IODP Expedition 325 'Great Barrier Reef Environmental Changes' (2010), drilled from the mission-specific platform GREATSHIP MAYA - the catalogue's first MSP vessel and first reef-framework boreholes",
+  "operator_on_log": "Felis, McGregor, Linsley, Tudhope, Gagan, Suzuki, Inoue, Thomas, Esat, Thompson, Tiwari, Potts, Mudelsee, Yokoyama & Webster - U-Th mass-spectrometric dating of Isopora coral colonies at THREE independent laboratories (WHOI, ANU, Oxford), raw and detritally-corrected ages relative to AD 1950",
+  "source_database": "PANGAEA, dataset doi:10.1594/PANGAEA.833407 ('(Supplementary Table 1) Results of U-Th analysis'); supplement to Felis et al. 2014, Nature Communications 5, 4102 (doi:10.1038/ncomms5102)",
+  "source_url": "https://doi.pangaea.de/10.1594/PANGAEA.833407?format=textfile",
+  "license": "Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file's own header. Attribution: Felis et al. / PANGAEA / IODP",
+  "fetch_date": "2026-08-27",
+  "fetch_method": "read-only HTTPS fetch of the PANGAEA textfile export - COMPLETE dataset (486 data points per the header's own Size declaration = 27 rows x 18 non-Event cells, a FULLY POPULATED matrix, EXACT) in one fetch",
+  "coverage": "COMPLETE DATASET: 27 U-Th analyses on fossil Isopora corals spanning 11.657-25.044 ka BP (Younger Dryas terminus to Last Glacial Maximum) - (232Th/238U), (234U/238U), (230Th/238U) activity ratios with 2SD errors, measuring lab + year, raw AND detritally-corrected ages each with back-calculated initial (234U/238U)(0); two replicate A/B pairs on single coral specimens; 14 Hydrographers Passage + 13 Noggin Pass samples (the paper's meridional-gradient transect pair)",
+  "curves": [
+    "ordinal index (no depth geocode - the label-indexed PANGAEA route; sample positions ride in the ODP-style labels)",
+    "(232Th/238U) 2.099e-6 to 9.247e-4 + 2SD (detrital-contamination monitor)",
+    "(234U/238U) 1.1337-1.1440 + 2SD; (230Th/238U) 0.1166-0.2338 + 2SD (the chronometer)",
+    "U-Th Age raw / detritally-corrected [ka BP] 11.657-25.044 + 2SD",
+    "(234U/238U)(0) initial ratios raw + corrected 1.1396-1.1500 + 2SD",
+    "Lab (WHOI/ANU/OX) + year measured; Event rides as per-row quality; Site HYD/NOG verbatim"
+  ],
+  "source_anomaly_disclosure": "No internal inconsistencies detected - the archive closes against its own physics: the U-234 decay identity (234U/238U)(0) = 1 + ((234U/238U)_measured - 1) x exp(lambda234 x t), with lambda234 = 2.8221e-6/yr, reproduces ALL 54 archived initial ratios (27 raw + 27 corrected) to within 1.3e-4 activity units; noted for the record: ages are declared relative to AD 1950 in the header's own comment, and analyses span three labs and two measurement years with replicate A/B pairs agreeing within their stated errors",
+  "purpose": "thirty-ninth catalogue entry - the GREAT BARRIER REEF joins as region TWENTY-SEVEN (the catalogue's first drowned-reef boreholes, drilled from its first mission-specific platform) and U-Th radiometric geochronology is kind TWENTY-EIGHT: absolute clocks in the rock, the chronometric backbone under the catalogue's age-depth and varve kinds; the gate re-earns the radiochemistry on every run - the 234U decay identity closes on all 54 initial-ratio cells, every detritally-corrected age is <= its raw age (inherited 230Th only ever makes samples LOOK older), the correction magnitude tracks the 232Th contamination exactly as the physics demands (all 7 rows with 232Th/238U >= 2e-4 correct by >= 0.015 kyr; all 16 rows below 5e-5 correct by <= 0.007 kyr), and every initial ratio sits inside the closed-system seawater window 1.1396-1.1500 - corals that kept their clocks sealed for 25,000 years",
+  "verified": "27 rows / 486 counted cells against the header's own Size declaration (EXACT - a fully populated matrix, the catalogue's first); U-234 decay identity re-derived on all 54 initial-ratio cells (worst 1.3e-4); detrital correction direction and magnitude pinned; seawater initial-ratio window pinned; age span 11.657-25.044 ka with the LGM sample (25.044) at Hydrographers Passage; HYD/NOG = 14/13 split pinned; gate-pinned; source URL serves the identical dataset"
+}

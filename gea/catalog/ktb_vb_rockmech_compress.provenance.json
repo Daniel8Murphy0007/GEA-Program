@@ -1,0 +1,22 @@
+{
+  "entry": "ktb_vb_rockmech_compress",
+  "kind": "REAL_ROCK_MECHANICS_COMPLETE",
+  "well": "KTB-Oberpfalz VB/VB1a (Pilot Hole), German Continental Deep Drilling Program - same well as entry 13 (twin-sensor temperature log)",
+  "operator_on_log": "KTB field laboratory rock-mechanics programme: uniaxial compressive-strength tests on cores, with E-modulus and dip of foliation, sample names/sections and sampling timestamps as recorded 1987-1989",
+  "source_database": "KTB Information System (ICDP legacy data site) - rockmech/compress/cores/vb1 ('COMPRESSIVE STRENGTH OF CORES OF THE KTB PILOT HOLE'); a small companion HB table (rockmech/compress/cores/hb1, 2.5 KB) exists at the same site and is NOT yet catalogued",
+  "source_url": "https://data.icdp-online.org/sites/ktb/data/rockmech/compress/cores/vb1.htm",
+  "license": "ICDP/GFZ scientific data, freely accessible via the public KTB Information System. Attribution: KTB / GFZ / Kueck et al. (2021) KTB data family",
+  "fetch_date": "2026-08-25",
+  "fetch_method": "read-only HTTPS fetch of the legacy page (text/html rendering of the 11 KB ASCII table) - the COMPLETE file fit within the fetch window",
+  "coverage": "COMPLETE FILE: all samples verbatim, 189.79 -> 3,831.88 m, compressive strength 3.2 -> 265.4 MPa across rock types (BIO-GNS/GNS/HBL-GNS foliated gneisses, GNT-AMP/AMP amphibolites, MET-GAB metagabbros, MET-UMA, LAM), with E-modulus (GPa), dip of foliation (deg), sample name/section and sampling timestamp per row.",
+  "curves": [
+    "DEPTH (m)",
+    "NAME OF SAMPLE / SECTION / DATE OF SAMPLING / ROCK TYPE (strings, verbatim in file)",
+    "COMPRESSIVE STRENGTH (MPa)",
+    "E_MODUL (GPa)",
+    "DIP OF FOLIATION (deg, I2)"
+  ],
+  "rendering_ambiguity_disclosure": "The source declares SEPARATOR TAB; the legacy site's HTML rendering collapses tabs to space runs, so EMPTY interior cells lose their position. Rows with all 8 fields are unambiguous. For short rows the reader applies a TYPE-DECLARED rule only: a trailing token containing a decimal point cannot be the I2 dip column and is assigned to E_MODUL; a trailing INTEGER token in a 7-field row (which could be an integer-valued E in GPa OR a dip in deg) is REFUSED - both E_MODUL and DIP set NaN and the raw token preserved in a per-row quality flag. Nothing is guessed from geology. The source URL serves the file for byte-level (tab-preserving) resolution.",
+  "purpose": "sixteenth catalogue entry - the catalogue's first LABORATORY ROCK STRENGTH data (TENTH kind), completing the geomechanics pair with entry 15: strength (what the rock can bear) vs overburden (what it does bear). The gate compares them live: weak foliated gneisses whose measured UCS falls BELOW the density-derived overburden at their own depth - the physical reason the KTB pilot hole developed breakouts - are counted from data, not asserted.",
+  "verified": "sample count, depth/strength endpoints and extremes, type-rule assignments, refused-ambiguous count, and the live strength-vs-overburden comparison gate-pinned; source URL serves the identical table for independent re-verification"
+}

@@ -1,0 +1,28 @@
+{
+  "entry": "odp_735b_gabbro_elastic_moduli",
+  "kind": "REAL_ELASTIC_MODULI_PRESSURE_SWEEP",
+  "well": "ODP Hole 118-735B, Atlantis Bank, SOUTHWEST INDIAN RIDGE (-32.7240 S, 57.2662 E; seafloor -731 m, the shallowest ocean site in the catalogue) - Leg 118 (1987), JOIDES Resolution; 500.7 m penetration, 86.8% recovery of LAYER-3 GABBRO, the classic lower-oceanic-crust reference hole",
+  "operator_on_log": "Iturrino, Christensen, Kirby & Salisbury laboratory pulse-transmission measurements on Leg 118 gabbro cores; published Proc. ODP Sci. Results 118 (doi:10.2973/odp.proc.sr.118.151.1991) - same Christensen laboratory lineage as the 504B sheeted-dike entry",
+  "source_database": "PANGAEA, dataset doi:10.1594/PANGAEA.757872 ('(Table 4) Average compressional- and share-wave velocities and elastic constants for ODP Hole 118-735B gabbros'; child of publication series doi:10.1594/PANGAEA.757877)",
+  "source_url": "https://doi.pangaea.de/10.1594/PANGAEA.757872?format=textfile",
+  "license": "Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file's own header. Attribution: Iturrino/Christensen/Kirby/Salisbury / PANGAEA / ODP",
+  "fetch_date": "2026-08-26",
+  "fetch_method": "read-only HTTPS fetch of the PANGAEA textfile export - COMPLETE dataset (1,144 data points = 104 rows x 11 parameters, verified cell-by-cell against the header's own Size declaration) in one fetch; found via the parent publication-series landing page (bundle DOIs do not export textfile - child tables do)",
+  "coverage": "COMPLETE DATASET: 13 gabbro samples spanning 23R-83R (olivine gabbros, Fe-Ti oxide gabbros, amphibolitized and metagabbros), each swept through confining pressures 100 -> 2,000 bar: Vp 6,350-7,310 m/s, Vs 3,510-4,040 m/s, Vp/Vs, Poisson's ratio, bulk and shear moduli, density 2.84-3.27 g/cm3, porosity 0.1-0.9%, and FULL PETROGRAPHIC MODAL MINERALOGY verbatim in every row's comment.",
+  "curves": [
+    "ordinal measurement number (index; label-indexed source)",
+    "Density [g/cm**3] (on every row)",
+    "Poros [% vol]",
+    "P [bar] 100-2000",
+    "Vp [m/s]",
+    "Vs [m/s]",
+    "Vp/Vs",
+    "Pois r",
+    "Bulk mod [MPa]",
+    "Shear mod [MPa]",
+    "Sample label (quality) + modal-mineralogy comment (verbatim in file)"
+  ],
+  "source_anomaly_disclosure": "FOUR source spelling/format quirks preserved verbatim: (1) the dataset's own PANGAEA title reads 'share-wave' for shear-wave; (2) sample 48R-4 comment reads 'Fe-Ti Oxide Grabbo' for Gabbro; (3) sample 83R-4 comment reads 'tracee phyllosilicates'; (4) sample 55R-4's modal list reads '10 oxides' with the percent sign missing. Also sample 42R-4's label carries an anomalous space ('42R-4, 62-64'). All detected during transcription audit, carried unchanged.",
+  "purpose": "twenty-seventh catalogue entry - the SOUTHWEST INDIAN RIDGE joins as region FIFTEEN and the catalogue COMPLETES THE OCEANIC-CRUST LADDER: sediments (many entries) -> pillow basalts (504B Leg 69) -> sheeted dikes (504B Leg 111) -> LAYER-3 GABBRO (735B Leg 118), the full ophiolite sequence held as verbatim public data; same four-identity elastic audit as the dike entry but on all 104 rows (density rides on every row), plus a fifth audit unique to this entry: the petrographic modal percentages in each sample's comment sum to ~100%",
+  "verified": "104 rows / 1,144 cells against the header Size declaration; Vp/Vs, Poisson, shear modulus rho*Vs^2 and bulk modulus rho*(Vp^2 - 4/3 Vs^2) re-derived on ALL 104 rows within the table's rounding; modal-mineralogy sum audit on all 13 samples; ranges and endpoints; four source spelling quirks pinned; gate-pinned; source URL serves the identical dataset"
+}

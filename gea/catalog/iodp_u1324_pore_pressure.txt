@@ -1,0 +1,42 @@
+/* DATA DESCRIPTION:
+Citation:	Flemings, Peter B; Long, H; Dugan, Brandon; Germaine, John T; John, C; Behrmann, Jan-Hinrich; Sawyer, Dale S; IODP Expedition 308 Scientists (2008): (Table 1) In situ pore pressure measurements of IODP Site 308-U1324 [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.725472,
+	In supplement to: Flemings, PB et al. (2008): Pore pressure penetrometers document high overpressure near the seafloor where multiple submarine landslides have occurred on the continental slope, offshore Louisiana, Gulf of Mexico. Earth and Planetary Science Letters, 269(3-4), 309-325, https://doi.org/10.1016/j.epsl.2007.12.005
+Project(s):	Integrated Ocean Drilling Program / International Ocean Discovery Program (IODP) (URI: https://www.iodp.org/)
+Coverage:	LATITUDE: 28.001329 * LONGITUDE: -89.002321
+	MINIMUM DEPTH, sediment/rock: 50.0 m * MAXIMUM DEPTH, sediment/rock: 608.2 m
+Event(s):	308-U1324B * LATITUDE: 28.001329 * LONGITUDE: -89.002318 * ELEVATION: -1056.8 m * RECOVERY: 569.92 m * CAMPAIGN: Exp308 (Gulf of Mexico Hydrogeology) * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 74 cores; 608.2 m cored; 93.7 % recovered; 0 m drilled; 608.2 m penetrated
+	308-U1324C * LATITUDE: 28.001329 * LONGITUDE: -89.002325 * ELEVATION: -1055.7 m * RECOVERY: 55.57 m * CAMPAIGN: Exp308 (Gulf of Mexico Hydrogeology) * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 8 cores; 55.1 m cored; 100.9 % recovered; 456.7 m drilled; 511.8 m penetrated
+Parameter(s):	Event label (Event)
+	DEPTH, sediment/rock [m] (Depth sed) * GEOCODE
+	Sample comment (Sample comment) * PI: Flemings, Peter B (https://orcid.org/0000-0002-5377-3694) * COMMENT: Deployment
+	Pore pressure [kPa] (u2) * PI: Flemings, Peter B (https://orcid.org/0000-0002-5377-3694) * COMMENT: hydrostatic fluid pressure
+	Overburden pressure [kPa] (Overb press) * PI: Flemings, Peter B (https://orcid.org/0000-0002-5377-3694)
+	Time in minutes [min] (Time min) * PI: Flemings, Peter B (https://orcid.org/0000-0002-5377-3694)
+	Sample type (Samp type) * PI: Flemings, Peter B (https://orcid.org/0000-0002-5377-3694)
+	- (-) * PI: Flemings, Peter B (https://orcid.org/0000-0002-5377-3694) * METHOD/DEVICE: Calculated * COMMENT: u end (MPa)
+	- (-) * PI: Flemings, Peter B (https://orcid.org/0000-0002-5377-3694) * METHOD/DEVICE: Calculated * COMMENT: u*-1/t (MPa)
+	- (-) * PI: Flemings, Peter B (https://orcid.org/0000-0002-5377-3694) * METHOD/DEVICE: Calculated * COMMENT: u*-1/square root t (MPa)
+	- (-) * PI: Flemings, Peter B (https://orcid.org/0000-0002-5377-3694) * METHOD/DEVICE: Calculated * COMMENT: Delta ut (MPa)
+	Error, absolute [±] (Error a) * PI: Flemings, Peter B (https://orcid.org/0000-0002-5377-3694) * METHOD/DEVICE: Calculated * COMMENT: 5 % error bar
+License:	Creative Commons Attribution 3.0 Unported (CC-BY-3.0) (URI: https://creativecommons.org/licenses/by/3.0/)
+Size:	152 data points
+*/
+Event	Depth sed [m]	Sample comment (Deployment)	u2 [kPa] (hydrostatic fluid pressure)	Overb press [kPa]	Time min [min]	Samp type	- (u end (MPa))	- (u*-1/t (MPa))	- (u*-1/square root t (MPa))	- (Delta ut (MPa))	Error a [±] (5 % error bar)
+308-U1324B	51.3		11130	11440	34	Shaft:IIA	11.65	0.48	0.41	0.39	0.020
+308-U1324B	89.3		11510	12110	25	Shaft:I	12.09	0.49	0.37	0.69	0.035
+308-U1324B	117.8		11800	12630	31	Shaft:I	12.90	0.88	0.62	1.23	0.062
+308-U1324B	136.3		11990	12980	30	Shaft:IIA	13.23	0.97	0.68	1.69	0.085
+308-U1324B	136.3	T2P_12				Tip:IIA;	11.21	0.09	0.07	0.21
+308-U1324B	608.2	DVTP-P12	16730	22110	61	IIA	18.80	1.66	0.96	5.60	0.280
+308-U1324C	50.0		11110	11420	60	Shaft:IIA	11.56	0.33	0.20	0.61	0.031
+308-U1324C	50.0	T2P_13				Tip:IIA;	12.93	0.31	0.30	0.39	0.020
+308-U1324C	100.0		11610	12300	60	Shaft:I	12.39	0.60	0.40	1.04	0.052
+308-U1324C	100.0	T2P_14				Tip:IIB;	12.69	0.56	0.54	1.45	0.073
+308-U1324C	150.0		12110	13240	60	Shaft:IIA	13.10	0.86	0.71	2.03	0.102
+308-U1324C	150.0	T2P_15				Tip:IIA;	14.09	1.30	1.11	0.90	0.045
+308-U1324C	200.0		12610	14180	60	Shaft:I	14.44	1.51	1.16	2.00	0.100
+308-U1324C	200.0	T2P_16				Tip:I;	14.42	0.75	0.69	2.69	0.135
+308-U1324C	250.0	DVTP-P13	13120	15600	90	I	14.61	1.10	0.66	2.19	0.110
+308-U1324C	300.0		13620	15600	90	Shaft:I	15.20	0.96	0.25	3.54	0.177
+308-U1324C	505.0	DVTP-P15	15680	15600	93	IIB	16.84	1.06	1.06	0.73	0.037
+308-U1324C	505.0	T2P_5				Tip:IIA;	11.37	0.24	0.23	0.14	0.007

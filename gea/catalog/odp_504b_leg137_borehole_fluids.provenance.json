@@ -1,0 +1,19 @@
+{
+  "entry": "odp_504b_leg137_borehole_fluids",
+  "kind": "REAL_BOREHOLE_FLUID_CHEMISTRY_COMPLETE",
+  "well": "ODP/DSDP Hole 504B, Costa Rica Rift flank, North Pacific Ocean (1.2269 N, -83.7303 E; seafloor at -3,474 m) - the DEEPEST HOLE IN OCEANIC CRUST (penetration 2,111 mbsf over its lifetime; 1,621.5 m at Leg 137), the oceanic counterpart of KTB",
+  "operator_on_log": "Ocean Drilling Program Leg 137, JOIDES Resolution (1991); analyses Magenheim, Spivack, Alt, Bayhurst, Chan, Zuleger, Gieskes (1995)",
+  "source_database": "PANGAEA - Data Publisher for Earth & Environmental Science, dataset doi:10.1594/PANGAEA.805957 ('(Table 3) Geochemistry of borehole fluids of ODP Hole 137-504B'); supplement to Magenheim et al. (1995), Proc. ODP Sci. Results 137, doi:10.2973/odp.proc.sr.137140.024.1995",
+  "source_url": "https://doi.pangaea.de/10.1594/PANGAEA.805957?format=textfile",
+  "license": "Creative Commons Attribution 3.0 Unported (CC-BY-3.0), as declared IN the file's own header. Attribution: Magenheim et al. (1995) / PANGAEA / Ocean Drilling Program",
+  "fetch_date": "2026-08-25",
+  "fetch_method": "read-only HTTPS fetch of the PANGAEA machine-readable textfile export (Content-Type: text/tab-separated-values) - the COMPLETE dataset with its full self-describing header (citation, abstract, coordinates, event, per-parameter methods, license) in ONE fetch; the richest-provenance source format in the catalogue (the file carries its own citation)",
+  "coverage": "COMPLETE DATASET: all 8 borehole fluid samples, 350 -> 1,550 mbsf, 44 parameters (318 data points): pH, alkalinity, salinity, major ions (Cl/Mg/Ca/SO4/Na/K), nutrients, trace metals, boron, stable and radiogenic isotopes (d18O, dD, d13C, d34S, 87Sr/86Sr, d6Li, 3He/4He), and 14 REE. Short rows (trailing empty cells) are represented by row termination; the reader pads them to NaN.",
+  "curves": [
+    "Depth sed [m] (mbsf, index)",
+    "43 measured chemistry/isotope parameters with per-parameter METHOD/DEVICE declared in-file"
+  ],
+  "science_disclosure": "The paper's own honest finding is preserved as the entry's meaning: these are BOREHOLE fluids, not confirmed formation waters - seawater mixing with a single reacted component (likely basaltic-rubble reaction at the hole bottom at ambient >160 degC). The depth trend IS the mixing gradient: Mg falls 54.0 -> 26.9 mmol/l while Ca rises 10.7 -> 43.0 and 87Sr/86Sr slides from the seawater value (0.70921) toward basaltic (0.70758). The BL-004M sample at 950 m is near-seawater (a fresh-water parcel in the column) - real structure, preserved.",
+  "purpose": "eighteenth catalogue entry - TENTH region (North Pacific oceanic crust), FIRST subsea/sub-seafloor entry, ELEVENTH kind (borehole fluid chemistry): the chemistry of the fluid downhole tools actually live in (corrosion/scaling-relevant), from the ocean's KTB; also proves the PANGAEA textfile route - a whole new provenance-grade source family for the catalogue",
+  "verified": "8 samples; depth/Mg/Ca/pH/Sr-isotope endpoints and extremes; the mixing gradient (corr(depth,Mg) strongly negative, corr(depth,Ca) positive) computed live; NaN padding of short rows; in-file license/coordinates parsed to meta; gate-pinned; source URL serves the identical dataset for independent re-verification"
+}

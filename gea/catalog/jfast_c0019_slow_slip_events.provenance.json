@@ -1,0 +1,28 @@
+{
+  "entry": "jfast_c0019_slow_slip_events",
+  "kind": "REAL_SLOW_SLIP_EVENT_FRICTION",
+  "well": "IODP Hole 343-C0019E - JAPAN TRENCH plate-boundary decollement, offshore Tohoku (37.938905 N, 143.913473 E; seafloor -6,887.5 m - the DEEPEST-WATER site in scientific ocean drilling and the deepest-water entry in this catalogue by a factor of 2.5); JFAST (Japan Trench Fast Drilling Project), Expedition 343, May 2012, thirteen months after the 2011 Mw 9.0 Tohoku-oki earthquake whose shallow fault slip (~50 m reaching the trench) this hole was drilled to sample; 21 cores, 137 m cored, 43% recovered, 844.5 m penetrated",
+  "operator_on_log": "Ikari, Ito, Ujiie & Kopf (MARUM/Tohoku Univ./Univ. Tsukuba) laboratory shearing experiments on core 17R-1 from the plate-boundary fault zone, driven at PLATE-TECTONIC RATES (~cm/yr class); drilling by D/V CHIKYU - the catalogue's second Chikyu entry and second Ikari-lab entry (companion discipline to the Nankai megasplay shear-strength table)",
+  "source_database": "PANGAEA, dataset doi:10.1594/PANGAEA.858800 ('Slow slip event measurements of IODP Hole 343-C0019'); supplement to Ikari et al. 2015, Nature Geoscience 8(11), 870-874 (doi:10.1038/ngeo2547)",
+  "source_url": "https://doi.pangaea.de/10.1594/PANGAEA.858800?format=textfile",
+  "license": "Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file's own header. Attribution: Ikari/Ito/Ujiie/Kopf / PANGAEA / IODP",
+  "fetch_date": "2026-08-27",
+  "fetch_method": "read-only HTTPS fetch of the PANGAEA textfile export - COMPLETE dataset (83 data points per the header's own Size declaration = 23 label cells + 60 numeric cells across 7 experiment rows x 16 columns) in one fetch",
+  "coverage": "COMPLETE DATASET: 7 laboratory experiments on Tohoku plate-boundary fault-zone material (sample 343-C0019E-17R-1, intact and powdered), of which FIVE produced spontaneous laboratory SLOW SLIP EVENTS (loadup 19,556-74,138 s; shear-stress drops 51.1-121.9 kPa = 2.95-6.54% of the 1,703.2-1,865.8 kPa peak strengths; friction-coefficient drops 0.007-0.017; slip distances 25.3-61.9 um over durations 7,310-14,580 s; sliding velocities 0.0005-0.0079 um/s) and TWO refused ('*no SSE', carried verbatim with all twelve numeric fields empty) - a negative result preserved as data",
+  "curves": [
+    "ordinal experiment index (no depth geocode - the catalogue's label-indexed PANGAEA route)",
+    "Time sec [s] (loadup time)",
+    "DIS [mm] (loadup)",
+    "Tau [kPa] (increase) + µ (increase)",
+    "Tau [kPa] (drop) + µ (drop)",
+    "Shear str max [kPa]",
+    "Perc [%] (stress drop)",
+    "Distance [µm] (slip)",
+    "Duration [s]",
+    "V [µm/s] (mininum velocity) + V [µm/s] (maximum velocity) (source spelling 'mininum' preserved verbatim)",
+    "Exp rides as per-sample quality; Sample label/comment + '*no SSE' Comment verbatim in file"
+  ],
+  "source_anomaly_disclosure": "TWO source quirks preserved verbatim: (1) the header parameter comment spells 'mininum velocity' (source typo, untouched); (2) experiment B379 run 1's mean slip velocity, Distance/Duration = 46.7/11510.0 = 0.00406 um/s, EXCEEDS its own reported maximum sliding velocity 0.0032 um/s - the other four SSE rows all keep Distance/Duration inside their reported [V_min, V_max] band; the inconsistency is the archive's, detected by re-deriving the band check, and carried unchanged with this disclosure",
+  "purpose": "thirty-first catalogue entry - a TRIPLE FIRST: the JAPAN TRENCH joins as region NINETEEN, laboratory SLOW-SLIP-EVENT friction measurements are kind TWENTY (the time-dependent counterpart to the Nankai monotonic shear-strength table: not how strong the fault is, but HOW it fails), and at -6,887.5 m seafloor it sets the catalogue's water-depth record; the material is the actual plate-boundary gouge that hosted the 2011 Tohoku Mw 9.0 - the paper's headline physics (slow slip events nucleate spontaneously in this material at plate-tectonic loading rates, with tiny stress drops on a weak fault) is re-derived from the table by the gate on every run",
+  "verified": "83 non-empty body cells against the header's own Size declaration (23 label + 60 numeric, EXACT); stress-drop identity Perc = Tau_drop/Shear_str_max x 100 re-derived on all 5 SSE rows within input-rounding (<=0.02 pct); slow-slip character pinned (all V_max <= 0.0079 um/s - five orders below seismic slip rates - with durations 2-4 h); 4-of-5 mean-velocity band check + the B379-run-1 exceedance pinned as disclosed; the two '*no SSE' rows load as all-NaN numerics with Comment verbatim; gate-pinned; source URL serves the identical dataset"
+}

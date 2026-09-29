@@ -1,0 +1,20 @@
+{
+  "entry": "ktb_hb_complog_6020_excerpt",
+  "kind": "REAL_COMPOSITE_LOG_EXCERPT",
+  "well": "KTB Hauptbohrung, Windischeschenbach, Germany - the catalogue's flagship continental deep hole; composite NGS/Sonic/LDT/DLL toolstring, section 6011-7200 m, EXCERPT 6020.105-6029.8584 m (65 half-foot stations) - the block where P-wave slowness (DTCO) and bulk density (RHOB) ride co-located through the crystalline gneiss",
+  "operator_on_log": "KTB / Schlumberger-class composite (original KTB data files HB-00211/00212/00214)",
+  "source_database": "KTB Information System (ICDP legacy data site, data.icdp-online.org/sites/ktb) - same archive family and license as the catalogue's four existing KTB entries",
+  "source_url": "https://data.icdp-online.org/sites/ktb/data/logging/complogs/hb1/60117200.htm",
+  "license": "ICDP/GFZ scientific data, freely accessible via the public KTB Information System. Attribution: KTB / GFZ",
+  "fetch_date": "2026-08-29",
+  "fetch_method": "read-only HTTPS fetch of the source page; the 946 KB file truncates near 6,067 m under the sanctioned transport, so this entry is a VERBATIM 65-row CONTIGUOUS EXCERPT hand-transcribed from the fetched head - NO independent machine checksum exists (disclosed honestly; self-checks: uniform 17 columns, uniform half-foot depth steps); the excerpt route follows the catalogue's original KTB precedent (_excerpt kinds, entries 12-17)",
+  "coverage": "EXCERPT: 65 stations x 17 channels, 6020.105-6029.8584 m - resistivities (LLD/LLS/MSFL), full sonic triplet (DTCO/DTSM/DTST), spectral gamma (SGR/URAN/THOR/POTA), caliper, density (RHOB/DRHO), PEF, NPHI, U",
+  "curves": [
+    "DEPT (m) index + DTCO/DTSM/DTST slowness (us/m) - Vp = 1e6/DTCO",
+    "RHOB (g/cm3) + DRHO - co-located with sonic: the KTB rho-Vp joint sample",
+    "LLD/LLS/MSFL resistivity, SGR spectral gamma suite, CALI, PEF, NPHI, U"
+  ],
+  "source_anomaly_disclosure": "Carried verbatim: -999.25 nulls in the NGS columns for the first four stations and one physically impossible negative resistivity pair (LLD -189.42 / LLS -139.34 at 6020.2573 m - a tool artifact at the logging run's head, preserved not repaired); washout intervals show RHOB down to 1.05 g/cm3 with CALI to 582.5 mm - hole artifacts, not rock (the analysis filter RHOB > 2.5 is disclosed wherever used); the source's own caveat that SGR API units are relative rides in the header",
+  "purpose": "FIFTY-SECOND catalogue entry - THE PREDICTION'S JUDGE: fetched to score the v1.77.0 falsifiable KTB Vp prediction, and although the eleven predicted depths are transport-unreachable, the co-located DTCO+RHOB pairs deliver the decisive test of the chain's disclosed assumption: at matched density 2.80-2.90 g/cm3, KTB's own measured Vp is 6,228 m/s mean (5,537-6,519, n=11) versus the 504B-prior prediction of 5,675 +/- 109 - the cross-site transfer (oceanic basalt prior applied to continental gneiss) is REFUTED at ~+10 percent / ~5 sigma, exactly the failure mode the engine disclosed on every estimate before the data arrived; the UQFF constants layer (validated 0.9968) is NOT implicated - the provincial prior is",
+  "verified": "65 rows x 17 columns uniform; depth steps 0.1523-0.1529 m (half-foot sampling, transcription self-check); 19 good-hole DTCO+RHOB pairs (RHOB > 2.5 filter disclosed); the rho 2.80-2.90 band verdict (mean 6,228 m/s vs predicted 5,675 +/- 109) gate-pinned as the catalogue's first PREDICTION SCORING; source URL serves the identical file"
+}

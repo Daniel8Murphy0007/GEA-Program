@@ -1,0 +1,14 @@
+{
+  "name": "EXAMPLE_TEST_FIXTURE_loopback_map",
+  "source": "EXAMPLE TEST FIXTURE ONLY (v1.11.0, 2026-08-24): describes the in-process pymodbus loopback server used to verify the tap - NOT a device register map. No public G6 register map exists in the fetched sources; obtain your site's map from the G6/site documentation and cite it here (Rule 7).",
+  "unit_id": 1,
+  "word_order": "big",
+  "table": "holding",
+  "registers": [
+    {"channel": "P_raw_psi_S1", "address": 0, "type": "float32", "unit": "psi"},
+    {"channel": "T_raw_F_S1", "address": 2, "type": "float32", "unit": "degF"},
+    {"channel": "P_raw_psi_S2", "address": 4, "type": "float32", "unit": "psi"},
+    {"channel": "T_raw_F_S2", "address": 6, "type": "float32", "unit": "degF"},
+    {"channel": "status_word", "address": 8, "type": "uint16", "unit": ""}
+  ]
+}

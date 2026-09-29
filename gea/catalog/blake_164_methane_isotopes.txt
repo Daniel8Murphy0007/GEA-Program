@@ -1,0 +1,68 @@
+/* DATA DESCRIPTION:
+Citation:	Paull, Charles K; Lorenson, Thomas D; Borowski, Walter S; Ussler, William III; Olsen, K; Rodriguez, Nancy M (2000): (Table 4) Stable deuterium and carbon isotope ratios of selected methane samples from ODP Leg 164 sites [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.803644, 
+	In supplement to: Paull, CK et al. (2000): Isotopic composition of CH4, CO2 species, and sedimentary organic matter within samples from the Blake Ridge: gas source implications. In: Paull, CK; Matsumoto, R; Wallace, PJ; Dillon, WP (eds.) Proceedings of the Ocean Drilling Program, Scientific Results, College Station, TX (Ocean Drilling Program), 164, 1-12, https://doi.org/10.2973/odp.proc.sr.164.207.2000
+Project(s):	Ocean Drilling Program (ODP) (URI: https://www-odp.tamu.edu:443/)
+Coverage:	MEDIAN LATITUDE: 32.158950 * MEDIAN LONGITUDE: -75.842617 * SOUTH-BOUND LATITUDE: 31.785700 * WEST-BOUND LONGITUDE: -76.191300 * NORTH-BOUND LATITUDE: 32.493900 * EAST-BOUND LONGITUDE: -75.468500
+	DATE/TIME START: 1995-04-12T17:15:00 * DATE/TIME END: 1995-12-17T07:25:00
+	MINIMUM DEPTH, sediment/rock: 0.20 m * MAXIMUM DEPTH, sediment/rock: 745.70 m
+Event(s):	164-994C * LATITUDE: 31.785700 * LONGITUDE: -75.545900 * DATE/TIME START: 1995-11-08T12:45:00 * DATE/TIME END: 1995-11-15T01:10:00 * ELEVATION: -2799.1 m * PENETRATION: 703.5 m * RECOVERY: 501.47 m * LOCATION: North Atlantic Ocean * CAMPAIGN: Leg164 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 84 cores; 703.5 m cored; 0 m drilled; 71.3 % recovery
+	164-996B * LATITUDE: 32.493900 * LONGITUDE: -76.190900 * DATE/TIME START: 1995-04-12T17:15:00 * DATE/TIME END: 1995-12-04T18:00:00 * ELEVATION: -2172.7 m * PENETRATION: 3.4 m * RECOVERY: 3.4 m * LOCATION: North Atlantic Ocean * CAMPAIGN: Leg164 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 1 core; 3.4 m cored; 0 m drilled; 100 % recovery
+	164-996D * LATITUDE: 32.493900 * LONGITUDE: -76.191300 * DATE/TIME START: 1995-12-05T03:00:00 * DATE/TIME END: 1995-12-05T15:40:00 * ELEVATION: -2169.6 m * PENETRATION: 52.2 m * RECOVERY: 15.58 m * LOCATION: North Atlantic Ocean * CAMPAIGN: Leg164 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 7 cores; 52.2 m cored; 0 m drilled; 29.8 % recovery
+	164-996E * LATITUDE: 32.493800 * LONGITUDE: -76.190500 * DATE/TIME START: 1995-12-05T16:00:00 * DATE/TIME END: 1995-12-06T08:00:00 * ELEVATION: -2170.0 m * PENETRATION: 62.3 m * RECOVERY: 44.49 m * LOCATION: North Atlantic Ocean * CAMPAIGN: Leg164 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 8 cores; 62.3 m cored; 0 m drilled; 71.4 % recovery
+	164-997A * LATITUDE: 31.843100 * LONGITUDE: -75.468600 * DATE/TIME START: 1995-12-06T12:35:00 * DATE/TIME END: 1995-12-10T00:10:00 * ELEVATION: -2770.1 m * PENETRATION: 434.3 m * RECOVERY: 342.66 m * LOCATION: Nicaraguan Rise, North Atlantic Ocean * CAMPAIGN: Leg164 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 55 cores; 434.3 m cored; 0 m drilled; 78.9 % recovery
+	164-997B * LATITUDE: 31.843300 * LONGITUDE: -75.468500 * DATE/TIME START: 1995-12-10T00:30:00 * DATE/TIME END: 1995-12-17T07:25:00 * ELEVATION: -2770.1 m * PENETRATION: 750 m * RECOVERY: 242.75 m * LOCATION: Nicaraguan Rise, North Atlantic Ocean * CAMPAIGN: Leg164 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 47 cores; 364.6 m cored; 0 m drilled; 66.6 % recovery
+Parameter(s):	Event label (Event)
+	Latitude of event (Latitude)
+	Longitude of event (Longitude)
+	Elevation of event [m] (Elevation)
+	Sample code/label (Sample label) * PI: Paull, Charles K * METHOD/DEVICE: DSDP/ODP/IODP sample designation (URI: hdl:10013/epic.27914.d001)
+	DEPTH, sediment/rock [m] (Depth sed) * GEOCODE * COMMENT: mbsf
+	δ Deuterium, methane [‰ SMOW] (δD CH4) * PI: Paull, Charles K * METHOD/DEVICE: Mass spectrometer, Finnigan, MAT 252 * COMMENT: with respect to SMOW
+	δ13C, methane [‰ PDB] (δ13C CH4) * PI: Paull, Charles K * METHOD/DEVICE: Gas chromatography - Isotope ratio mass spectrometer (GC-IRMS)
+	Sample comment (Sample comment) * PI: Paull, Charles K
+License:	Creative Commons Attribution 3.0 Unported (CC-BY-3.0) (URI: https://creativecommons.org/licenses/by/3.0/)
+Size:	126 data points
+*/
+Event	Latitude	Longitude	Elevation [m]	Sample label	Depth sed [m]	δD CH4 [‰ SMOW]	δ13C CH4 [‰ PDB]	Sample comment
+164-994C	31.7857	-75.5459	-2799	164-994C-5H-4	38.90	-183	-80.6	
+164-994C	31.7857	-75.5459	-2799	164-994C-6H-3	45.10	-187	-81.8	
+164-994C	31.7857	-75.5459	-2799	164-994C-8H-3	64.40	-178	-76.6	
+164-994C	31.7857	-75.5459	-2799	164-994C-5H-4	38.90	-183	-80.6	
+164-994C	31.7857	-75.5459	-2799	164-994C-14H-5	117.30	-183	-68.1	
+164-994C	31.7857	-75.5459	-2799	164-994C-17H-4	141.40	-190	-64.3	
+164-994C	31.7857	-75.5459	-2799	164-994C-25X-2	550.30	-185	-67.7	
+164-994C	31.7857	-75.5459	-2799	164-994C-30X-3	244.00	-191	-68.1	
+164-994C	31.7857	-75.5459	-2799	164-994C-40X-2	331.00	-138	-71.8	
+164-994C	31.7857	-75.5459	-2799	164-994C-41X-4	341.77	-178	-69.8	
+164-994C	31.7857	-75.5459	-2799	164-994C-50X-1	406.70	-180	-69.6	
+164-994C	31.7857	-75.5459	-2799	164-994C-50X-2	407.00	-198	-61.6	
+164-994C	31.7857	-75.5459	-2799	164-994C-62X-3	513.80	-200		
+164-994C	31.7857	-75.5459	-2799	164-994C-67X-2	542.50	-175	-67.5	
+164-994C	31.7857	-75.5459	-2799	164-994C-80X-5	661.21	-203	-63.5	
+164-994C	31.7857	-75.5459	-2799	164-994C-81X-5	670.64	-195	-63.7	
+164-996B	32.4939	-76.1909	-2173	164-996B-1H	0.20	-200		gas hydrate sample
+164-996D	32.4939	-76.1913	-2170	164-996D-1H	0.20	-136	-65.8	gas hydrate sample
+164-996D	32.4939	-76.1913	-2170	164-996D-1H	0.20	-175	-66.6	gas hydrate sample
+164-996D	32.4939	-76.1913	-2170	164-996D-4H-1	23.18	-191		
+164-996D	32.4939	-76.1913	-2170	164-996D-9H-6	49.05	-192		
+164-996E	32.4938	-76.1905	-2170	164-996E-7H-CC	52.90	-193	-70.7	gas hydrate sample
+164-997A	31.8431	-75.4686	-2770	164-997A-5H-3	34.90	-256	-82.4	
+164-997A	31.8431	-75.4686	-2770	164-997A-9H-6	74.00	-181	-73.0	
+164-997A	31.8431	-75.4686	-2770	164-997A-13H-7	107.58	-166	-72.3	
+164-997A	31.8431	-75.4686	-2770	164-997A-13H-7	107.58	-196	-72.3	
+164-997A	31.8431	-75.4686	-2770	164-997A-16H-3	131.00	-186		
+164-997A	31.8431	-75.4686	-2770	164-997A-18P-1	147.00	-187	-67.8	
+164-997A	31.8431	-75.4686	-2770	164-997A-22X-4	216.60	-184	-64.8	
+164-997A	31.8431	-75.4686	-2770	164-997A-28X-2	386.90	-190	-66.5	
+164-997A	31.8431	-75.4686	-2770	164-997A-41X-3	321.80	-196	-65.0	
+164-997A	31.8431	-75.4686	-2770	164-997A-42X-3	331.00	-191	-65.8	gas hydrate sample
+164-997A	31.8431	-75.4686	-2770	164-997A-48X-2	386.90	-181	-64.6	
+164-997A	31.8431	-75.4686	-2770	164-997A-54X-4	427.98	-150	-65.4	
+164-997B	31.8433	-75.4685	-2770	164-997B-8X-4	448.80	-165	-59.7	
+164-997B	31.8433	-75.4685	-2770	164-997B-12X-3	474.21	-230	-64.5	
+164-997B	31.8433	-75.4685	-2770	164-997B-14X-2	492.00	-189	-64.2	
+164-997B	31.8433	-75.4685	-2770	164-997B-15P	501.80	-183	-64.4	
+164-997B	31.8433	-75.4685	-2770	164-997B-18X-2	521.60	-197	-63.9	
+164-997B	31.8433	-75.4685	-2770	164-997B-37X-1	665.50	-195	-61.6	
+164-997B	31.8433	-75.4685	-2770	164-997B-47X-4	745.70	-201	-64.4	
+164-997B	31.8433	-75.4685	-2770	164-997B-47X-4	745.70	-192	-64.4	

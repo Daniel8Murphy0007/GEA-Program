@@ -1,0 +1,94 @@
+/* DATA DESCRIPTION:
+Citation:	Lu, Yin; Pope, Ed; Moernaut, Jasper; Bookman, Revital; Waldmann, Nicolas D; Agnon, Amotz; Marco, Shmuel; Strasser, Michael (2021): Ca,Ti, MS (magnetic susceptibility) of ICDP core 5017-1, Debrite (Fig. 2u) [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.938390, 
+	In: Lu, Y et al. (2021): Features of sediment density flow deposits in the Dead Sea center (ICDP Core 5017-1) over the last 220 kyr [dataset bundled publication]. PANGAEA, https://doi.org/10.1594/PANGAEA.938454
+Related to:	Lu, Yin; Pope, Ed; Moernaut, Jasper; Bookman, Revital; Waldmann, Nicolas D; Agnon, Amotz; Marco, Shmuel; Strasser, Michael (2022): Stratigraphic record reveals contrasting roles of overflows and underflows over glacial cycles in a hypersaline lake (Dead Sea). Earth and Planetary Science Letters, 594, 117723, https://doi.org/10.1016/j.epsl.2022.117723
+Project(s):	International Continental Scientific Drilling Program (ICDP)
+Funding:	Austrian Science Fund (FWF) (URI: https://www.fwf.ac.at/), grant/award no. M 2817: In situ and secondary seismogenic sedimentary effects based Dead Sea paleoseismology: Developing a 220 kyr-long continuous earthquake record
+Coverage:	LATITUDE: 31.508056 * LONGITUDE: 35.471111
+	MINIMUM DEPTH, sediment/rock: 172.055 m * MAXIMUM DEPTH, sediment/rock: 172.130 m
+Event(s):	ICDP5017-1 * LATITUDE: 31.508056 * LONGITUDE: 35.471111 * LOCATION: Dead Sea * COMMENT: 300 m below Dead Sea level
+Parameter(s):	DEPTH, sediment/rock [m] (Depth sed) * GEOCODE * PI: Lu, Yin (https://orcid.org/0000-0002-9568-7428, yin.lu@uibk.ac.at, https://www.researchgate.net/profile/Yin-Lu-6)
+	Calcium [cps] (Ca) * PI: Lu, Yin (https://orcid.org/0000-0002-9568-7428, yin.lu@uibk.ac.at, https://www.researchgate.net/profile/Yin-Lu-6)
+	Titanium [cps] (Ti) * PI: Lu, Yin (https://orcid.org/0000-0002-9568-7428, yin.lu@uibk.ac.at, https://www.researchgate.net/profile/Yin-Lu-6)
+	Magnetic susceptibility [10**-6 SI] (MAGS) * PI: Lu, Yin (https://orcid.org/0000-0002-9568-7428, yin.lu@uibk.ac.at, https://www.researchgate.net/profile/Yin-Lu-6)
+License:	Creative Commons Attribution 4.0 International (CC-BY-4.0) (URI: https://creativecommons.org/licenses/by/4.0/)
+Status:	Curation Level: Enhanced curation (URI: https://wiki.pangaea.de/wiki/Curation_levels)
+Size:	228 data points
+*/
+Depth sed [m]	Ca [cps]	Ti [cps]	MAGS [10**-6 SI]
+172.055	20120	56	5.000
+172.056	13249	225	4.000
+172.057	12474	185	2.000
+172.058	15527	77	0.000
+172.059	16764	26	-2.000
+172.060	18496	21	-3.000
+172.061	16976	42	-2.000
+172.062	14447	89	-1.000
+172.063	13295	125	1.000
+172.064	13554	122	2.000
+172.065	11139	56	1.000
+172.066	10533	71	1.000
+172.067	8904	75	3.000
+172.068	10159	53	4.000
+172.069	10384	96	7.000
+172.070	10824	101	10.000
+172.071	11556	129	13.000
+172.072	13894	152	18.000
+172.073	14141	175	19.000
+172.074	12825	200	23.000
+172.075	11372	129	24.000
+172.076	14012	155	25.000
+172.077	12899	165	25.000
+172.078	11453	135	23.000
+172.079	13114	135	20.000
+172.080	13045	149	14.000
+172.081	10188	85	7.000
+172.082	9881	132	3.000
+172.083	8392	47	1.000
+172.084	7325	53	0.000
+172.085	7461	57	2.000
+172.086	9201	153	1.000
+172.087	8007	108	0.000
+172.088	8135	103	0.000
+172.089	7490	70	-2.000
+172.090	8076	73	-3.000
+172.091	8373	72	-5.000
+172.092	8271	108	-5.000
+172.093	8669	61	-6.000
+172.094	8285	55	-7.000
+172.095	8510	70	-7.000
+172.096	9684	73	-7.000
+172.097	10431	104	-9.000
+172.098	10050	150	-7.000
+172.099	9190	56	-8.000
+172.100	8759	63	-7.000
+172.101	9529	88	-9.000
+172.102	11292	61	-8.000
+172.103	12271	77	-8.000
+172.104	10836	86	-7.000
+172.105	10955	70	-8.000
+172.106	8709	54	-8.000
+172.107	8564	109	-9.000
+172.108	9487	120	-9.000
+172.109	9895	73	-9.000
+172.110	9852	72	-9.000
+172.111	6854	95	-9.000
+172.112	9464	78	-9.000
+172.113	9772	122	-7.000
+172.114	6346	41	-7.000
+172.115	6982	42	-5.000
+172.116	6745	40	-2.000
+172.117	6553	44	-1.000
+172.118	9306	33	1.000
+172.119	9712	16	2.000
+172.120	9801	70	2.000
+172.121	10498	48	4.000
+172.122	9775	152	4.000
+172.123	15569	72	5.000
+172.124	12254	131	6.000
+172.125	13751	117	7.000
+172.126	12605	85	8.000
+172.127	14653	90	8.000
+172.128	18373	52	9.000
+172.129	13900	63	7.000
+172.130	13597	68	6.000

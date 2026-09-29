@@ -1,0 +1,57 @@
+/* DATA DESCRIPTION:
+Citation:	Ikari, Matt J; Niemeijer, André R; Spiers, K C; Kopf, Achim J; Saffer, Demian M (2014): Strength measurements from ODP Hole 170-1039B, 170-1040C and 205-1253 [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.834641, 
+	In: Ikari, MJ et al. (2014): Friction analysis of Costa Rica ocean sediments from ODP Hole 170-1039B, 170-1040C and 205-1253 [dataset publication series]. PANGAEA, https://doi.org/10.1594/PANGAEA.834645
+Related to:	Ikari, Matt J; Niemeijer, André R; Spiers, K C; Kopf, Achim J; Saffer, Demian M (2013): Experimental evidence linking slip instability with seafloor lithology and topography at the Costa Rica convergent margin. Geology, 41(8), 891-894, https://doi.org/10.1130/G33956.1
+Project(s):	Ocean Drilling Program (ODP) (URI: https://www-odp.tamu.edu:443/)
+Coverage:	MEDIAN LATITUDE: 9.649744 * MEDIAN LONGITUDE: -86.189822 * SOUTH-BOUND LATITUDE: 9.640000 * WEST-BOUND LONGITUDE: -86.200000 * NORTH-BOUND LATITUDE: 9.661600 * EAST-BOUND LONGITUDE: -86.178900
+	DATE/TIME START: 1996-11-02T03:30:00 * DATE/TIME END: 2002-10-11T00:00:00
+	MINIMUM DEPTH, sediment/rock: 356.6 m * MAXIMUM DEPTH, sediment/rock: 385.2 m
+Event(s):	170-1039B * LATITUDE: 9.640000 * LONGITUDE: -86.200000 * DATE/TIME START: 1996-11-02T03:30:00 * DATE/TIME END: 1996-11-05T00:00:00 * ELEVATION: -4353.5 m * PENETRATION: 384.3 m * RECOVERY: 382.46 m * LOCATION: Costa Rica subduction complex, North Pacific Ocean * CAMPAIGN: Leg170 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 42 cores; 384.3 m cored; 0 m drilled; 99.5 % recovery
+	170-1040C * LATITUDE: 9.661600 * LONGITUDE: -86.178900 * DATE/TIME START: 1996-11-11T05:30:00 * DATE/TIME END: 1996-11-18T12:00:00 * ELEVATION: -4177.9 m * PENETRATION: 665 m * RECOVERY: 377.28 m * LOCATION: Costa Rica subduction complex, North Pacific Ocean * CAMPAIGN: Leg170 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Drilling/drill rig (DRILL) * COMMENT: 53 cores; 505.7 m cored; 0 m drilled; 74.6 % recovery
+	205-1253 * LATITUDE: 9.647633 * LONGITUDE: -86.190567 * DATE/TIME START: 2002-09-21T00:00:00 * DATE/TIME END: 2002-10-11T00:00:00 * ELEVATION: -4376.3 m * PENETRATION: 600 m * RECOVERY: 148.6 m * LOCATION: North Pacific Ocean * CAMPAIGN: Leg205 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Composite Core (COMPCORE) * COMMENT: 43 cores; 230 m cored; 370 m drilled; 64.6 % recovery
+Parameter(s):	Event label (Event)
+	Experiment (Exp) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de)
+	Sample code/label (Sample label) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de) * METHOD/DEVICE: DSDP/ODP/IODP sample designation (URI: hdl:10013/epic.27914.d001)
+	DEPTH, sediment/rock [m] (Depth sed) * GEOCODE
+	Depth, top/min [m] (Depth top) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de)
+	Depth, bottom/max [m] (Depth bot) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de)
+	Pressure, stress [MPa] (P) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de) * COMMENT: effective normal stress
+	Pressure, stress [MPa] (P) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de) * COMMENT: pore fluid pressure
+	Treatment: temperature [°C] (T:temp) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de)
+	Coefficient (Coeff) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de) * COMMENT: of friction
+	Shear strength (µpeak) * PI: Ikari, Matt J (https://orcid.org/0000-0002-8164-411X, mikari@marum.de)
+License:	Creative Commons Attribution 3.0 Unported (CC-BY-3.0) (URI: https://creativecommons.org/licenses/by/3.0/)
+Size:	237 data points
+*/
+Event	Exp	Sample label	Depth sed [m]	Depth top [m]	Depth bot [m]	P [MPa] (effective normal stress)	P [MPa] (pore fluid pressure)	T:temp [°C]	Coeff (of friction)	µpeak
+170-1039B	u091	170-1039B-9H3				30	20	20	0.28	8.3
+170-1039B	u091	170-1039B-9H3				45	30	20	0.30	13.7
+170-1039B	u091	170-1039B-9H3				60	40	20	0.22	13.4
+170-1039B	u091	170-1039B-9H3				75	50	20	0.29	21.9
+170-1039B	u091	170-1039B-9H3				90	60	20	0.35	31.5
+170-1039B	u092	170-1039B-9H3				30	20	74	0.26	7.9
+170-1039B	u092	170-1039B-9H3				45	30	106	0.22	9.9
+170-1039B	u092	170-1039B-9H3				60	41	140	0.22	13.1
+170-1039B	u092	170-1039B-9H3				75	50	175	0.30	22.3
+170-1039B	u092	170-1039B-9H3				90	60	210	0.48	43.6
+170-1040C	u056	170-1040C-21R-6	356.6	351.8	361.4	30	20	19	0.32	9.6
+170-1040C	u056	170-1040C-21R-6	356.6	351.8	361.4	45	30	19	0.22	9.9
+170-1040C	u056	170-1040C-21R-6	356.6	351.8	361.4	60	40	19	0.21	12.7
+170-1040C	u056	170-1040C-21R-6	356.6	351.8	361.4	75	50	19	0.23	17.5
+170-1040C	u056	170-1040C-21R-6	356.6	351.8	361.4	90	60	19	0.27	23.9
+170-1040C	u050	170-1040C-21R-6	356.6	351.8	361.4	30	21	73	0.23	7.0
+170-1040C	u050	170-1040C-21R-6	356.6	351.8	361.4	45	31	107	0.27	12.1
+170-1040C	u050	170-1040C-21R-6	356.6	351.8	361.4	60	41	143	0.29	17.5
+170-1040C	u050	170-1040C-21R-6	356.6	351.8	361.4	74	51	176	0.30	22.1
+170-1040C	u050	170-1040C-21R-6	356.6	351.8	361.4	89	61	212	0.30	26.5
+205-1253	u048	205-1253-3R	385.2			15	10	22	0.88	13.2
+205-1253	u048	205-1253-3R	385.2			30	20	22	0.86	25.8
+205-1253	u048	205-1253-3R	385.2			45	30	22	0.83	37.1
+205-1253	u048	205-1253-3R	385.2			60	40	22	0.71	42.5
+205-1253	u048	205-1253-3R	385.2			75	50	22	0.75	56.2
+205-1253	u048	205-1253-3R	385.2			90	60	22	0.78	70.2
+205-1253	u049	205-1253-3R	385.2			30	20	53	0.71	21.2
+205-1253	u049	205-1253-3R	385.2			45	30	104	0.74	33.2
+205-1253	u049	205-1253-3R	385.2			60	42	141	0.73	43.9
+205-1253	u049	205-1253-3R	385.2			75	51	176	0.76	57.2
+205-1253	u049	205-1253-3R	385.2			90	60	210	0.77	69.2

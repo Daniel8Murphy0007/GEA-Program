@@ -1,0 +1,74 @@
+/* DATA DESCRIPTION:
+Citation:	Eijsink, Agathe; Ikari, Matt J (2022): Frictional data for the experiments performed under in-situ effective normal stress of samples from IODP Site 375-U1520 [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.942335, 
+	In: Eijsink, A; Ikari, MJ (2022): Laboratory friction experiments on natural samples from IODP site U1520 [dataset bundled publication]. PANGAEA, https://doi.org/10.1594/PANGAEA.942371
+Keyword(s):	earthquake; friction; IODP Expedition 375; slow slip
+Related to:	Eijsink, Agathe; Ikari, Matt J (2022): Plate-Rate Frictional Behavior of Sediment Inputs to the Hikurangi Subduction Margin: How Does Lithology Control Slow Slip Events? Geochemistry, Geophysics, Geosystems, 23(6), https://doi.org/10.1029/2022GC010369
+Project(s):	Integrated Ocean Drilling Program / International Ocean Discovery Program (IODP) (URI: https://www.iodp.org/)
+Coverage:	MEDIAN LATITUDE: -38.969172 * MEDIAN LONGITUDE: 179.131752 * SOUTH-BOUND LATITUDE: -38.969220 * WEST-BOUND LONGITUDE: 179.131652 * NORTH-BOUND LATITUDE: -38.969125 * EAST-BOUND LONGITUDE: 179.131853
+	DATE/TIME START: 2018-03-31T00:00:00 * DATE/TIME END: 2018-04-24T00:00:00
+	MINIMUM DEPTH, sediment/rock: 477.00 m * MAXIMUM DEPTH, sediment/rock: 1036.50 m
+Event(s):	375-U1520C * LATITUDE: -38.969220 * LONGITUDE: 179.131853 * DATE/TIME: 2018-03-31T00:00:00 * ELEVATION: -3522.1 m * CAMPAIGN: Exp375 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Core drilling (CDRILL)
+	375-U1520D * LATITUDE: -38.969125 * LONGITUDE: 179.131652 * DATE/TIME: 2018-04-24T00:00:00 * ELEVATION: -3531.5 m * CAMPAIGN: Exp375 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Core drilling (CDRILL)
+Parameter(s):	Event label (Event) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Experiment (Exp) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Sample code/label (Sample label) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Description (Description) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de) * COMMENT: sample
+	Sample type (Samp type) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	DEPTH, sediment/rock [m] (Depth sed) * GEOCODE * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de) * COMMENT: mbsf
+	Normal stress [kPa] (SigmaN) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de) * COMMENT: eff
+	Machine stiffness [kPa/mm] (k) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Friction coefficient (µ) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de) * COMMENT: peak
+	Steady-state friction coefficients (µ) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de) * COMMENT: steady-state
+	Friction coefficient (µ) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de) * COMMENT: final
+	Velocity-dependent friction parameter (a-b) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Velocity-dependent friction parameter, standard deviation [±] (a-b std dev) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Critical stiffness kc [kPa/mm] (kc) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de) * COMMENT: kc
+	Critical stiffness kc, normalized (k/kc) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de) * COMMENT: k/kc
+	Critical stiffness kc [kPa/mm] (kc) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de) * COMMENT: kb
+	Critical stiffness kc, normalized (k/kc) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de) * COMMENT: k/kb
+	Comment (Comment) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Sliding velocity, initial [µm/s] (V init) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Sliding velocity, final [µm/s] (V final) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Linear detrending [1/m] (Detrending) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Weight function (Weight) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Comment (Comment) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Initial friction coefficient (µ0) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Friction direct effect (a) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Friction evolutionary effect, b1 (b1) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Friction evolutionary effect, b2 (b2) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Critical slip distance dc1 [µm] (dc1) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Critical slip distance dc2 [µm] (dc2) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Machine stiffness [kPa/mm] (k) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Comment (Comment) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Initial friction coefficient (µ0) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Initial friction coefficient, standard deviation [±] (mu std dev) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Comment (Comment) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Friction direct effect (a) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Friction direct effect, standard deviation [±] (a std dev) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Friction evolutionary effect, b1 (b1) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Friction evolutionary effect b1, standard deviation [±] (b1 std dev) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Friction evolutionary effect, b2 (b2) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Friction evolutionary effect b2, standard deviation [±] (b2 std dev) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Critical slip distance dc1 [µm] (dc1) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Critical slip distance dc1, standard deviation [±] (dc1 std dev) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Critical slip distance dc2 [µm] (dc2) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Critical slip distance dc2, standard deviation [±] (dc2 std dev) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Machine stiffness [kPa/mm] (k) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+	Machine stiffness, standard deviation [±] (k std dev) * PI: Eijsink, Agathe (https://orcid.org/0000-0001-8275-0822, aeijsink@marum.de)
+License:	Creative Commons Attribution 4.0 International (CC-BY-4.0) (URI: https://creativecommons.org/licenses/by/4.0/)
+Status:	Curation Level: Enhanced curation (URI: https://wiki.pangaea.de/wiki/Curation_levels)
+Size:	466 data points
+*/
+Event	Exp	Sample label	Description (sample)	Samp type	Depth sed [m] (mbsf)	SigmaN [kPa] (eff)	k [kPa/mm]	µ (peak)	µ (steady-state)	µ (final)	a-b	a-b std dev [±]	kc [kPa/mm] (kc)	k/kc (k/kc)	kc [kPa/mm] (kb)	k/kc (k/kb)	Comment	V init [µm/s]	V final [µm/s]	Detrending [1/m]	Weight	Comment	µ0	a	b1	b2	dc1 [µm]	dc2 [µm]	k [kPa/mm]	Comment	µ0	mu std dev [±]	Comment	a	a std dev [±]	b1	b1 std dev [±]	b2	b2 std dev [±]	dc1 [µm]	dc1 std dev [±]	dc2 [µm]	dc2 std dev [±]	k [kPa/mm]	k std dev [±]
+375-U1520C	AE_02_U1520C13R3_SST	375-U1520C-13R-3	IV: calcareous mudstone	intact	751.11	6514.000000	7524.649260	0.460	0.366	0.349000000	-1.15E-3	1.80E-4	604.93170850	1751.4484530	12.438840870	4.296243629	modelling parameters	0.0016175	0.050264	-0.000010209		forward model parameters	0.36200	0.0040	0.0038	0.0020	10	150	0.0025	inverse model parameters	0.35992	0.000096084		0.0041081	0.000139230	0.00332060	0.000141490	0.0019344	0.000059932	12.3500	0.74721	137.430	5.8257	0.00245950	0.000225220
+375-U1520D	AE_04_U1520D47X4_SST	375-U1520D-47X-4	III: siltstone	intact	477.00	3995.000000	5938.712050	0.390	0.367	0.363000000	-2.64E-4	2.95E-4	275.25837770	4488.1712600	21.575045600	1.323191943	modelling parameters	0.0017349	0.050500	-0.000004300		forward model parameters	0.39033	0.0045	0.0048		4		0.0020	inverse model parameters	0.39033		not inverted	0.0040406	0.000240900	0.00430460	0.000241070			3.8316	0.25875	0.000	0.0000	0.00169170	0.000149520
+375-U1520C	AE11_U1520C19R2_SST	375-U1520C-19R-2	IV: chalk	intact	807.40	7131.000000	7913.106290	0.740	0.576	0.552000000	-2.39E-4	2.74E-4	381.18795200	7775.5975810	20.759067150	1.017684648	modelling parameters	0.0016252	0.048722	0.000014000	0.1	forward model parameters	0.55464	0.0050	0.0055		8		0.0015	inverse model parameters	0.55464		not inverted	0.0046459	0.000223470	0.00488540	0.000223870			4.4804	0.19663	0.000	0.0000	0.00163720	0.000134810
+375-U1520C	AE18_U1520C27R2_SST	375-U1520C-27R-2	V: volcaniclastics	intact	897.50	7984.000000	8450.146560	0.556	0.338	0.315000000	-2.57E-3	2.22E-4	3357.77290500	2618.6808250	2.516592634	3.226871514	modelling parameters	0.0015562	0.049614	-0.000010817		forward model parameters	0.34436	0.0025	0.0030	0.0020	12	45	0.0015	inverse model parameters	0.34436		not inverted	0.0025218	0.000150160	0.00200150	0.000172510	0.0030867	0.000115690	6.1023	0.74584	38.941	1.3903	0.00124040	0.000137120
+375-U1520C	AE23_U1520C13R3p_SST	375-U1520C-13R-3	IV: calcareous mudstone	powder	751.11	6514.000000	7524.649260	0.341	0.296	0.346000000	-1.34E-3	1.31E-4	2357.88524800	6973.1597430	3.191270341	1.079087464	modelling parameters	0.0016494	0.050949	-0.000002570		forward model parameters	0.36582	0.0042	0.0040	0.0015	8	45	0.0012	inverse model parameters	0.36607	0.000032675		0.0042755	0.000101050	0.00397590	0.000102950	0.0016440	0.000045557	3.7141	0.14085	43.899	1.4417	0.00135280	0.000043055
+375-U1520C	AE25_U1520C19R2p_SST	375-U1520C-19R-2	IV: chalk	powder	807.40	7131.000000	7913.106290	0.515	0.499								modelling parameters					forward model parameters								inverse model parameters															
+375-U1520C	AE27_U1520C37R1p _SST	375-U1520C-37	V: volcaniclastics (red cement)	intact	977.83	8785.000000	8954.175323	0.609	0.426	0.388357427	4.76E-4	5.94E-5	-452.95585290	1418.5896400	-19.768317960	6.312026443	modelling parameters	0.0016982	0.052220	-0.000023026		forward model parameters	0.41027	0.0034	0.0015	0.0015	10	40	0.0015	inverse model parameters	0.40997	0.000021514		0.0034920	0.000049862	0.00149170	0.000062615	0.0015240	0.000052800	9.2373	0.56427	43.619	1.2438	0.00105930	0.000025047
+375-U1520C	AE34_U1520C19R2p_SST_redo	375-U1520C-19R-2	IV: chalk	powder	807.40	7131.000000	7913.106290	0.488	0.483	0.511000000	-8.03E-4	1.62E-3	1506.53872100	13499.5329800	5.252507739	0.586176300	modelling parameters	0.0018959	0.050874	0.000022000		forward model parameters	0.47960	0.0070	0.0075	0.0000	4	0	0.0016	inverse model parameters	0.47960	0.000000000		0.0063892	0.001321600	0.00719180	0.001321600	0.0000000	0.000000000	3.7990	0.75421	0.000	0.0000	0.00142440	0.000367990
+375-U1520C	AE38_U1520C43R2cyl1013_SST	375-U1520C-43R-2Cyl_10/13	VI: black layer	intact	1036.50	9384.000000	9331.336064	0.372	0.268	0.311000000	5.18E-4	1.79E-5	-44.66667307	201.2760685	-208.910479000	46.360882020	modelling parameters	0.0017659	0.050156	0.000000000		forward model parameters	0.31400	0.0030	0.0025	0.0000	100	0	0.0010	inverse model parameters	0.31426	0.000017903		0.0028511	0.000014416	0.00233330	0.000013739	0.0000000	0.000000000	108.7800	1.09590	0.000	0.0000	0.00106420	0.000030612
+375-U1520C	AE044_U1520C41RCC_SST	375-U1520C-41R-CC	VI: blue volcaniclastics	intact	1019.70	9228.943964	9233.950830	0.428	0.248	0.213000000	4.58E-4	1.12E-4	-367.99431620	655.6368423	-25.092741120	14.083995150	modelling parameters	0.0017336	0.050814	-0.000007500		forward model parameters	0.23776	0.0025	0.0010	0.0012	20	100	0.0010	inverse model parameters	0.23776	0.000000000		0.0025408	0.000079547	0.00081555	0.000086470	0.0012675	0.000053490	11.4800	1.79450	75.486	3.1472	0.00078955	0.000044828
+375-U1520D	AE050_U1520D60X1W_SST	375-U1520D-60X-1W	IV: marl	intact	587.60	4904.000000	6510.983755	0.553	0.539	0.562000000	-5.49E-3	2.63E-4	5875.53274600	8155.1209590	1.108152067	0.798392052	modelling parameters	0.0015836	0.050539	-0.000025304		forward model parameters	0.58154	0.0060	0.0080	0.0040	7	100	0.0013	inverse model parameters	0.58040	0.000082384		0.0063530	0.000205550	0.00762570	0.000210370	0.0042214	0.000071577	4.5856	0.13487	77.692	1.7013	0.00167380	0.000069167
+375-U1520C	AE053_U1520C38R2_SST	375-U1520C-38R-2	V: volcaniclastics (zeolite)	intact	988.40	8906.000000	9030.628540	0.577	0.435	0.417000000	-1.62E-3	1.20E-4	964.15000000	1755.1584830	9.366692167	5.145343282	modelling parameters	0.0016526	0.050152	-0.000024889		forward model parameters	0.44343	0.0035	0.0040	0.0015	15	80	0.0015	inverse model parameters	0.44322	0.000040211		0.0028217	0.000072102	0.00295600	0.000093834	0.0014895	0.000071052	15.0000	0.62694	80.000	4.0718	0.00077266	0.000040809

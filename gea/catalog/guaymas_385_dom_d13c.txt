@@ -1,0 +1,103 @@
+/* DATA DESCRIPTION:
+Citation:	Knoke, Melina; Böning, Philipp; Dittmar, Thorsten; Friebe, Matthias; Gründken, Eleonore; Günther, Jana; Klaproth, Katrin; Ulber, Ina; Simon, Heike; Seidel, Michael (2025): Stable carbon isotope composition for solid-phase extracted dissolved organic matter [dataset]. PANGAEA, https://doi.org/10.1594/PANGAEA.974051, 
+	In: Knoke, M et al. (2025): Molecular composition of dissolved organic matter and biogeochemical parameters in porewater of Guaymas Basin (Gulf of California) deep subsurface sediments [dataset bundled publication]. PANGAEA, https://doi.org/10.1594/PANGAEA.974052
+Keyword(s):	DOC; DOM; Guaymas Basin; hydrothermal sediment
+Funding:	Deutsche Forschungsgemeinschaft, Bonn (DFG) (URI: http://www.dfg.de/en/), grant/award no. 447583997: IODP GUAYMAS BASIN - The biogeochemistry of dissolved organic matter in hydrothermal Guaymas Basin sediments (URI: https://uol.de/en/icbm/marine-geochemistry/research/dom-at-interfaces/iodp-guaymas-basin)
+Coverage:	MEDIAN LATITUDE: 27.465129 * MEDIAN LONGITUDE: -111.649586 * SOUTH-BOUND LATITUDE: 27.206400 * WEST-BOUND LONGITUDE: -111.889000 * NORTH-BOUND LATITUDE: 27.637200 * EAST-BOUND LONGITUDE: -111.219700
+	DATE/TIME START: 2016-12-15T15:46:29 * DATE/TIME END: 2019-11-04T05:30:00
+	MINIMUM DEPTH, sediment/rock: -3.000 m * MAXIMUM DEPTH, sediment/rock: 456.710 m
+Event(s):	385-U1545A * LATITUDE: 27.637200 * LONGITUDE: -111.889000 * DATE/TIME START: 2019-09-26T20:45:00 * DATE/TIME END: 2019-10-01T09:25:00 * ELEVATION: -1593.5 m * NUMBER OF CORES: 74 (APC = 17, HLAP = 31, XCB = 26) * PENETRATION: 503.3 m * RECOVERY: 77.3 % * LOCATION: Guaymas Basin * CAMPAIGN: Exp385 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Core drilling (CDRILL)
+	385-U1545B * LATITUDE: 27.637200 * LONGITUDE: -111.888800 * DATE/TIME START: 2019-10-01T09:25:00 * DATE/TIME END: 2019-10-04T16:45:00 * ELEVATION: -1594.2 m * NUMBER OF CORES: 67 (APC = 17, HLAP = 40, XCB = 10) * PENETRATION: 387.3 m * RECOVERY: 87.8 % * LOCATION: Guaymas Basin * CAMPAIGN: Exp385 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Core drilling (CDRILL)
+	385-U1547B * LATITUDE: 27.506900 * LONGITUDE: -111.678900 * DATE/TIME START: 2019-10-16T21:25:00 * DATE/TIME END: 2019-10-20T05:00:00 * ELEVATION: -1732.2 m * NUMBER OF CORES: 50 (APC = 10, HLAP = 14, XCB = 26) * PENETRATION: 209.8 m * RECOVERY: 76.9 % * LOCATION: Guaymas Basin * CAMPAIGN: Exp385 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Core drilling (CDRILL)
+	385-U1550B * LATITUDE: 27.252800 * LONGITUDE: -111.507400 * DATE/TIME START: 2019-10-28T20:20:00 * DATE/TIME END: 2019-10-30T05:30:00 * ELEVATION: -2001.2 m * NUMBER OF CORES: 23 (APC = 12, HLAP = 5, XCB = 6) * PENETRATION: 174.2 m * RECOVERY: 92.3 % * LOCATION: Guaymas Basin * CAMPAIGN: Exp385 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Core drilling (CDRILL)
+	385-U1551B * LATITUDE: 27.206400 * LONGITUDE: -111.219700 * DATE/TIME START: 2019-11-03T18:30:00 * DATE/TIME END: 2019-11-04T05:30:00 * ELEVATION: -1843.9 m * NUMBER OF CORES: 6 (APC) * PENETRATION: 48.5 m * RECOVERY: 103.1 % * LOCATION: Guaymas Basin * CAMPAIGN: Exp385 * BASIS: Joides Resolution (URI: https://www-odp.tamu.edu:443/resolutn.html) * METHOD/DEVICE: Core drilling (CDRILL)
+	AT37-06_4864 * LATITUDE: 27.506300 * LONGITUDE: -111.681500 * DATE/TIME START: 2016-12-15T15:46:29 * DATE/TIME END: 2016-12-15T23:07:30 * ELEVATION: -1725.0 m * LOCATION: Guaymas Basin * METHOD/DEVICE: Submersible Alvin (ALVIN)
+	AT37-06_4865 * LATITUDE: 27.509100 * LONGITUDE: -111.681800 * DATE/TIME START: 2016-12-16T15:37:38 * DATE/TIME END: 2016-12-16T19:20:48 * ELEVATION: -1726.0 m * LOCATION: Guaymas Basin * METHOD/DEVICE: Submersible Alvin (ALVIN)
+Comment:	Samples were pooled to ensure a sufficient amount of carbon for analysis. Pooled sample names are indicated in the data table.
+Parameter(s):	Event label (Event)
+	Sample code/label (Sample label)
+	Sample type (Samp type) * COMMENT: Type of Sample: porewater or Soxhlet extract with ultrapure water after Knoke et al. (in preparation)
+	DEPTH, sediment/rock [m] (Depth sed) * GEOCODE * COMMENT: If samples were pooled, the average depth of the samples is given.
+	δ13C, organic matter, dissolved, solid phase extractable [‰] (δ13C DOM SPE) * METHOD/DEVICE: Delta V Advantage IRMS coupled to a Flash 2000 EA (EA-IRMS) by a 199 Conflo IV (Thermo Fisher Scientific Inc.) * COMMENT: Stable carbon isotope ratios of solid-phase extracted dissolved organic matter: Please note, that some of the samples needed to be pooled in order to gain a surficient carbon content for analysis. Sampled that have been pooled haver been indicated with a "pooled" in sample ID
+License:	Creative Commons Attribution 4.0 International (CC-BY-4.0) (URI: https://creativecommons.org/licenses/by/4.0/)
+Status:	Curation Level: Enhanced curation (URI: https://wiki.pangaea.de/wiki/Curation_levels)
+Size:	228 data points
+*/
+Event	Sample label	Samp type	Depth sed [m]	δ13C DOM SPE [‰]
+385-U1545A	Pooled_385_U1545_A_65X2_385_U1545_A_72X2	ultrapure water Soxhlet extract	456.710	-21.70
+385-U1545B	Pooled_385_U1545_B_1H2_385_U1545_B_2H2_385_U1545_B_3H2_385_U1545_B_5H2385_U1545_B_4H2	porewater	18.805	-22.60
+385-U1545B	385-U1545B-6H-2	porewater	44.380	-22.55
+385-U1545B	385-U1545B-8H-2	porewater	63.330	-22.25
+385-U1545B	385-U1545B-9H-2	porewater	72.760	-22.95
+385-U1545B	385-U1545B-11H-3	porewater	92.940	-22.45
+385-U1545B	385-U1545B-12H-3	porewater	101.980	-22.40
+385-U1545B	385-U1545B-13H-3	porewater	112.320	-22.60
+385-U1545B	385-U1545B-14H-3	porewater	121.890	-22.80
+385-U1545B	385-U1545B-15H-3	porewater	131.190	-22.50
+385-U1545B	385-U1545B-19F-4	porewater	155.380	-22.35
+385-U1545B	385-U1545B-20F-3	porewater	159.620	-22.35
+385-U1545B	385-U1545B-22F-3	porewater	168.780	-22.25
+385-U1545B	385-U1545B-25F-2	porewater	177.890	-22.75
+385-U1545B	385-U1545B-27F-2	porewater	186.940	-22.60
+385-U1545B	385-U1545B-27F-2	porewater	191.890	-22.05
+385-U1545B	385-U1545B-28F-3	porewater	201.330	-22.35
+385-U1545B	385-U1545B-30F-2	porewater	210.930	-22.85
+385-U1545B	385-U1545B-32F-2	porewater	220.650	-22.30
+385-U1545B	385-U1545B-34F-3	porewater	230.340	-22.65
+385-U1545B	385-U1545B-36F-3	porewater	239.030	-22.40
+385-U1545B	385-U1545B-38F-2	porewater	248.550	-22.65
+385-U1545B	385-U1545B-40F-3	porewater	256.660	-22.65
+385-U1545B	385-U1545B-42F-2	porewater	266.530	-22.15
+385-U1545B	385-U1545B-44F-2	porewater	276.550	-23.00
+385-U1545B	385-U1545B-46F-2	porewater	285.200	-22.50
+385-U1545B	385-U1545B-49F-2	porewater	296.150	-21.80
+385-U1545B	385-U1545B-51F-3	porewater	307.200	-22.25
+385-U1545B	385-U1545B-55F-2	porewater	317.090	-22.10
+385-U1545B	385-U1545B-58F-2	porewater	326.310	-22.10
+385-U1545B	385-U1545B-58F-2	ultrapure water Soxhlet extract	316.870	-23.20
+385-U1545B	385-U1545B-59F-2	ultrapure water Soxhlet extract	321.700	-21.50
+385-U1545B	385-U1545B-60F-2	ultrapure water Soxhlet extract	326.110	-21.95
+385-U1545B	385-U1545B-2H-4	ultrapure water Soxhlet extract	8.750	-22.55
+385-U1545B	Pooled_385_U1545_B_3H4_385_U1545_B_4H4	ultrapure water Soxhlet extract	23.075	-21.65
+385-U1545B	Pooled_385_U1545_B_5H4_385_U1545_B_6H4	ultrapure water Soxhlet extract	41.985	-21.35
+385-U1545B	Pooled_385_U1545_B_7H4_385_U1545_B_8H4	ultrapure water Soxhlet extract	60.970	-21.95
+385-U1545B	Pooled_385_U1545_B_9H4_385_U1545_B_10H5	ultrapure water Soxhlet extract	80.195	-22.10
+385-U1545B	Pooled_385_U1545_B_11H5_385_U1545_B_12H5	ultrapure water Soxhlet extract	99.245	-24.25
+385-U1545B	Pooled_385_U1545_B_13H5_385_U1545_B_14H5	ultrapure water Soxhlet extract	119.025	-21.25
+385-U1545B	Pooled_385_U1545_B_15H5_385_U1545_B_19F3	ultrapure water Soxhlet extract	143.550	-21.65
+385-U1545B	Pooled_385_U1545_B_21F2_385_U1545_B_23F3	ultrapure water Soxhlet extract	168.030	-21.95
+385-U1545B	Pooled_385_U1545_B_25F2_385_U1545_B_27F2	ultrapure water Soxhlet extract	181.915	-21.30
+385-U1545B	Pooled_385_U1545_B_30F2_385_U1545_B_31F3	ultrapure water Soxhlet extract	203.430	-21.40
+385-U1545B	Pooled_385_U1545_B_33F3_385_U1545_B_35F3	ultrapure water Soxhlet extract	220.570	-21.55
+385-U1545B	Pooled_385_U1545_B_37F3_385_U1545_B_39F2	ultrapure water Soxhlet extract	238.625	-21.95
+385-U1545B	Pooled_385_U1545_B_41F3_385_U1545_B_43F3	ultrapure water Soxhlet extract	257.485	-21.25
+385-U1545B	Pooled_385_U1545_B_45F3_385_U1545_B_47F2	ultrapure water Soxhlet extract	276.750	-21.90
+385-U1545B	Pooled_385_U1545_B_49F2_385_U1545_B_51F3	ultrapure water Soxhlet extract	290.475	-21.95
+385-U1545B	Pooled_385_U1545_B_55F2_385_U1545_B_56F3	ultrapure water Soxhlet extract	309.860	-22.10
+385-U1547B	Pooled_385_U1547_B_6H3_385_U1547_B_8H3_385_U1547_B_7H3	porewater	56.960	-23.75
+385-U1547B	Pooled_385_U1547_B_9H2_385_U1547_B_10H2	porewater	80.230	-22.85
+385-U1547B	Pooled_385_U1547_B_12F2_385_U1547_B_16F2	porewater	99.150	-22.75
+385-U1547B	Pooled_385_U1547_B_18F3_385_U1547_B_21F2_385_U1547_B_19F3	porewater	111.095	
+385-U1547B	Pooled_385_U1547_B_24F2_385_U1547_B_25F2_385_U1547_B_29F2_385_U1547_B_28F2	porewater	139.320	-22.70
+385-U1547B	Pooled_385_U1547_B_2H3_385_U1547_B_5H3	ultrapure water Soxhlet extract	24.360	-22.10
+385-U1547B	Pooled_385_U1547_B_7H3_385_U1547_B_8H3_385_U1547_B_9H3	ultrapure water Soxhlet extract	67.210	-22.25
+385-U1547B	Pooled_385_U1547_B_18F3_385_U1547_B_21F2_385_U1547_B_28F2	ultrapure water Soxhlet extract	128.275	-22.20
+385-U1550B	Pooled_385_U1550_B_1H3_385_U1550_B_2H3	porewater	5.005	-21.60
+385-U1550B	Pooled_385_U1550_B_3H3_385_U1550_B_4H3	porewater	23.505	-21.75
+385-U1550B	Pooled_385_U1550_B_5H3_385_U1550_B_6H3	porewater	42.340	-22.25
+385-U1550B	Pooled_385_U1550_B_7H3_385_U1550_B_8H2	porewater	60.580	-22.85
+385-U1550B	Pooled_385_U1550_B_9H2_385_U1550_B_10H2	porewater	79.400	-22.45
+385-U1550B	Pooled_385_U1550_B_11H2_385_U1550_B_12H3	porewater	98.545	-22.55
+385-U1550B	Pooled_385_U1550_B_13F3_385_U1550_B_14F2	porewater	114.880	-22.80
+385-U1550B	Pooled_385_U1550_B_15F2_385_U1550_B_16F3	porewater	124.475	-22.55
+385-U1550B	385-U1550B-1H-3	ultrapure water Soxhlet extract	4.190	-21.90
+385-U1550B	Pooled_385_U1550_B_2H5_385_U1550_B_3H5	ultrapure water Soxhlet extract	17.450	-21.85
+385-U1550B	Pooled_385_U1550_B_5H3_385_U1550_B_7H3	ultrapure water Soxhlet extract	47.520	-21.75
+385-U1550B	Pooled_385_U1550_B_9H3_385_U1550_B_11H3	ultrapure water Soxhlet extract	85.045	-22.35
+385-U1550B	Pooled_385_U1550_B_13F3_385_U1550_B_17F3	ultrapure water Soxhlet extract	123.315	-22.85
+385-U1551B	Pooled_385_U1551_B_2H6_385_U1551_B_5H3385_U1551_B_3H6	porewater	24.935	-24.25
+385-U1551B	Pooled_385_U1551_B_1H4_385_U1551_B_2H1	ultrapure water Soxhlet extract	5.320	-22.00
+385-U1551B	Pooled_385_U1551_B_3H1_385_U1551_B_4H3	ultrapure water Soxhlet extract	21.745	-22.80
+385-U1551B	385-U1551B-5H-3	ultrapure water Soxhlet extract	37.510	-22.90
+AT37-06_4864	AT37-06-4864	overlying water	-3.000	
+AT37-06_4865	AT37-06-4865	overlying water	-2.000	

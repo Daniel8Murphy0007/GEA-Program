@@ -1,0 +1,21 @@
+{
+  "entry": "dsdp_504b_sound_velocity",
+  "kind": "REAL_SONIC_VELOCITY_PROFILE",
+  "well": "DSDP Hole 69-504B, Costa Rica Rift flank, Panama Basin (1.2272 N, -83.7302 E; seafloor -3,460 m) - Leg 69 (1979), Glomar Challenger; the same expedition, hole and core suite as the physical-properties entry",
+  "operator_on_log": "DSDP Leg 69 shipboard sonic measurements (Sonic digital tool per in-file method tag); dataset Cann, White & Langseth via the NGDC DSDP CD-ROM",
+  "source_database": "PANGAEA, dataset doi:10.1594/PANGAEA.229754 ('Sound velocity of Hole 69-504B'); NGDC DSDP CD-ROM (1989); related to Init. Repts. DSDP 69 (doi:10.2973/dsdp.proc.69.1983)",
+  "source_url": "https://doi.pangaea.de/10.1594/PANGAEA.229754?format=textfile",
+  "license": "Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file's own header. Attribution: Cann/White/Langseth / PANGAEA / DSDP-NGDC",
+  "fetch_date": "2026-08-26",
+  "fetch_method": "read-only HTTPS fetch of the PANGAEA textfile export - COMPLETE dataset (189 data points = 63 rows x 3 counted parameters; depth is GEOCODE) in one fetch; DOI found by sequential-DOI probe (69-505 sibling at 229755 -> 504B at 229754, first probe)",
+  "coverage": "COMPLETE DATASET: 63 compressional-wave velocity measurements on Leg 69 basalt cores, 279.08 -> 484.04 mbsf, Vp = 5,105-6,390 m/s, every row instrument-tagged '-/-/F'. Same 1979 core suite as the physical-properties dataset (PANGAEA.221630, catalogue entry 'dsdp_504b_physical_properties') - the two tables pair sample-by-sample.",
+  "curves": [
+    "Depth sed [m] (index)",
+    "Vp [m/s] (compressional wave, sonic digital tool)",
+    "Sample label (verbatim, quality)",
+    "Sample comment (split/orientation/instrument code)"
+  ],
+  "source_anomaly_disclosure": "The final depth 484.04 m carries TWO rows with the IDENTICAL sample label (69-504B-29-1,4) and two different velocities (5,105 and 5,136 m/s) - a repeat measurement on the same sample archived as two rows, preserved verbatim and pinned as the profile's only duplicate-depth point (0.6% repeatability spread).",
+  "purpose": "twenty-fifth catalogue entry - 504B becomes a FOUR-dataset site family (1979 sound velocity + 1979 physical properties + 1986 dike elastic moduli + 1991 borehole fluids), kind SEVENTEEN, and the catalogue's first CROSS-ENTRY SAMPLE-BY-SAMPLE JOIN: the 1979 Vp rows pair with the 1979 density rows from the same cores (many at identical cm positions: 6-1,55; 7-5,3; 8-3,73; 13-2,100), letting the gate compute a live acoustic-impedance profile Z = rho x Vp of 1979 ocean-floor basalt from two independently archived datasets",
+  "verified": "63 rows / 189 counted cells against the header Size declaration; endpoints and Vp extremes; duplicate-depth repeat pair at 484.04 m; cross-entry join against dsdp_504b_physical_properties on depth (|dz| <= 0.05 m) with live Z = rho*Vp impedance computation; gate-pinned; source URL serves the identical dataset"
+}

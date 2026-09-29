@@ -1,0 +1,21 @@
+{
+  "entry": "volve_f12_f14_production_excerpt",
+  "kind": "REAL_PRODUCTION_TIME_SERIES_EXCERPT",
+  "well": "Volve wells 15/9-F-12 H (NPD 5599) and 15/9-F-14 H (NPD 5351), VOLVE field, facility MAERSK INSPIRER, Norwegian North Sea - the field's two main producers (F-12 ultimately ~46% of field oil, F-14 ~39%)",
+  "operator_on_log": "Statoil/Equinor field operations (daily production reporting); released in the Equinor Volve open dataset (2018)",
+  "source_database": "Equinor Volve open dataset 'Volve production data.xlsx' (Daily Production Data sheet), via the Kaggle redistribution (lamyalbert/volve-production-data) as processed to CSV in the public GitHub repository jamiubadmusng/oil-and-gas (data/processed/production_data_processed.csv)",
+  "source_url": "https://raw.githubusercontent.com/jamiubadmusng/oil-and-gas/main/data/processed/production_data_processed.csv",
+  "license": "Equinor Open Data Licence (underlying dataset); redistribution repo MIT. Attribution: Equinor Volve data sharing; Kaggle lamyalbert/volve-production-data; github.com/jamiubadmusng/oil-and-gas",
+  "fetch_date": "2026-08-25",
+  "fetch_method": "read-only HTTPS fetch (text/plain); full source file (~15,634 daily records, 2008-2016) exceeds the fetch window - first 166 complete records captured; the trailing partial record at the truncation boundary was DROPPED, not guessed",
+  "coverage": "EXCERPT: header + first 166 daily records verbatim, 2008-02-12 -> 2008-07-21 (157 records 15/9-F-12 H from FIRST OIL 2008-02-12; 9 records 15/9-F-14 H from its first production 2008-07-13). Source order preserved exactly, including the interleaving of the two wells and the calendar gaps present in the source (e.g. no 2008-03-27, no 2008-05-31).",
+  "processing_disclosure": "The redistribution is a PROCESSED export of the original xlsx Daily Production Data sheet: the original 24 columns (DATEPRD .. WELL_TYPE) are preserved with original names and values; 9 additional columns (TOTAL_LIQUID, WATER_CUT, GOR, ON_STREAM_PCT, YEAR, MONTH, DAY_OF_WEEK, DAY_OF_YEAR, QUARTER) were APPENDED by the redistributor (derived quantities). All 33 columns are transcribed verbatim as served; the derived columns are redistributor work-product, NOT Equinor field measurements.",
+  "curves": [
+    "DATEPRD (daily)",
+    "per-well operational: ON_STREAM_HRS [h], AVG_DOWNHOLE_PRESSURE [bar], AVG_DOWNHOLE_TEMPERATURE [degC], AVG_DP_TUBING [bar], AVG_ANNULUS_PRESS [bar], AVG_CHOKE_SIZE_P [%], AVG_WHP_P [bar], AVG_WHT_P [degC], DP_CHOKE_SIZE [bar-equivalent per source dictionary], BORE_OIL_VOL/BORE_GAS_VOL/BORE_WAT_VOL/BORE_WI_VOL [Sm3]"
+  ],
+  "units_disclosure": "Units are NOT in the CSV header; the assignments above follow the redistribution's published data dictionary (bar / degC / Sm3) and are INTERPRETIVE, recorded here rather than claimed as in-file.",
+  "real_data_features": "Real operational messiness preserved verbatim: a genuine STUCK-SENSOR run (AVG_DOWNHOLE_PRESSURE frozen at 264.08789 bar 2008-05-11 -> 2008-05-19), a wellhead-pressure dropout (AVG_WHP_P = 0.0 on 2008-06-03), a negative water volume (-14.19 Sm3 on 2008-04-23), water-volume spikes (8019.72 Sm3 on 2008-05-24/25), and blank AVG_ANNULUS_PRESS cells on early F-14 records - the fault classes the v1.3.0 telemetry QC pipeline injects synthetically, here occurring in real field data.",
+  "purpose": "eleventh catalogue entry - the catalogue's first TIME-INDEXED real field data (SIXTH kind): daily per-well production/pressure/temperature history, the live stream's native shape; the closed-vs-live reconciler's real-data counterpart, and the first entry carrying real sensor-fault phenomenology",
+  "verified": "166 records; first-oil row, F-14 first row, stuck run, dropout, blanks->NaN and last row gate-pinned; source URL serves the full file for independent re-verification"
+}
