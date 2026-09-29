@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """store_forward — the edge buffer: store-and-forward with chronological,
 rate-controlled replay, duplicate suppression and a gap report
 (SOW 4.2.1.6; SLA 5.0 remote-site table).

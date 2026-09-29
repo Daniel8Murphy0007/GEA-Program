@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """strata_join - the depth-join / joint-distribution layer of the strata-inference engine.
 
 v1.69.0 (first layer of the ground-strata imaging mission, Daniel's 2026-08-28 direction).

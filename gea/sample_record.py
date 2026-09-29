@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """sample_record — the canonical measurement record and tag catalogue.
 
 Every measurement the client-facing reports touch passes through ONE record

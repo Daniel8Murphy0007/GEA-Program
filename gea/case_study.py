@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """case_study — depth-sweep case-study mode (v1.4.0 extension).
 
 Sweeps a well from top to TD and reports, at every depth, both drift legs

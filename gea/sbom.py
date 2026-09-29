@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """sbom — the software bill of materials, generated from the running
 environment (SCC 16.0; software with licences).
 
@@ -75,7 +78,7 @@ def generate(program_name: str = 'Downhole Gauge Monitoring', program_version: s
     ver = program_version or __version__
     ts = _iso()
     comps: List[dict] = []
-    comps.append({'name': program_name, 'version': ver, 'supplier': 'ENRGYONE', 'licence': 'per the client agreement',
+    comps.append({'name': program_name, 'version': ver, 'supplier': 'ENRGYONE', 'licence': 'MPL-2.0',
                   'hash': _tree_hash(_HERE), 'identifier': f'pkg:generic/downhole-gauge-monitoring@{ver}',
                   'relationship': 'root', 'generated_utc': ts})
     comps.append({'name': 'Python', 'version': platform.python_version(), 'supplier': 'Python Software Foundation',

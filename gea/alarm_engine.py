@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """alarm_engine — alarm definitions, the alarm state machine, the event log
 and the alarm-management KPIs (SOW 4.2.4; ISA-18.2 / IEC 62682 practice).
 

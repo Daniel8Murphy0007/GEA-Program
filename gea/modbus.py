@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """modbus — the real Modbus client, connectivity tier 4 (v1.11.0).
 
 Daniel GO 2026-08-24: implement the live-protocol tap for the G6-class target

@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """Import the downhole gauge program from a Star-Magic-Program checkout into
 this repository as the `gea` package - renamed, with the corpus dependencies
 removed and replaced by standard constants and published anchors.
@@ -314,9 +317,28 @@ def main(src: str) -> int:
                     t = t.replace(a, b)
                 wr(p, t)
 
+    # package version = this repository's version (pyproject); the source lineage goes to the record
+    pyv = re.search(r'^version = "([^"]+)"', rd(os.path.join(REPO, 'pyproject.toml')), flags=re.M).group(1)
+    p = os.path.join(DEST, '__init__.py')
+    s = rd(p)
+    lineage = re.search(r'^__version__ = "([^"]+)"', s, flags=re.M).group(1)
+    s = re.sub(r'^__version__ = "[^"]+"', f'__version__ = "{pyv}"', s, count=1, flags=re.M)
+    wr(p, s)
+
+    # licence header (MPL-2.0 Exhibit A) on every module of the package
+    HDR = ("# This Source Code Form is subject to the terms of the Mozilla Public\n"
+           "# License, v. 2.0. If a copy of the MPL was not distributed with this\n"
+           "# file, You can obtain one at https://mozilla.org/MPL/2.0/.\n")
+    for fn in os.listdir(DEST):
+        if fn.endswith('.py'):
+            p = os.path.join(DEST, fn)
+            t = rd(p)
+            if 'Mozilla Public' not in t[:400]:
+                wr(p, (t.split('\n', 1)[0] + '\n' + HDR + t.split('\n', 1)[1]) if t.startswith('#!') else HDR + t)
+
     # 10. import record --------------------------------------------------------------------------------------------
     head = git_head(src)
-    lines = [f'# Import record\n', f'Source: Star-Magic-Program @ {head}', f'Imported: {datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}', '',
+    lines = [f'# Import record\n', f'Source: Star-Magic-Program @ {head} (uqff_downhole_simulator {lineage})', f'Package version: {pyv}', f'Imported: {datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}', '',
              '| source | destination | sha256 (first 16) |', '|---|---|---|']
     for a, b in sorted(filemap.items()):
         h = hashlib.sha256(rd(os.path.join(DEST, b)).encode('utf-8')).hexdigest()[:16] if b != '(dropped)' else '-'

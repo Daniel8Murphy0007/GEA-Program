@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """tool_library — the downhole tool library (v1.7.0 extension).
 
 Generalizes the v1.5.0 gauge-spec discipline to the whole toolstring: a cited

@@ -9,12 +9,24 @@ description = "GEA-Program: downhole gauge monitoring - canonical measurement re
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Daniel T. Murphy" }]
+license = { text = "MPL-2.0" }
+classifiers = [
+    "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "Operating System :: OS Independent",
+]
 dependencies = ["numpy>=1.24"]
 
 [project.optional-dependencies]
 plotting = ["matplotlib>=3.7"]
 desktop = ["PyQt6>=6.5", "matplotlib>=3.7"]
 modbus = ["pymodbus>=3.0"]
+
+[project.urls]
+Homepage = "https://github.com/Daniel8Murphy0007/GEA-Program"
+Source = "https://github.com/Daniel8Murphy0007/GEA-Program"
 
 [project.scripts]
 gea = "gea.cli:main"

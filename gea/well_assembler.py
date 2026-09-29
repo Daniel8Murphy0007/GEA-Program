@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """Well assembler: one well object from mixed catalogue pieces (v1.42.0).
 
 Finish-sequence step 2 (independent evaluation, adopted 2026-08-27): twenty-

@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """fat_sat — the acceptance suite rendered as a Factory / Site Acceptance
 Test protocol (SOW 4.2.20 FAT; 4.2.21 SAT).
 

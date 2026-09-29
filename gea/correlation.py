@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """correlation - Part 4 of the subsurface surveying tool: WELL-TO-WELL
 CORRELATION (v1.81.0), with the honest finding stated up front.
 

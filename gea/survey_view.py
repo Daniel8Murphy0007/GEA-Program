@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """survey_view - the first HONEST renderer for the surveying tool
 (v1.80.0: 'one honest map/cross-section renderer would make everything built
 this week visible for the first time').

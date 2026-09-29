@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """blind_harness - Part 5 of the subsurface surveying tool: THE
 BLIND-VALIDATION HARNESS (v1.82.0) - the standing accuracy report that makes
 the tool credible, not just built.

@@ -1,0 +1,10 @@
+v0.1.0 — GEA-Program first ship
+
+The downhole gauge program as its own package, imported from
+Star-Magic-Program v0.444.0 (commit c160908) by tools/import_from_star_magic.py:
+49 modules under gea/ with no dependency on the source program's corpus,
+the gravity kernel on standard constants, the rock inventory on published
+anchors, the front door (gea) and the desktop window, the tester guide,
+the requirements matrix and the commercial documents under docs/.
+Licence MPL-2.0 (LICENSE; Exhibit A header on every source file).
+Acceptance 157/157. Register audit reported, not gated.

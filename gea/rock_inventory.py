@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """rock_inventory - THE K4 GEOLOGICAL LANDMARK FAMILY
 (Daniel's derivation order, 2026-09-08: "DERIVE GEOLOGICAL LANDMARK.
 CREATE A UNIQUE FILE FOR ROCK DENSITY INVENTORY, ALONG WITH SUPPORTING

@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """accuracy_statement — the accuracy statement in the client's statistic.
 
 A production-operations client states tool accuracy as MAPE (mean absolute

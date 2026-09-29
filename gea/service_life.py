@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """service_life — long-horizon drift accumulation (v1.2.0 extension).
 
 The v1.0/1.1 layers report drift as an instantaneous RATE (%FS/yr). This module

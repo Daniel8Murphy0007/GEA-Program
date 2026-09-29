@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """sla_report — the monthly SLA measurement from the program's own records
 (SLA 2.0 measurement; 5.0 post-implementation; drift and staleness SLA;
 1.0 latency definitions; SOW 4.2.26 re-fit cap).

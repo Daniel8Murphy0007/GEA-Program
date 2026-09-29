@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """ports — the live-stream ports/plug-in layer (v1.8.0 extension).
 
 Piece 2 of the two-stream build (Daniel's architecture, PAPER_2256 appendix 6):

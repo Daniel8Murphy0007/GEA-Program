@@ -1,13 +1,14 @@
 # Import record
 
-Source: Star-Magic-Program @ 6ddd4dce0d4214490e9d66ec6bcb35be8d690ed3
-Imported: 2026-09-29T16:50:29Z
+Source: Star-Magic-Program @ c16090852e28f35f0fcb31cba6384da566016a61 (uqff_downhole_simulator 1.91.0)
+Package version: 0.1.0
+Imported: 2026-09-29T19:34:53Z
 
 | source | destination | sha256 (first 16) |
 |---|---|---|
 | uqff_downhole_simulator/(native tools/native/cli.py) | gea/cli.py | 241ce978934b032d |
 | uqff_downhole_simulator/(native tools/native/shell.py) | gea/shell.py | 93a3f0221b773ce3 |
-| uqff_downhole_simulator/__init__.py | gea/__init__.py | 8ca79c9b69623a81 |
+| uqff_downhole_simulator/__init__.py | gea/__init__.py | 3d1fc4e3158ecb4a |
 | uqff_downhole_simulator/__main__.py | gea/__main__.py | fb4ae045d738d9fc |
 | uqff_downhole_simulator/acceptance_tests.py | gea/acceptance_tests.py | c0e6fed3acd5d73b |
 | uqff_downhole_simulator/accuracy_statement.py | gea/accuracy_statement.py | 0f0c8f30c802ad4b |

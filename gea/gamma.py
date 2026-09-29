@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """Gamma-ray / lithology module (v1.46.0) - field-tier step 6 (first half).
 
 The evaluation's stated oilfield goal: "No NaI(Tl) GR, API units, lithology

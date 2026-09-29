@@ -14,3 +14,6 @@ dist/
 /model_cards/
 /client_report/
 gea/catalog_operator/
+/ci/
+/gea_quickstart/
+.pytest_cache/

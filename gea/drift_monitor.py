@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """drift_monitor — drift evaluation as a scheduled job with a log.
 
 The reconciler classifies; this module runs it on a cadence, keeps the

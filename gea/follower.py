@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """follower — the quasi-live file-follower port (v1.10.0 extension).
 
 Addresses the connectivity concern (Daniel, 2026-08-24) at the tier that is

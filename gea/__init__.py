@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """gea — the GEA Downhole HPHT Quartz-Gauge Simulator.
 
 The gea-program's first packaged industry-application module: a
@@ -122,7 +125,7 @@ from .profile_catalog import (
     read_pangaea_txt,
 )
 
-__version__ = "1.90.0"
+__version__ = "0.1.0"
 __all__ = [
     "calculate_quartz_transducer_hpht_program", "canonical_suppression",
     "conventional_drift", "drift_comparison",

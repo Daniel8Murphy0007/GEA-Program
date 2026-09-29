@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """well_test_validation — stable-period detection and well-test accept/reject
 with reason codes and an approval trail (SOW 4.2.3.1).
 

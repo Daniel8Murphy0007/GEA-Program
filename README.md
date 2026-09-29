@@ -85,6 +85,28 @@ envelope's lower bound is an engineering model with no field validation on
 record, and five of the fourteen back-tested strata quantities are NOT
 ACCEPTABLE at the 95 % target. Both are printed, never claimed otherwise.
 
+## Shipping
+
+`.\ship.ps1` (PowerShell) gates, commits, tags and pushes in one screen: version in
+`pyproject.toml` must equal `gea.__version__` (`-Bump x.y.z` sets both), the tag must
+not exist anywhere, every version in `SHIP_LOG.md` must have its tag, `python -m gea
+accept` must be green, `SHIP_MESSAGE.txt` must start with the tag; then commit, tag,
+push, and the remote tag must be seen before SHIPPED is printed. `-DryRun` runs every
+check and changes nothing; `-NoPush` stops after the local tag.
+
+## Publishing to PyPI
+
+The name `gea-program` is free on PyPI as of 2026-09-29; a PyPI project is created by
+its first upload, there is nothing to "start" beforehand except the trusted publisher.
+One-time setup, before the first tag is pushed: sign in to PyPI -> your account ->
+Publishing -> "Add a new pending publisher": project name `gea-program`, owner
+`Daniel8Murphy0007`, repository `GEA-Program`, workflow `release-to-pypi.yml`,
+environment `pypi`. Then in GitHub -> Settings -> Environments create `pypi`. From then
+on `.\ship.ps1` pushes the tag and `.github/workflows/release-to-pypi.yml` gates, builds,
+verifies the wheel and publishes; the package page is
+https://pypi.org/project/gea-program/ after the first successful run.
+
 ## Licence
 
-To be chosen by the author before public release (this file intentionally names none).
+Mozilla Public License 2.0 (MPL-2.0); see `LICENSE`. Every source file carries the MPL-2.0
+header (Exhibit A). Copyright (c) 2026 Daniel T. Murphy.

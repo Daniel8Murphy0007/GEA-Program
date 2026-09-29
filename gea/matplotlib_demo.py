@@ -1,3 +1,6 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """matplotlib_demo — animated demo of the GEA Downhole Simulator.
 
 Template-faithful port (22Aug2026 thread, converged imperial version): a well
