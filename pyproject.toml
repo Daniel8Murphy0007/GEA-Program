@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gea-program"
+version = "0.1.0"
+description = "Geological subsurface simulation and reporting toolkit"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "GEA Program" }]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
