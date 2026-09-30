@@ -1,10 +1,17 @@
-v0.1.0 — GEA-Program first ship
+v0.2.0 — THE STANDALONE SHIP: live ports, and nothing outside the package
 
-The downhole gauge program as its own package, imported from
-Star-Magic-Program v0.444.0 (commit c160908) by tools/import_from_star_magic.py:
-49 modules under gea/ with no dependency on the source program's corpus,
-the gravity kernel on standard constants, the rock inventory on published
-anchors, the front door (gea) and the desktop window, the tester guide,
-the requirements matrix and the commercial documents under docs/.
-Licence MPL-2.0 (LICENSE; Exhibit A header on every source file).
-Acceptance 157/157. Register audit reported, not gated.
+GEA-Program proves its own independence on every build: tools/standalone_check.py
+(imports, text, metadata) runs in CI, in ship.ps1 and under pytest, and fails
+the build if any module imports outside the standard library, numpy, the
+declared optional extras and gea itself, or if any tracked file names another
+program. The import machinery of v0.1.0, its import record and the register
+audit are removed; every docstring, comment, catalogue provenance note and
+document is in the program's own words; the commercial documents describe the
+MPL-2.0 licence. Constants, results and the acceptance suite are unchanged.
+
+New in this ship: the OPC UA client port (read + subscribe, StatusCode ->
+quality, recording + replay) and the MQTT subscriber port (3.1.1/5, TLS,
+number / JSON / Sparkplug B with a dependency-free codec), the shared
+live_ports layer, CLI `gea opcua` / `gea mqtt`, extras opcua / mqtt / live /
+xls, example configs, acceptance section AB (live loopback where asyncua is
+installed). Acceptance 172/172. docs/HISTORY.md restarted at v0.1.0.

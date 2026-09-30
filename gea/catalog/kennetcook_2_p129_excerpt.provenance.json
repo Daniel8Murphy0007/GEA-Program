@@ -11,7 +11,7 @@
   "coverage": "VERBATIM EXCERPT: full header (~V/~W/~P condensed to the physics-relevant parameters, all values verbatim; remark/admin lines omitted and disclosed here) + the first 10 WRAPPED data records (1.0668-2.4384 m). Full file spans 1.0668-1939.14 m at 0.1524 m step.",
   "curves": ["DEPT.m", "CALI.in", "HCAL.in", "PEF", "DT.us/ft", "DTS.us/ft", "DPHI_SAN/LIM/DOL.m3/m3", "NPHI_SAN/LIM/DOL.m3/m3", "RLA1-5.ohm.m", "RXOZ/RXO_HRLT/RT_HRLT/RM_HRLT.ohm.m", "DRHO.g/cm3", "RHOB.g/cm3", "GR.gAPI", "SP.mV"],
   "temperature_data": "REAL MEASURED ANCHORS in the header: BHT = 42.00 degC at BLI/TD 1935.0 m (stated 'used in calculations' on the log); TMAX/MRT1 = 42.00 degC; mud temperatures 16.9-19.4 degC. First catalogue entry with real downhole temperature - feeds the converter's DERIVED_FROM_MEASURED_BHT tier.",
-  "dialect_notes": "WRAP. YES (PETREL export) - the real wrapped-mode file that drove the v1.13.0 read_las wrapped-parsing upgrade (records assembled by curve count; the prior honest refusal is superseded by honest parsing verified against this file). 25 curves; record = depth line + 4 continuation lines.",
+  "dialect_notes": "WRAP. YES (PETREL export) - the real wrapped-mode file that drove the read_las wrapped-parsing support (records assembled by curve count; the prior honest refusal is superseded by honest parsing verified against this file). 25 curves; record = depth line + 4 continuation lines.",
   "purpose": "third real catalogue well; wrapped-mode coverage; first real BHT thermal anchor",
-  "verified": "ingests via uqff_ports.read_las wrapped path; BHT/TMAX/TDL captured into stream meta; gate-pinned"
+  "verified": "ingests via ports.read_las wrapped path; BHT/TMAX/TDL captured into stream meta; gate-pinned"
 }

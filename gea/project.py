@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """project - Part 7 of the subsurface surveying tool: THE CLIENT SHELL
-(v1.84.0) - project files and the client report.
+- project files and the client report.
 
 A SurveyProject is what a client engagement touches: a JSON project file
 (name, created stamp, tool versions, render paths, notes) plus
@@ -138,7 +138,7 @@ def generate_report(out_dir: str, project_path: Optional[str] = None,
     w('')
     w('Median 1σ coverage %.2f (honest target ~0.68). %d thin pairs '
       'refused. %s' % (acc['median_coverage'], acc['n_refused'],
-                       acc['doctrine']))
+                       acc['method']))
     w('')
     w('## 6. Correlation (`correlation`)')
     w('')
@@ -157,7 +157,7 @@ def generate_report(out_dir: str, project_path: Optional[str] = None,
     w('---')
     w('*What this report will not do: quote unmeasured accuracy, fill '
       'missing data with templates, or present transferred models as site '
-      'truth. Refusals above are deliberate outputs of the same doctrine '
+      'truth. Refusals above are deliberate outputs of the same method '
       'that produced the numbers.*')
 
     report_path = os.path.join(out_dir, 'survey_report.md')

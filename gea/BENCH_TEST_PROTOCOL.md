@@ -1,10 +1,9 @@
 # Bench-Test Protocol — Measuring the 1.0324 Suppression Ratio
 
-**Field-tier step 8 (independent evaluation, adopted 2026-08-27).**
 Status of the quantity under test: `canonical_suppression()` = **1.0324 at
 unity trims** is today a **DERIVED_HYBRID** composition — industry baseline
 drift (0.215 %FS/yr class) with HPHT stress dressing, divided by a
-locked-primitive GEA composition. It is **not** a measured constant, and the
+the program's suppression composition of three locked constants. It is **not** a measured constant, and the
 product labels it so everywhere it appears. This protocol is the experiment
 that would change — or refuse to change — that label.
 
@@ -77,7 +76,7 @@ product's own honesty rule.
 
 - **Confirmed:** `canonical_suppression()`'s label may move from
   DERIVED_HYBRID to MEASURED_ON_BENCH **with the test ID, dates, apparatus
-  and per-pair results attached**. The composition's primitives are then a
+  and per-pair results attached**. The composition's constants are then a
   measured-consistent model, not just a labeled one.
 - **Refuted:** the label stays DERIVED_HYBRID; the refutation (conditions,
   measured R, uncertainty) is recorded beside it. No silent retuning of

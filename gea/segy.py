@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """segy - Part 6 of the subsurface surveying tool: SEISMIC INGEST
-(v1.83.0). SEG-Y is the industry's seismic interchange format; this reader
+SEG-Y is the industry's seismic interchange format; this reader
 brings the first WAVEFIELD modality into the read-only ingestion family.
 
 STATUS, honestly: READER_VALIDATED_BY_ROUND_TRIP; AWAITING_FIELD_SEGY.
@@ -21,7 +21,7 @@ SCOPE (SEG-Y rev 1, the working subset):
     float32, converted exactly)
   - anything else REFUSES with the format code named - no guessing
 
-READ-ONLY doctrine unchanged: ingest never writes, never modifies, never
+READ-ONLY, as every ingest port: it never writes, never modifies, never
 'fixes' a volume. Byte-swapped or nonconforming files refuse visibly.
 """
 

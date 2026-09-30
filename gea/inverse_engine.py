@@ -4,7 +4,7 @@
 """inverse_engine - Part 3 of the subsurface surveying tool: THE
 INVERSE ENGINE (measurement -> strata, with uncertainty).
 
-v1.77.0. The direction the whole mission points: read the ground. This first
+The direction the whole tool points: read the ground. This first
 inverse composes the two layers already built and validated:
 
     measured borehole gravity            (the catalogue's own archives)
@@ -48,7 +48,7 @@ from .profile_catalog import CATALOG
 from . import strata_join as SJ
 
 PRIOR_FAMILIES = {
-    # v1.79.0 (the lesson of the first scored prediction): priors are chosen
+    # The lesson of the first scored prediction: priors are chosen
     # by GEOLOGICAL FAMILY, not by whatever well the library learned first.
     # 'oceanic_igneous' draws on the 504B joint tables (basalt flank);
     # 'continental_crystalline' draws SITE-NATIVE pairs from the KTB

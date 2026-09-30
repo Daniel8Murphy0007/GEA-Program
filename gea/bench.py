@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""Bench-test analysis (v1.48.0) - field-tier step 8.
+"""Bench-test analysis.
 
 The analysis half of BENCH_TEST_PROTOCOL.md: fit each leg's drift slope,
 propagate uncertainties into the conventional/GEA ratio, and return a

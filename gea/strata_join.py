@@ -3,7 +3,7 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """strata_join - the depth-join / joint-distribution layer of the strata-inference engine.
 
-v1.69.0 (first layer of the ground-strata imaging mission, Daniel's 2026-08-28 direction).
+The first layer of the ground-strata imaging tool.
 
 WHAT THIS IS
     The catalogue holds 50 wells, but its entries are single-property tables.

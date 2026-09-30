@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""gauge_specs — real-datasheet gauge parameterization (v1.5.0 extension).
+"""gauge_specs — real-datasheet gauge parameterization.
 
 Until now every layer ran on the template's generic anchors (0.215 %FS/yr
 baseline, 150 C / 15,000 psi knees, FS 30,000 psi). This module lets the whole
@@ -9,14 +9,14 @@ stack run on a REAL gauge's published numbers instead: a `GaugeSpec` carries
 the datasheet values with an explicit citation, presets carry web-verified
 public specs, and `load_gauge_spec_json` takes any datasheet the user types in.
 
-Honesty rules (Rule 7 / PAPER_2149 Hybrid-Form doctrine):
+Citation rules:
   * Every preset cites its source and the date it was verified. No invented
     vendor numbers — the one candidate value that could not be verified in the
     fetched source text (a "<0.02 %FS/yr at 200 C" claim from a search-engine
     summary) was NOT made a preset.
   * Datasheet drift bounds are REFERENCE-CONDITION spec limits (the GEOQ 177
     table's <0.01 %FS/yr is ~20x below the template's 0.215 stressed-service
-    baseline). The GEA suppression RATIO (1.0324) is baseline-independent;
+    baseline). The program suppression RATIO (1.0324) is baseline-independent;
     the absolute separation in psi/yr scales with whichever baseline the spec
     supplies. Both readings are honest; the module reports which one is in use.
 
@@ -39,7 +39,7 @@ class GaugeSpec:
     """A gauge datasheet: the anchors the physics layer runs on.
 
     `source` is mandatory prose naming where every number came from —
-    a spec without a citation is not a spec (Rule 7).
+    a spec without a citation is not a spec.
     """
     name: str
     source: str
@@ -63,10 +63,10 @@ class GaugeSpec:
 GAUGE_SPECS: Dict[str, GaugeSpec] = {
     'template_generic': GaugeSpec(
         name='template_generic',
-        source=("22Aug2026 template thread (grok_cce7a73b): 0.215 %FS/yr "
+        source=("program template baseline (design note, 22 Aug 2026): 0.215 %FS/yr "
                 "typical good-quartz STRESSED-SERVICE baseline with 150 C / "
                 "15,000 psi knees and exponents 1.15/0.9 (engineering fit); "
-                "FS 30,000 psi HPHT class. The v1.0-1.4 default."),
+                "FS 30,000 psi HPHT class. The default when no datasheet is given."),
         full_scale_psi=30000.0,
         baseline_drift_pct_fs_yr=0.215,
         max_temp_C=200.0,
@@ -103,10 +103,10 @@ GAUGE_SPECS: Dict[str, GaugeSpec] = {
 def load_gauge_spec_json(path) -> GaugeSpec:
     """Load a user-entered datasheet from JSON. Required keys: name, source,
     full_scale_psi, baseline_drift_pct_fs_yr. Optional keys map to the other
-    GaugeSpec fields. A missing/empty `source` is rejected (Rule 7)."""
+    GaugeSpec fields. A missing/empty `source` is rejected."""
     with Path(path).open(encoding="utf-8") as f:
         d = json.load(f)
     if not d.get('source'):
-        raise ValueError("gauge spec JSON must carry a non-empty 'source' citation (Rule 7)")
+        raise ValueError("gauge spec JSON must carry a non-empty 'source' citation")
     allowed = {k for k in GaugeSpec.__dataclass_fields__}
     return GaugeSpec(**{k: v for k, v in d.items() if k in allowed})

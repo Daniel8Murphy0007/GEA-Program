@@ -28,7 +28,7 @@ A grade of HAVE means a code hit that does the thing; PARTIAL means the mechanis
 
 ### 2.2.1 Production Operations at OIL
 **Tender asks:** 631 producing wells across Eastern / Western / Rajasthan assets; hierarchy CGM(Field) → DGM(Production Zone) → IM(Installation) → OCS/GCS/FGGS/QPS/WHS/EPS/SPF; ~40% gas-lift assisted, 45 SRP, 44 PAGL, 8 ESP; TCC-controlled intermittent lift; 4–5 km flowlines; test separator; manual 6+ hr well tests entered into ERP; monthly allocation; BS&W by lab sample; limited IoT; GSM/wireless; remote sites without power/network.
-**Program today:** no asset hierarchy; a "well" is a `DPMBody` or a `WellProfile` CSV. No notion of installation, zone, field, or lift type.
+**Program today:** no asset hierarchy; a "well" is a `WellAssembly` or a `WellProfile` CSV. No notion of installation, zone, field, or lift type.
 **Gets better by:** implementing the OIL asset hierarchy as the program's primary navigation (Field → Zone → Installation → Well), with lift type (SF / GL / PAGL / SRP / ESP) as a first-class well attribute that selects the model family, the tag set, and the validation rules. The four stated pain points become the four things the program's home screen answers: flow assurance status, blockage/wax risk, custody/leak anomalies, and which wells are due for a test.
 
 ## 3.0 AS-IS STATE OF SENSORISATION ACROSS WELLHEADS
@@ -298,7 +298,4 @@ A grade of HAVE means a code hit that does the thing; PARTIAL means the mechanis
 
 **Not the program:** lift control, IPSM simulation, well integrity, instrumentation, installation, AMC staffing.
 
-One rule across all of it: nothing GEA-labelled and no GEA-derived constant may remain in any clause's deliverable (SCC 5.0 inspection). The surveying engine is already clean. Two files carry GEA constants and are *cleaned, not removed*:
-
-- `forward_model.py` — replace `g_U`, `G_U`, `R_U` with 9.80665 m/s², CODATA G, 6371 km. Results move < 0.1 %.
-- `rock_inventory.py` — **keep the inventory**: the seventeen anchor densities with published ranges (Telford/Geldart/Sheriff; Schön), the ranked-candidates classifier with overlap disclosure, the out-of-inventory refusals, the per-station provenance, and the KTB lithology validation are exactly the lithology library the client program needs (§4.1.7-adjacent material ID; imported by `differentiator.py` and `survey_cmd.py`). **Strip only** the per-row `rho=` / `form=` primitive decompositions (e.g. `(D_crit+1)/SO_5 + F_TRZ²`) and the `uqff_registry_primitives` import; point the classifier at `anchor` directly. The file's own disclosure says the decompositions were found by search against the anchors, so they carry no information the anchor doesn't. About twenty lines.
+One rule across all of it: every constant in a deliverable is a standard value with its source named, and nothing in a client deliverable uses the program's internal working vocabulary (the vocabulary gate in `client_reports.py` refuses to write a report that does). The gravity kernel runs on CODATA 2018 G, standard gravity and the IUGG mean radius; the rock inventory carries the seventeen published density anchors and Vp ranges (Telford/Geldart/Sheriff; Schön; Christensen and Mooney) with the ranked-candidates classifier, overlap disclosure, out-of-inventory refusals, per-station provenance and the KTB lithology validation.

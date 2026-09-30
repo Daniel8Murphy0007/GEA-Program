@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""Operator surface (v1.44.0) - finish-sequence step 4.
+"""Operator surface - the desktop operator window.
 
 The independent evaluation's largest hole: "An operator cannot pick a
 catalogued well, hang a toolstring, run service-life, ingest a LAS, or see
@@ -16,7 +16,7 @@ split honestly in two:
 * launch_operator_app() - the Qt6 view over that controller (one window:
   well picker, toolstring builder with rating lights, live P/T + drift
   charts, service-life/case-study export, reconcile + undervalued-stream
-  alerts, and a citations pane that is ALWAYS visible - Rule 7 in the UI).
+  alerts, and a citations pane that is ALWAYS visible).
   Refuses with the pip hint when PyQt6 is absent, same pattern as the ports.
 
 Product-honesty rules carried into the surface:
@@ -137,7 +137,7 @@ class OperatorSession:
             self.log.append(f"OPERATOR ACKNOWLEDGED over-rating run "
                             f"({len(blocks)} station(s))")
         if self.toolstring is not None:
-            self.config.toolstring = self.toolstring        # v1.47.0 mixed strings
+            self.config.toolstring = self.toolstring        # mixed strings
             self.config.acknowledge_over_rating = bool(acknowledge_over_rating)
         self.engine = DownholeEngine(self.config)
         self.log.append("run started")
@@ -151,7 +151,7 @@ class OperatorSession:
         return self.engine.comparison_summary()
 
     def mixed_report(self) -> dict:
-        """v1.47.0: per-station tool legs from the running engine (twin /
+        """Per-station tool legs from the running engine (twin /
         single / refused, with the aggregate over twin stations only)."""
         if self.engine is None:
             raise NotImplementedError("run not started - start_run() first")
@@ -221,16 +221,16 @@ class OperatorSession:
         return [s for s in self.last_reconcile["stations"]
                 if s["classification"].startswith("UNEXPLAINED")]
 
-    # -- Rule 7: the always-visible citations block ------------------------
+    # -- the always-visible citations block --------------------------------
     def citations(self) -> dict:
         """Everything the operator is looking at, sourced. The UI renders
         this pane permanently; it is never hidden behind a menu."""
         out = {
             "suppression": ("canonical_suppression() = "
                             f"{canonical_suppression():.4f} at unity trims - "
-                            "DERIVED_HYBRID: industry baseline drift x locked "
-                            "GEA primitive composition (NOT a derived "
-                            "constant; bench test = finish-seq step 8)"),
+                            "DERIVED_HYBRID: industry baseline drift x the "
+                            "program's locked suppression composition (NOT a "
+                            "derived constant; see BENCH_TEST_PROTOCOL.md)"),
             "gauge_spec": None, "well_provenance": {}, "tools": {}}
         if self.config is not None:
             spec = getattr(self.config, "gauge_spec", None)
@@ -276,7 +276,7 @@ def launch_operator_app() -> int:
     class OperatorWindow(QMainWindow):
         def __init__(self):
             super().__init__()
-            self.setWindowTitle("GEA Downhole - Operator (v1.44.0)")
+            self.setWindowTitle("GEA Downhole - Operator")
             root = QWidget(); self.setCentralWidget(root)
             outer = QVBoxLayout(root)
             body = QHBoxLayout(); outer.addLayout(body, stretch=1)
@@ -318,7 +318,7 @@ def launch_operator_app() -> int:
             self.log_view = QTextEdit(); self.log_view.setReadOnly(True)
             tabs.addTab(self.log_view, "Log")
 
-            # bottom: Rule 7 - citations pane, ALWAYS visible
+            # bottom: citations pane, ALWAYS visible
             self.cite = QTextEdit(); self.cite.setReadOnly(True)
             self.cite.setMaximumHeight(140)
             outer.addWidget(QLabel("Citations / provenance (always visible):"))

@@ -1,9 +1,9 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""modbus — the real Modbus client, connectivity tier 4 (v1.11.0).
+"""modbus — the real Modbus client, connectivity tier 4.
 
-Daniel GO 2026-08-24: implement the live-protocol tap for the G6-class target
+The live-protocol tap for the G6-class target
 (Modbus RS485/TCP surface interface, declared by the tool library from the
 GEOQ 177 spec-table footnotes) as REAL protocol code behind a guarded
 optional dependency — the same pattern as the PyQt6 front-end:
@@ -16,7 +16,7 @@ Honesty rules, unchanged:
     read_input_registers. There is no code path that writes to a device.
   * REGISTER MAPS ARE USER-SUPPLIED AND CITATION-MANDATORY. No public G6
     register map was published on the fetched pages, so the library ships
-    NO device map — a map without a `source` citation is rejected (Rule 7),
+    NO device map — a map without a `source` citation is rejected,
     exactly like the gauge specs. The shipped example map is labeled
     EXAMPLE_TEST_FIXTURE and describes the in-process loopback server used
     for verification, NOT a device.
@@ -67,7 +67,7 @@ class RegisterEntry:
 
 @dataclass(frozen=True)
 class RegisterMap:
-    """The site's register layout. `source` citation is MANDATORY (Rule 7):
+    """The site's register layout. `source` citation is MANDATORY:
     a register map must name the document it came from — a G6/site manual,
     or the loopback test fixture, never an invention."""
     name: str
@@ -80,7 +80,7 @@ class RegisterMap:
     def __post_init__(self):
         if not self.source or len(self.source) < 20:
             raise ValueError("register map requires a substantive 'source' citation "
-                             "(Rule 7: the library does not invent device layouts)")
+                             "(the library does not invent device layouts)")
         for r in self.registers:
             if r.type not in _TYPES:
                 raise ValueError(f"unsupported register type '{r.type}'")
@@ -131,7 +131,7 @@ class ModbusHistorianTap:
                 "Modbus tier requires the optional dependency: pip install pymodbus "
                 "(guarded import - the rest of the package runs without it)")
         if register_map is None:
-            raise ValueError("a register map is required (user-supplied, cited - Rule 7)")
+            raise ValueError("a register map is required (user-supplied, cited)")
         self.map = register_map if isinstance(register_map, RegisterMap) else load_register_map(register_map)
         self.host, self.port = host, int(port)
         self.client = ModbusTcpClient(host, port=int(port), timeout=timeout_s)
@@ -199,7 +199,7 @@ def read_modbus(config) -> LiveStream:
             f"config missing: {', '.join(missing)}. The protocol code is real "
             "(loopback-verified); the library refuses ONLY because the site's "
             "host/register map is not supplied, and register maps are "
-            "citation-mandatory (Rule 7: no invented device layouts).")
+            "citation-mandatory (no invented device layouts).")
     tap = ModbusHistorianTap(host=d['host'], port=int(d.get('port', 502)),
                              register_map=d['register_map'],
                              timeout_s=float(d.get('timeout_s', 3.0)))
@@ -224,6 +224,6 @@ PORT_REGISTRY['modbus_g6'] = PortSpec(
     status=('IMPLEMENTED_REQUIRES_SITE_CONFIG' if PYMODBUS_AVAILABLE
             else 'DECLARED_DEPENDENCY_MISSING'),
     reader=(read_modbus if PYMODBUS_AVAILABLE else _refuse_no_dep),
-    detail=("READ-ONLY tap; real protocol code (v1.11.0); register map is user-supplied "
+    detail=("READ-ONLY tap; real protocol code; register map is user-supplied "
             "and citation-mandatory - no public G6 map exists in the fetched sources, so "
             "none is shipped; loopback-verified against an in-process pymodbus server"))

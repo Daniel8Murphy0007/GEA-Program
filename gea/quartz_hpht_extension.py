@@ -17,7 +17,7 @@ carry inline source comments.
 
 from __future__ import annotations
 
-# Engineering constants of the program aging model (template lineage, 22 Aug 2026).
+# Engineering constants of the program aging model.
 # They are settings, not measurements; the model card labels this model as
 # having no field validation on record.
 _K_MEX = 25.0 / 12.0        # structural factor (engineering constant)
@@ -29,17 +29,17 @@ PROGRAM_MODEL_AVAILABLE = True
 
 def canonical_suppression(k_structural_trim: float = 1.0,
                           phi_coupling_trim: float = 1.0) -> float:
-    """The GEA drift-suppression composition, canonical primitives locked.
+    """The program's drift-suppression composition, constants locked.
 
-    Template lineage (22Aug2026 thread): suppression = vacuum * structural *
-    resonance. The three dressings' coefficients are the template's engineering
-    fit (DERIVED_HYBRID); the primitive INPUTS are canonical and immutable.
-    Trims are external instrument gains, applied multiplicatively and
-    disclosed as such.
+    suppression = vacuum * structural * resonance. The three factors' linear
+    coefficients are an engineering fit (classification DERIVED_HYBRID); the
+    three constants they act on are fixed settings of the model, never tuned
+    at run time. Trims are external instrument gains, applied multiplicatively
+    and reported as such.
     """
-    vacuum_stab = 0.58 + 0.32 * (1.0 - _F_TRZ)          # rho_SCm/rho_UA = F_TRZ (canonical)
-    structural = 0.52 + 0.38 * _K_MEX                   # K_MEX = 25/12 (canonical)
-    resonance = 0.68 + 0.27 * _PHI_RES                  # Phi_res = 0.84 (canonical)
+    vacuum_stab = 0.58 + 0.32 * (1.0 - _F_TRZ)          # F_TRZ = 0.1 (locked)
+    structural = 0.52 + 0.38 * _K_MEX                   # K_MEX = 25/12 (locked)
+    resonance = 0.68 + 0.27 * _PHI_RES                  # Phi_res = 0.84 (locked)
     return vacuum_stab * structural * resonance * float(k_structural_trim) * float(phi_coupling_trim)
 
 
@@ -57,7 +57,7 @@ def calculate_quartz_transducer_hpht_program(depth_m: float,
     exponents 1.15 / 0.9 (template engineering fit); clip band 0.035-0.48 %FS/yr
     (physical plausibility bounds, template).
 
-    `spec` (v1.5.0): an optional GaugeSpec (gauge_specs) replacing the
+    `spec`: an optional GaugeSpec (gauge_specs) replacing the
     template anchors with a cited datasheet's baseline/knees/exponents. The
     clip band scales proportionally with the baseline so a datasheet bound
     ~20x below the template baseline is not floored by template-scaled clips.
@@ -101,8 +101,8 @@ def calculate_quartz_transducer_hpht_program(depth_m: float,
             "live": PROGRAM_MODEL_AVAILABLE,
             "gauge_spec": spec.name if spec is not None else "template_generic (default)",
         },
-        "classification": "DERIVED_HYBRID (PAPER_2149): industry baseline x canonical-GEA suppression",
-        "notes": "gea-program port of the 22Aug2026 QCALCGEOM template; knob ruling applied",
+        "classification": "DERIVED_HYBRID: industry baseline x the program's suppression composition",
+        "notes": "program aging model; the two trims are the only run-time settings",
     }
 
 
@@ -132,10 +132,10 @@ def drift_comparison(depth_m: float, temp_c: float, pressure_psi: float,
                      spec=None) -> dict:
     """Twin-gauge comparison at matched T/P: GEA-stabilized vs conventional.
 
-    The module's substantive testable claim (PAPER_2256 sec 5): away from the
-    clip band, the conventional/GEA drift ratio EQUALS the suppression
-    composition — 1.0324 at unity trims. This function is the simulation side
-    of the quartz bench test (PAPER_2250 LABORATORY tier).
+    The module's testable claim: away from the clip band, the
+    conventional/program drift ratio EQUALS the suppression composition -
+    1.0324 at unity trims. This function is the simulation side of the
+    twin-gauge bench test (gea/BENCH_TEST_PROTOCOL.md).
     """
     uq = calculate_quartz_transducer_hpht_program(
         depth_m, temp_c, pressure_psi, k_structural_trim, phi_coupling_trim, spec=spec)

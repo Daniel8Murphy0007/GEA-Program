@@ -1,17 +1,16 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""gravity_reference - THE CITED EXTERNAL GRAVITY REFERENCE LAYER
-(Daniel's DO-ALL-THREE order, 2026-09-08: de-loopback the reference).
+"""gravity_reference - THE CITED EXTERNAL GRAVITY REFERENCE LAYER.
 
 Until now the only gravity numbers the surveying chain could check a live
 G6-class stream against were its own - the loopback fixture. This module
 gives the chain an EXTERNAL, CITED, PUBLIC reference: the WGS84 normal
 gravity closed form plus the standard free-air correction, evaluated at a
 surveyed site's latitude and elevation. It is an OBSERVATIONAL REFERENCE
-STANDARD - a comparison target in the PAPER_2149 hybrid-form sense, labeled
-as such, never a substitute for a GEA derivation. GEA predictions are
-compared AGAINST it; it does not seed them.
+STANDARD - a comparison target, labeled as such, never an input to the
+program's own model. Program predictions are compared AGAINST it; it does
+not seed them.
 
 CITATIONS (all public standards):
   * WGS84 Somigliana normal gravity: NGA (NIMA) TR8350.2, 3rd ed., 2000,

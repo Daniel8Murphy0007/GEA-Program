@@ -17,3 +17,5 @@ gea/catalog_operator/
 /ci/
 /gea_quickstart/
 .pytest_cache/
+/_transport/
+/_to_delete/

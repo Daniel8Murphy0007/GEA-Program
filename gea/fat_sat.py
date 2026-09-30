@@ -29,6 +29,7 @@ CLIENT_SECTIONS = [
     ('C', 'section_c_reconciler', 'Two-stream reconciliation and classification'),
     ('F', 'section_f_ports', 'Ingest ports (historian CSV, LAS)'),
     ('AA', 'section_aa_client_reports', 'Client report family: records, quality, drift, accuracy, monitor, well tests, alarms, model cards, resilience, configuration, SBOM, SLA, FAT/SAT, dashboard'),
+    ('AB', 'section_ab_live_ports', 'Live protocol ports: OPC UA and MQTT (Sparkplug B) - mapping, quality, recording and replay, hand-off to the stream and the buffer; live loopback where the dependency is installed'),
 ]
 
 

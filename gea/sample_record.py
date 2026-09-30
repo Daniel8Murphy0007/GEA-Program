@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""sample_record — the canonical measurement record and tag catalogue.
+"""sample_record — the one measurement record and the tag catalogue.
 
 Every measurement the client-facing reports touch passes through ONE record
 shape, so quality flags, gaps, staleness and ingest latency can be counted
@@ -164,7 +164,7 @@ def _class_for(name: str, unit: str) -> str:
 
 
 class TagCatalogue:
-    """The canonical data model: one TagDefinition per tag."""
+    """The data model: one TagDefinition per tag."""
 
     def __init__(self, tags: Optional[Iterable[TagDefinition]] = None):
         self.tags: Dict[str, TagDefinition] = {}

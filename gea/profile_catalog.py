@@ -1,9 +1,9 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""profile_catalog — the well-profile catalogue (v1.12.0 extension).
+"""profile_catalog — the well-profile catalogue.
 
-Daniel GO 2026-08-24: build a catalogue of well profiles from public
+A catalogue of well profiles from public
 geophysical databases, so the closed stream can run on REAL wells instead of
 one synthetic sample. Three parts:
 
@@ -23,7 +23,7 @@ one synthetic sample. Three parts:
      converter fills them from DECLARED gradients and stamps the output
      `derivation: DERIVED_GRADIENTS` — a profile built from a real
      trajectory with derived conditions is useful and honest ONLY when
-     labeled (Rule 7); measured-curve conversion is used automatically when
+     labeled; measured-curve conversion is used automatically when
      the curves exist.
 
 Headless-safe: numpy + stdlib.
@@ -99,7 +99,7 @@ def read_temperature_csv(path) -> LiveStream:
     """Ingest a temperature-profile CSV (header `d,t`: depth in metres,
     temperature in degC — the GEUS ice-borehole database format) as a
     depth-indexed LiveStream with a TEMP channel. The catalogue's non-LAS
-    entry path (v1.16.0, driven by the GISP2 prize well)."""
+    entry path (driven by the GISP2 prize well)."""
     import csv as _csv
     p = Path(path)
     d, t = [], []
@@ -120,7 +120,7 @@ def read_survey_csv(path):
     TrueVertical Depth, with inclination/azimuth/offsets alongside) as a
     DeviationSurvey - MD->TVD taken DIRECTLY from the measured columns, no
     minimum-curvature reconstruction needed. The catalogue's survey-entry
-    path (v1.19.0, driven by the real L06-06 trajectory)."""
+    path (driven by the real L06-06 trajectory)."""
     import csv as _csv
     from .deviation import DeviationSurvey
     p = Path(path)
@@ -142,7 +142,7 @@ def read_core_csv(path) -> LiveStream:
     DEPTH,OrigDepth,CORE_NO,SAMPLE,...) as a depth-indexed LiveStream whose
     channels are the numeric lab columns (permeability/porosity/saturations/
     grain density; blanks -> NaN). Laboratory ground truth alongside logs
-    (v1.20.0, driven by the real 15/9-19 A core data)."""
+    (driven by the real 15/9-19 A core data)."""
     import csv as _csv
     from .ports import StreamChannel
     p = Path(path)
@@ -165,7 +165,7 @@ def read_core_csv(path) -> LiveStream:
 def read_production_csv(path) -> LiveStream:
     """Ingest a daily production-history CSV (Volve-style header:
     DATEPRD,WELL_BORE_CODE,...) as a TIME-indexed LiveStream - the
-    catalogue's first time-indexed kind (v1.21.0, driven by the real
+    catalogue's first time-indexed kind (driven by the real
     15/9-F-12/F-14 daily records). Index = elapsed seconds from the first
     date (86400 s cadence); channels are the per-well numeric operational
     columns, namespaced COL[well]; blanks and absent dates -> NaN. Units are
@@ -226,7 +226,7 @@ def read_ktb_dat(path) -> LiveStream:
     """Ingest a KTB Information System temperature-log file ('!'-comment
     header + space-separated DEPT TMP3 HTEN MRES rows) as a depth-indexed
     LiveStream - the catalogue's first HOT-regime temperature dialect
-    (v1.22.0, driven by the real KTB-HB hlog246). Header lines are carried
+    (driven by the real KTB-HB hlog246). Header lines are carried
     into meta (well name, log date, time-since-circulation fields - the
     disturbed-log disclosure lives in the data itself)."""
     import re as _re
@@ -277,7 +277,7 @@ def read_ktb_dat(path) -> LiveStream:
 def read_ktb_table(path) -> LiveStream:
     """Ingest a KTB Information System TYPED table ('!'-header declaring
     F/C/I columns, e.g. the rock-mechanics compressive-strength tables) as a
-    depth-indexed LiveStream (v1.26.0, driven by the real VB core-strength
+    depth-indexed LiveStream (driven by the real VB core-strength
     file). Numeric (F/I) columns become channels; C-typed string columns
     stay verbatim in the file (ROCK TYPE is carried as per-sample quality
     on the strength channel). Rendering-collapsed tabs make some short rows
@@ -350,7 +350,7 @@ def read_ktb_table(path) -> LiveStream:
 
 
 def read_operator_table(path) -> LiveStream:
-    """Ingest a verbatim OPERATOR TABLE TRANSCRIPTION (v1.72.0): field-data
+    """Ingest a verbatim OPERATOR TABLE TRANSCRIPTION: field-data
     tables recovered from operator report screenshots/exports, transcribed
     cell-for-cell. Format: /* OPERATOR TABLE TRANSCRIPTION */ header
     (Key:<TAB>Value lines incl. IndexKind: depth|ordinal) then a TSV table.
@@ -412,7 +412,7 @@ def read_operator_table(path) -> LiveStream:
 
 
 def read_drift_xls(path) -> LiveStream:
-    """Ingest a directional-drilling drift/survey XLS export (v1.71.0, driven
+    """Ingest a directional-drilling drift/survey XLS export (driven
     by the first OPERATOR-tier entry: the Retama Ranch #403H 183-station
     survey). Header row names MD / Inclination / Azimuth / TVD / NS / EW
     (vendor exports interleave blank columns; they are skipped). Depth index =
@@ -425,8 +425,8 @@ def read_drift_xls(path) -> LiveStream:
             "read_drift_xls needs the optional third-party module 'xlrd' "
             "(pip install xlrd). No SHIPPED catalogue entry requires it - "
             "operator drift surveys are stored in the dependency-free "
-            "operator-table format since the v0.406.0 ship-rehearsal catch; "
-            "this reader exists for ingesting NEW vendor .xls drops only."
+            "operator-table format; this reader exists for ingesting NEW "
+            "vendor .xls drops only."
         ) from _e
     p = Path(path)
     wb = _xlrd.open_workbook(str(p))
@@ -460,7 +460,7 @@ def read_drift_xls(path) -> LiveStream:
 
 def read_iodp_table(path) -> LiveStream:
     """Ingest a verbatim IODP Proceedings data-report table transcription
-    (v1.70.0, driven by Exp 308 Table T2 - the in situ temperature AND
+    (driven by Exp 308 Table T2 - the in situ temperature AND
     pressure penetrometer results that made U1324 the catalogue's first
     measured-T+P site). File format: a /* IODP TABLE TRANSCRIPTION */ header
     (citation, source URL, license, verbatim table notes) then a tab-separated
@@ -509,7 +509,7 @@ def read_iodp_table(path) -> LiveStream:
 def read_pangaea_txt(path) -> LiveStream:
     """Ingest a PANGAEA machine-readable textfile export (self-describing
     '/* DATA DESCRIPTION */' header + tab-separated matrix) as a
-    depth-indexed LiveStream (v1.28.0, driven by the real ODP 504B borehole
+    depth-indexed LiveStream (driven by the real ODP 504B borehole
     -fluid dataset). The header's citation, license and coordinates go to
     meta; numeric columns become channels (units parsed from '[...]');
     short rows pad to NaN; the first non-numeric column rides as per-sample
@@ -565,7 +565,7 @@ def read_pangaea_txt(path) -> LiveStream:
         name = _re.sub(r'\s*\[[^\]]+\]', '', h).strip()
         base, _n2 = name, 2
         while name in channels:
-            name = f"{base} ({_n2})"      # v1.50.0: PANGAEA tables may repeat
+            name = f"{base} ({_n2})"      # PANGAEA tables may repeat
             _n2 += 1                      # bare names (k, a, b1...); silent
         channels[name] = StreamChannel(   # overwrite would lose channels
             name=name, unit=(mu.group(1) if mu else ''),
@@ -645,7 +645,7 @@ class CatalogEntry:
 
 
 _OPERATOR_DIR = _CATALOG_DIR.parent / 'catalog_operator'
-# v1.71.0 OPERATOR TIER: field data supplied by the operator/user, loaded with
+# OPERATOR TIER: field data supplied by the operator/user, loaded with
 # the SAME sidecar discipline as the public catalogue but PRIVATE by
 # construction - the directory is .gitignore'd, never listed in pyproject
 # data-files (gate-enforced), and therefore never ships in the wheel or
@@ -672,7 +672,7 @@ def _load_catalog_dir(out, cat_dir, tier) -> None:
         prov_path = las.with_suffix('.provenance.json')
         if not prov_path.exists():
             raise ValueError(f"catalogue entry {las.name} has NO provenance sidecar - "
-                             "an uncited catalogue entry is not a catalogue entry (Rule 7)")
+                             "an uncited catalogue entry is not a catalogue entry")
         with prov_path.open(encoding='utf-8') as f:
             prov = json.load(f)
         for req in ('source_database', 'source_url', 'license', 'fetch_date', 'coverage'):
@@ -705,7 +705,7 @@ def las_to_profile(stream_or_path, out_csv=None,
     DERIVED path (most composite logs): no T/P curves exist - the REAL depth
     stations are kept and conditions are filled from the DECLARED gradients,
     stamped `derivation: DERIVED_GRADIENTS`. Useful for geometry-true
-    simulation; honest only because it says so (Rule 7).
+    simulation; labeled so it is never mistaken for a measurement.
     """
     stream = stream_or_path if isinstance(stream_or_path, LiveStream) else read_las(stream_or_path)
     if stream.index_kind != 'depth':
@@ -717,7 +717,7 @@ def las_to_profile(stream_or_path, out_csv=None,
     temp_ch = next((c for m in _TEMP_MNEMONICS for c in stream.channels if c.upper().startswith(m)), None)
     pres_ch = next((c for m in _PRES_MNEMONICS for c in stream.channels if c.upper().startswith(m)), None)
 
-    # Real header anchors (v1.13.0, from the Kennetcook #2 catalogue well):
+    # Real header anchors (from the Kennetcook #2 catalogue well):
     # a measured BHT + TD in the LAS ~P section gives a REAL two-point thermal
     # profile - stronger than pure gradients, weaker than a full curve, and
     # labeled as exactly that.

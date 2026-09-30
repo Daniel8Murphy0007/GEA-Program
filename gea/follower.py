@@ -1,9 +1,9 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""follower — the quasi-live file-follower port (v1.10.0 extension).
+"""follower — the quasi-live file-follower port.
 
-Addresses the connectivity concern (Daniel, 2026-08-24) at the tier that is
+Addresses the connectivity concern at the tier that is
 buildable TODAY with zero network code and zero invented site behavior: most
 historians can be configured to continuously append-export their readings to
 a file. `HistorianFollower` watches that growing file, re-ingests it on each
@@ -23,10 +23,10 @@ Design:
     schedules (cron, scheduler, or the `watch()` convenience generator which
     sleeps between polls only when the caller iterates it).
 
-Connectivity tiers after this module (the honest ladder):
-  SIMULATE (v1.3.0)  -> OFFLINE-INGEST real exports (v1.8.0)
-  -> FILE-FOLLOW quasi-live (THIS)  -> LIVE PROTOCOL (declared, refusing
-  until site details; Modbus client pending Daniel's dependency ruling).
+Connectivity tiers (the ladder):
+  SIMULATE  -> OFFLINE-INGEST real exports  -> FILE-FOLLOW quasi-live (THIS)
+  -> LIVE PROTOCOL (Modbus, OPC UA, MQTT: implemented behind optional
+  dependencies; each needs the site's own map).
 
 Headless-safe: numpy only.
 """

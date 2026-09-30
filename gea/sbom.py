@@ -30,7 +30,9 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-OPTIONAL = {'matplotlib': 'plotting (figures in reports)', 'PyQt6': 'desktop operator application'}
+OPTIONAL = {'matplotlib': 'plotting (figures in reports)', 'PyQt6': 'desktop operator application',
+            'asyncua': 'OPC UA client port', 'paho-mqtt': 'MQTT subscriber port', 'pymodbus': 'Modbus TCP port',
+            'xlrd': 'vendor .xls drift-survey ingest'}
 DIRECT = {'numpy': 'numerical arrays (all engines)'}
 
 

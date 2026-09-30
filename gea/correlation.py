@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """correlation - Part 4 of the subsurface surveying tool: WELL-TO-WELL
-CORRELATION (v1.81.0), with the honest finding stated up front.
+CORRELATION, with the finding stated up front.
 
 THE FINDING (2026-08-29, and re-verified on every run): with 29 globally
 scattered sites, the library currently supports ZERO cross-site depth-frame
@@ -19,7 +19,7 @@ is the library's MASTER CHRONOLOGY, whose window overlaps every other
 age-bearing site (Bengal 0.5-193.5 ka; EPICA 611-799 ka; Fram 12,050-17,370
 ka). Time is the Earth Model's fourth axis, and this module registers it.
 
-DISTANCE HONESTY (doctrine): a statistical correlation between sites more
+DISTANCE RULE: a statistical correlation between sites more
 than CONTINUITY_KM apart is NEVER presented as geological continuity -
 the continuity_claim field says 'NONE' with the distance printed. Only
 twin holes (< CONTINUITY_KM) may claim physical continuity, and none

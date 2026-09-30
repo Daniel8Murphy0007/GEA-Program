@@ -1,16 +1,16 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""tool_library — the downhole tool library (v1.7.0 extension).
+"""tool_library — the downhole tool library.
 
-Generalizes the v1.5.0 gauge-spec discipline to the whole toolstring: a cited
+Generalizes the gauge-spec discipline to the whole toolstring: a cited
 catalog of downhole and surface tools (`ToolSpec`), per-class drift/response
 models, a `ToolString` builder, and rating checks against real well
 conditions. Every entry declares the telemetry interface it speaks — the
 declaration the ports/plug-in layer will implement when the program taps
 running logging systems (the live-stream side of the two-stream design).
 
-Honesty rules (Rule 7 / PAPER_2149), same as gauge_specs:
+Citation rules, same as gauge_specs:
   * Every catalog entry carries a mandatory `source` citation.
   * Where a tool's EXISTENCE and class are verified but its quantitative
     parameters were not published on the fetched pages, the entry is marked
@@ -63,7 +63,7 @@ PARAMETERS_USER_SUPPLIED = "PARAMETERS_USER_SUPPLIED"
 class ToolSpec:
     """A catalog entry: what the tool is, what it measures, what it speaks.
 
-    `source` is mandatory citation prose (Rule 7). `spec_status` says whether
+    `source` is mandatory citation prose. `spec_status` says whether
     the numbers are published-and-verified or must come from the user's own
     datasheet. `telemetry_interface` is the declaration the ports layer will
     implement — the tool library names the protocol, the plug-in speaks it.
@@ -76,7 +76,7 @@ class ToolSpec:
     spec_status: str = FULLY_SPECIFIED
     temp_rating_C: Optional[float] = None
     pressure_rating_psi: Optional[float] = None
-    gauge_spec: Optional[GaugeSpec] = None      # quartz tools wrap a v1.5.0 GaugeSpec
+    gauge_spec: Optional[GaugeSpec] = None      # quartz tools wrap a GaugeSpec
     drift_model: Optional[str] = None           # 'quartz_program' | 'quartz_conventional' | 'piezoresistive'
     params: dict = field(default_factory=dict)
     notes: str = ""
@@ -112,7 +112,7 @@ def drift_model_for(tool: ToolSpec) -> Callable[[float, float], float]:
     if tool.spec_status == PARAMETERS_USER_SUPPLIED:
         raise ValueError(
             f"{tool.name}: parameters are user-supplied - load your datasheet "
-            f"values (Rule 7: the library does not invent vendor numbers)")
+            f"values (the library does not invent vendor numbers)")
     if tool.drift_model == 'quartz_program':
         def f(temp_c, pressure_psi, _s=tool.gauge_spec):
             r = calculate_quartz_transducer_hpht_program(0.0, temp_c, pressure_psi, spec=_s)
@@ -140,21 +140,21 @@ _CHAMPIONX = ("ChampionX Quartzdyne performance page, championx.com, fetched 202
 TOOL_LIBRARY: Dict[str, ToolSpec] = {
     'quartz_pt_program_geoq177_30k': ToolSpec(
         name='quartz_pt_program_geoq177_30k', tool_class=QUARTZ_PT,
-        source=_GEOPSI + "; GEA-conditioned leg (canonical suppression, PAPER_2256)",
+        source=_GEOPSI + "; program-conditioned leg (suppression composition, quartz_hpht_extension)",
         measures=('pressure_psi', 'temperature_F'),
         telemetry_interface='PSK downhole telemetry -> Modbus RS485 + 4-20mA via G6 interface card (GEOQ 177 spec table)',
         temp_rating_C=177.0, pressure_rating_psi=30000.0,
         gauge_spec=GAUGE_SPECS['geoq177_30k'], drift_model='quartz_program'),
     'quartz_pt_conventional_geoq177_30k': ToolSpec(
         name='quartz_pt_conventional_geoq177_30k', tool_class=QUARTZ_PT,
-        source=_GEOPSI + "; conventional reference leg (no GEA suppression)",
+        source=_GEOPSI + "; conventional reference leg (no suppression)",
         measures=('pressure_psi', 'temperature_F'),
         telemetry_interface='PSK downhole telemetry -> Modbus RS485 + 4-20mA via G6 interface card (GEOQ 177 spec table)',
         temp_rating_C=177.0, pressure_rating_psi=30000.0,
         gauge_spec=GAUGE_SPECS['geoq177_30k'], drift_model='quartz_conventional'),
     'quartz_pt_template_stressed': ToolSpec(
         name='quartz_pt_template_stressed', tool_class=QUARTZ_PT,
-        source="22Aug2026 template thread (grok_cce7a73b): stressed-service quartz class, 0.215 %FS/yr baseline",
+        source="program template baseline (design note, 22 Aug 2026): stressed-service quartz class, 0.215 %FS/yr baseline",
         measures=('pressure_psi', 'temperature_F'),
         telemetry_interface='per-site (template does not specify)',
         temp_rating_C=200.0, pressure_rating_psi=30000.0,

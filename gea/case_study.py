@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""case_study — depth-sweep case-study mode (v1.4.0 extension).
+"""case_study — depth-sweep case-study mode.
 
 Sweeps a well from top to TD and reports, at every depth, both drift legs
 (conventional vs GEA-stabilized), the separation in psi/yr, and the
@@ -50,8 +50,8 @@ class CaseStudyConfig:
     horizon_years: float = 5.0
     k_structural_trim: float = 1.0
     phi_coupling_trim: float = 1.0
-    gauge_spec: object = None                       # GaugeSpec (v1.5.0); None = template anchors
-    deviation: object = None                        # DeviationSurvey (v1.6.0): sweep depths are MD, physics at TVD
+    gauge_spec: object = None                       # GaugeSpec; None = template anchors
+    deviation: object = None                        # DeviationSurvey: sweep depths are MD, physics at TVD
     well_name: str = "case-study well"
 
 
@@ -113,7 +113,7 @@ def case_study(cfg: CaseStudyConfig | None = None) -> dict:
             'full_scale_psi': (float(cfg.gauge_spec.full_scale_psi)
                                if cfg.gauge_spec is not None else cfg.full_scale_psi),
             'gauge_spec': cfg.gauge_spec.name if cfg.gauge_spec is not None else 'template_generic (default)',
-            'gauge_spec_source': cfg.gauge_spec.source if cfg.gauge_spec is not None else '22Aug2026 template anchors',
+            'gauge_spec_source': cfg.gauge_spec.source if cfg.gauge_spec is not None else 'program template baseline anchors',
             'horizon_years': cfg.horizon_years,
         },
         'canonical_suppression': round(canonical_suppression(
@@ -153,8 +153,8 @@ def write_markdown(result: dict | None = None, path: str | None = None,
         "",
         "## The claim",
         "",
-        f"Quartz-gauge drift ({c['gauge_spec']} baseline) divided by the GEA",
-        f"canonical suppression composition = **{sup}** at the locked primitives",
+        f"Quartz-gauge drift ({c['gauge_spec']} baseline) divided by the program's",
+        f"suppression composition = **{sup}** at the locked constants",
         "(F_TRZ = 0.1, K_MEX = 25/12, Phi_res = 0.84) — drift **below** the",
         "conventional gauge at every depth, with the largest advantage in the",
         "deep hot interval where gauges are hardest to replace.",
@@ -188,19 +188,18 @@ def write_markdown(result: dict | None = None, path: str | None = None,
         "",
         "## How to test it",
         "",
-        "Twin-gauge bench test (PAPER_2250 LABORATORY tier / PAPER_2256 sec 5): one",
-        "conventional quartz gauge, one under GEA SCm-resonance conditioning, at",
+        "Twin-gauge bench test (gea/BENCH_TEST_PROTOCOL.md): one conventional",
+        "quartz gauge, one under the program's conditioning, at",
         f"matched T/P. Predicted drift ratio: **{sup}**. The simulator's comparison",
         "mode and service-life divergence curves supply the reference data streams.",
         "",
         "## Classification (honest basis)",
         "",
-        "DERIVED_HYBRID (PAPER_2149): industry-observed anchors (0.215 %FS/yr",
-        "baseline; 150 degC / 15,000 psi stress knees; gradients; FS class; spec",
-        "budget) x canonical-GEA suppression from locked primitives. The dressing",
-        "coefficients are the template's engineering fit, disclosed — not claimed as",
-        "derivations. Record: PAPER_2256. (c) Daniel T. Murphy / GEA Research",
-        "Program, AGPL-3.0 + Commercial.",
+        "DERIVED_HYBRID: industry-observed anchors (0.215 %FS/yr baseline;",
+        "150 degC / 15,000 psi stress knees; gradients; FS class; spec budget)",
+        "x the program's suppression composition from locked constants. The",
+        "dressing coefficients are an engineering fit, disclosed - not claimed as",
+        "derivations. (c) 2026 Daniel T. Murphy. Licence MPL-2.0.",
         "",
     ]
     p = Path(path)

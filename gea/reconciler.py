@@ -1,10 +1,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""reconciler — the two-stream reconciler (v1.9.0 extension).
+"""reconciler — the two-stream reconciler.
 
 Piece 3 of the two-stream build — the coordinator itself. The CLOSED STREAM
-(the simulator's physics on the locked primitives) predicts what every gauge
+(the simulator's aging models on their locked constants) predicts what every gauge
 in a described well SHOULD read; the LIVE STREAM (a `LiveStream` from the
 ports layer) delivers what it DOES read. The reconciler aligns the two on the
 shared toolstring and works the residual series per station:
@@ -27,7 +27,7 @@ then classifies each station's offset:
                            undervalued data stream (a kick zone the assumed
                            gradient model cannot see lands here).
 
-Honesty (Rule 7): classification thresholds are DISCLOSED engineering
+Disclosure: classification thresholds are DISCLOSED engineering
 heuristics, not derivations — bias test 4-sigma-of-mean, transient test
 6-sigma, model-mismatch magnitude 500 psi, drift-envelope margin 2x, minimum
 trend window 18 days. Labels are advisory triage for a human; the numbers

@@ -202,7 +202,7 @@ def build_cards(monitor_log_dir: Optional[str] = None, program_version: str = ''
         model_id='rock_density_inventory', title='Rock density inventory (cited anchors)', version=ver,
         intended_use='Classify a measured bulk density into ranked candidate rock types by overlap with published density ranges.',
         out_of_scope='Not a lithology log; overlapping ranges return several candidates by design; densities outside the inventory return no candidate.',
-        inputs=[{'name': f"{k} ({v['tier']})", 'unit': f"g/cc, anchor {v['anchor']}, range {v['lo']}-{v['hi']}", 'source': str(v['citation']).split('; primitive')[0][:120]} for k, v in inv.items()],
+        inputs=[{'name': f"{k} ({v['tier']})", 'unit': f"g/cc, anchor {v['anchor']}, range {v['lo']}-{v['hi']}", 'source': str(v['citation'])[:120]} for k, v in inv.items()],
         settings=[{'setting': 'anchors', 'value': str(len(inv)), 'basis': 'standard geophysics density tables (Telford et al. 1990; Schoen 2015)'}],
         calibration_data=[{'dataset': 'published density tables', 'records': len(inv), 'database': 'Telford, Geldart & Sheriff (1990); Schoen (2015)', 'url': '', 'licence': 'published reference values', 'fetch_date': ''}],
         evaluation=[{'metric': 'anchor reproduction', 'value': f"worst anchor residual {max(abs(float(v['residual_pct'])) for v in inv.values()):.3f} %", 'method': 'each anchor re-derived at gate time'}],

@@ -2,31 +2,29 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """forward_model - Part 2 of the subsurface surveying tool: THE SENSING
-KERNEL, K2 (Daniel's ruling, 2026-08-29: the buoyancy column first).
+KERNEL (the buoyancy column first).
 
-v1.75.0. The forward model answers: given a strata column, what does the
-gravity channel read? - and its inverse-lite answers: given measured borehole
+The forward model answers: given a strata column, what does the gravity
+channel read? - and its inverse-lite answers: given measured borehole
 gravity, what density column does the ground imply? Every constant in the
-chain is GEA-COMPOSED, with its paper and honest residual named:
+chain is a standard value with its source named:
 
     g   = 9.80665 m/s^2 (standard gravity)
     G   = 6.67430e-11 m^3/kg/s^2 (CODATA 2018)
     R   = 6371.0088 km (IUGG mean radius)
     free-air gradient F = 2*g/R = 0.30785 mGal/m       (composed from the above)
 
-RULE 4 STANDING (PAPER_2148 SM-validity boundary, Daniel's canonized ruling):
-the interstation borehole-gravity envelope dg = (F_U - 4*pi*G_U*rho)*dz is the
-classical limit that PAPER_2148 explicitly permits "when known massive
-astronomical objects are the anchor... G's classical limit (U_g1 emergent)
-applies faithfully at classical scale" - here the anchor is the Earth itself,
-and every constant entering the envelope is GEA-derived.
+THE ENVELOPE: the interstation borehole-gravity relation
+dg = (F - 4*pi*G*rho)*dz is the classical Bouguer-slab form (Hammer 1950;
+Telford, Geldart and Sheriff 1990 ch. 2), with the Earth itself as the
+reference body and every constant entering it a standard value.
 
 HONESTY
     - The KTB validation is partly circular BY THE ARCHIVE'S NATURE: BHGM
       density is itself derived from measured gravity by the vendor's own
-      inversion, so agreement measures how closely the GEA constant chain
-      {g_U, G_U, R_U} reproduces the vendor's constants - a CONSTANTS test
-      (still falsifiable: a wrong g_U, G_U or R_U shows up directly), not an
+      inversion, so agreement measures how closely the constant chain
+      {g, G, R} reproduces the vendor's constants - a CONSTANTS test
+      (still falsifiable: a wrong g, G or R shows up directly), not an
       independent strata test. Stated here and in the returned report.
     - Archive null stations (RHO recorded as 0.00 g/cc) are excluded from
       filtered statistics WITH the exclusion counted and disclosed; raw

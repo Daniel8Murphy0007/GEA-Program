@@ -1,0 +1,51 @@
+{
+ "broker": {
+  "host": "127.0.0.1",
+  "port": 1883,
+  "tls": false,
+  "ca_cert": null,
+  "client_id": "gea-edge-01",
+  "keepalive_s": 60,
+  "protocol": "5"
+ },
+ "auth": {
+  "username_env": "GEA_MQTT_USER",
+  "password_env": "GEA_MQTT_PASSWORD"
+ },
+ "qos": 1,
+ "topics": [
+  {
+   "topic": "gea/well/F12/dhp_psi",
+   "payload": "number",
+   "tag_id": "P_raw_psi_S1",
+   "unit": "psi",
+   "tag_class": "downhole_pressure"
+  },
+  {
+   "topic": "gea/well/F12/gauge",
+   "payload": "json",
+   "value_path": "temperature.value",
+   "time_path": "ts",
+   "time_format": "iso",
+   "quality_path": "quality",
+   "good_values": [
+    "GOOD",
+    192
+   ],
+   "tag_id": "T_raw_F_S1",
+   "unit": "degF",
+   "tag_class": "downhole_temperature"
+  },
+  {
+   "topic": "spBv1.0/GEA/DDATA/edge1/F12",
+   "payload": "sparkplug_b",
+   "metric": "DHP",
+   "tag_id": "P_raw_psi_S2",
+   "unit": "psi",
+   "tag_class": "downhole_pressure",
+   "scale": 14.503773773,
+   "description": "bar -> psi"
+  }
+ ],
+ "sparkplug_aliases": {}
+}

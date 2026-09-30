@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""Headless CLI for the GEA Downhole Simulator (v1.6.0 extension).
+"""Headless CLI for the GEA Downhole Simulator.
 
     python -m gea run          --steps 200 --out run.csv
     python -m gea service-life --years 5 --out curves.csv
@@ -250,6 +250,18 @@ def main(argv=None) -> int:
     p_db.add_argument("--name", type=str, default="site")
     p_db.add_argument("--out", type=str, default="dashboard")
 
+    for name, helptxt in (("opcua", "OPC UA client port: read once or subscribe; record; replay a recording offline"),
+                          ("mqtt", "MQTT subscriber port (3.1.1/5.0; number | json | Sparkplug B): run; record; replay offline")):
+        p_lp = sub.add_parser(name, help=helptxt)
+        p_lp.add_argument("--config", type=str, default=None, help="site map JSON (client-owned)")
+        p_lp.add_argument("--write-example-config", type=str, default=None, help="write an example map here and exit")
+        p_lp.add_argument("--replay", type=str, default=None, help="recording (JSON lines) to replay instead of connecting")
+        p_lp.add_argument("--record", type=str, default=None, help="write every received message to this recording")
+        p_lp.add_argument("--seconds", type=float, default=10.0, help="subscribe/run duration")
+        p_lp.add_argument("--read-once", action="store_true", help="opcua: one Read of all nodes instead of a subscription")
+        p_lp.add_argument("--out", type=str, default=None, help="write the records CSV here")
+        p_lp.add_argument("--stream-csv", type=str, default=None, help="also write a historian-style CSV the other commands ingest")
+
     p_cs = sub.add_parser("case-study", help="depth sweep, write the one-page markdown case")
     _add_well_args(p_cs)
     p_cs.add_argument("--points", type=int, default=12)
@@ -339,7 +351,7 @@ def main(argv=None) -> int:
                 asm = maker()
             except Exception:
                 # operator-tier assemblies on machines without the private
-                # data: listed honestly, never crashing the listing (v1.77.0)
+                # data: listed plainly, never crashing the listing
                 print(f"{name}: OPERATOR-TIER assembly - private data not "
                       "present on this machine (tier is per-machine, never required)")
                 continue
@@ -372,6 +384,47 @@ def main(argv=None) -> int:
         rep = Reconciler(_build_config(a)).reconcile(stream, station_map=station_map)
         import json as _json
         print(_json.dumps(rep, indent=1))
+    elif a.cmd in ("opcua", "mqtt"):
+        import json as _json
+        from .live_ports import records_to_stream, summarize, write_records_csv
+        mod = __import__("gea.opcua_port" if a.cmd == "opcua" else "gea.mqtt_port", fromlist=["x"])
+        if a.write_example_config:
+            print("config:", mod.write_example_config(a.write_example_config))
+            return 0
+        if not a.config:
+            raise SystemExit(f"{a.cmd} needs --config (or --write-example-config to start one)")
+        try:
+            if a.replay:
+                recs = mod.replay(a.config, a.replay)
+                src = f"replay {a.replay}"
+            elif a.cmd == "opcua":
+                tap = mod.OpcUaTap(a.config, recording_path=a.record).connect()
+                try:
+                    recs = tap.read_once() if a.read_once else tap.subscribe(a.seconds)
+                finally:
+                    tap.close()
+                src = tap.cfg["endpoint"]
+            else:
+                tap = mod.MqttTap(a.config, recording_path=a.record)
+                recs = tap.run(a.seconds)
+                src = tap.cfg["broker"]["host"]
+        except (NotImplementedError, ConnectionError, ValueError) as e:
+            raise SystemExit(f"{a.cmd}: {e}")          # the reason, without a traceback
+        print(f"{a.cmd}: {src}")
+        print(_json.dumps(summarize(recs), indent=1))
+        if a.out:
+            print("  records:", write_records_csv(recs, a.out))
+        if a.stream_csv and recs:
+            st = records_to_stream(recs, name=a.cmd)
+            import csv as _csv
+            from datetime import datetime as _dt, timedelta as _td
+            t0 = _dt.fromisoformat(st.meta["start_time"])
+            with open(a.stream_csv, "w", newline="", encoding="utf-8") as f:
+                w = _csv.writer(f)
+                w.writerow(["timestamp"] + list(st.channels))
+                for i, t in enumerate(st.index):
+                    w.writerow([(t0 + _td(seconds=float(t))).isoformat()] + ["" if st.channels[c].values[i] != st.channels[c].values[i] else round(float(st.channels[c].values[i]), 4) for c in st.channels])
+            print("  stream:", a.stream_csv)
     elif a.cmd == "dashboard":
         from . import GAUGE_SPECS, load_gauge_spec_json, DEFAULT_TD_FT
         from .dashboard import orchestrate

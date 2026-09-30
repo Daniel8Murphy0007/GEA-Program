@@ -13,5 +13,5 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: pip install -e . pytest
       - run: python -m gea accept
-      - run: python tools/register_audit.py
+      - run: python tools/standalone_check.py
       - run: pytest -q

@@ -11,9 +11,10 @@ def test_acceptance_suite():
     assert "[ACCEPTANCE] OK" in r.stdout
 
 
-def test_no_source_program_reachable():
-    """The package must not import the source program's corpus modules."""
-    import importlib, pkgutil, gea
-    for m in pkgutil.iter_modules(gea.__path__):
-        src = open(f"{gea.__path__[0]}/{m.name}.py", encoding="utf-8").read()
-        assert "uqff_calculator" not in src and "uqff_registry_primitives" not in src, m.name
+def test_self_contained():
+    """Every module under gea/ imports only the standard library, numpy, the declared
+    optional extras and gea itself; no tracked file names another program."""
+    import subprocess, sys, os
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    r = subprocess.run([sys.executable, os.path.join(root, "tools", "standalone_check.py")], capture_output=True, text=True, cwd=root)
+    assert r.returncode == 0, r.stdout[-3000:]

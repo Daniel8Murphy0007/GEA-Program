@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """blind_harness - Part 5 of the subsurface surveying tool: THE
-BLIND-VALIDATION HARNESS (v1.82.0) - the standing accuracy report that makes
+BLIND-VALIDATION HARNESS - the standing accuracy report that makes
 the tool credible, not just built.
 
 METHOD (leave-one-out, no self-grading):
@@ -23,9 +23,9 @@ METHOD (leave-one-out, no self-grading):
     Pairs below MIN_TRIALS refuse. Nothing is tuned to this harness; it
     grades the same machinery clients get, on the same library.
 
-DOCTRINE: this report is regenerated live - by the gate, by acceptance, and
-by the PAPER_2258-lineage dispatches - so the accuracy table can never be a
-stale marketing snapshot. Misses appear next to hits, forever.
+METHOD NOTE: this report is regenerated live - by the gate, by acceptance
+and by every client report that cites it - so the accuracy table can never
+be a stale marketing snapshot. Misses appear next to hits, forever.
 """
 
 from __future__ import annotations
@@ -102,7 +102,7 @@ def accuracy_report() -> Dict:
             'best_mae_pct': (ok[0]['mae_pct'] if ok else None),
             'worst_mae_pct': (ok[-1]['mae_pct'] if ok else None),
             'median_coverage': (statistics.median(cov) if cov else None),
-            'doctrine': ('leave-one-out over the same machinery clients get; '
+            'method': ('leave-one-out over the same machinery clients get; '
                          'coverage targets ~0.68 (honest 1-sigma); refusals '
                          'listed, never hidden; regenerated live so the '
                          'accuracy table can never be a stale snapshot')}

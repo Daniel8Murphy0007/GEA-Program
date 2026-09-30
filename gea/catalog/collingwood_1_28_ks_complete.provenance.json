@@ -13,5 +13,5 @@
   "temperature_data": "REAL BHT = 125.0 DEGF in the parameter block (third real BHT in the catalogue). NO TD parameter present (CSGL 1791 ft only), so the converter honestly falls to DERIVED_GRADIENTS rather than fabricating a BHT anchor line without a TD - the tier logic's refusal branch exercised by real data.",
   "dialect_notes": "WRAP. YES with 27 curves (second wrapped well, different record shape: depth line + 4 lines of 7/7/7/5 values); non-standard '~Asc DEPTH' section line; KGS '#' update-history comments before ~Version; column-name '#' comments between ~P and data.",
   "purpose": "fifth real catalogue well - KANSAS (closing the loop on the source table's #1 entry, reached via redistribution); first COMPLETE file; wrapped-shape diversity; the BHT-without-TD honest-fallback case",
-  "verified": "ingests via uqff_ports.read_las wrapped path; 5 records x 27 curves; IDGR/ACTC/IDSP verbatim; BHT captured, TD absent, converter falls to DERIVED_GRADIENTS; gate-pinned"
+  "verified": "ingests via ports.read_las wrapped path; 5 records x 27 curves; IDGR/ACTC/IDSP verbatim; BHT captured, TD absent, converter falls to DERIVED_GRADIENTS; gate-pinned"
 }

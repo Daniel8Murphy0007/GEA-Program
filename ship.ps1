@@ -12,8 +12,8 @@
     1. clean git state: stale .git/index.lock and COMMIT_EDITMSG removed; not behind origin; LICENSE present
     2. version in pyproject.toml == gea.__version__; tag v<version> exists nowhere (local or remote)
     3. SHIP_LOG.md chain: every version already logged has a tag (a ship is not a ship until its tag exists)
-    4. gate: python -m gea accept exits 0; tools/register_audit.py runs (report only)
-    5. SHIP_MESSAGE.txt exists and its first line starts with the tag
+    4. gate: python -m gea accept exits 0; tools/standalone_check.py exits 0 (self-contained: imports, text, metadata)
+    5. SHIP_MESSAGE.txt exists and its first line starts with the tag; CHANGELOG.md has a section for the tag
     6. git add -A; commit -F SHIP_MESSAGE.txt; HEAD must advance
     7. tag -a; tag^{commit} must equal HEAD
     8. push branch and tag; the REMOTE tag must be seen before SHIPPED is printed
@@ -88,8 +88,9 @@ if (Test-Path SHIP_LOG.md) {
 Step "gate: python -m gea accept"
 python -m gea accept
 if ($LASTEXITCODE -ne 0) { Fail "acceptance suite red" }
-Step "register audit (report only)"
-python tools\register_audit.py | Select-Object -Last 1
+Step "standalone check"
+python tools\standalone_check.py --quiet
+if ($LASTEXITCODE -ne 0) { Fail "standalone check red - a tracked file names another program (run python tools\standalone_check.py for the lines)" }
 
 # 5. ship message ----------------------------------------------------------------------------------------
 Step "ship message"
@@ -97,6 +98,10 @@ if (-not (Test-Path SHIP_MESSAGE.txt)) { Fail "SHIP_MESSAGE.txt missing - write 
 $subject = (Get-Content SHIP_MESSAGE.txt -TotalCount 1).Trim()
 if (-not $subject.StartsWith($tag)) { Fail "SHIP_MESSAGE.txt first line must start with $tag, got: $subject" }
 Write-Host "   $subject"
+if (-not (Test-Path CHANGELOG.md)) { Fail "CHANGELOG.md missing" }
+$section = Select-String -Path CHANGELOG.md -Pattern ("^## \[" + [regex]::Escape($tag) + "\]") -Quiet
+if (-not $section) { Fail "CHANGELOG.md has no section headed ## [$tag] - write the release notes before shipping" }
+Write-Host "   CHANGELOG.md has its $tag section"
 
 if ($DryRun) { Write-Host "DRY RUN: all checks passed; nothing changed." -ForegroundColor Green; exit 0 }
 

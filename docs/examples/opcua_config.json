@@ -1,0 +1,35 @@
+{
+ "endpoint": "opc.tcp://127.0.0.1:4840/gea/example/",
+ "security": {
+  "policy": "None",
+  "mode": "None",
+  "certificate": null,
+  "private_key": null
+ },
+ "auth": {
+  "username_env": "GEA_OPCUA_USER",
+  "password_env": "GEA_OPCUA_PASSWORD"
+ },
+ "subscription": {
+  "publishing_interval_ms": 1000,
+  "queue_size": 10
+ },
+ "nodes": [
+  {
+   "node_id": "ns=2;s=Well.F12.DownholePressure",
+   "tag_id": "P_raw_psi_S1",
+   "unit": "psi",
+   "tag_class": "downhole_pressure",
+   "scale": 1.0,
+   "description": "downhole quartz gauge pressure"
+  },
+  {
+   "node_id": "ns=2;s=Well.F12.DownholeTemperature",
+   "tag_id": "T_raw_F_S1",
+   "unit": "degF",
+   "tag_class": "downhole_temperature",
+   "scale": 1.0,
+   "description": "downhole gauge temperature"
+  }
+ ]
+}

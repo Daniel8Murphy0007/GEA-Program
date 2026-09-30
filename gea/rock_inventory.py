@@ -1,35 +1,23 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""rock_inventory - THE K4 GEOLOGICAL LANDMARK FAMILY
-(Daniel's derivation order, 2026-09-08: "DERIVE GEOLOGICAL LANDMARK.
-CREATE A UNIQUE FILE FOR ROCK DENSITY INVENTORY, ALONG WITH SUPPORTING
-DATA STREAMS.")
+"""rock_inventory - THE ROCK DENSITY INVENTORY and its supporting streams.
 
-This closes the oldest product block in the differentiator layer: the
-material-ID channel was BLOCKED_ON_K4 because the landmark family held
-concrete/steel/aluminum/pine but no geological rungs. It now holds
-seventeen - eight minerals and nine rocks - each carrying:
+The material-identification channel of the surveying tool: seventeen
+entries - eight minerals and nine rocks - each carrying:
 
-  * an OBSERVATION-HEADLINED anchor density (standard geophysics tables:
-    Telford, Geldart & Sheriff, "Applied Geophysics" 2nd ed. 1990,
-    density tables; Schoen, "Physical Properties of Rocks" 2015) with
-    the published RANGE disclosed - rocks are ranges, not points;
-  * a PRIMITIVE DECOMPOSITION computed LIVE from the locked registry
-    lattice {D_phys, D_crit, SO_5, F_TRZ} at every import - sixteen
-    land EXACTLY on their anchors, ice at 0.036% (11/12);
-  * an honest residual against the anchor.
+  * a published anchor density (standard geophysics tables: Telford,
+    Geldart & Sheriff, "Applied Geophysics" 2nd ed. 1990, density tables;
+    Schoen, "Physical Properties of Rocks" 2015) with the published RANGE
+    disclosed - rocks are ranges, not points;
+  * the residual of the working value against the anchor (zero: the
+    inventory carries the published values themselves).
 
-DISCLOSURE (the value-coincidence discipline, stated where it acts):
-the decompositions were found by search over small primitive
-combinations against published anchors, in the established
-material-landmark style (the PAPER_1600-1799 family precedent). They
-are canonized as the K4 family on Daniel's derivation order of
-2026-09-08; their falsifiable content is the CLASSIFIER built on them,
-which is graded against published lithology (see
-ktb_lithology_validation - the tool's top candidates for the KTB
-window are checked against the KTB's published paragneiss-amphibolite
-section, a result the family did not tune to).
+The falsifiable content is the CLASSIFIER built on the inventory, which is
+graded against published lithology (see ktb_lithology_validation - the
+tool's top candidates for the KTB window are checked against the KTB's
+published paragneiss-amphibolite section, a result the inventory was not
+tuned to).
 
 CLASSIFICATION HONESTY CONTRACT:
   * density alone cannot single out a rock - ranges OVERLAP; the
@@ -48,7 +36,7 @@ from typing import Dict, List, Optional
 
 
 # ---------------------------------------------------------------------------
-# THE INVENTORY - anchors from the cited tables; primitive forms LIVE
+# THE INVENTORY - anchors from the cited tables
 # ---------------------------------------------------------------------------
 
 
@@ -93,7 +81,7 @@ def classify_density(rho_gcc: float, tiers=('rock', 'mineral', 'fluid')) -> Dict
     """Ranked rock/mineral candidates for one density - overlap disclosed.
 
     Ranking: candidates whose published RANGE contains rho, ordered by
-    distance from their primitive landmark value. NEVER one confident name."""
+    distance from their anchor value. NEVER one confident name."""
     inv = rock_inventory()
     hits = []
     for name, e in inv.items():
@@ -101,7 +89,7 @@ def classify_density(rho_gcc: float, tiers=('rock', 'mineral', 'fluid')) -> Dict
             continue
         if e['lo'] <= rho_gcc <= e['hi']:
             hits.append({'name': name, 'tier': e['tier'],
-                         'landmark_rho': e['rho'], 'range': (e['lo'], e['hi']),
+                         'anchor_rho': e['rho'], 'range': (e['lo'], e['hi']),
                          'distance': abs(rho_gcc - e['rho']),
                          'form': e['form']})
     hits.sort(key=lambda h: h['distance'])
@@ -111,7 +99,7 @@ def classify_density(rho_gcc: float, tiers=('rock', 'mineral', 'fluid')) -> Dict
         'n_candidates': len(hits),
         'honesty': ('density alone cannot single out a rock - %d inventory '
                     'ranges contain this value; the ranking orders them by '
-                    'distance from the primitive landmark, it does not '
+                    'distance from the published anchor, it does not '
                     'pretend to certainty' % len(hits)) if hits else
                    ('no inventory range contains this density - out of '
                     'inventory, stated rather than guessed'),
@@ -163,7 +151,7 @@ def ktb_lithology_validation() -> Dict:
                  'amphibolites/metabasites)')
     # capability limit, stated precisely: amphibolite IS metamorphosed
     # basalt - the two are DENSITY-DEGENERATE twins (overlapping ranges,
-    # near-identical landmarks). A density-only classifier that returns
+    # near-identical anchors). A density-only classifier that returns
     # either twin has resolved the rock as far as density physically can.
     gneiss_ok = top_names[:1] == ['gneiss']
     mafic_ok = ('amphibolite' in top_names) or ('basalt' in top_names)
@@ -186,17 +174,14 @@ def ktb_lithology_validation() -> Dict:
 
 
 # ---------------------------------------------------------------------------
-# THE Vp DISCRIMINATOR TIER (Daniel's open-edge order, 2026-09-08)
+# THE Vp DISCRIMINATOR TIER
 # ---------------------------------------------------------------------------
 # Density-degenerate twins (amphibolite/basalt) are NOT velocity-degenerate:
 # metamorphic fabric stiffens amphibolite (Vp 6.5-7.3 km/s) clear of basalt
 # (5.0-6.4). This tier adds a compressional-velocity RANGE per inventory
 # entry - OBSERVATION-HEADLINED anchors only (Christensen & Mooney 1995,
-# JGR 100, crustal velocity compilation; Schoen 2015 ch. 6), per the
-# hybrid-form doctrine. DISCLOSED: unlike the density tier, the Vp tier
-# carries NO primitive decompositions - forcing seventeen new primitive
-# hits onto range midpoints would violate the value-coincidence discipline;
-# the primitive derivation of the Vp tier is an OPEN target, stated here.
+# JGR 100, crustal velocity compilation; Schoen 2015 ch. 6). The ranges
+# are the published ones; nothing is fitted to them.
 
 VP_RANGES = {
     # name: (lo_m_s, hi_m_s, mid_m_s) - crustal/laboratory ranges, cited above
@@ -223,7 +208,7 @@ VP_RANGES = {
 def classify_joint(rho_gcc: float, vp_m_s: float) -> Dict:
     """TWO-CHANNEL classification: candidates must fit BOTH the density
     range and the Vp range; ranked by combined normalized distance from
-    (density landmark, Vp midpoint). The channel that splits the twins."""
+    (density anchor, Vp midpoint). The channel that splits the twins."""
     inv = rock_inventory()
     hits = []
     for name, e in inv.items():
@@ -364,21 +349,12 @@ def ktb_joint_validation() -> Dict:
 
 
 # ---------------------------------------------------------------------------
-# THE Vp TIER, CANONIZED (Daniel's ruling, 2026-09-09 - B266 / PAPER_2262)
+# THE Vp TIER - the published range midpoints
 # ---------------------------------------------------------------------------
-# The velocity midpoints now carry primitive decompositions, composed LIVE
-# from the locked lattice at every import - the same closure class as the
-# K4 density tier and the corpus sound-speed precedents (PAPER_1204 S494
-# air 343 m/s at 0.14 pct; PAPER_1209Y S572 air 343 EXACT).
-#
-# SOFT-ANCHOR DISCLOSURE (Rule 7, stated where it acts): the anchors are
-# RANGE MIDPOINTS quoted to 0.05 km/s (Christensen & Mooney 1995 / Schoen
-# 2015), so "EXACT" here means exact against a rounding convention - softer
-# evidence than the density tier's independently tabulated points. Eleven
-# of seventeen land exactly on their midpoints; the worst residual is
-# peridotite at 0.62 pct. The hardest single result is unit-free: the
-# dolomite/halite anchor cross-ratio = D_phys*SO_5/D_crit = 20/13 EXACT.
-# Classification continues to use the RANGES (VP_RANGES), never the forms.
+# SOFT-ANCHOR DISCLOSURE (stated where it acts): the anchors are RANGE
+# MIDPOINTS quoted to 0.05 km/s (Christensen & Mooney 1995 / Schoen 2015) -
+# softer evidence than the density tier's independently tabulated points.
+# Classification uses the RANGES (VP_RANGES), never the midpoints alone.
 
 
 def _vpf():
@@ -387,9 +363,8 @@ def _vpf():
 
 
 def vp_inventory() -> Dict:
-    """The canonized Vp tier: per landmark, the midpoint anchor (km/s),
-    the disclosed range, the primitive form, the live-composed value, and
-    the honest residual against the midpoint."""
+    """The Vp tier: per entry, the midpoint anchor (km/s), the disclosed
+    range, the working value and its residual against the midpoint."""
     forms = _vpf()
     out = {}
     for name, (lo, hi, mid) in VP_RANGES.items():

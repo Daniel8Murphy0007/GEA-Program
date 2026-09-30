@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""Well assembler: one well object from mixed catalogue pieces (v1.42.0).
+"""Well assembler: one well object from mixed catalogue pieces.
 
 Finish-sequence step 2 (independent evaluation, adopted 2026-08-27): twenty-
 plus catalogued datasets were ingested but STRANDED - the engine consumed only
@@ -29,9 +29,8 @@ from .profile_catalog import CATALOG
 
 M_TO_FT = 3.280839895            # exact definition: 1 m = 1/0.3048 ft
 _TRAPEZOID = getattr(np, "trapezoid", getattr(np, "trapz", None))
-# numpy >= 2.0 removed the trapz alias (CI numpy is newer than the authoring
-# sandbox's proxy-pinned 2.2.6, which still carried it - the v0.403.0
-# remanufacture lesson): prefer the current name, fall back for numpy 1.x.
+# numpy >= 2.0 removed the trapz alias: prefer the current name, fall back
+# for numpy 1.x.
 G_MS2 = 9.80665                  # standard gravity (SI definition)
 RHO_FRESHWATER_KGM3 = 1000.0     # labeled derivation input, not a measurement
 RHO_SEAWATER_KGM3 = 1025.0       # labeled derivation input (matches catalogue WBD-identity audits)
@@ -92,10 +91,10 @@ class WellAssembly:
     def add_hole_filtered(self, role: str, entry_name: str, channel: str,
                           hole_prefix: str) -> None:
         """Add a component from a MULTI-SITE table entry, keeping only the rows
-        whose Hole starts with hole_prefix (v1.70.0, driven by Exp 308 Table T2
+        whose Hole starts with hole_prefix (driven by Exp 308 Table T2
         - one verbatim archive, many sites). The filter is processing, not
         archive editing: the entry stays whole; the component records the
-        filter in its provenance (Rule 7)."""
+        filter in its provenance."""
         entry = CATALOG[entry_name]
         st = entry.stream()
         holes = st.meta.get("hole")
@@ -191,7 +190,7 @@ class WellAssembly:
         'hydrostatic_freshwater'/'hydrostatic_seawater' are labeled
         derivations (rho*g*(z + water_depth)); 'auto' prefers measured, else
         seawater when the site is submarine, else freshwater.
-        The chosen method is recorded in the profile's name (Rule 7)."""
+        The chosen method is recorded in the profile's name."""
         if "temperature" not in self.components:
             raise NotImplementedError(
                 f"assembly '{self.name}' has no measured temperature - the "
@@ -311,9 +310,9 @@ def assemble_u1324() -> WellAssembly:
     PANGAEA 725472) joined by MEASURED in-situ temperature (Exp 308 Table T2,
     the 18 U1324B/C DVTPP+T2P equilibrium stations, hole-filtered from the
     verbatim multi-site table) - the catalogue's first site with BOTH engine
-    coordinates measured in the formation. The engine bridge, which honestly
-    refused this assembly from v1.42.0 until the temperature column existed,
-    now accepts it (v1.70.0). The Table T2 water-depth identity
+    coordinates measured in the formation. The engine bridge refused this
+    assembly until the temperature column existed and accepts it now. The
+    Table T2 water-depth identity
     (BOH mbsl - BOH mbsf = 1056.8 m on every U1324B row) independently
     re-derives the water_depth_m constant below."""
     w = assemble(
@@ -328,7 +327,7 @@ def assemble_u1324() -> WellAssembly:
 
 
 def assemble_retama_403h() -> WellAssembly:
-    """Retama Ranch #403H (OPERATOR TIER, v1.73.0): the catalogue's first
+    """Retama Ranch #403H (OPERATOR TIER): the catalogue's first
     modern unconventional horizontal well as an ASSEMBLY - measured trajectory
     (MD -> TVD from the 182-station drift survey, minimum-curvature-verified
     to 0.005 ft) with the plan-tracking table and the connection-by-connection
@@ -354,7 +353,7 @@ def reconcile_survey_tvd(entry_a: str, entry_b: str,
                          channel_a: str = "TVD (ft)",
                          channel_b: str = "TVD (ft)",
                          agree_ft: float = 0.1) -> dict:
-    """Two-stream reconciliation for SURVEYS (v1.73.0): compare two archives'
+    """Two-stream reconciliation for SURVEYS: compare two archives'
     TVD integrations of the same wellbore at their SHARED stations only (no
     interpolation between archives - stations either match in MD or are
     listed as unshared). Returns per-station deltas, the worst divergence and
@@ -449,7 +448,7 @@ def production_live_stream(entry_name: str, well_tag: str,
             name='P_raw_psi_S1', unit='psi',
             values=p_bar[keep] * BAR_TO_PSI)},
         meta={**src.meta,
-              'adapter': 'production_live_stream (v1.43.0)',
+              'adapter': 'production_live_stream',
               'source_channel': chan, 'source_unit': 'bar',
               'conversion': f'psi = bar x {BAR_TO_PSI} (exact)',
               'nan_days_dropped': str(dropped),

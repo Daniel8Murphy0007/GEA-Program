@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""Simulator ACCEPTANCE suite (v1.45.0) - finish-sequence step 5.
+"""Simulator ACCEPTANCE suite - the product gate.
 
 The product gate the evaluation demanded: ship the simulator only when this
 suite is green, independent of the physics-paper wiring. This module ships
@@ -49,6 +49,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import numpy as np
@@ -300,13 +301,19 @@ def section_f_ports() -> None:
     ok(PORT_REGISTRY["historian_csv"].status == "IMPLEMENTED"
        and PORT_REGISTRY["las2"].status == "IMPLEMENTED",
        "F1 ports: file tiers IMPLEMENTED")
-    for name in ("witsml", "opcua"):
+    try:
+        PORT_REGISTRY["witsml"].reader({})
+        ok(False, "F2 witsml: should refuse")
+    except NotImplementedError as e:
+        ok("site" in str(e).lower() or "DECLARED" in str(e),
+           "F2 witsml: declared-refusing with site-details message")
+    for name in ("opcua", "mqtt"):
         try:
             PORT_REGISTRY[name].reader({})
-            ok(False, f"F2 {name}: should refuse")
-        except NotImplementedError as e:
-            ok("site" in str(e).lower() or "DECLARED" in str(e),
-               f"F2 {name}: declared-refusing with site-details message")
+            ok(False, f"F2 {name}: an empty config must refuse (no endpoint/broker, no tag map)")
+        except (NotImplementedError, ValueError) as e:
+            ok("pip install" in str(e) or "needs" in str(e) or "endpoint" in str(e) or "broker" in str(e),
+               f"F2 {name}: an empty configuration is declined - dependency missing or site details missing, named either way")
     spec = PORT_REGISTRY["modbus_g6"]
     if spec.reader.__name__ == "read_modbus":
         try:
@@ -428,7 +435,7 @@ def section_i_bench() -> None:
 
 
 def section_j_strata() -> None:
-    """Section J - strata depth-join engine (v1.69.0): co-located joint tables,
+    """Section J - strata depth-join engine: co-located joint tables,
     honest refusals, and the empirical relations the archives themselves carry."""
     from . import strata_join as J
     lp = J.library_pairs()
@@ -451,7 +458,7 @@ def section_j_strata() -> None:
 
 
 def section_k_measured_tp() -> None:
-    """Section K - the measured T+P well (v1.70.0): the evaluator's
+    """Section K - the measured T+P well: the evaluator's
     score-changing criterion, executable."""
     import math
     from .profile_catalog import CATALOG
@@ -475,18 +482,18 @@ def section_k_measured_tp() -> None:
         except Exception:
             pass
     ok(sorted(runnable) == ["ktb_hb", "site_1027", "u1324"],
-       "K3 measured-T+P: three runnable builtin wells (was two since v1.42.0)")
+       "K3 measured-T+P: three runnable builtin wells")
     ok("component_filter" in w.components["temperature"].provenance
        and all(math.isnan(v) for v, h in zip(st.channels["uend MPa"].values,
                                              st.meta["hole"])
                if h == "U1319A"),
-       "K4 measured-T+P: the hole filter is disclosed in provenance (Rule 7) "
+       "K4 measured-T+P: the hole filter is disclosed in provenance "
        "and dual-port 'a; b' cells stay NaN in channels - never split, "
        "never averaged")
 
 
 def section_l_operator_tier() -> None:
-    """Section L - operator tier privacy invariants (v1.71.0). These checks
+    """Section L - operator tier privacy invariants. These checks
     hold on EVERY machine: with zero operator entries (CI, fresh installs)
     or with private field data present (the operator's machine)."""
     from .profile_catalog import CATALOG, read_drift_xls, _OPERATOR_DIR
@@ -523,7 +530,7 @@ def section_l_operator_tier() -> None:
 
 
 def section_m_earth_model() -> None:
-    """Section M - the Earth Model (v1.74.0): the library registered into one
+    """Section M - the Earth Model: the library registered into one
     geographic frame. Floors use public-tier counts so the checks hold on
     every machine, with or without private operator data."""
     from .earth_model import EarthModel, haversine_km
@@ -541,7 +548,7 @@ def section_m_earth_model() -> None:
 
 
 def section_n_forward_model() -> None:
-    """Section N - the K2 sensing kernel (v1.75.0): standard-constant gravity
+    """Section N - the sensing kernel: standard-constant gravity
     forward model validated on real borehole gravimetry (public entry -
     holds on every machine)."""
     from .forward_model import (ktb_gravity_test, implied_density_gcc,
@@ -563,7 +570,7 @@ def section_n_forward_model() -> None:
 
 
 def section_p_inverse_engine() -> None:
-    """Section P - the inverse engine (v1.77.0): measurement -> strata with
+    """Section P - the inverse engine: measurement -> strata with
     uncertainty, every estimate carrying its chain (public data)."""
     from .inverse_engine import invert_gravity_column
     r = invert_gravity_column()
@@ -583,7 +590,7 @@ def section_p_inverse_engine() -> None:
 
 
 def section_q_prior_families() -> None:
-    """Section Q - site-family priors (v1.79.0): the inverse engine chooses
+    """Section Q - site-family priors: the inverse engine chooses
     priors by geological family, and the corrected prior must reproduce the
     ground it was learned from (public data)."""
     from .inverse_engine import (PRIOR_FAMILIES, invert_gravity_column,
@@ -604,7 +611,7 @@ def section_q_prior_families() -> None:
 
 
 def section_r_survey_view(tmp: str) -> None:
-    """Section R - the honest renderer (v1.80.0). Vacuous where the optional
+    """Section R - the renderer. Vacuous where the optional
     plotting package is absent: rendering is presentation, never
     load-bearing (the red-gate lesson applied in advance)."""
     import os
@@ -627,7 +634,7 @@ def section_r_survey_view(tmp: str) -> None:
 
 
 def section_s_correlation() -> None:
-    """Section S - well-to-well correlation (v1.81.0): the time frame's real
+    """Section S - well-to-well correlation: the time frame's real
     structure and the depth frame's honest refusal census (public data)."""
     from .correlation import time_frame, depth_frame_pairs
     from .earth_model import EarthModel
@@ -648,7 +655,7 @@ def section_s_correlation() -> None:
 
 
 def section_t_blind_harness() -> None:
-    """Section T - the blind-validation harness (v1.82.0): the standing
+    """Section T - the blind-validation harness: the standing
     accuracy report, regenerated live (public data)."""
     from .blind_harness import accuracy_report
     r = accuracy_report()
@@ -657,13 +664,13 @@ def section_t_blind_harness() -> None:
        "T1 harness: 12+ pairs blind-scored leave-one-out with refusals "
        "listed; best pair under 1 percent MAE")
     ok(0.5 <= r["median_coverage"] <= 0.85
-       and "stale snapshot" in r["doctrine"],
+       and "stale snapshot" in r["method"],
        "T2 harness: median 1-sigma coverage sits near the honest 0.68 "
        "target - the spreads are calibrated by measurement, not claim")
 
 
 def section_u_segy(tmp: str) -> None:
-    """Section U - SEG-Y ingest (v1.83.0): validated by exact round-trip;
+    """Section U - SEG-Y ingest: validated by exact round-trip;
     refusals by name, never by guess."""
     import math, os, struct
     from .segy import read_segy, write_segy_minimal
@@ -698,7 +705,7 @@ def section_u_segy(tmp: str) -> None:
 
 
 def section_v_client_shell(tmp: str) -> None:
-    """Section V - the client shell (v1.84.0): project files + the report
+    """Section V - the client shell: project files + the report
     that cannot say what the gate cannot prove."""
     import os
     from .project import create_project, generate_report, load_project
@@ -718,9 +725,8 @@ def section_v_client_shell(tmp: str) -> None:
 
 
 def section_x_do_all_three() -> None:
-    """Section X - Daniel's DO-ALL-THREE order (2026-09-08): the U_i
-    coupling harness, the cited gravity reference, and the KTB +10 pct
-    investigation record (v1.86.0)."""
+    """Section X - the coupling harness, the cited gravity reference, and
+    the KTB +10 pct investigation record."""
     from .gravity_reference import (somigliana_normal_gravity_ms2,
                                          ktb_site_reference,
                                          check_stream_gravity)
@@ -734,7 +740,7 @@ def section_x_do_all_three() -> None:
        and k['kind'] == 'OBSERVATIONAL_REFERENCE_STANDARD',
        "X4: KTB site reference = 9.80895 m/s2 (49.8156 N, 513.6 m, cited "
        "ICDP site) - labeled an observational reference standard per the "
-       "hybrid-form doctrine, never a GEA-derivation substitute")
+       "comparison rule, never an input to the program's own model")
     q = check_stream_gravity(9.8090, 49.8156, 513.6)
     ok(q['within_band'] and 'CONSISTENT' in q['verdict'],
        "X5: stream QC against the cited reference works (demo value inside "
@@ -762,7 +768,7 @@ def section_x_do_all_three() -> None:
 
 
 def section_y_survey() -> None:
-    """Section Y - the one-command user path (v1.87.0): gea survey."""
+    """Section Y - the one-command user path: gea survey."""
     from .survey_cmd import run_survey
     txt, d = run_survey(demo=True)
     ok('one honest answer' in txt and d['n_stations'] == 65
@@ -789,17 +795,16 @@ def section_y_survey() -> None:
 
 
 def section_z_rock_inventory() -> None:
-    """Section Z - the K4 geological landmark family (v1.88.0): the rock
-    density inventory and its supporting streams."""
+    """Section Z - the rock anchor family: the rock density inventory and
+    its supporting streams."""
     from .rock_inventory import (rock_inventory, classify_density,
                                       rock_candidate_stream,
                                       ktb_lithology_validation)
     inv = rock_inventory()
     worst = max(abs(e['residual_pct']) for e in inv.values())
     ok(len(inv) == 17 and worst < 0.05,
-       "Z1 K4 inventory: seventeen geological landmarks, primitive-composed "
-       "live from the registry lattice, worst anchor residual %.3f pct "
-       "(sixteen EXACT, ice = 11/12 at 0.036 pct)" % worst)
+       "Z1 rock inventory: seventeen published density anchors with their "
+       "ranges, worst anchor residual %.3f pct" % worst)
     c = classify_density(2.80)
     ok(c['n_candidates'] >= 2 and 'cannot single out' in c['honesty'],
        "Z2 classifier honesty: overlapping ranges return RANKED candidates "
@@ -859,14 +864,13 @@ def section_z_rock_inventory() -> None:
     ok(len(vi) == 17 and n_exact == 17 and worst < 1e-9
        and abs(vi['dolomite']['vp_km_s'] - 7.0) < 1e-12
        and abs(7000.0 / 4550.0 - 40.0 / 26.0) < 1e-12,
-       "Z10 the Vp tier CANONIZED (B266, soft anchors disclosed): 17 "
-       "primitive forms live, 11 exact on midpoints, worst 0.62 pct; "
-       "dolomite = the H_0 integer over SO_5; dolomite/halite anchor "
-       "cross-ratio = 20/13 = D_phys*SO_5/D_crit EXACT, unit-free")
+       "Z10 the Vp tier: seventeen published range midpoints (soft anchors, "
+       "disclosed), every value on its midpoint; dolomite 7.0 km/s; "
+       "dolomite/halite midpoint ratio = 20/13 exactly, unit-free")
 
 
 def section_aa_client_reports(tmp: str) -> None:
-    """Section AA - the client-facing report family: canonical
+    """Section AA - the client-facing report family: the single
     sample record + tag catalogue + the Gauge Drift & Reconciliation Report
     in scope-of-work outline, free of the program's internal register."""
     from . import production_live_stream, Reconciler, SimulatorConfig
@@ -880,7 +884,7 @@ def section_aa_client_reports(tmp: str) -> None:
     q = quality_summary(recs)["P_raw_psi_S1"]
     ok(len(recs) == 157 and all(r.quality_flag in QUALITY_FLAGS for r in recs)
        and recs[0].timestamp_utc == "2008-02-12T00:00:00Z",
-       "AA1 sample record: every Volve F-12 sample lands in the canonical record "
+       "AA1 sample record: every Volve F-12 sample lands in the one record "
        "with a flag from the fixed enumeration and a UTC timestamp from the "
        "stream's own origin")
     ok(q["counts"]["FLATLINE"] == 9 and q["pct_good"] < 95.0
@@ -1204,13 +1208,13 @@ def section_aa_client_reports(tmp: str) -> None:
     from .sbom import generate as _sbom_gen, write as _sbom_write
     sb = _sbom_gen()
     names = [c["name"] for c in sb["components"]]
-    ok(sb["n_components"] == 5 and names[0] == "Downhole Gauge Monitoring" and "numpy" in names and "Python" in names
+    ok(sb["n_components"] == 9 and names[0] == "Downhole Gauge Monitoring" and "numpy" in names and "Python" in names
        and all(set(c) >= {"name", "version", "supplier", "licence", "hash", "identifier", "relationship", "generated_utc"} for c in sb["components"])
        and next(c for c in sb["components"] if c["name"] == "numpy")["version"] not in ("", "not installed"),
-       "AA45 SBOM: five components with all eight fields, versions and licences read from "
+       "AA45 SBOM: nine components (product, Python, numpy, six optional) with all eight fields, versions and licences read from "
        "installed metadata, optional components listed whether installed or not")
     pth = _sbom_write(sb, str(Path(tmp, "sbom")))
-    ok(Path(pth["json"]).exists() and len(Path(pth["csv"]).read_text().splitlines()) == 6, "AA46 SBOM written as JSON and CSV (header + 5 rows)")
+    ok(Path(pth["json"]).exists() and len(Path(pth["csv"]).read_text().splitlines()) == 10, "AA46 SBOM written as JSON and CSV (header + 9 rows)")
     from .sla_report import measure
     m = measure("2026-10", monitor_log_dir=str(Path(tmp, "mon")), well_test_dir=str(Path(tmp, "wt_rec")), config_dir=str(Path(tmp, "cfgs")))
     by = {l["metric"]: l for l in m["lines"]}
@@ -1235,9 +1239,9 @@ def section_aa_client_reports(tmp: str) -> None:
     proto = FS.run_protocol("FAT", sections=["F"])
     del _AT._RESULTS[snap[2]:]
     _AT._PASS = snap[0]; _AT._FAILS[:] = snap[1]
-    ok(proto["kind"] == "FAT" and proto["n_steps"] >= 2 and proto["internal_checks_excluded"] == 2 and proto["n_fail"] == 0 and proto["result"] == "ACCEPTED"
+    ok(proto["kind"] == "FAT" and proto["n_steps"] >= 2 and proto["internal_checks_excluded"] == 1 and proto["n_fail"] == 0 and proto["result"] == "ACCEPTED"
        and all(r_["expected"] == "PASS" and r_["actual"] == "PASS" for r_ in proto["rows"]),
-       "AA49 FAT protocol: section F renders as numbered PASS steps (two internal-register checks excluded, counted) with the result ACCEPTED")
+       "AA49 FAT protocol: section F renders as numbered PASS steps (one internal-register check excluded, counted) with the result ACCEPTED")
 
     # (11) the web view
     from .dashboard import orchestrate, collect
@@ -1272,6 +1276,164 @@ def section_aa_client_reports(tmp: str) -> None:
        "AA54 CLI dashboard: one catalogue well to a complete index")
 
 
+def section_ab_live_ports(tmp: str) -> None:
+    """Section AB - the live protocol ports (OPC UA, MQTT): codec, mapping,
+    quality, aliases, recording/replay, stream, hand-off to the buffer and
+    the reconciler; a live in-process OPC UA loopback when asyncua is
+    installed; the dependency-missing refusal otherwise."""
+    import base64
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    from . import mqtt_port as MP, opcua_port as OP
+    from .live_ports import records_to_stream, Recording, summarize, feed_buffer, load_mappings
+    from .ports import PORT_REGISTRY
+    from .store_forward import StoreForwardBuffer, BufferConfig
+    T0 = _dt(2026, 10, 1, 12, 0, 0, tzinfo=_tz.utc)
+
+    # Sparkplug B codec round trip (no protobuf library)
+    pl = MP.encode_sparkplug_b(1700000000000, [
+        {"name": "DHP", "alias": 3, "timestamp_ms": 1700000000000, "datatype": 10, "value": 264.087, "properties": {"Quality": 192}},
+        {"name": "DHT", "alias": 4, "datatype": 9, "value": 98.6},
+        {"name": "CHOKE", "alias": 5, "datatype": 3, "value": -7},
+        {"name": "NULLED", "alias": 6, "datatype": 10, "is_null": True},
+        {"name": "BADQ", "alias": 7, "datatype": 10, "value": 1.5, "properties": {"Quality": 500}}], seq=7)
+    d = MP.decode_sparkplug_b(pl)
+    got = {m["name"]: m for m in d["metrics"]}
+    ok(d["timestamp_ms"] == 1700000000000 and d["seq"] == 7 and got["DHP"]["value"] == 264.087
+       and abs(got["DHT"]["value"] - 98.6) < 1e-4 and got["CHOKE"]["value"] == -7 and got["NULLED"]["is_null"]
+       and got["BADQ"]["properties"]["Quality"] == 500 and got["DHP"]["alias"] == 3,
+       "AB1 Sparkplug B: payload with double, float, signed int32, null and Quality "
+       "properties encodes and decodes on the wire format with no protobuf library")
+    cfg = json.loads(json.dumps(MP.EXAMPLE_CONFIG))
+    cfg["topics"] += [{"topic": "spBv1.0/GEA/DDATA/edge1/F12", "payload": "sparkplug_b", "metric": "BADQ", "tag_id": "X_bad"},
+                      {"topic": "spBv1.0/GEA/DDATA/edge1/F12", "payload": "sparkplug_b", "metric": "NULLED", "tag_id": "X_null"}]
+    c = MP.load_config(cfg)
+    recs = MP.message_to_records(c, "spBv1.0/GEA/DDATA/edge1/F12", pl, T0)
+    by = {r.tag_id: r for r in recs}
+    ok(abs(by["P_raw_psi_S2"].value - 264.087 * 14.503773773) < 1e-6 and by["P_raw_psi_S2"].quality_flag == "GOOD"
+       and by["X_bad"].quality_flag == "STALE" and "Quality property 500" in by["X_bad"].rule_fired
+       and by["X_null"].quality_flag == "GAP" and by["X_null"].value is None
+       and by["P_raw_psi_S2"].timestamp_utc == "2023-11-14T22:13:20.000Z" and by["P_raw_psi_S2"].ingest_timestamp_utc == "2026-10-01T12:00:00.000Z",
+       "AB2 Sparkplug -> records: scale applied (bar -> psi), Quality 192 GOOD, other Quality STALE with the "
+       "value named, is_null GAP, source timestamp from the metric, ingest timestamp at arrival")
+    aliases = {}
+    birth = MP.encode_sparkplug_b(1700000000000, [{"name": "DHP", "alias": 3, "datatype": 10, "value": 264.0}])
+    MP.message_to_records(c, "spBv1.0/GEA/DBIRTH/edge1/F12", birth, T0, aliases)
+    data = MP.encode_sparkplug_b(1700000001000, [{"alias": 3, "datatype": 10, "value": 265.5}])
+    r_alias = MP.message_to_records(c, "spBv1.0/GEA/DDATA/edge1/F12", data, T0, aliases)
+    other = MP.message_to_records(c, "spBv1.0/GEA/DDATA/edge9/F12", data, T0, aliases)
+    ok(aliases == {3: "DHP"} and len(r_alias) == 1 and abs(r_alias[0].value - 265.5 * 14.503773773) < 1e-6 and other == [],
+       "AB3 aliases: a DBIRTH teaches alias 3 = DHP, an alias-only DDATA resolves, another edge node is ignored")
+    n = MP.message_to_records(c, "gea/well/F12/dhp_psi", b"4467.97", T0)
+    j = MP.message_to_records(c, "gea/well/F12/gauge", json.dumps({"temperature": {"value": 212.4}, "ts": "2026-10-01T11:59:58Z", "quality": "BAD"}).encode(), T0)
+    bad = MP.message_to_records(c, "gea/well/F12/dhp_psi", b"n/a", T0)
+    ok(n[0].value == 4467.97 and n[0].quality_flag == "GOOD" and j[0].value == 212.4 and j[0].quality_flag == "STALE"
+       and j[0].timestamp_utc == "2026-10-01T11:59:58.000Z" and j[0].latency_s() == 2.0
+       and bad[0].quality_flag == "GAP" and "unparseable" in bad[0].rule_fired
+       and MP.topic_matches("a/+/c", "a/b/c") and MP.topic_matches("a/#", "a/b/c/d") and not MP.topic_matches("a/+", "a/b/c"),
+       "AB4 number and JSON payloads: value/time/quality paths, 2 s latency measured, unparseable -> GAP with reason, "
+       "MQTT wildcards + and #")
+    rp = str(Path(tmp, "mqtt_rec.jsonl")); R = Recording(rp)
+    for i in range(6):
+        R.write({"topic": "gea/well/F12/dhp_psi", "payload_b64": base64.b64encode(f"{4400 + i}".encode()).decode(),
+                 "received_at": (T0 + _td(seconds=60 * i)).strftime("%Y-%m-%dT%H:%M:%S.000Z")})
+    rr = MP.replay(c, rp); st = records_to_stream(rr)
+    buf = StoreForwardBuffer(BufferConfig(cadence_s=60), n_tags=1)
+    delivered = feed_buffer(buf, rr, link_up=True, now=T0 + _td(seconds=400))
+    ok(len(rr) == 6 and st.index.tolist() == [0.0, 60.0, 120.0, 180.0, 240.0, 300.0] and list(st.channels) == ["P_raw_psi_S1"]
+       and st.meta["start_time"].startswith("2026-10-01T12:00:00") and len(delivered) == 6 and delivered[0].source_layer == "OT_LAKE"
+       and summarize(rr)["quality"] == {"GOOD": 6},
+       "AB5 recording -> replay -> time-indexed stream with the ISO origin -> store-and-forward buffer delivers all six")
+    ok(OP.status_to_quality("Good", 0) == ("GOOD", "") and OP.status_to_quality("UncertainLastUsableValue", 0x40900000)[0] == "STALE"
+       and OP.status_to_quality("BadNodeIdUnknown", 0x80340000)[0] == "GAP",
+       "AB6 OPC UA StatusCode severity bits: Good -> GOOD, Uncertain -> STALE, Bad -> GAP")
+    oc = OP.load_config(OP.EXAMPLE_CONFIG); rp2 = str(Path(tmp, "opc_rec.jsonl")); R2 = Recording(rp2)
+    R2.write({"node_id": "ns=2;s=Well.F12.DownholePressure", "value": 4467.9, "status_name": "Good", "status_value": 0,
+              "source_ts": "2026-10-01T11:59:59.500Z", "server_ts": None, "received_at": "2026-10-01T12:00:00.100Z"})
+    R2.write({"node_id": "ns=2;s=Well.F12.DownholeTemperature", "value": 212.0, "status_name": "UncertainSubNormal", "status_value": 0x40A40000,
+              "source_ts": None, "server_ts": "2026-10-01T12:00:00.000Z", "received_at": "2026-10-01T12:00:00.100Z"})
+    R2.write({"node_id": "ns=2;s=Well.F12.DownholePressure", "value": None, "status_name": "BadCommunicationError", "status_value": 0x80050000,
+              "source_ts": None, "server_ts": None, "received_at": "2026-10-01T12:01:00.000Z"})
+    orr = OP.replay(oc, rp2)
+    ok(len(orr) == 3 and orr[0].value == 4467.9 and orr[0].latency_s() == 0.6 and orr[1].quality_flag == "STALE"
+       and orr[1].timestamp_utc == "2026-10-01T12:00:00.000Z" and orr[2].quality_flag == "GAP" and orr[2].value is None,
+       "AB7 OPC UA replay: source timestamp preferred, server timestamp as fallback, arrival otherwise; "
+       "0.6 s latency measured; Bad status withholds the value")
+    # the two ports are registered whatever the environment; their status says which
+    ok({"opcua", "mqtt"} <= set(PORT_REGISTRY) and all(PORT_REGISTRY[k].status in ("IMPLEMENTED_REQUIRES_SITE_CONFIG", "DECLARED_DEPENDENCY_MISSING") for k in ("opcua", "mqtt")),
+       "AB8 port registry: opcua and mqtt registered; status reports whether the optional dependency is installed")
+    try:
+        load_mappings([], "node_id"); empty_ok = False
+    except ValueError:
+        empty_ok = True
+    ok(empty_ok, "AB9 an empty tag map is declined: a live port maps what the site declares, never guesses tags")
+    r = _cli(["mqtt", "--config", str(Path(tmp, "mq.json")), "--replay", rp, "--out", "mq_records.csv", "--stream-csv", "mq_stream.csv"], tmp) \
+        if Path(tmp, "mq.json").exists() or MP.write_example_config(str(Path(tmp, "mq.json"))) else None
+    body = Path(tmp, "mq_stream.csv").read_text() if Path(tmp, "mq_stream.csv").exists() else ""
+    ok(r is not None and r.returncode == 0 and '"records": 6' in r.stdout and body.startswith("timestamp,P_raw_psi_S1") and body.count("\n") == 7,
+       "AB10 CLI mqtt --replay: records CSV and a historian-style stream CSV the other commands ingest")
+    r = _cli(["ingest", "--file", "mq_stream.csv"], tmp)
+    ok(r.returncode == 0, "AB11 the stream CSV written by the port round-trips through the historian port")
+
+    # live OPC UA loopback: only when asyncua is installed (the product never requires it)
+    if OP.ASYNCUA_AVAILABLE:
+        from asyncua.sync import Server as _Server, ua as _ua
+        import threading, socket
+        sock = socket.socket(); sock.bind(("127.0.0.1", 0)); port = sock.getsockname()[1]; sock.close()
+        srv = _Server(); srv.set_endpoint(f"opc.tcp://127.0.0.1:{port}/gea/loop/")
+        ns = srv.register_namespace("gea-loop")
+        obj = srv.nodes.objects.add_object(ns, "Well")
+        vp = obj.add_variable(_ua.NodeId("Well.F12.DownholePressure", ns), "DownholePressure", 4467.9)
+        vt = obj.add_variable(_ua.NodeId("Well.F12.DownholeTemperature", ns), "DownholeTemperature", 212.0)
+        srv.start()
+        try:
+            lcfg = json.loads(json.dumps(OP.EXAMPLE_CONFIG)); lcfg["endpoint"] = f"opc.tcp://127.0.0.1:{port}/gea/loop/"
+            for nd in lcfg["nodes"]:
+                nd["node_id"] = nd["node_id"].replace("ns=2;", f"ns={ns};")
+            lcfg["subscription"]["publishing_interval_ms"] = 200
+            rec = str(Path(tmp, "opc_live.jsonl"))
+            tap = OP.OpcUaTap(lcfg, recording_path=rec).connect()
+            try:
+                once = tap.read_once()
+                def _writer():
+                    for k in range(5):
+                        time.sleep(0.25); vp.write_value(4467.9 + k); vt.write_value(212.0 + 0.1 * k)
+                th = threading.Thread(target=_writer, daemon=True); th.start()
+                subd = tap.subscribe(2.5)
+                th.join()
+                stream = tap.to_stream()
+            finally:
+                tap.close()
+            rep = OP.replay(lcfg, rec)
+            ok(len(once) == 2 and {r.tag_id for r in once} == {"P_raw_psi_S1", "T_raw_F_S1"} and all(r.quality_flag == "GOOD" for r in once)
+               and once[0].value == 4467.9 and all(0 <= (r.latency_s() or 0) < 5 for r in once),
+               "AB12 LIVE OPC UA loopback (asyncua in-process server): read_once returns both mapped nodes GOOD with measured latency")
+            pv = [r.value for r in subd if r.tag_id == "P_raw_psi_S1"]
+            ok(len(subd) >= 6 and max(pv) >= 4471.9 and len(rep) == len(once) + len(subd) and stream.channels["P_raw_psi_S1"].values.size >= 5,
+               "AB13 LIVE OPC UA subscription: data changes arrive as records, every message recorded and replay reproduces the session, stream built")
+        finally:
+            srv.stop()
+    else:
+        try:
+            OP.OpcUaTap(OP.EXAMPLE_CONFIG); refused = False
+        except NotImplementedError as e:
+            refused = "pip install asyncua" in str(e)
+        ok(refused, "AB12 without asyncua the OPC UA tap declines with the install instruction (replay still works)")
+        ok(True, "AB13 live OPC UA loopback skipped here (asyncua not installed); it runs where the dependency is present")
+    if not MP.PAHO_AVAILABLE:
+        try:
+            MP.MqttTap(MP.EXAMPLE_CONFIG); refused = False
+        except NotImplementedError as e:
+            refused = "pip install paho-mqtt" in str(e)
+        ok(refused, "AB14 without paho-mqtt the MQTT tap declines with the install instruction (decoders and replay need nothing)")
+    else:
+        cfg_dead = json.loads(json.dumps(MP.EXAMPLE_CONFIG)); cfg_dead["broker"]["port"] = 1
+        try:
+            MP.MqttTap(cfg_dead).run(0.2); conn_err = False
+        except ConnectionError:
+            conn_err = True
+        ok(conn_err, "AB14 with paho-mqtt installed an unreachable broker is reported as ConnectionError, never silently empty")
+
+
 def main() -> int:
     print("GEA Downhole Simulator - ACCEPTANCE SUITE (product gate, "
           "independent of the physics corpus)")
@@ -1301,6 +1463,7 @@ def main() -> int:
         section_y_survey()
         section_z_rock_inventory()
         section_aa_client_reports(tmp)
+        section_ab_live_ports(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

@@ -91,5 +91,5 @@ Did anything confuse you? Send answers (and screen photos) to:
 
 ---
 
-*GEA Program — Daniel T. Murphy. The report's closing line is the
-product's contract: honest or it is nothing.*
+*GEA-Program — ENRGYONE. The report's closing line is the product's
+contract: every number with its basis, or not at all.*

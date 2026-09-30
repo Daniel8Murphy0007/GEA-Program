@@ -1,19 +1,19 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""service_life — long-horizon drift accumulation (v1.2.0 extension).
+"""service_life — long-horizon drift accumulation.
 
 The v1.0/1.1 layers report drift as an instantaneous RATE (%FS/yr). This module
 integrates that rate over months/years of simulated service, twin-leg at every
 station (GEA-stabilized vs conventional), producing the DIVERGENCE CURVES a
 real bench test or field trial would record: two error traces separating at
-exactly the rate the canonical suppression predicts. Adds optional periodic
+exactly the rate the suppression composition predicts. Adds optional periodic
 recalibration resets (workover/recal events) and a small random-walk component
 for realism (defaults chosen so the deterministic rate dominates).
 
-This is the full simulation instrument for the PAPER_2250 LABORATORY-tier
-quartz bench test (PAPER_2256 sec 5): the separation you'd measure, not just
-the ratio you'd predict.
+This is the full simulation instrument for the twin-gauge quartz bench test
+(gea/BENCH_TEST_PROTOCOL.md): the separation you'd measure, not just the
+ratio you'd predict.
 
 Headless-safe: numpy only, no display imports.
 """
@@ -51,7 +51,7 @@ class ServiceLifeSimulator:
 
     Rates are evaluated once per sensor at the engine's base station T/P
     (permanent-install conditions); both legs share the same industry baseline
-    and stress dressing, differing ONLY by the canonical suppression — so the
+    and stress dressing, differing ONLY by the suppression composition — so the
     accumulated-error ratio converges to the suppression composition and the
     separation grows linearly at the predicted rate.
     """
@@ -60,7 +60,7 @@ class ServiceLifeSimulator:
                  config: ServiceLifeConfig | None = None):
         self.engine = engine or DownholeEngine(SimulatorConfig())
         self.cfg = config or ServiceLifeConfig()
-        spec = getattr(self.engine.cfg, 'gauge_spec', None)   # v1.5.0: engine's datasheet spec
+        spec = getattr(self.engine.cfg, 'gauge_spec', None)   # engine's datasheet spec
         if spec is not None:
             from dataclasses import replace as _replace
             self.cfg = _replace(self.cfg, full_scale_psi=float(spec.full_scale_psi))

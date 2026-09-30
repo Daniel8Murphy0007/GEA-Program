@@ -3,11 +3,10 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """qt6_downhole_app — PyQt6 GUI for the GEA Downhole Simulator (optional).
 
-Template-faithful port (22Aug2026 thread): control panel + embedded matplotlib
-canvas, QTimer-driven stepping at 120 ms, CSV export button. Knob ruling
-applied: the spinboxes are the ENGINEERING TRIMS (k_structural_trim /
-phi_coupling_trim, range 0.50-1.50, default 1.00) — the canonical K_MEX = 25/12
-and Phi_res = 0.84 are locked inside the physics layer and shown read-only.
+Control panel + embedded matplotlib canvas, QTimer-driven stepping at 120 ms,
+CSV export button. The spinboxes are the ENGINEERING TRIMS (k_structural_trim /
+phi_coupling_trim, range 0.50-1.50, default 1.00) — the constants K_MEX = 25/12
+and Phi_res = 0.84 are locked inside the aging model and shown read-only.
 
 PyQt6 is an OPTIONAL dependency: `pip install PyQt6 matplotlib`.
 Run:  python -m gea.qt6_downhole_app
@@ -63,11 +62,11 @@ if QT_AVAILABLE:
             control.setFixedWidth(360)
             clayout = QVBoxLayout(control)
 
-            gbox = QGroupBox("Canonical GEA primitives (LOCKED)")
+            gbox = QGroupBox("Aging-model constants (LOCKED)")
             form0 = QFormLayout(gbox)
-            form0.addRow("K_MEX", QLabel("25/12 = 2.0833  (PAPER_1522)"))
-            form0.addRow("Phi_res", QLabel("0.84  (PAPER_2134)"))
-            form0.addRow("rho ratio", QLabel("F_TRZ = 0.1  (PAPER_1160)"))
+            form0.addRow("K_MEX", QLabel("25/12 = 2.0833"))
+            form0.addRow("Phi_res", QLabel("0.84"))
+            form0.addRow("rho ratio", QLabel("F_TRZ = 0.1"))
             form0.addRow("suppression", QLabel(f"{canonical_suppression():.4f} at unity trims"))
             clayout.addWidget(gbox)
 

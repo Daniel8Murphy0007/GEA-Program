@@ -48,10 +48,12 @@ SLA_NOTIFY_BD = 1
 SLA_FALLBACK_BD = 2
 SLA_REFIT_BD = 10
 
-# The internal register never reaches a client report.
-FORBIDDEN_TERMS = ('uqff', 'star-magic', 'star magic', 'primitive', 'doctrine',
-                   'pinned_awaiting', 'refus', 'aether', 'dpm', 'rule 7', 'honest',
-                   'landmark', 'lattice')
+# Words that never reach a client report: internal working vocabulary, and the
+# names of other programs (this tuple is the only place in the package that
+# may spell them - it is what keeps them out).
+FORBIDDEN_TERMS = ('uqff', 'star-magic', 'star magic', 'primitive', 'doctrine',      # standalone-check: allow
+                   'pinned_awaiting', 'refus', 'aether', 'dpm', 'rule 7', 'honest',   # standalone-check: allow
+                   'landmark', 'lattice')                                          # standalone-check: allow
 
 CLASS_KEY: Dict[str, dict] = {
     'IN_FAMILY': dict(
@@ -181,7 +183,7 @@ def gauge_drift_report(evaluation: dict, stream, catalogue: Optional[TagCatalogu
     cat_rows = [[r['tag_id'], r['description'][:70], r['unit'], r['owner'], r['tag_class'],
                  f"{_fmt(r['eng_range_lo'])} to {_fmt(r['eng_range_hi'])}",
                  r['cadence_s'] or '-', r['source_layer'], r['source'][:50]] for r in catalogue.rows()]
-    tag_sec = Section('2', 'Tag catalogue and canonical data model (SOW 4.2.1.2)',
+    tag_sec = Section('2', 'Tag catalogue and data model (SOW 4.2.1.2)',
                       ['One definition per tag: owner, engineering unit, engineering range, cadence and '
                        'source layer. Quality rules in force per tag are listed in section 6.'],
                       [Table(['Tag', 'Description', 'Unit', 'Owner', 'Class', 'Engineering range',

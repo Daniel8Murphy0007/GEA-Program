@@ -10,7 +10,7 @@
   "fetch_method": "read-only HTTPS fetch (text/plain), size-capped by the fetch tool",
   "coverage": "VERBATIM EXCERPT: full original header + data rows 102.1568-105.6620 m and 179.5760-196.0352 m. The full file spans 102-4,637 m at 0.1524 m step; the depth gap in this excerpt is a capture artifact, disclosed in-file via # comments.",
   "curves": ["DEPT.M", "AC.US/F", "CALI.IN", "DEN.G/CC", "GR.GAPI", "NEU.%", "RDEP.OHMM", "RMED.OHMM"],
-  "temperature_curve": "NONE - composite log carries no temperature curve; profile conversion from this entry uses DERIVED gradients, labeled as such (Rule 7)",
+  "temperature_curve": "NONE - composite log carries no temperature curve; profile conversion from this entry uses DERIVED gradients, labeled as such",
   "purpose": "real third-party well-log data flowing the las2 port + profile converter end-to-end; catalogue seed entry",
-  "verified": "ingests via uqff_ports.read_las: depth-indexed LiveStream, NULL -999.25 -> NaN, units carried; gate-pinned"
+  "verified": "ingests via ports.read_las: depth-indexed LiveStream, NULL -999.25 -> NaN, units carried; gate-pinned"
 }

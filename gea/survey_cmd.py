@@ -1,8 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""survey_cmd - THE ONE-COMMAND USER PATH (Daniel's build order,
-2026-09-08: "build the survey command").
+"""survey_cmd - THE ONE-COMMAND USER PATH.
 
     gea survey mywell.las
     gea survey --demo
@@ -212,7 +211,7 @@ def run_survey(path: Optional[str] = None, demo: bool = False,
           'this survey against the cited WGS84 reference)')
     w('')
 
-    # ---- rock candidates (K4 geological landmark family) -----------------
+    # ---- rock candidates (rock density inventory) --------------------------
     from .rock_inventory import classify_density
     votes = {}
     for r in rho_k:
@@ -220,7 +219,7 @@ def run_survey(path: Optional[str] = None, demo: bool = False,
             votes[h['name']] = votes.get(h['name'], 0) + 1
     ranked = sorted(votes.items(), key=lambda kv: -kv[1])[:3]
     if ranked:
-        w('rock candidates (K4 landmark family, density-only, RANKED not '
+        w('rock candidates (density inventory, density-only, RANKED not '
           'certain):')
         w('  ' + ', '.join('%s (%d/%d stations)' % (n, c, len(rho_k))
                            for n, c in ranked))

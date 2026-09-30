@@ -1,9 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""survey_view - the first HONEST renderer for the surveying tool
-(v1.80.0: 'one honest map/cross-section renderer would make everything built
-this week visible for the first time').
+"""survey_view - the map and cross-section renderer for the surveying tool.
 
 Two figures, both drawn ONLY from gate-verified objects, both labeled with
 what they are NOT:
@@ -22,8 +20,7 @@ what they are NOT:
 Headless by construction (matplotlib Agg); no display required. If matplotlib
 is absent the functions raise a clear ImportError naming the optional
 dependency - the renderer is presentation, never load-bearing: no catalogue
-entry, gate pin, or acceptance check REQUIRES it to exist (the v0.406.0
-red-gate lesson applied in advance).
+entry, gate pin, or acceptance check REQUIRES it to exist.
 """
 
 from __future__ import annotations

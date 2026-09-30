@@ -3,7 +3,7 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """matplotlib_demo — animated demo of the GEA Downhole Simulator.
 
-Template-faithful port (22Aug2026 thread, converged imperial version): a well
+Imperial-unit animated view: a well
 schematic on the left (gauges labeled with live P/T), pressure and temperature
 strip charts on the right, FuncAnimation at 120 ms, CSV export on close.
 
@@ -69,7 +69,7 @@ def run_demo():
         fig.suptitle(
             f"GEA Deep-Well Simulator  |  t={engine.time:.1f}s  |  "
             f"Avg Drift={avg_drift:.3f}% FS/yr  |  TD={cfg.td_ft:.0f} ft  |  "
-            f"canonical K_MEX=25/12, \N{GREEK CAPITAL LETTER PHI}_res=0.84 (locked)",
+            f"K_MEX=25/12, \N{GREEK CAPITAL LETTER PHI}_res=0.84 (locked)",
             fontsize=12, color="#67e8f9")
         return []
 

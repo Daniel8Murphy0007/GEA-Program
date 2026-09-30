@@ -3,11 +3,10 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """downhole_engine — the simulation engine of the GEA Downhole Simulator.
 
-Faithful port of the 22Aug2026 template's converged design (imperial units:
-ft / degF / psi; six quartz gauges; noise + transient events; rolling history;
-CSV export), adjusted to the gea-program repo: drift comes from the
-canonical-primitive physics layer, and the template's per-sensor "K_MEX"/
-"Phi_res" fields are the renamed engineering trims (knob ruling, 2026-08-22).
+Imperial units (ft / degF / psi); six quartz gauges; noise and transient
+events; rolling history; CSV export. Drift comes from the aging models in
+quartz_hpht_extension; the per-sensor settings are the two engineering trims
+(k_structural_trim, phi_coupling_trim), never the model's constants.
 
 Headless-safe by design: no matplotlib/Qt imports here — the engine runs and
 exports under the fidelity gate with no display.
@@ -91,7 +90,7 @@ class Sensor:
     k_structural_trim: float = 1.0    # engineering trim (renamed from template 'K_MEX' knob)
     phi_coupling_trim: float = 1.0    # engineering trim (renamed from template 'Phi_res' knob)
     name: str = ""
-    tool_name: str = "quartz_pt_program_geoq177_30k"   # v1.47.0 mixed strings: which library tool sits here
+    tool_name: str = "quartz_pt_program_geoq177_30k"   # mixed strings: which library tool sits here
 
 
 @dataclass
@@ -109,10 +108,10 @@ class SimulatorConfig:
     history_length: int = 400
     profile: Optional[WellProfile] = None           # real well profile (CSV); overrides gradients
     comparison_mode: bool = True                    # twin-gauge GEA-vs-conventional tracking
-    gauge_spec: object = None                       # GaugeSpec (v1.5.0, gauge_specs); None = template anchors
-    deviation: object = None                        # DeviationSurvey (v1.6.0): sensors at MD, physics at TVD
-    toolstring: object = None                       # ToolString (v1.47.0): mixed per-station tool models
-    acknowledge_over_rating: bool = False           # v1.47.0: the ONLY way past the in-engine rating block
+    gauge_spec: object = None                       # GaugeSpec (gauge_specs); None = template anchors
+    deviation: object = None                        # DeviationSurvey: sensors at MD, physics at TVD
+    toolstring: object = None                       # ToolString: mixed per-station tool models
+    acknowledge_over_rating: bool = False           # the ONLY way past the in-engine rating block
 
 
 class DownholeEngine:
@@ -128,7 +127,7 @@ class DownholeEngine:
             self._enforce_rating()
 
     def _enforce_rating(self) -> None:
-        """v1.47.0: the rating check runs INSIDE the engine, not only as a
+        """The rating check runs INSIDE the engine, not only as a
         print - a tool over its cited rating at its station (against the
         REAL profile when one is attached) blocks construction unless the
         operator's explicit acknowledge_over_rating rides in the config."""
@@ -144,7 +143,7 @@ class DownholeEngine:
                 f"{b['temp_rating_C']}C rated)" for b in blocks)
             raise RuntimeError(
                 f"ENGINE RATING BLOCK: {names}. The check runs inside the "
-                "engine (v1.47.0) - set acknowledge_over_rating=True in the "
+                "engine - set acknowledge_over_rating=True in the "
                 "config as an explicit operator decision, or fix the string.")
 
     # -- construction -------------------------------------------------------
@@ -170,7 +169,7 @@ class DownholeEngine:
 
     def _physics_depth_ft(self, md_ft: float) -> float:
         """Sensor addresses are MD (position on the string); pressure and
-        temperature are set by TVD (v1.6.0 deviation support)."""
+        temperature are set by TVD (deviation support)."""
         if self.cfg.deviation is not None:
             return float(self.cfg.deviation.tvd_of(md_ft))
         return float(md_ft)
@@ -206,7 +205,7 @@ class DownholeEngine:
         return float(r["value"]["drift_pct"])
 
     def station_drift_legs(self, i: int) -> dict:
-        """v1.47.0 mixed strings: each station's drift legs come from ITS
+        """Mixed strings: each station's drift legs come from ITS
         tool's runnable model - and tools without a runnable model REFUSE
         (status says why) instead of borrowing the quartz curve."""
         from .tool_library import TOOL_LIBRARY, piezoresistive_drift
@@ -384,7 +383,7 @@ class DownholeEngine:
 
 
 def run_batch(wells: dict, steps: int = 100, dt: float = 0.12) -> dict:
-    """Multi-well batch (v1.6.0): run each named SimulatorConfig for `steps`
+    """Multi-well batch: run each named SimulatorConfig for `steps`
     and return {well_name: summary}. A field-wide study in one call."""
     out = {}
     for name, cfg in wells.items():

@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""telemetry — field-telemetry realism layer (v1.3.0 extension).
+"""telemetry — field-telemetry realism layer.
 
 The engine produces clean physics samples at an arbitrary internal step. Real
 permanent-gauge telemetry does not look like that: it arrives at a fixed

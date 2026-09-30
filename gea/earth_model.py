@@ -3,8 +3,7 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """earth_model - Part 1 of the subsurface surveying tool: THE EARTH MODEL.
 
-v1.74.0 (Daniel's 2026-08-29 gap analysis: "we are making a geological
-subsurface surveying tool" - this is the container that holds the map).
+The container that holds the map of a geological subsurface surveying tool.
 
 WHAT THIS IS
     Every catalogue entry so far has been a 1-D column at a scattered site.

@@ -8,10 +8,10 @@ deep-well (TD ~20,300 ft) six-gauge quartz P/T string with GEA-stabilized
 drift, transient events, live animation (matplotlib / optional PyQt6), and
 CSV export.
 
-Provenance: ported 2026-08-22 (Daniel GO) from the 22Aug2026 Grok thread
-template (grok_cce7a73b); canonical primitives locked, template tuning knobs
-renamed to engineering trims per the knob ruling. See README.md and
-PAPER_2256.
+The program aging model composes a fixed drift-suppression factor from three
+locked engineering constants (K_MEX = 25/12, PHI_RES = 0.84, F_TRZ = 0.1); the
+user-facing settings are the two instrument trims (k_structural_trim,
+phi_coupling_trim), never the constants. See README.md.
 
 Quick use (headless):
     from gea import DownholeEngine, SimulatorConfig
@@ -97,6 +97,8 @@ from .modbus import (
     RegisterMap,
     load_register_map,
 )
+from .opcua_port import ASYNCUA_AVAILABLE, OpcUaTap          # registers the 'opcua' port at import
+from .mqtt_port import PAHO_AVAILABLE, MqttTap                # registers the 'mqtt' port at import
 from .well_assembler import (
     WellAssembly, WellComponent, assemble, assemble_ktb_hb, assemble_odp_504b,
     assemble_site_1027, assemble_u1324, BUILTIN_ASSEMBLIES,
@@ -125,7 +127,7 @@ from .profile_catalog import (
     read_pangaea_txt,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     "calculate_quartz_transducer_hpht_program", "canonical_suppression",
     "conventional_drift", "drift_comparison",

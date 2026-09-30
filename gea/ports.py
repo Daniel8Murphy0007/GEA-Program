@@ -1,9 +1,9 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""ports — the live-stream ports/plug-in layer (v1.8.0 extension).
+"""ports — the live-stream ports/plug-in layer.
 
-Piece 2 of the two-stream build (Daniel's architecture, PAPER_2256 appendix 6):
+Piece 2 of the two-stream design:
 READ-ONLY taps that ingest live-stream data from site logging systems into a
 single normalized form — `LiveStream` — that the reconciler (piece 3) will
 coordinate against the closed stream's predictions.
@@ -19,7 +19,7 @@ Design rules:
     no-invented-behavior pattern as the tool library's user-supplied specs.
     `register_port()` lets a site plug in its own reader without touching
     this module.
-  * ROUND-TRIP VERIFIED. The v1.3.0 telemetry layer exports field-historian
+  * ROUND-TRIP VERIFIED. The telemetry layer exports field-historian
     CSVs; the historian port re-ingests them bit-consistently (MISSING ->
     NaN, flags carried). Closed stream -> simulated live file -> port ->
     the same numbers: the ingest path is proven in simulation before it
@@ -28,7 +28,7 @@ Design rules:
 Implemented file formats:
   * historian_csv — wide-format historian export: first column timestamp
     (ISO or numeric), remaining columns channels; blank cells = missing.
-    Auto-detects the v1.3.0 telemetry export layout (flag_* columns).
+    Auto-detects the telemetry export layout (flag_* columns).
   * las2 — LAS 2.0 well-log files (public standard, Canadian Well Logging
     Society): ~V/~W/~C/~A sections, NULL substitution, unwrapped data.
     Wrapped-mode files are REFUSED (unsupported), never mis-parsed.
@@ -93,7 +93,7 @@ class LiveStream:
 
 
 # ---------------------------------------------------------------------------
-# historian_csv reader (auto-detects the v1.3.0 telemetry export layout)
+# historian_csv reader (auto-detects the telemetry export layout)
 # ---------------------------------------------------------------------------
 def _parse_time(s: str, t0: Optional[datetime]) -> tuple:
     try:
@@ -108,7 +108,7 @@ def _parse_time(s: str, t0: Optional[datetime]) -> tuple:
 def read_historian_csv(path) -> LiveStream:
     """Wide-format historian export: col 0 = timestamp (ISO or numeric),
     remaining columns = channels; blank cells = missing -> NaN. Columns named
-    flag_* (the v1.3.0 telemetry layout) become per-gauge quality flags
+    flag_* (the telemetry layout) become per-gauge quality flags
     attached to that gauge's channels instead of numeric channels."""
     p = Path(path)
     with p.open(newline="") as f:
@@ -158,7 +158,7 @@ def read_las(path) -> LiveStream:
     """LAS 2.0 reader: ~Version/~Well/~Parameter/~Curve/~ASCII sections,
     NULL-value substitution -> NaN, depth-indexed curves.
 
-    WRAP. NO: one line per depth step. WRAP. YES (v1.13.0, driven by the real
+    WRAP. NO: one line per depth step. WRAP. YES (driven by the real
     Kennetcook #2 / P-129 catalogue well): records are assembled by
     accumulating values until the curve count is reached - honest parsing
     replaced the earlier refusal once a real wrapped file existed to verify
@@ -293,12 +293,12 @@ PORT_REGISTRY: Dict[str, PortSpec] = {
     'historian_csv': PortSpec(
         name='historian_csv', transport='file (wide-format historian CSV export)',
         status=IMPLEMENTED, reader=read_historian_csv,
-        detail="round-trip verified against the v1.3.0 telemetry export layout"),
+        detail="round-trip verified against the telemetry export layout"),
     'las2': PortSpec(
         name='las2', transport='file (LAS 2.0 well log, CWLS public standard)',
         status=IMPLEMENTED, reader=read_las,
         detail="unwrapped mode; NULL substitution; wrapped mode refused"),
-    # NOTE (v1.41.0): this base entry is the PRE-IMPORT fallback only. Importing
+    # NOTE: this base entry is the fallback before the modbus module loads. Importing
     # modbus (which the package __init__ always does) UPGRADES this entry in
     # place to the real pymodbus TCP client (reader=read_modbus, status=
     # IMPLEMENTED_REQUIRES_SITE_CONFIG when pymodbus is installed). A static read

@@ -13,5 +13,5 @@
   "temperature_data": "REAL MEASURED ANCHORS in the header: BHT = 141.0 DEGF at TD 9097.0 ft (MRT identical); mud sample temperature 74.0 DEGF. Second real BHT in the catalogue - and the first in DEGF, exercising the converter's no-conversion unit branch.",
   "dialect_notes": "LAS VERSION 1.2 - the catalogue's THIRD LAS version dialect (after 2.0 unwrapped and 2.0 wrapped); depths in FEET (first imperial-depth well, converter depth_unit='ft' path); leading-space header lines; 17 curves.",
   "purpose": "fourth real catalogue well - Texas/Permian-region (Energy One home turf); LAS 1.2 + imperial-depth + DEGF-BHT coverage",
-  "verified": "ingests via uqff_ports.read_las; BHT/MRT/TDL captured to meta; DERIVED_FROM_MEASURED_BHT profile in feet; gate-pinned"
+  "verified": "ingests via ports.read_las; BHT/MRT/TDL captured to meta; DERIVED_FROM_MEASURED_BHT profile in feet; gate-pinned"
 }

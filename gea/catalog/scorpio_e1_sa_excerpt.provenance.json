@@ -10,8 +10,8 @@
   "fetch_method": "read-only HTTPS fetch (text/plain), size-capped by the fetch tool",
   "coverage": "VERBATIM EXCERPT: full original header + data rows 30.60-33.55 m (60 rows, open-hole interval with varied values). The full file spans 0.05-136.60 m at 0.05 m step; excerpt boundaries disclosed in-file via # comments.",
   "curves": ["DEPT.M", "CALI.MM", "DFAR.G/CM3", "DNEAR.G/CM3", "GAMN.GAPI", "NEUT.CPS", "PR.OHM/M", "SP.MV", "COND.MS/M"],
-  "temperature_curve": "NONE - stratigraphy log; profile conversion uses DERIVED gradients, labeled (Rule 7)",
+  "temperature_curve": "NONE - stratigraphy log; profile conversion uses DERIVED gradients, labeled",
   "dialect_notes": "exercises a DIFFERENT LAS dialect than the Volve entry: NULL = -99999 (not -999.25), # divider comment lines throughout the header, ~A line carrying inline column headers, free-text parameter values",
   "purpose": "second real catalogue well; LAS-dialect diversity for the las2 port",
-  "verified": "ingests via uqff_ports.read_las; gate-pinned"
+  "verified": "ingests via ports.read_las; gate-pinned"
 }

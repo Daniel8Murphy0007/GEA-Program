@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""Gamma-ray / lithology module (v1.46.0) - field-tier step 6 (first half).
+"""Gamma-ray / lithology module.
 
 The evaluation's stated oilfield goal: "No NaI(Tl) GR, API units, lithology
 from GR, or LAS curve -> formation flag. Several catalogue LAS files already
@@ -20,8 +20,8 @@ Honesty rules, enforced in code:
 - METHOD LABELS: shale volume uses the linear gamma-ray index
   Vsh = (GR - GR_clean)/(GR_shale - GR_clean) - the industry-standard
   first-pass estimate, labeled INDUSTRY_STANDARD_METHOD (classical
-  petrophysics, NOT a GEA derivation; per the Hybrid doctrine it is never
-  dressed as one). Clean/shale picks default to the P5/P95 percentiles of
+  petrophysics, not a result of the program's own model, and never
+  presented as one). Clean/shale picks default to the P5/P95 percentiles of
   the measured curve, labeled STATISTICAL_PICKS (they are statistics of
   this log, not formation knowledge); caller-supplied picks override.
   The sand/shale cutoff defaults to 0.5, labeled CONVENTION.
