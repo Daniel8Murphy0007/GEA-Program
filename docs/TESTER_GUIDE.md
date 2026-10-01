@@ -71,6 +71,30 @@ If you have a LAS well-log file, type (with your own file's location):
 If the file is missing the needed measurements, the program will say
 exactly what is missing rather than guessing.
 
+## USING THE DASHBOARD IN A BROWSER (optional)
+
+The command window is not the only way. In the command window, type these two
+lines (change `C:\gea-site` to any folder you like):
+
+    gea workspace --path C:\gea-site --action init --name "My site"
+    gea serve --workspace C:\gea-site
+
+Then open **http://127.0.0.1:8765/** in your browser. The first time, it asks
+you to create the administrator (your name and a password of 8 or more
+characters). After that: **Wells** -> "Add a well from a file" -> choose your
+historian CSV or LAS file -> "Add file well". Then **Home** -> "Refresh every
+report". Every tile and every row opens the report behind it; **Jobs** shows
+every run with its log if something fails; **Verification** -> "Run the
+acceptance suite" runs the same 189-check gate from the page. Close the
+command window to stop the service; your folder keeps everything.
+
+To see live data without a rig: open a second command window and type
+`gea wits0-sim --port 5001`. Then, in the dashboard, **Patch panel** -> "Add a
+patch": name `floor`, protocol `wits0`, your well, "Load the example map",
+"Add and start". Within a few seconds the patch shows CONNECTED and the
+live values table fills with hookload, standpipe pressure, bit depth and
+rate of penetration from the simulated floor.
+
 ## IF SOMETHING GOES WRONG
 
 - If step 15 says **"python is not recognized"**: type the same command

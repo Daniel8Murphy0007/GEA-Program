@@ -5,6 +5,35 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.3.0] - 2026-10-01 - the dashboard as the door, and the patch panel
+
+### Added
+- The dashboard as the door: `gea/workspace.py`, `gea/jobs.py`,
+  `gea/service.py`, `gea/web/app.html`; CLI `gea workspace`, `gea serve`,
+  `gea users`, `gea survey`. See README "Serving the dashboard".
+- Acceptance section AC (17 checks; gate 189); section AC in the FAT/SAT
+  protocol; a browser-driven check of the page.
+- The patch panel: `gea/wits0.py` (WITS Level 0 over TCP connect, TCP
+  listen, serial; in-package simulator `gea wits0-sim`), `gea/witsml.py`
+  (WITSML 1.4.1 read-only client; in-package test store), `gea/patches.py`
+  (supervised patches with reconnect, heartbeat, daily record files, priority
+  fold), unit normalisation on mappings (`unit_in`), the patch API and the
+  Patch panel page. Extras `serial`; `live` now includes pyserial.
+  Acceptance section AD (10 checks; gate 199).
+
+### Changed
+- `gea/alarm_engine.py`: processing is idempotent against the event log
+  (states rebuilt from the log, samples before the watermark skipped);
+  acknowledgements persist across runs; KPIs no longer double on re-runs.
+- `gea/client_reports.py`: the alarm report reads the engine's event list
+  (run markers never appear in a report).
+- `pyproject.toml`: `web/*` is package data; `serial` extra.
+- `gea/dashboard.py`: a stream with no downhole gauge stations (a drill-floor
+  feed) gets quality and alarm reports; its drift report is marked not
+  applicable instead of failing the refresh.
+- `gea/sbom.py`: pyserial listed among the optional components (ten in all).
+- README, TESTER_GUIDE: the served dashboard.
+
 ## [v0.2.0] - 2026-09-30 - the standalone ship
 
 ### Added

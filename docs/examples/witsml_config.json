@@ -1,0 +1,48 @@
+{
+ "url": "http://127.0.0.1:8000/witsml/store",
+ "auth": {
+  "username_env": "GEA_WITSML_USER",
+  "password_env": "GEA_WITSML_PASSWORD"
+ },
+ "uid_well": "W-1",
+ "uid_wellbore": "WB-1",
+ "uid_log": "LOG-1",
+ "poll_s": 5.0,
+ "lookback_s": 600.0,
+ "timeout_s": 30.0,
+ "keep_unmapped": true,
+ "items": [
+  {
+   "mnemonic": "DBTM",
+   "tag_id": "DBTM_ft",
+   "unit": "ft",
+   "tag_class": "depth",
+   "scale": 1.0,
+   "description": "bit depth"
+  },
+  {
+   "mnemonic": "HKLD",
+   "tag_id": "HKLD_klbf",
+   "unit": "klbf",
+   "tag_class": "hookload",
+   "scale": 1.0,
+   "description": "hookload"
+  },
+  {
+   "mnemonic": "SPPA",
+   "tag_id": "SPP_psi",
+   "unit": "psi",
+   "tag_class": "pressure",
+   "scale": 1.0,
+   "description": "standpipe pressure"
+  },
+  {
+   "mnemonic": "ROP",
+   "tag_id": "ROP_ft_h",
+   "unit": "ft/h",
+   "tag_class": "rate",
+   "scale": 1.0,
+   "description": "rate of penetration"
+  }
+ ]
+}

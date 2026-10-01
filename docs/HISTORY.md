@@ -4,6 +4,61 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.3.0 - 2026-10-01 - the dashboard as the door, and the patch panel
+
+- **The patch panel** (`wits0.py`, `witsml.py`, `patches.py`): WITS Level 0
+  from the drill floor over TCP connect, TCP listen or serial (`pyserial`
+  extra), with the record-01 item dictionary, sentinels and non-numeric
+  values as GAP, frame date/time as the source timestamp, recording and
+  replay, and `gea wits0-sim`, an in-package sender to rehearse with;
+  WITSML 1.4.1 read-only client (GetVersion, GetCap, GetFromStore on one log
+  object; rows newer than the last seen at each poll; credentials by
+  environment-variable name; the store's null as GAP; recording and replay;
+  an in-package test store); unit normalisation on every mapping (`unit_in`
+  beside `unit`, known pairs converted before scale and offset, unknown pairs
+  declined at load); the supervisor (reconnect with backoff 2 ... 60 s,
+  heartbeat, latency, per-tag last values, records appended to daily files,
+  several sources folded into one stream by priority); the patch API with
+  roles; the Patch panel page with a per-patch page of live values and the
+  map. A drill-floor stream with no gauge stations is reported for quality
+  and alarms with its drift report marked not applicable. CLI `gea wits0`,
+  `gea witsml`, `gea wits0-sim`; extras `serial`, `live` now includes
+  pyserial. Acceptance section AD (AD1-AD10; gate 199), with live loopbacks
+  for both protocols that need no hardware.
+- **The dashboard as the door.** `gea/workspace.py` (one folder per site:
+  wells from a file, the catalogue or a live tag map; the client's files
+  copied in verbatim and hashed; the version store; monitor logs; reports;
+  jobs; an append-only audit log with the SHA-256 of every input; migration
+  of a `--out` folder), `gea/jobs.py` (every action a job running
+  `python -m gea <command>` with its log, status and return code; a
+  scheduler for daily, monthly and interval jobs; atomic state files),
+  `gea/service.py` (a standard-library HTTP service: the page, the reports as
+  static files, a JSON API for every read and action; accounts in
+  `users.json` as salted PBKDF2-SHA256 hashes; roles viewer < operator <
+  approver < admin; HttpOnly SameSite sessions; the page's own header
+  required on every action; validated configuration commits; a series
+  endpoint for trend plots; a survey endpoint; only a fixed list of commands
+  may run), `gea/web/app.html` (one self-contained page, no external assets:
+  Home, Wells, Live data, Alarms, Approvals, Configuration, Reports,
+  Verification, Survey, Jobs, Administration; inline SVG trend plots with
+  flagged samples marked; keyboard-operable, labelled, status always an icon
+  with a label, light and dark, phone width without horizontal scroll).
+  CLI: `gea workspace`, `gea serve`, `gea users`, `gea survey`.
+- **Alarm log idempotence** (`alarm_engine.py`): the engine rebuilds its
+  states from the event log and processes only samples newer than the log's
+  watermark (a `PROCESSED` marker per run, kept in the file, never in the
+  reports), so re-processing the same stream adds no activations, KPIs no
+  longer double, and an acknowledgement made yesterday still stands today.
+  Found by the first acknowledge from the page.
+- Acceptance section AC (AC1-AC17): the workspace, jobs and scheduler,
+  accounts, the service through HTTP (sessions, header, roles, reads, jobs,
+  configuration, upload, acknowledgement, approvals, audit) and the CLI.
+  Gate: 189 checks. Section AC is part of the FAT/SAT protocol.
+- Verified in a real browser (Chromium): setup, sign-in, every page, the
+  trend plot and channel switch, acknowledge from the wall, a level-1
+  well-test decision, a criteria commit, a job from Verification, keyboard
+  focus order, the theme toggle, a viewer's restricted pages, phone width.
+
 ## v0.2.0 - 2026-09-30 - the standalone ship
 
 - **Live protocol ports.** `opcua_port` (read-only asyncua client: read once

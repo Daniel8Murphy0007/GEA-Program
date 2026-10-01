@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gea-program"
-version = "0.2.0"
+version = "0.3.0"
 description = "GEA-Program: downhole gauge monitoring - canonical measurement records, quality rules, drift evaluation with a re-fit change log, well-test validation, alarm management, model cards, store-and-forward, monthly SLA measurement, FAT/SAT protocols and a dashboard, generated from live objects in the client's reporting outline."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -25,7 +25,8 @@ desktop = ["PyQt6>=6.5", "matplotlib>=3.7"]
 modbus = ["pymodbus>=3.0"]
 opcua = ["asyncua>=1.0"]
 mqtt = ["paho-mqtt>=2.0"]
-live = ["asyncua>=1.0", "paho-mqtt>=2.0", "pymodbus>=3.0"]
+serial = ["pyserial>=3.5"]
+live = ["asyncua>=1.0", "paho-mqtt>=2.0", "pymodbus>=3.0", "pyserial>=3.5"]
 xls = ["xlrd>=2.0"]
 
 [project.urls]
@@ -39,4 +40,4 @@ gea = "gea.cli:main"
 packages = ["gea"]
 
 [tool.setuptools.package-data]
-gea = ["catalog/*", "sample_well_profile.csv", "example_register_map.json", "BENCH_TEST_PROTOCOL.md"]
+gea = ["catalog/*", "web/*", "sample_well_profile.csv", "example_register_map.json", "BENCH_TEST_PROTOCOL.md"]

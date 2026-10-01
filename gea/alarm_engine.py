@@ -147,9 +147,40 @@ class AlarmEngine:
         self.events: List[dict] = []
         self.log_path = event_log_path
         self.operator_positions = max(1, int(operator_positions))
+        self.watermark: Optional[datetime] = None      # last sample time already processed into this log
         if event_log_path and os.path.exists(event_log_path):
             with open(event_log_path, encoding='utf-8') as f:
-                self.events = [json.loads(l) for l in f if l.strip()]
+                lines = [json.loads(l) for l in f if l.strip()]
+            self.events = [e for e in lines if e.get('event') != 'PROCESSED']    # run markers stay in the file only
+            self._replay(lines)
+
+    def _replay(self, lines: List[dict]) -> None:
+        """Rebuild the alarm states from the event log, so a second run over the same
+        stream adds nothing, an acknowledgement made yesterday still stands today, and
+        only samples newer than the log's watermark are processed."""
+        for e in lines:
+            if e.get('event') == 'PROCESSED':
+                self.watermark = parse_utc(e['timestamp_utc'])
+                continue
+            st = self.states.get(e.get('alarm_id'))
+            if st is None:
+                continue
+            t = parse_utc(e['timestamp_utc'])
+            ev = e['event']
+            if ev == 'ACTIVATED':
+                st.state, st.active_since = 'ACTIVE_UNACKED', t
+                st.activations.append(t)
+            elif ev == 'ACKNOWLEDGED':
+                if st.state == 'ACTIVE_UNACKED':
+                    st.state = 'ACTIVE_ACKED'
+            elif ev in ('CLEARED', 'RTN_UNACKED'):
+                st.state, st.active_since = 'NORMAL', None
+            elif ev == 'SHELVED':
+                st.state, st.cond_since = 'SHELVED', None
+            elif ev == 'UNSHELVED':
+                st.state = 'NORMAL'
+            if e.get('value') is not None and ev in ('ACTIVATED', 'CLEARED', 'RTN_UNACKED'):
+                st.last_value, st.last_time = e['value'], t
 
     # -- events -----------------------------------------------------------------
     def _event(self, now: datetime, d: AlarmDefinition, event: str, value=None, operator: str = '', note: str = '') -> dict:
@@ -190,7 +221,11 @@ class AlarmEngine:
         """Process records in time order per tag. Returns the events raised."""
         start = len(self.events)
         recs = sorted(records, key=lambda r: (r.timestamp_utc, r.tag_id))
+        if self.watermark is not None:
+            recs = [r for r in recs if parse_utc(r.timestamp_utc) > self.watermark]
+        last_time: Optional[datetime] = None
         for rec in recs:
+            last_time = parse_utc(rec.timestamp_utc)
             for d in self.by_tag.get(rec.tag_id, []):
                 if not d.enabled:
                     continue
@@ -217,6 +252,13 @@ class AlarmEngine:
                 # cond None: inside the deadband - hold the current state
                 if rec.value is not None and not (isinstance(rec.value, float) and np.isnan(rec.value)):
                     st.last_value, st.last_time = rec.value, now
+        if last_time is not None:
+            self.watermark = last_time
+            if self.log_path:
+                marker = {'timestamp_utc': _iso(last_time), 'alarm_id': '', 'tag_id': '', 'kind': 'PROCESSED', 'priority': '',
+                          'event': 'PROCESSED', 'value': None, 'setpoint': None, 'operator': '', 'note': f'{len(recs)} samples processed'}
+                with open(self.log_path, 'a', encoding='utf-8') as f:
+                    f.write(json.dumps(marker, sort_keys=True) + '\n')
         return self.events[start:]
 
     # -- operator actions -------------------------------------------------------------

@@ -353,9 +353,14 @@ def orchestrate(out_dir: str, catalog_wells: List[dict], file_wells: List[dict],
         with open(os.path.join(d, 'well.json'), 'w', encoding='utf-8') as f:
             json.dump({'display': name, 'source': fw['path']}, f)
         cat = TagCatalogue.from_stream(stream, gauge_spec=gauge_spec)
-        ev = Reconciler(cfg).reconcile(stream)
-        write(gauge_drift_report(ev, stream, catalogue=cat, well_name=name, program_version=_v, gauge_spec=gauge_spec), d)
-        made.setdefault(name, []).append('drift')
+        try:
+            ev = Reconciler(cfg).reconcile(stream)
+            write(gauge_drift_report(ev, stream, catalogue=cat, well_name=name, program_version=_v, gauge_spec=gauge_spec), d)
+            made.setdefault(name, []).append('drift')
+        except ValueError as e:                                  # a stream with no downhole gauge stations (a drill-floor feed): drift does not apply
+            with open(os.path.join(d, 'drift_not_applicable.json'), 'w', encoding='utf-8') as f:
+                json.dump({'well': name, 'reason': str(e), 'channels': list(stream.channels), 'evaluated_at_utc': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}, f, indent=1)
+            made.setdefault(name, []).append('drift_not_applicable')
         recs = records_from_stream(stream, cat)
         eng = AlarmEngine(defaults_from_catalogue(cat), event_log_path=os.path.join(d, 'alarm_events.jsonl'))
         eng.process(recs)

@@ -7,7 +7,7 @@ Three checks, each printed, all three gating (exit 1 on any finding):
 
   1. imports: every module under gea/ imports only the standard library, numpy,
      the declared optional extras (matplotlib, PyQt6, pymodbus, asyncua,
-     paho-mqtt, xlrd) and gea itself. No other package, ever.
+     paho-mqtt, xlrd, pyserial) and gea itself. No other package, ever.
   2. text: no tracked text file names another program's package, module or
      document-numbering scheme. The list of patterns is at the top of this file;
      add to it, never remove.
@@ -31,7 +31,7 @@ except ImportError:                     # 3.10: a small reader for the two table
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ALLOWED_TOP = {
-    'numpy', 'matplotlib', 'PyQt6', 'pymodbus', 'asyncua', 'paho', 'xlrd', 'gea',
+    'numpy', 'matplotlib', 'PyQt6', 'pymodbus', 'asyncua', 'paho', 'xlrd', 'serial', 'gea',
 }
 # Names of packages, modules and document schemes that belong to other programs.
 # A tracked file naming any of them breaks the standalone guarantee.
@@ -147,8 +147,8 @@ def check_metadata() -> list[str]:
     findings = []
     deps, package_data = _read_pyproject()
     for d in deps:
-        name = re.split(r'[<>=!~\[; ]', d, 1)[0].strip()
-        if name.replace('-', '_') not in {'numpy', 'matplotlib', 'PyQt6', 'pymodbus', 'asyncua', 'paho_mqtt', 'xlrd'}:
+        name = re.split(r'[<>=!~\[; ]', d, maxsplit=1)[0].strip()
+        if name.replace('-', '_') not in {'numpy', 'matplotlib', 'PyQt6', 'pymodbus', 'asyncua', 'paho_mqtt', 'xlrd', 'pyserial'}:
             findings.append(f'pyproject.toml: dependency outside the allowed set: {d}')
     for pattern in package_data:
         if '*' in pattern:

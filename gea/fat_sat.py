@@ -30,6 +30,8 @@ CLIENT_SECTIONS = [
     ('F', 'section_f_ports', 'Ingest ports (historian CSV, LAS)'),
     ('AA', 'section_aa_client_reports', 'Client report family: records, quality, drift, accuracy, monitor, well tests, alarms, model cards, resilience, configuration, SBOM, SLA, FAT/SAT, dashboard'),
     ('AB', 'section_ab_live_ports', 'Live protocol ports: OPC UA and MQTT (Sparkplug B) - mapping, quality, recording and replay, hand-off to the stream and the buffer; live loopback where the dependency is installed'),
+    ('AC', 'section_ac_dashboard_service', 'The dashboard service: workspace, jobs and schedule, accounts and roles, every action through the API, the audit log'),
+    ('AD', 'section_ad_patch_panel', 'The patch panel: WITS Level 0 and WITSML 1.4.1 ports with in-package simulators, unit normalisation, the supervisor, the patch API'),
 ]
 
 

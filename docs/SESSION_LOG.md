@@ -73,3 +73,66 @@ summary; `docs/HISTORY.md` the record by layer.
   `pyproject.toml` and `gea/__init__.py`; `CHANGELOG.md` and this log added;
   `ship.ps1` step 5 now also requires a `CHANGELOG.md` section for the tag;
   `SHIP_MESSAGE.txt` written for v0.2.0.
+
+## 2026-09-30 - the dashboard as the door
+
+- Decision: the dashboard is where the client interacts with the program and
+  must reach every feature; the command line stays the engine. Build order:
+  workspace, jobs, service, pages and actions, plots, acceptance and docs.
+- Built `workspace.py`, `jobs.py`, `service.py`, `web/app.html`; wired
+  `gea workspace`, `gea serve`, `gea users`, `gea survey` into the CLI.
+- Found and fixed along the way: `gea alarms --ack` needed `--now` (the
+  service passes it); the alarm engine re-logged every activation on every run
+  and lost acknowledgements between runs (idempotence against the event log
+  added; KPI activations halved to the true count); uploads kept a staging
+  name instead of the client's file name; a job-state file could be read
+  half-written (atomic writes, tolerant reads); two views rendering at once
+  could interleave (views now render one at a time, in order); the approvals
+  queue listed superseded re-fit proposals (only the open proposal per station
+  is shown); tables and approval rows overflowed at phone width.
+- Verification: gate 189/189 in the cloud; a Chromium run through every page
+  and action; the standalone check green (the service and page add no
+  dependency).
+- Not yet: the live loopback of a tap from the page on the development
+  machine (needs asyncua, which the cloud lacks); the standalone check from
+  the Verification page works from a checkout, not from the wheel (documented
+  in the page's message).
+
+## 2026-10-01 - band A: the patch panel
+
+- Decision: WITS0 first (TCP and serial, the most common floor feed and the
+  easiest to simulate), WITSML behind it; both with in-package simulators so a
+  site rehearses a patch before the rig is on line and the gate tests the
+  protocols with no hardware.
+- Built `wits0.py`, `witsml.py`, `patches.py`; unit normalisation in
+  `live_ports.TagMapping`; patch API and Patch panel page; `gea wits0`,
+  `gea witsml`, `gea wits0-sim`.
+- Found along the way: a bounded WITS0 run treated the sender closing as an
+  error (now: a bounded run ends, a supervised run reconnects); the WITSML
+  test store read the query unescaped and returned rows before the start
+  index (fixed; incremental polling verified: the next poll returns only
+  rows newer than the last seen); the refresh failed on a drill-floor stream
+  because the reconciler needs gauge stations (now reported as not
+  applicable; quality and alarms still run); the simulator stamped frames at
+  schedule time instead of send time, inflating latency.
+- Verification: gate 199/199 in the cloud (AD3 and AD6 are live loopbacks over
+  real sockets); a Chromium run adds a WITS0 patch against the simulator from
+  the page, watches it connect, reads its live values, stops it; standalone
+  check 0 findings.
+- Amendment (2026-10-01, ship preparation): version 0.3.0 set in
+  `pyproject.toml` and `gea/__init__.py`; CHANGELOG and HISTORY sections
+  headed v0.3.0; `SHIP_MESSAGE.txt` written for v0.3.0. Found on the
+  development machine before the ship: a plain `pip install .` had frozen an
+  older copy of the package under `gea`, so the served page lacked the patch
+  routes; `gea serve` now prints the folder it serves from, and `gea
+  wits0-sim` reports that it is waiting, when a client connects and as frames
+  go out. The editable install (`pip install -e .`) is the recommended way to
+  run the service from a checkout.
+- Amendment (2026-10-01, first ship attempt): `ship.ps1 -DryRun` was green and
+  the real run went red on AD9 a minute later - the overview request read the
+  audit log while a patch thread was appending to it and hit a half-written
+  line. Fixed at the root: audit writes are serialised under a lock and the
+  reader skips a line that is still being written; AD9 now reports what the
+  overview returned instead of raising. The gate passed three consecutive
+  runs after the fix. Also fixed: a `re.split` deprecation warning in the
+  standalone check.

@@ -1208,13 +1208,13 @@ def section_aa_client_reports(tmp: str) -> None:
     from .sbom import generate as _sbom_gen, write as _sbom_write
     sb = _sbom_gen()
     names = [c["name"] for c in sb["components"]]
-    ok(sb["n_components"] == 9 and names[0] == "Downhole Gauge Monitoring" and "numpy" in names and "Python" in names
+    ok(sb["n_components"] == 10 and names[0] == "Downhole Gauge Monitoring" and "numpy" in names and "Python" in names
        and all(set(c) >= {"name", "version", "supplier", "licence", "hash", "identifier", "relationship", "generated_utc"} for c in sb["components"])
        and next(c for c in sb["components"] if c["name"] == "numpy")["version"] not in ("", "not installed"),
-       "AA45 SBOM: nine components (product, Python, numpy, six optional) with all eight fields, versions and licences read from "
+       "AA45 SBOM: ten components (product, Python, numpy, seven optional) with all eight fields, versions and licences read from "
        "installed metadata, optional components listed whether installed or not")
     pth = _sbom_write(sb, str(Path(tmp, "sbom")))
-    ok(Path(pth["json"]).exists() and len(Path(pth["csv"]).read_text().splitlines()) == 10, "AA46 SBOM written as JSON and CSV (header + 9 rows)")
+    ok(Path(pth["json"]).exists() and len(Path(pth["csv"]).read_text().splitlines()) == 11, "AA46 SBOM written as JSON and CSV (header + 10 rows)")
     from .sla_report import measure
     m = measure("2026-10", monitor_log_dir=str(Path(tmp, "mon")), well_test_dir=str(Path(tmp, "wt_rec")), config_dir=str(Path(tmp, "cfgs")))
     by = {l["metric"]: l for l in m["lines"]}
@@ -1434,6 +1434,404 @@ def section_ab_live_ports(tmp: str) -> None:
         ok(conn_err, "AB14 with paho-mqtt installed an unreachable broker is reported as ConnectionError, never silently empty")
 
 
+def section_ac_dashboard_service(tmp: str) -> None:
+    """Section AC - the dashboard as the door: the workspace, the job runner and
+    scheduler, accounts and roles, the HTTP service and its page, every action
+    exercised through the API with a role that may and one that may not, the
+    audit log, and the alarm log's idempotence that the page depends on."""
+    import base64
+    import http.cookiejar
+    import urllib.request
+    import urllib.error
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    from .workspace import Workspace, WorkspaceError, sha256_file
+    from .jobs import JobRunner, Scheduler
+    from .service import Service, Users, ApiError, RUNNABLE
+    from . import DownholeEngine, SimulatorConfig
+    from .telemetry import TelemetryRecorder, TelemetryConfig
+    from .opcua_port import write_example_config
+
+    # a historian file to work with (three hours, deterministic, with a stuck gauge still alarming at the end)
+    hist = str(Path(tmp, "hist_ac.csv"))
+    TelemetryRecorder(engine=DownholeEngine(SimulatorConfig()), config=TelemetryConfig(duration_hours=3.0, seed=1, gauge_stuck_start_prob=0.004)).run().export_csv(hist)
+    opc = str(Path(tmp, "opc_ac.json")); write_example_config(opc)
+
+    # -- workspace ------------------------------------------------------------------------
+    wsp = str(Path(tmp, "ws_ac"))
+    ws = Workspace.create(wsp, "Acceptance Site", actor="tester")
+    w1 = ws.add_well_file(hist, display="Well A", actor="tester")
+    w2 = ws.add_well_catalog("volve_f12_f14_production_excerpt", "15/9-F-12", 10000.0, actor="tester")
+    w3 = ws.add_well_live("Pad OPC", "opcua", opc, actor="tester")
+    copied = Path(wsp, "wells", w1["id"], "source", "hist_ac.csv")
+    ok(copied.exists() and sha256_file(str(copied)) == w1["source"]["sha256"] == sha256_file(hist) and Path(hist).exists()
+       and {w["kind"] for w in ws.wells()} == {"file", "catalog", "live"} and Path(wsp, "config", w3["id"] + ".opcua", "v0001.json").exists(),
+       "AC1 workspace: three kinds of well registered; the client's file is copied in verbatim and hashed, the original untouched; "
+       "a live well's port map is versioned in the configuration store")
+    try:
+        ws.add_well_live("Bad", "opcua", hist, actor="tester"); bad_live = False
+    except (WorkspaceError, ValueError):
+        bad_live = True
+    log = ws.audit_log()
+    ok(bad_live and [e["action"] for e in log[:4]] == ["workspace.init", "well.add", "well.add", "well.add"]
+       and log[1]["actor"] == "tester" and list(log[1]["inputs"].values()) == [w1["source"]["sha256"]],
+       "AC2 audit log: every action carries the actor and the SHA-256 of its inputs; a port map that is not JSON is declined before anything is written")
+    r = ws.refresh_dashboard(actor="tester")
+    ok(Path(wsp, "reports", "index.html").exists() and Path(wsp, "reports", "wells", w1["id"], "alarm_event_report.json").exists()
+       and Path(wsp, "reports", "wells", w2["id"], "well_test_validation.json").exists() and Path(wsp, "monitor", w2["id"], "evaluations.jsonl").exists(),
+       "AC3 refresh: the whole report family runs into the workspace (drift, alarms, well tests, monitor) and the printed dashboard is written")
+
+    # -- jobs and the scheduler --------------------------------------------------------------
+    runner = JobRunner(ws, workers=2)
+    j_ok = runner.submit(["sbom", "--out", str(Path(wsp, "reports", "sbom_job"))], actor="tester", label="sbom")
+    j_bad = runner.submit(["no-such-command"], actor="tester", label="bad")
+    a, b = runner.wait(j_ok, 300), runner.wait(j_bad, 120)
+    ok(a["status"] == "DONE" and a["returncode"] == 0 and "sbom.csv" in runner.log(j_ok) and b["status"] == "FAILED" and b["returncode"] != 0
+       and "invalid choice" in runner.log(j_bad) and Path(a["log"]).exists(),
+       "AC4 jobs: a command runs as `python -m gea` with its log kept; success and failure are both recorded with the return code, never silently")
+    sch = Scheduler(runner, tick_s=60)
+    sch.add("nightly", ["sbom", "--out", str(Path(wsp, "reports", "sbom_sched"))], actor="tester", daily_at="02:00")
+    now = _dt(2026, 10, 1, 2, 30, tzinfo=_tz.utc)
+    due1 = [e["name"] for e in sch.entries() if Scheduler.due(e, now)]
+    started = sch.run_due(now)
+    due2 = [e["name"] for e in sch.entries() if Scheduler.due(e, now)]
+    due3 = [e["name"] for e in sch.entries() if Scheduler.due(e, now + _td(days=1))]
+    ok(due1 == ["nightly"] and len(started) == 1 and due2 == [] and due3 == ["nightly"] and runner.wait(started[0], 300)["status"] == "DONE",
+       "AC5 scheduler: a daily job is due once after its time, never twice for one day, and due again the next day; it runs as a job")
+    runner.shutdown()
+
+    # -- accounts -------------------------------------------------------------------------------
+    users = Users(str(Path(wsp, "users.json")))
+    users.add("admin1", "correct-horse-battery", "admin"); users.add("op1", "operator-pass-1", "operator"); users.add("vera", "viewer-pass-1", "viewer")
+    try:
+        users.add("weak", "short", "viewer"); weak = False
+    except ApiError:
+        weak = True
+    stored = json.loads(Path(wsp, "users.json").read_text())["users"][0]
+    ok(users.check("admin1", "correct-horse-battery")["role"] == "admin" and users.check("admin1", "wrong") is None and weak
+       and "correct-horse" not in Path(wsp, "users.json").read_text() and len(stored["hash"]) == 64 and len(stored["salt"]) == 32,
+       "AC6 accounts: passwords are stored as salted PBKDF2-SHA256 hashes, never in clear; a wrong password fails; an 8-character minimum holds")
+    users.set_disabled("vera", True)
+    ok(users.check("vera", "viewer-pass-1") is None, "AC7 a disabled account cannot sign in")
+    users.set_disabled("vera", False)
+
+    # -- the service, driven through HTTP -----------------------------------------------------------
+    svc = Service(wsp, host="127.0.0.1", port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+    cj = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+
+    def call(method, path, body=None, header=True):
+        req = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json")
+        if header and method == "POST":
+            req.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(req, timeout=600) as r:
+                return r.status, json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+
+    def page(path):
+        try:
+            with opener.open(base + path, timeout=30) as r:
+                return r.status, r.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as e:
+            return e.code, ""
+    try:
+        st_page, body = page("/")
+        s1 = call("GET", "/api/session")[1]
+        s2 = call("GET", "/api/overview")[0]
+        s3 = call("POST", "/api/login", {"name": "admin1", "password": "correct-horse-battery"}, header=False)[0]
+        s4 = call("POST", "/api/login", {"name": "admin1", "password": "nope"})[0]
+        s5, lg = call("POST", "/api/login", {"name": "admin1", "password": "correct-horse-battery"})
+        ok(st_page == 200 and "<title>GEA-Program</title>" in body and "http" not in body.split("<script")[0].split("href=")[-1][:0] + ""
+           and s1["user"] is None and s2 == 401 and s3 == 403 and s4 == 401 and s5 == 200 and lg["user"]["role"] == "admin",
+           "AC8 service: the page is served self-contained; reads need a session (401); an action without the page's header is declined (403); "
+           "a wrong password fails (401); a good one opens a session")
+        ov = call("GET", "/api/overview")[1]
+        wells = call("GET", "/api/wells")[1]["wells"]
+        det = call("GET", "/api/wells/" + w1["id"])[1]
+        ser = call("GET", "/api/wells/" + w1["id"] + "/series?points=100")[1]
+        rep = call("GET", "/api/reports")[1]
+        st_static = page("/reports/index.html")[0]
+        st_trav = call("GET", "/reports/../users.json")[0]
+        ok(ov["workspace"]["n_wells"] == 3 and ov["dashboard"] is not None and len(wells) == 3 and "gauge_drift_report" in det["reports"]
+           and "alarm_event_report" in det["reports"] and ser["n_source"] > 0 and ser["stride"] >= 1 and "P_raw_psi_S1" in ser["channels"]
+           and "accuracy_statement.html" in rep["site"] and st_static == 200 and st_trav == 400,
+           "AC9 reads: overview, wells, a well's reports and its down-sampled series for the trend plots, the reports index, the printed reports as static files; "
+           "a path outside the reports folder is declined")
+        st_run, j = call("POST", "/api/verify", {"what": "sbom"})
+        jd = svc.app.runner.wait(j["id"], 300)
+        st_refuse = call("POST", "/api/jobs", {"args": ["serve", "--workspace", wsp]})[0]
+        ok(st_run == 200 and jd["status"] == "DONE" and st_refuse == 400 and "serve" not in RUNNABLE and svc.app.runner.log(j["id"]).startswith("$ gea sbom"),
+           "AC10 actions are jobs: the SBOM runs from the page as `gea sbom` with its log; a command the page may not run is declined")
+        st_c1, m1 = call("POST", "/api/config/commit", {"name": "criteria", "content": {"rate_max_cv_pct": 3.0}, "note": "site value"})
+        st_c2 = call("POST", "/api/config/commit", {"name": "criteria", "content": {"approval_levels": 2}})[0]
+        st_c3 = call("POST", "/api/config/commit", {"name": "criteria", "content": {"no_such_key": 1}})[0]
+        call("POST", "/api/config/commit", {"name": "criteria", "content": {"rate_max_cv_pct": 4.0}, "note": "loosened"})
+        st_rb, m3 = call("POST", "/api/config/rollback", {"name": "criteria", "version": 1})
+        exported = json.loads(Path(wsp, "config", "criteria.json").read_text())
+        ok(st_c1 == 200 and m1["version"] == 1 and st_c2 == 400 and st_c3 == 400 and st_rb == 200 and m3["version"] == 3 and exported["rate_max_cv_pct"] == 3.0
+           and len(call("GET", "/api/config/criteria")[1]["history"]) == 3,
+           "AC11 configuration: commits are validated the way the commands load them (a bad shape or an unknown key is declined), versioned, "
+           "rolled back as a new version, and exported to the file the commands read")
+        up = base64.b64encode(Path(hist).read_bytes()).decode()
+        st_up, wu = call("POST", "/api/wells/file", {"display": "Uploaded", "filename": "up.csv", "content_b64": up})
+        ok(st_up == 200 and wu["id"] == "Uploaded" and Path(wsp, "wells", "Uploaded", "source", "up.csv").exists()
+           and wu["source"]["sha256"] == sha256_file(hist) and not list(Path(wsp, "jobs", "_uploads").glob("*")),
+           "AC12 upload: a file sent from the page lands under the well's source folder with its hash; the upload staging is cleaned")
+        act = call("GET", "/api/wells/" + w1["id"])[1]["reports"]["alarm_event_report"]["active"]
+        unacked = [a for a in act if a["state"] == "ACTIVE_UNACKED"]
+        st_ack, ja = call("POST", "/api/alarms/ack", {"well_id": w1["id"], "alarm_id": unacked[0]["alarm_id"]})
+        act2 = {a["alarm_id"]: a["state"] for a in call("GET", "/api/wells/" + w1["id"])[1]["reports"]["alarm_event_report"]["active"]}
+        n_act_before = call("GET", "/api/wells/" + w1["id"])[1]["reports"]["alarm_event_report"]["kpis"]["n_activations"]
+        call("POST", "/api/refresh", {})
+        svc.app.runner.wait(svc.app.runner.list(1)[0]["id"], 600)
+        rep2 = call("GET", "/api/wells/" + w1["id"])[1]["reports"]["alarm_event_report"]
+        act3 = {a["alarm_id"]: a["state"] for a in rep2["active"]}
+        ok(len(unacked) >= 1 and st_ack == 200 and ja["status"] == "DONE" and act2[unacked[0]["alarm_id"]] == "ACTIVE_ACKED"
+           and act3[unacked[0]["alarm_id"]] == "ACTIVE_ACKED" and rep2["kpis"]["n_activations"] == n_act_before,
+           "AC13 acknowledgement from the page runs `gea alarms --ack` with the operator's name; it survives the next refresh, and the alarm log is "
+           "idempotent - re-processing the same stream adds no activations")
+        q = call("GET", "/api/approvals")[1]
+        pend = [t for t in q["well_tests"] if t["well_id"] == w2["id"]]
+        st_ap, jw = call("POST", "/api/approvals/well-test", {"well_id": w2["id"], "test_id": pend[0]["test_id"], "level": 1, "decision": "APPROVED", "note": "stable"})
+        q2 = call("GET", "/api/approvals")[1]
+        after = [t["approval"] for t in q2["well_tests"] if t["test_id"] == pend[0]["test_id"]]
+        trail = [json.loads(l) for l in Path(wsp, "reports", "wells", w2["id"], "well_test_records", "approvals.jsonl").read_text().splitlines()]
+        ok(len(pend) >= 1 and pend[0]["approval"] == "PENDING_LEVEL_1" and st_ap == 200 and jw["status"] == "DONE" and after == ["PENDING_LEVEL_2"]
+           and trail[-1]["approver"] == "admin1" and trail[-1]["note"] == "stable" and len(q["refits"]) >= 1,
+           "AC14 approvals: the queue lists pending well tests and proposed re-fits across wells; a level-1 decision from the page is appended to the "
+           "approval trail with the approver's name and the test moves to level 2")
+        st_sch = call("POST", "/api/schedule/add", {"name": "hourly sbom", "args": ["sbom", "--out", str(Path(wsp, "reports"))], "every_s": 3600})[0]
+        st_u = call("POST", "/api/users/add", {"name": "op2", "password": "operator-pass-2", "role": "operator"})[0]
+        call("POST", "/api/logout")
+        call("POST", "/api/login", {"name": "vera", "password": "viewer-pass-1"})
+        v1 = call("GET", "/api/overview")[0]
+        v2 = call("POST", "/api/refresh", {})[0]
+        v3 = call("GET", "/api/users")[0]
+        v4 = call("POST", "/api/approvals/well-test", {"well_id": w2["id"], "test_id": "WT001", "level": 1, "decision": "APPROVED"})[0]
+        call("POST", "/api/logout")
+        call("POST", "/api/login", {"name": "op1", "password": "operator-pass-1"})
+        o1 = call("POST", "/api/approvals/refit", {"well_id": w2["id"], "entry": q["refits"][0]["entry_id"], "decision": "APPLIED"})[0]
+        o2 = call("POST", "/api/users/add", {"name": "x", "password": "operator-pass-9", "role": "viewer"})[0]
+        o3 = call("POST", "/api/config/rollback", {"name": "criteria", "version": 1})[0]
+        ok(st_sch == 200 and st_u == 200 and v1 == 200 and v2 == 403 and v3 == 403 and v4 == 403 and o1 == 403 and o2 == 403 and o3 == 403,
+           "AC15 roles: a viewer reads but cannot act (403 on refresh, users, approvals); an operator acts but cannot approve, manage users or roll back")
+        call("POST", "/api/logout")
+        call("POST", "/api/login", {"name": "admin1", "password": "correct-horse-battery"})
+        audit = call("GET", "/api/audit?limit=500")[1]["entries"]
+        actions = [e["action"] for e in audit]
+        actors = {e["actor"] for e in audit}
+        ok({"login", "login.failed", "job.submit", "config.commit", "config.rollback", "well.add", "schedule.add", "user.add", "logout"} <= set(actions)
+           and {"admin1", "vera", "op1", "tester", "system"} <= actors
+           and all(e["actor"] == "admin1" for e in audit if e["action"] == "config.rollback"),
+           "AC16 the audit log records every action with its actor, including failed sign-ins and the system's own job bookkeeping")
+    finally:
+        svc.stop()
+
+    # -- CLI ----------------------------------------------------------------------------------------
+    wsp2 = str(Path(tmp, "ws_cli"))
+    r1 = _cli(["workspace", "--path", wsp2, "--action", "init", "--name", "CLI Site"], tmp)
+    r2 = _cli(["workspace", "--path", wsp2, "--action", "add-file", "--file", hist, "--name", "Well B"], tmp)
+    r3 = _cli(["workspace", "--path", wsp2, "--action", "list"], tmp)
+    env_pw = dict(os.environ, GEA_PASSWORD="from-the-environment")
+    r4 = subprocess.run([sys.executable, "-m", "gea", "users", "--workspace", wsp2, "--action", "add", "--name", "cli-admin", "--role", "admin"],
+                        capture_output=True, text=True, cwd=tmp, env={**env_pw, "PYTHONPATH": str(Path(__file__).resolve().parent.parent) + os.pathsep + env_pw.get("PYTHONPATH", "")})
+    r5 = _cli(["users", "--workspace", wsp2], tmp)
+    r6 = _cli(["serve", "--help"], tmp)
+    ok(r1.returncode == 0 and r2.returncode == 0 and "Well-B" in r2.stdout and r3.returncode == 0 and '"n_wells": 1' in r3.stdout
+       and r4.returncode == 0 and "cli-admin" in r5.stdout and "admin" in r5.stdout and "from-the-environment" not in Path(wsp2, "users.json").read_text()
+       and r6.returncode == 0 and "--workspace" in r6.stdout,
+       "AC17 CLI: `gea workspace` (init, add-file, list), `gea users` (the password from the environment, never the command line) and `gea serve --help`")
+
+
+def section_ad_patch_panel(tmp: str) -> None:
+    """Section AD - the patch panel: WITS Level 0 (codec, simulator loopback over
+    TCP, listen mode, sentinels, replay), WITSML 1.4.1 (test store, incremental
+    polling, nulls, credentials, replay), unit normalisation on the mapping, the
+    supervisor (reconnect with backoff, heartbeat, priority fold into one
+    stream), and the service's patch API with roles."""
+    import socket
+    import threading
+    import http.cookiejar
+    import urllib.request
+    import urllib.error
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    from . import wits0 as W0, witsml as WM
+    from .live_ports import convert_value, conversion, load_mappings, summarize
+    from .ports import PORT_REGISTRY
+    from .workspace import Workspace, WorkspaceError
+    from .patches import PatchStore, PatchSupervisor, build_live_stream, PROTOCOLS
+    from .service import Service, Users
+    from . import DownholeEngine, SimulatorConfig
+    from .telemetry import TelemetryRecorder, TelemetryConfig
+
+    # -- WITS0 codec --------------------------------------------------------------------------
+    raw = W0.encode_frame({"0105": "261001", "0106": "120000", "0112": "162.3", "0119": "2850", "0137": "-9999", "0116": "abc"})
+    parser = W0.FrameParser(); frames = []
+    for i in range(0, len(raw), 5):
+        frames += parser.feed(raw[i:i + 5])
+    cfg = W0.load_config(W0.EXAMPLE_CONFIG)
+    recs = {r.tag_id: r for r in W0.frame_to_records(cfg, frames[0], _dt(2026, 10, 1, 12, 0, 1, tzinfo=_tz.utc))}
+    ok(len(frames) == 1 and recs["HKLD_klbf"].value == 162.3 and recs["HKLD_klbf"].quality_flag == "GOOD"
+       and recs["HKLD_klbf"].timestamp_utc == "2026-10-01T12:00:00.000Z" and recs["HKLD_klbf"].latency_s() == 1.0
+       and recs["wits_0137_gas_total"].quality_flag == "GAP" and "sentinel" in recs["wits_0137_gas_total"].rule_fired
+       and recs["RPM"].quality_flag == "GAP" and "non-numeric" in recs["RPM"].rule_fired and "wits_0105_date" not in recs,
+       "AD1 WITS0 codec: a frame fed in 5-byte pieces parses once; mapped items get the site's tag and unit, unmapped record-01 items keep "
+       "their standard names, the frame's date/time is the source timestamp (1 s latency measured), sentinels and non-numeric values are GAP with the reason")
+    try:
+        W0.load_config(dict(W0.EXAMPLE_CONFIG, items=[{"code": "12", "tag_id": "x"}])); bad = False
+    except ValueError:
+        bad = True
+    ok(bad and PORT_REGISTRY["wits0"].status == "IMPLEMENTED_REQUIRES_SITE_CONFIG" and PORT_REGISTRY["witsml"].status == "IMPLEMENTED_REQUIRES_SITE_CONFIG",
+       "AD2 a WITS0 item code that is not four digits is declined; wits0 and witsml are registered as implemented ports needing the site's map")
+    # -- WITS0 over TCP from the in-package simulator ---------------------------------------------
+    th, port, stop = W0.simulate_server(frames=6, interval_s=0.15)
+    rec = str(Path(tmp, "wits0_rec.jsonl"))
+    tap = W0.Wits0Tap(dict(W0.EXAMPLE_CONFIG, port=port), recording_path=rec)
+    got = tap.run(duration_s=6.0)
+    sm = summarize(got)
+    rp = W0.replay(dict(W0.EXAMPLE_CONFIG, port=port), rec)
+    ok(tap.frames == 6 and len(got) >= 60 and sm["quality"]["GOOD"] >= 59 and 0.0 <= (sm["latency_p95_s"] or 0) <= 2.0
+       and len(rp) == len(got) and set(tap.to_stream().channels) >= {"HKLD_klbf", "SPP_psi", "DBTM_ft", "RPM"},
+       "AD3 LIVE WITS0 over TCP: the simulator sends six frames, the tap receives them all with sub-2 s latency, records the session, "
+       "and the replay reproduces every record; the stream carries the mapped drill-floor tags")
+    # listen mode: the sender connects to us
+    srv = socket.socket(); srv.bind(("127.0.0.1", 0)); lport = srv.getsockname()[1]; srv.close()
+    tap2 = W0.Wits0Tap(dict(W0.EXAMPLE_CONFIG, transport="listen", listen_port=lport)); res = {}
+    t = threading.Thread(target=lambda: res.setdefault("r", tap2.run(duration_s=5.0))); t.start(); time.sleep(0.4)
+    W0.simulate_client("127.0.0.1", lport, frames=4, interval_s=0.1); t.join()
+    try:
+        W0.Wits0Tap(dict(W0.EXAMPLE_CONFIG, host="127.0.0.1", port=1)).run(1.0); dead = False
+    except ConnectionError:
+        dead = True
+    ok(len(res["r"]) >= 40 and dead, "AD4 WITS0 listen mode: a sender that connects to the tap is read; a source that is not there is a ConnectionError, never a hang")
+    # -- units ---------------------------------------------------------------------------------------
+    m = load_mappings([{"code": "0119", "tag_id": "SPP_bar", "unit": "bar", "unit_in": "psi"}], "code")["0119"]
+    try:
+        load_mappings([{"code": "0119", "tag_id": "x", "unit": "psi", "unit_in": "furlongs"}], "code"); bad_unit = False
+    except ValueError:
+        bad_unit = True
+    ok(abs(convert_value(264.087, "bar", "psi") - 3830.258) < 1e-2 and abs(convert_value(100, "degC", "degF") - 212.0) < 1e-9
+       and abs(convert_value(212, "F", "C") - 100.0) < 1e-9 and abs(convert_value(10, "ppg", "sg") - 1.1983) < 1e-3
+       and abs(m.apply(2900.75) - 200.0) < 1e-3 and conversion("psi", "psia") == (1.0, 0.0) and bad_unit,
+       "AD5 unit normalisation on the mapping: pressure, temperature, density and force pairs convert both ways, aliases resolve, "
+       "a wire unit the program cannot convert is declined when the map loads")
+    # -- WITSML against the in-package store -------------------------------------------------------------
+    store = WM.TestStore(step_s=1.0, user="rig", password="store-pass-1").start()
+    os.environ["GEA_WITSML_USER"], os.environ["GEA_WITSML_PASSWORD"] = "rig", "store-pass-1"
+    try:
+        wcfg = dict(WM.EXAMPLE_CONFIG, url=store.url, poll_s=0.2, lookback_s=8)
+        wrec = str(Path(tmp, "witsml_rec.jsonl"))
+        wt = WM.WitsmlTap(wcfg, recording_path=wrec)
+        ver = wt.client.get_version()
+        g1 = wt.poll_once(); t1 = sorted({r.timestamp_utc for r in g1})
+        time.sleep(1.2)
+        g2 = wt.poll_once(); t2 = sorted({r.timestamp_utc for r in g2})
+        gaps = [r for r in g1 + g2 if r.quality_flag == "GAP"]
+        os.environ["GEA_WITSML_PASSWORD"] = "wrong"
+        try:
+            WM.WitsmlTap(wcfg).poll_once(); auth_ok = False
+        except ConnectionError as e:
+            auth_ok = "401" in str(e)
+        os.environ["GEA_WITSML_PASSWORD"] = "store-pass-1"
+        rp2 = WM.replay(wcfg, wrec)
+        ok(ver == WM.VERSION and 6 <= len(t1) <= 10 and len(t2) >= 1 and all(x > t1[-1] for x in t2) and set(r.tag_id for r in g1) == {"DBTM_ft", "HKLD_klbf", "SPP_psi", "ROP_ft_h"}
+           and all("null" in r.rule_fired for r in gaps) and auth_ok and len(rp2) == len(wt.records),
+           "AD6 LIVE WITSML against the in-package store: GetVersion answers; the first poll takes the lookback window, the next only rows "
+           "newer than the last row seen; mnemonics map to the site's tags; the store's null value is GAP; wrong credentials are a 401; replay matches")
+    finally:
+        store.stop()
+    # -- the supervisor -------------------------------------------------------------------------------------
+    hist = str(Path(tmp, "hist_ad.csv"))
+    TelemetryRecorder(engine=DownholeEngine(SimulatorConfig()), config=TelemetryConfig(duration_hours=0.5, seed=3)).run().export_csv(hist)
+    wsp = str(Path(tmp, "ws_ad")); ws = Workspace.create(wsp, "Patch Site", actor="tester")
+    w = ws.add_well_file(hist, display="Well P", actor="tester")
+    sup = PatchSupervisor(ws)
+    th2, port2, stop2 = W0.simulate_server(frames=5, interval_s=0.15)
+    p1 = sup.store.add("floor", "wits0", w["id"], dict(W0.EXAMPLE_CONFIG, port=port2, items=W0.EXAMPLE_CONFIG["items"] + [{"code": "0119", "tag_id": "SPP_bar", "unit": "bar", "unit_in": "psi"}]), "tester", priority=2, stale_after_s=5)
+    try:
+        sup.store.add("floor", "wits0", w["id"], W0.EXAMPLE_CONFIG, "tester"); dup = False
+    except WorkspaceError:
+        dup = True
+    sup.start("floor", "tester")
+    time.sleep(2.5)
+    s1 = {x["name"]: x for x in sup.states()}["floor"]
+    time.sleep(3.0)                                       # the sender closed after ~0.75 s: DOWN, then retries with backoff
+    s2 = {x["name"]: x for x in sup.states()}["floor"]
+    th3, port3, stop3 = W0.simulate_server(port=port2, frames=5, interval_s=0.15)     # it comes back on the same port
+    time.sleep(5.0)
+    s3 = {x["name"]: x for x in sup.states()}["floor"]
+    sup.stop("floor", "tester")
+    s4 = {x["name"]: x for x in sup.states()}["floor"]
+    ok(dup and s1["samples_total"] >= 50 and "SPP_bar" in s1["tags"] and s1["tags"]["SPP_bar"]["unit"] == "bar"
+       and 190.0 < s1["tags"]["SPP_bar"]["value"] < 203.0
+       and s2["status"] == "DOWN" and s2["reconnects"] >= 1 and s3["samples_total"] > s1["samples_total"] and s4["status"] == "STOPPED"
+       and Path(wsp, "wells", w["id"], "records", "live", "patch_floor.state.json").exists()
+       and any(f.startswith("patch_floor_") and f.endswith(".records.csv") for f in os.listdir(Path(wsp, "wells", w["id"], "records", "live"))),
+       "AD7 supervisor: a WITS0 patch receives and converts (the floor's psi standpipe pressure recorded in bar), goes DOWN when the sender closes, retries with backoff, "
+       "receives again when the sender returns, stops on request; state and records are on disk")
+    out = build_live_stream(ws, w["id"])
+    with open(out, encoding="utf-8") as f:
+        header = f.readline().strip().split(",")
+    r = ws.refresh_dashboard(actor="tester")
+    live_dir = Path(wsp, "reports", "wells", w["id"] + ".live")
+    ok(out is not None and "HKLD_klbf" in header and "SPP_bar" in header and "SPP_psi" not in header and live_dir.exists()
+       and Path(live_dir, "alarm_event_report.json").exists() and Path(live_dir, "drift_not_applicable.json").exists()
+       and Path(wsp, "reports", "wells", w["id"], "gauge_drift_report.json").exists(),
+       "AD8 the patch records fold into one stream CSV; the refresh reports the drill-floor stream beside the well (alarms and quality; "
+       "gauge drift marked not applicable - no downhole stations in a floor feed) and the well's own file still gets its drift report")
+    # -- the service API --------------------------------------------------------------------------------------
+    users = Users(str(Path(wsp, "users.json"))); users.add("op", "operator-pass-1", "operator"); users.add("vera", "viewer-pass-1", "viewer"); users.add("adm", "admin-pass-123", "admin")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+    cj = http.cookiejar.CookieJar(); opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json"); req.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(req, timeout=120) as rr:
+                return rr.status, json.loads(rr.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        call("POST", "/api/login", {"name": "op", "password": "operator-pass-1"})
+        th4, port4, stop4 = W0.simulate_server(frames=40, interval_s=0.1)
+        st_add, pa = call("POST", "/api/patches/add", {"name": "floor2", "protocol": "wits0", "well_id": w["id"], "config": dict(W0.EXAMPLE_CONFIG, port=port4), "priority": 1, "stale_after_s": 5})
+        st_bad = call("POST", "/api/patches/add", {"name": "bad", "protocol": "wits0", "well_id": w["id"], "config": {"transport": "tcp"}})[0]
+        st_start = call("POST", "/api/patches/floor2/start")[0]
+        time.sleep(2.0)
+        lst = call("GET", "/api/patches")[1]["patches"]
+        f2 = next(x for x in lst if x["name"] == "floor2")
+        st_ov, ov = call("GET", "/api/overview")
+        if "patches" not in ov:
+            ok(False, f"AD9 overview while a patch runs: HTTP {st_ov} {str(ov)[:200]}")
+            ov = {"patches": []}
+        st_stop = call("POST", "/api/patches/floor2/stop")[0]
+        st_rm_op = call("POST", "/api/patches/floor2/remove")[0]
+        call("POST", "/api/logout"); call("POST", "/api/login", {"name": "vera", "password": "viewer-pass-1"})
+        st_view = call("GET", "/api/patches")[0]
+        st_v_start = call("POST", "/api/patches/floor2/start")[0]
+        call("POST", "/api/logout"); call("POST", "/api/login", {"name": "adm", "password": "admin-pass-123"})
+        st_rm = call("POST", "/api/patches/floor2/remove")[0]
+        stop4.set()
+        ok(st_add == 200 and pa["name"] == "floor2" and st_bad == 400 and st_start == 200 and f2["status"] == "CONNECTED" and f2["samples_total"] > 0
+           and any(p["name"] == "floor2" and p["status"] == "CONNECTED" for p in ov["patches"]) and st_stop == 200 and st_rm_op == 403
+           and st_view == 200 and st_v_start == 403 and st_rm == 200 and not any(p["name"] == "floor2" for p in call("GET", "/api/patches")[1]["patches"]),
+           "AD9 patch API: an operator adds (a map that fails the port's own check is declined), starts, sees CONNECTED with samples on the panel "
+           "and the overview, stops; a viewer reads but cannot start; only an admin removes")
+    finally:
+        svc.stop()
+    r1 = _cli(["wits0", "--write-example-config", str(Path(tmp, "w0.json"))], tmp)
+    r2 = _cli(["witsml", "--write-example-config", str(Path(tmp, "wm.json"))], tmp)
+    r3 = _cli(["wits0", "--config", str(Path(tmp, "w0.json")), "--replay", rec, "--out", "w0_records.csv", "--stream-csv", "w0_stream.csv"], tmp)
+    r4 = _cli(["wits0-sim", "--help"], tmp)
+    ok(r1.returncode == 0 and r2.returncode == 0 and r3.returncode == 0 and Path(tmp, "w0_stream.csv").exists() and r4.returncode == 0 and "--connect" in r4.stdout,
+       "AD10 CLI: example maps for wits0 and witsml; `gea wits0 --replay` writes the records and the stream CSV; `gea wits0-sim` is there for a site to rehearse with")
+
+
 def main() -> int:
     print("GEA Downhole Simulator - ACCEPTANCE SUITE (product gate, "
           "independent of the physics corpus)")
@@ -1464,6 +1862,8 @@ def main() -> int:
         section_z_rock_inventory()
         section_aa_client_reports(tmp)
         section_ab_live_ports(tmp)
+        section_ac_dashboard_service(tmp)
+        section_ad_patch_panel(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

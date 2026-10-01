@@ -18,7 +18,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+
+from . import __version__
 
 
 def _add_well_args(p: argparse.ArgumentParser) -> None:
@@ -251,7 +254,9 @@ def main(argv=None) -> int:
     p_db.add_argument("--out", type=str, default="dashboard")
 
     for name, helptxt in (("opcua", "OPC UA client port: read once or subscribe; record; replay a recording offline"),
-                          ("mqtt", "MQTT subscriber port (3.1.1/5.0; number | json | Sparkplug B): run; record; replay offline")):
+                          ("mqtt", "MQTT subscriber port (3.1.1/5.0; number | json | Sparkplug B): run; record; replay offline"),
+                          ("wits0", "WITS Level 0 port (drill floor: mud logger / EDR) over TCP connect, TCP listen or serial: run; record; replay offline"),
+                          ("witsml", "WITSML 1.4.1 read-only client: poll a log object from the store; record; replay offline")):
         p_lp = sub.add_parser(name, help=helptxt)
         p_lp.add_argument("--config", type=str, default=None, help="site map JSON (client-owned)")
         p_lp.add_argument("--write-example-config", type=str, default=None, help="write an example map here and exit")
@@ -261,6 +266,52 @@ def main(argv=None) -> int:
         p_lp.add_argument("--read-once", action="store_true", help="opcua: one Read of all nodes instead of a subscription")
         p_lp.add_argument("--out", type=str, default=None, help="write the records CSV here")
         p_lp.add_argument("--stream-csv", type=str, default=None, help="also write a historian-style CSV the other commands ingest")
+
+    p_ws = sub.add_parser("workspace", help="the client site folder: init, add wells (file | catalogue | live), list, migrate a --out folder, refresh the dashboard, audit log")
+    p_ws.add_argument("--path", type=str, required=True, help="the workspace folder")
+    p_ws.add_argument("--action", type=str, default="list",
+                      choices=["init", "add-file", "add-catalog", "add-live", "remove", "list", "migrate", "refresh", "audit"])
+    p_ws.add_argument("--name", type=str, default=None, help="init: site name; add-*: display name")
+    p_ws.add_argument("--file", type=str, default=None, help="add-file: the client's data file; add-live: the port configuration JSON")
+    p_ws.add_argument("--entry", type=str, default=None, help="add-catalog: catalogue entry")
+    p_ws.add_argument("--well", type=str, default=None, help="add-catalog: well tag inside the entry; remove: well id")
+    p_ws.add_argument("--station-md", type=float, default=None, help="station MD in ft (catalogue wells need it)")
+    p_ws.add_argument("--port", type=str, default=None, choices=["opcua", "mqtt", "modbus_g6"], help="add-live: the port")
+    p_ws.add_argument("--from", dest="from_dir", type=str, default=None, help="migrate: a folder written by `gea dashboard --out`")
+    p_ws.add_argument("--actor", type=str, default="cli", help="who is acting (recorded in the audit log)")
+    p_ws.add_argument("--month", type=str, default=None, help="refresh: also measure the SLA for YYYY-MM")
+    p_ws.add_argument("--sat", action="store_true", help="refresh: also run the SAT protocol")
+    p_ws.add_argument("--outage", action="append", default=None, help="refresh: outage window start/end (ISO), repeatable")
+
+    p_sv = sub.add_parser("serve", help="serve the dashboard over a workspace: the page, the reports and the JSON API (standard library HTTP)")
+    p_sv.add_argument("--workspace", type=str, required=True, help="the workspace folder (gea workspace --action init)")
+    p_sv.add_argument("--host", type=str, default="127.0.0.1", help="bind address; 0.0.0.0 exposes it on the site network (put TLS in front)")
+    p_sv.add_argument("--port", type=int, default=8765)
+    p_sv.add_argument("--workers", type=int, default=1, help="jobs run at once")
+    p_sv.add_argument("--no-scheduler", action="store_true", help="do not run scheduled jobs from this process")
+
+    p_us = sub.add_parser("users", help="accounts for the dashboard: add, list, password, role, disable, enable")
+    p_us.add_argument("--workspace", type=str, required=True)
+    p_us.add_argument("--action", type=str, default="list", choices=["add", "list", "password", "role", "disable", "enable"])
+    p_us.add_argument("--name", type=str, default=None)
+    p_us.add_argument("--role", type=str, default="viewer", choices=["viewer", "operator", "approver", "admin"])
+    p_us.add_argument("--password-env", type=str, default="GEA_PASSWORD", help="environment variable holding the password (never a flag, never on the command line)")
+    p_us.add_argument("--actor", type=str, default="cli")
+
+    p_w0 = sub.add_parser("wits0-sim", help="a WITS0 sender for testing a patch without a rig: listens once, then streams a deterministic drilling sequence")
+    p_w0.add_argument("--port", type=int, default=5001)
+    p_w0.add_argument("--frames", type=int, default=600)
+    p_w0.add_argument("--interval", type=float, default=1.0, help="seconds between frames")
+    p_w0.add_argument("--seed", type=int, default=1)
+    p_w0.add_argument("--connect", type=str, default=None, help="host:port - instead of listening, connect to a listening tap and push frames")
+
+    p_sy = sub.add_parser("survey", help="a LAS file in, one strata report out (--demo: the bundled public KTB excerpt); --out writes report.txt + survey.json")
+    p_sy.add_argument("--file", type=str, default=None, help="LAS 2.0 file")
+    p_sy.add_argument("--demo", action="store_true")
+    p_sy.add_argument("--family", type=str, default="continental_crystalline", help="prior family for the estimator")
+    p_sy.add_argument("--lat", type=float, default=None)
+    p_sy.add_argument("--elev", type=float, default=None)
+    p_sy.add_argument("--out", type=str, default=None, help="directory for report.txt and survey.json")
 
     p_cs = sub.add_parser("case-study", help="depth sweep, write the one-page markdown case")
     _add_well_args(p_cs)
@@ -384,10 +435,128 @@ def main(argv=None) -> int:
         rep = Reconciler(_build_config(a)).reconcile(stream, station_map=station_map)
         import json as _json
         print(_json.dumps(rep, indent=1))
-    elif a.cmd in ("opcua", "mqtt"):
+    elif a.cmd == "survey":
+        import json as _json
+        from .survey_cmd import run_survey
+        if not (a.file or a.demo):
+            raise SystemExit("survey needs --file <LAS> or --demo")
+        txt, machine = run_survey(path=a.file, demo=a.demo, family=a.family, lat=a.lat, elev=a.elev)
+        print(txt)
+        if a.out:
+            os.makedirs(a.out, exist_ok=True)
+            with open(os.path.join(a.out, "report.txt"), "w", encoding="utf-8") as f:
+                f.write(txt)
+            with open(os.path.join(a.out, "survey.json"), "w", encoding="utf-8") as f:
+                _json.dump(machine, f, indent=1, default=str)
+            print("written:", os.path.join(a.out, "report.txt"))
+        return 0
+    elif a.cmd == "serve":
+        from .service import Service
+        from .workspace import WorkspaceError
+        try:
+            svc = Service(a.workspace, host=a.host, port=a.port, workers=a.workers, scheduler=not a.no_scheduler)
+        except WorkspaceError as e:
+            raise SystemExit(f"serve: {e}")
+        n_users = svc.app.users.count()
+        print(f"gea {__version__}: serving workspace '{svc.ws.manifest['name']}' at {svc.url}")
+        print(f"   code: {os.path.dirname(os.path.abspath(__file__))}   (an installed copy serves the files it was installed from; pip install -e <clone> follows the clone)")
+        print(f"   patches: {len(svc.app.patches.store.list())} defined, {len([s for s in svc.app.patches.states() if s['status'] != 'STOPPED'])} running")
+        if n_users == 0:
+            print("   no accounts yet: the page will ask for the first administrator's name and password (one time), or run: gea users --workspace ... --action add --role admin --name ...")
+        print("   Ctrl+C stops it; every action is in records/audit.jsonl")
+        svc.serve_forever()
+        return 0
+    elif a.cmd == "users":
+        import getpass
+        from .workspace import Workspace, WorkspaceError
+        from .service import Users, ApiError
+        try:
+            ws = Workspace(a.workspace)
+        except WorkspaceError as e:
+            raise SystemExit(f"users: {e}")
+        users = Users(os.path.join(ws.path, "users.json"))
+        try:
+            if a.action == "list":
+                for u in users.list():
+                    print(f"{u['name']:24s} {u['role']:10s} {'disabled' if u['disabled'] else 'active':8s} since {u['created_utc']}")
+                if not users.list():
+                    print("no accounts yet")
+                return 0
+            if not a.name:
+                raise SystemExit("users: --name is required")
+            if a.action in ("add", "password"):
+                pw = os.environ.get(a.password_env) or (getpass.getpass(f"password for {a.name}: ") if sys.stdin.isatty() else "")
+                if a.action == "add":
+                    u = users.add(a.name, pw, a.role); ws.audit(a.actor, "user.add", {"name": a.name, "role": a.role}); print("added", u["name"], u["role"])
+                else:
+                    users.set_password(a.name, pw); ws.audit(a.actor, "user.password", {"name": a.name}); print("password set for", a.name)
+            elif a.action == "role":
+                users.set_role(a.name, a.role); ws.audit(a.actor, "user.role", {"name": a.name, "role": a.role}); print(a.name, "->", a.role)
+            elif a.action in ("disable", "enable"):
+                users.set_disabled(a.name, a.action == "disable"); ws.audit(a.actor, f"user.{a.action}", {"name": a.name}); print(a.name, a.action + "d")
+        except ApiError as e:
+            raise SystemExit(f"users: {e.message}")
+        return 0
+    elif a.cmd == "workspace":
+        import json as _json
+        from .workspace import Workspace, WorkspaceError
+        try:
+            if a.action == "init":
+                ws = Workspace.create(a.path, a.name or os.path.basename(os.path.abspath(a.path)), actor=a.actor)
+                print("workspace:", ws.path); return 0
+            ws = Workspace(a.path)
+            if a.action == "add-file":
+                if not a.file:
+                    raise SystemExit("add-file needs --file")
+                w = ws.add_well_file(a.file, display=a.name, actor=a.actor, station_md_ft=a.station_md)
+            elif a.action == "add-catalog":
+                if not (a.entry and a.well and a.station_md is not None):
+                    raise SystemExit("add-catalog needs --entry, --well and --station-md")
+                w = ws.add_well_catalog(a.entry, a.well, a.station_md, actor=a.actor, display=a.name)
+            elif a.action == "add-live":
+                if not (a.name and a.port and a.file):
+                    raise SystemExit("add-live needs --name, --port and --file (the port configuration JSON)")
+                w = ws.add_well_live(a.name, a.port, a.file, actor=a.actor, station_md_ft=a.station_md)
+            elif a.action == "remove":
+                if not a.well:
+                    raise SystemExit("remove needs --well <id>")
+                ws.remove_well(a.well, actor=a.actor); print("removed (folder kept):", a.well); return 0
+            elif a.action == "migrate":
+                if not a.from_dir:
+                    raise SystemExit("migrate needs --from <folder written by gea dashboard --out>")
+                print(_json.dumps(ws.migrate_out_dir(a.from_dir, actor=a.actor), indent=1)); return 0
+            elif a.action == "refresh":
+                r = ws.refresh_dashboard(actor=a.actor, outages=a.outage, month=a.month, run_sat=a.sat)
+                print("dashboard:", r.get("index") if isinstance(r, dict) else r); return 0
+            elif a.action == "audit":
+                for row in ws.audit_log(limit=50):
+                    print(row["utc"], row["actor"], row["action"], _json.dumps(row["detail"]))
+                return 0
+            else:
+                print(_json.dumps(ws.summary(), indent=1)); return 0
+            print("well:", w["id"], f"({w['kind']})"); return 0
+        except WorkspaceError as e:
+            raise SystemExit(f"workspace: {e}")
+    elif a.cmd == "wits0-sim":
+        from . import wits0 as _w0
+        if a.connect:
+            host, _, port = a.connect.rpartition(":")
+            n = _w0.simulate_client(host or "127.0.0.1", int(port), frames=a.frames, interval_s=a.interval, seed=a.seed)
+            print(f"wits0-sim: pushed {n} frames to {a.connect}")
+            return 0
+        th, port, stop = _w0.simulate_server(port=a.port, frames=a.frames, interval_s=a.interval, seed=a.seed, verbose=True)
+        print(f"wits0-sim: listening on 127.0.0.1:{port}; it waits (silently is normal) until a patch connects, then sends {a.frames} frames {a.interval:g} s apart. Ctrl+C stops it.", flush=True)
+        try:
+            while th.is_alive():
+                th.join(0.5)
+        except KeyboardInterrupt:
+            stop.set()
+            print("wits0-sim: stopped")
+        return 0
+    elif a.cmd in ("opcua", "mqtt", "wits0", "witsml"):
         import json as _json
         from .live_ports import records_to_stream, summarize, write_records_csv
-        mod = __import__("gea.opcua_port" if a.cmd == "opcua" else "gea.mqtt_port", fromlist=["x"])
+        mod = __import__({"opcua": "gea.opcua_port", "mqtt": "gea.mqtt_port", "wits0": "gea.wits0", "witsml": "gea.witsml"}[a.cmd], fromlist=["x"])
         if a.write_example_config:
             print("config:", mod.write_example_config(a.write_example_config))
             return 0
@@ -404,10 +573,18 @@ def main(argv=None) -> int:
                 finally:
                     tap.close()
                 src = tap.cfg["endpoint"]
-            else:
+            elif a.cmd == "mqtt":
                 tap = mod.MqttTap(a.config, recording_path=a.record)
                 recs = tap.run(a.seconds)
                 src = tap.cfg["broker"]["host"]
+            elif a.cmd == "wits0":
+                tap = mod.Wits0Tap(a.config, recording_path=a.record)
+                recs = tap.run(a.seconds)
+                src = f"{tap.cfg['transport']} {tap.cfg.get('host') or tap.cfg.get('device') or ('listen:' + str(tap.cfg.get('listen_port')))}"
+            else:
+                tap = mod.WitsmlTap(a.config, recording_path=a.record)
+                recs = tap.run(a.seconds)
+                src = tap.cfg["url"]
         except (NotImplementedError, ConnectionError, ValueError) as e:
             raise SystemExit(f"{a.cmd}: {e}")          # the reason, without a traceback
         print(f"{a.cmd}: {src}")

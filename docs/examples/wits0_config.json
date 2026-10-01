@@ -1,0 +1,68 @@
+{
+ "transport": "tcp",
+ "host": "127.0.0.1",
+ "port": 5001,
+ "listen_port": 5001,
+ "device": "COM3",
+ "baudrate": 9600,
+ "clock_offset_h": 0.0,
+ "keep_unmapped": true,
+ "items": [
+  {
+   "code": "0108",
+   "tag_id": "DBTM_ft",
+   "unit": "ft",
+   "tag_class": "depth",
+   "scale": 1.0,
+   "description": "bit depth, measured"
+  },
+  {
+   "code": "0109",
+   "tag_id": "DMEA_ft",
+   "unit": "ft",
+   "tag_class": "depth",
+   "scale": 1.0,
+   "description": "hole depth, measured"
+  },
+  {
+   "code": "0112",
+   "tag_id": "HKLD_klbf",
+   "unit": "klbf",
+   "tag_class": "hookload",
+   "scale": 1.0,
+   "description": "hookload, average"
+  },
+  {
+   "code": "0114",
+   "tag_id": "WOB_klbf",
+   "unit": "klbf",
+   "tag_class": "weight_on_bit",
+   "scale": 1.0,
+   "description": "weight on bit, average"
+  },
+  {
+   "code": "0116",
+   "tag_id": "RPM",
+   "unit": "rpm",
+   "tag_class": "rotary_speed",
+   "scale": 1.0,
+   "description": "rotary speed"
+  },
+  {
+   "code": "0119",
+   "tag_id": "SPP_psi",
+   "unit": "psi",
+   "tag_class": "pressure",
+   "scale": 1.0,
+   "description": "standpipe pressure"
+  },
+  {
+   "code": "0124",
+   "tag_id": "FLWI_gpm",
+   "unit": "gal/min",
+   "tag_class": "flow",
+   "scale": 1.0,
+   "description": "mud flow in"
+  }
+ ]
+}

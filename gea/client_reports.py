@@ -592,9 +592,10 @@ def alarm_event_report(engine, well_name: str = '', evaluated_at: Optional[datet
                       if arows else 'No alarm active at window end.'],
                      [Table(['Alarm', 'Tag', 'Priority', 'State', 'Active since (UTC)', 'Last value'], arows)] if arows else [])
 
-    evs = engine.events[-last_events:]
+    all_events = engine.events
+    evs = all_events[-last_events:]
     erows = [[e['timestamp_utc'], e['alarm_id'], e['priority'], e['event'], _fmt(e['value']), e.get('operator', ''), e.get('note', '')[:60]] for e in evs]
-    evsec = Section('4', f'Event log (last {len(erows)} of {len(engine.events)} events)',
+    evsec = Section('4', f'Event log (last {len(erows)} of {len(all_events)} events)',
                     ['One line per transition; the full log is the JSON lines file named in section 6.'],
                     [Table(['Timestamp (UTC)', 'Alarm', 'Priority', 'Event', 'Value', 'Operator', 'Note'], erows)] if erows else [])
 
@@ -626,7 +627,7 @@ def alarm_event_report(engine, well_name: str = '', evaluated_at: Optional[datet
     return Document(title=f'{PROGRAM_NAME} - Alarm and Event Report', report_id=report_id, front=front,
                     sections=[summary, defsec, actsec, evsec, kpisec, prov],
                     footer='Every KPI is recomputed from the event log at generation time; targets are printed beside values, never in place of them.',
-                    data={'kpis': k, 'definitions': [d.row() for d in defs], 'active': active, 'events': engine.events,
+                    data={'kpis': k, 'definitions': [d.row() for d in defs], 'active': active, 'events': all_events,
                           'report_id': report_id, 'evaluated_at_utc': now.strftime('%Y-%m-%dT%H:%M:%SZ'),
                           '_records': [], '_catalogue_obj': None})
 

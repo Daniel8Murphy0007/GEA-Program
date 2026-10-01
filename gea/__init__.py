@@ -127,7 +127,7 @@ from .profile_catalog import (
     read_pangaea_txt,
 )
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __all__ = [
     "calculate_quartz_transducer_hpht_program", "canonical_suppression",
     "conventional_drift", "drift_comparison",
