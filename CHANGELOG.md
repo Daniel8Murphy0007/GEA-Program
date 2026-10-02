@@ -5,6 +5,109 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.4.0] - 2026-10-02 - doctor, files, the operator's experience, instruments and transients, hardening, and the help library
+
+### Added
+- The help library (`gea/help/*.md`, `gea/helplib.py`): fourteen pages indexed
+  by the job - start, bring data in, quality rules, drift, well tests, alarms
+  and the month, the site, instruments, shut-ins and build-ups, patches,
+  files, notifications, which code is running, upkeep. Each page carries four
+  lines and stops: the command, what it writes, the number to check, and what
+  the page will not call a measurement. One source: `gea help <topic>` prints
+  it, `/api/help` serves it, and every dashboard page's help panel shows the
+  same text with a link to the page (`#/help/<topic>`); the page keeps no help
+  text of its own. The tester guide now ships inside the package
+  (`gea/help/TESTER_GUIDE.md`, byte-identical to `docs/TESTER_GUIDE.md` by a
+  gate check), so `gea guide` works on a plain install. Acceptance section AJ
+  (4 checks: the guide in the package, every page's four lines and every
+  view mapped, the API, the wheel's contents); the release workflow checks the
+  wheel for the guide and the pages before publishing.
+- The standalone install kit (`tools/build_installer.py`): its own Python
+  (embeddable CPython), the package wheel built from the checkout, every
+  dependency wheel, install / start / stop / verify / register-service /
+  uninstall scripts, README, manifest and SHA-256 list; a Linux venv variant;
+  `build-installer.yml` builds both on every tag, installs them the way a
+  client does, runs the gate from the installed kit and attaches the zips to
+  the release. README "The standalone install kit"; TESTER_GUIDE part 0.
+- `gea doctor` (`gea/doctor.py`): which code is running and can it serve -
+  Python, the package and its path, pip's record against the running code
+  (editable or installed), duplicates on the path, the page, dependencies,
+  the launcher, PyPI's newest; with `--workspace` the site folder, accounts,
+  patches, a free port, write access. `gea serve` runs the same checks and
+  does not start on a blocking finding. Acceptance section AE.
+- The file system (`gea/files.py`, `gea files`, the Files page): import and
+  export roots an administrator allows (no path escapes them), browse with
+  detection by content (historian CSV, LAS behind comments, SEG-Y, operator
+  table, JSON, OLE workbook, unknown), preview, import into a well with a
+  duplicate guard by hash, "save to..." on every report, the evidence pack
+  (zip with manifest and SHA-256 list), watch folders and scheduled packs.
+  The dashboard reads any detected file type; an unreadable file marks its
+  well and never blocks the others; a depth log runs the survey, not the
+  gauge pipeline. Acceptance section AF.
+- The operator experience: alarm shelving with an expiry and a reason
+  (`--shelve/--shelve-hours/--unshelve/--note`, the shelf expires on its own
+  at the first sample past it, UNSHELVED by 'expiry'), acknowledge-all per
+  well and across wells, shelved alarms in the report and on the wall;
+  per-user preferences (units field/SI, time zone, theme, help panels) and
+  site-wide defaults (Administration); the since-your-last-visit strip on
+  Home; badge counts on the navigation; one search box over wells, alarms,
+  reports, jobs, configuration, patches, schedules; notification rules
+  (`gea/notify.py`, `gea notify`): webhook and SMTP channels, events
+  alarm.activated by priority, alarm.shelved, job.failed, patch.down/up,
+  approval.pending, file.imported, a quiet window, a delivery log, secrets
+  only from the environment; the first-run guide; help panels on every page;
+  a print stylesheet. Acceptance section AG.
+- Instruments and transients: the sensor swap register and step detector on
+  the offset against peer gauges (`gea/sensor_swap.py`, `gea swaps`) - a
+  recorded swap restarts the drift fit at the swap; calibration certificates
+  per instrument with VALID / EXPIRING / EXPIRED / MISSING status and the
+  stated accuracy printed beside the measured bias (`gea/certificates.py`,
+  `gea certificates`); shut-in detection by rate, on-stream hours or the
+  pressure signature alone (`gea/shut_in.py`); build-up analysis with the
+  Horner line on a middle-time region chosen by the flat Bourdet derivative,
+  wellbore storage, kh / k / skin / radius of investigation and a residual
+  bootstrap band (`gea/transient.py`, `gea transient`); the Shut-in and
+  Pressure Transient report; the instruments section of the drift report;
+  the Instruments and Shut-ins cards on the well page; tiles on Home.
+  Acceptance section AH.
+- Hardening: sign-in rate limit (five failures lock a name or an address for
+  15 min; 429 with Retry-After; audited), live sessions listed and revocable
+  by an administrator, "sign out everywhere else" for every user, security
+  headers on every response (CSP, X-Frame-Options, nosniff, referrer policy,
+  HSTS behind HTTPS), `gea serve --behind-proxy` (forwarded address and
+  Secure cookie) with nginx and Caddy examples in `deploy/`, `gea
+  housekeeping` (segment the append-only logs with the alarm watermark
+  carried, prune finished jobs and old recordings; dry run first; a schedule
+  preset), `gea loadtest` (N simulated WITS0 patches with the service
+  answering; a verdict). Acceptance section AI.
+- Sections AE-AJ in the FAT/SAT protocol. Gate: 237 checks.
+
+### Changed
+- `wits0` and `witsml` are registered in the port registry on `import gea`.
+- Acceptance section F covers all four live ports with one message shape;
+  AA49 counts no excluded checks.
+- `gea/alarm_engine.py`: operator actions check the alarm id and the state
+  and say why they are declined; the SHELVED event carries `until`.
+- `gea/service.py`: `/api/session` carries the user's preferences, the
+  previous sign-in and the site defaults; `users.json` entries carry
+  `prefs`, `last_login_utc`, `prev_login_utc`; the manifest carries `site`.
+- `gea/dashboard.py`: per file well, the instruments and the shut-in look
+  run beside the drift and alarm reports and never block them.
+- `gea/web/app.html`: every timestamp is shown in the viewer's zone;
+  Administration gains live sessions, site settings and notifications.
+
+### Fixed
+- `gea/ports.py`: a historian CSV whose timestamps end in `Z` failed to read
+  on Python 3.10 (`fromisoformat` accepts the suffix only from 3.11); the
+  reader now normalises it, and a file that mixes naive and zoned stamps is
+  compared on the wall clock. Found by section AH on the development machine.
+- `gea guide` on an installed release printed "not found": the guide was not
+  in the wheel (an independent review of 0.3.0 found it). Fixed by shipping
+  it in the package.
+- `gea/cli.py`: `gea guide` and `gea help` no longer stop on a character the
+  console cannot encode (a cp1252 pipe on Windows); the output streams replace
+  it instead. The guide's one such character was removed.
+
 ## [v0.3.0] - 2026-10-01 - the dashboard as the door, and the patch panel
 
 ### Added

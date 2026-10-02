@@ -1,4 +1,6 @@
 > The requirements matrix that shaped the report family: a production-operations scope of work mirrored clause by clause, with what the program does today and what it gets better by. Format reference, not a bid.
+>
+> The "Program today" grades are the snapshot taken when the matrix was written and are kept as the baseline. What has been built since is recorded release by release in `HISTORY.md`; the acceptance gate (`gea accept`) is the current proof. Among the items graded MISSING below that now exist: MQTT (Sparkplug B) and the REST API, roles (RBAC), range and rate-of-change quality rules with latency stamps, the re-fit and approval loop with staleness state, scheduled drift evaluation with notification, alarm shelving, calibration certificates and sensor swaps, shut-in detection and build-up analysis.
 
 # TENDER NO. CDG2752P27 — PROGRAM IMPROVEMENT REVIEW, MIRRORED TO THE SOW
 

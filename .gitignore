@@ -19,3 +19,4 @@ gea/catalog_operator/
 .pytest_cache/
 /_transport/
 /_to_delete/
+/dist/

@@ -43,6 +43,16 @@ def _rel(base: str, path: str) -> str:
 # ---------------------------------------------------------------------------
 # Collect: read what the report generators wrote
 # ---------------------------------------------------------------------------
+def _epoch_s(iso) -> float:
+    if not iso:
+        return 0.0
+    try:
+        dt = datetime.fromisoformat(str(iso).replace('Z', '+00:00'))
+        return (dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)).timestamp()
+    except ValueError:
+        return 0.0
+
+
 def collect(out_dir: str) -> dict:
     wells: List[dict] = []
     wells_dir = os.path.join(out_dir, 'wells')
@@ -79,6 +89,16 @@ def collect(out_dir: str) -> dict:
                 w['alarms'] = {'active': al.get('active', []), 'n_active': len(al.get('active', [])),
                                'unacked': len(k.get('active_unacknowledged', [])), 'activations': k.get('n_activations', 0),
                                'floods': k.get('flood_10min_bins', 0), 'report': os.path.join(d, 'alarm_event_report.html')}
+            inst = _load(os.path.join(d, 'instruments.json'))
+            if inst:
+                w['instruments'] = {'swaps': len(inst.get('swaps', [])), 'candidates': len(inst.get('candidates', [])),
+                                    'certificates': inst.get('certificate_summary')}
+            pt = _load(os.path.join(d, 'pressure_transient_report.json'))
+            if pt:
+                det = pt.get('detection', {})
+                w['transient'] = {'shut_ins': len(det.get('shut_ins', [])), 'qualified': det.get('n_qualified', 0),
+                                  'analysed': sum(1 for a in pt.get('analyses', []) if a.get('status') == 'OK'),
+                                  'report': os.path.join(d, 'pressure_transient_report.html')}
             dr = _load(os.path.join(d, 'data_resilience_report.json'))
             if dr:
                 sim = dr.get('simulation', {})
@@ -89,6 +109,18 @@ def collect(out_dir: str) -> dict:
                                    'report': os.path.join(d, 'data_resilience_report.html')}
             wells.append(w)
     site = {}
+    cert_counts = {'VALID': 0, 'EXPIRING': 0, 'EXPIRED': 0, 'MISSING': 0}
+    any_cert = False
+    for w in wells:
+        cs = (w.get('instruments') or {}).get('certificates')
+        if cs:
+            any_cert = True
+            for k, v in cs.get('counts', {}).items():
+                cert_counts[k] = cert_counts.get(k, 0) + v
+    if any_cert:
+        site['certificates'] = {'counts': cert_counts, 'swaps': sum((w.get('instruments') or {}).get('swaps', 0) for w in wells)}
+    site['transient'] = {'analysed': sum((w.get('transient') or {}).get('analysed', 0) for w in wells),
+                         'shut_ins': sum((w.get('transient') or {}).get('shut_ins', 0) for w in wells)}
     acc = _load(os.path.join(out_dir, 'accuracy_statement.json'))
     if acc:
         bt = acc.get('backtest', {})
@@ -349,18 +381,92 @@ def orchestrate(out_dir: str, catalog_wells: List[dict], file_wells: List[dict],
         name = fw.get('name') or os.path.splitext(os.path.basename(fw['path']))[0]
         d = os.path.join(out_dir, 'wells', name)
         os.makedirs(d, exist_ok=True)
-        stream = ingest(fw['path'])
-        with open(os.path.join(d, 'well.json'), 'w', encoding='utf-8') as f:
-            json.dump({'display': name, 'source': fw['path']}, f)
-        cat = TagCatalogue.from_stream(stream, gauge_spec=gauge_spec)
+        from .files import read_any
         try:
-            ev = Reconciler(cfg).reconcile(stream)
-            write(gauge_drift_report(ev, stream, catalogue=cat, well_name=name, program_version=_v, gauge_spec=gauge_spec), d)
+            stream = read_any(fw['path'])
+        except Exception as ex:                                   # one unreadable file never blocks the other wells' reports
+            with open(os.path.join(d, 'well.json'), 'w', encoding='utf-8') as f:
+                json.dump({'display': name, 'source': fw['path'], 'ingest_failed': f'{type(ex).__name__}: {ex}'}, f)
+            made.setdefault(name, []).append('ingest_failed')
+            continue
+        with open(os.path.join(d, 'well.json'), 'w', encoding='utf-8') as f:
+            json.dump({'display': name, 'source': fw['path'], 'index_kind': stream.index_kind}, f)
+        if stream.index_kind != 'time_s':                      # a depth log is a survey input: run the strata survey, not the gauge pipeline
+            try:
+                from .survey_cmd import run_survey
+                txt, machine = run_survey(path=fw['path'])
+                with open(os.path.join(d, 'survey_report.txt'), 'w', encoding='utf-8') as f:
+                    f.write(txt)
+                with open(os.path.join(d, 'survey.json'), 'w', encoding='utf-8') as f:
+                    json.dump(machine, f, indent=1, default=str)
+                made.setdefault(name, []).append('survey')
+            except Exception as ex:
+                with open(os.path.join(d, 'survey_not_run.json'), 'w', encoding='utf-8') as f:
+                    json.dump({'well': name, 'reason': f'{type(ex).__name__}: {ex}', 'index_kind': stream.index_kind}, f, indent=1)
+                made.setdefault(name, []).append('survey_not_run')
+            continue
+        cat = TagCatalogue.from_stream(stream, gauge_spec=gauge_spec)
+        # instruments: swaps segment the fit; certificates print beside the bias (Band 2)
+        inst = None
+        rdir = fw.get('records_dir')
+        fit_stream = stream
+        if rdir and os.path.isdir(rdir):
+            from .sensor_swap import SwapRegister, segment_mask, detect_swaps
+            from .certificates import CertificateRegister
+            reg = SwapRegister(os.path.join(rdir, 'sensor_swaps.jsonl'))
+            fit_stream, notes = segment_mask(stream, reg)
+            latest = reg.latest_by_tag()
+            certs = CertificateRegister(os.path.join(rdir, 'certificates.jsonl'))
+            ptags = [c for c in stream.channels if c.lower().startswith('p_')]
+            cert_rows = certs.status(ptags, serial_by_tag={k: v['new_serial'] for k, v in latest.items()}) if certs.list() else []
+            try:
+                def _unrecorded(c):
+                    for tg in [c['tag_id']] + [x.strip() for x in (c.get('ambiguous_with') or '').split(',') if x.strip()]:
+                        e = latest.get(tg)
+                        if e and abs(_epoch_s(e['swap_utc']) - _epoch_s(c.get('swap_utc'))) <= 2 * 3600 * 24:
+                            return False                       # this step is explained by a recorded swap (on it or on its ambiguous peer)
+                    return True
+                cands = [c for c in detect_swaps(stream) if _unrecorded(c)]
+            except Exception:
+                cands = []
+            inst = {'swaps': reg.list(), 'swap_notes': notes, 'certificates': cert_rows, 'candidates': cands[:10],
+                    'certificate_summary': CertificateRegister.summary(cert_rows) if cert_rows else None}
+            with open(os.path.join(d, 'instruments.json'), 'w', encoding='utf-8') as f:
+                json.dump(inst, f, indent=1, default=str)
+        try:
+            ev = Reconciler(cfg).reconcile(fit_stream)
+            write(gauge_drift_report(ev, stream, catalogue=cat, well_name=name, program_version=_v, gauge_spec=gauge_spec, instruments=inst), d)
             made.setdefault(name, []).append('drift')
         except ValueError as e:                                  # a stream with no downhole gauge stations (a drill-floor feed): drift does not apply
             with open(os.path.join(d, 'drift_not_applicable.json'), 'w', encoding='utf-8') as f:
                 json.dump({'well': name, 'reason': str(e), 'channels': list(stream.channels), 'evaluated_at_utc': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}, f, indent=1)
             made.setdefault(name, []).append('drift_not_applicable')
+        # shut-ins and the build-up analyses (Band 2): criteria and parameters from the records folder when present
+        try:
+            from .shut_in import detect_shut_ins, extract_buildup, load_criteria as _si_crit
+            from .transient import analyze_buildup
+            from .client_reports import transient_report
+            si_c = _si_crit(os.path.join(rdir, 'shut_in.json') if rdir else None)
+            det = detect_shut_ins(stream, criteria=si_c)
+            prm = None
+            if rdir and os.path.isfile(os.path.join(rdir, 'transient_params.json')):
+                with open(os.path.join(rdir, 'transient_params.json'), encoding='utf-8') as f:
+                    prm = json.load(f)
+            analyses = []
+            for si in [x for x in det['shut_ins'] if x['qualified']][:6]:
+                b = extract_buildup(stream, si)
+                a = analyze_buildup(b['dt_h'], b['p_ws'], b['tp_h'], b['p_wf'], prm)
+                a['shut_in_id'] = si['shut_in_id']
+                analyses.append(a)
+            if det['shut_ins']:
+                write(transient_report(det, analyses, well_name=name, program_version=_v), d, basename='pressure_transient_report')
+                made.setdefault(name, []).append('transient')
+            else:
+                with open(os.path.join(d, 'shut_ins.json'), 'w', encoding='utf-8') as f:
+                    json.dump(det, f, indent=1, default=str)
+        except Exception as ex:                                      # the transient look is additional; it never blocks the alarms
+            with open(os.path.join(d, 'transient_not_run.json'), 'w', encoding='utf-8') as f:
+                json.dump({'well': name, 'reason': f'{type(ex).__name__}: {ex}'}, f, indent=1)
         recs = records_from_stream(stream, cat)
         eng = AlarmEngine(defaults_from_catalogue(cat), event_log_path=os.path.join(d, 'alarm_events.jsonl'))
         eng.process(recs)

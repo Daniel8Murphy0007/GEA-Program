@@ -132,6 +132,9 @@ class _State:
     activations: List[datetime] = field(default_factory=list)
     last_value: Optional[float] = None
     last_time: Optional[datetime] = None
+    shelved_until: Optional[datetime] = None
+    shelved_by: str = ''
+    shelved_note: str = ''
 
 
 class AlarmEngine:
@@ -177,16 +180,21 @@ class AlarmEngine:
                 st.state, st.active_since = 'NORMAL', None
             elif ev == 'SHELVED':
                 st.state, st.cond_since = 'SHELVED', None
+                st.shelved_until = parse_utc(e['until']) if e.get('until') else None
+                st.shelved_by, st.shelved_note = e.get('operator', ''), e.get('note', '')
             elif ev == 'UNSHELVED':
-                st.state = 'NORMAL'
+                st.state, st.shelved_until = 'NORMAL', None
             if e.get('value') is not None and ev in ('ACTIVATED', 'CLEARED', 'RTN_UNACKED'):
                 st.last_value, st.last_time = e['value'], t
 
     # -- events -----------------------------------------------------------------
-    def _event(self, now: datetime, d: AlarmDefinition, event: str, value=None, operator: str = '', note: str = '') -> dict:
+    def _event(self, now: datetime, d: AlarmDefinition, event: str, value=None, operator: str = '', note: str = '',
+               until: Optional[datetime] = None) -> dict:
         e = {'timestamp_utc': _iso(now), 'alarm_id': d.alarm_id, 'tag_id': d.tag_id, 'kind': d.kind,
              'priority': d.priority, 'event': event, 'value': (None if value is None else float(value)),
              'setpoint': d.setpoint, 'operator': operator, 'note': note}
+        if until is not None:
+            e['until'] = _iso(until)
         self.events.append(e)
         if self.log_path:
             with open(self.log_path, 'a', encoding='utf-8') as f:
@@ -233,7 +241,10 @@ class AlarmEngine:
                 now = parse_utc(rec.timestamp_utc)
                 if st.state == 'SHELVED':
                     st.last_value, st.last_time = rec.value, now
-                    continue
+                    if st.shelved_until is not None and now >= st.shelved_until:
+                        self._expire_shelf(d, st, now)          # the shelf ran out: back to NORMAL, evaluated from here
+                    else:
+                        continue
                 cond = self._condition(d, rec, st, now)
                 if cond is True:
                     if st.cond_since is None:
@@ -263,22 +274,56 @@ class AlarmEngine:
 
     # -- operator actions -------------------------------------------------------------
     def acknowledge(self, alarm_id: str, operator: str, now: datetime, note: str = '') -> dict:
+        if alarm_id not in self.states:
+            raise ValueError(f'unknown alarm id {alarm_id}')
         st, d = self.states[alarm_id], self.defs[alarm_id]
         if st.state != 'ACTIVE_UNACKED':
             raise ValueError(f'{alarm_id} is {st.state}, nothing to acknowledge')
         st.state = 'ACTIVE_ACKED'
         return self._event(now, d, 'ACKNOWLEDGED', st.last_value, operator, note)
 
-    def shelve(self, alarm_id: str, operator: str, now: datetime, note: str = '') -> dict:
+    def acknowledge_all(self, operator: str, now: datetime, priority: Optional[str] = None, note: str = '') -> List[dict]:
+        """Acknowledge every ACTIVE_UNACKED alarm (optionally one priority only). Each one is its own event."""
+        out = []
+        for a, s in list(self.states.items()):
+            if s.state == 'ACTIVE_UNACKED' and (priority is None or self.defs[a].priority == priority):
+                out.append(self.acknowledge(a, operator, now, note))
+        return out
+
+    def shelve(self, alarm_id: str, operator: str, now: datetime, note: str = '', hours: Optional[float] = None) -> dict:
+        """Suppress an alarm. With `hours`, the shelf expires on its own the first time a sample at or after
+        the expiry is processed (an UNSHELVED event with operator 'expiry' is logged). Without, it stays
+        shelved until someone unshelves it. Shelving is never silent: the event carries who, why, and until when."""
+        if alarm_id not in self.states:
+            raise ValueError(f'unknown alarm id {alarm_id}')
+        if hours is not None and hours <= 0:
+            raise ValueError('shelve hours must be positive')
         st, d = self.states[alarm_id], self.defs[alarm_id]
         st.state = 'SHELVED'
         st.cond_since = None
-        return self._event(now, d, 'SHELVED', st.last_value, operator, note)
+        st.active_since = None
+        st.shelved_until = (now + timedelta(hours=hours)) if hours else None
+        st.shelved_by, st.shelved_note = operator, note
+        return self._event(now, d, 'SHELVED', st.last_value, operator, note, until=st.shelved_until)
 
-    def unshelve(self, alarm_id: str, operator: str, now: datetime) -> dict:
+    def unshelve(self, alarm_id: str, operator: str, now: datetime, note: str = '') -> dict:
+        if alarm_id not in self.states:
+            raise ValueError(f'unknown alarm id {alarm_id}')
         st, d = self.states[alarm_id], self.defs[alarm_id]
-        st.state = 'NORMAL'
-        return self._event(now, d, 'UNSHELVED', st.last_value, operator)
+        if st.state != 'SHELVED':
+            raise ValueError(f'{alarm_id} is {st.state}, not shelved')
+        st.state, st.shelved_until = 'NORMAL', None
+        return self._event(now, d, 'UNSHELVED', st.last_value, operator, note)
+
+    def _expire_shelf(self, d: AlarmDefinition, st: _State, now: datetime) -> None:
+        st.state, st.shelved_until = 'NORMAL', None
+        self._event(now, d, 'UNSHELVED', st.last_value, 'expiry', 'shelf expired')
+
+    def shelved(self) -> List[dict]:
+        return [{'alarm_id': a, 'state': s.state, 'priority': self.defs[a].priority, 'tag_id': self.defs[a].tag_id,
+                 'shelved_until_utc': _iso(s.shelved_until) if s.shelved_until else None, 'shelved_by': s.shelved_by,
+                 'note': s.shelved_note, 'last_value': s.last_value}
+                for a, s in self.states.items() if s.state == 'SHELVED']
 
     def active(self) -> List[dict]:
         return [{'alarm_id': a, 'state': s.state, 'priority': self.defs[a].priority, 'tag_id': self.defs[a].tag_id,

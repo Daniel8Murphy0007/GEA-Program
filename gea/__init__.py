@@ -99,6 +99,8 @@ from .modbus import (
 )
 from .opcua_port import ASYNCUA_AVAILABLE, OpcUaTap          # registers the 'opcua' port at import
 from .mqtt_port import PAHO_AVAILABLE, MqttTap                # registers the 'mqtt' port at import
+from .wits0 import Wits0Tap, SERIAL_AVAILABLE                  # registers the 'wits0' port at import
+from .witsml import WitsmlTap                                  # registers the 'witsml' port at import
 from .well_assembler import (
     WellAssembly, WellComponent, assemble, assemble_ktb_hb, assemble_odp_504b,
     assemble_site_1027, assemble_u1324, BUILTIN_ASSEMBLIES,
@@ -127,7 +129,7 @@ from .profile_catalog import (
     read_pangaea_txt,
 )
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 __all__ = [
     "calculate_quartz_transducer_hpht_program", "canonical_suppression",
     "conventional_drift", "drift_comparison",

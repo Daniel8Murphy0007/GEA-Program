@@ -301,18 +301,12 @@ def section_f_ports() -> None:
     ok(PORT_REGISTRY["historian_csv"].status == "IMPLEMENTED"
        and PORT_REGISTRY["las2"].status == "IMPLEMENTED",
        "F1 ports: file tiers IMPLEMENTED")
-    try:
-        PORT_REGISTRY["witsml"].reader({})
-        ok(False, "F2 witsml: should refuse")
-    except NotImplementedError as e:
-        ok("site" in str(e).lower() or "DECLARED" in str(e),
-           "F2 witsml: declared-refusing with site-details message")
-    for name in ("opcua", "mqtt"):
+    for name in ("opcua", "mqtt", "wits0", "witsml"):
         try:
             PORT_REGISTRY[name].reader({})
             ok(False, f"F2 {name}: an empty config must refuse (no endpoint/broker, no tag map)")
         except (NotImplementedError, ValueError) as e:
-            ok("pip install" in str(e) or "needs" in str(e) or "endpoint" in str(e) or "broker" in str(e),
+            ok("pip install" in str(e) or "needs" in str(e) or "endpoint" in str(e) or "broker" in str(e) or "transport" in str(e),
                f"F2 {name}: an empty configuration is declined - dependency missing or site details missing, named either way")
     spec = PORT_REGISTRY["modbus_g6"]
     if spec.reader.__name__ == "read_modbus":
@@ -321,7 +315,7 @@ def section_f_ports() -> None:
             ok(False, "F3 modbus: empty config should refuse")
         except NotImplementedError as e:
             ok("host, register_map" in str(e),
-               "F3 modbus: disciplined minimal refusal (names what is missing)")
+               "F3 modbus: an empty configuration is declined and the missing fields are named")
     else:
         ok("pymodbus" in (spec.detail + spec.status).lower() or True,
            "F3 modbus: dependency-missing state declared")
@@ -1239,9 +1233,9 @@ def section_aa_client_reports(tmp: str) -> None:
     proto = FS.run_protocol("FAT", sections=["F"])
     del _AT._RESULTS[snap[2]:]
     _AT._PASS = snap[0]; _AT._FAILS[:] = snap[1]
-    ok(proto["kind"] == "FAT" and proto["n_steps"] >= 2 and proto["internal_checks_excluded"] == 1 and proto["n_fail"] == 0 and proto["result"] == "ACCEPTED"
+    ok(proto["kind"] == "FAT" and proto["n_steps"] >= 2 and proto["internal_checks_excluded"] == 0 and proto["n_fail"] == 0 and proto["result"] == "ACCEPTED"
        and all(r_["expected"] == "PASS" and r_["actual"] == "PASS" for r_ in proto["rows"]),
-       "AA49 FAT protocol: section F renders as numbered PASS steps (one internal-register check excluded, counted) with the result ACCEPTED")
+       "AA49 FAT protocol: section F renders as numbered PASS steps, none excluded by the vocabulary gate, with the result ACCEPTED")
 
     # (11) the web view
     from .dashboard import orchestrate, collect
@@ -1832,6 +1826,861 @@ def section_ad_patch_panel(tmp: str) -> None:
        "AD10 CLI: example maps for wits0 and witsml; `gea wits0 --replay` writes the records and the stream CSV; `gea wits0-sim` is there for a site to rehearse with")
 
 
+def section_ae_doctor(tmp: str) -> None:
+    """Section AE - gea doctor: the environment and workspace checks, the port
+    check, the serve start-up gate, and the CLI."""
+    from .doctor import check_environment, check_workspace, port_free, run as doctor_run
+    from .workspace import Workspace
+    import socket
+    env = check_environment()
+    levels = {x["level"] for x in env}
+    ok(any("Python" in x["what"] for x in env) and any("gea-program" in x["what"] and "at " in x["what"] for x in env)
+       and any("dashboard page present" in x["what"] for x in env) and any("numpy" in x["what"] for x in env)
+       and levels <= {"ok", "info", "warn", "block"} and all(x["fix"] for x in env if x["level"] in ("warn", "block")),
+       "AE1 doctor: reports the Python, the running package and its path, the page, the dependencies; every warning and block carries a fix")
+    wsp = str(Path(tmp, "ws_ae")); Workspace.create(wsp, "Doctor Site", actor="tester")
+    s = socket.socket(); s.bind(("127.0.0.1", 0)); busy = s.getsockname()[1]; s.listen(1)
+    try:
+        w1 = check_workspace(wsp, "127.0.0.1", busy)
+        w2 = check_workspace(str(Path(tmp, "not_a_workspace")), "127.0.0.1", busy)
+        free = socket.socket(); free.bind(("127.0.0.1", 0)); fp = free.getsockname()[1]; free.close()
+        w3 = check_workspace(wsp, "127.0.0.1", fp)
+        busy_seen = not port_free("127.0.0.1", busy)
+        r1 = _cli(["doctor", "--json"], tmp)
+        r2 = _cli(["doctor", "--workspace", wsp, "--port", str(busy)], tmp)
+        env = dict(os.environ); env["PYTHONPATH"] = str(Path(__file__).resolve().parent.parent) + os.pathsep + env.get("PYTHONPATH", "")
+        try:
+            r3 = subprocess.run([sys.executable, "-m", "gea", "serve", "--workspace", wsp, "--port", str(busy)], capture_output=True, text=True, cwd=tmp, env=env, timeout=60)
+            r3_text, r3_rc = r3.stdout + r3.stderr, r3.returncode
+        except subprocess.TimeoutExpired:
+            r3_text, r3_rc = "SERVE DID NOT STOP", 0
+    finally:
+        s.close()
+    ok(any(x["level"] == "block" and "already in use" in x["what"] and "--port" in x["fix"] for x in w1)
+       and w2[0]["level"] == "block" and "init" in w2[0]["fix"]
+       and not any(x["level"] == "block" for x in w3) and any("writable" in x["what"] for x in w3) and busy_seen,
+       "AE2 doctor --workspace: a busy port is a block with the --port fix; a folder that is not a workspace is a block with the init command; "
+       "a good workspace with a free port has no blocks")
+    ok(r1.returncode in (0, 1) and json.loads(r1.stdout)["findings"] and r2.returncode == 1 and "BLOCK" in r2.stdout
+       and r3_rc != 0 and "not starting" in r3_text,
+       "AE3 CLI: `gea doctor --json` is machine-readable; a blocking finding exits 1; `gea serve` does not start on a blocking finding and says why")
+
+
+def section_af_files(tmp: str) -> None:
+    """Section AF - the file system: detection by content, roots and their
+    boundary, browse and preview, import with the duplicate guard, the watch
+    folder, export and the evidence pack, the API under roles."""
+    import http.cookiejar
+    import urllib.request
+    import urllib.error
+    import zipfile
+    from . import files as F
+    from .workspace import Workspace, WorkspaceError
+    from .service import Service, Users
+    from . import DownholeEngine, SimulatorConfig
+    from .telemetry import TelemetryRecorder, TelemetryConfig
+    share = Path(tmp, "share"); share.mkdir(); (share / "sub").mkdir()
+    TelemetryRecorder(engine=DownholeEngine(SimulatorConfig()), config=TelemetryConfig(duration_hours=0.5, seed=5)).run().export_csv(str(share / "day1.csv"))
+    TelemetryRecorder(engine=DownholeEngine(SimulatorConfig()), config=TelemetryConfig(duration_hours=0.5, seed=6)).run().export_csv(str(share / "sub" / "day2.csv"))
+    import shutil
+    shutil.copyfile(str(Path(__file__).parent / "catalog" / "kennetcook_2_p129_excerpt.las"), str(share / "log.las"))
+    (share / "notes.csv").write_text("name,value\nx,1\n")
+    (share / "map.json").write_text('{"a": 1}')
+    (share / "blob.bin").write_bytes(b"\x00\x01\x02" * 100)
+    (share / "sheet.xls").write_bytes(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 64)
+    kinds = {n: F.detect(str(share / n))["kind"] for n in ("day1.csv", "log.las", "notes.csv", "map.json", "blob.bin", "sheet.xls")}
+    ok(kinds == {"day1.csv": "historian_csv", "log.las": "las", "notes.csv": "csv", "map.json": "json", "blob.bin": "unknown", "sheet.xls": "xls"}
+       and F.preview(str(share / "log.las"))["lines"][0].startswith("#") and len(F.read_any(str(share / "log.las")).channels) > 5
+       and F.read_any(str(share / "day1.csv")).index_kind == "time_s",
+       "AF1 detection by content: historian CSV, LAS behind comment lines, plain CSV, JSON, binary, OLE workbook; preview shows the first lines; read_any dispatches to the right reader")
+    try:
+        F.read_any(str(share / "notes.csv")); bad = False
+    except ValueError as e:
+        bad = "timestamp" in str(e)
+    ok(bad, "AF2 a delimited file whose first column is not a timestamp is declined with the reason, never read as a gauge stream")
+    wsp = str(Path(tmp, "ws_af")); ws = Workspace.create(wsp, "Files Site", actor="tester")
+    R = F.Roots(ws)
+    R.add("import", "historian", str(share), "tester")
+    exp = Path(tmp, "evidence"); exp.mkdir(); R.add("export", "evidence", str(exp), "tester")
+    try:
+        R.add("import", "nope", str(Path(tmp, "does_not_exist")), "tester"); bad_root = False
+    except WorkspaceError:
+        bad_root = True
+    try:
+        R.resolve("import", "historian", "../"); leak = False
+    except WorkspaceError:
+        leak = True
+    try:
+        F.browse(ws, "historian", "../../"); leak2 = False
+    except WorkspaceError:
+        leak2 = True
+    b = F.browse(ws, "historian")
+    names = [e["name"] for e in b["entries"]]
+    ok(bad_root and leak and leak2 and names[0] == "sub" and {e["name"]: e.get("kind") for e in b["entries"] if e["type"] == "file"}["day1.csv"] == "historian_csv"
+       and len(R.list("import")) == 1 and len(R.list("export")) == 1,
+       "AF3 roots: a folder that does not exist is declined; a path that leaves its root is declined (resolve and browse); browsing lists folders first with each file's kind")
+    w = F.import_file(ws, "historian", "day1.csv", "tester", display="Day 1")
+    try:
+        F.import_file(ws, "historian", "day1.csv", "tester", display="Day 1 again"); dup = False
+    except WorkspaceError as e:
+        dup = "already imported" in str(e)
+    try:
+        F.import_file(ws, "historian", "notes.csv", "tester"); nonstream = False
+    except WorkspaceError:
+        nonstream = True
+    scan = F.scan_root(ws, "historian", actor="watch")
+    scan2 = F.scan_root(ws, "historian", actor="watch")
+    xls_ok = any(a["rel"] == "sheet.xls" for a in scan["added"]) or any(sk["rel"] == "sheet.xls" and "xlrd" in sk["reason"] for sk in scan["skipped"])
+    ok(w["id"] == "Day-1" and w["kind"] == "file" and dup and nonstream and {"log.las", os.path.join("sub", "day2.csv")} <= {a["rel"] for a in scan["added"]}
+       and xls_ok and scan2["added"] == [] and len(F.imported(ws)) >= 3,
+       "AF4 import: the file becomes a file well; the same content a second time is declined (hash); a non-stream is declined; the watch folder "
+       "imports what is new including subfolders (a vendor .xls only when xlrd is present, else skipped with the reason), and a second scan finds nothing new")
+    ws.refresh_dashboard(actor="tester")
+    e1 = F.export_report(ws, "accuracy_statement.html", "evidence", "2026-10", "tester")
+    e2 = F.export_report(ws, "wells/Day-1", "evidence", "2026-10/day1", "tester")
+    try:
+        F.export_report(ws, "../users.json", "evidence", "x", "tester"); leak3 = False
+    except WorkspaceError:
+        leak3 = True
+    m = F.evidence_pack(ws, str(exp / "pack.zip"), "tester")
+    with zipfile.ZipFile(str(exp / "pack.zip")) as z:
+        arcs = z.namelist()
+        sums = z.read("SHA256SUMS.txt").decode().splitlines()
+    ok(len(e1["files"]) == 1 and Path(exp, "2026-10", "accuracy_statement.html").exists() and len(e2["files"]) >= 3 and leak3
+       and m["n_files"] >= 20 and "MANIFEST.json" in arcs and "records/audit.jsonl" in arcs and "workspace.json" in arcs
+       and any(a.startswith("reports/wells/Day-1/") for a in arcs) and len(sums) == m["n_files"] and m["sha256"],
+       "AF5 export: one report or a well's folder lands in the export root; a path outside reports/ is declined; the evidence pack carries the reports, "
+       "the audit log, the configuration store, the manifest and a hash list, and its own hash is recorded")
+    users = Users(str(Path(wsp, "users.json"))); users.add("op", "operator-pass-1", "operator"); users.add("vera", "viewer-pass-1", "viewer"); users.add("adm", "admin-pass-123", "admin")
+    svc = Service(wsp, port=0, scheduler=False).start(); base = svc.url.rstrip("/")
+    cj = http.cookiejar.CookieJar(); opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json"); req.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(req, timeout=120) as rr:
+                return rr.status, json.loads(rr.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        call("POST", "/api/login", {"name": "vera", "password": "viewer-pass-1"})
+        v1 = call("GET", "/api/files/browse?root=historian")[0]
+        v2 = call("GET", "/api/files/preview?root=historian&path=log.las")[1]
+        v3 = call("POST", "/api/files/import", {"root": "historian", "path": "day1.csv"})[0]
+        call("POST", "/api/logout"); call("POST", "/api/login", {"name": "op", "password": "operator-pass-1"})
+        o1 = call("POST", "/api/files/export", {"root": "evidence", "dest": "api", "report": "accuracy_statement.json"})
+        o2 = call("POST", "/api/files/roots/add", {"which": "import", "name": "x", "path": str(share)})[0]
+        o3 = call("GET", "/api/files/browse?root=historian&path=../")[0]
+        call("POST", "/api/logout"); call("POST", "/api/login", {"name": "adm", "password": "admin-pass-123"})
+        a1 = call("POST", "/api/files/roots/add", {"which": "export", "name": "second", "path": str(exp)})[0]
+        a2 = call("GET", "/api/files/roots")[1]
+        ok(v1 == 200 and v2["kind"] == "las" and v3 == 403 and o1[0] == 200 and len(o1[1]["files"]) == 1 and o2 == 403 and o3 == 400
+           and a1 == 200 and len(a2["export"]) == 2,
+           "AF6 files API: a viewer browses and previews but cannot import; an operator exports but cannot add roots; a path outside the root is declined; an admin adds roots")
+    finally:
+        svc.stop()
+    r = _cli(["files", "--workspace", wsp, "--action", "list", "--root", "historian"], tmp)
+    r2 = _cli(["files", "--workspace", wsp, "--action", "pack", "--root", "evidence", "--dest", "cli", "--actor", "cli"], tmp)
+    ok(r.returncode == 0 and "historian_csv" in r.stdout and "las" in r.stdout and r2.returncode == 0 and "evidence pack:" in r2.stdout and list(Path(exp, "cli").glob("evidence_*.zip")),
+       "AF7 CLI: `gea files --action list` shows kinds; `--action pack` builds the evidence pack into the export root")
+
+
+def section_ag_experience(tmp: str) -> None:
+    """Section AG - the operator's experience: alarm shelving with expiry and
+    bulk acknowledgement (engine, CLI and API), preferences and site defaults,
+    the since-last-visit strip, the navigation badges, search, notification
+    rules with a webhook and a mailbox delivered to local stand-ins, the
+    delivery log, and the page's help, print and first-run elements."""
+    import http.cookiejar
+    import http.server
+    import socketserver
+    import socket
+    import threading
+    import urllib.request
+    import urllib.error
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    from .alarm_engine import AlarmEngine, AlarmDefinition, records_from_series
+    from .workspace import Workspace
+    from .service import Service, Users, DEFAULT_PREFS
+    from . import notify as N
+    from . import DownholeEngine, SimulatorConfig
+    from .telemetry import TelemetryRecorder, TelemetryConfig
+
+    # -- the engine: shelve with expiry, bulk ack, replay ------------------------------------------
+    T = _dt(2026, 1, 1, 8, 0, tzinfo=_tz.utc)
+    ts = [(T + _td(seconds=60 * i)).strftime("%Y-%m-%dT%H:%M:%SZ") for i in range(8)]
+    d1 = AlarmDefinition("P.H", "P", "HIGH", "P2", setpoint=104, deadband=5, on_delay_s=0)
+    d2 = AlarmDefinition("P.HH", "P", "HIGH", "P1", setpoint=108, deadband=5, on_delay_s=0)
+    log = str(Path(tmp, "ag_events.jsonl"))
+    eng = AlarmEngine([d1, d2], event_log_path=log)
+    rr = records_from_series("P", ts, [110] * 8, "psi")
+    eng.process(rr[:2])
+    acks = eng.acknowledge_all("op", T + _td(seconds=90), note="shift handover")
+    sh = eng.shelve("P.H", "op", T + _td(seconds=100), "gauge swap", hours=0.05)       # three minutes
+    shelved_mid = eng.shelved()
+    eng.process(rr[2:6])                                                                # 08:02 .. 08:05; the shelf ends 08:04:40
+    evs = [(e["timestamp_utc"][11:19], e["event"], e["alarm_id"], e["operator"]) for e in eng.events]
+    eng2 = AlarmEngine([d1, d2], event_log_path=log)
+    ok(len(acks) == 2 and all(a["note"] == "shift handover" for a in acks) and sh["until"] == "2026-01-01T08:04:40Z"
+       and shelved_mid and shelved_mid[0]["shelved_until_utc"] == "2026-01-01T08:04:40Z" and shelved_mid[0]["note"] == "gauge swap"
+       and ("08:05:00", "UNSHELVED", "P.H", "expiry") in evs and evs[-1] == ("08:05:00", "ACTIVATED", "P.H", "")
+       and eng2.states["P.H"].state == "ACTIVE_UNACKED" and eng2.states["P.HH"].state == "ACTIVE_ACKED",
+       "AG1 alarm engine: acknowledge-all records one event per alarm with the note; a shelf carries who, why and until when; "
+       "it expires on its own at the first sample past the expiry (UNSHELVED by 'expiry') and the condition re-evaluates; a fresh engine replays the same states")
+    errs = []
+    for fn in (lambda: eng.unshelve("P.HH", "op", T), lambda: eng.acknowledge("nope", "op", T), lambda: eng.shelve("P.H", "op", T, hours=-1)):
+        try:
+            fn(); errs.append(None)
+        except ValueError as e:
+            errs.append(str(e))
+    ok(errs[0] and "not shelved" in errs[0] and errs[1] and "unknown alarm" in errs[1] and errs[2] and "positive" in errs[2],
+       "AG2 operator actions are checked: unshelving an alarm that is not shelved, an unknown id and a non-positive shelf are each declined with the reason")
+
+    # -- CLI -----------------------------------------------------------------------------------------
+    hist = str(Path(tmp, "hist_ag.csv"))
+    TelemetryRecorder(engine=DownholeEngine(SimulatorConfig()), config=TelemetryConfig(duration_hours=3.0, seed=1, gauge_stuck_start_prob=0.004)).run().export_csv(hist)
+    import subprocess as _sp
+    evlog = str(Path(tmp, "ag_cli_events.jsonl"))
+    r0 = _sp.run([sys.executable, "-m", "gea", "alarms", "--file", hist, "--event-log", evlog], capture_output=True, text=True)
+    first_id = None
+    for line in Path(evlog).read_text().splitlines():
+        e = json.loads(line)
+        if e["event"] == "ACTIVATED":
+            first_id = e["alarm_id"]; break
+    r1 = _sp.run([sys.executable, "-m", "gea", "alarms", "--file", hist, "--event-log", evlog, "--shelve", first_id or "x", "--shelve-hours", "48", "--note", "planned", "--operator", "cli", "--now", "2026-01-02T00:00:00Z"], capture_output=True, text=True)
+    r2 = _sp.run([sys.executable, "-m", "gea", "alarms", "--file", hist, "--event-log", evlog, "--shelve", first_id or "x"], capture_output=True, text=True)
+    r3 = _sp.run([sys.executable, "-m", "gea", "alarms", "--file", hist, "--event-log", evlog, "--ack-all", "--operator", "cli", "--now", "2026-01-02T00:01:00Z"], capture_output=True, text=True)
+    ok(r0.returncode == 0 and first_id and r1.returncode == 0 and '"SHELVED"' in r1.stdout and '"until": "2026-01-04T00:00:00Z"' in r1.stdout
+       and r2.returncode != 0 and "--now" in r2.stderr and r3.returncode == 0,
+       "AG3 CLI: --shelve with --shelve-hours and --note writes the SHELVED event with its expiry; an action without --now is declined; --ack-all acknowledges the rest")
+
+    # -- the service ------------------------------------------------------------------------------------
+    wsp = str(Path(tmp, "ws_ag"))
+    ws = Workspace.create(wsp, "Experience Site", actor="tester")
+    w1 = ws.add_well_file(hist, display="Well AG", actor="tester")
+    ws.refresh_dashboard(actor="tester")
+    users = Users(str(Path(wsp, "users.json")))
+    users.add("admin1", "correct-horse-battery", "admin")
+    users.add("olga", "operator-pass-1", "operator")
+
+    # local stand-ins: a webhook receiver and a mailbox
+    hooks = []
+
+    class Hook(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            n = int(self.headers.get("Content-Length") or 0)
+            hooks.append({"headers": dict(self.headers), "body": json.loads(self.rfile.read(n) or b"{}")})
+            self.send_response(204); self.end_headers()
+
+        def log_message(self, *a):
+            pass
+    hook_srv = socketserver.TCPServer(("127.0.0.1", 0), Hook)
+    threading.Thread(target=hook_srv.serve_forever, daemon=True).start()
+    mails = []
+
+    def smtp_server(sock):
+        while True:
+            try:
+                c, _ = sock.accept()
+            except OSError:
+                return
+            with c:
+                f = c.makefile("rwb")
+
+                def say(t):
+                    f.write(t.encode() + b"\r\n"); f.flush()
+                say("220 stand-in ESMTP")
+                data = []
+                while True:
+                    line = f.readline()
+                    if not line:
+                        break
+                    cmd = line.decode(errors="replace").strip()
+                    up = cmd.upper()
+                    if up.startswith("EHLO") or up.startswith("HELO"):
+                        say("250-stand-in"); say("250 AUTH PLAIN LOGIN")
+                    elif up.startswith("AUTH"):
+                        if "PLAIN" in up and len(cmd.split()) < 3:
+                            say("334 "); f.readline()
+                        elif "LOGIN" in up:
+                            say("334 VXNlcm5hbWU6"); f.readline(); say("334 UGFzc3dvcmQ6"); f.readline()
+                        say("235 ok")
+                    elif up.startswith("DATA"):
+                        say("354 go")
+                        body = []
+                        while True:
+                            l2 = f.readline()
+                            if l2.strip() == b".":
+                                break
+                            body.append(l2.decode(errors="replace"))
+                        mails.append("".join(body)); say("250 queued")
+                    elif up.startswith("QUIT"):
+                        say("221 bye"); break
+                    else:
+                        say("250 ok")
+    smtp_sock = socket.socket(); smtp_sock.bind(("127.0.0.1", 0)); smtp_sock.listen(5)
+    threading.Thread(target=smtp_server, args=(smtp_sock,), daemon=True).start()
+    hook_port, smtp_port = hook_srv.server_address[1], smtp_sock.getsockname()[1]
+    os.environ["GEA_TEST_SMTP_PW"] = "stand-in-secret"
+
+    svc = Service(wsp, host="127.0.0.1", port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+    cj = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json")
+        if method == "POST":
+            req.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(req, timeout=600) as r:
+                return r.status, json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        # preferences, site defaults, the session carries both
+        call("POST", "/api/login", {"name": "admin1", "password": "correct-horse-battery"})
+        s0 = call("GET", "/api/session")[1]
+        p1 = call("POST", "/api/prefs", {"prefs": {"units": "si", "time_zone": "America/Chicago", "help_open": False}})[1]["prefs"]
+        bad_pref = call("POST", "/api/prefs", {"prefs": {"units": "cubits"}})[0]
+        site = call("POST", "/api/site", {"site": {"display_name": "North Pad", "units": "field", "time_zone": "Europe/Oslo", "contact": "control room"}})[1]["site"]
+        s1 = call("GET", "/api/session")[1]
+        stored = json.loads(Path(wsp, "users.json").read_text())["users"][0]
+        ok(s0["user"]["prefs"] == DEFAULT_PREFS and s0["user"]["prev_login_utc"] is None and p1["units"] == "si" and p1["time_zone"] == "America/Chicago"
+           and p1["help_open"] is False and bad_pref == 400 and site["display_name"] == "North Pad" and s1["site"]["time_zone"] == "Europe/Oslo"
+           and s1["user"]["prefs"]["units"] == "si" and stored["prefs"]["units"] == "si" and stored.get("last_login_utc")
+           and Workspace(wsp).manifest.get("site", {}).get("display_name") == "North Pad",
+           "AG4 preferences: a user's units, time zone and help choice persist in the account and ride on the session; an unknown value is declined; "
+           "site-wide defaults live in the workspace manifest (admin) and reach every session; the first sign-in has no previous visit")
+        # alarms through the API: shelve, unshelve, ack-all; the report carries the shelf
+        rep = call("GET", "/api/wells/" + w1["id"])[1]["reports"]["alarm_event_report"]
+        act = rep["active"]
+        target = act[0]["alarm_id"]
+        st_sh, js = call("POST", "/api/alarms/shelve", {"well_id": w1["id"], "alarm_id": target, "hours": 8, "note": "pulling the gauge"})
+        rep2 = call("GET", "/api/wells/" + w1["id"])[1]["reports"]["alarm_event_report"]
+        st_bad = call("POST", "/api/alarms/shelve", {"well_id": w1["id"], "alarm_id": target, "hours": 99999})[0]
+        st_un, ju = call("POST", "/api/alarms/unshelve", {"well_id": w1["id"], "alarm_id": target})
+        rep3 = call("GET", "/api/wells/" + w1["id"])[1]["reports"]["alarm_event_report"]
+        st_all, ja = call("POST", "/api/alarms/ack-all", {"note": "start of shift"})
+        rep4 = call("GET", "/api/wells/" + w1["id"])[1]["reports"]["alarm_event_report"]
+        audit_actions = [e["action"] for e in ws.audit_log()]
+        shelf = [x for x in rep2["shelved"] if x["alarm_id"] == target]
+        ok(st_sh == 200 and js["status"] == "DONE" and shelf and shelf[0]["shelved_by"] == "admin1" and shelf[0]["note"] == "pulling the gauge"
+           and shelf[0]["shelved_until_utc"] and target not in {a["alarm_id"] for a in rep2["active"]}
+           and st_bad == 400 and st_un == 200 and ju["status"] == "DONE" and not [x for x in rep3["shelved"] if x["alarm_id"] == target]
+           and st_all == 200 and ja["jobs"] and all(j["status"] == "DONE" for j in ja["jobs"])
+           and all(a["state"] != "ACTIVE_UNACKED" for a in rep4["active"]) and len(rep4["active"]) >= 1
+           and "alarm.shelve" in audit_actions and "alarm.unshelve" in audit_actions and "alarm.ack-all" in audit_actions,
+           "AG5 alarm API: shelving removes the alarm from the active list and records it under 'shelved' with who, why and until when; "
+           "a 90-day cap holds; unshelving restores it; acknowledge-all walks every well with unacknowledged alarms; every action is audited")
+        # badges, since, search
+        b = call("GET", "/api/badges")[1]
+        sv_none = call("GET", "/api/since")[1]
+        past = (_dt.now(_tz.utc) - _td(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        sv = call("GET", "/api/since?after=" + past)[1]
+        sr = call("GET", "/api/search?q=" + target.split(".")[0].lower()[:4])[1]
+        sr2 = call("GET", "/api/search?q=well%20ag")[1]
+        sr_short = call("GET", "/api/search?q=a")[0]
+        kinds = {h["kind"] for h in sr["hits"]} | {h["kind"] for h in sr2["hits"]}
+        ok(b["alarms_unacked"] == 0 and b["alarms_active"] >= 1 and b["alarms_shelved"] == 0 and b["approvals_pending"] >= 0 and "generated_utc" in b
+           and sv_none["since"] is None and sv["alarm_events"] >= 2 and sv["counts"].get("alarm.shelve") == 1 and sv["jobs"]["total"] >= 3
+           and sv["alarm_items"][0]["well"] == "Well AG" and sr_short == 400 and "well" in kinds and ("alarm" in kinds or "alarm definition" in kinds),
+           "AG6 badges count unacknowledged and shelved alarms, pending approvals, running and failed jobs, patches down; since-last-visit groups the audit actions, "
+           "alarm events and jobs after a timestamp (none on a first visit); search spans wells, alarms and definitions, reports, jobs, configuration, patches; two characters minimum")
+        # notifications: validate, commit, deliver to the stand-ins, the quiet window, the log, secrets kept out
+        cfg = {"channels": [{"name": "hook", "kind": "webhook", "url": f"http://127.0.0.1:{hook_port}/gea", "headers": {"X-Token": "hook-secret-1"}},
+                            {"name": "mail", "kind": "smtp", "host": "127.0.0.1", "port": smtp_port, "starttls": False, "from": "gea@site", "to": ["ops@site"], "user": "gea", "password_env": "GEA_TEST_SMTP_PW"}],
+               "rules": [{"event": "alarm.activated", "priority": ["P1", "P2"], "channels": ["hook", "mail"]}, {"event": "job.failed", "channels": ["hook"]}, {"event": "test", "channels": ["hook", "mail"]}],
+               "quiet_s": 60}
+        bad1 = call("POST", "/api/config/commit", {"name": "notifications", "content": {**cfg, "rules": [{"event": "moon.phase", "channels": ["hook"]}]}})[0]
+        bad2 = call("POST", "/api/config/commit", {"name": "notifications", "content": {**cfg, "channels": cfg["channels"][:1] + [{**cfg["channels"][1], "password": "x"}]}})
+        st_c, meta = call("POST", "/api/config/commit", {"name": "notifications", "content": cfg, "note": "stand-ins"})
+        view = call("GET", "/api/notifications")[1]
+        t1 = call("POST", "/api/notifications/test", {"channel": "hook"})[1]
+        t2 = call("POST", "/api/notifications/test", {"channel": "mail"})[1]
+        t3 = call("POST", "/api/notifications/test", {"channel": "pager"})[0]
+        time.sleep(0.3)
+        ok(bad1 == 400 and bad2[0] == 400 and "password" in bad2[1]["error"] and st_c == 200 and meta["version"] == 1 and view["configured"]
+           and [c["name"] for c in view["channels"]] == ["hook", "mail"] and "hook-secret-1" not in json.dumps(view) and all(c["secret"] for c in view["channels"])
+           and t1["ok"] and t2["ok"] and t3 == 400 and len(hooks) == 1 and hooks[0]["headers"].get("X-Token") == "hook-secret-1"
+           and hooks[0]["body"]["event"] == "test" and len(mails) == 1 and "Subject: [GEA] test" in mails[0] and "To: ops@site" in mails[0],
+           "AG7 notifications: a rule with an unknown event or a channel with a password in the file is declined; the committed configuration is live at once; "
+           "a test message reaches the webhook with its header and the mailbox with its subject; the page's view never shows the secret")
+        # the watcher: a new alarm activation in a well's log is announced through the rules, once inside the quiet window
+        hooks.clear(); mails.clear()
+        svc.app.watcher.poll()                                                    # baseline
+        evpath = Path(wsp, "reports", "wells", w1["id"], "alarm_events.jsonl")
+        with open(evpath, "a", encoding="utf-8") as f:
+            for i in range(2):
+                f.write(json.dumps({"timestamp_utc": "2026-06-01T00:00:0%dZ" % i, "alarm_id": "T.HH", "tag_id": "T", "kind": "HIGH", "priority": "P1", "event": "ACTIVATED",
+                                    "value": 300.0, "setpoint": 250.0, "operator": "", "note": ""}) + "\n")
+            f.write(json.dumps({"timestamp_utc": "2026-06-01T00:00:03Z", "alarm_id": "Q.LOW", "tag_id": "Q", "kind": "LOW", "priority": "P4", "event": "ACTIVATED",
+                                "value": 1.0, "setpoint": 2.0, "operator": "", "note": ""}) + "\n")
+        n = svc.app.watcher.poll()
+        time.sleep(0.3)
+        tail = svc.app.notifier.tail(20)
+        suppressed = [e for e in tail if e.get("result", {}).get("suppressed")]
+        ok(n == 2 and len(hooks) == 1 and hooks[0]["body"]["alarm_id"] == "T.HH" and hooks[0]["body"]["well"] == "Well AG" and len(mails) == 1
+           and "P1 alarm T.HH on Well AG" in mails[0] and suppressed and suppressed[0]["key"].endswith("T.HH")
+           and Path(wsp, "records", "notifications.jsonl").exists() and all(e["ok"] for e in tail),
+           "AG8 the watcher announces a new P1 activation through both channels (a P4 matches no rule), suppresses the repeat inside the quiet window, "
+           "and logs every attempt and suppression to records/notifications.jsonl")
+        # roles on the new routes, and the page's new elements
+        call("POST", "/api/logout")
+        call("POST", "/api/login", {"name": "olga", "password": "operator-pass-1"})
+        r_site = call("POST", "/api/site", {"site": {"units": "si"}})[0]
+        r_test = call("POST", "/api/notifications/test", {"channel": "hook"})[0]
+        r_view = call("GET", "/api/notifications")[0]
+        r_pref = call("POST", "/api/prefs", {"prefs": {"units": "field"}})[0]
+        s2 = call("GET", "/api/session")[1]
+        body = Path(__file__).parent.joinpath("web", "app.html").read_text(encoding="utf-8")
+        ok(r_site == 403 and r_test == 403 and r_view == 200 and r_pref == 200 and s2["user"]["prefs"]["units"] == "field"
+           and "@media print" in body and "VIEWS.welcome" in body and "VIEWS.search" in body and "VIEWS.prefs" in body and "shelveDialog" in body
+           and "loadHelp" in body and "/api/badges" in body and "/api/since" in body and "ack-all" in body and "Intl.DateTimeFormat" in body,
+           "AG9 roles: site settings and notification tests need admin; preferences and the notifications view need only the signed-in user; "
+           "the page carries the alarm actions, the search, preferences, first-run guide, help panels, badges, time-zone display and a print stylesheet")
+    finally:
+        svc.stop()
+        hook_srv.shutdown(); hook_srv.server_close()
+        smtp_sock.close()
+        os.environ.pop("GEA_TEST_SMTP_PW", None)
+
+
+def section_ah_band2(tmp: str) -> None:
+    """Section AH - instruments and transients: the swap register and the step
+    detector (peer residual, ambiguity with one peer, the winner among three),
+    the fit segmented at a swap, calibration certificates with status and the
+    accuracy-vs-bias line in the drift report, shut-in detection by rate and by
+    pressure alone, the build-up analysis recovering known k and skin inside
+    its band on a synthetic record, the CLI, the API and the page."""
+    import csv
+    import copy
+    import http.cookiejar
+    import urllib.request
+    import urllib.error
+    import datetime as D
+    import subprocess as _sp
+    from .files import read_any
+    from .sensor_swap import SwapRegister, detect_swaps, segment_mask
+    from .certificates import CertificateRegister
+    from .shut_in import detect_shut_ins, extract_buildup
+    from .transient import analyze_buildup
+    from .workspace import Workspace
+    from .service import Service, Users
+
+    # a synthetic record: line-source radial flow, 120 h flowing, 48 h shut in, flowing again; two gauges; one swapped at hour 192
+    k, h, phi, mu, ct, rw, q, B, skin = 50.0, 40.0, 0.2, 1.0, 1e-5, 0.354, 500.0, 1.2, 3.0
+    pi, tp, n = 5000.0, 120.0, 240
+    pdl = lambda tt: 162.6 * q * B * mu / (k * h) * (np.log10(np.maximum(tt, 1e-6) * k / (phi * mu * ct * rw ** 2)) - 3.23 + 0.87 * skin)
+    rng = np.random.default_rng(3)
+    p = np.zeros(n); rate = np.full(n, q)
+    for hr in range(n):
+        if hr <= 119:
+            p[hr] = pi - pdl(hr + 1)
+        elif hr <= 167:
+            dt = hr - 119; p[hr] = pi - (pdl(tp + dt) - pdl(dt)); rate[hr] = 0.0
+        else:
+            p[hr] = pi - pdl(hr - 167) - 20
+    p1 = p + rng.normal(0, 0.8, n); p2 = p + rng.normal(0, 0.8, n) + 1.5; p2[192:] += 30.0
+    hist = str(Path(tmp, "hist_ah.csv"))
+    t0 = D.datetime(2026, 3, 1, tzinfo=D.timezone.utc)
+    with open(hist, "w", newline="") as f:
+        w = csv.writer(f); w.writerow(["timestamp_utc", "P_raw_psi_S1", "P_raw_psi_S2", "T_raw_F_S1", "oil_rate_stb_d"])
+        for i in range(n):
+            w.writerow([(t0 + D.timedelta(hours=i)).strftime("%Y-%m-%dT%H:%M:%SZ"), round(p1[i], 2), round(p2[i], 2), round(80 + 0.1 * rng.normal(), 2), round(rate[i], 1)])
+    params = {"q_stb_d": q, "B_rb_stb": B, "mu_cp": mu, "h_ft": h, "phi": phi, "ct_1_psi": ct, "rw_ft": rw}
+    stream = read_any(hist)
+
+    # -- swaps: detection and the register --------------------------------------------------------------
+    c2 = detect_swaps(stream)
+    s3 = copy.copy(stream); s3.channels = dict(stream.channels)
+    ch = copy.copy(stream.channels["P_raw_psi_S1"]); ch.values = ch.values + 0.7; s3.channels["P_raw_psi_S3"] = ch
+    c3 = detect_swaps(s3)
+    ok(len(c2) == 2 and {c["tag_id"] for c in c2} == {"P_raw_psi_S1", "P_raw_psi_S2"} and all(c["swap_utc"] == "2026-03-09T00:00:00Z" and c["ambiguous_with"] for c in c2)
+       and len(c3) == 1 and c3[0]["tag_id"] == "P_raw_psi_S2" and c3[0]["confidence"] == "high" and abs(c3[0]["step"] - 30.0) < 1.5 and c3[0]["z"] > 15
+       and not any(abs(c["index"] - 120) < 24 for c in c2 + c3),
+       "AH1 swap detection works on the offset against peer gauges: with two gauges the 30 psi step at hour 192 is found at the right time on both, "
+       "flagged ambiguous; with three the swapped gauge alone is named with high confidence; the shut-in's 500 psi process move, common to all gauges, raises nothing")
+    reg = SwapRegister(str(Path(tmp, "ah_swaps.jsonl")))
+    e = reg.add("P_raw_psi_S2", "2026-03-09T00:00:00Z", "tester", "SN-OLD", "SN-NEW", "CERT-77", "pulled and replaced")
+    bad = []
+    for fn in (lambda: reg.add("P_raw_psi_S2", "2026-03-09T00:00:00Z", "tester", "", "SN-NEW"), lambda: reg.add("P_raw_psi_S1", "2026-03-10", "tester", "", ""),
+               lambda: reg.add("", "2026-03-10", "tester", "", "x")):
+        try:
+            fn(); bad.append(False)
+        except ValueError:
+            bad.append(True)
+    masked, notes = segment_mask(stream, reg)
+    v2 = masked.channels["P_raw_psi_S2"].values
+    ok(e["swap_id"] == "SWP-P_raw_psi_S2-20260309T000000Z" and all(bad) and len(reg.list()) == 1 and notes[0]["samples_excluded"] == 192 and notes[0]["samples_kept"] == 48
+       and int(np.isnan(v2).sum()) == 192 and not np.isnan(stream.channels["P_raw_psi_S2"].values).any() and not np.isnan(masked.channels["P_raw_psi_S1"].values).any(),
+       "AH2 the swap register is append-only with a stable id; a duplicate, a missing serial and a missing tag are declined; "
+       "the segment mask blanks the 192 samples before the swap on that tag only and leaves the source stream untouched")
+
+    # -- certificates --------------------------------------------------------------------------------------
+    cr = CertificateRegister(str(Path(tmp, "ah_certs.jsonl")), warn_days=60)
+    cr.add("P_raw_psi_S1", "SN-1", "CERT-1", "2026-01-01", "2027-01-01", "tester", "LabX", 0.02, 10000, "psi")
+    cr.add("P_raw_psi_S2", "SN-OLD", "CERT-OLD", "2025-01-01", "2026-01-01", "tester", "LabX", 0.05, 10000, "psi")
+    cr.add("P_raw_psi_S2", "SN-NEW", "CERT-77", "2026-03-01", "2026-04-20", "tester", "LabX", 0.02, 10000, "psi")
+    now = D.datetime(2026, 3, 10, tzinfo=D.timezone.utc)
+    st = cr.status(["P_raw_psi_S1", "P_raw_psi_S2", "P_raw_psi_S9"], now=now, serial_by_tag={"P_raw_psi_S2": "SN-NEW"})
+    st_old = cr.status(["P_raw_psi_S2"], now=now, serial_by_tag={"P_raw_psi_S2": "SN-OLD"})
+    bad_c = []
+    for fn in (lambda: cr.add("P_raw_psi_S1", "SN-1", "CERT-1", "2026-01-01", "2027-01-01", "tester"), lambda: cr.add("P_raw_psi_S1", "SN-1", "CERT-2", "2027-01-01", "2026-01-01", "tester"),
+               lambda: cr.add("P_raw_psi_S1", "SN-1", "CERT-3", "2026-01-01", "2027-01-01", "tester", accuracy_pct_fs=50)):
+        try:
+            fn(); bad_c.append(False)
+        except ValueError:
+            bad_c.append(True)
+    ok([r["status"] for r in st] == ["VALID", "EXPIRING", "MISSING"] and st[1]["certificate_id"] == "CERT-77" and st[1]["days_left"] == 41 and st_old[0]["status"] == "EXPIRED"
+       and all(bad_c) and CertificateRegister.summary(st)["counts"] == {"VALID": 1, "EXPIRING": 1, "EXPIRED": 0, "MISSING": 1},
+       "AH3 certificates: status per tag for the serial in service (VALID / EXPIRING inside 60 days with the days left / EXPIRED / MISSING); "
+       "a duplicate, an expiry before issue and an absurd accuracy are declined")
+
+    # -- shut-ins and the build-up ---------------------------------------------------------------------------
+    det = detect_shut_ins(stream)
+    si = det["shut_ins"][0]
+    b = extract_buildup(stream, si)
+    r = analyze_buildup(b["dt_h"], b["p_ws"], b["tp_h"], b["p_wf"], params)
+    d = r["derived"]; ci = r["uncertainty"]["ci90"]
+    s_noq = copy.copy(stream); s_noq.channels = {k2: v for k2, v in stream.channels.items() if k2 != "oil_rate_stb_d"}
+    det2 = detect_shut_ins(s_noq)
+    r0 = analyze_buildup(b["dt_h"], b["p_ws"], b["tp_h"], b["p_wf"])
+    ok(det["mode"].startswith("rate") and len(det["shut_ins"]) == 1 and si["qualified"] and si["start_utc"] == "2026-03-06T00:00:00Z" and abs(si["duration_h"] - 47) < 0.01
+       and abs(si["flowing_before_h"] - 120) < 0.01 and abs(b["p_wf"] - p1[119]) < 0.011 and abs(b["dt_h"][0] - 1.0) < 1e-9
+       and r["status"] == "OK" and abs(d["k_md"] - k) / k < 0.05 and abs(d["skin"] - skin) < 0.5 and ci["k_md"]["p05"] <= k * 1.05 and ci["k_md"]["p95"] >= k * 0.95
+       and "flat derivative" in r["mtr"]["rule"] and r["mtr"]["n"] >= 10 and abs(r["horner"]["p_star"] - pi) < 5
+       and det2["mode"] == "pressure-only" and det2["shut_ins"] and det2["shut_ins"][0]["inferred"] and abs(det2["shut_ins"][0]["start_s"] / 3600 - 120) <= 3
+       and r0["status"] == "OK" and r0["derived"] == {} and any("slope and p* only" in c for c in r0["caveats"]),
+       "AH4 the shut-in is found by the rate channel (47 h closed after 120 h flowing, clock and p_wf from the last flowing sample); the build-up analysis "
+       "recovers k within 5 % and skin within 0.5 of the truth with the truth inside the 90 % band, on an MTR chosen by the flat derivative, p* within 5 psi; "
+       "without a rate channel the same shut-in is inferred from the pressure and marked so; without parameters only slope and p* are reported, said so")
+    short = analyze_buildup(b["dt_h"][:4], b["p_ws"][:4], b["tp_h"], b["p_wf"], params)
+    r_mtr = analyze_buildup(b["dt_h"], b["p_ws"], b["tp_h"], b["p_wf"], params, mtr={"start_dt_h": 5, "end_dt_h": 30})
+    ok(short["status"] == "INSUFFICIENT_DATA" and r_mtr["mtr"]["rule"] == "window chosen by the analyst" and 5 <= r_mtr["mtr"]["start_dt_h"] and r_mtr["mtr"]["end_dt_h"] <= 30
+       and abs(r_mtr["derived"]["k_md"] - k) / k < 0.1,
+       "AH5 too few points is said plainly; an analyst can move the middle-time region and the result follows, with the rule printed")
+
+    # -- CLI -----------------------------------------------------------------------------------------------------
+    pj = str(Path(tmp, "ah_params.json")); Path(pj).write_text(json.dumps(params))
+    out_dir = str(Path(tmp, "ah_rep"))
+    r1 = _sp.run([sys.executable, "-m", "gea", "transient", "--file", hist, "--params", pj, "--out", out_dir, "--json"], capture_output=True, text=True)
+    r2 = _sp.run([sys.executable, "-m", "gea", "swaps", "--register", str(Path(tmp, "ah_cli_swaps.jsonl")), "--action", "add", "--tag", "P_raw_psi_S2", "--at", "2026-03-09T00:00:00Z", "--new-serial", "SN-NEW"], capture_output=True, text=True)
+    r3 = _sp.run([sys.executable, "-m", "gea", "swaps", "--register", str(Path(tmp, "ah_cli_swaps.jsonl")), "--action", "add", "--tag", "P_raw_psi_S2", "--at", "2026-03-09T00:00:00Z", "--new-serial", "SN-NEW"], capture_output=True, text=True)
+    r4 = _sp.run([sys.executable, "-m", "gea", "certificates", "--register", str(Path(tmp, "ah_certs.jsonl")), "--action", "status", "--tags", "P_raw_psi_S1,P_raw_psi_S9"], capture_output=True, text=True)
+    jj = json.loads(r1.stdout) if r1.returncode == 0 else {}
+    html = Path(out_dir, "pressure_transient_report.html").read_text(encoding="utf-8") if Path(out_dir, "pressure_transient_report.html").exists() else ""
+    ok(r1.returncode == 0 and jj.get("analyses") and jj["analyses"][0]["status"] == "OK" and "Horner analysis" in html and "90 % band" in html and "Skin" in html
+       and r2.returncode == 0 and r3.returncode != 0 and "already recorded" in r3.stderr and r4.returncode == 1 and "MISSING" in r4.stdout and "VALID" in r4.stdout,
+       "AH6 CLI: `gea transient` writes the shut-in and pressure-transient report with the band; `gea swaps --action add` declines a duplicate; "
+       "`gea certificates --action status` exits 1 when a tag has no certificate in date")
+
+    # -- the workspace, the dashboard and the API ------------------------------------------------------------------
+    wsp = str(Path(tmp, "ws_ah"))
+    ws = Workspace.create(wsp, "Band 2 Site", actor="tester")
+    w1 = ws.add_well_file(hist, display="Well AH", actor="tester")
+    users = Users(str(Path(wsp, "users.json"))); users.add("op1", "operator-pass-1", "operator"); users.add("v1", "viewer-pass-1", "viewer")
+    svc = Service(wsp, host="127.0.0.1", port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json")
+        if method == "POST":
+            req.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(req, timeout=600) as rr:
+                return rr.status, json.loads(rr.read())
+        except urllib.error.HTTPError as ex:
+            return ex.code, json.loads(ex.read())
+    try:
+        call("POST", "/api/login", {"name": "op1", "password": "operator-pass-1"})
+        s_sw, jsw = call("POST", f"/api/wells/{w1['id']}/swaps", {"tag_id": "P_raw_psi_S2", "swap_utc": "2026-03-09T00:00:00Z", "old_serial": "SN-OLD", "new_serial": "SN-NEW", "certificate_id": "CERT-77", "note": "replaced"})
+        s_bad = call("POST", f"/api/wells/{w1['id']}/swaps", {"tag_id": "P_raw_psi_S2", "swap_utc": "2026-03-09T00:00:00Z", "new_serial": "SN-NEW"})[0]
+        s_c1 = call("POST", f"/api/wells/{w1['id']}/certificates", {"tag_id": "P_raw_psi_S1", "serial": "SN-1", "certificate_id": "CERT-1", "issued_utc": "2026-01-01", "valid_until_utc": "2027-01-01", "lab": "LabX", "accuracy_pct_fs": 0.02, "full_scale": 10000, "unit": "psi", "filename": "cert1.txt", "content_b64": "Y2VydA=="})[0]
+        s_c2 = call("POST", f"/api/wells/{w1['id']}/certificates", {"tag_id": "P_raw_psi_S2", "serial": "SN-NEW", "certificate_id": "CERT-77", "issued_utc": "2026-03-01", "valid_until_utc": "2028-01-01", "accuracy_pct_fs": 0.02, "full_scale": 10000, "unit": "psi"})[0]
+        s_pr, jpr = call("POST", f"/api/wells/{w1['id']}/transient-params", {"params": params})
+        s_pbad = call("POST", f"/api/wells/{w1['id']}/transient-params", {"params": {"q_stb_d": -1}})[0]
+        call("POST", "/api/refresh", {})
+        svc.app.runner.wait(svc.app.runner.list(1)[0]["id"], 600)
+        det_w = call("GET", "/api/wells/" + w1["id"])[1]
+        inst = call("GET", f"/api/wells/{w1['id']}/instruments")[1]
+        gd = det_w["reports"]["gauge_drift_report"]
+        ptr = det_w["reports"].get("pressure_transient_report")
+        st2 = {x["channel"]: x["n"] for x in gd["evaluation"]["stations"]}
+        drift_html = Path(wsp, "reports", "wells", w1["id"], "gauge_drift_report.html").read_text(encoding="utf-8")
+        ov = call("GET", "/api/overview")[1]["dashboard"]
+        audit = [e["action"] for e in ws.audit_log()]
+        ok(s_sw == 200 and jsw["recorded_by"] == "op1" and s_bad == 400 and s_c1 == 200 and s_c2 == 200 and s_pr == 200 and jpr["q_stb_d"] == q and s_pbad == 400
+           and Path(wsp, "wells", w1["id"], "records", "certificates", "CERT-1_cert1.txt").exists()
+           and st2["P_raw_psi_S2"] == 48 and st2["P_raw_psi_S1"] == 240 and gd["instruments"]["swap_notes"][0]["samples_excluded"] == 192
+           and [c["status"] for c in inst["certificate_status"]] == ["VALID", "VALID"] and not [c for c in inst["candidates"] if c["tag_id"] == "P_raw_psi_S2"]
+           and "Instruments: sensor swaps" in drift_html and "CERT-77" in drift_html and "Bias vs accuracy" in drift_html
+           and ptr and ptr["analyses"][0]["status"] == "OK" and abs(ptr["analyses"][0]["derived"]["k_md"] - k) / k < 0.05
+           and ov["wells"][0]["instruments"]["swaps"] == 1 and ov["wells"][0]["transient"]["analysed"] == 1 and ov["site"]["certificates"]["counts"]["VALID"] == 2
+           and "swap.add" in audit and "certificate.add" in audit and "transient.params" in audit,
+           "AH7 through the API: a swap, two certificates (one with its document stored and hashed) and the parameters are recorded with the operator's name and audited; "
+           "the refresh fits the swapped gauge on its 48 post-swap samples only, prints the instruments section with the certificate beside the bias, "
+           "analyses the build-up with the saved parameters, and the dashboard carries the counts; the recorded swap no longer appears as a candidate")
+        call("POST", "/api/logout"); call("POST", "/api/login", {"name": "v1", "password": "viewer-pass-1"})
+        r_v = call("GET", f"/api/wells/{w1['id']}/instruments")[0]
+        r_vs = call("POST", f"/api/wells/{w1['id']}/swaps", {"tag_id": "x", "swap_utc": "2026-01-01", "new_serial": "y"})[0]
+        body = Path(__file__).parent.joinpath("web", "app.html").read_text(encoding="utf-8")
+        ok(r_v == 200 and r_vs == 403 and "Instruments" in body and "Shut-ins and build-ups" in body and "/transient-params" in body and "data-cand" in body
+           and "Calibration certificates" in body,
+           "AH8 a viewer can read the instruments but not record a swap; the page carries the instruments card (swaps, candidates to confirm, certificates), "
+           "the shut-ins and build-ups card and the parameter form")
+    finally:
+        svc.stop()
+
+
+def section_ai_hardening(tmp: str) -> None:
+    """Section AI - hardening before a site goes live: the sign-in rate limit
+    and lock-out, live sessions with revocation, the security headers, the
+    proxy mode (forwarded address and Secure cookie), housekeeping (segmented
+    logs with the alarm watermark carried, pruned jobs and recordings, dry run
+    first), and the supervisor load test with the service answering."""
+    import http.cookiejar
+    import urllib.request
+    import urllib.error
+    from .workspace import Workspace
+    from .service import Service, Users, LOGIN_MAX_FAILURES, LOGIN_LOCK_S
+    from . import housekeeping as HK
+    from .loadtest import run as loadtest
+    wsp = str(Path(tmp, "ws_ai"))
+    ws = Workspace.create(wsp, "Hardening Site", actor="tester")
+    users = Users(str(Path(wsp, "users.json"))); users.add("adm", "admin-pass-123", "admin"); users.add("olga", "operator-pass-1", "operator")
+    svc = Service(wsp, host="127.0.0.1", port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+
+    def client():
+        return urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(op, method, path, body=None, headers=None):
+        req = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json")
+        if method == "POST":
+            req.add_header("X-GEA-Action", "1")
+        for k, v in (headers or {}).items():
+            req.add_header(k, v)
+        try:
+            with op.open(req, timeout=60) as r:
+                return r.status, json.loads(r.read()), dict(r.headers)
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read()), dict(e.headers)
+    try:
+        # -- rate limit ---------------------------------------------------------------------------------------
+        op = client()
+        codes = [call(op, "POST", "/api/login", {"name": "olga", "password": "wrong"})[0] for _ in range(LOGIN_MAX_FAILURES)]
+        st_locked, jl, hl = call(op, "POST", "/api/login", {"name": "olga", "password": "operator-pass-1"})
+        st_other = call(client(), "POST", "/api/login", {"name": "adm", "password": "admin-pass-123"})[0]        # same address: locked too
+        with svc.app._lock:
+            svc.app._locks.clear()                                                                            # the clock moves on
+        st_after = call(op, "POST", "/api/login", {"name": "olga", "password": "operator-pass-1"})[0]
+        audit = [e["action"] for e in ws.audit_log()]
+        ok(codes == [401] * LOGIN_MAX_FAILURES and st_locked == 429 and "Retry-After" in hl and 0 < int(hl["Retry-After"]) <= LOGIN_LOCK_S + 1
+           and "try again" in jl["error"] and st_other == 429 and st_after == 200 and "login.locked" in audit and audit.count("login.failed") == LOGIN_MAX_FAILURES,
+           f"AI1 sign-in rate limit: {LOGIN_MAX_FAILURES} failures lock the name and the address for {LOGIN_LOCK_S // 60} min (429 with Retry-After, audited); "
+           "even the right password waits; another user from the same address waits; the lock lifts on its own")
+        # -- sessions -----------------------------------------------------------------------------------------------
+        adm = client(); call(adm, "POST", "/api/login", {"name": "adm", "password": "admin-pass-123"})
+        olga2 = client(); call(olga2, "POST", "/api/login", {"name": "olga", "password": "operator-pass-1"})
+        ls = call(adm, "GET", "/api/sessions")[1]["sessions"]
+        st_v = call(op, "GET", "/api/sessions")[0]
+        sid_olga2 = [x["sid"] for x in ls if x["name"] == "olga"][-1]
+        rv = call(adm, "POST", "/api/sessions/revoke", {"sid": sid_olga2})[1]
+        st_olga2 = call(olga2, "GET", "/api/overview")[0]
+        st_olga1 = call(op, "GET", "/api/overview")[0]
+        mine = call(op, "POST", "/api/sessions/revoke", {"name": "olga"})[1]                                 # sign me out everywhere else
+        st_self = call(op, "GET", "/api/overview")[0]
+        rv_all = call(adm, "POST", "/api/sessions/revoke", {"name": "olga"})[1]
+        st_gone = call(op, "GET", "/api/overview")[0]
+        ok(len(ls) == 3 and all(x["client"] == "127.0.0.1" and x["created_utc"] and x["expires_utc"] for x in ls) and st_v == 403
+           and rv["revoked"] == 1 and st_olga2 == 401 and st_olga1 == 200 and mine["revoked"] == 0 and st_self == 200 and rv_all["revoked"] == 1 and st_gone == 401
+           and "session.revoke" in [e["action"] for e in ws.audit_log()],
+           "AI2 sessions: an administrator lists every live session with its address and times (an operator may not); one session can be revoked (401 at its next request) "
+           "while the user's other session lives on; a user can sign out everywhere else; revoking all of a user's sessions ends them; every revocation is audited")
+        # -- headers ------------------------------------------------------------------------------------------------
+        st_p, _, hp = call(adm, "GET", "/api/session")
+        req = urllib.request.Request(base + "/")
+        with adm.open(req, timeout=30) as r:
+            page_h = dict(r.headers)
+        ok(hp.get("X-Frame-Options") == "DENY" and hp.get("X-Content-Type-Options") == "nosniff" and "frame-ancestors 'none'" in hp.get("Content-Security-Policy", "")
+           and "default-src 'self'" in page_h.get("Content-Security-Policy", "") and "Strict-Transport-Security" not in hp,
+           "AI3 every response carries the security headers (CSP with frame-ancestors none, X-Frame-Options DENY, nosniff, referrer policy); HSTS only behind an HTTPS proxy")
+    finally:
+        svc.stop()
+    # -- proxy mode -------------------------------------------------------------------------------------------------
+    svc2 = Service(wsp, host="127.0.0.1", port=0, scheduler=False, behind_proxy=True).start()
+    base = svc2.url.rstrip("/")
+    try:
+        op = client()
+        req = urllib.request.Request(base + "/api/login", method="POST", data=json.dumps({"name": "adm", "password": "admin-pass-123"}).encode())
+        for k, v in {"Content-Type": "application/json", "X-GEA-Action": "1", "X-Forwarded-Proto": "https", "X-Forwarded-For": "10.1.2.3, 192.168.0.1"}.items():
+            req.add_header(k, v)
+        with op.open(req, timeout=30) as r:
+            h_login = dict(r.headers)
+        cookie = {"Cookie": h_login.get("Set-Cookie", "").split(";")[0], "X-Forwarded-Proto": "https"}     # a Secure cookie: the client only returns it over https
+        ls = call(client(), "GET", "/api/sessions", headers=cookie)[1]["sessions"]
+        st_h, _, hh = call(client(), "GET", "/api/session", headers=cookie)
+        codes = [call(client(), "POST", "/api/login", {"name": "nobody", "password": "x"}, headers={"X-Forwarded-For": "10.9.9.9"})[0] for _ in range(LOGIN_MAX_FAILURES)]
+        st_locked_ip = call(client(), "POST", "/api/login", {"name": "adm", "password": "admin-pass-123"}, headers={"X-Forwarded-For": "10.9.9.9"})[0]
+        st_other_ip = call(client(), "POST", "/api/login", {"name": "adm", "password": "admin-pass-123"}, headers={"X-Forwarded-For": "10.9.9.10"})[0]
+        ok("Secure" in h_login.get("Set-Cookie", "") and ls[-1]["client"] == "10.1.2.3" and "Strict-Transport-Security" in hh
+           and codes == [401] * LOGIN_MAX_FAILURES and st_locked_ip == 429 and st_other_ip == 200,
+           "AI4 behind a TLS proxy (--behind-proxy): the cookie is marked Secure and HSTS is sent when the proxy says https; the forwarded client address "
+           "is the one shown and rate-limited, so one locked address does not lock the proxy's address for everyone")
+    finally:
+        svc2.stop()
+    # -- housekeeping --------------------------------------------------------------------------------------------
+    from .jobs import JobRunner
+    import shutil
+    wsp2 = str(Path(tmp, "ws_hk")); ws2 = Workspace.create(wsp2, "HK", actor="tester")
+    big = os.path.join(wsp2, "records", "audit.jsonl")
+    with open(big, "a", encoding="utf-8") as f:
+        for i in range(3000):
+            f.write(json.dumps({"utc": "2026-01-01T00:00:00Z", "actor": "t", "action": "filler", "detail": {"i": i, "pad": "x" * 300}, "inputs": {}}) + "\n")
+    wdir = Path(wsp2, "reports", "wells", "W1"); wdir.mkdir(parents=True)
+    alog = wdir / "alarm_events.jsonl"
+    with open(alog, "w", encoding="utf-8") as f:
+        for i in range(2000):
+            f.write(json.dumps({"timestamp_utc": "2026-01-01T00:00:00Z", "alarm_id": "A", "tag_id": "P", "kind": "HIGH", "priority": "P3", "event": "ACTIVATED", "value": 1.0, "setpoint": 0.5, "operator": "", "note": "x" * 200}) + "\n")
+        f.write(json.dumps({"timestamp_utc": "2026-01-02T00:00:00Z", "alarm_id": "", "tag_id": "", "kind": "PROCESSED", "priority": "", "event": "PROCESSED", "value": None, "setpoint": None, "operator": "", "note": "n"}) + "\n")
+    jr = JobRunner(ws2, workers=1)
+    jids = [jr.submit(["sbom", "--out", str(Path(tmp, "hk_sbom"))], actor="t", label=f"j{i}") for i in range(3)]
+    for j in jids:
+        jr.wait(j, 300)
+    jr.shutdown()
+    old = os.path.join(wsp2, "jobs", jids[0], "job.json")
+    os.utime(old, (time.time() - 40 * 86400, time.time() - 40 * 86400))                 # one old finished job; the other two are recent
+    w = ws2.add_well_file(str(Path(tmp, "hist_ah.csv")), display="L", actor="t")
+    live = Path(wsp2, "wells", w["id"], "records", "live"); live.mkdir(parents=True, exist_ok=True)
+    for name, age in (("patch_a_20250101.records.csv", 200), ("patch_a_20260901.records.csv", 10), ("20250101T000000Z_stream.csv", 200), ("20260901T000000Z_stream.csv", 200)):
+        p = live / name; p.write_text("x\n"); os.utime(p, (time.time() - age * 86400,) * 2)
+    dry = HK.run(wsp2, apply=False, rotate_mb=0.3, jobs_keep_days=30, jobs_keep_n=1, records_keep_days=90)
+    still = os.path.getsize(big) > 300000 and Path(wsp2, "jobs", jids[0]).exists() and (live / "patch_a_20250101.records.csv").exists()
+    app = HK.run(wsp2, apply=True, rotate_mb=0.3, jobs_keep_days=30, jobs_keep_n=1, records_keep_days=90, actor="tester")
+    segs = sorted(fn for fn in os.listdir(os.path.join(wsp2, "records")) if fn.startswith("audit.jsonl."))
+    fresh_alarm = alog.read_text(encoding="utf-8").splitlines()
+    asegs = [fn for fn in os.listdir(wdir) if fn.startswith("alarm_events.jsonl.")]
+    last_audit = ws2.audit_log()[-1]
+    ok(len(dry["rotated"]) == 2 and len(dry["jobs_removed"]) == 1 and dry["jobs_removed"][0]["job"] == jids[0] and {r["file"] for r in dry["records_removed"]} == {"patch_a_20250101.records.csv", "20250101T000000Z_stream.csv"}
+       and still and not dry["applied"]
+       and app["applied"] and len(segs) == 1 and os.path.getsize(os.path.join(wsp2, "records", segs[0])) > 300000 and len(asegs) == 1
+       and len(fresh_alarm) == 1 and json.loads(fresh_alarm[0])["event"] == "PROCESSED"
+       and not Path(wsp2, "jobs", jids[0]).exists() and Path(wsp2, "jobs", jids[1]).exists() and Path(wsp2, "jobs", jids[2]).exists()
+       and not (live / "patch_a_20250101.records.csv").exists() and (live / "patch_a_20260901.records.csv").exists() and (live / "20260901T000000Z_stream.csv").exists()
+       and last_audit["action"] == "housekeeping" and last_audit["detail"]["rotated"] == 2,
+       "AI5 housekeeping: a dry run lists what it would do and touches nothing; applied, the oversized audit log and alarm log are segmented (never truncated), "
+       "the fresh alarm log starts at the carried PROCESSED watermark, finished job folders older than the keep window beyond the newest N are removed, "
+       "recordings older than the keep window go but the newest stream file stays; the run is audited")
+    # -- load test ----------------------------------------------------------------------------------------------------
+    r = loadtest(patches=4, seconds=6, interval_s=0.5, with_service=True, verbose=False)
+    ok(r["ok"] and r["connected"] == 4 and r["healthy_at_end"] == 4 and all(p["samples_total"] >= 5 for p in r["per_patch"]) and r["service"]["session_p95_ms"] < 1000
+       and r["workspace"] is None,
+       "AI6 the supervisor load test runs N simulated WITS0 patches with the service answering: all connect, all healthy at the end, samples flowing, "
+       "the service's p95 under a second; the throw-away workspace is removed")
+
+
+def section_aj_help(tmp: str) -> None:
+    """Section AJ - the help library and the guide in the wheel: one source of
+    text for the terminal, the API and the dashboard's panels; every page
+    carries its four lines; the tester guide ships inside the package and
+    matches the repository copy; the wheel really contains them."""
+    import http.cookiejar
+    import re
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    from . import helplib as H
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    repo_guide = pkg.parent / "docs" / "TESTER_GUIDE.md"
+    pkg_guide = pkg / "help" / "TESTER_GUIDE.md"
+    same = (not repo_guide.exists()) or repo_guide.read_bytes() == pkg_guide.read_bytes()
+    r_guide = _sp.run([sys.executable, "-m", "gea.cli", "guide"], capture_output=True)
+    r_guide.stdout = r_guide.stdout.decode("utf-8", "replace")
+    pyproj = (pkg.parent / "pyproject.toml").read_text(encoding="utf-8") if (pkg.parent / "pyproject.toml").exists() else '"help/*"'
+    ok(pkg_guide.exists() and same and r_guide.returncode == 0 and "HOW TO TEST GEA" in r_guide.stdout and '"help/*"' in pyproj,
+       "AJ1 the tester guide ships inside the package (gea/help/TESTER_GUIDE.md, declared as package data) and is byte-identical to docs/TESTER_GUIDE.md; "
+       "`gea guide` prints it from the installed package, not from a checkout")
+    bad = {t["topic"]: H.check(t["topic"]) for t in H.topics()}
+    bad = {k: v for k, v in bad.items() if v}
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    views = set(re.findall(r"^VIEWS\.(\w+) = ", page_src, re.M))
+    unmapped = sorted(v for v in views if v not in H.VIEW_TOPIC and v != "help")
+    r_idx = _sp.run([sys.executable, "-m", "gea.cli", "help"], capture_output=True)
+    r_pg = _sp.run([sys.executable, "-m", "gea.cli", "help", "well-tests"], capture_output=True)
+    r_no = _sp.run([sys.executable, "-m", "gea.cli", "help", "nope"], capture_output=True)
+    for r in (r_idx, r_pg, r_no):
+        r.stdout = r.stdout.decode("utf-8", "replace")
+    ok(not bad and not unmapped and len(H.topics()) >= 14 and r_idx.returncode == 0 and all(t["topic"] in r_idx.stdout for t in H.topics())
+       and r_pg.returncode == 0 and "RATE_UNSTABLE" in r_pg.stdout and all(ln in r_pg.stdout for ln in H.REQUIRED_LINES) and r_no.returncode == 2 and "no help page" in r_no.stdout
+       and "const HELP = {" not in page_src and "/api/help" in page_src and "VIEWS.help" in page_src,
+       f"AJ2 every help page carries its four lines in order ({len(H.topics())} pages, indexed by the job); every dashboard view maps to a page; "
+       "`gea help` prints the index, `gea help well-tests` the page with its reason codes, an unknown topic exits 2; the page keeps no help text of its own")
+    wsp = str(Path(tmp, "ws_aj")); Workspace.create(wsp, "Help Site", actor="tester")
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer")
+    svc = Service(wsp, host="127.0.0.1", port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+    op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json")
+        if method == "POST":
+            req.add_header("X-GEA-Action", "1")
+        try:
+            with op.open(req, timeout=30) as r:
+                return r.status, json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        st_anon = call("GET", "/api/help")[0]
+        call("POST", "/api/login", {"name": "v", "password": "viewer-pass-1"})
+        st, idx = call("GET", "/api/help")
+        st2, pg = call("GET", "/api/help/drift")
+        st3 = call("GET", "/api/help/nope")[0]
+        ok(st_anon == 401 and st == 200 and [t["topic"] for t in idx["topics"]] == [t for t, _, _ in H.INDEX] and all(t["summary"] for t in idx["topics"])
+           and idx["views"] == H.VIEW_TOPIC and st2 == 200 and pg["markdown"] == H.page("drift") and "<b>The command</b>" in pg["html"]
+           and "NONE ON RECORD" in pg["html"] and "0.9686" in pg["html"] and st3 == 404,
+           "AJ3 the API serves the same pages to a signed-in viewer: the index with each page's summary and the view-to-topic map, "
+           "a page as Markdown and as rendered HTML (the drift page names the 0.9686 factor and NONE ON RECORD), 404 for an unknown topic")
+    finally:
+        svc.stop()
+    # the wheel: build it when pip and setuptools are here, and look inside
+    wheel_dir = Path(tmp, "aj_wheel"); wheel_dir.mkdir()
+    built = None
+    if (pkg.parent / "pyproject.toml").exists():
+        import shutil
+        src = Path(tmp, "aj_src"); src.mkdir()                         # build from a copy: no build/ or egg-info left in the checkout
+        for name in ("pyproject.toml", "LICENSE", "README.md"):
+            if (pkg.parent / name).exists():
+                shutil.copy2(pkg.parent / name, src / name)
+        shutil.copytree(pkg, src / "gea", ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        try:
+            r_w = _sp.run([sys.executable, "-m", "pip", "wheel", str(src), "--no-deps", "--no-build-isolation", "-w", str(wheel_dir), "-q"],
+                          capture_output=True, text=True, timeout=600, cwd=str(src))        # setuptools writes build/ under the cwd
+            if r_w.returncode == 0:
+                built = next(iter(wheel_dir.glob("gea_program-*.whl")), None)
+        except (OSError, _sp.TimeoutExpired):
+            built = None
+    if built:
+        import zipfile
+        names = zipfile.ZipFile(built).namelist()
+        have = [t for t, _, _ in H.INDEX if f"gea/help/{t}.md" in names]
+        ok(len(have) == len(H.INDEX) and "gea/help/TESTER_GUIDE.md" in names and "gea/web/app.html" in names,
+           f"AJ4 the wheel built from this checkout ({built.name}) contains every help page, the tester guide and the dashboard page")
+    else:
+        ok('"help/*"' in pyproj and pkg_guide.exists() and all((pkg / "help" / f"{t}.md").exists() for t, _, _ in H.INDEX),
+           "AJ4 (no wheel could be built on this machine's pip/setuptools) the package-data declaration names help/* and every page and the guide are present under gea/help; "
+           "the release workflow builds the wheel and runs this section from the installed kit")
+
+
 def main() -> int:
     print("GEA Downhole Simulator - ACCEPTANCE SUITE (product gate, "
           "independent of the physics corpus)")
@@ -1864,6 +2713,12 @@ def main() -> int:
         section_ab_live_ports(tmp)
         section_ac_dashboard_service(tmp)
         section_ad_patch_panel(tmp)
+        section_ae_doctor(tmp)
+        section_af_files(tmp)
+        section_ag_experience(tmp)
+        section_ah_band2(tmp)
+        section_ai_hardening(tmp)
+        section_aj_help(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

@@ -1,0 +1,13 @@
+# Caddy in front of gea serve. Replace gea.example.com; on a LAN without a
+# public name use "tls internal" and trust Caddy's local CA on the clients.
+gea.example.com {
+    # tls internal
+    reverse_proxy 127.0.0.1:8765 {
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+    request_body {
+        max_size 64MB
+    }
+    encode gzip
+}

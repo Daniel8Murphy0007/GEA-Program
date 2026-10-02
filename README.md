@@ -64,11 +64,16 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (199 checks)
+gea accept                     # the product gate (237 checks)
+gea help drift                 # the help library, by the job (14 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
 gea workspace --path C:\site --action init --name "Pad 3"     # a site folder
 gea serve --workspace C:\site                                 # the dashboard as the door: http://127.0.0.1:8765/
+gea doctor --workspace C:\site                                # which code runs, can it serve, with every fix
+gea files --workspace C:\site --action list --root historian  # the import roots, detection by content, import, export, packs
+gea transient --file historian.csv --params params.json --out pta   # shut-ins and build-up analysis with a band
+gea swaps / gea certificates / gea notify / gea housekeeping / gea loadtest   # instruments, notification rules, site upkeep
 ```
 
 `gea` is the front door (`gea/cli.py`); every other subcommand passes through to
@@ -147,11 +152,23 @@ alarms and commits configuration; **approver** decides well tests and re-fits;
 ranking), Wells (add from a file, the catalogue or a live tag map; each well's
 reports, quality, trends, tests and alarms), Patch panel (supervised sources,
 their state and live values, their maps, live values), Alarms (the wall, acknowledge, definitions), Approvals (one queue),
+Files (the import and export roots an administrator allows, browse with
+detection by content, import into a well, "save to..." on every report, the
+evidence pack, watch folders), Alarms (the wall: acknowledge one or all, shelve
+with a reason and an expiry, unshelve; definitions), Approvals (one queue),
 Configuration (versioned JSON with history, diff and rollback), Reports
 (generate and open every report), Verification (the acceptance suite, FAT/SAT,
 SBOM and the standalone check from the page), Survey (a LAS file in, a strata
-report out), Jobs (every run with its log), Administration (users, schedule,
-audit log).
+report out), Jobs (every run with its log), Administration (users, live
+sessions, file roots, schedule, site settings, notifications, audit log). A
+search box in the header spans wells, alarms, reports, jobs, configuration,
+patches and schedules; the navigation shows badge counts (unacknowledged
+alarms, decisions waiting, failed jobs, patches down); Home opens with what
+happened since your last sign-in; every page has a help panel (the Help
+button hides them); every timestamp is shown in your time zone and every
+value in your units (field or SI - "Your preferences", with site defaults
+under Administration); a first-run guide walks a new site through its
+settings, first well, people and first refresh; every page prints cleanly.
 
 Every action the page takes is a job: `python -m gea <command>` run by the
 service with its log kept under `jobs/`, so one code path serves the page, the
@@ -173,6 +190,99 @@ evaluations and change logs), `reports/` (the printed dashboard and every
 report), `jobs/` (every run), `records/audit.jsonl`, `users.json`. All of it is
 text: JSON, JSON lines, CSV, Markdown, HTML.
 
+### The help library
+
+`gea help` lists fourteen pages indexed by the job a reader arrives with -
+start, bring data in, quality rules, drift, well tests, alarms and the month,
+the site, instruments, shut-ins and build-ups, patches, files, notifications,
+which code is running, upkeep. Each page carries four lines and stops: the
+command, what it writes, the one number to check, and what the page will not
+call a measurement. The pages ship inside the package (`gea/help/`), and the
+same text is what `/api/help` serves and what the dashboard shows under every
+heading and under Help, so the terminal and the page cannot drift apart. The
+click-by-click tester guide ships with them: `gea guide`.
+
+### Which code is running
+
+`gea doctor` answers the question every stale-page report comes down to:
+which Python, which copy of the package, does pip's record match the code
+that runs (an editable checkout or an installed release), is another copy
+shadowing it, is the page present, which dependencies are installed, is a
+newer release on PyPI; with `--workspace` it also checks the site folder, the
+accounts, the patches, a free port and write access. Every finding carries
+its fix. `gea serve` runs the same checks and does not start on a blocking
+finding, so a stale page is never served silently.
+
+### Notifications
+
+Rules route events to channels: a webhook URL or an SMTP mailbox. Events:
+`alarm.activated` (by priority), `alarm.shelved`, `job.failed`, `patch.down`
+and `patch.up`, `approval.pending`, `file.imported`. A quiet window stops
+repeats of the same key; every attempt and every suppression is in
+`records/notifications.jsonl`; an SMTP password is read from the environment
+variable the channel names, never from the configuration. `gea notify
+--example` prints a configuration to commit as `notifications` (Administration
+has the editor and a "send a test" button per channel).
+
+### Instruments and transients
+
+A swapped gauge is a new instrument. Record the swap on the well page (or
+confirm one the step detector proposes - it looks for a jump in a gauge's
+offset against its peers, which a process change does not produce) and the
+drift fit restarts at the swap, with the swap printed in the report. File the
+calibration certificate of each instrument (serial, lab, dates, stated
+accuracy; the document is kept and hashed) and its status - VALID, EXPIRING,
+EXPIRED, MISSING - is on the well page, on Home, and beside the measured bias
+in the drift report, so a reader sees whether a bias is inside the
+instrument's own class.
+
+Every shut-in in a record (found by the rate channel, the on-stream hours, or
+the pressure signature alone when there is no rate - marked so) gets a
+build-up analysis on the next refresh: Horner slope and p* on a middle-time
+region chosen by the flat Bourdet derivative, wellbore storage, and - once the
+rock and fluid parameters are saved on the well page - kh, k, skin and the
+radius of investigation, each with a 90 % band from a residual bootstrap. The
+Shut-in and Pressure Transient report prints the region and the rule that
+chose it; an analyst can move the region (`gea transient --mtr 2:40`) and the
+result follows. It is the first look every shut-in should get automatically,
+not a replacement for a full interpretation, and it says so.
+
+### Before a site goes live
+
+`deploy/README.md` is the checklist: keep the service on the loopback
+address and put a TLS proxy in front (`deploy/Caddyfile`,
+`deploy/nginx-gea.conf`), start with `--behind-proxy`. The service itself
+rate-limits sign-ins (five failures lock the name and the address for 15
+minutes, audited), lists and revokes live sessions, sends the security
+headers on every response, and `gea housekeeping --workspace C:\site --apply`
+(schedule it daily from Administration) segments the append-only logs rather
+than truncating them and prunes finished job folders and old recordings. `gea
+loadtest --patches 16 --seconds 60 --with-service` tells you whether the site
+machine carries the patches it will be given, with the page still answering.
+
+## The standalone install kit
+
+A client site often has no internet and no Python. The kit is one folder
+(and one zip) that carries its own Python, the package and every dependency
+as files, with the scripts a site needs; it installs without a network and
+without administrator rights, and keeps the site's data in a separate
+workspace folder it never deletes.
+
+```
+python tools/build_installer.py                       # dist/gea-program-<version>-win64/ and .zip (needs internet here, none there)
+python tools/build_installer.py --extras live,plotting,xls,desktop   # add the PyQt6 desktop window (~100 MB)
+python tools/build_installer.py --platform linux      # a venv-based kit for a Linux site server
+```
+
+At the site: unzip, `install.cmd`, `start-dashboard.cmd`; the browser opens
+`http://127.0.0.1:8765/`. `verify.cmd` runs the acceptance gate from the
+installed kit (the client's own evidence), `register-service.cmd` starts the
+dashboard at logon, `uninstall.cmd` removes the kit and leaves the workspace.
+`SHA256SUMS.txt` lets the site verify the kit after copying it. Every tag
+builds the Windows and Linux kits in CI (`build-installer.yml`), installs
+them the way a client does, runs the gate from the installed kit, and
+attaches the zips to the GitHub release of that tag.
+
 ## Layout
 
 ```
@@ -182,7 +292,7 @@ gea/catalog/    52 public archive entries, each with a provenance file
 docs/           TESTER_GUIDE.md, REQUIREMENTS_MATRIX.md (the scope-of-work mirror that shaped the reports), examples/ (port configs),
                 SESSION_LOG.md (the working record, session by session),
                 commercial/ (pilot proposal, bench readiness, commercial use), HISTORY.md (the ship-by-ship record)
-tools/          standalone_check.py (the self-contained guard: imports, text, metadata; run by ci and ship.ps1)
+tools/          standalone_check.py (the self-contained guard; run by ci and ship.ps1), build_installer.py (the kit)
 CHANGELOG.md    per-release summary (a tag ships only with its section); SHIP_LOG.md is written by ship.ps1
 tests/          pytest wrapper around the acceptance suite and the standalone check
 ```

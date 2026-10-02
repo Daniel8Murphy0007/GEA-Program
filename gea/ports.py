@@ -99,9 +99,14 @@ def _parse_time(s: str, t0: Optional[datetime]) -> tuple:
     try:
         return float(s), t0
     except ValueError:
-        dt = datetime.fromisoformat(s)
+        t = s.strip()
+        if t.endswith('Z') or t.endswith('z'):          # Python 3.10 does not accept a trailing Z
+            t = t[:-1] + '+00:00'
+        dt = datetime.fromisoformat(t)
         if t0 is None:
             t0 = dt
+        if (dt.tzinfo is None) != (t0.tzinfo is None):   # a file that mixes naive and aware stamps: compare on the wall clock
+            dt = dt.replace(tzinfo=t0.tzinfo) if dt.tzinfo is None else dt.replace(tzinfo=None)
         return (dt - t0).total_seconds(), t0
 
 

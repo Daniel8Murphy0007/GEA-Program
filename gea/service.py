@@ -56,26 +56,40 @@ from .patches import PatchSupervisor, PROTOCOLS
 ROLES = ('viewer', 'operator', 'approver', 'admin')
 RANK = {r: i for i, r in enumerate(ROLES)}
 SESSION_HOURS = 12
+LOGIN_MAX_FAILURES = 5          # failed sign-ins per name or per client address ...
+LOGIN_WINDOW_S = 15 * 60        # ... inside this window ...
+LOGIN_LOCK_S = 15 * 60          # ... lock that name/address out for this long (429, Retry-After)
 PBKDF2_ROUNDS = 200_000
 # Commands the page may run as jobs. Anything else is refused (never `serve`, never a shell).
 RUNNABLE = ('accept', 'fat-sat', 'sbom', 'sla-report', 'model-cards', 'client-report', 'dashboard', 'workspace', 'drift-monitor',
-            'well-test', 'alarms', 'store-forward', 'config', 'reconcile', 'ingest', 'opcua', 'mqtt', 'report', 'gamma', 'bench',
-            'case-study', 'service-life', 'telemetry', 'run', 'wells', 'survey', 'wits0', 'witsml', 'wits0-sim')
+            'well-test', 'alarms', 'notify', 'swaps', 'certificates', 'transient', 'housekeeping', 'store-forward', 'config', 'reconcile', 'ingest', 'opcua', 'mqtt', 'report', 'gamma', 'bench',
+            'case-study', 'service-life', 'telemetry', 'run', 'wells', 'survey', 'wits0', 'witsml', 'wits0-sim', 'files', 'doctor')
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web')
 
 
+def _iso_epoch(t: Optional[float]) -> Optional[str]:
+    if not t:
+        return None
+    from datetime import datetime, timezone
+    return datetime.fromtimestamp(t, tz=timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+
 class ApiError(Exception):
-    def __init__(self, status: int, message: str):
+    def __init__(self, status: int, message: str, retry_after: Optional[int] = None):
         super().__init__(message)
         self.status = status
         self.message = message
+        self.retry_after = retry_after
 
 
 # ---------------------------------------------------------------------------
 # Users
 # ---------------------------------------------------------------------------
+DEFAULT_PREFS = {'units': 'field', 'time_zone': 'UTC', 'theme': 'auto', 'wizard_done': False, 'help_open': True}
+
+
 class Users:
-    """users.json: [{name, role, salt, hash, created_utc, disabled}]"""
+    """users.json: [{name, role, salt, hash, created_utc, disabled, prefs, last_login_utc, prev_login_utc}]"""
 
     def __init__(self, path: str):
         self.path = path
@@ -166,6 +180,59 @@ class Users:
                 return None
         return None
 
+    def stamp_login(self, name: str) -> Optional[str]:
+        """Record this sign-in; return the previous one (what 'since your last visit' counts from)."""
+        with self._lock:
+            d = self._load()
+            for u in d['users']:
+                if u['name'] == name:
+                    prev = u.get('last_login_utc')
+                    u['prev_login_utc'], u['last_login_utc'] = prev, utc_now_iso()
+                    self._save(d)
+                    return prev
+        return None
+
+    def prefs(self, name: str) -> dict:
+        for u in self._load()['users']:
+            if u['name'] == name:
+                return dict(DEFAULT_PREFS, **(u.get('prefs') or {}))
+        return dict(DEFAULT_PREFS)
+
+    def set_prefs(self, name: str, prefs: dict) -> dict:
+        clean = {}
+        for k, v in (prefs or {}).items():
+            if k not in DEFAULT_PREFS:
+                raise ApiError(400, f'unknown preference: {k} (known: {", ".join(DEFAULT_PREFS)})')
+            if k == 'units' and v not in ('field', 'si'):
+                raise ApiError(400, "units must be 'field' (psi, °F, ft) or 'si' (kPa, °C, m)")
+            if k == 'time_zone' and not isinstance(v, str):
+                raise ApiError(400, 'time_zone must be a string such as UTC or America/Chicago')
+            if k == 'theme' and v not in ('auto', 'light', 'dark'):
+                raise ApiError(400, "theme must be auto, light or dark")
+            clean[k] = v
+        with self._lock:
+            d = self._load()
+            for u in d['users']:
+                if u['name'] == name:
+                    u['prefs'] = {**(u.get('prefs') or {}), **clean}
+                    self._save(d)
+                    return dict(DEFAULT_PREFS, **u['prefs'])
+        raise ApiError(404, f'no such user: {name}')
+
+
+def _epoch(iso: str) -> float:
+    """ISO-8601 UTC ('...Z' or offset) to seconds; 0 for anything unparsable."""
+    if not iso:
+        return 0.0
+    try:
+        from datetime import datetime, timezone
+        t = datetime.fromisoformat(str(iso).replace('Z', '+00:00'))
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=timezone.utc)
+        return t.timestamp()
+    except ValueError:
+        return 0.0
+
 
 # ---------------------------------------------------------------------------
 # The application: routes over one workspace
@@ -178,25 +245,104 @@ class App:
         self.scheduler = Scheduler(self.runner)
         if scheduler:
             self.scheduler.start()
+        self.behind_proxy = False                 # set by Service when a reverse proxy terminates TLS in front
         self.sessions: Dict[str, dict] = {}
+        self._failures: Dict[str, List[float]] = {}
+        self._locks: Dict[str, float] = {}
         self._lock = threading.Lock()
         self.started_utc = utc_now_iso()
         self.taps: Dict[str, str] = {}          # well_id -> job id of a running bounded tap
         self.patches = PatchSupervisor(workspace)
         if scheduler:                            # a serving process keeps the enabled patches up; the gate does not
             self.patches.start_enabled()
+        from .notify import Notifier, Watcher
+        self.notifier = Notifier(workspace.path)
+        self.notifier.reload()
+        self.watcher = Watcher(self, self.notifier)
+        self._poll_stop = threading.Event()
+        self._poll_thread: Optional[threading.Thread] = None
+        if scheduler:
+            self._poll_thread = threading.Thread(target=self._poll_loop, name='gea-notify', daemon=True)
+            self._poll_thread.start()
+
+    def _poll_loop(self, every_s: float = 10.0) -> None:
+        while not self._poll_stop.is_set():
+            try:
+                self.watcher.poll()
+            except Exception as e:                            # the poller must outlive any one bad file
+                try:
+                    self.notifier._log({'event': 'poll', 'error': str(e)}, None, {'ok': False, 'error': f'{type(e).__name__}: {e}'})
+                except Exception:
+                    pass
+            self._poll_stop.wait(every_s)
+
+    def stop_background(self) -> None:
+        self._poll_stop.set()
+        if self._poll_thread:
+            self._poll_thread.join(5)
 
     # -- sessions ------------------------------------------------------------------------
-    def login(self, name: str, password: str) -> Tuple[str, dict]:
+    def _locked(self, key: str, now: float) -> Optional[int]:
+        """Seconds left on a lock for this key, or None."""
+        until = self._locks.get(key)
+        if until and until > now:
+            return int(until - now) + 1
+        return None
+
+    def _note_failure(self, keys: List[str], now: float) -> None:
+        for k in keys:
+            hist = [t for t in self._failures.get(k, []) if now - t < LOGIN_WINDOW_S] + [now]
+            self._failures[k] = hist
+            if len(hist) >= LOGIN_MAX_FAILURES:
+                self._locks[k] = now + LOGIN_LOCK_S
+                self._failures[k] = []
+
+    def login(self, name: str, password: str, client: str = '') -> Tuple[str, dict]:
+        now = time.time()
+        keys = [f'name:{name}', f'addr:{client}'] if client else [f'name:{name}']
+        with self._lock:
+            waits = [w for w in (self._locked(k, now) for k in keys) if w]
+        if waits:
+            self.ws.audit(name or 'unknown', 'login.locked', {'client': client, 'retry_after_s': max(waits)})
+            raise ApiError(429, f'too many failed sign-ins; try again in {max(waits)} s', retry_after=max(waits))
         u = self.users.check(name, password)
         if not u:
-            self.ws.audit(name or 'unknown', 'login.failed', {})
-            raise ApiError(401, 'wrong name or password')
+            with self._lock:
+                self._note_failure(keys, now)
+                locked = any(self._locked(k, now) for k in keys)
+            self.ws.audit(name or 'unknown', 'login.failed', {'client': client, 'locked': locked})
+            raise ApiError(401, 'wrong name or password' + (f'; locked for {LOGIN_LOCK_S // 60} min after {LOGIN_MAX_FAILURES} failures' if locked else ''))
         token = secrets.token_urlsafe(32)
+        prev = self.users.stamp_login(name)
         with self._lock:
-            self.sessions[token] = {**u, 'expires': time.time() + SESSION_HOURS * 3600}
-        self.ws.audit(name, 'login', {'role': u['role']})
+            for k in keys:
+                self._failures.pop(k, None)
+            self.sessions[token] = {**u, 'expires': now + SESSION_HOURS * 3600, 'prev_login_utc': prev, 'created': now, 'last_seen': now,
+                                    'client': client, 'sid': secrets.token_hex(4)}
+        self.ws.audit(name, 'login', {'role': u['role'], 'client': client})
         return token, u
+
+    def sessions_list(self) -> List[dict]:
+        now = time.time()
+        with self._lock:
+            live = [(t, s) for t, s in self.sessions.items() if s['expires'] > now]
+        return [{'sid': s.get('sid'), 'name': s['name'], 'role': s['role'], 'client': s.get('client', ''),
+                 'created_utc': _iso_epoch(s.get('created')), 'last_seen_utc': _iso_epoch(s.get('last_seen')), 'expires_utc': _iso_epoch(s['expires'])}
+                for t, s in sorted(live, key=lambda x: x[1].get('created') or 0)]
+
+    def sessions_revoke(self, actor: dict, sid: Optional[str] = None, name: Optional[str] = None, keep_token: Optional[str] = None) -> dict:
+        """Revoke one session (by sid) or every session of a user (by name), optionally keeping the caller's own."""
+        n = 0
+        with self._lock:
+            for t in list(self.sessions):
+                s = self.sessions[t]
+                if (sid and s.get('sid') == sid) or (name and s['name'] == name):
+                    if keep_token and t == keep_token:
+                        continue
+                    self.sessions.pop(t, None)
+                    n += 1
+        self.ws.audit(actor['name'], 'session.revoke', {'sid': sid, 'name': name, 'revoked': n})
+        return {'revoked': n}
 
     def logout(self, token: Optional[str]) -> None:
         with self._lock:
@@ -210,6 +356,8 @@ class App:
             if s and s['expires'] < time.time():
                 self.sessions.pop(token, None)
                 return None
+            if s:
+                s['last_seen'] = time.time()
             return dict(s) if s else None
 
     @staticmethod
@@ -298,7 +446,8 @@ class App:
             src = os.path.join(self.ws.path, 'wells', well_id, 'source', w['files'][0]) if w['kind'] == 'file' else self.ws.latest_live_stream_csv(well_id)
             if not src:
                 raise ApiError(404, 'this live well has no recorded stream yet - start a tap first')
-            stream = ingest(src)
+            from .files import read_any
+            stream = read_any(src)
         n = len(stream.index)
         stride = max(1, math.ceil(n / max_points))
         idx = [float(x) for x in stream.index[::stride]]
@@ -309,6 +458,48 @@ class App:
             chans[name] = {'unit': ch.unit, 'values': vals, 'quality': q}
         return {'well_id': well_id, 'index_kind': stream.index_kind, 'index': idx, 'n_source': n, 'stride': stride,
                 'start_time': stream.meta.get('start_time'), 'channels': chans}
+
+    # -- files ------------------------------------------------------------------------------
+    def files_api(self, user: dict, method: str, sub: str, qs: dict, body: dict):
+        from . import files as F
+        try:
+            if method == 'GET':
+                if sub == 'roots':
+                    return {'import': F.Roots(self.ws).list('import'), 'export': F.Roots(self.ws).list('export')}
+                if sub == 'browse':
+                    return F.browse(self.ws, qs.get('root', [''])[0], qs.get('path', [''])[0])
+                if sub == 'preview':
+                    full = F.Roots(self.ws).resolve('import', qs.get('root', [''])[0], qs.get('path', [''])[0])
+                    if not os.path.isfile(full):
+                        raise ApiError(404, 'not a file')
+                    return F.preview(full)
+                raise ApiError(404, 'no such files route')
+            App.require(user, 'operator')
+            if sub == 'import':
+                r = F.import_file(self.ws, str(body.get('root', '')), str(body.get('path', '')), user['name'],
+                                  display=body.get('display') or None, station_md_ft=body.get('station_md'))
+                if r.get('id'):
+                    self.notifier.emit({'event': 'file.imported', 'name': os.path.basename(str(body.get('path', ''))), 'actor': user['name'],
+                                        'well_id': r.get('id'), 'key': f"file.imported:{body.get('path', '')}"})
+                return r
+            if sub == 'export':
+                return F.export_report(self.ws, str(body.get('report', '')), str(body.get('root', '')), str(body.get('dest', '')), user['name'])
+            if sub == 'pack':
+                dest = F.Roots(self.ws).resolve('export', str(body.get('root', '')), str(body.get('dest', '')))
+                os.makedirs(dest, exist_ok=True)
+                out = os.path.join(dest, f"evidence_{slug(self.ws.manifest['name'])}_{utc_now_iso().replace(':', '').replace('-', '')}.zip")
+                return F.evidence_pack(self.ws, out, user['name'])
+            if sub == 'watch':
+                return self._job(['files', '--workspace', self.ws.path, '--action', 'watch', '--root', str(body.get('root', '')), '--actor', user['name']], user, f"watch folder {body.get('root')}")
+            App.require(user, 'admin')
+            if sub == 'roots/add':
+                return F.Roots(self.ws).add(str(body.get('which', 'import')), str(body.get('name', '')), str(body.get('path', '')), user['name'])
+            if sub == 'roots/remove':
+                F.Roots(self.ws).remove(str(body.get('which', 'import')), str(body.get('name', '')), user['name'])
+                return {'ok': True}
+            raise ApiError(404, 'no such files route')
+        except WorkspaceError as e:
+            raise ApiError(400, str(e))
 
     # -- patches ------------------------------------------------------------------------------
     def patch_add(self, user: dict, body: dict) -> dict:
@@ -553,17 +744,314 @@ class App:
         return self._job(args, user, f're-fit {entry}: {decision} by {user["name"]}', wait=True)
 
     def ack_alarm(self, user: dict, well_id: str, alarm_id: str) -> dict:
+        return self.alarm_action(user, well_id, 'ack', [alarm_id])
+
+    def alarm_action(self, user: dict, well_id: str, action: str, alarm_ids: List[str], hours: Optional[float] = None, note: str = '') -> dict:
+        """ack | ack-all | shelve | unshelve on one well: re-processes the well's stream with the action on the record."""
+        if action not in ('ack', 'ack-all', 'shelve', 'unshelve'):
+            raise ApiError(400, "action must be ack, ack-all, shelve or unshelve")
+        ids = [str(x).strip() for x in (alarm_ids or []) if str(x).strip()]
+        if action != 'ack-all' and not ids:
+            raise ApiError(400, 'name at least one alarm id')
+        if hours is not None and not (0 < float(hours) <= 24 * 90):
+            raise ApiError(400, 'shelve hours must be between 0 and 2160 (90 days)')
         w = self.ws.well(well_id)
         d = self._well_reports_dir(well_id)
         src = os.path.join(self.ws.path, 'wells', well_id, 'source', w['files'][0]) if w['kind'] == 'file' else self.ws.latest_live_stream_csv(well_id)
         if not src:
             raise ApiError(400, 'this well has no historian file or live stream to process alarms on')
-        args = ['alarms', '--file', src, '--event-log', os.path.join(d, 'alarm_events.jsonl'), '--ack', alarm_id,
+        args = ['alarms', '--file', src, '--event-log', os.path.join(d, 'alarm_events.jsonl'),
                 '--operator', user['name'], '--now', utc_now_iso(), '--name', w['display'], '--out', d]
+        if note:
+            args += ['--note', note[:200]]
+        if action == 'ack':
+            args += ['--ack', ','.join(ids)]
+        elif action == 'ack-all':
+            args += ['--ack-all']
+        elif action == 'shelve':
+            args += ['--shelve', ','.join(ids)]
+            if hours is not None:
+                args += ['--shelve-hours', str(float(hours))]
+        else:
+            args += ['--unshelve', ','.join(ids)]
         defs = os.path.join(self.ws.config_dir, 'alarm_definitions.json')
         if os.path.isfile(defs):
             args += ['--definitions', defs]
-        return self._job(args, user, f'acknowledge {alarm_id} by {user["name"]}', inputs=[src], wait=True)
+        label = {'ack': f'acknowledge {", ".join(ids)}', 'ack-all': 'acknowledge all', 'shelve': f'shelve {", ".join(ids)}' + (f' for {hours} h' if hours else ''),
+                 'unshelve': f'unshelve {", ".join(ids)}'}[action] + f' on {w["display"]} by {user["name"]}'
+        self.ws.audit(user['name'], f'alarm.{action}', {'well_id': well_id, 'alarm_ids': ids, 'hours': hours, 'note': note})
+        return self._job(args, user, label, inputs=[src], wait=True)
+
+    def ack_all_wells(self, user: dict, note: str = '') -> dict:
+        """One job per well that has unacknowledged alarms; returns them all."""
+        out = []
+        for w in self.ws.wells():
+            rep = os.path.join(self._well_reports_dir(w['id']), 'alarm_event_report.json')
+            if not os.path.isfile(rep):
+                continue
+            try:
+                with open(rep, encoding='utf-8') as f:
+                    act = json.load(f).get('active', [])
+            except (OSError, json.JSONDecodeError):
+                continue
+            if any(a.get('state') == 'ACTIVE_UNACKED' for a in act):
+                try:
+                    out.append({'well_id': w['id'], **self.alarm_action(user, w['id'], 'ack-all', [], note=note)})
+                except ApiError as e:
+                    out.append({'well_id': w['id'], 'status': 'FAILED', 'error': e.message})
+        return {'jobs': out}
+
+    def set_site(self, user: dict, site: dict) -> dict:
+        """Site-wide display defaults in the manifest: units, time zone, display name, contact line. Admin only."""
+        cur = dict(self.ws.manifest.get('site') or {})
+        for k, v in (site or {}).items():
+            if k not in ('units', 'time_zone', 'display_name', 'contact', 'wizard_done'):
+                raise ApiError(400, f'unknown site setting: {k}')
+            if k == 'units' and v not in ('field', 'si'):
+                raise ApiError(400, "units must be 'field' or 'si'")
+            if k in ('time_zone', 'display_name', 'contact') and not isinstance(v, str):
+                raise ApiError(400, f'{k} must be text')
+            cur[k] = v
+        self.ws.manifest['site'] = cur
+        self.ws._save()
+        self.ws.audit(user['name'], 'site.update', cur)
+        return cur
+
+    def notifications_view(self, user: dict) -> dict:
+        """Configuration summary (never the header or credential values) and the delivery log tail."""
+        cfg = self.notifier.cfg
+        chans = []
+        if cfg:
+            for c in cfg['channels']:
+                chans.append({'name': c['name'], 'kind': c['kind'],
+                              'target': (c.get('url', '').split('?')[0] if c['kind'] == 'webhook' else f"{c.get('host')} -> {', '.join(c.get('to', []))}"),
+                              'secret': bool(c.get('headers') or c.get('password_env'))})
+        return {'configured': bool(cfg), 'channels': chans, 'rules': (cfg or {}).get('rules', []), 'quiet_s': (cfg or {}).get('quiet_s'),
+                'events': list(__import__('gea.notify', fromlist=['EVENTS']).EVENTS), 'log': self.notifier.tail(50)}
+
+    def notifications_test(self, user: dict, channel: str) -> dict:
+        from .notify import NotifyError
+        try:
+            r = self.notifier.test(channel, user['name'])
+        except NotifyError as e:
+            raise ApiError(400, str(e))
+        self.ws.audit(user['name'], 'notify.test', {'channel': channel, 'ok': r.get('ok')})
+        return r
+
+    # -- instruments and transients (Band 2) ------------------------------------------------------
+    def _records_dir(self, well_id: str) -> str:
+        self.ws.well(well_id)
+        d = os.path.join(self.ws.path, 'wells', well_id, 'records')
+        os.makedirs(d, exist_ok=True)
+        return d
+
+    def instruments(self, well_id: str) -> dict:
+        from .sensor_swap import SwapRegister
+        from .certificates import CertificateRegister
+        d = self._records_dir(well_id)
+        inst_path = os.path.join(self._well_reports_dir(well_id), 'instruments.json')
+        inst = {}
+        if os.path.isfile(inst_path):
+            try:
+                with open(inst_path, encoding='utf-8') as f:
+                    inst = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                inst = {}
+        swaps = SwapRegister(os.path.join(d, 'sensor_swaps.jsonl')).list()
+        certs = CertificateRegister(os.path.join(d, 'certificates.jsonl')).list()
+        prm_path = os.path.join(d, 'transient_params.json')
+        prm = None
+        if os.path.isfile(prm_path):
+            try:
+                with open(prm_path, encoding='utf-8') as f:
+                    prm = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                prm = None
+        return {'swaps': swaps, 'certificates': certs, 'certificate_status': inst.get('certificates', []), 'candidates': inst.get('candidates', []),
+                'swap_notes': inst.get('swap_notes', []), 'transient_params': prm, 'evaluated': bool(inst)}
+
+    def swap_add(self, user: dict, well_id: str, body: dict) -> dict:
+        from .sensor_swap import SwapRegister
+        d = self._records_dir(well_id)
+        try:
+            e = SwapRegister(os.path.join(d, 'sensor_swaps.jsonl')).add(str(body.get('tag_id', '')), str(body.get('swap_utc', '')), user['name'],
+                                                                         str(body.get('old_serial', '')), str(body.get('new_serial', '')),
+                                                                         str(body.get('certificate_id', '')), str(body.get('note', '')),
+                                                                         source='confirmed candidate' if body.get('from_candidate') else 'recorded')
+        except ValueError as ex:
+            raise ApiError(400, str(ex))
+        self.ws.audit(user['name'], 'swap.add', {'well_id': well_id, **{k: e[k] for k in ('swap_id', 'tag_id', 'swap_utc', 'new_serial')}})
+        return e
+
+    def certificate_add(self, user: dict, well_id: str, body: dict) -> dict:
+        from .certificates import CertificateRegister
+        d = self._records_dir(well_id)
+        fpath = None
+        if body.get('filename') and body.get('content_b64'):
+            import base64
+            cdir = os.path.join(d, 'certificates')
+            os.makedirs(cdir, exist_ok=True)
+            name = os.path.basename(str(body['filename'])) or 'certificate'
+            fpath = os.path.join(cdir, f"{slug(str(body.get('certificate_id', 'cert')))}_{name}")
+            try:
+                with open(fpath, 'wb') as f:
+                    f.write(base64.b64decode(str(body['content_b64'])))
+            except (ValueError, OSError) as ex:
+                raise ApiError(400, f'certificate file: {ex}')
+        try:
+            e = CertificateRegister(os.path.join(d, 'certificates.jsonl')).add(
+                str(body.get('tag_id', '')), str(body.get('serial', '')), str(body.get('certificate_id', '')), str(body.get('issued_utc', '')),
+                str(body.get('valid_until_utc', '')), user['name'], str(body.get('lab', '')),
+                (float(body['accuracy_pct_fs']) if body.get('accuracy_pct_fs') not in (None, '') else None),
+                (float(body['full_scale']) if body.get('full_scale') not in (None, '') else None), str(body.get('unit', '')), fpath, str(body.get('note', '')))
+        except (ValueError, TypeError) as ex:
+            raise ApiError(400, str(ex))
+        self.ws.audit(user['name'], 'certificate.add', {'well_id': well_id, **{k: e[k] for k in ('certificate_id', 'tag_id', 'serial', 'valid_until_utc')}})
+        return e
+
+    def transient_params_set(self, user: dict, well_id: str, params: dict) -> dict:
+        from .transient import DEFAULT_PARAMS
+        d = self._records_dir(well_id)
+        clean = {}
+        for k, v in (params or {}).items():
+            if k not in DEFAULT_PARAMS:
+                raise ApiError(400, f'unknown parameter {k}; the parameters are {", ".join(DEFAULT_PARAMS)}')
+            if v in (None, ''):
+                continue
+            try:
+                clean[k] = float(v)
+            except (TypeError, ValueError):
+                raise ApiError(400, f'{k} must be a number')
+            if clean[k] <= 0:
+                raise ApiError(400, f'{k} must be positive')
+        with open(os.path.join(d, 'transient_params.json'), 'w', encoding='utf-8') as f:
+            json.dump(clean, f, indent=1)
+        self.ws.audit(user['name'], 'transient.params', {'well_id': well_id, **clean})
+        return clean
+
+    # -- experience: badges, since-last-visit, search ------------------------------------------
+    def badges(self) -> dict:
+        """The counts the navigation shows: unacknowledged alarms, pending approvals, jobs, patches down."""
+        unacked = active = shelved = 0
+        for w in self.ws.wells():
+            rep = os.path.join(self._well_reports_dir(w['id']), 'alarm_event_report.json')
+            if os.path.isfile(rep):
+                try:
+                    with open(rep, encoding='utf-8') as f:
+                        j = json.load(f)
+                    act = j.get('active', [])
+                    active += len(act)
+                    unacked += sum(1 for a in act if a.get('state') == 'ACTIVE_UNACKED')
+                    shelved += len(j.get('shelved', []))
+                except (OSError, json.JSONDecodeError):
+                    pass
+        pend = 0
+        try:
+            aq = self.approvals_queue()
+            pend = len(aq.get('well_tests', [])) + len(aq.get('refits', []))
+        except Exception:
+            pass
+        jobs = self.runner.list(200)
+        cutoff = time.time() - 24 * 3600
+        failed = sum(1 for j in jobs if j.get('status') == 'FAILED' and _epoch(j.get('finished_utc') or j.get('submitted_utc')) >= cutoff)
+        running = sum(1 for j in jobs if j.get('status') in ('RUNNING', 'QUEUED'))
+        pst = self.patches.states()
+        return {'alarms_unacked': unacked, 'alarms_active': active, 'alarms_shelved': shelved, 'approvals_pending': pend,
+                'jobs_running': running, 'jobs_failed_24h': failed,
+                'patches_down': sum(1 for p in pst if p.get('status') in ('DOWN', 'DEGRADED')), 'patches': len(pst),
+                'generated_utc': utc_now_iso()}
+
+    def since(self, after: Optional[str], limit: int = 50) -> dict:
+        """What happened since `after` (ISO UTC; default: the signed-in user's previous sign-in): audit actions grouped, alarm events, jobs."""
+        if not after:
+            return {'since': None, 'counts': {}, 'items': [], 'alarm_events': 0, 'note': 'first visit - nothing to compare with'}
+        t0 = _epoch(after)
+        counts: Dict[str, int] = {}
+        items = []
+        for e in self.ws.audit_log(5000):
+            if _epoch(e.get('utc', '')) <= t0:
+                continue
+            a = e.get('action', '')
+            counts[a] = counts.get(a, 0) + 1
+            items.append({'timestamp_utc': e.get('utc'), 'actor': e.get('actor'), 'action': a, 'detail': e.get('detail', {})})
+        n_alarm = 0
+        alarm_items = []
+        for w in self.ws.wells():
+            log = os.path.join(self._well_reports_dir(w['id']), 'alarm_events.jsonl')
+            if not os.path.isfile(log):
+                continue
+            try:
+                with open(log, encoding='utf-8') as f:
+                    for line in f:
+                        try:
+                            e = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        if e.get('event') in ('ACTIVATED', 'SHELVED', 'UNSHELVED') and _epoch(e.get('timestamp_utc', '')) > t0:
+                            n_alarm += 1
+                            alarm_items.append({'well_id': w['id'], 'well': w['display'], **{k: e.get(k) for k in ('timestamp_utc', 'alarm_id', 'event', 'priority', 'operator')}})
+            except OSError:
+                pass
+        jobs = [j for j in self.runner.list(500) if _epoch(j.get('submitted_utc', '')) > t0]
+        items.sort(key=lambda x: x['timestamp_utc'] or '', reverse=True)
+        alarm_items.sort(key=lambda x: x['timestamp_utc'] or '', reverse=True)
+        return {'since': after, 'counts': counts, 'items': items[:limit], 'alarm_events': n_alarm, 'alarm_items': alarm_items[:limit],
+                'jobs': {'total': len(jobs), 'failed': sum(1 for j in jobs if j.get('status') == 'FAILED'),
+                         'done': sum(1 for j in jobs if j.get('status') == 'DONE')}}
+
+    def search(self, user: dict, q: str, limit: int = 40) -> dict:
+        """One box over wells, alarms, reports, jobs, configuration, patches, schedule and (admin) users."""
+        q = (q or '').strip().lower()
+        if len(q) < 2:
+            raise ApiError(400, 'type at least two characters')
+        hits = []
+
+        def hit(kind, title, href, detail=''):
+            if len(hits) < limit:
+                hits.append({'kind': kind, 'title': title, 'href': href, 'detail': detail})
+        for w in self.ws.wells():
+            text = f"{w['display']} {w['id']} {w['kind']} {' '.join(w.get('files', []))}".lower()
+            if q in text:
+                hit('well', w['display'], f"#/wells/{w['id']}", f"{w['kind']} well")
+            d = self._well_reports_dir(w['id'])
+            if os.path.isdir(d):
+                for fn in sorted(os.listdir(d)):
+                    if q in fn.lower() and not fn.endswith('.json'):
+                        hit('report', fn, f"/reports/wells/{w['id']}/{fn}", w['display'])
+                rep = os.path.join(d, 'alarm_event_report.json')
+                if os.path.isfile(rep):
+                    try:
+                        with open(rep, encoding='utf-8') as f:
+                            j = json.load(f)
+                        for a in j.get('active', []) + j.get('shelved', []):
+                            if q in f"{a.get('alarm_id', '')} {a.get('tag_id', '')} {a.get('state', '')} {a.get('priority', '')}".lower():
+                                hit('alarm', a['alarm_id'], '#/alarms', f"{a.get('state')} {a.get('priority')} on {w['display']}")
+                        for dfn in j.get('definitions', []):
+                            if q in f"{dfn.get('alarm_id', '')} {dfn.get('tag_id', '')} {dfn.get('kind', '')}".lower():
+                                hit('alarm definition', dfn['alarm_id'], '#/alarms', f"{dfn.get('kind')} on {dfn.get('tag_id')} ({w['display']})")
+                    except (OSError, json.JSONDecodeError):
+                        pass
+        for j in self.runner.list(300):
+            if q in f"{j.get('label', '')} {j.get('id', '')} {' '.join(j.get('args', []))} {j.get('status', '')}".lower():
+                hit('job', j.get('label') or j.get('id'), f"#/jobs/{j['id']}", f"{j.get('status')} · {j.get('submitted_utc', '')}")
+        try:
+            from .config_versioning import ConfigStore
+            for name in ConfigStore(self.ws.config_dir).names():
+                if q in name.lower():
+                    hit('configuration', name, '#/config', 'versioned configuration')
+        except Exception:
+            pass
+        for p in self.patches.states():
+            if q in f"{p.get('name', '')} {p.get('protocol', '')} {p.get('well_id', '')} {p.get('status', '')}".lower():
+                hit('patch', p['name'], f"#/live/{p['name']}", f"{p.get('protocol')} · {p.get('status')}")
+        for e in self.scheduler.entries():
+            if q in f"{e.get('name', '')} {' '.join(e.get('args', []))}".lower():
+                hit('schedule', e.get('name') or e.get('id'), '#/admin', 'scheduled job')
+        if RANK[user['role']] >= RANK['admin']:
+            for u in self.users.list():
+                if q in f"{u['name']} {u['role']}".lower():
+                    hit('user', u['name'], '#/admin', u['role'])
+        return {'q': q, 'hits': hits, 'truncated': len(hits) >= limit}
 
     def config_commit(self, user: dict, name: str, content, note: str) -> dict:
         from .config_versioning import ConfigStore
@@ -575,6 +1063,8 @@ class App:
         # the file the commands read is the exported current version
         cs.export(name, os.path.join(self.ws.config_dir, f'{name}.json'))
         self.ws.audit(user['name'], 'config.commit', {'name': name, 'version': meta.get('version'), 'note': note})
+        if name == 'notifications':
+            self.notifier.reload()
         return meta
 
     @staticmethod
@@ -608,6 +1098,12 @@ class App:
                 load_config(content)
             except (ValueError, KeyError, TypeError) as e:
                 raise ApiError(400, f'OPC UA configuration: {e}')
+        elif name == 'notifications':
+            from .notify import validate, NotifyError
+            try:
+                validate(content)
+            except NotifyError as e:
+                raise ApiError(400, f'notifications: {e}')
         elif name.endswith('.mqtt') or name == 'mqtt':
             from .mqtt_port import load_config
             try:
@@ -633,6 +1129,8 @@ class App:
         meta = cs.rollback(name, int(version), user['name'], note or 'rollback from the dashboard')
         cs.export(name, os.path.join(self.ws.config_dir, f'{name}.json'))
         self.ws.audit(user['name'], 'config.rollback', {'name': name, 'to_version': int(version), 'note': note})
+        if name == 'notifications':
+            self.notifier.reload()
         return meta
 
     def verify(self, user: dict, what: str) -> dict:
@@ -675,14 +1173,36 @@ def make_handler(app: App):
                     return v
             return None
 
-        def _json(self, status: int, obj, set_cookie: Optional[str] = None) -> None:
+        def _secure_headers(self) -> None:
+            self.send_header('X-Content-Type-Options', 'nosniff')
+            self.send_header('X-Frame-Options', 'DENY')
+            self.send_header('Referrer-Policy', 'same-origin')
+            self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+                                                        "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'self'")
+            if self._https():
+                self.send_header('Strict-Transport-Security', 'max-age=15552000')
+
+        def _https(self) -> bool:
+            return app.behind_proxy and self.headers.get('X-Forwarded-Proto', '').lower() == 'https'
+
+        def _client(self) -> str:
+            if app.behind_proxy:
+                xff = self.headers.get('X-Forwarded-For', '')
+                if xff:
+                    return xff.split(',')[0].strip()
+            return self.client_address[0]
+
+        def _json(self, status: int, obj, set_cookie: Optional[str] = None, retry_after: Optional[int] = None) -> None:
             body = json.dumps(obj, default=str).encode('utf-8')
             self.send_response(status)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
             self.send_header('Content-Length', str(len(body)))
             self.send_header('Cache-Control', 'no-store')
+            self._secure_headers()
             if set_cookie is not None:
-                self.send_header('Set-Cookie', set_cookie)
+                self.send_header('Set-Cookie', set_cookie + ('; Secure' if self._https() else ''))
+            if retry_after:
+                self.send_header('Retry-After', str(int(retry_after)))
             self.end_headers()
             self.wfile.write(body)
 
@@ -696,6 +1216,7 @@ def make_handler(app: App):
             self.send_header('Content-Type', ctype)
             self.send_header('Content-Length', str(len(data)))
             self.send_header('Cache-Control', 'no-cache')
+            self._secure_headers()
             self.end_headers()
             self.wfile.write(data)
 
@@ -737,11 +1258,38 @@ def make_handler(app: App):
                     return self._file(full)
                 if path == '/api/session':
                     s = self._user()
-                    return self._json(200, {'user': ({'name': s['name'], 'role': s['role']} if s else None), 'users': app.users.count(),
-                                            'workspace': app.ws.manifest['name']})
+                    return self._json(200, {'user': ({'name': s['name'], 'role': s['role'], 'prev_login_utc': s.get('prev_login_utc'),
+                                                      'prefs': app.users.prefs(s['name'])} if s else None), 'users': app.users.count(),
+                                            'workspace': app.ws.manifest['name'], 'site': app.ws.manifest.get('site', {})})
                 user = App.require(self._user(), 'viewer')
                 if path == '/api/overview':
                     return self._json(200, app.overview())
+                if path == '/api/badges':
+                    return self._json(200, app.badges())
+                if path == '/api/help' or path.startswith('/api/help/'):
+                    from . import helplib as H
+                    if path == '/api/help':
+                        return self._json(200, {'topics': [{**t, 'summary': H.summary_of(t['topic'])} for t in H.topics()], 'views': H.VIEW_TOPIC})
+                    t = path[len('/api/help/'):]
+                    md = H.page(t)
+                    if md is None:
+                        raise ApiError(404, f'no help page named {t}')
+                    return self._json(200, {'topic': t, 'markdown': md, 'html': H.to_html(md)})
+                if path == '/api/sessions':
+                    App.require(user, 'admin')
+                    return self._json(200, {'sessions': app.sessions_list(), 'session_hours': SESSION_HOURS,
+                                            'note': 'sessions live in the service process; a restart signs everyone out'})
+                if path.startswith('/api/wells/') and path.endswith('/instruments'):
+                    return self._json(200, app.instruments(path[len('/api/wells/'):-len('/instruments')]))
+                if path == '/api/since':
+                    return self._json(200, app.since((qs.get('after') or [user.get('prev_login_utc') or ''])[0] or None, int((qs.get('limit') or ['50'])[0])))
+                if path == '/api/search':
+                    return self._json(200, app.search(user, (qs.get('q') or [''])[0], int((qs.get('limit') or ['40'])[0])))
+                if path == '/api/prefs':
+                    return self._json(200, {'prefs': app.users.prefs(user['name']), 'site': app.ws.manifest.get('site', {})})
+                if path == '/api/notifications':
+                    App.require(user, 'operator')
+                    return self._json(200, app.notifications_view(user))
                 if path == '/api/wells':
                     return self._json(200, {'wells': app.ws.wells()})
                 if path.startswith('/api/wells/') and path.endswith('/series'):
@@ -769,6 +1317,8 @@ def make_handler(app: App):
                     return self._json(200, app.config_detail(path[len('/api/config/'):]))
                 if path == '/api/approvals':
                     return self._json(200, app.approvals_queue())
+                if path.startswith('/api/files/'):
+                    return self._json(200, app.files_api(user, 'GET', path[len('/api/files/'):], qs, {}))
                 if path == '/api/patches':
                     return self._json(200, {'patches': app.patches.states(), 'protocols': list(PROTOCOLS)})
                 if path.startswith('/api/patches/') and path.endswith('/config'):
@@ -781,7 +1331,7 @@ def make_handler(app: App):
                     return self._json(200, {'users': app.users.list()})
                 raise ApiError(404, 'no such route')
             except ApiError as e:
-                self._json(e.status, {'error': e.message})
+                self._json(e.status, {'error': e.message}, retry_after=e.retry_after)
             except (WorkspaceError, FileNotFoundError) as e:
                 self._json(404, {'error': str(e)})
             except Exception as e:                                   # never a silent 500
@@ -795,7 +1345,7 @@ def make_handler(app: App):
                     raise ApiError(403, 'actions need the X-GEA-Action header (the page sets it; a foreign form cannot)')
                 body = self._body()
                 if path == '/api/login':
-                    token, u = app.login(str(body.get('name', '')), str(body.get('password', '')))
+                    token, u = app.login(str(body.get('name', '')), str(body.get('password', '')), client=self._client())
                     return self._json(200, {'user': u}, set_cookie=f'gea_session={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age={SESSION_HOURS * 3600}')
                 if path == '/api/logout':
                     app.logout(self._cookie())
@@ -852,6 +1402,15 @@ def make_handler(app: App):
                 if path.startswith('/api/wells/') and path.endswith('/tap/stop'):
                     App.require(user, 'operator')
                     return self._json(200, app.stop_tap(user, path[len('/api/wells/'):-len('/tap/stop')]))
+                if path.startswith('/api/wells/') and path.endswith('/swaps'):
+                    App.require(user, 'operator')
+                    return self._json(200, app.swap_add(user, path[len('/api/wells/'):-len('/swaps')], body))
+                if path.startswith('/api/wells/') and path.endswith('/certificates'):
+                    App.require(user, 'operator')
+                    return self._json(200, app.certificate_add(user, path[len('/api/wells/'):-len('/certificates')], body))
+                if path.startswith('/api/wells/') and path.endswith('/transient-params'):
+                    App.require(user, 'operator')
+                    return self._json(200, app.transient_params_set(user, path[len('/api/wells/'):-len('/transient-params')], body.get('params') or body))
                 if path.startswith('/api/wells/') and path.endswith('/port-config'):
                     App.require(user, 'operator')
                     return self._json(200, app.set_port_config(user, path[len('/api/wells/'):-len('/port-config')], body.get('config') or {}))
@@ -859,6 +1418,9 @@ def make_handler(app: App):
                     App.require(user, 'operator')
                     return self._json(200, app.survey(user, str(body.get('filename', '')), str(body.get('content_b64', '')), str(body.get('family', '')),
                                                       body.get('lat'), body.get('elev'), bool(body.get('demo', False))))
+                if path.startswith('/api/files/'):
+                    App.require(user, 'operator')
+                    return self._json(200, app.files_api(user, 'POST', path[len('/api/files/'):], {}, body))
                 if path == '/api/patches/add':
                     App.require(user, 'operator')
                     return self._json(200, app.patch_add(user, body))
@@ -887,7 +1449,36 @@ def make_handler(app: App):
                                                              str(body.get('decision', 'APPLIED')), str(body.get('note', ''))))
                 if path == '/api/alarms/ack':
                     App.require(user, 'operator')
-                    return self._json(200, app.ack_alarm(user, str(body['well_id']), str(body['alarm_id'])))
+                    ids = body.get('alarm_ids') or ([body['alarm_id']] if body.get('alarm_id') else [])
+                    return self._json(200, app.alarm_action(user, str(body['well_id']), 'ack', ids, note=str(body.get('note', ''))))
+                if path == '/api/alarms/ack-all':
+                    App.require(user, 'operator')
+                    if body.get('well_id'):
+                        return self._json(200, app.alarm_action(user, str(body['well_id']), 'ack-all', [], note=str(body.get('note', ''))))
+                    return self._json(200, app.ack_all_wells(user, str(body.get('note', ''))))
+                if path == '/api/alarms/shelve':
+                    App.require(user, 'operator')
+                    ids = body.get('alarm_ids') or ([body['alarm_id']] if body.get('alarm_id') else [])
+                    hours = body.get('hours')
+                    return self._json(200, app.alarm_action(user, str(body['well_id']), 'shelve', ids,
+                                                            hours=(float(hours) if hours not in (None, '') else None), note=str(body.get('note', ''))))
+                if path == '/api/alarms/unshelve':
+                    App.require(user, 'operator')
+                    ids = body.get('alarm_ids') or ([body['alarm_id']] if body.get('alarm_id') else [])
+                    return self._json(200, app.alarm_action(user, str(body['well_id']), 'unshelve', ids, note=str(body.get('note', ''))))
+                if path == '/api/prefs':
+                    return self._json(200, {'prefs': app.users.set_prefs(user['name'], body.get('prefs') or body)})
+                if path == '/api/sessions/revoke':
+                    if body.get('name') == user['name'] and not body.get('sid'):
+                        return self._json(200, app.sessions_revoke(user, name=user['name'], keep_token=self._cookie()))   # sign me out everywhere else
+                    App.require(user, 'admin')
+                    return self._json(200, app.sessions_revoke(user, sid=body.get('sid'), name=body.get('name')))
+                if path == '/api/notifications/test':
+                    App.require(user, 'admin')
+                    return self._json(200, app.notifications_test(user, str(body.get('channel', ''))))
+                if path == '/api/site':
+                    App.require(user, 'admin')
+                    return self._json(200, {'site': app.set_site(user, body.get('site') or body)})
                 if path == '/api/config/commit':
                     App.require(user, 'operator')
                     return self._json(200, app.config_commit(user, str(body.get('name', '')), body.get('content'), str(body.get('note', ''))))
@@ -942,7 +1533,7 @@ def make_handler(app: App):
                     return self._json(200, {'ok': True})
                 raise ApiError(404, 'no such route')
             except ApiError as e:
-                self._json(e.status, {'error': e.message})
+                self._json(e.status, {'error': e.message}, retry_after=e.retry_after)
             except KeyError as e:
                 self._json(400, {'error': f'missing field: {e}'})
             except (WorkspaceError, FileNotFoundError) as e:
@@ -956,9 +1547,11 @@ def make_handler(app: App):
 class Service:
     """Start/stop wrapper (used by `gea serve` and by the acceptance suite in-process)."""
 
-    def __init__(self, workspace_path: str, host: str = '127.0.0.1', port: int = 8765, workers: int = 1, scheduler: bool = True):
+    def __init__(self, workspace_path: str, host: str = '127.0.0.1', port: int = 8765, workers: int = 1, scheduler: bool = True,
+                 behind_proxy: bool = False):
         self.ws = Workspace(workspace_path)
         self.app = App(self.ws, workers=workers, scheduler=scheduler)
+        self.app.behind_proxy = behind_proxy
         self.httpd = ThreadingHTTPServer((host, port), make_handler(self.app))
         self.httpd.daemon_threads = True
         self.host, self.port = self.httpd.server_address[0], self.httpd.server_address[1]
@@ -984,6 +1577,7 @@ class Service:
             self.stop()
 
     def stop(self) -> None:
+        self.app.stop_background()
         self.app.scheduler.stop()
         self.app.patches.stop_all()
         self.app.runner.shutdown()

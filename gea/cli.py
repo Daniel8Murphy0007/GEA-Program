@@ -8,6 +8,7 @@
     gea dashboard ...                   the report family + index.html (see `gea dashboard -h`)
     gea client-report ...  gea drift-monitor ...  gea well-test ...  gea alarms ...
     gea model-cards ...    gea store-forward ...  gea sla-report ...  gea fat-sat ...
+    gea help [topic]                    the help library, by the job (gea help drift); same text as the dashboard's panels
     gea guide                           the click-by-click tester guide
     gea docs                            where the catalogue and the reports live on this machine
     gea gui                             the desktop window (desktop extra)
@@ -49,12 +50,30 @@ def cmd_survey(argv) -> int:
 
 
 def cmd_guide(_argv) -> int:
-    for cand in (_repo_root() / 'docs' / 'TESTER_GUIDE.md', _pkg_root() / 'TESTER_GUIDE.md'):
-        if cand.exists():
-            print(cand.read_text(encoding='utf-8'))
-            return 0
-    print('TESTER_GUIDE.md not found beside the package')
-    return 2
+    from .helplib import guide_text
+    text = guide_text()                                   # ships inside the package (gea/help/TESTER_GUIDE.md)
+    if text is None:
+        cand = _repo_root() / 'docs' / 'TESTER_GUIDE.md'
+        text = cand.read_text(encoding='utf-8') if cand.exists() else None
+    if text is None:
+        print('the tester guide is missing from this installation; reinstall: python -m pip install --upgrade --force-reinstall "gea-program[live]"')
+        return 2
+    print(text)
+    return 0
+
+
+def cmd_help(argv) -> int:
+    from .helplib import page, index_text, topics
+    if not argv:
+        print(__doc__)
+        print(index_text())
+        return 0
+    text = page(argv[0])
+    if text is None:
+        print(f"no help page named '{argv[0]}'. The topics: " + ', '.join(t['topic'] for t in topics()))
+        return 2
+    print(text)
+    return 0
 
 
 def cmd_docs(_argv) -> int:
@@ -67,6 +86,7 @@ def cmd_docs(_argv) -> int:
     print(f'reports:    written where you point --out (dashboard/, client_report/, model_cards/, ...)')
     print(f'records:    drift_monitor/ (evaluations.jsonl, change_log.jsonl), well_tests/ (approvals.jsonl), config_store/')
     print(f'guide:      gea guide')
+    print(f'help:       gea help [topic]   ({len(__import__("gea.helplib", fromlist=["INDEX"]).INDEX)} pages, in the package)')
     return 0
 
 
@@ -99,13 +119,20 @@ def cmd_gui(_argv) -> int:
     return shell_main()
 
 
+def _safe_stdout() -> None:
+    """A Windows console or a pipe may be cp1252; the guide and the help pages are UTF-8. Never crash on a character."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors='replace')
+        except (AttributeError, ValueError):
+            pass
+
+
 def main(argv=None) -> int:
+    _safe_stdout()
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv or argv[0] in ('help', '-h', '--help'):
-        print(__doc__)
-        if argv and argv[0] in ('-h', '--help'):
-            return 0
-        return 0
+        return cmd_help(argv[1:] if argv else [])
     cmd, rest = argv[0], argv[1:]
     if cmd == 'quickstart':
         return cmd_quickstart(rest)

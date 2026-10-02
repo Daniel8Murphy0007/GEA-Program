@@ -271,7 +271,8 @@ class Workspace:
             if w['kind'] == 'catalog':
                 catalog_wells.append({'entry': w['source']['entry'], 'well': w['source']['well'], 'md_ft': w['station_md_ft'] or 10000.0})
             elif w['kind'] == 'file':
-                file_wells.append({'path': os.path.join(self.path, 'wells', w['id'], 'source', w['files'][0]), 'name': w['id']})
+                file_wells.append({'path': os.path.join(self.path, 'wells', w['id'], 'source', w['files'][0]), 'name': w['id'],
+                                   'records_dir': os.path.join(self.path, 'wells', w['id'], 'records')})
             else:
                 live_wells.append(w)
         return {'catalog_wells': catalog_wells, 'file_wells': file_wells, 'live_wells': live_wells}
@@ -292,7 +293,7 @@ class Workspace:
         for w in inp['live_wells']:
             csv = self.latest_live_stream_csv(w['id'])
             if csv:
-                file_wells.append({'path': csv, 'name': w['id']})
+                file_wells.append({'path': csv, 'name': w['id'], 'records_dir': os.path.join(self.path, 'wells', w['id'], 'records')})
         for w in self.wells():                                   # a file or catalogue well with a patch: its live stream is reported beside it
             if w['kind'] != 'live' and self.latest_live_stream_csv(w['id']) and not any(fw['name'] == w['id'] + '.live' for fw in file_wells):
                 file_wells.append({'path': self.latest_live_stream_csv(w['id']), 'name': w['id'] + '.live'})

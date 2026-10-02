@@ -32,6 +32,12 @@ CLIENT_SECTIONS = [
     ('AB', 'section_ab_live_ports', 'Live protocol ports: OPC UA and MQTT (Sparkplug B) - mapping, quality, recording and replay, hand-off to the stream and the buffer; live loopback where the dependency is installed'),
     ('AC', 'section_ac_dashboard_service', 'The dashboard service: workspace, jobs and schedule, accounts and roles, every action through the API, the audit log'),
     ('AD', 'section_ad_patch_panel', 'The patch panel: WITS Level 0 and WITSML 1.4.1 ports with in-package simulators, unit normalisation, the supervisor, the patch API'),
+    ('AE', 'section_ae_doctor', 'gea doctor: the environment and workspace checks and the serve start-up gate'),
+    ('AF', 'section_af_files', 'The file system: detection by content, roots and their boundary, import with the duplicate guard, watch folders, export and the evidence pack'),
+    ('AH', 'section_ah_band2', 'Instruments and transients: sensor swaps (register, detector, segmented fit), calibration certificates, shut-in detection and build-up analysis with a stated band'),
+    ('AI', 'section_ai_hardening', 'Hardening: sign-in rate limit, live sessions and revocation, security headers, proxy mode, housekeeping, the supervisor load test'),
+    ('AJ', 'section_aj_help', 'The help library and the guide in the wheel: one source for the terminal, the API and the dashboard'),
+    ('AG', 'section_ag_experience', 'The operator experience: alarm shelving and bulk acknowledgement, preferences and site defaults, since-last-visit, badges, search, notification rules'),
 ]
 
 

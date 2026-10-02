@@ -4,6 +4,80 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.4.0 - 2026-10-02 - doctor, files, the operator's experience, instruments and transients, hardening, and the help library
+
+- **The help library** (`help/*.md`, `helplib.py`): indexed by the job a
+  reader arrives with, never by module; four lines per page and no more; one
+  source of text for `gea help`, `/api/help` and the dashboard's panels, so
+  the terminal and the page cannot drift apart. The tester guide ships inside
+  the package and `gea guide` works on a plain install (an independent review
+  of 0.3.0 found that it did not). Section AJ (4 checks). Gate: 237 checks.
+- **On the list, not built**: a bench record - one gauge with a known history
+  run against the aging band, pass or fail, written down - is the next physics
+  item; the band keeps its label (NONE ON RECORD) until then. And one worked
+  site, start to finish, with every number a person can recompute by hand.
+- **The standalone install kit** (`tools/build_installer.py`,
+  `.github/workflows/build-installer.yml`): one folder that carries its own
+  Python (the embeddable CPython from python.org), the package wheel built
+  from the checkout, every dependency wheel for the chosen extras, and the
+  scripts a site needs (install, gea, start-dashboard, stop-dashboard,
+  register-service, unregister-service, verify, uninstall), with a README, a
+  manifest and a SHA-256 list. It installs with no network and no
+  administrator rights; the site's data lives in a workspace the kit creates
+  and never deletes. A Linux variant builds a virtual environment from the
+  machine's python3 and ships a systemd unit. CI builds both kits on every
+  tag, installs them the way a client does, runs the gate from the installed
+  kit, and attaches the zips to the GitHub release. Found while running the
+  gate from an installed kit: `wits0` and `witsml` were registered only when
+  their command imported them (now at `import gea`), and one check message
+  tripped the vocabulary gate when pymodbus was present (reworded; gate 200).
+- **`gea doctor`** (`doctor.py`): the environment and the workspace in one
+  screen, every finding with its fix; `gea serve` runs the checks and refuses
+  to start on a blocking one, so an installed copy shadowing a checkout (the
+  cause of two "the page has no such route" reports) is caught before the
+  page is served. Section AE (3 checks).
+- **The file system** (`files.py`): roots the administrator allows and that
+  no path can escape; detection by content (an OLE workbook, a zip, SEG-Y, a
+  LAS file behind its comment lines, an operator table, a historian CSV, JSON);
+  import with a duplicate guard by hash; watch folders; "save to..." on every
+  report; the evidence pack (zip, manifest, SHA-256 list). The dashboard
+  reads any detected type, marks an unreadable file on its well instead of
+  stopping, and sends a depth log to the survey. Section AF (7 checks).
+- **The operator experience** (Band D): shelving with an expiry and a
+  reason, expiring on its own and logged as such; acknowledge-all; shelved
+  alarms in the report, on the wall and on the well page; per-user units,
+  time zone, theme and help preference, site-wide defaults; since-your-last-
+  visit; badge counts; one search box; notification rules (`notify.py`:
+  webhook and SMTP, event rules by priority, a quiet window, a delivery log,
+  secrets from the environment only, a poller that announces new activations,
+  failed jobs, patches down and up, items waiting for approval, imports);
+  the first-run guide; help panels; print. Section AG (9 checks, with a
+  local webhook receiver and a local mailbox as stand-ins).
+- **Instruments and transients** (Band 2): the sensor swap register and the
+  step detector on the offset against peer gauges (a process change moves
+  every gauge; a swap moves one; with a single peer the step is reported on
+  both and flagged; with more the swapped gauge is named), the fit segmented
+  at the swap (`sensor_swap.py`); calibration certificates per instrument with
+  a status and the stated accuracy beside the measured bias in the drift
+  report (`certificates.py`); shut-in detection by rate, on-stream hours or
+  the pressure signature (`shut_in.py`); the build-up analysis
+  (`transient.py`): Horner line on a middle-time region chosen by the flat
+  Bourdet derivative on a log-binned copy with a hump check, wellbore storage,
+  kh / k / skin / radius of investigation, a residual bootstrap band, an
+  analyst's override of the region. On a synthetic line-source record with k
+  = 50 md and skin = 3 the analysis returns 50.7 md and +3.15 with the truth
+  inside the band; with log-spaced samples and storage, 50.0 md and 3.00.
+  The Shut-in and Pressure Transient report; the instruments section of the
+  drift report; the well-page cards; Home tiles. Section AH (8 checks).
+- **Hardening**: sign-in rate limit with lock-out (per name and per address,
+  429 with Retry-After, audited), live sessions listed and revocable, sign
+  out everywhere else, security headers on every response, `--behind-proxy`
+  (forwarded address, Secure cookie, HSTS) with nginx and Caddy examples and
+  a deployment README, housekeeping that segments the append-only logs (the
+  alarm log's watermark carried into the fresh file) and prunes finished jobs
+  and old recordings after a dry run, the supervisor load test with the
+  service answering. Section AI (6 checks).
+
 ## v0.3.0 - 2026-10-01 - the dashboard as the door, and the patch panel
 
 - **The patch panel** (`wits0.py`, `witsml.py`, `patches.py`): WITS Level 0

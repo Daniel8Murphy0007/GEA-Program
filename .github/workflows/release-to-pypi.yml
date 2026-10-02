@@ -38,8 +38,10 @@ jobs:
       - name: Verify the wheel carries the package data and installs clean
         run: |
           python -m zipfile -l dist/*.whl | grep -c "gea/catalog/" | xargs -I{} sh -c '[ {} -gt 100 ] || { echo "catalogue missing from wheel"; exit 1; }'
+          python -m zipfile -l dist/*.whl | grep -q "gea/help/TESTER_GUIDE.md" || { echo "tester guide missing from wheel"; exit 1; }
+          python -m zipfile -l dist/*.whl | grep -c "gea/help/" | xargs -I{} sh -c '[ {} -ge 15 ] || { echo "help pages missing from wheel"; exit 1; }'
           pip install --force-reinstall dist/*.whl
-          cd /tmp && gea docs
+          cd /tmp && gea docs && gea guide | head -3 && gea help drift | head -3
       - name: Twine check
         run: twine check dist/*
       - name: Publish to PyPI (Trusted Publisher)

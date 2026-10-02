@@ -141,7 +141,7 @@ def gauge_drift_report(evaluation: dict, stream, catalogue: Optional[TagCatalogu
                        well_name: str = '', evaluated_at: Optional[datetime] = None,
                        program_version: str = '', gauge_spec=None,
                        roc_limits: Optional[Dict[str, float]] = None,
-                       monitor_status: Optional[dict] = None) -> Document:
+                       monitor_status: Optional[dict] = None, instruments: Optional[dict] = None) -> Document:
     """Build the report from a reconciler evaluation dict and the live stream
     it was evaluated on. Nothing is recomputed here except summaries; the
     engine's numbers are the record. With `gauge_spec` the tag limits come
@@ -342,6 +342,40 @@ def gauge_drift_report(evaluation: dict, stream, catalogue: Optional[TagCatalogu
                 'by the caller are marked as such above and should be confirmed from completion records.')
     prov_sec = Section('8', 'Data provenance and limitations', [' '.join(prov)])
 
+    # 9. Instruments: swaps applied and certificates in force (Band 2) ----------------
+    inst_sec = None
+    inst = instruments or {}
+    if inst.get('swaps') or inst.get('certificates') or inst.get('swap_notes'):
+        by_station = {st['channel']: st for st in stations}
+        cert_rows = []
+        for c in inst.get('certificates', []):
+            st = by_station.get(c['tag_id'])
+            band = None
+            if c.get('accuracy_pct_fs') is not None and c.get('full_scale'):
+                band = float(c['accuracy_pct_fs']) / 100.0 * float(c['full_scale'])
+            inside = (abs(st.get('bias_psi') or 0) <= band) if (st and band is not None and st.get('bias_psi') is not None) else None
+            cert_rows.append([c['tag_id'], c.get('serial') or '-', c.get('certificate_id') or '-', c['status'],
+                              c.get('valid_until_utc') or '-', (f"±{_fmt(c['accuracy_pct_fs'])} % FS" + (f" = ±{_fmt(band)}" if band is not None else '')) if c.get('accuracy_pct_fs') is not None else '-',
+                              _fmt(st.get('bias_psi')) if st else '-', ('inside' if inside else 'OUTSIDE') if inside is not None else '-'])
+        swap_rows = [[e['swap_utc'], e['tag_id'], e.get('old_serial') or '-', e['new_serial'], e.get('certificate_id') or '-', e.get('recorded_by'), e.get('note', '')]
+                     for e in inst.get('swaps', [])]
+        note_rows = [[n['tag_id'], n.get('swap_utc') or '-', _fmt(n.get('samples_excluded')), _fmt(n.get('samples_kept')), 'applied' if n.get('applied') else n.get('reason', '')]
+                     for n in inst.get('swap_notes', [])]
+        tables = []
+        if swap_rows:
+            tables.append(Table(['Swap (UTC)', 'Tag', 'Old serial', 'New serial', 'Certificate', 'Recorded by', 'Note'], swap_rows, caption='Sensor swaps on record'))
+        if note_rows:
+            tables.append(Table(['Tag', 'Fit starts at', 'Samples before (excluded)', 'Samples used', 'Applied'], note_rows, caption='Effect on this evaluation'))
+        if cert_rows:
+            tables.append(Table(['Tag', 'Serial', 'Certificate', 'Status', 'Valid until', 'Stated accuracy', 'Measured bias (psi)', 'Bias vs accuracy'], cert_rows, caption='Calibration certificates'))
+        cand = inst.get('candidates', [])
+        par = ['A swapped gauge is a new instrument: the evaluation above fits only the samples after each tag\'s latest recorded swap. '
+               'A certificate\'s stated accuracy is printed beside the measured bias so a reader sees whether the bias is inside the instrument\'s own class.']
+        if cand:
+            par.append(f"{len(cand)} unconfirmed swap candidate(s) proposed by the step detector (not applied): "
+                       + '; '.join(f"{c['tag_id']} at {c.get('swap_utc') or c['elapsed_s']} ({c['step']:+g} {c['unit']}, {c['confidence']})" for c in cand[:6]) + '.')
+        inst_sec = Section('9', 'Instruments: sensor swaps and calibration certificates', par, tables)
+
     front = [['Report ID', report_id],
              ['Well', well],
              ['Generated (UTC)', now.strftime('%Y-%m-%dT%H:%M:%SZ')],
@@ -349,12 +383,13 @@ def gauge_drift_report(evaluation: dict, stream, catalogue: Optional[TagCatalogu
              ['Data window', f'{first} to {last}'],
              ['Stations', str(n_st)],
              ['Result', 'MODEL DRIFT DETECTED' if drift_detected else 'NO MODEL DRIFT DETECTED']]
+    extra_sections = [inst_sec] if inst_sec else []
     doc = Document(title=f'{PROGRAM_NAME} - Gauge Drift and Reconciliation Report', report_id=report_id,
-                   front=front, sections=[summary, tag_sec, dq_sec, drift_sec, sla_sec, cfg_sec, cl_sec, prov_sec],
+                   front=front, sections=[summary, tag_sec, dq_sec, drift_sec, sla_sec, cfg_sec, cl_sec, prov_sec] + extra_sections,
                    footer='Every number in this report is recomputed from the source data at generation time. '
                           'Classifications are advisory; the numbers beside them are the record.',
                    data={'evaluation': evaluation, 'data_quality': dq, 'catalogue': catalogue.rows(),
-                         'drift_detected': drift_detected, 'report_id': report_id,
+                         'drift_detected': drift_detected, 'report_id': report_id, 'instruments': inst,
                          'evaluated_at_utc': now.strftime('%Y-%m-%dT%H:%M:%SZ')})
     doc.data['_records'] = records
     doc.data['_catalogue_obj'] = catalogue
@@ -560,6 +595,7 @@ def alarm_event_report(engine, well_name: str = '', evaluated_at: Optional[datet
     k = engine.kpis()
     defs = list(engine.defs.values())
     active = engine.active()
+    shelved = engine.shelved() if hasattr(engine, 'shelved') else []
     well = well_name or 'well'
     report_id = f"ALM-{well.replace('/', '-').replace(' ', '_')[:24]}-{now.strftime('%Y%m%dT%H%M%SZ')}"
     n_act = k.get('n_activations', 0)
@@ -623,11 +659,12 @@ def alarm_event_report(engine, well_name: str = '', evaluated_at: Optional[datet
     front = [['Report ID', report_id], ['Well', well], ['Generated (UTC)', now.strftime('%Y-%m-%dT%H:%M:%SZ')],
              ['Program', f'{PROGRAM_NAME}' + (f' build {program_version}' if program_version else '')],
              ['Definitions / activations', f'{len(defs)} / {n_act}'],
-             ['Result', (f"{len(active)} ACTIVE, {len(k.get('active_unacknowledged', []))} UNACKNOWLEDGED" if active else 'NO ACTIVE ALARM')]]
+             ['Result', (f"{len(active)} ACTIVE, {len(k.get('active_unacknowledged', []))} UNACKNOWLEDGED" if active else 'NO ACTIVE ALARM')
+                        + (f'; {len(shelved)} SHELVED' if shelved else '')]]
     return Document(title=f'{PROGRAM_NAME} - Alarm and Event Report', report_id=report_id, front=front,
                     sections=[summary, defsec, actsec, evsec, kpisec, prov],
                     footer='Every KPI is recomputed from the event log at generation time; targets are printed beside values, never in place of them.',
-                    data={'kpis': k, 'definitions': [d.row() for d in defs], 'active': active, 'events': all_events,
+                    data={'kpis': k, 'definitions': [d.row() for d in defs], 'active': active, 'shelved': shelved, 'events': all_events,
                           'report_id': report_id, 'evaluated_at_utc': now.strftime('%Y-%m-%dT%H:%M:%SZ'),
                           '_records': [], '_catalogue_obj': None})
 
@@ -906,6 +943,81 @@ def render_html(doc: Document) -> str:
         H.append(f'<footer>{e(doc.footer)}</footer>')
     H.append('</body></html>')
     return '\n'.join(H)
+
+
+# ---------------------------------------------------------------------------
+# Report - Shut-ins and pressure-transient analysis (Band 2)
+# ---------------------------------------------------------------------------
+def transient_report(detection: dict, analyses: List[dict], well_name: str = '', evaluated_at: Optional[datetime] = None,
+                     program_version: str = '') -> Document:
+    """Shut-ins found in the record and, for each qualified one, the build-up analysis with its band."""
+    now = evaluated_at or _utc_now()
+    well = well_name or 'well'
+    report_id = f"PTA-{well.replace('/', '-').replace(' ', '_')[:24]}-{now.strftime('%Y%m%dT%H%M%SZ')}"
+    sis = detection.get('shut_ins', [])
+    q = [x for x in sis if x.get('qualified')]
+    c = detection.get('criteria', {})
+    parts = [f"{len(sis)} shut-in period{'s' if len(sis) != 1 else ''} found by {detection.get('mode', 'detection')}; {len(q)} qualified for analysis "
+             f"(at least {c.get('min_duration_h')} h closed in after {c.get('min_flowing_h')} h flowing, {c.get('min_samples')} samples, a rise of at least {c.get('min_rise')})."]
+    if detection.get('mode') == 'pressure-only':
+        parts.append('No rate or on-stream channel was available: shut-ins were inferred from the pressure signature alone and should be confirmed against the operations log.')
+    okA = [a for a in analyses if a.get('status') == 'OK']
+    if okA:
+        parts.append(f"{len(okA)} build-up{'s' if len(okA) != 1 else ''} analysed: " + '; '.join(
+            f"{a['shut_in_id']}: m = {a['horner']['m_psi_per_cycle']:.1f} psi/cycle, p* = {a['horner']['p_star']:.0f}"
+            + (f", k = {a['derived']['k_md']:.1f} md, skin = {a['derived']['skin']:+.1f}" if a.get('derived', {}).get('k_md') is not None and 'skin' in a.get('derived', {}) else '')
+            for a in okA) + '.')
+    summary = Section('1', 'Summary', [' '.join(parts)])
+    si_rows = [[x['shut_in_id'], x.get('start_utc') or f"{x['start_s'] / 3600:.1f} h", _fmt(x['duration_h']), _fmt(x['flowing_before_h']), _fmt(x['p_wf']), _fmt(x['p_end']),
+                _fmt(x['rise']), x['n'], 'QUALIFIED' if x['qualified'] else x['reason']] for x in sis]
+    si_sec = Section('2', 'Shut-in periods', [f"Detection mode: {detection.get('mode')}; pressure channel {detection.get('pressure_channel')}. "
+                                              'A period that does not qualify carries the rule and the number that failed it.'],
+                     [Table(['Shut-in', 'Start (UTC)', 'Duration (h)', 'Flowing before (h)', 'p at shut-in', 'p at end', 'Rise', 'Samples', 'Qualification'], si_rows)] if si_rows else [])
+    an_sections = []
+    for i, a in enumerate(analyses, 1):
+        if a.get('status') != 'OK':
+            an_sections.append(Section(f'3.{i}', f"Build-up {a.get('shut_in_id', i)}: {a.get('status')}", ['; '.join(a.get('caveats', [])) or 'not analysed'], []))
+            continue
+        h = a['horner']; m = a['mtr']; d = a.get('derived', {}); ci = a.get('uncertainty', {}).get('ci90', {})
+        rows = [['Producing time tp (h)', _fmt(a['tp_h'])], ['Flowing pressure at shut-in p_wf', _fmt(a.get('p_wf'))],
+                ['Middle-time region', f"{m['start_dt_h']:.3g} h to {m['end_dt_h']:.3g} h ({m['n']} points) - {m['rule']}"],
+                ['Horner slope m (psi/cycle)', f"{h['m_psi_per_cycle']:.2f}" + (f"  [90 % band {ci['m']['p05']:.2f} to {ci['m']['p95']:.2f}]" if 'm' in ci else '')],
+                ['Extrapolated pressure p*', f"{h['p_star']:.1f}" + (f"  [90 % band {ci['p_star']['p05']:.1f} to {ci['p_star']['p95']:.1f}]" if 'p_star' in ci else '')],
+                ['p at 1 h on the line', f"{h['p_1hr']:.1f}"], ['Fit residual (rms, psi)', f"{m['rms_resid_psi']:.2f}"]]
+        if 'kh_md_ft' in d:
+            rows.append(['Permeability-thickness kh (md ft)', f"{d['kh_md_ft']:.0f}" + (f"  [90 % band {ci['kh_md_ft']['p05']:.0f} to {ci['kh_md_ft']['p95']:.0f}]" if 'kh_md_ft' in ci else '')])
+        if 'k_md' in d:
+            rows.append(['Permeability k (md)', f"{d['k_md']:.1f}" + (f"  [90 % band {ci['k_md']['p05']:.1f} to {ci['k_md']['p95']:.1f}]" if 'k_md' in ci else '')])
+        if 'skin' in d:
+            rows.append(['Skin s', f"{d['skin']:+.2f}" + (f"  [90 % band {ci['skin']['p05']:+.2f} to {ci['skin']['p95']:+.2f}]" if 'skin' in ci else '')])
+            rows.append(['Pressure drop across the skin (psi)', f"{d['dp_skin_psi']:.1f}"])
+        if 'r_inv_ft' in d:
+            rows.append(['Radius of investigation at end of MTR (ft)', f"{d['r_inv_ft']:.0f}"])
+        if a.get('wellbore_storage'):
+            rows.append(['Wellbore storage ends (h)', f"{a['wellbore_storage']['end_dt_h']:.3g}"])
+        prm = a.get('params', {})
+        rows.append(['Parameters used', ', '.join(f'{k} = {v}' for k, v in prm.items() if v is not None) or 'none (slope and p* only)'])
+        if a.get('caveats'):
+            rows.append(['Caveats', ' '.join(a['caveats'])])
+        an_sections.append(Section(f'3.{i}', f"Build-up {a['shut_in_id']}: Horner analysis with Bourdet derivative", [], [Table(['Item', 'Value'], rows)]))
+    method = Section('4', 'Method', [
+        'Horner time (tp + dt)/dt on a semi-log axis; the Bourdet derivative dp/d ln(dt_e) with Agarwal equivalent time, differenced over 0.15 log cycles. '
+        'The middle-time region is the longest span where the derivative\'s log-log slope stays within ±0.15 (radial flow); when none exists the late half of the data is used and the result is marked indicative. '
+        'kh = 162.6 q B mu / m; skin from p_1hr by the standard relation; the band is a residual bootstrap of the straight-line fit (400 draws, 5th to 95th percentile). '
+        'This is the first look every shut-in gets automatically; it does not replace a full interpretation with a reservoir model.'])
+    prov = Section('5', 'Data provenance and limitations', [f"Pressure channel: {detection.get('pressure_channel')}; "
+                                                              f"rate channel: {detection.get('rate_channel') or detection.get('on_stream_channel') or 'none'}; "
+                                                              f"criteria: {c.get('name')}. Rock and fluid parameters are caller-supplied and printed with each analysis; "
+                                                              'a result without them is a slope and an extrapolated pressure only.'])
+    front = [['Report ID', report_id], ['Well', well], ['Generated (UTC)', now.strftime('%Y-%m-%dT%H:%M:%SZ')],
+             ['Program', f'{PROGRAM_NAME}' + (f' build {program_version}' if program_version else '')],
+             ['Shut-ins found / qualified', f'{len(sis)} / {len(q)}'],
+             ['Result', f'{len(okA)} BUILD-UP{"S" if len(okA) != 1 else ""} ANALYSED' if okA else ('NO QUALIFIED SHUT-IN' if not q else 'ANALYSIS NOT COMPLETED')]]
+    return Document(title=f'{PROGRAM_NAME} - Shut-in and Pressure Transient Report', report_id=report_id, front=front,
+                    sections=[summary, si_sec] + an_sections + [method, prov],
+                    footer='Every number is recomputed from the source data at generation time; the middle-time region and the parameters that produced each result are printed beside it.',
+                    data={'detection': detection, 'analyses': analyses, 'report_id': report_id,
+                          'evaluated_at_utc': now.strftime('%Y-%m-%dT%H:%M:%SZ'), '_records': [], '_catalogue_obj': None})
 
 
 def forbidden_terms(text: str) -> List[str]:

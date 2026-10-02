@@ -187,7 +187,12 @@ def main(argv=None) -> int:
                       help="write catalogue-derived defaults (over-range + quality) for --file here and exit")
     p_al.add_argument("--event-log", type=str, default=None, help="append-only event log (JSON lines)")
     p_al.add_argument("--positions", type=int, default=1, help="operator positions for the rate KPIs")
-    p_al.add_argument("--ack", type=str, default=None, help="acknowledge this alarm id after processing")
+    p_al.add_argument("--ack", type=str, default=None, help="acknowledge these alarm ids (comma-separated) after processing")
+    p_al.add_argument("--ack-all", action="store_true", help="acknowledge every unacknowledged alarm after processing")
+    p_al.add_argument("--shelve", type=str, default=None, help="shelve these alarm ids (comma-separated) after processing")
+    p_al.add_argument("--shelve-hours", type=float, default=None, help="shelf expiry in hours (default: until unshelved)")
+    p_al.add_argument("--unshelve", type=str, default=None, help="unshelve these alarm ids (comma-separated)")
+    p_al.add_argument("--note", type=str, default="", help="reason recorded on the operator action")
     p_al.add_argument("--operator", type=str, default="")
     p_al.add_argument("--now", type=str, default=None, help="clock for operator actions, ISO UTC")
     p_al.add_argument("--name", type=str, default=None)
@@ -289,6 +294,25 @@ def main(argv=None) -> int:
     p_sv.add_argument("--port", type=int, default=8765)
     p_sv.add_argument("--workers", type=int, default=1, help="jobs run at once")
     p_sv.add_argument("--no-scheduler", action="store_true", help="do not run scheduled jobs from this process")
+    p_sv.add_argument("--behind-proxy", action="store_true", help="a reverse proxy terminates TLS in front: trust X-Forwarded-For/-Proto, mark the cookie Secure (deploy/ has nginx and Caddy examples)")
+
+    p_hk = sub.add_parser("housekeeping", help="rotate the append-only logs, prune finished job folders and old live recordings (dry run unless --apply)")
+    p_hk.add_argument("--workspace", type=str, required=True)
+    p_hk.add_argument("--apply", action="store_true")
+    p_hk.add_argument("--rotate-mb", type=float, default=50.0)
+    p_hk.add_argument("--jobs-keep-days", type=int, default=30)
+    p_hk.add_argument("--jobs-keep-n", type=int, default=500)
+    p_hk.add_argument("--records-keep-days", type=int, default=90)
+    p_hk.add_argument("--actor", type=str, default="housekeeping")
+    p_hk.add_argument("--json", action="store_true")
+
+    p_lt = sub.add_parser("loadtest", help="how many supervised patches this machine carries: N WITS0 simulators and patches for a while, with the service answering")
+    p_lt.add_argument("--patches", type=int, default=8)
+    p_lt.add_argument("--seconds", type=float, default=30.0)
+    p_lt.add_argument("--interval", type=float, default=1.0, help="simulator frame interval (s)")
+    p_lt.add_argument("--with-service", action="store_true", help="also start the service and time its answers under load")
+    p_lt.add_argument("--keep", action="store_true", help="keep the throw-away workspace")
+    p_lt.add_argument("--json", action="store_true")
 
     p_us = sub.add_parser("users", help="accounts for the dashboard: add, list, password, role, disable, enable")
     p_us.add_argument("--workspace", type=str, required=True)
@@ -304,6 +328,74 @@ def main(argv=None) -> int:
     p_w0.add_argument("--interval", type=float, default=1.0, help="seconds between frames")
     p_w0.add_argument("--seed", type=int, default=1)
     p_w0.add_argument("--connect", type=str, default=None, help="host:port - instead of listening, connect to a listening tap and push frames")
+
+    p_dr = sub.add_parser("doctor", help="which code is running and can it serve: Python, the package, duplicates, the page, PyPI; with --workspace also the site folder and the port")
+    p_dr.add_argument("--workspace", type=str, default=None)
+    p_dr.add_argument("--host", type=str, default="127.0.0.1")
+    p_dr.add_argument("--port", type=int, default=8765)
+    p_dr.add_argument("--json", action="store_true")
+
+    p_nt = sub.add_parser("notify", help="notification rules: validate the configuration, send a test message, show the delivery log")
+    p_nt.add_argument("--workspace", type=str, default=None)
+    p_nt.add_argument("--test", type=str, default=None, help="send a test message through this channel name")
+    p_nt.add_argument("--log", type=int, default=None, help="show the last N deliveries")
+    p_nt.add_argument("--example", action="store_true", help="print an example configuration to commit as 'notifications'")
+    p_nt.add_argument("--actor", type=str, default="cli")
+
+    p_sw = sub.add_parser("swaps", help="sensor swap register: list, record a swap, propose candidates from a file; a swap segments the drift fit")
+    p_sw.add_argument("--register", type=str, required=True, help="the well's sensor_swaps.jsonl")
+    p_sw.add_argument("--action", choices=["list", "add", "detect"], default="list")
+    p_sw.add_argument("--file", type=str, default=None, help="historian file for --action detect")
+    p_sw.add_argument("--tag", type=str, default=None)
+    p_sw.add_argument("--at", type=str, default=None, help="swap time, ISO UTC")
+    p_sw.add_argument("--old-serial", type=str, default="")
+    p_sw.add_argument("--new-serial", type=str, default="")
+    p_sw.add_argument("--certificate", type=str, default="")
+    p_sw.add_argument("--note", type=str, default="")
+    p_sw.add_argument("--actor", type=str, default="cli")
+
+    p_ce = sub.add_parser("certificates", help="calibration certificates per instrument: list, file one, status against today")
+    p_ce.add_argument("--register", type=str, required=True, help="the well's certificates.jsonl")
+    p_ce.add_argument("--action", choices=["list", "add", "status"], default="list")
+    p_ce.add_argument("--tag", type=str, default=None)
+    p_ce.add_argument("--tags", type=str, default=None, help="comma-separated tags for --action status")
+    p_ce.add_argument("--serial", type=str, default="")
+    p_ce.add_argument("--certificate", type=str, default="")
+    p_ce.add_argument("--lab", type=str, default="")
+    p_ce.add_argument("--issued", type=str, default=None, help="ISO date")
+    p_ce.add_argument("--valid-until", type=str, default=None, help="ISO date")
+    p_ce.add_argument("--accuracy-pct-fs", type=float, default=None)
+    p_ce.add_argument("--full-scale", type=float, default=None)
+    p_ce.add_argument("--unit", type=str, default="")
+    p_ce.add_argument("--doc", type=str, default=None, help="the certificate file (hashed, not copied)")
+    p_ce.add_argument("--note", type=str, default="")
+    p_ce.add_argument("--actor", type=str, default="cli")
+
+    p_tr = sub.add_parser("transient", help="shut-in detection and build-up analysis (Horner + Bourdet derivative with a bootstrap band)")
+    p_tr.add_argument("--file", type=str, required=True, help="historian file")
+    p_tr.add_argument("--pressure", type=str, default=None, help="pressure channel (default: guessed)")
+    p_tr.add_argument("--rate", type=str, default=None)
+    p_tr.add_argument("--on-stream", type=str, default=None)
+    p_tr.add_argument("--criteria", type=str, default=None, help="shut_in.json")
+    p_tr.add_argument("--params", type=str, default=None, help="transient_params.json: q_stb_d, B_rb_stb, mu_cp, h_ft, phi, ct_1_psi, rw_ft")
+    p_tr.add_argument("--shut-in", type=str, default=None, help="analyse only this shut-in id")
+    p_tr.add_argument("--mtr", type=str, default=None, help="middle-time region override as start_h:end_h")
+    p_tr.add_argument("--name", type=str, default=None)
+    p_tr.add_argument("--out", type=str, default=None, help="write the report to this directory")
+    p_tr.add_argument("--json", action="store_true")
+
+    p_fl = sub.add_parser("files", help="the site's files: import/export roots, browse with type detection, import into a well, export reports, evidence pack, watch folders")
+    p_fl.add_argument("--workspace", type=str, required=True)
+    p_fl.add_argument("--action", type=str, default="list", choices=["roots", "add-root", "remove-root", "list", "detect", "preview", "import", "export", "pack", "watch"])
+    p_fl.add_argument("--which", type=str, default="import", choices=["import", "export"], help="add-root/remove-root: which kind of root")
+    p_fl.add_argument("--name", type=str, default=None, help="root name; import: display name of the new well")
+    p_fl.add_argument("--path", type=str, default=None, help="add-root: the folder; detect/preview: any file path")
+    p_fl.add_argument("--root", type=str, default=None, help="list/import/watch: import root; export/pack: export root")
+    p_fl.add_argument("--rel", type=str, default="", help="path inside the root")
+    p_fl.add_argument("--report", type=str, default=None, help="export: a file or folder under reports/ (e.g. accuracy_statement.html or wells/Well-A)")
+    p_fl.add_argument("--dest", type=str, default="", help="export/pack: folder inside the export root")
+    p_fl.add_argument("--station-md", type=float, default=None)
+    p_fl.add_argument("--actor", type=str, default="cli")
 
     p_sy = sub.add_parser("survey", help="a LAS file in, one strata report out (--demo: the bundled public KTB excerpt); --out writes report.txt + survey.json")
     p_sy.add_argument("--file", type=str, default=None, help="LAS 2.0 file")
@@ -450,11 +542,190 @@ def main(argv=None) -> int:
                 _json.dump(machine, f, indent=1, default=str)
             print("written:", os.path.join(a.out, "report.txt"))
         return 0
+    elif a.cmd == "files":
+        import json as _json
+        from .workspace import Workspace, WorkspaceError
+        from . import files as F
+        try:
+            ws = Workspace(a.workspace)
+            if a.action == "roots":
+                print(_json.dumps({"import": F.Roots(ws).list("import"), "export": F.Roots(ws).list("export")}, indent=1))
+            elif a.action == "add-root":
+                print(_json.dumps(F.Roots(ws).add(a.which, a.name or os.path.basename(os.path.abspath(a.path)), a.path, a.actor), indent=1))
+            elif a.action == "remove-root":
+                F.Roots(ws).remove(a.which, a.name, a.actor); print("removed", a.which, "root", a.name)
+            elif a.action == "list":
+                r = F.browse(ws, a.root, a.rel)
+                for e in r["entries"]:
+                    print(f"{e['type']:4s} {e.get('kind', ''):14s} {e.get('bytes', ''):>10} {e['name']}")
+            elif a.action == "detect":
+                print(_json.dumps(F.detect(a.path), indent=1))
+            elif a.action == "preview":
+                pv = F.preview(a.path); print(pv["kind"], "-", pv["detail"]); print("\n".join(pv["lines"]))
+            elif a.action == "import":
+                w = F.import_file(ws, a.root, a.rel, a.actor, display=a.name, station_md_ft=a.station_md); print("well:", w["id"])
+            elif a.action == "export":
+                r = F.export_report(ws, a.report, a.root, a.dest, a.actor); print(f"exported {len(r['files'])} file(s) to", os.path.dirname(r["files"][0]) if r["files"] else "")
+            elif a.action == "pack":
+                dest = F.Roots(ws).resolve("export", a.root, a.dest); os.makedirs(dest, exist_ok=True)
+                out = os.path.join(dest, f"evidence_{ws.manifest['name'].replace(' ', '_')}_{__import__('datetime').datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}.zip")
+                m = F.evidence_pack(ws, out, a.actor); print("evidence pack:", m["path"], m["n_files"], "files, sha256", m["sha256"][:16])
+            elif a.action == "watch":
+                print(_json.dumps(F.scan_root(ws, a.root, a.actor), indent=1))
+        except WorkspaceError as e:
+            raise SystemExit(f"files: {e}")
+        return 0
+    elif a.cmd == "swaps":
+        import json as _json
+        from .sensor_swap import SwapRegister, detect_swaps
+        reg = SwapRegister(a.register)
+        if a.action == "add":
+            try:
+                print(_json.dumps(reg.add(a.tag or "", a.at or "", a.actor, a.old_serial, a.new_serial, a.certificate, a.note), indent=1))
+            except ValueError as e:
+                raise SystemExit(f"swaps: {e}")
+            return 0
+        if a.action == "detect":
+            from .files import read_any
+            if not a.file:
+                raise SystemExit("swaps: --file is required for detect")
+            c = detect_swaps(read_any(a.file), tags=[a.tag] if a.tag else None)
+            print(_json.dumps(c, indent=1))
+            print(f"swaps: {len(c)} candidate(s) - confirm one with --action add", file=sys.stderr)
+            return 0
+        for e in reg.list():
+            print(f"{e['swap_utc']}  {e['tag_id']:24s} {e.get('old_serial') or '-':>12s} -> {e['new_serial']:<12s} cert {e.get('certificate_id') or '-'}  by {e['recorded_by']}  {e.get('note', '')}")
+        print(f"swaps: {len(reg.list())} on record")
+        return 0
+    elif a.cmd == "certificates":
+        import json as _json
+        from .certificates import CertificateRegister
+        reg = CertificateRegister(a.register)
+        if a.action == "add":
+            try:
+                print(_json.dumps(reg.add(a.tag or "", a.serial, a.certificate, a.issued or "", a.valid_until or "", a.actor, a.lab,
+                                          a.accuracy_pct_fs, a.full_scale, a.unit, a.doc, a.note), indent=1))
+            except (ValueError, TypeError) as e:
+                raise SystemExit(f"certificates: {e}")
+            return 0
+        if a.action == "status":
+            tags = [t.strip() for t in (a.tags or "").split(",") if t.strip()] or sorted({e['tag_id'] for e in reg.list()})
+            rows = reg.status(tags)
+            for r in rows:
+                print(f"{r['tag_id']:24s} {r['status']:9s} {r.get('certificate_id') or '-':16s} until {r.get('valid_until_utc') or '-'}  {('' if r['days_left'] is None else str(r['days_left']) + ' d')}")
+            print(_json.dumps(CertificateRegister.summary(rows)))
+            return 0 if CertificateRegister.summary(rows)['all_valid'] else 1
+        for e in reg.list():
+            print(f"{e['tag_id']:24s} {e['serial']:12s} {e['certificate_id']:16s} {e['issued_utc'][:10]} to {e['valid_until_utc'][:10]}  ±{e.get('accuracy_pct_fs') or '-'} % FS  {e.get('lab', '')}")
+        print(f"certificates: {len(reg.list())} filed")
+        return 0
+    elif a.cmd == "transient":
+        import json as _json
+        from .files import read_any
+        from .shut_in import detect_shut_ins, extract_buildup, load_criteria as _si_crit
+        from .transient import analyze_buildup
+        stream = read_any(a.file)
+        det = detect_shut_ins(stream, a.pressure, a.rate, a.on_stream, _si_crit(a.criteria))
+        prm = None
+        if a.params:
+            with open(a.params, encoding="utf-8") as f:
+                prm = _json.load(f)
+        mtr = None
+        if a.mtr:
+            lo, hi = a.mtr.split(":")
+            mtr = {"start_dt_h": float(lo), "end_dt_h": float(hi)}
+        analyses = []
+        for si in det["shut_ins"]:
+            if a.shut_in and si["shut_in_id"] != a.shut_in:
+                continue
+            if not si["qualified"] and not a.shut_in:
+                continue
+            b = extract_buildup(stream, si)
+            r = analyze_buildup(b["dt_h"], b["p_ws"], b["tp_h"], b["p_wf"], prm, mtr=mtr)
+            r["shut_in_id"] = si["shut_in_id"]
+            analyses.append(r)
+        if a.json:
+            print(_json.dumps({"detection": det, "analyses": analyses}, indent=1, default=str))
+        else:
+            print(f"transient: {len(det['shut_ins'])} shut-in(s) by {det['mode']}, {det.get('n_qualified', 0)} qualified, {len(analyses)} analysed")
+            for r in analyses:
+                if r.get("status") == "OK":
+                    h, dd = r["horner"], r.get("derived", {})
+                    print(f"  {r['shut_in_id']}: m = {h['m_psi_per_cycle']:.2f} psi/cycle, p* = {h['p_star']:.1f}"
+                          + (f", k = {dd['k_md']:.1f} md" if "k_md" in dd else "") + (f", skin = {dd['skin']:+.2f}" if "skin" in dd else "")
+                          + f"  [MTR {r['mtr']['start_dt_h']:.3g}-{r['mtr']['end_dt_h']:.3g} h]")
+                else:
+                    print(f"  {r['shut_in_id']}: {r.get('status')} - {'; '.join(r.get('caveats', []))}")
+        if a.out:
+            from .client_reports import transient_report, write as _write_report
+            from . import __version__ as _v
+            paths = _write_report(transient_report(det, analyses, well_name=a.name or stream.name, program_version=_v), a.out, basename="pressure_transient_report")
+            print("report:", paths.get("html"), file=sys.stderr if a.json else sys.stdout)
+        return 0
+    elif a.cmd == "housekeeping":
+        import json as _json
+        from .housekeeping import run as _hk
+        r = _hk(a.workspace, apply=a.apply, rotate_mb=a.rotate_mb, jobs_keep_days=a.jobs_keep_days, jobs_keep_n=a.jobs_keep_n,
+                records_keep_days=a.records_keep_days, actor=a.actor)
+        if a.json:
+            print(_json.dumps(r, indent=1))
+        else:
+            print(f"housekeeping ({'applied' if a.apply else 'dry run - add --apply'}): {len(r['rotated'])} log(s) to rotate, "
+                  f"{len(r['jobs_removed'])} finished job folder(s) and {len(r['records_removed'])} old recording(s) to remove, {r['bytes_freed'] / 1048576:.1f} MB")
+            for x in r['rotated']:
+                print(f"  rotate  {x['file']} ({x['size_mb']} MB) -> {os.path.basename(x['segment'])}")
+            for x in r['jobs_removed'][:20]:
+                print(f"  job     {x['job']}  {x['age_days']} d  {x['bytes']} B")
+            for x in r['records_removed'][:20]:
+                print(f"  record  {x['well_id']}/{x['file']}  {x['age_days']} d")
+        return 0
+    elif a.cmd == "loadtest":
+        import json as _json
+        from .loadtest import run as _lt
+        r = _lt(patches=a.patches, seconds=a.seconds, interval_s=a.interval, with_service=a.with_service, keep=a.keep, verbose=not a.json)
+        if a.json:
+            print(_json.dumps(r, indent=1))
+        return 0 if r["ok"] else 1
+    elif a.cmd == "notify":
+        import json as _json
+        from .notify import Notifier, NotifyError, EXAMPLE
+        if a.example:
+            print(_json.dumps(EXAMPLE, indent=1))
+            return 0
+        if not a.workspace:
+            raise SystemExit("notify: --workspace is required (or --example)")
+        n = Notifier(a.workspace)
+        n.reload()
+        if a.test:
+            try:
+                r = n.test(a.test, a.actor)
+            except NotifyError as e:
+                raise SystemExit(f"notify: {e}")
+            print(_json.dumps(r, indent=1, default=str))
+            return 0 if r.get("ok") else 1
+        if a.log is not None:
+            for e in n.tail(a.log):
+                print(f"{e.get('utc')}  {'ok ' if e.get('ok') else 'ERR'}  {e.get('event'):18s} {e.get('channel') or '-':12s} {e.get('subject') or e.get('result')}")
+            return 0
+        print(f"notifications: {'configured' if n.cfg else 'not configured'}" + (f" - {len(n.cfg['channels'])} channel(s), {len(n.cfg['rules'])} rule(s), quiet {n.cfg['quiet_s']} s" if n.cfg else " (gea notify --example)"))
+        return 0
+    elif a.cmd == "doctor":
+        from .doctor import run as _doctor
+        return _doctor(a.workspace, a.host, a.port, a.json)
     elif a.cmd == "serve":
         from .service import Service
         from .workspace import WorkspaceError
+        from .doctor import check_environment, check_workspace, code_matches_launch
+        pre = [x for x in check_environment() + check_workspace(a.workspace, a.host, a.port) if x["level"] == "block"]
+        mism = code_matches_launch()
+        for x in pre:
+            print(f"serve: BLOCK {x['what']}\n       fix: {x['fix']}")
+        if mism:
+            print(f"serve: BLOCK {mism}")
+        if pre or mism:
+            raise SystemExit("serve: not starting - fix the above (gea doctor --workspace ... shows the full picture)")
         try:
-            svc = Service(a.workspace, host=a.host, port=a.port, workers=a.workers, scheduler=not a.no_scheduler)
+            svc = Service(a.workspace, host=a.host, port=a.port, workers=a.workers, scheduler=not a.no_scheduler, behind_proxy=a.behind_proxy)
         except WorkspaceError as e:
             raise SystemExit(f"serve: {e}")
         n_users = svc.app.users.count()
@@ -463,6 +734,8 @@ def main(argv=None) -> int:
         print(f"   patches: {len(svc.app.patches.store.list())} defined, {len([s for s in svc.app.patches.states() if s['status'] != 'STOPPED'])} running")
         if n_users == 0:
             print("   no accounts yet: the page will ask for the first administrator's name and password (one time), or run: gea users --workspace ... --action add --role admin --name ...")
+        if a.host not in ("127.0.0.1", "localhost", "::1") and not a.behind_proxy:
+            print("   NOTE: bound to a network address without --behind-proxy: traffic is plain HTTP. Put TLS in front (deploy/README.md) for anything beyond a trusted LAN.")
         print("   Ctrl+C stops it; every action is in records/audit.jsonl")
         svc.serve_forever()
         return 0
@@ -729,11 +1002,24 @@ def main(argv=None) -> int:
         defs = load_alarm_definitions(a.definitions) if a.definitions else defaults_from_catalogue(cat)
         eng = AlarmEngine(defs, event_log_path=a.event_log, operator_positions=a.positions)
         evs = eng.process(records_from_stream(stream, cat))
-        if a.ack:
+        if a.ack or a.ack_all or a.shelve or a.unshelve:
             now = _dt.fromisoformat(a.now.replace("Z", "")).replace(tzinfo=_tz.utc) if a.now else None
             if now is None:
-                raise SystemExit("--ack needs --now (the acknowledgement timestamp)")
-            print(_json.dumps(eng.acknowledge(a.ack, a.operator, now), indent=1))
+                raise SystemExit("operator actions (--ack/--ack-all/--shelve/--unshelve) need --now (the action timestamp)")
+            ids = lambda v: [x.strip() for x in v.split(",") if x.strip()]
+            acts = []
+            try:
+                if a.ack_all:
+                    acts += eng.acknowledge_all(a.operator, now, note=a.note)
+                for aid in ids(a.ack or ""):
+                    acts.append(eng.acknowledge(aid, a.operator, now, a.note))
+                for aid in ids(a.shelve or ""):
+                    acts.append(eng.shelve(aid, a.operator, now, a.note, hours=a.shelve_hours))
+                for aid in ids(a.unshelve or ""):
+                    acts.append(eng.unshelve(aid, a.operator, now, a.note))
+            except (KeyError, ValueError) as e:
+                raise SystemExit(f"alarm action: {e}")
+            print(_json.dumps(acts if len(acts) != 1 else acts[0], indent=1))
         k = eng.kpis()
         print(f"alarms: {len(defs)} definitions, {len(evs)} events this run, "
               f"{k.get('n_activations', 0)} activations, {len(eng.active())} active at end")

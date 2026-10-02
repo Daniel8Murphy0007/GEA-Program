@@ -1,29 +1,32 @@
-v0.3.0 — THE DASHBOARD AS THE DOOR, AND THE PATCH PANEL
+v0.4.0 — DOCTOR, FILES, THE OPERATOR'S EXPERIENCE, INSTRUMENTS AND TRANSIENTS, HARDENING, AND THE HELP LIBRARY
 
-The dashboard is where the client works. gea/workspace.py (one folder per
-site: wells from a file, the catalogue or a live map; the client's files copied
-in verbatim and hashed; the version store; monitor logs; reports; jobs; an
-append-only audit log with the SHA-256 of every input), gea/jobs.py (every
-action a `gea` command with its log, status and return code; a scheduler),
-gea/service.py (a standard-library HTTP service: the page, the reports, a JSON
-API; salted PBKDF2 accounts; roles viewer < operator < approver < admin;
-HttpOnly SameSite sessions; the page's own header on every action), and
-gea/web/app.html (Home, Wells, Patch panel, Alarms, Approvals, Configuration,
-Reports, Verification, Survey, Jobs, Administration; inline SVG trends;
-keyboard-operable; light and dark; phone width).
+gea doctor (gea/doctor.py): which code is running and can it serve, every
+finding with its fix; `gea serve` refuses to start on a blocking one. The
+file system (gea/files.py, the Files page): roots an administrator allows,
+detection by content, import with a duplicate guard, "save to...", the
+evidence pack, watch folders. The operator's experience: alarm shelving with
+an expiry and a reason, acknowledge-all, per-user units and time zone with
+site defaults, since-your-last-visit, badges, search, notification rules
+(gea/notify.py: webhook and SMTP, by event and priority, a quiet window, a
+delivery log, secrets from the environment only), the first-run guide, help
+panels, print. Instruments and transients: the sensor swap register and
+detector on the offset against peer gauges, the drift fit segmented at a
+swap (gea/sensor_swap.py); calibration certificates with status and the
+stated accuracy beside the measured bias (gea/certificates.py); shut-in
+detection (gea/shut_in.py); build-up analysis with the Horner line on a
+derivative-chosen middle-time region, kh/k/skin and a bootstrap band
+(gea/transient.py); the Shut-in and Pressure Transient report. Hardening:
+sign-in lock-out, live sessions and revocation, security headers,
+--behind-proxy with nginx and Caddy examples (deploy/), housekeeping that
+segments the append-only logs, the supervisor load test. The help library
+(gea/help/*.md, gea/helplib.py): fourteen pages by the job, four lines each,
+one source for `gea help`, /api/help and the dashboard; the tester guide
+ships in the wheel so `gea guide` works on a plain install. The standalone
+install kit (tools/build_installer.py, build-installer.yml).
 
-The patch panel: gea/wits0.py (WITS Level 0 from the drill floor over TCP
-connect, TCP listen or serial; the record-01 dictionary; an in-package sender,
-`gea wits0-sim`), gea/witsml.py (WITSML 1.4.1 read-only client with an
-in-package test store), gea/patches.py (supervised patches: reconnect with
-backoff, heartbeat, latency, per-tag last values, daily record files, several
-sources folded into one stream by priority), unit normalisation on every
-mapping (`unit_in` beside `unit`). The alarm engine is now idempotent against
-its event log, so re-processing adds nothing and acknowledgements persist.
+Fixed: historian CSVs with Z timestamps on Python 3.10 (gea/ports.py).
 
-CLI: gea workspace, gea serve, gea users, gea survey, gea wits0, gea witsml,
-gea wits0-sim. Extras: serial; live now includes pyserial. Acceptance
-sections AC (17) and AD (10): the service through real HTTP under three
-roles, two live protocol loopbacks over real sockets, the supervisor losing
-and regaining its sender. Gate 199/199 here and on the development machine;
-standalone check 0 findings - the service and the ports add no dependency.
+CLI: gea doctor, files, notify, swaps, certificates, transient, housekeeping,
+loadtest, help. Acceptance sections AE (3), AF (7), AG (9), AH (8), AI (6),
+AJ (4). Gate 237/237 in the cloud and on the development machine; standalone
+check 0 findings - nothing added a dependency.

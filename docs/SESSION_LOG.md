@@ -136,3 +136,101 @@ summary; `docs/HISTORY.md` the record by layer.
   overview returned instead of raising. The gate passed three consecutive
   runs after the fix. Also fixed: a `re.split` deprecation warning in the
   standalone check.
+
+## 2026-10-01 - the standalone install kit
+
+- Decision: the stronger form of standalone - the kit carries its own Python
+  so a client machine needs nothing installed and no internet.
+- Built `tools/build_installer.py` (Windows: embeddable CPython + wheels +
+  scripts; Linux: venv + wheels + scripts + systemd unit) and
+  `build-installer.yml` (both kits on every tag, installed and gated the way a
+  client does, attached to the release).
+- Verified: the Linux kit built on the development machine, its hashes
+  checked, installed offline, started the dashboard, ran the gate; the Windows
+  kit assembled with a stand-in Python zip (python.org is not reachable from
+  this session's shell; it is from PowerShell and from CI) - `_pth` enabled,
+  CRLF scripts, Windows wheels present. The real Windows kit is built with
+  `python tools\build_installer.py` in PowerShell or by CI at the tag.
+- Found: `wits0`/`witsml` registered only on command import; a section F
+  message tripped the vocabulary gate with pymodbus installed. Both fixed;
+  gate 200.
+
+## 2026-10-02 - doctor, files, the operator experience, instruments and transients, hardening
+
+- Sequence agreed: `gea doctor`, then Band B (files), then Band D (the
+  experience), then Band 2 (instruments and transients), hardening threaded
+  in before the first site goes live. No version bump: this session's work
+  sits under CHANGELOG `[Unreleased]` until the ship is prepared.
+- `gea doctor` and the `serve` start-up gate: the two stale-page reports of
+  the previous session both came down to "which copy of the package is
+  running"; the doctor answers it with the fix on every line. Found while
+  testing: a connect-based port probe was fooled by a listen backlog (now
+  bind-based); a check that evaluated "busy" after closing its socket.
+- Files: detection by content rather than extension (a Petrel LAS export
+  starts with `#` lines; an `.xls` without xlrd is declined with the reason
+  rather than imported as text); one unreadable file no longer aborts the
+  refresh; a depth-indexed log goes to the survey instead of the gauge
+  pipeline.
+- Band D: the alarm engine's `shelve` gained an expiry (`until` on the
+  event, auto-UNSHELVED by 'expiry' at the first sample past it) and the
+  operator actions now check the id and state; the service grew preferences,
+  site defaults, since-last-visit, badges, search, the alarm action routes and
+  the notification poller; the page grew the search box, help panels, the
+  first-run guide, preferences, print CSS, the sessions and notifications
+  cards. Notifications deliver in the poller thread and never block a
+  request; the SMTP password is an environment variable by rule (a
+  configuration with a password in it is declined). Section AG tests both
+  channels against a local webhook receiver and a 40-line SMTP stand-in.
+- Band 2: the first step detector compared raw levels and was fooled by the
+  shut-in's 500 psi process move (mirrored by every gauge); rewritten on the
+  offset against the peer median, it finds the 30 psi swap and nothing else.
+  The build-up clock is the last flowing sample (the first version measured
+  from the first closed sample and the skin came out at -5); the radial-flow
+  finder moved from a point-wise log-log slope (too noisy on hourly data) to
+  a regression over log-binned medians with a half-window hump check; both an
+  hourly noisy record and a log-spaced record with storage now return k and
+  skin within the band. Instruments section in the drift report; transient
+  report; well-page cards; tiles.
+- Hardening: rate limit, sessions, headers, proxy mode, housekeeping (the
+  alarm log's PROCESSED watermark is re-written as the first line of the
+  fresh file so nothing is re-processed), load test (6 patches at 2 Hz with
+  the service at p95 4 ms here). `deploy/` with the TLS examples.
+- Verification: sections AG (9), AH (8), AI (6); gate 233/233 in the cloud;
+  standalone check 0 findings over 207 tracked files; Chromium runs of the
+  alarm wall (shelve through the dialogs, unshelve), preferences, search, the
+  first-run guide, Administration, the well page with the instruments and
+  shut-in cards, the print view and phone width.
+- Docs: CHANGELOG `[Unreleased]` (the kit entry moved out of the shipped
+  v0.3.0 section), HISTORY, README (dashboard pages, doctor, notifications,
+  instruments and transients, before a site goes live, quick-start lines),
+  TESTER_GUIDE.
+- On the development machine (Python 3.10): the standalone check 0 findings;
+  the gate run section by section in the foreground (a background run is
+  ended with the shell there), 233/233 after one fix - `ports.py` could not
+  read a historian CSV with `Z` timestamps on 3.10, which section AH's
+  synthetic record exposed; normalised in the reader. A stale
+  `.git/index.lock` left by a read-only `git status` in that shell was moved
+  to `_to_delete/`.
+- An independent review of 0.3.0 was read against the code. Its one concrete
+  hole was real: `gea guide` fails on an installed release because the guide
+  was not in the wheel. Its help-library proposal was taken as written: pages
+  by the job, four lines each, generated from one text. Built as
+  `gea/help/*.md` + `helplib.py`; `gea help`, `/api/help`, the dashboard's
+  panels and a Help view all read the same files; the inline help strings in
+  the page were removed. The guide now ships in the package with a gate check
+  that it matches the repository copy. Section AJ; the release workflow checks
+  the wheel's contents. Gate 237/237 in the cloud.
+- Amendment (2026-10-02, ship preparation): version 0.4.0 set in
+  `pyproject.toml` and `gea/__init__.py`; CHANGELOG and HISTORY sections
+  headed v0.4.0; `SHIP_MESSAGE.txt` written. Left on the list after this
+  ship, in this order: the bench record for the aging band, and the worked
+  site with every number recomputable.
+- Amendment (2026-10-02, first ship attempt): `ship.ps1` went red on AJ1 on
+  the development machine while every Linux run was green. Cause: `gea guide`
+  run as a subprocess on Windows prints through a cp1252 pipe, and an arrow
+  character added to the guide that day cannot be encoded there, so the
+  command raised and exited non-zero. Fixed at the root: the front door sets
+  its output streams to replace unencodable characters, the acceptance checks
+  decode subprocess output as UTF-8, and the arrow is plain text. Verified
+  under a cp1252 pipe before re-sending. Nothing else had been missed: the
+  version, CHANGELOG section, SHIP_MESSAGE and ship-log chain all passed.
