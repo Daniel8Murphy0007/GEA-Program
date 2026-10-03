@@ -16,8 +16,18 @@ session-by-session working record is `docs/SESSION_LOG.md`.
   The kit now carries `pip_bootstrap.py`, which puts the pip wheel on
   `sys.path` and runs pip as a module from inside it (argv[0] is then pip's
   own `__main__.py`, the form pip accepts); `install.cmd` calls it. The Linux
-  kit installs into a venv with `-m pip` and was never affected. Both kits
-  can be attached to the v0.5.0 release by a manual run with `release_tag`.
+  kit installs into a venv with `-m pip` and was never affected.
+- The kit workflow now also runs on a push to `main` that touches the kit
+  builder, the workflow or `pyproject.toml`, so a kit fix is proven by the
+  push that carries it (GitHub showed no "Run workflow" button for the manual
+  trigger, and "Re-run jobs" on a tag's run re-runs the tag's own commit, so
+  neither could run a fix). The attach step moved to
+  `.github/workflows/attach-kit.sh` with one rule: a tag run attaches to its
+  tag and replaces; a manual run with `release_tag` attaches to that tag and
+  replaces; a main run attaches to the release of the version in
+  `pyproject.toml` only where that platform's kit is missing, and never a kit
+  whose version is not the tag's. The Linux kit is uploaded as a run artifact
+  too.
 
 ## [v0.5.0] - 2026-10-03 - standard physics only, the second leg begins, the report samples, and the kit made whole
 

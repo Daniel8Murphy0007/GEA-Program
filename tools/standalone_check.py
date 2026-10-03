@@ -59,7 +59,7 @@ FOREIGN_PATTERNS = [
 # '# standalone-check: allow' is not available in Markdown, so those two files are read with the removal
 # words themselves stripped first (the guard still fails on any other occurrence).
 REMOVAL_CONTEXT_FILES = ('CHANGELOG.md', 'docs/HISTORY.md', 'docs/SESSION_LOG.md')
-TEXT_EXT = {'.py', '.md', '.txt', '.toml', '.yml', '.yaml', '.json', '.csv', '.cff', '.ps1', '.html', '.gitignore', '.gitattributes'}
+TEXT_EXT = {'.py', '.md', '.txt', '.toml', '.yml', '.yaml', '.json', '.csv', '.cff', '.ps1', '.sh', '.html', '.gitignore', '.gitattributes'}
 SELF = os.path.relpath(os.path.abspath(__file__), ROOT).replace(os.sep, '/')
 
 

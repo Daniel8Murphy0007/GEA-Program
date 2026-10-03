@@ -369,3 +369,15 @@ summary; `docs/HISTORY.md` the record by layer.
   device VM that pip runs from its wheel this way and installs pip; the
   Windows refusal itself cannot be reproduced on Linux, so the next manual
   run of the workflow (`release_tag = v0.5.0`) is the proof.
+- "Why does this keep failing": because the fix had never run. The owner's
+  commit efcc5d9 with pip_bootstrap.py was on origin/main, but what ran was
+  "Re-run jobs" on the v0.5.0 tag run, which re-runs the tag's commit 6c2e672
+  - the old install.cmd, the same pip refusal. Asked to run the workflow by
+  hand, I found GitHub offers no "Run workflow" button on this repository's
+  workflow page (the dispatch trigger is in the file on main; the button is
+  not there, in the narrow or the wide layout, nor under the menu). So the
+  workflow now runs on a push to main that touches the kit builder, the
+  workflow or pyproject.toml, and the attach step (attach-kit.sh) attaches a
+  main build to the release of the version in pyproject.toml only where that
+  platform's kit is missing - the v0.5.0 Windows kit, once the install step
+  passes. The owner's next push of these two files is the run.
