@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Model Card - Well pressure and temperature baseline</title>
+<style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
+<h1>Model Card - Well pressure and temperature baseline</h1>
+<table class="front">
+<tr><td>Model ID</td><td>well_baseline</td></tr>
+<tr><td>Version</td><td>Downhole Gauge Monitoring build 0.5.0</td></tr>
+<tr><td>Owner</td><td>assigned by the client at deployment</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-03T00:24:09Z</td></tr>
+<tr><td>Inputs / datasets / evaluations</td><td>3 / 1 / 1</td></tr>
+</table>
+<h2>1. Intended use</h2>
+<p>Expected pressure and temperature at a gauge station (by measured depth) for drift evaluation: residual = measured - baseline. With a measured profile the baseline interpolates the archived log; without one it uses linear gradients from surface conditions.</p>
+<h2>2. Out-of-scope uses</h2>
+<p>Not a reservoir model; not a flow model; not for allocation; not a prediction of production behaviour. A linear-gradient baseline is a template and must be replaced by the well&#x27;s measured profile before any classification is acted on.</p>
+<h2>3. Inputs and feature definitions (with sources)</h2>
+<table>
+<tr><th>Input</th><th>Unit / definition</th><th>Source</th></tr>
+<tr><td>station measured depth</td><td>ft</td><td>completion records (caller-supplied; flagged when not in the archive)</td></tr>
+<tr><td>deviation survey</td><td>deg / ft</td><td>survey file when supplied; vertical otherwise</td></tr>
+<tr><td>well P/T profile</td><td>psi, degF vs TVD</td><td>measured catalogue assembly when supplied; else linear gradients</td></tr>
+</table>
+<h2>4. Settings and hyperparameters</h2>
+<table>
+<tr><th>Setting</th><th>Value</th><th>Basis</th></tr>
+<tr><td>surface pressure (template)</td><td>14.7 psi</td><td>template default; replaced by the profile</td></tr>
+<tr><td>pressure gradient (template)</td><td>0.465 psi/ft</td><td>template default; replaced by the profile</td></tr>
+<tr><td>surface temperature (template)</td><td>75 degF</td><td>template default; replaced by the profile</td></tr>
+<tr><td>temperature gradient (template)</td><td>0.018 degF/ft</td><td>template default; replaced by the profile</td></tr>
+<tr><td>bias significance</td><td>4 x noise/sqrt(n) + 1 psi</td><td>engineering setting, printed on every drift report</td></tr>
+<tr><td>bias too large for calibration</td><td>500 psi</td><td>engineering setting</td></tr>
+<tr><td>minimum window for a trend</td><td>18 days</td><td>engineering setting</td></tr>
+</table>
+<h2>5. Calibration and training data (provenance)</h2>
+<table>
+<tr><th>Dataset</th><th>Records</th><th>Database</th><th>URL</th><th>Licence</th><th>Fetch date</th></tr>
+<tr><td>measured well assemblies in the catalogue (when used)</td><td>-</td><td>each assembly carries its own provenance file</td><td></td><td></td><td></td></tr>
+</table>
+<h2>6. Evaluation, validation and back-test results (recomputed)</h2>
+<table>
+<tr><th>Metric</th><th>Result</th><th>Method</th></tr>
+<tr><td>Volve 15/9-F-12 daily downhole pressure vs linear-gradient baseline</td><td>UNEXPLAINED_TREND (drawdown, -1,096 psi/yr); template baseline cannot follow production</td><td>drift report on the catalogue excerpt; demonstrates the out-of-scope note above</td></tr>
+</table>
+<h2>7. Known limitations</h2>
+<p>(1) Linear gradients are a template, not a measurement. (2) Deviation is applied only when a survey is supplied. (3) The baseline has no production dynamics; drawdown reads as an unexplained trend by design and is routed to investigation.</p>
+<h2>8. Re-fit and retraining history</h2>
+<p>No re-fit on record for this model.</p>
+<h2>9. Components for inspection</h2>
+<p>Each component is named by role with the sha256 (first 16 hex) of the source file that implements it in this build; the delivered source matches these hashes.</p>
+<table>
+<tr><th>Component</th><th>sha256</th></tr>
+<tr><td>baseline and drift classification</td><td>61745f719a36afeb</td></tr>
+<tr><td>engine and well configuration</td><td>35fcf69b07113611</td></tr>
+<tr><td>drift monitor (log, staleness, re-fit)</td><td>13c952831237d9a3</td></tr>
+</table>
+<footer>Generated from the live objects of this build; every evaluation is recomputed at generation time.</footer>
+</body></html>

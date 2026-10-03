@@ -1,0 +1,20 @@
+{
+  "what": "Reference miniSEED records written by libmseed, the reference C implementation of the format (EarthScope), used by the acceptance suite to prove this program's Steim1/Steim2 decoder against an independent writer.",
+  "files": {
+    "libmseed_steim1_4096.mseed": {"sha256": "a21a3f11f454cd5acfd8de286f11cc8667798306454fb71fcd85af917f0fe4ad", "records": 1, "record_length": 4096, "encoding": "STEIM1", "samples": 1904},
+    "libmseed_steim2_4096.mseed": {"sha256": "d3a5ff3a4de5412a8b0eac6e49218d25e310d661cfb0c68fda5326efe9fd8352", "records": 1, "record_length": 4096, "encoding": "STEIM2", "samples": 1904},
+    "libmseed_steim2_512.mseed": {"sha256": "e30cd6ff9bdd3425b6987409b1ab626c9a7be57b006db9a7cf50302b1313d249", "records": 2, "record_length": 512, "encoding": "STEIM2", "samples": 900, "note": "the first 900 samples of the same series"}
+  },
+  "writer": "pymseed 1.0.1 (libmseed 3.5.4), MS3TraceList.generate(format_version=2), written 2026-10-02 on the maintainer's machine",
+  "channel": "TX.PB01.00.HHZ at 100 Hz from 2024-03-01T12:34:56.1234Z (the 4096-byte files); XX.SYN..HHZ at 50 Hz from 2025-06-01T00:00:00Z (the 512-byte file). The station code is a label on synthetic samples; no TexNet data is in these files.",
+  "samples": {
+    "count": 1904,
+    "first": -5,
+    "last": -74757,
+    "sum": 764468989,
+    "sha256_of_int32_little_endian": "2a3c19fca452a90e938ec9d3812216f0cd1fd8fc266f85ce9283cc5b6e5d73fc",
+    "largest_difference": 536870912,
+    "recipe": "numpy.random.default_rng(11); differences = concatenate(integers(-7,8,300), integers(-15,16,300), integers(-31,32,300), integers(-127,128,200), integers(-511,512,200), integers(-16383,16384,100), [2**28, -2**28, 2**29-1, -(2**29)], integers(-3,4,500)); samples = cumsum(differences) as int32. The sequence exercises every Steim2 packing form (4, 5, 6, 8, 10, 15 and 30-bit differences) and Steim1's three. The sha256 above is the authority; the recipe documents how it was made."
+  },
+  "license": "the records are this project's own test data (MPL-2.0 with the rest of the package)"
+}

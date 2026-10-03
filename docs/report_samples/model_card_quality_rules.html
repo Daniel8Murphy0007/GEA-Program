@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Model Card - Sample quality rules (record layer)</title>
+<style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
+<h1>Model Card - Sample quality rules (record layer)</h1>
+<table class="front">
+<tr><td>Model ID</td><td>quality_rules</td></tr>
+<tr><td>Version</td><td>Downhole Gauge Monitoring build 0.5.0</td></tr>
+<tr><td>Owner</td><td>assigned by the client at deployment</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-03T00:24:09Z</td></tr>
+<tr><td>Inputs / datasets / evaluations</td><td>1 / 1 / 1</td></tr>
+</table>
+<h2>1. Intended use</h2>
+<p>Flag every sample GOOD / RANGE / ROC / FLATLINE / SPIKE / STALE / GAP with the rule and limit that fired, per tag, before any evaluation.</p>
+<h2>2. Out-of-scope uses</h2>
+<p>Not an alarm; not a correction - flagged samples are excluded from evaluations and counted, never repaired.</p>
+<h2>3. Inputs and feature definitions (with sources)</h2>
+<table>
+<tr><th>Input</th><th>Unit / definition</th><th>Source</th></tr>
+<tr><td>tag definition</td><td>engineering range, cadence, limits</td><td>tag catalogue; ranges from the gauge datasheet when supplied</td></tr>
+</table>
+<h2>4. Settings and hyperparameters</h2>
+<table>
+<tr><th>Setting</th><th>Value</th><th>Basis</th></tr>
+<tr><td>downhole_pressure: range</td><td>0.0 to 30000.0 psi</td><td>class default; datasheet overrides</td></tr>
+<tr><td>downhole_temperature: range</td><td>-40.0 to 500.0 degF</td><td>class default; datasheet overrides</td></tr>
+<tr><td>flatline run</td><td>3 samples</td><td>operations setting</td></tr>
+<tr><td>staleness</td><td>3 x cadence</td><td>operations setting</td></tr>
+<tr><td>spike</td><td>6 x MAD of rolling median, window 21</td><td>operations setting</td></tr>
+<tr><td>rate of change</td><td>off unless set per tag</td><td>operations setting; not a datasheet quantity</td></tr>
+</table>
+<h2>5. Calibration and training data (provenance)</h2>
+<table>
+<tr><th>Dataset</th><th>Records</th><th>Database</th><th>URL</th><th>Licence</th><th>Fetch date</th></tr>
+<tr><td>volve_f12_f14_production_excerpt</td><td>158</td><td>Equinor Volve open dataset &#x27;Volve production data.xlsx&#x27; (Daily Production Data sheet), via the Kaggle redistribution (lamyalbert/volve-production-data) as proce</td><td>https://raw.githubusercontent.com/jamiubadmusng/oil-and-gas/main/data/processed/production_data_processed.csv</td><td>Equinor Open Data Licence (underlying dataset); redistribution repo MIT. Attribution: Equinor Volve data sharing; Kaggle</td><td>2026-08-25</td></tr>
+</table>
+<h2>6. Evaluation, validation and back-test results (recomputed)</h2>
+<table>
+<tr><th>Metric</th><th>Result</th><th>Method</th></tr>
+<tr><td>Volve 15/9-F-12 downhole pressure, 157 daily samples</td><td>9 FLATLINE (the archive&#x27;s documented stuck-sensor run), 5 SPIKE, 0 RANGE</td><td>rules applied to the catalogue excerpt</td></tr>
+</table>
+<h2>7. Known limitations</h2>
+<p>(1) Rules are per-sample; a slow drift is not a quality flag (it is the drift evaluation&#x27;s job). (2) The spike rule at daily cadence can flag real operational excursions; each flag prints its deviation so an engineer can judge.</p>
+<h2>8. Re-fit and retraining history</h2>
+<p>No re-fit on record for this model.</p>
+<h2>9. Components for inspection</h2>
+<p>Each component is named by role with the sha256 (first 16 hex) of the source file that implements it in this build; the delivered source matches these hashes.</p>
+<table>
+<tr><th>Component</th><th>sha256</th></tr>
+<tr><td>record and rules</td><td>49666664cdb21ff6</td></tr>
+</table>
+<footer>Generated from the live objects of this build; every evaluation is recomputed at generation time.</footer>
+</body></html>

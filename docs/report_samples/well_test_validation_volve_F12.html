@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Downhole Gauge Monitoring - Well Test Validation Report</title>
+<style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
+<h1>Downhole Gauge Monitoring - Well Test Validation Report</h1>
+<table class="front">
+<tr><td>Report ID</td><td>WTV-15-9-F-12-20261003T002409Z</td></tr>
+<tr><td>Well</td><td>15/9-F-12</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-03T00:24:09Z</td></tr>
+<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.5.0</td></tr>
+<tr><td>Data window</td><td>2008-02-12T00:00:00Z to 2008-07-21T00:00:00Z</td></tr>
+<tr><td>Accepted / rejected</td><td>7 / 32</td></tr>
+<tr><td>Result</td><td class="result-ok">7 WELL TESTS ACCEPTED, 0 APPROVED</td></tr>
+</table>
+<h2>1. Summary</h2>
+<p>158 samples from 2008-02-12T00:00:00Z to 2008-07-21T00:00:00Z; 131 eligible (on stream, complete, quality GOOD). 7 stable periods detected and ACCEPTED as well tests covering 49 samples; 32 candidate periods REJECTED with reason codes. 0 of 7 accepted tests approved at all levels; the rest await review. Virtual rates are the means over each accepted test and are released to allocation only after approval.</p>
+<h2>2. Stability criteria in force (client-agreed logic; SOW 4.2.3.1)</h2>
+<p>Criteria: &#x27;default well-test stability criteria&#x27;. Source: built-in defaults (no criteria file given) (sha256 6dab307153975eec). Basis: engineering defaults for daily-cadence production data; the client agrees and versions this file. A change to this file is a change-log entry; the report always prints the version it ran with.</p>
+<table>
+<caption>Parameters</caption>
+<tr><th>Parameter</th><th>Value</th></tr>
+<tr><td>min_samples</td><td>5</td></tr>
+<tr><td>min_on_stream_hours</td><td>23</td></tr>
+<tr><td>max_flagged_fraction</td><td>0</td></tr>
+<tr><td>rate_max_cv_pct</td><td>3</td></tr>
+<tr><td>rate_negligible_fraction</td><td>0.01</td></tr>
+<tr><td>pressure_max_cv_pct</td><td>1</td></tr>
+<tr><td>max_trend_pct_over_window</td><td>3</td></tr>
+<tr><td>operating_max_change_pct</td><td>2</td></tr>
+<tr><td>approval levels</td><td>level 1: production engineer; level 2: production supervisor</td></tr>
+</table>
+<table>
+<caption>Channel roles</caption>
+<tr><th>Role</th><th>Channel</th></tr>
+<tr><td>on_stream</td><td>ON_STREAM_HRS[15/9-F-12]</td></tr>
+<tr><td>rate:oil</td><td>BORE_OIL_VOL[15/9-F-12]</td></tr>
+<tr><td>rate:gas</td><td>BORE_GAS_VOL[15/9-F-12]</td></tr>
+<tr><td>rate:water</td><td>BORE_WAT_VOL[15/9-F-12]</td></tr>
+<tr><td>pressure:downhole</td><td>AVG_DOWNHOLE_PRESSURE[15/9-F-12]</td></tr>
+<tr><td>pressure:wellhead</td><td>AVG_WHP_P[15/9-F-12]</td></tr>
+<tr><td>operating:choke</td><td>AVG_CHOKE_SIZE_P[15/9-F-12]</td></tr>
+</table>
+<h2>3. Accepted well tests</h2>
+<p>Each accepted test is the longest window from its start that satisfies every criterion. Means are the test result; CV and trend per channel are in the machine JSON.</p>
+<table>
+<tr><th>Test</th><th>Start (UTC)</th><th>End (UTC)</th><th>n</th><th>oil (mean)</th><th>gas (mean)</th><th>water (mean)</th><th>Downhole P (mean)</th><th>Wellhead P (mean)</th><th>Operating point</th><th>On stream (h, mean)</th><th>Approval</th></tr>
+<tr><td>WT004</td><td>2008-02-17</td><td>2008-02-21</td><td>5</td><td>3,019.4 Sm3</td><td>426,520.8 Sm3</td><td>2.0 Sm3</td><td>293.8 bar</td><td>113.8 bar</td><td>choke 30.234</td><td>23.80</td><td>PENDING_LEVEL_1</td></tr>
+<tr><td>WT010</td><td>2008-03-19</td><td>2008-03-24</td><td>6</td><td>3,162.4 Sm3</td><td>462,141.6 Sm3</td><td>0.6 Sm3</td><td>273.8 bar</td><td>99.4 bar</td><td>choke 32.069</td><td>24</td><td>PENDING_LEVEL_1</td></tr>
+<tr><td>WT016</td><td>2008-04-05</td><td>2008-04-09</td><td>5</td><td>3,082.1 Sm3</td><td>454,286.2 Sm3</td><td>63.5 Sm3</td><td>266.4 bar</td><td>94.7 bar</td><td>choke 32.099</td><td>24</td><td>PENDING_LEVEL_1</td></tr>
+<tr><td>WT024</td><td>2008-05-02</td><td>2008-05-09</td><td>8</td><td>3,177.5 Sm3</td><td>487,791.6 Sm3</td><td>3.9 Sm3</td><td>262.8 bar</td><td>91.8 bar</td><td>choke 33.233</td><td>24</td><td>PENDING_LEVEL_1</td></tr>
+<tr><td>WT025</td><td>2008-05-21</td><td>2008-05-29</td><td>9</td><td>5,045.3 Sm3</td><td>764,414.0 Sm3</td><td>1,794.0 Sm3</td><td>258.2 bar</td><td>80.1 bar</td><td>choke 43.305</td><td>24</td><td>PENDING_LEVEL_1</td></tr>
+<tr><td>WT029</td><td>2008-06-06</td><td>2008-06-13</td><td>8</td><td>5,066.1 Sm3</td><td>760,087.5 Sm3</td><td>32.3 Sm3</td><td>258.2 bar</td><td>79.9 bar</td><td>choke 43.411</td><td>24</td><td>PENDING_LEVEL_1</td></tr>
+<tr><td>WT036</td><td>2008-07-02</td><td>2008-07-09</td><td>8</td><td>5,092.2 Sm3</td><td>763,292.2 Sm3</td><td>13.6 Sm3</td><td>260.8 bar</td><td>81.4 bar</td><td>choke 43.007</td><td>24</td><td>PENDING_LEVEL_1</td></tr>
+</table>
+<h2>4. Rejected candidate periods (reason codes)</h2>
+<p>Every period not accepted is listed with the rule that failed and the number that failed it.</p>
+<table>
+<tr><th>Candidate</th><th>Start (UTC)</th><th>End (UTC)</th><th>n</th><th>Primary reason</th><th>Detail</th></tr>
+<tr><td>C001</td><td>2008-02-12</td><td>2008-02-12</td><td>1</td><td>ON_STREAM_BELOW_MIN</td><td>ON_STREAM_BELOW_MIN:11.5h&lt;23h</td></tr>
+<tr><td>C002</td><td>2008-02-13</td><td>2008-02-13</td><td>1</td><td>INSUFFICIENT_DURATION</td><td>INSUFFICIENT_DURATION:1 samples &lt; min_samples 5</td></tr>
+<tr><td>C003</td><td>2008-02-14</td><td>2008-02-14</td><td>1</td><td>ON_STREAM_BELOW_MIN</td><td>ON_STREAM_BELOW_MIN:22.5h&lt;23h</td></tr>
+<tr><td>C005</td><td>2008-02-15</td><td>2008-02-16</td><td>2</td><td>RATE_UNSTABLE:gas</td><td>RATE_UNSTABLE:gas:cv 3.84%&gt;3%</td></tr>
+<tr><td>C006</td><td>2008-02-22</td><td>2008-02-22</td><td>1</td><td>INSUFFICIENT_DURATION</td><td>INSUFFICIENT_DURATION:1 samples &lt; min_samples 5</td></tr>
+<tr><td>C007</td><td>2008-02-23</td><td>2008-02-23</td><td>1</td><td>ON_STREAM_BELOW_MIN</td><td>ON_STREAM_BELOW_MIN:15.1417h&lt;23h</td></tr>
+<tr><td>C008</td><td>2008-02-24</td><td>2008-03-06</td><td>12</td><td>OPERATING_POINT_CHANGED:choke</td><td>OPERATING_POINT_CHANGED:choke:3.34%&gt;2%</td></tr>
+<tr><td>C009</td><td>2008-03-07</td><td>2008-03-07</td><td>1</td><td>ON_STREAM_BELOW_MIN</td><td>ON_STREAM_BELOW_MIN:22.8333h&lt;23h</td></tr>
+<tr><td>C011</td><td>2008-03-08</td><td>2008-03-18</td><td>11</td><td>RATE_UNSTABLE:gas</td><td>RATE_UNSTABLE:gas:cv 7.04%&gt;3%</td></tr>
+<tr><td>C012</td><td>2008-03-25</td><td>2008-03-25</td><td>1</td><td>INSUFFICIENT_DURATION</td><td>INSUFFICIENT_DURATION:1 samples &lt; min_samples 5</td></tr>
+<tr><td>C013</td><td>2008-03-26</td><td>2008-03-28</td><td>2</td><td>ON_STREAM_BELOW_MIN</td><td>ON_STREAM_BELOW_MIN:1.19167h&lt;23h; ON_STREAM_BELOW_MIN:7.475h&lt;23h</td></tr>
+<tr><td>C014</td><td>2008-03-29</td><td>2008-03-29</td><td>1</td><td>INSUFFICIENT_DURATION</td><td>INSUFFICIENT_DURATION:1 samples &lt; min_samples 5</td></tr>
+<tr><td>C015</td><td>2008-03-30</td><td>2008-03-31</td><td>2</td><td>ON_STREAM_BELOW_MIN</td><td>ON_STREAM_BELOW_MIN:10.975h&lt;23h; ON_STREAM_BELOW_MIN:14.025h&lt;23h</td></tr>
+<tr><td>C017</td><td>2008-04-01</td><td>2008-04-04</td><td>4</td><td>RATE_UNSTABLE:gas</td><td>RATE_UNSTABLE:gas:cv 8.01%&gt;3%</td></tr>
+<tr><td>C018</td><td>2008-04-10</td><td>2008-04-11</td><td>2</td><td>INSUFFICIENT_DURATION</td><td>INSUFFICIENT_DURATION:2 samples &lt; min_samples 5</td></tr>
+<tr><td>C019</td><td>2008-04-12</td><td>2008-04-15</td><td>4</td><td>ON_STREAM_BELOW_MIN</td><td>ON_STREAM_BELOW_MIN:12.975h&lt;23h; ON_STREAM_BELOW_MIN:20.55h&lt;23h; ON_STREAM_BELOW_MIN:21.26</td></tr>
+<tr><td>C020</td><td>2008-04-16</td><td>2008-04-16</td><td>1</td><td>INSUFFICIENT_DURATION</td><td>INSUFFICIENT_DURATION:1 samples &lt; min_samples 5</td></tr>
+<tr><td>C021</td><td>2008-04-17</td><td>2008-04-19</td><td>3</td><td>ON_STREAM_BELOW_MIN</td><td>ON_STREAM_BELOW_MIN:21.57h&lt;23h; ON_STREAM_BELOW_MIN:22.712h&lt;23h; ON_STREAM_BELOW_MIN:9.375</td></tr>
+<tr><td>C022</td><td>2008-04-20</td><td>2008-04-26</td><td>7</td><td>RATE_UNSTABLE:gas</td><td>RATE_UNSTABLE:gas:cv 4.85%&gt;3%</td></tr>
+<tr><td>C023</td><td>2008-04-27</td><td>2008-04-29</td><td>2</td><td>ON_STREAM_BELOW_MIN</td><td>ON_STREAM_BELOW_MIN:15.9583h&lt;23h; ON_STREAM_BELOW_MIN:5.2463h&lt;23h</td></tr>
+<tr><td>C026</td><td>2008-04-30</td><td>2008-05-01</td><td>2</td><td>TREND_EXCEEDS:gas</td><td>TREND_EXCEEDS:gas:5.85%&gt;3%</td></tr>
+<tr><td>C027</td><td>2008-05-10</td><td>2008-05-20</td><td>11</td><td>RATE_UNSTABLE:gas</td><td>RATE_UNSTABLE:gas:cv 8.14%&gt;3%</td></tr>
+<tr><td>C028</td><td>2008-05-30</td><td>2008-06-02</td><td>3</td><td>ON_STREAM_BELOW_MIN</td><td>ON_STREAM_BELOW_MIN:0.5h&lt;23h; ON_STREAM_BELOW_MIN:13.4167h&lt;23h; ON_STREAM_BELOW_MIN:20.191</td></tr>
+<tr><td>C030</td><td>2008-06-03</td><td>2008-06-05</td><td>3</td><td>PRESSURE_UNSTABLE:wellhead</td><td>PRESSURE_UNSTABLE:wellhead:cv 81.42%&gt;1%</td></tr>
+<tr><td>C031</td><td>2008-06-14</td><td>2008-06-14</td><td>1</td><td>ON_STREAM_BELOW_MIN</td><td>ON_STREAM_BELOW_MIN:22.6667h&lt;23h</td></tr>
+<tr><td>C032</td><td>2008-06-15</td><td>2008-06-25</td><td>11</td><td>RATE_UNSTABLE:gas</td><td>RATE_UNSTABLE:gas:cv 3.26%&gt;3%</td></tr>
+<tr><td>C033</td><td>2008-06-26</td><td>2008-06-26</td><td>1</td><td>ON_STREAM_BELOW_MIN</td><td>ON_STREAM_BELOW_MIN:15.8333h&lt;23h</td></tr>
+<tr><td>C034</td><td>2008-06-27</td><td>2008-06-30</td><td>4</td><td>INSUFFICIENT_DURATION</td><td>INSUFFICIENT_DURATION:4 samples &lt; min_samples 5</td></tr>
+<tr><td>C035</td><td>2008-07-01</td><td>2008-07-01</td><td>1</td><td>ON_STREAM_BELOW_MIN</td><td>ON_STREAM_BELOW_MIN:22.6667h&lt;23h</td></tr>
+<tr><td>C037</td><td>2008-07-10</td><td>2008-07-12</td><td>3</td><td>ON_STREAM_BELOW_MIN</td><td>ON_STREAM_BELOW_MIN:13.1667h&lt;23h; ON_STREAM_BELOW_MIN:21.35h&lt;23h; ON_STREAM_BELOW_MIN:6.30</td></tr>
+<tr><td>C038</td><td>2008-07-13</td><td>2008-07-20</td><td>8</td><td>RATE_UNSTABLE:gas</td><td>RATE_UNSTABLE:gas:cv 9.87%&gt;3%</td></tr>
+<tr><td>C039</td><td>2008-07-21</td><td>2008-07-21</td><td>1</td><td>MISSING_VALUE</td><td>MISSING_VALUE:on_stream</td></tr>
+</table>
+<h2>5. Approval trail</h2>
+<p>No approvals recorded yet.</p>
+<h2>6. Data provenance and limitations</h2>
+<p>Source stream: volve_f12_f14_production_excerpt. Detection is deterministic from the stream and the criteria file; re-running with the same inputs reproduces this report. Rates whose mean is below the negligible fraction of the largest rate in the window are not stability criteria (disclosed in section 2). Quality flags come from the record layer&#x27;s rules when a tag catalogue is supplied. Units: Sm3 (per provenance dictionary); bar (per provenance dictionary); pct (per provenance dictionary).</p>
+<footer>Every number in this report is recomputed from the source data and the criteria file at generation time; reason codes name the rule and the value that failed it.</footer>
+</body></html>

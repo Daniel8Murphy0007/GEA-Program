@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""matplotlib_demo — animated demo of the GEA Downhole Simulator.
+"""matplotlib_demo - animated view of the synthetic well.
 
 Imperial-unit animated view: a well
 schematic on the left (gauges labeled with live P/T), pressure and temperature
@@ -65,11 +65,12 @@ def run_demo():
                         label=f"{s.name} ({s.depth_ft:.0f} ft)")
             ax.legend(fontsize=7, loc="upper right")
         ax_t.set_xlabel("Time (s)", color="#e0f2fe")
-        avg_drift = float(np.mean(engine.current_drifts))
+        d = engine.current_drifts
+        avg_drift = float(np.nanmean(d)) if np.any(~np.isnan(d)) else float('nan')
         fig.suptitle(
-            f"GEA Deep-Well Simulator  |  t={engine.time:.1f}s  |  "
-            f"Avg Drift={avg_drift:.3f}% FS/yr  |  TD={cfg.td_ft:.0f} ft  |  "
-            f"K_MEX=25/12, \N{GREEK CAPITAL LETTER PHI}_res=0.84 (locked)",
+            f"GEA synthetic well  |  t={engine.time:.1f}s  |  "
+            f"datasheet aging={avg_drift:.3f} %FS/yr  |  TD={cfg.td_ft:.0f} ft  |  "
+            f"{engine.summary()['gauge_spec']}",
             fontsize=12, color="#67e8f9")
         return []
 

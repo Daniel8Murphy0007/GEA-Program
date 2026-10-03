@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Downhole Gauge Monitoring - Site Acceptance Test Protocol</title>
+<style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
+<h1>Downhole Gauge Monitoring - Site Acceptance Test Protocol</h1>
+<table class="front">
+<tr><td>Protocol ID</td><td>SAT-20261003T002654Z</td></tr>
+<tr><td>Type</td><td>Site Acceptance Test Protocol (SOW 4.2.21)</td></tr>
+<tr><td>Site</td><td>Report samples</td></tr>
+<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.5.0</td></tr>
+<tr><td>Run (UTC)</td><td>2026-10-03T00:26:54Z to 2026-10-03T00:27:55Z</td></tr>
+<tr><td>Steps</td><td>159 (159 pass / 0 fail)</td></tr>
+<tr><td>Result</td><td class="result-ok">ACCEPTED</td></tr>
+</table>
+<h2>1. Summary</h2>
+<p>159 numbered steps across sections A, C, F, AA, AB, AC, AD, AE, AF, AH, AI, AJ, AK, AG: 159 PASS, 0 FAIL. Result: ACCEPTED. Run 2026-10-03T00:26:54Z to 2026-10-03T00:27:55Z. 1 internal build checks ran alongside and are excluded from this client protocol; no check was altered.</p>
+<h2>2. Installed environment (SAT)</h2>
+<p>Platform Linux-6.18.44-fc-v64-x86_64-with-glibc2.39; Python 3.11.15; SBOM generated 2026-10-03T00:27:55Z.</p>
+<table>
+<tr><th>Component</th><th>Version</th><th>Hash</th><th>Relationship</th></tr>
+<tr><td>Downhole Gauge Monitoring</td><td>0.5.0</td><td>a2d376f945e72857</td><td>root</td></tr>
+<tr><td>Python</td><td>3.11.15</td><td>n/a (runtime)</td><td>runtime</td></tr>
+<tr><td>numpy</td><td>2.4.4</td><td>746ec08d80152e0c</td><td>direct (numerical arrays (all engines))</td></tr>
+<tr><td>matplotlib</td><td>3.10.9</td><td>1bf2ed3745796629</td><td>optional (plotting (figures in reports))</td></tr>
+<tr><td>PyQt6</td><td>not installed</td><td>-</td><td>optional (desktop operator application)</td></tr>
+<tr><td>asyncua</td><td>not installed</td><td>-</td><td>optional (OPC UA client port)</td></tr>
+<tr><td>paho-mqtt</td><td>not installed</td><td>-</td><td>optional (MQTT subscriber port)</td></tr>
+<tr><td>pymodbus</td><td>not installed</td><td>-</td><td>optional (Modbus TCP port)</td></tr>
+<tr><td>xlrd</td><td>not installed</td><td>-</td><td>optional (vendor .xls drift-survey ingest)</td></tr>
+<tr><td>pyserial</td><td>not installed</td><td>-</td><td>optional (WITS0 over a serial line)</td></tr>
+</table>
+<h2>3. Section A - Headless command line: runs, exports, determinism, ingest round-trip</h2>
+<table>
+<tr><th>Step</th><th>Check</th><th>Expected</th><th>Actual</th><th>Witness</th></tr>
+<tr><td>1</td><td>A1 wells: lists assemblies with engine-ready state</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>2</td><td>A2 run --well ktb_hb: measured profile banner, 6-gauge CSV of readings only (no model columns), the datasheet aging rate on the summary line</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>3</td><td>A3 run (template path): --td/--gauges still works without --well</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>4</td><td>A4.1 service-life run 1 exits 0</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>5</td><td>A4.2 service-life run 2 exits 0</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>6</td><td>A4 service-life determinism golden: same seed -&gt; byte-identical CSV</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>7</td><td>A5.1 telemetry run 1 exits 0</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>8</td><td>A5.2 telemetry run 2 exits 0</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>9</td><td>A5 telemetry determinism golden: same seed -&gt; byte-identical CSV</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>10</td><td>A6 ingest: the historian CSV the product exported round-trips through its own port</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>11</td><td>A7 reconcile --live-catalog: Volve F-12 measured drawdown classifies UNEXPLAINED_TREND (drawdown is not drift)</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>12</td><td>A8 bench --selftest: the bench arithmetic on synthetic series - a gauge drifting at three times its datasheet rate is EXCEEDS_DATASHEET, a 10-day record is INSUFFICIENT_SPAN; the output is labelled a simulation self-test</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+</table>
+<h2>4. Section C - Two-stream reconciliation and classification</h2>
+<table>
+<tr><th>Step</th><th>Check</th><th>Expected</th><th>Actual</th><th>Witness</th></tr>
+<tr><td>13</td><td>C1 IN_FAMILY: zero-mean noise around the closed-stream prediction</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>14</td><td>C2 CALIBRATION_OFFSET: constant offset above the bias gate, below model-mismatch</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>15</td><td>C3 UNEXPLAINED_OFFSET: constant offset far beyond model mismatch</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>16</td><td>C4 DRIFT_CONSISTENT: a slope of the order of the gauge&#x27;s datasheet aging rate, over a window long enough to resolve it</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>17</td><td>C5 UNEXPLAINED_TREND: a slope far beyond the datasheet rate</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+</table>
+<h2>5. Section F - Ingest ports (historian CSV, LAS)</h2>
+<table>
+<tr><th>Step</th><th>Check</th><th>Expected</th><th>Actual</th><th>Witness</th></tr>
+<tr><td>18</td><td>F1 ports: file tiers IMPLEMENTED</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>19</td><td>F2 opcua: an empty configuration is declined - dependency missing or site details missing, named either way</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>20</td><td>F2 mqtt: an empty configuration is declined - dependency missing or site details missing, named either way</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>21</td><td>F2 wits0: an empty configuration is declined - dependency missing or site details missing, named either way</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>22</td><td>F2 witsml: an empty configuration is declined - dependency missing or site details missing, named either way</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>23</td><td>F3 modbus: dependency-missing state declared</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+</table>
+<h2>6. Section AA - Client report family: records, quality, drift, accuracy, monitor, well tests, alarms, model cards, resilience, configuration, SBOM, SLA, FAT/SAT, dashboard</h2>
+<table>
+<tr><th>Step</th><th>Check</th><th>Expected</th><th>Actual</th><th>Witness</th></tr>
+<tr><td>24</td><td>AA1 sample record: every Volve F-12 sample lands in the one record with a flag from the fixed enumeration and a UTC timestamp from the stream&#x27;s own origin</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>25</td><td>AA2 quality rules: the excerpt&#x27;s genuine stuck-sensor run is flagged FLATLINE (9 samples) and every flagged record names the rule that fired</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>26</td><td>AA3 drift report: the Volve drawdown reports MODEL DRIFT DETECTED with the FALLBACK action and the SLA clocks started</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>27</td><td>AA4 outline: eight numbered sections carrying the scope-of-work clause numbers (4.2.1.2 tags, 4.2.2 data quality, 4.2.10 drift, SLA 1.0)</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>28</td><td>AA5 vocabulary gate: the rendered report contains none of the internal-register terms</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>29</td><td>AA6 write: markdown, HTML, machine JSON, records CSV (157 rows + header) and tag catalogue CSV all land</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>30</td><td>AA7 CLI client-report: the same report from the command line</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>31</td><td>AA8 CLI on the product&#x27;s own historian export: no drift on the clean leg, and the ISO time origin survives the port (no 1970 timestamps)</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>32</td><td>AA9 datasheet limits: the engineering range comes from the GEOQ 177 full scale and the basis names the datasheet; the rate-of-change limit is printed as an operations setting, never invented from the datasheet</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>33</td><td>AA10 spike rule: the rolling-median/MAD rule fires on 5 Volve daily excursions with the deviation printed, and the stuck run still reads FLATLINE</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>34</td><td>AA11 drift report with --spec: section 6 prints the datasheet citation and the basis of every limit</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>35</td><td>AA12 accuracy engine: the library back-test scores 14 quantities, holds 4 pending below the minimum, and regenerates identically (seeded bootstrap)</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>36</td><td>AA13 accuracy statistics: MAPE sits inside its 90 pct CI, the conservative accuracy never exceeds the point accuracy, and the band is read at the conservative end</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>37</td><td>AA14 the statement is not a marketing number: 8 of 14 meet the 95 pct target, 1 is band 2, 5 are NOT ACCEPTABLE - printed, never hidden</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>38</td><td>AA15 statement_from_arrays: thin data is PENDING; a perfect predictor reads MAPE 0, coverage 1, MEETS TARGET</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>39</td><td>AA16 CLI client-report --report accuracy: the Accuracy Statement lands in the client outline (SLA 4.0 definitions, SCC 5.0 method), vocabulary clean</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>40</td><td>AA17 drift monitor: a +40 psi injected offset is evaluated as CALIBRATION_OFFSET, logged, proposed as a re-fit with before/after coefficients, and the SLA clocks (1/2/10 business days) start at the evaluation timestamp</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>41</td><td>AA18 scheduling: a run before the 24 h cadence is SKIPPED_NOT_DUE; the state ages to STALE with the overdue hours counted</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>42</td><td>AA19 re-fit closes the loop: the approved correction is applied to the live leg and the next evaluation reads IN_FAMILY with the bias removed</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>43</td><td>AA20 annual cap: the fifth re-fit in a calendar year is BLOCKED_ANNUAL_LIMIT (logged, never applied); four are applied</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>44</td><td>AA21 the record: 12 evaluation lines (6 stations x 2), 2 change-log lines (PROPOSED, APPLIED), no open proposal, log hashes reported</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>45</td><td>AA22 CLI drift-monitor: evaluates, records, and writes the drift report with section 5 fed from the monitor&#x27;s log</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>46</td><td>AA23 well-test detection on Volve F-12: 7 stable periods accepted, 32 candidates rejected, 131/158 eligible samples, deterministic, criteria file hashed</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>47</td><td>AA24 an accepted test carries its virtual rates (WT024 oil 3,177.5 Sm3/d over 8 days) and every accepted window satisfies the printed criteria</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>48</td><td>AA25 reason codes: shut-in days, short runs, unstable gas, choke moves, wellhead swings and the trailing missing row are each named with the value that failed</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>49</td><td>AA26 the criteria file is the logic: tightening rate CV to 0.5 pct accepts fewer tests</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>50</td><td>AA27 approval trail: two levels with timestamps; a level-1 rejection holds the test</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>51</td><td>AA28 CLI well-test: the Well Test Validation Report lands with criteria, hash, accepted tests, reason codes and the approval trail, vocabulary clean</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>52</td><td>AA29 alarm state machine: HIGH at 104 with 60 s on-delay activates on the second sample over setpoint (08:03), holds through the deadband (103, 101, 99), and returns to normal only below 99 (08:08) - hysteresis and on-delay as defined</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>53</td><td>AA30 acknowledgement: ACTIVE_UNACKED -&gt; ACTIVE_ACKED -&gt; CLEARED with the operator on the record</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>54</td><td>AA31 catalogue-derived definitions: over-range (datasheet basis) and quality (record-layer basis) per tag, no invented process setpoint, JSON round-trip</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>55</td><td>AA32 CLI alarms on the 24 h export: quality alarms flood (printed against the ISA-18.2 targets with the remedy), and the deepest gauge&#x27;s temperature reads above the template datasheet rating - a real over-range alarm on the demo well</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>56</td><td>AA33 model cards: six cards, each with inputs, settings, calibration data, evaluation, limitations and component hashes</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>57</td><td>AA34 re-fit history: the well-baseline card carries the monitor&#x27;s APPLIED offset correction with before/after</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>58</td><td>AA35 the aging-rate card states NONE ON RECORD for field validation, names the datasheet as the only source of the rate, and carries no aging model of the program&#x27;s own</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>59</td><td>AA36 the estimator card prints the five NOT ACCEPTABLE quantities and a URL for every calibration dataset</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>60</td><td>AA37 every card renders vocabulary-clean with component hashes; the inventory card carries the published citations only</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>61</td><td>AA38 CLI model-cards: six HTML/markdown/JSON cards and an index</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>62</td><td>AA39 store-and-forward: two outages (3.5 h + 20 min) buffer 1,380 samples at the edge and replay every one in chronological order at 5/s - none lost, none duplicated</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>63</td><td>AA40 gap report: replayed samples carry the outage as latency (max &gt; 3.3 h), live samples 2 s; the historian&#x27;s own 27 GAP samples are delivered as gaps, never invented</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>64</td><td>AA41 capacity: a 1 h buffer under a 3 h outage drops the oldest 2 h (720 records, 120 per tag), counted and reported</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>65</td><td>AA42 CLI store-forward: the Data Resilience report prints latency for all records and for live delivery only (SLA 7.0 exclusion), vocabulary clean</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>66</td><td>AA43 configuration versioning: commit, key-level diff, unchanged content not re-versioned, rollback as a new version equal to v1 with history intact</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>67</td><td>AA44 export a named version to a file; the store summary counts the rollback</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>68</td><td>AA45 SBOM: ten components (product, Python, numpy, seven optional) with all eight fields, versions and licences read from installed metadata, optional components listed whether installed or not</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>69</td><td>AA46 SBOM written as JSON and CSV (header + 10 rows)</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>70</td><td>AA47 monthly SLA: re-fit within 10 bd MET, cap MET, three config versions counted, latency NOT MEASURED without a record, and the two-evaluation demo log reads NOT MET on cadence - nothing unmeasured is reported as met</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>71</td><td>AA48 CLI sla-report: the Monthly SLA Report lands with latency, availability, change &amp; continuity and the SBOM, vocabulary clean</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>72</td><td>AA49 FAT protocol: section F renders as numbered PASS steps, none excluded by the vocabulary gate, with the result ACCEPTED</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>73</td><td>AA50 dashboard orchestration: three wells (two catalogue, one file) and the site reports generated into one tree, index.html built</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>74</td><td>AA51 dashboard data: every tile figure is read from a report JSON - F-12 drift + 7 tests, F-14 offset on thin data, the file well clean with its alarm flood and lossless replay</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>75</td><td>AA52 the page: hero tile reads 2 of 3 wells with drift, ranking and alarm wall present, drill-down links relative, light and dark themes, vocabulary clean</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>76</td><td>AA53 status is icon plus label on every status element, never colour alone</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>77</td><td>AA54 CLI dashboard: one catalogue well to a complete index</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+</table>
+<h2>7. Section AB - Live protocol ports: OPC UA and MQTT (Sparkplug B) - mapping, quality, recording and replay, hand-off to the stream and the buffer; live loopback where the dependency is installed</h2>
+<table>
+<tr><th>Step</th><th>Check</th><th>Expected</th><th>Actual</th><th>Witness</th></tr>
+<tr><td>78</td><td>AB1 Sparkplug B: payload with double, float, signed int32, null and Quality properties encodes and decodes on the wire format with no protobuf library</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>79</td><td>AB2 Sparkplug -&gt; records: scale applied (bar -&gt; psi), Quality 192 GOOD, other Quality STALE with the value named, is_null GAP, source timestamp from the metric, ingest timestamp at arrival</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>80</td><td>AB3 aliases: a DBIRTH teaches alias 3 = DHP, an alias-only DDATA resolves, another edge node is ignored</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>81</td><td>AB4 number and JSON payloads: value/time/quality paths, 2 s latency measured, unparseable -&gt; GAP with reason, MQTT wildcards + and #</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>82</td><td>AB5 recording -&gt; replay -&gt; time-indexed stream with the ISO origin -&gt; store-and-forward buffer delivers all six</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>83</td><td>AB6 OPC UA StatusCode severity bits: Good -&gt; GOOD, Uncertain -&gt; STALE, Bad -&gt; GAP</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>84</td><td>AB7 OPC UA replay: source timestamp preferred, server timestamp as fallback, arrival otherwise; 0.6 s latency measured; Bad status withholds the value</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>85</td><td>AB8 port registry: opcua and mqtt registered; status reports whether the optional dependency is installed</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>86</td><td>AB9 an empty tag map is declined: a live port maps what the site declares, never guesses tags</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>87</td><td>AB10 CLI mqtt --replay: records CSV and a historian-style stream CSV the other commands ingest</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>88</td><td>AB11 the stream CSV written by the port round-trips through the historian port</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>89</td><td>AB12 without asyncua the OPC UA tap declines with the install instruction (replay still works)</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>90</td><td>AB13 live OPC UA loopback skipped here (asyncua not installed); it runs where the dependency is present</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>91</td><td>AB14 without paho-mqtt the MQTT tap declines with the install instruction (decoders and replay need nothing)</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+</table>
+<h2>8. Section AC - The dashboard service: workspace, jobs and schedule, accounts and roles, every action through the API, the audit log</h2>
+<table>
+<tr><th>Step</th><th>Check</th><th>Expected</th><th>Actual</th><th>Witness</th></tr>
+<tr><td>92</td><td>AC1 workspace: three kinds of well registered; the client&#x27;s file is copied in verbatim and hashed, the original untouched; a live well&#x27;s port map is versioned in the configuration store</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>93</td><td>AC2 audit log: every action carries the actor and the SHA-256 of its inputs; a port map that is not JSON is declined before anything is written</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>94</td><td>AC3 refresh: the whole report family runs into the workspace (drift, alarms, well tests, monitor) and the printed dashboard is written</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>95</td><td>AC4 jobs: a command runs as `python -m gea` with its log kept; success and failure are both recorded with the return code, never silently</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>96</td><td>AC5 scheduler: a daily job is due once after its time, never twice for one day, and due again the next day; it runs as a job</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>97</td><td>AC6 accounts: passwords are stored as salted PBKDF2-SHA256 hashes, never in clear; a wrong password fails; an 8-character minimum holds</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>98</td><td>AC7 a disabled account cannot sign in</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>99</td><td>AC8 service: the page is served self-contained; reads need a session (401); an action without the page&#x27;s header is declined (403); a wrong password fails (401); a good one opens a session</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>100</td><td>AC9 reads: overview, wells, a well&#x27;s reports and its down-sampled series for the trend plots, the reports index, the printed reports as static files; a path outside the reports folder is declined</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>101</td><td>AC10 actions are jobs: the SBOM runs from the page as `gea sbom` with its log; a command the page may not run is declined</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>102</td><td>AC11 configuration: commits are validated the way the commands load them (a bad shape or an unknown key is declined), versioned, rolled back as a new version, and exported to the file the commands read</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>103</td><td>AC12 upload: a file sent from the page lands under the well&#x27;s source folder with its hash; the upload staging is cleaned</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>104</td><td>AC13 acknowledgement from the page runs `gea alarms --ack` with the operator&#x27;s name; it survives the next refresh, and the alarm log is idempotent - re-processing the same stream adds no activations</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>105</td><td>AC14 approvals: the queue lists pending well tests and proposed re-fits across wells; a level-1 decision from the page is appended to the approval trail with the approver&#x27;s name and the test moves to level 2</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>106</td><td>AC15 roles: a viewer reads but cannot act (403 on refresh, users, approvals); an operator acts but cannot approve, manage users or roll back</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>107</td><td>AC16 the audit log records every action with its actor, including failed sign-ins and the system&#x27;s own job bookkeeping</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>108</td><td>AC17 CLI: `gea workspace` (init, add-file, list), `gea users` (the password from the environment, never the command line) and `gea serve --help`</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+</table>
+<h2>9. Section AD - The patch panel: WITS Level 0 and WITSML 1.4.1 ports with in-package simulators, unit normalisation, the supervisor, the patch API</h2>
+<table>
+<tr><th>Step</th><th>Check</th><th>Expected</th><th>Actual</th><th>Witness</th></tr>
+<tr><td>109</td><td>AD1 WITS0 codec: a frame fed in 5-byte pieces parses once; mapped items get the site&#x27;s tag and unit, unmapped record-01 items keep their standard names, the frame&#x27;s date/time is the source timestamp (1 s latency measured), sentinels and non-numeric values are GAP with the reason</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>110</td><td>AD2 a WITS0 item code that is not four digits is declined; wits0 and witsml are registered as implemented ports needing the site&#x27;s map</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>111</td><td>AD3 LIVE WITS0 over TCP: the simulator sends six frames, the tap receives them all with sub-2 s latency, records the session, and the replay reproduces every record; the stream carries the mapped drill-floor tags</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>112</td><td>AD4 WITS0 listen mode: a sender that connects to the tap is read; a source that is not there is a ConnectionError, never a hang</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>113</td><td>AD5 unit normalisation on the mapping: pressure, temperature, density and force pairs convert both ways, aliases resolve, a wire unit the program cannot convert is declined when the map loads</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>114</td><td>AD6 LIVE WITSML against the in-package store: GetVersion answers; the first poll takes the lookback window, the next only rows newer than the last row seen; mnemonics map to the site&#x27;s tags; the store&#x27;s null value is GAP; wrong credentials are a 401; replay matches</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>115</td><td>AD7 supervisor: a WITS0 patch receives and converts (the floor&#x27;s psi standpipe pressure recorded in bar), goes DOWN when the sender closes, retries with backoff, receives again when the sender returns, stops on request; state and records are on disk</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>116</td><td>AD8 the patch records fold into one stream CSV; the refresh reports the drill-floor stream beside the well (alarms and quality; gauge drift marked not applicable - no downhole stations in a floor feed) and the well&#x27;s own file still gets its drift report</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>117</td><td>AD9 patch API: an operator adds (a map that fails the port&#x27;s own check is declined), starts, sees CONNECTED with samples on the panel and the overview, stops; a viewer reads but cannot start; only an admin removes</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>118</td><td>AD10 CLI: example maps for wits0 and witsml; `gea wits0 --replay` writes the records and the stream CSV; `gea wits0-sim` is there for a site to rehearse with</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+</table>
+<h2>10. Section AE - gea doctor: the environment and workspace checks and the serve start-up gate</h2>
+<table>
+<tr><th>Step</th><th>Check</th><th>Expected</th><th>Actual</th><th>Witness</th></tr>
+<tr><td>119</td><td>AE1 doctor: reports the Python, the running package and its path, the page, the dependencies; every warning and block carries a fix</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>120</td><td>AE2 doctor --workspace: a busy port is a block with the --port fix; a folder that is not a workspace is a block with the init command; a good workspace with a free port has no blocks</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>121</td><td>AE3 CLI: `gea doctor --json` is machine-readable; a blocking finding exits 1; `gea serve` does not start on a blocking finding and says why</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+</table>
+<h2>11. Section AF - The file system: detection by content, roots and their boundary, import with the duplicate guard, watch folders, export and the evidence pack</h2>
+<table>
+<tr><th>Step</th><th>Check</th><th>Expected</th><th>Actual</th><th>Witness</th></tr>
+<tr><td>122</td><td>AF1 detection by content: historian CSV, LAS behind comment lines, plain CSV, JSON, binary, OLE workbook; preview shows the first lines; read_any dispatches to the right reader</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>123</td><td>AF2 a delimited file whose first column is not a timestamp is declined with the reason, never read as a gauge stream</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>124</td><td>AF3 roots: a folder that does not exist is declined; a path that leaves its root is declined (resolve and browse); browsing lists folders first with each file&#x27;s kind</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>125</td><td>AF4 import: the file becomes a file well; the same content a second time is declined (hash); a non-stream is declined; the watch folder imports what is new including subfolders (a vendor .xls only when xlrd is present, else skipped with the reason), and a second scan finds nothing new</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>126</td><td>AF5 export: one report or a well&#x27;s folder lands in the export root; a path outside reports/ is declined; the evidence pack carries the reports, the audit log, the configuration store, the manifest and a hash list, and its own hash is recorded</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>127</td><td>AF6 files API: a viewer browses and previews but cannot import; an operator exports but cannot add roots; a path outside the root is declined; an admin adds roots</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>128</td><td>AF7 CLI: `gea files --action list` shows kinds; `--action pack` builds the evidence pack into the export root</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+</table>
+<h2>12. Section AH - Instruments and transients: sensor swaps (register, detector, segmented fit), calibration certificates, shut-in detection and build-up analysis with a stated band</h2>
+<table>
+<tr><th>Step</th><th>Check</th><th>Expected</th><th>Actual</th><th>Witness</th></tr>
+<tr><td>129</td><td>AH1 swap detection works on the offset against peer gauges: with two gauges the 30 psi step at hour 192 is found at the right time on both, flagged ambiguous; with three the swapped gauge alone is named with high confidence; the shut-in&#x27;s 500 psi process move, common to all gauges, raises nothing</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>130</td><td>AH2 the swap register is append-only with a stable id; a duplicate, a missing serial and a missing tag are declined; the segment mask blanks the 192 samples before the swap on that tag only and leaves the source stream untouched</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>131</td><td>AH3 certificates: status per tag for the serial in service (VALID / EXPIRING inside 60 days with the days left / EXPIRED / MISSING); a duplicate, an expiry before issue and an absurd accuracy are declined</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>132</td><td>AH4 the shut-in is found by the rate channel (47 h closed after 120 h flowing, clock and p_wf from the last flowing sample); the build-up analysis recovers k within 5 % and skin within 0.5 of the truth with the truth inside the 90 % band, on an MTR chosen by the flat derivative, p* within 5 psi; without a rate channel the same shut-in is inferred from the pressure and marked so; without parameters only slope and p* are reported, said so</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>133</td><td>AH5 too few points is said plainly; an analyst can move the middle-time region and the result follows, with the rule printed</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>134</td><td>AH6 CLI: `gea transient` writes the shut-in and pressure-transient report with the band; `gea swaps --action add` declines a duplicate; `gea certificates --action status` exits 1 when a tag has no certificate in date</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>135</td><td>AH7 through the API: a swap, two certificates (one with its document stored and hashed) and the parameters are recorded with the operator&#x27;s name and audited; the refresh fits the swapped gauge on its 48 post-swap samples only, prints the instruments section with the certificate beside the bias, analyses the build-up with the saved parameters, and the dashboard carries the counts; the recorded swap no longer appears as a candidate</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>136</td><td>AH8 a viewer can read the instruments but not record a swap; the page carries the instruments card (swaps, candidates to confirm, certificates), the shut-ins and build-ups card and the parameter form</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+</table>
+<h2>13. Section AI - Hardening: sign-in rate limit, live sessions and revocation, security headers, proxy mode, housekeeping, the supervisor load test</h2>
+<table>
+<tr><th>Step</th><th>Check</th><th>Expected</th><th>Actual</th><th>Witness</th></tr>
+<tr><td>137</td><td>AI1 sign-in rate limit: 5 failures lock the name and the address for 15 min (429 with Retry-After, audited); even the right password waits; another user from the same address waits; the lock lifts on its own</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>138</td><td>AI2 sessions: an administrator lists every live session with its address and times (an operator may not); one session can be revoked (401 at its next request) while the user&#x27;s other session lives on; a user can sign out everywhere else; revoking all of a user&#x27;s sessions ends them; every revocation is audited</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>139</td><td>AI3 every response carries the security headers (CSP with frame-ancestors none, X-Frame-Options DENY, nosniff, referrer policy); HSTS only behind an HTTPS proxy</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>140</td><td>AI4 behind a TLS proxy (--behind-proxy): the cookie is marked Secure and HSTS is sent when the proxy says https; the forwarded client address is the one shown and rate-limited, so one locked address does not lock the proxy&#x27;s address for everyone</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>141</td><td>AI5 housekeeping: a dry run lists what it would do and touches nothing; applied, the oversized audit log and alarm log are segmented (never truncated), the fresh alarm log starts at the carried PROCESSED watermark, finished job folders older than the keep window beyond the newest N are removed, recordings older than the keep window go but the newest stream file stays; the run is audited</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>142</td><td>AI6 the supervisor load test runs N simulated WITS0 patches with the service answering: all connect, all healthy at the end, samples flowing, the service&#x27;s p95 under a second; the throw-away workspace is removed</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+</table>
+<h2>14. Section AJ - The help library and the guide in the wheel: one source for the terminal, the API and the dashboard</h2>
+<table>
+<tr><th>Step</th><th>Check</th><th>Expected</th><th>Actual</th><th>Witness</th></tr>
+<tr><td>143</td><td>AJ1 the tester guide ships inside the package (gea/help/TESTER_GUIDE.md, declared as package data) and is byte-identical to docs/TESTER_GUIDE.md; `gea guide` prints it from the installed package, not from a checkout</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>144</td><td>AJ2 every help page carries its four lines in order (15 pages, indexed by the job); every dashboard view maps to a page; `gea help` prints the index, `gea help well-tests` the page with its reason codes, an unknown topic exits 2; the page keeps no help text of its own</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>145</td><td>AJ3 the API serves the same pages to a signed-in viewer: the index with each page&#x27;s summary and the view-to-topic map, a page as Markdown and as rendered HTML (the drift page names the datasheet and NONE ON RECORD), 404 for an unknown topic</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>146</td><td>AJ4 (no wheel could be built on this machine&#x27;s pip/setuptools) the package-data declaration names help/* and every page and the guide are present under gea/help; the release workflow builds the wheel and runs this section from the installed kit</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+</table>
+<h2>15. Section AK - Standard physics only: the aging rate is the datasheet number, the removed model is absent, a datasheet cannot carry model parameters</h2>
+<table>
+<tr><th>Step</th><th>Check</th><th>Expected</th><th>Actual</th><th>Witness</th></tr>
+<tr><td>147</td><td>AK1 the aging rate is the datasheet&#x27;s published specification at every temperature and pressure (3 psi/yr for a 0.01 %FS/yr gauge at 30,000 psi); above the rating or the full scale it is flagged, never changed; the accuracy band is the datasheet&#x27;s too</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>148</td><td>AK2 the removed aging model is absent from the package: its modules do not import, and no module, help page or protocol names its functions, its constants, its ratio or its trims</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>149</td><td>AK3 a datasheet is only its published numbers and its citation: a spec without a source or with an extra model parameter is declined, every preset cites a fetched public page, the default is a cited datasheet, and a user&#x27;s own datasheet gives its own rate</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>150</td><td>AK4 the reconciler&#x27;s band is the datasheet rate alone (half to twice it); the simulator&#x27;s summary and CSV carry readings and the datasheet rate per station, and no model quantity of the program&#x27;s own</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+</table>
+<h2>16. Section AG - The operator experience: alarm shelving and bulk acknowledgement, preferences and site defaults, since-last-visit, badges, search, notification rules</h2>
+<table>
+<tr><th>Step</th><th>Check</th><th>Expected</th><th>Actual</th><th>Witness</th></tr>
+<tr><td>151</td><td>AG1 alarm engine: acknowledge-all records one event per alarm with the note; a shelf carries who, why and until when; it expires on its own at the first sample past the expiry (UNSHELVED by &#x27;expiry&#x27;) and the condition re-evaluates; a fresh engine replays the same states</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>152</td><td>AG2 operator actions are checked: unshelving an alarm that is not shelved, an unknown id and a non-positive shelf are each declined with the reason</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>153</td><td>AG3 CLI: --shelve with --shelve-hours and --note writes the SHELVED event with its expiry; an action without --now is declined; --ack-all acknowledges the rest</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>154</td><td>AG4 preferences: a user&#x27;s units, time zone and help choice persist in the account and ride on the session; an unknown value is declined; site-wide defaults live in the workspace manifest (admin) and reach every session; the first sign-in has no previous visit</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>155</td><td>AG5 alarm API: shelving removes the alarm from the active list and records it under &#x27;shelved&#x27; with who, why and until when; a 90-day cap holds; unshelving restores it; acknowledge-all walks every well with unacknowledged alarms; every action is audited</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>156</td><td>AG6 badges count unacknowledged and shelved alarms, pending approvals, running and failed jobs, patches down; since-last-visit groups the audit actions, alarm events and jobs after a timestamp (none on a first visit); search spans wells, alarms and definitions, reports, jobs, configuration, patches; two characters minimum</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>157</td><td>AG7 notifications: a rule with an unknown event or a channel with a password in the file is declined; the committed configuration is live at once; a test message reaches the webhook with its header and the mailbox with its subject; the page&#x27;s view never shows the secret</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>158</td><td>AG8 the watcher announces a new P1 activation through both channels (a P4 matches no rule), suppresses the repeat inside the quiet window, and logs every attempt and suppression to records/notifications.jsonl</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>159</td><td>AG9 roles: site settings and notification tests need admin; preferences and the notifications view need only the signed-in user; the page carries the alarm actions, the search, preferences, first-run guide, help panels, badges, time-zone display and a print stylesheet</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+</table>
+<h2>17. Signatures</h2>
+<table>
+<tr><th>Role</th><th>Name</th><th>Signature</th><th>Date</th></tr>
+<tr><td>Test engineer (supplier)</td><td>________________</td><td>________________</td><td>__________</td></tr>
+<tr><td>Witness (client)</td><td>________________</td><td>________________</td><td>__________</td></tr>
+<tr><td>Approver (client)</td><td>________________</td><td>________________</td><td>__________</td></tr>
+</table>
+<footer>Each step is executed by the program against its own outputs at run time; the witness column is signed on paper or in the approval workflow.</footer>
+</body></html>

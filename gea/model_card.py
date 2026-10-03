@@ -16,7 +16,7 @@ one that ships.
 Cards produced:
 
     well_baseline               expected P/T at a station from the well model
-    gauge_aging_envelope        expected instrument drift band at station P/T
+    gauge_aging_rate            the instrument drift specification from its datasheet
     strata_property_estimator   k-nearest conditional over the co-located library
     rock_density_inventory      the cited density anchors used for classification
     quality_rules               the record-layer sample rules
@@ -150,25 +150,23 @@ def build_cards(monitor_log_dir: Optional[str] = None, program_version: str = ''
                     {'role': 'drift monitor (log, staleness, re-fit)', 'sha256': _sha('drift_monitor.py')}],
         generated_utc=now))
 
-    # 2. gauge aging envelope -------------------------------------------------------
+    # 2. gauge aging rate ---------------------------------------------------------------
     specs = list(GAUGE_SPECS.values())
     cards.append(ModelCard(
-        model_id='gauge_aging_envelope', title='Gauge aging envelope at station conditions', version=ver,
-        intended_use='The expected instrument drift band (psi/yr) at a station\'s pressure and temperature, used to judge whether a '
-                     'measured residual trend is instrument aging (inside the band) or something else (outside it).',
-        out_of_scope='Not a measurement of any specific gauge\'s drift; not a warranty figure; not a substitute for recalibration records.',
+        model_id='gauge_aging_rate', title='Gauge aging rate from the datasheet', version=ver,
+        intended_use='The instrument\'s published drift specification (psi/yr at its full scale), used to judge whether a measured '
+                     'residual trend is of the order of the aging the datasheet allows for (half the rate to twice the rate) or something else.',
+        out_of_scope='Not a measurement of any specific gauge\'s drift; not a warranty figure; not a substitute for recalibration records; '
+                     'no dependence on temperature or pressure is modelled - above the rating the rate is flagged, not changed.',
         inputs=[{'name': 'gauge datasheet', 'unit': 'full scale psi; drift %FS/yr; rating C; accuracy %FS', 'source': s.source[:140]} for s in specs] +
-               [{'name': 'station pressure and temperature', 'unit': 'psi, degC', 'source': 'well baseline model'}],
-        settings=[{'setting': 'thermal knee', 'value': f'{specs[0].thermal_knee_C:g} C', 'basis': 'engineering fit (template); vendor performance page confirms drift focus >= 150 C'},
-                  {'setting': 'pressure knee', 'value': f'{specs[0].pressure_knee_psi:g} psi', 'basis': 'engineering fit (template)'},
-                  {'setting': 'thermal / pressure exponents', 'value': f'{specs[0].thermal_exponent:g} / {specs[0].pressure_exponent:g}', 'basis': 'engineering fit (template)'},
-                  {'setting': 'lower bound of the band', 'value': 'program aging model, ratio 0.969 of the conventional model', 'basis': 'engineering model without field validation; the band, not the bound, is used'},
-                  {'setting': 'upper bound of the band', 'value': 'conventional aging model at the datasheet baseline', 'basis': 'datasheet baseline drift scaled by the temperature and pressure factors'}],
+               [{'name': 'station pressure and temperature', 'unit': 'psi, degC', 'source': 'well baseline model (for the rating check only)'}],
+        settings=[{'setting': 'aging rate', 'value': 'the datasheet drift specification, as published', 'basis': 'cited datasheet; nothing added'},
+                  {'setting': 'classification margin', 'value': '0.5 x to 2 x the rate', 'basis': 'disclosed engineering heuristic (reconciler)'}],
         calibration_data=[{'dataset': s.name, 'records': '-', 'database': 'public datasheet', 'url': '', 'licence': 'vendor-published specification', 'fetch_date': (s.source.split('fetched ')[1][:10] if 'fetched ' in s.source else '')} for s in specs],
-        evaluation=[{'metric': 'field validation of the band', 'value': 'NONE ON RECORD', 'method': 'no gauge-drift field dataset has been evaluated against the band; it is a model band and is labelled so on every report'}],
-        limitations=['The band is a model, not a measurement.', 'Datasheet drift bounds are reference-condition limits; stressed-service drift can exceed them.',
-                     'The lower bound comes from an engineering model with no field validation; classification uses the whole band with a 2x margin, never the lower bound alone.'],
-        components=[{'role': 'aging models', 'sha256': _sha('quartz_hpht_extension.py')}, {'role': 'gauge datasheets', 'sha256': _sha('gauge_specs.py')}],
+        evaluation=[{'metric': 'field validation of the rate against a gauge with a known history', 'value': 'NONE ON RECORD',
+                     'method': 'no gauge-drift field or bench dataset has been evaluated against the datasheet rate by this program; the bench test (gea bench) is the instrument for it'}],
+        limitations=['The rate is a specification, not a measurement.', 'Datasheet drift bounds are reference-condition limits; stressed-service drift can exceed them, and the program does not model that.'],
+        components=[{'role': 'aging rate', 'sha256': _sha('gauge_aging.py')}, {'role': 'gauge datasheets', 'sha256': _sha('gauge_specs.py')}],
         generated_utc=now))
 
     # 3. strata property estimator ---------------------------------------------------

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Downhole Gauge Monitoring - Data Resilience Report (store-and-forward)</title>
+<style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
+<h1>Downhole Gauge Monitoring - Data Resilience Report (store-and-forward)</h1>
+<table class="front">
+<tr><td>Report ID</td><td>SF-SYNTHETIC_field_(gea_tel-20261003T002633Z</td></tr>
+<tr><td>Site</td><td>SYNTHETIC field (gea telemetry)</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-03T00:26:33Z</td></tr>
+<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.5.0</td></tr>
+<tr><td>Samples / delivered / lost</td><td>1036800 / 1036800 / 0</td></tr>
+<tr><td>Result</td><td class="result-ok">ALL SAMPLES DELIVERED, NO DUPLICATES, CHRONOLOGICAL</td></tr>
+</table>
+<h2>1. Summary</h2>
+<p>1036800 samples across 24 tags over 720.0 h with 1 link outage totalling 12.00 h. 1019520 delivered live, 17280 buffered at the edge, 17280 replayed in chronological order at 50.0 records/s, 0 dropped over the 72.0 h capacity, 0 duplicates suppressed at the edge and 0 in the delivered stream. 1036800 of 1036800 delivered (0 not delivered). Peak buffer occupancy 16.7 % of capacity. Chronological replay verified. Remote-site link availability 98.333 % over the window.</p>
+<h2>2. Buffer configuration (SOW 4.2.1.6)</h2>
+<table>
+<tr><th>Item</th><th>Value</th><th>Requirement</th></tr>
+<tr><td>Buffer capacity</td><td>72.0 h (103680 records at 60.0 s cadence x 24 tags)</td><td>SOW 4.2.1.6: 72 h store-and-forward</td></tr>
+<tr><td>Replay rate</td><td>50.0 records/s, metered per second</td><td>SOW 4.2.1.6: chronological, rate-controlled replay</td></tr>
+<tr><td>Edge processing latency (modelled)</td><td>2.0 s</td><td>sample timestamp to arrival at the edge</td></tr>
+<tr><td>Duplicate suppression</td><td>by (tag, timestamp) at the edge and verified in the delivered stream</td><td>SLA 5.0: no duplication</td></tr>
+</table>
+<h2>3. Link outages and events</h2>
+<table>
+<caption>Outage windows</caption>
+<tr><th>Outage start (UTC)</th><th>Outage end (UTC)</th><th>Duration (h)</th></tr>
+<tr><td>2026-01-03T06:00:00Z</td><td>2026-01-03T18:00:00Z</td><td>12.00</td></tr>
+</table>
+<table>
+<caption>Link events</caption>
+<tr><th>Timestamp (UTC)</th><th>Link</th><th>Backlog at event</th></tr>
+<tr><td>2026-01-01T00:00:02Z</td><td>UP</td><td>0</td></tr>
+<tr><td>2026-01-03T06:00:02Z</td><td>DOWN</td><td>0</td></tr>
+<tr><td>2026-01-03T18:00:02Z</td><td>UP</td><td>17280</td></tr>
+</table>
+<h2>4. Delivery statistics</h2>
+<table>
+<tr><th>Item</th><th>Value</th></tr>
+<tr><td>Delivered live</td><td>1019520</td></tr>
+<tr><td>Buffered at edge</td><td>17280</td></tr>
+<tr><td>Replayed</td><td>17280</td></tr>
+<tr><td>Dropped over capacity</td><td>0</td></tr>
+<tr><td>Duplicates suppressed (edge)</td><td>0</td></tr>
+<tr><td>Duplicates in delivered stream</td><td>0</td></tr>
+<tr><td>Peak backlog (records)</td><td>17280</td></tr>
+<tr><td>Final backlog</td><td>0</td></tr>
+<tr><td>Replay slots used</td><td>346</td></tr>
+</table>
+<h2>5. End-to-end latency, field edge to OT lake (SLA 1.0 definitions)</h2>
+<p>Latency is measured per record from the sample timestamp to the ingest timestamp at the receiving layer. The SLA target is 95 % within 2 min and 99 % within 5 min. Replayed backlog carries the outage duration as latency by definition; SLA 7.0 excludes third-party telecom outages with a documented root cause, so both rows are printed and the client applies the exclusion.</p>
+<table>
+<tr><th>Population</th><th>p50 (s)</th><th>p95 (s)</th><th>p99 (s)</th><th>max (s)</th><th>% within 2 min</th><th>% within 5 min</th></tr>
+<tr><td>All delivered records</td><td>2</td><td>2</td><td>17,489.59</td><td>43,202</td><td>98.33</td><td>98.33</td></tr>
+<tr><td>Live delivery only (outage replay excluded)</td><td>2</td><td>2</td><td>2</td><td>2</td><td>100</td><td>100</td></tr>
+</table>
+<h2>6. Gap report per tag</h2>
+<p>&quot;Not delivered&quot; are samples lost at the edge (over capacity); &quot;source gaps&quot; are samples the historian itself had no value for (flag GAP) and are delivered as such, never invented.</p>
+<table>
+<tr><th>Tag</th><th>Expected</th><th>Live</th><th>Replayed</th><th>Not delivered</th><th>Source gaps</th><th>Duplicates</th><th>Chronological</th><th>Latency p95 (s)</th><th>Latency max (s)</th></tr>
+<tr><td>P_clean_psi_S1</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>P_clean_psi_S2</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>P_clean_psi_S3</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>P_clean_psi_S4</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>P_clean_psi_S5</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>P_clean_psi_S6</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>P_raw_psi_S1</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>P_raw_psi_S2</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>P_raw_psi_S3</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>P_raw_psi_S4</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>P_raw_psi_S5</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>P_raw_psi_S6</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>T_clean_F_S1</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>T_clean_F_S2</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>T_clean_F_S3</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>T_clean_F_S4</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>T_clean_F_S5</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>T_clean_F_S6</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>T_raw_F_S1</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>T_raw_F_S2</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>T_raw_F_S3</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>T_raw_F_S4</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>T_raw_F_S5</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+<tr><td>T_raw_F_S6</td><td>43200</td><td>42480</td><td>720</td><td>0</td><td>378</td><td>0</td><td>yes</td><td>2</td><td>43,202</td></tr>
+</table>
+<h2>7. Provenance</h2>
+<p>Site: SYNTHETIC field (gea telemetry). The simulation drives the buffer with the records&#x27; own timestamps as the clock and the outage windows as the link schedule; the same buffer class serves a live edge. Results regenerate identically from the same input.</p>
+<footer>Every statistic is recomputed from the delivered stream at generation time.</footer>
+</body></html>

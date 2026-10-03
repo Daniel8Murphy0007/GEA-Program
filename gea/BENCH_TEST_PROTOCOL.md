@@ -1,96 +1,91 @@
-# Bench-Test Protocol — Measuring the 1.0324 Suppression Ratio
+# Bench-Test Protocol - Does this gauge drift within its datasheet?
 
-Status of the quantity under test: `canonical_suppression()` = **1.0324 at
-unity trims** is today a **DERIVED_HYBRID** composition — industry baseline
-drift (0.215 %FS/yr class) with HPHT stress dressing, divided by a
-the program's suppression composition of three locked constants. It is **not** a measured constant, and the
-product labels it so everywhere it appears. This protocol is the experiment
-that would change — or refuse to change — that label.
+The program judges a measured drift trend against one number: the
+instrument's published drift specification (percent of full scale per year,
+from its datasheet). That number is a specification, not a measurement of
+the gauge in your hand. This protocol is the measurement: one gauge, one
+held setpoint, one reference standard, enough weeks, and a verdict written
+down - the bench record the drift report cites as `NONE ON RECORD` until it
+exists.
 
 ---
 
-## 1. Falsifiable prediction
+## 1. What is being tested
 
-Two matched GEOQ-177-class quartz P/T gauges (same spec, same batch
-preferred), one operated with the GEA-informed configuration and one as the
-conventional reference, co-located at a fixed HPHT setpoint, will exhibit a
-long-term drift-rate ratio
+For a gauge of serial number S with datasheet drift specification D (%FS/yr):
 
 ```
-R = drift_conventional / drift_program = 1.0324   (at unity trims)
+measured drift rate (|slope| of the gauge's reading against the reference, at a held setpoint)
+compared with D, with the slope's own standard error
 ```
 
-equivalently a predicted separation rate of ~2.3 psi/yr at a 30,000-psi
-full scale (the service-life module's number for these conditions). The
-prediction is falsifiable in both directions: a measured R statistically
-inconsistent with 1.0324 **refutes the composition at bench conditions**.
+The outcome is one of four words (section 5). A gauge that drifts faster
+than its datasheet is a finding, not an error.
 
 ## 2. Apparatus
 
-- 2× (minimum; 3+ pairs preferred for scatter) quartz P/T gauges,
-  177 °C / 30 kpsi class, from the same vendor lot.
-- Temperature-controlled bath or HPHT vessel holding a setpoint in the
-  150 °C / 10,000 psi class (inside every rating — the rating_check rule
-  applies on the bench too).
-- Reference pressure standard, 0.01 %-class (deadweight tester or
-  transfer standard), for baseline and periodic checks.
-- Logging at ≥ 1 reading/day per gauge into the package's historian CSV
-  format (`time_s` + one raw pressure column per gauge).
+- The gauge under test, with its serial number and its calibration
+  certificate id (both go on the record; `gea certificates` files the
+  certificate).
+- A temperature-controlled bath or pressure vessel holding a setpoint inside
+  the gauge's rating (the rating check applies on the bench too).
+- A reference pressure standard of a class better than the specification
+  under test (deadweight tester or transfer standard), logged at the same
+  cadence, or at least checked weekly and logged.
+- Logging at one reading per day or better into the program's historian CSV
+  format (a timestamp or `time_s` column and one pressure column per
+  instrument).
 
-## 3. Duration — the package's own rule applies
+## 3. Duration - the program's own rule applies
 
 The reconciler refuses trend verdicts below its minimum span
-(`ReconcilerConfig.min_trend_span_years`, the ≥18-day slope rule). The bench
-protocol requires **≥ 90 days** at setpoint for slope confidence; 180+ days
-preferred. The analysis tool enforces the 18-day floor mechanically and
-reports `INSUFFICIENT_SPAN` below it — the bench cannot be rushed past the
-product's own honesty rule.
+(`ReconcilerConfig.min_trend_span_years`, the 18-day rule), and the bench
+analysis reads that floor from the same configuration: a shorter record is
+`INSUFFICIENT_SPAN`, no verdict. The protocol asks for **at least 90 days**
+at setpoint; 180 days or more when the specification is tight (a 0.01 %FS/yr
+gauge at 30,000 psi full scale drifts 3 psi in a year - 0.75 psi in 90
+days - so the reference and the logging must resolve tenths of a psi).
 
 ## 4. Procedure
 
-1. Baseline both gauges against the reference standard; record offsets.
-2. Install co-located at the setpoint; log continuously.
-3. Weekly: verify setpoint stability against the reference (do not adjust
-   the gauges under test).
-4. Export each leg as a historian CSV; run
-   `python -m gea bench --program-csv A.csv --conv-csv B.csv`.
-5. Repeat with roles swapped on a second pair (control for unit-to-unit
-   scatter — the piezo lesson: individual units scatter around class curves).
+1. File the certificate (`gea certificates --action add ...`) and record the
+   serial number.
+2. Install the gauge and the reference at the setpoint; log continuously.
+3. Weekly: verify the setpoint against the reference; do not adjust the gauge
+   under test. Log every intervention.
+4. Export the gauge's series and the reference's series as historian CSVs.
+5. Run:
+
+       gea bench --gauge-csv gauge.csv --reference-csv reference.csv --spec geoq177_30k --serial SN --certificate CERT --out bench_register.jsonl
+
+   The reference series is subtracted first (the setpoint's own wander is
+   not the gauge's drift). `--spec` names the datasheet preset or a JSON
+   datasheet of your own.
+6. Keep the record: the JSON line appended to the register carries the fit,
+   the band, the datasheet source, the serial, the certificate and the verdict.
 
 ## 5. Analysis and verdict vocabulary
 
-`bench.bench_analysis()` fits each leg's drift slope (OLS, psi/yr →
-%FS/yr), propagates slope uncertainties into the ratio, and returns one of:
+- The slope of the (gauge - reference) series is fitted by least squares;
+  its standard error comes from the residuals.
+- A band of k sigma (default 2) is placed around the measured rate.
+- `WITHIN_DATASHEET` - the whole band is at or below the specification.
+- `EXCEEDS_DATASHEET` - the whole band is above the specification: this
+  gauge, at these conditions, drifts faster than its datasheet says. A
+  first-class outcome.
+- `INSUFFICIENT_SPAN` - shorter than the 18-day floor; no verdict.
+- `INSUFFICIENT_SNR` - the band straddles the specification; a longer span
+  or a quieter setpoint is needed; no verdict.
 
-- `MEASURED_CONFIRMS` — R within its own propagated uncertainty of 1.0324.
-- `MEASURED_REFUTES`  — R inconsistent with 1.0324 (the uncertainty is small
-  enough to exclude it). **This is a valid and useful outcome** — the
-  composition is falsified at bench conditions and the label stays
-  DERIVED_HYBRID with the refutation on record.
-- `INSUFFICIENT_SPAN` — under the 18-day floor: no verdict.
-- `INSUFFICIENT_SNR`  — the uncertainty band contains both 1.0324 and 1.0
-  (cannot distinguish suppression from no-suppression): no verdict, more
-  data required.
+`gea bench --selftest` runs the arithmetic on synthetic series and labels
+its output `SIMULATION_SELF_TEST`; it proves nothing about a physical gauge.
 
-## 6. Outcome handling (labeling rules)
+## 6. What the record changes
 
-- **Confirmed:** `canonical_suppression()`'s label may move from
-  DERIVED_HYBRID to MEASURED_ON_BENCH **with the test ID, dates, apparatus
-  and per-pair results attached**. The composition's constants are then a
-  measured-consistent model, not just a labeled one.
-- **Refuted:** the label stays DERIVED_HYBRID; the refutation (conditions,
-  measured R, uncertainty) is recorded beside it. No silent retuning of
-  trims to fit the bench — a post-hoc trim fit would be a new calibration
-  claim, labeled as such, never a derivation.
-- **Either way:** `U_i` remains loaded-but-unused in the drift formula until
-  a GEA derivation path for its role is supplied (Rule 10 — the framework
-  author provides the physics; the product does not invent it).
-
-## 7. Analysis-tool verification (available today, and labeled)
-
-The analysis tool is verified NOW against the simulator's own twin legs:
-`bench --selftest` generates synthetic paired-leg data from the engine's
-models and must return `MEASURED_CONFIRMS` at R ≈ 1.0324. **This is a
-SIMULATION_SELF_TEST — it verifies the analysis arithmetic, not the
-physics.** It proves the bench pipeline is ready; it proves nothing about
-gauges. The acceptance suite runs it on every gate.
+Nothing in the program's arithmetic changes with a bench result; the
+datasheet rate stays the rate the reports use. What changes is the model
+card's `field validation` line, which can cite the register once a gauge
+with a known history has been run, and the reader's confidence in a
+`DRIFT_CONSISTENT` label on that instrument. An `EXCEEDS_DATASHEET` record
+is the reason to recalibrate, replace or re-rate that gauge, and to file
+the result with its certificate.

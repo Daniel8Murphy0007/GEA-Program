@@ -1,38 +1,34 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""tool_library — the downhole tool library.
+"""tool_library - the downhole tool library.
 
-Generalizes the gauge-spec discipline to the whole toolstring: a cited
-catalog of downhole and surface tools (`ToolSpec`), per-class drift/response
-models, a `ToolString` builder, and rating checks against real well
-conditions. Every entry declares the telemetry interface it speaks — the
-declaration the ports/plug-in layer will implement when the program taps
-running logging systems (the live-stream side of the two-stream design).
+A cited catalog of downhole and surface tools (`ToolSpec`), a `ToolString`
+builder, rating checks against real well conditions, and the aging rate of
+each measuring tool read from its datasheet. Every entry declares the
+telemetry interface it speaks - the declaration the ports layer implements.
 
-Citation rules, same as gauge_specs:
+Citation rules, the same as gauge_specs:
   * Every catalog entry carries a mandatory `source` citation.
   * Where a tool's EXISTENCE and class are verified but its quantitative
     parameters were not published on the fetched pages, the entry is marked
-    `PARAMETERS_USER_SUPPLIED`: its numbers are None, and asking it for a
-    drift model raises rather than inventing vendor data.
-  * The piezoresistive drift model's COEFFICIENTS are a representative
-    engineering fit (disclosed as such); its FORM is cited — the ChampionX
-    Quartzdyne performance page states verbatim that piezoresistive drift is
-    unpredictable and increases exponentially with increasing temperature,
-    while quartz drift is predictable and compensatable.
+    `PARAMETERS_USER_SUPPLIED`: its numbers are None, and asking it for an
+    aging rate raises rather than inventing vendor data. That includes the
+    piezoresistive class: the cited vendor page says its drift is
+    unpredictable and grows with temperature, and publishes no rate, so the
+    program carries no rate for it until the user supplies one from a datasheet.
 
 Verified sources (fetched 2026-08-23):
   * GEO PSI product catalog + GEOQ 177 public specification table
-    (geopsi.com/products/downhole-gauges/) — Quartzdyne-sensor quartz P/T
+    (geopsi.com/products/downhole-gauges/) - Quartzdyne-sensor quartz P/T
     gauges (spec table), GEOP piezoresistive family, GEOVW 250 vibrating-wire,
     GEOXTR 18pt thermocouple input card, GEOPulse fiber optics (DAS/DTS),
     G6 interface card (Modbus RS485 + 4-20mA surface communications),
     PSK downhole telemetry, up to 10 sensors per TEC line.
-  * ChampionX Quartzdyne performance page — quartz-vs-piezoresistive drift
-    character statement cited above.
+  * ChampionX Quartzdyne performance page - the quartz-vs-piezoresistive
+    drift character statement cited above.
 
-Headless-safe: numpy only.
+Headless-safe: stdlib only.
 """
 
 from __future__ import annotations
@@ -42,10 +38,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Tuple
 
 from .gauge_specs import GAUGE_SPECS, GaugeSpec
-from .quartz_hpht_extension import (
-    calculate_quartz_transducer_hpht_program,
-    conventional_drift,
-)
+from .gauge_aging import aging_rate
 
 # tool classes
 QUARTZ_PT = "QUARTZ_PT_GAUGE"
@@ -77,7 +70,7 @@ class ToolSpec:
     temp_rating_C: Optional[float] = None
     pressure_rating_psi: Optional[float] = None
     gauge_spec: Optional[GaugeSpec] = None      # quartz tools wrap a GaugeSpec
-    drift_model: Optional[str] = None           # 'quartz_program' | 'quartz_conventional' | 'piezoresistive'
+    drift_model: Optional[str] = None           # 'datasheet' (the gauge_spec's published rate) | 'user_supplied'
     params: dict = field(default_factory=dict)
     notes: str = ""
 
@@ -85,47 +78,29 @@ class ToolSpec:
 # ---------------------------------------------------------------------------
 # Drift/response models
 # ---------------------------------------------------------------------------
-def piezoresistive_drift(temp_c: float,
-                         base_drift_pct_fs_yr: float = 0.1,
-                         ref_temp_C: float = 25.0,
-                         e_fold_C: float = 40.0) -> float:
-    """Piezoresistive P/T gauge drift (%FS/yr).
-
-    FORM (cited): ChampionX Quartzdyne performance page — "Piezoresistive
-    drift is unpredictable. Piezoresistive drift increases exponentially with
-    increasing temperature." Modeled as base * exp((T - T_ref)/e_fold).
-
-    COEFFICIENTS (disclosed, representative engineering fit — NOT vendor
-    data): 0.1 %FS/yr at 25 C reference with a 40 C e-folding scale. The
-    'unpredictable' character means real units scatter widely around this
-    curve; this is a class-typical envelope for simulation, not a spec bound.
-    """
-    return base_drift_pct_fs_yr * math.exp((temp_c - ref_temp_C) / e_fold_C)
-
-
 def drift_model_for(tool: ToolSpec) -> Callable[[float, float], float]:
-    """Return f(temp_c, pressure_psi) -> drift %FS/yr for a measuring tool.
+    """Return f(temp_c, pressure_psi) -> aging rate in %FS/yr for a measuring tool.
 
-    Raises for PARAMETERS_USER_SUPPLIED entries (no invented vendor numbers)
-    and for non-measuring tools (surface interfaces have no drift model).
+    The rate is the datasheet's published drift specification (`gauge_aging.aging_rate`);
+    the function does not vary it with conditions. Raises for PARAMETERS_USER_SUPPLIED
+    entries (no invented vendor numbers) and for non-measuring tools.
     """
     if tool.spec_status == PARAMETERS_USER_SUPPLIED:
         raise ValueError(
             f"{tool.name}: parameters are user-supplied - load your datasheet "
             f"values (the library does not invent vendor numbers)")
-    if tool.drift_model == 'quartz_program':
-        def f(temp_c, pressure_psi, _s=tool.gauge_spec):
-            r = calculate_quartz_transducer_hpht_program(0.0, temp_c, pressure_psi, spec=_s)
-            return float(r['value']['drift_pct'])
-        return f
-    if tool.drift_model == 'quartz_conventional':
-        return lambda temp_c, pressure_psi, _s=tool.gauge_spec: conventional_drift(temp_c, pressure_psi, spec=_s)
-    if tool.drift_model == 'piezoresistive':
-        p = tool.params
-        return lambda temp_c, pressure_psi: piezoresistive_drift(
-            temp_c, p.get('base_drift_pct_fs_yr', 0.1),
-            p.get('ref_temp_C', 25.0), p.get('e_fold_C', 40.0))
-    raise ValueError(f"{tool.name}: no drift model (tool class {tool.tool_class})")
+    if tool.drift_model == 'datasheet' and tool.gauge_spec is not None:
+        return lambda temp_c, pressure_psi, _s=tool.gauge_spec: float(aging_rate(_s, temp_c, pressure_psi)['rate_pct_fs_yr'])
+    raise ValueError(f"{tool.name}: no aging rate on record (tool class {tool.tool_class})")
+
+
+def user_gauge_tool(name: str, spec: GaugeSpec, telemetry_interface: str = 'per-site', tool_class: str = QUARTZ_PT) -> ToolSpec:
+    """A tool built from the user's own datasheet (`load_gauge_spec_json`); registered in TOOL_LIBRARY under `name`."""
+    t = ToolSpec(name=name, tool_class=tool_class, source=spec.source, measures=('pressure_psi', 'temperature_F'),
+                 telemetry_interface=telemetry_interface, temp_rating_C=spec.max_temp_C, pressure_rating_psi=spec.full_scale_psi,
+                 gauge_spec=spec, drift_model='datasheet')
+    TOOL_LIBRARY[name] = t
+    return t
 
 
 # ---------------------------------------------------------------------------
@@ -138,37 +113,28 @@ _CHAMPIONX = ("ChampionX Quartzdyne performance page, championx.com, fetched 202
               "increases exponentially with temperature")
 
 TOOL_LIBRARY: Dict[str, ToolSpec] = {
-    'quartz_pt_program_geoq177_30k': ToolSpec(
-        name='quartz_pt_program_geoq177_30k', tool_class=QUARTZ_PT,
-        source=_GEOPSI + "; program-conditioned leg (suppression composition, quartz_hpht_extension)",
+    'quartz_pt_geoq177_30k': ToolSpec(
+        name='quartz_pt_geoq177_30k', tool_class=QUARTZ_PT,
+        source=_GEOPSI,
         measures=('pressure_psi', 'temperature_F'),
         telemetry_interface='PSK downhole telemetry -> Modbus RS485 + 4-20mA via G6 interface card (GEOQ 177 spec table)',
         temp_rating_C=177.0, pressure_rating_psi=30000.0,
-        gauge_spec=GAUGE_SPECS['geoq177_30k'], drift_model='quartz_program'),
-    'quartz_pt_conventional_geoq177_30k': ToolSpec(
-        name='quartz_pt_conventional_geoq177_30k', tool_class=QUARTZ_PT,
-        source=_GEOPSI + "; conventional reference leg (no suppression)",
+        gauge_spec=GAUGE_SPECS['geoq177_30k'], drift_model='datasheet'),
+    'quartz_pt_geoq177_16k': ToolSpec(
+        name='quartz_pt_geoq177_16k', tool_class=QUARTZ_PT,
+        source=_GEOPSI,
         measures=('pressure_psi', 'temperature_F'),
         telemetry_interface='PSK downhole telemetry -> Modbus RS485 + 4-20mA via G6 interface card (GEOQ 177 spec table)',
-        temp_rating_C=177.0, pressure_rating_psi=30000.0,
-        gauge_spec=GAUGE_SPECS['geoq177_30k'], drift_model='quartz_conventional'),
-    'quartz_pt_template_stressed': ToolSpec(
-        name='quartz_pt_template_stressed', tool_class=QUARTZ_PT,
-        source="program template baseline (design note, 22 Aug 2026): stressed-service quartz class, 0.215 %FS/yr baseline",
-        measures=('pressure_psi', 'temperature_F'),
-        telemetry_interface='per-site (template does not specify)',
-        temp_rating_C=200.0, pressure_rating_psi=30000.0,
-        gauge_spec=GAUGE_SPECS['template_generic'], drift_model='quartz_program'),
+        temp_rating_C=177.0, pressure_rating_psi=16000.0,
+        gauge_spec=GAUGE_SPECS['geoq177_16k'], drift_model='datasheet'),
     'piezoresistive_pt_class': ToolSpec(
         name='piezoresistive_pt_class', tool_class=PIEZO_PT,
-        source=_CHAMPIONX + "; GEO PSI GEOP family existence (product catalog). "
-               "Model coefficients are a representative engineering fit, DISCLOSED, not vendor data.",
+        source=_CHAMPIONX + "; GEO PSI GEOP family existence (product catalog). No drift rate is published on the fetched pages.",
         measures=('pressure_psi', 'temperature_F'),
         telemetry_interface='per-site (GEOP family: downhole telemetry via TEC, surface via interface card)',
         temp_rating_C=150.0,
-        drift_model='piezoresistive',
-        params={'base_drift_pct_fs_yr': 0.1, 'ref_temp_C': 25.0, 'e_fold_C': 40.0},
-        notes="cited FORM (exponential-in-T, unpredictable); representative coefficients"),
+        spec_status=PARAMETERS_USER_SUPPLIED,
+        notes="the cited page states the drift character (unpredictable, grows with temperature) and no rate; supply the datasheet before simulating it"),
     'vibrating_wire_geovw250': ToolSpec(
         name='vibrating_wire_geovw250', tool_class=VIBRATING_WIRE,
         source="GEO PSI GEOVW 250 product listing (existence + class), geopsi.com product catalog, "

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Model Card - Well-test stable-period detector</title>
+<style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
+<h1>Model Card - Well-test stable-period detector</h1>
+<table class="front">
+<tr><td>Model ID</td><td>well_test_detector</td></tr>
+<tr><td>Version</td><td>Downhole Gauge Monitoring build 0.5.0</td></tr>
+<tr><td>Owner</td><td>assigned by the client at deployment</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-03T00:24:09Z</td></tr>
+<tr><td>Inputs / datasets / evaluations</td><td>1 / 1 / 1</td></tr>
+</table>
+<h2>1. Intended use</h2>
+<p>Detect periods where the well is on stream at a fixed operating point with stable rates and pressures; accept them as well tests with virtual rates, reject the rest with reason codes.</p>
+<h2>2. Out-of-scope uses</h2>
+<p>Not an allocation; accepted tests are released only after the approval trail is complete.</p>
+<h2>3. Inputs and feature definitions (with sources)</h2>
+<table>
+<tr><th>Input</th><th>Unit / definition</th><th>Source</th></tr>
+<tr><td>on-stream hours, rates, pressures, operating point</td><td>as tagged</td><td>production historian channels mapped by role</td></tr>
+</table>
+<h2>4. Settings and hyperparameters</h2>
+<table>
+<tr><th>Setting</th><th>Value</th><th>Basis</th></tr>
+<tr><td>min_samples</td><td>5</td><td>criteria file (client-agreed logic), hashed on every report</td></tr>
+<tr><td>min_on_stream_hours</td><td>23.0</td><td>criteria file (client-agreed logic), hashed on every report</td></tr>
+<tr><td>max_flagged_fraction</td><td>0.0</td><td>criteria file (client-agreed logic), hashed on every report</td></tr>
+<tr><td>rate_max_cv_pct</td><td>3.0</td><td>criteria file (client-agreed logic), hashed on every report</td></tr>
+<tr><td>rate_negligible_fraction</td><td>0.01</td><td>criteria file (client-agreed logic), hashed on every report</td></tr>
+<tr><td>pressure_max_cv_pct</td><td>1.0</td><td>criteria file (client-agreed logic), hashed on every report</td></tr>
+<tr><td>max_trend_pct_over_window</td><td>3.0</td><td>criteria file (client-agreed logic), hashed on every report</td></tr>
+<tr><td>operating_max_change_pct</td><td>2.0</td><td>criteria file (client-agreed logic), hashed on every report</td></tr>
+</table>
+<h2>5. Calibration and training data (provenance)</h2>
+<table>
+<tr><th>Dataset</th><th>Records</th><th>Database</th><th>URL</th><th>Licence</th><th>Fetch date</th></tr>
+<tr><td>volve_f12_f14_production_excerpt</td><td>158</td><td>Equinor Volve open dataset &#x27;Volve production data.xlsx&#x27; (Daily Production Data sheet), via the Kaggle redistribution (lamyalbert/volve-production-data) as proce</td><td>https://raw.githubusercontent.com/jamiubadmusng/oil-and-gas/main/data/processed/production_data_processed.csv</td><td>Equinor Open Data Licence (underlying dataset); redistribution repo MIT. Attribution: Equinor Volve data sharing; Kaggle</td><td>2026-08-25</td></tr>
+</table>
+<h2>6. Evaluation, validation and back-test results (recomputed)</h2>
+<table>
+<tr><th>Metric</th><th>Result</th><th>Method</th></tr>
+<tr><td>Volve 15/9-F-12, 2008-02-12 to 2008-07-21</td><td>7 tests accepted, 32 candidates rejected with reason codes, 131/158 eligible samples</td><td>default criteria file</td></tr>
+</table>
+<h2>7. Known limitations</h2>
+<p>(1) Criteria defaults are for daily-cadence data; a client at minute cadence sets its own file. (2) Negligible streams (below the fraction of the largest rate) are not stability criteria and are disclosed as such.</p>
+<h2>8. Re-fit and retraining history</h2>
+<p>No re-fit on record for this model.</p>
+<h2>9. Components for inspection</h2>
+<p>Each component is named by role with the sha256 (first 16 hex) of the source file that implements it in this build; the delivered source matches these hashes.</p>
+<table>
+<tr><th>Component</th><th>sha256</th></tr>
+<tr><td>detector and approval trail</td><td>c569c9d2fbafc678</td></tr>
+</table>
+<footer>Generated from the live objects of this build; every evaluation is recomputed at generation time.</footer>
+</body></html>

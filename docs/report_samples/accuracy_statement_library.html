@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Downhole Gauge Monitoring - Accuracy Statement</title>
+<style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
+<h1>Downhole Gauge Monitoring - Accuracy Statement</h1>
+<table class="front">
+<tr><td>Report ID</td><td>ACC-library_back-test-20261003T002409Z</td></tr>
+<tr><td>Scope</td><td>library back-test</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-03T00:24:09Z</td></tr>
+<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.5.0</td></tr>
+<tr><td>CI level</td><td>90 %</td></tr>
+<tr><td>Quantities scored / pending</td><td>14 / 4</td></tr>
+<tr><td>Result</td><td class="result-ok">8 of 14 MEET TARGET</td></tr>
+</table>
+<h2>1. Summary</h2>
+<p>14 predicted quantities scored on 410 blind trials; 4 pending below the minimum of 10 trials. Bands at the conservative end of the 90 % CI: MEETS TARGET (&gt;= 95 %) x8, NOT ACCEPTABLE (&lt; 85 %) x5, BAND 2 (90-95 %) x1. Best MAPE 0.48 %; worst 23.22 %; median calibration coverage at the CI level 0.803 (expected about 0.90). 8 of 14 quantities meet the 95 % accuracy target; the quantities that do not are listed with their numbers and are excluded from any accuracy claim until they do.</p>
+<h2>2. Definitions in force (SLA 4.0; SOW 4.2.10)</h2>
+<p>Absolute percentage error per trial: |estimate - truth| / |truth| x 100. MAPE: the mean over trials. Accuracy: 100 - MAPE. Confidence interval: bootstrap percentile interval on MAPE (2000 resamples, seed 20260928, reproducible). Coverage at CI: the fraction of trials whose truth lies inside the estimate&#x27;s own +/- 1.645-sigma band (the two-sided normal quantile at the CI level), a calibration check on the stated uncertainty. Band: accuracy read against 95 / 90 / 85 % using the upper CI bound of MAPE, so a statement never claims a band the interval does not support. A quantity with fewer trials than the minimum is PENDING, never scored.</p>
+<table>
+<tr><th>Band</th><th>Accuracy (100 - MAPE at the upper CI bound)</th></tr>
+<tr><td>MEETS TARGET</td><td>&gt;= 95 %</td></tr>
+<tr><td>BAND 2</td><td>90 % to &lt; 95 %</td></tr>
+<tr><td>BAND 3</td><td>85 % to &lt; 90 %</td></tr>
+<tr><td>NOT ACCEPTABLE</td><td>&lt; 85 %</td></tr>
+</table>
+<h2>3. Accuracy statement</h2>
+<p>Per predicted quantity, per well, over the back-test window of the library. CI level 90 %.</p>
+<table>
+<tr><th>Well</th><th>Given</th><th>Predicted quantity</th><th>n</th><th>MAPE %</th><th>MAPE 90 % CI</th><th>Accuracy %</th><th>Accuracy % (conservative)</th><th>Coverage at CI</th><th>Band</th></tr>
+<tr><td>504b</td><td>water_content</td><td>wet_bulk_density</td><td>36</td><td>0.48</td><td>0.38 to 0.60</td><td>99.52</td><td>99.40</td><td>0.83</td><td>MEETS TARGET (&gt;= 95 %)</td></tr>
+<tr><td>504b</td><td>porosity</td><td>wet_bulk_density</td><td>36</td><td>0.50</td><td>0.39 to 0.62</td><td>99.50</td><td>99.38</td><td>0.81</td><td>MEETS TARGET (&gt;= 95 %)</td></tr>
+<tr><td>ktb_hb</td><td>compressive_strength</td><td>density</td><td>11</td><td>0.61</td><td>0.42 to 0.81</td><td>99.39</td><td>99.19</td><td>0.73</td><td>MEETS TARGET (&gt;= 95 %)</td></tr>
+<tr><td>504b</td><td>vp</td><td>wet_bulk_density</td><td>36</td><td>0.84</td><td>0.65 to 1.04</td><td>99.16</td><td>98.96</td><td>0.81</td><td>MEETS TARGET (&gt;= 95 %)</td></tr>
+<tr><td>504b</td><td>grain_density</td><td>wet_bulk_density</td><td>36</td><td>0.85</td><td>0.68 to 1.03</td><td>99.15</td><td>98.97</td><td>0.78</td><td>MEETS TARGET (&gt;= 95 %)</td></tr>
+<tr><td>504b</td><td>porosity</td><td>vp</td><td>36</td><td>1.86</td><td>1.43 to 2.37</td><td>98.14</td><td>97.64</td><td>0.83</td><td>MEETS TARGET (&gt;= 95 %)</td></tr>
+<tr><td>504b</td><td>grain_density</td><td>vp</td><td>36</td><td>2.72</td><td>2.16 to 3.34</td><td>97.28</td><td>96.66</td><td>0.78</td><td>MEETS TARGET (&gt;= 95 %)</td></tr>
+<tr><td>504b</td><td>porosity</td><td>water_content</td><td>36</td><td>3.54</td><td>2.28 to 4.87</td><td>96.46</td><td>95.13</td><td>0.92</td><td>MEETS TARGET (&gt;= 95 %)</td></tr>
+<tr><td>ktb_complog</td><td>rho (g/cc)</td><td>Vp (m/s)</td><td>19</td><td>4.98</td><td>3.48 to 6.58</td><td>95.02</td><td>93.42</td><td>0.79</td><td>BAND 2 (90-95 %)</td></tr>
+<tr><td>ktb_hb</td><td>density</td><td>youngs_modulus</td><td>10</td><td>15.36</td><td>10.18 to 20.60</td><td>84.64</td><td>79.40</td><td>0.80</td><td>NOT ACCEPTABLE (&lt; 85 %)</td></tr>
+<tr><td>504b</td><td>vp</td><td>water_content</td><td>36</td><td>15.58</td><td>12.44 to 18.90</td><td>84.42</td><td>81.10</td><td>0.83</td><td>NOT ACCEPTABLE (&lt; 85 %)</td></tr>
+<tr><td>ktb_hb</td><td>compressive_strength</td><td>youngs_modulus</td><td>10</td><td>17.51</td><td>12.67 to 22.77</td><td>82.49</td><td>77.23</td><td>0.90</td><td>NOT ACCEPTABLE (&lt; 85 %)</td></tr>
+<tr><td>504b</td><td>grain_density</td><td>porosity</td><td>36</td><td>22.10</td><td>17.70 to 26.65</td><td>77.90</td><td>73.35</td><td>0.75</td><td>NOT ACCEPTABLE (&lt; 85 %)</td></tr>
+<tr><td>504b</td><td>grain_density</td><td>water_content</td><td>36</td><td>23.22</td><td>18.56 to 27.98</td><td>76.78</td><td>72.02</td><td>0.78</td><td>NOT ACCEPTABLE (&lt; 85 %)</td></tr>
+</table>
+<h2>4. Pending quantities (not scored)</h2>
+<p>Quantities whose co-located trials are below the minimum are reported with their count and no number.</p>
+<table>
+<tr><th>Well</th><th>Given</th><th>Predicted quantity</th><th>n</th><th>Minimum</th><th>Status</th></tr>
+<tr><td>ktb_hb</td><td>compressive_strength</td><td>temperature</td><td>0</td><td>10</td><td>PENDING - below minimum trials</td></tr>
+<tr><td>ktb_hb</td><td>density</td><td>temperature</td><td>0</td><td>10</td><td>PENDING - below minimum trials</td></tr>
+<tr><td>ktb_hb</td><td>temperature</td><td>youngs_modulus</td><td>0</td><td>10</td><td>PENDING - below minimum trials</td></tr>
+<tr><td>site_1027</td><td>cork_temperature</td><td>thermal_conductivity</td><td>0</td><td>10</td><td>PENDING - below minimum trials</td></tr>
+</table>
+<h2>5. Back-test method (for inspection; SCC 5.0)</h2>
+<p>Hold-out: leave-one-out. Estimator: k-nearest empirical conditional, k=7. Every trial holds one co-located observation out, predicts it from the rest with the same estimator the product runs, and scores the prediction against the held-out truth. Nothing is tuned to this test. Resamples 2000, seed 20260928: the statement regenerates byte-identically from the same library, so it can be re-run by the client from source.</p>
+<h2>6. Accuracy measurement plan (five years)</h2>
+<p>The statement is regenerated on the cadence below from the client&#x27;s validated measurements, never from a stored snapshot. Each statement carries its window, n and CI.</p>
+<table>
+<tr><th>When</th><th>What</th></tr>
+<tr><td>Go-live</td><td>Baseline accuracy statement on the client&#x27;s own validated data, this method</td></tr>
+<tr><td>Monthly</td><td>Statement regenerated; drift evaluation feeds re-fits; bands updated</td></tr>
+<tr><td>Quarterly</td><td>Aggregated statement for the SLA review; bands read at the conservative CI end</td></tr>
+<tr><td>Annually, years 1-5</td><td>Full re-statement with the year&#x27;s validated tests as the back-test window</td></tr>
+</table>
+<h2>7. Provenance and limitations</h2>
+<p>Scope: library back-test. The quantities scored here are the property estimators over the archived public library the program ships with; they are a statement about the estimator on that library, not a claim about a client well. Accuracy of a deployed model is measured on the client&#x27;s own data by the same method, with the same definitions, before any band is claimed. Quantities with truth values at zero cannot carry a percentage error and are excluded from MAPE with the count disclosed.</p>
+<footer>Every number in this statement is recomputed from the source data at generation time; the bands are read at the conservative end of the confidence interval.</footer>
+</body></html>

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Model Card - Strata property estimator (k-nearest empirical conditional)</title>
+<style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
+<h1>Model Card - Strata property estimator (k-nearest empirical conditional)</h1>
+<table class="front">
+<tr><td>Model ID</td><td>strata_property_estimator</td></tr>
+<tr><td>Version</td><td>Downhole Gauge Monitoring build 0.5.0</td></tr>
+<tr><td>Owner</td><td>assigned by the client at deployment</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-03T00:24:09Z</td></tr>
+<tr><td>Inputs / datasets / evaluations</td><td>1 / 8 / 18</td></tr>
+</table>
+<h2>1. Intended use</h2>
+<p>Estimate one rock property from another measured at the same depth interval, with a stated spread, from the library of co-located public measurements; used for strata interpretation and blind-scored on every run.</p>
+<h2>2. Out-of-scope uses</h2>
+<p>Not for wells outside the library&#x27;s geological families without a site prior; not a substitute for a measured log; quantities in the NOT ACCEPTABLE band of the accuracy statement are excluded from any claim.</p>
+<h2>3. Inputs and feature definitions (with sources)</h2>
+<table>
+<tr><th>Input</th><th>Unit / definition</th><th>Source</th></tr>
+<tr><td>given property (per pair)</td><td>library units</td><td>co-located measurement from the catalogue entry named in calibration data</td></tr>
+</table>
+<h2>4. Settings and hyperparameters</h2>
+<table>
+<tr><th>Setting</th><th>Value</th><th>Basis</th></tr>
+<tr><td>neighbours k</td><td>7</td><td>engineering setting</td></tr>
+<tr><td>minimum trials to score</td><td>10</td><td>accuracy statement rule</td></tr>
+<tr><td>bootstrap resamples / seed</td><td>2000 / 20260928</td><td>reproducible CI</td></tr>
+<tr><td>depth bins per well (m)</td><td>504b: 5, ktb_hb: 250, site_1027: 60</td><td>co-location tolerance per well</td></tr>
+</table>
+<h2>5. Calibration and training data (provenance)</h2>
+<table>
+<tr><th>Dataset</th><th>Records</th><th>Database</th><th>URL</th><th>Licence</th><th>Fetch date</th></tr>
+<tr><td>dsdp_504b_physical_properties</td><td>61</td><td>PANGAEA, dataset doi:10.1594/PANGAEA.221630 (&#x27;Physical properties of Hole 69-504B&#x27;); from the DSDP CD-ROM archive (NGDC/NOAA 1989); related to Init. Repts. DSDP</td><td>https://doi.pangaea.de/10.1594/PANGAEA.221630?format=textfile</td><td>Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file&#x27;s own header. Attribution: Cann, White &amp; Lan</td><td>2026-08-25</td></tr>
+<tr><td>dsdp_504b_sound_velocity</td><td>63</td><td>PANGAEA, dataset doi:10.1594/PANGAEA.229754 (&#x27;Sound velocity of Hole 69-504B&#x27;); NGDC DSDP CD-ROM (1989); related to Init. Repts. DSDP 69 (doi:10.2973/dsdp.proc.</td><td>https://doi.pangaea.de/10.1594/PANGAEA.229754?format=textfile</td><td>Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file&#x27;s own header. Attribution: Cann/White/Langse</td><td>2026-08-26</td></tr>
+<tr><td>ktb_hb_bhgm_density</td><td>197</td><td>KTB Information System (ICDP legacy data site) - logging/bhgm/hb1/07008400 (BHGM 700-8,400 m, cased and open hole); modern canonical citation: Kueck et al. (202</td><td>https://data.icdp-online.org/sites/ktb/data/logging/bhgm/hb1/07008400.htm</td><td>ICDP/GFZ scientific data, freely accessible via the public KTB Information System. Attribution: KTB / GFZ / Univ. Bochum</td><td>2026-08-25</td></tr>
+<tr><td>ktb_hb_complog_6020_excerpt</td><td>65</td><td>KTB Information System (ICDP legacy data site, data.icdp-online.org/sites/ktb) - same archive family and license as the catalogue&#x27;s four existing KTB entries</td><td>https://data.icdp-online.org/sites/ktb/data/logging/complogs/hb1/60117200.htm</td><td>ICDP/GFZ scientific data, freely accessible via the public KTB Information System. Attribution: KTB / GFZ</td><td>2026-08-29</td></tr>
+<tr><td>ktb_hb_hlog246_temperature</td><td>1589</td><td>KTB Information System (ICDP legacy data site, data.icdp-online.org/sites/ktb) - temperature log hlog246 (KTB-HB, logged 02 Jan 1994); modern canonical citation</td><td>https://data.icdp-online.org/sites/ktb/data/logging/temp/hb1/hlog246.htm</td><td>ICDP/GFZ scientific data, freely accessible via the public KTB Information System; the 2021 GFZ Data Services republicat</td><td>2026-08-25</td></tr>
+<tr><td>ktb_hb_rockmech_compress</td><td>21</td><td>KTB Information System (ICDP legacy data site) - rockmech/compress/cores/hb1 (&#x27;COMPRESSIVE STRENGTH OF CORES OF THE KTB MAIN HOLE&#x27;) - the companion to entry 16&#x27;</td><td>https://data.icdp-online.org/sites/ktb/data/rockmech/compress/cores/hb1.htm</td><td>ICDP/GFZ scientific data, freely accessible via the public KTB Information System. Attribution: KTB / GFZ / Kueck et al.</td><td>2026-08-25</td></tr>
+<tr><td>odp_1027b_thermal_conductivity</td><td>32</td><td>PANGAEA, dataset doi:10.1594/PANGAEA.792214 (&#x27;Thermal conductivity of ODP Hole 168-1027B&#x27;); JANUS shipboard data (ODP/TAMU 2005); related to Proc. ODP Init. Rep</td><td>https://doi.pangaea.de/10.1594/PANGAEA.792214?format=textfile</td><td>Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file&#x27;s own header. Attribution: Davis et al. / Sh</td><td>2026-08-25</td></tr>
+<tr><td>odp_1027c_cork_temperature</td><td>10</td><td>PANGAEA, dataset doi:10.1594/PANGAEA.722627 (&#x27;(Appendix 1) Temperature measurements of CORK installation on ODP Hole 168-1027C&#x27;); supplement to Davis &amp; Becker (</td><td>https://doi.pangaea.de/10.1594/PANGAEA.722627?format=textfile</td><td>Creative Commons Attribution 3.0 Unported (CC-BY-3.0), declared IN the file&#x27;s own header. Attribution: Davis &amp; Becker (2</td><td>2026-08-25</td></tr>
+</table>
+<h2>6. Evaluation, validation and back-test results (recomputed)</h2>
+<table>
+<tr><th>Metric</th><th>Result</th><th>Method</th></tr>
+<tr><td>504b water_content -&gt; wet_bulk_density</td><td>MAPE 0.48 % (90 % CI 0.38-0.60); coverage 0.833; MEETS_TARGET</td><td>leave-one-out, n=36</td></tr>
+<tr><td>504b porosity -&gt; wet_bulk_density</td><td>MAPE 0.50 % (90 % CI 0.39-0.62); coverage 0.806; MEETS_TARGET</td><td>leave-one-out, n=36</td></tr>
+<tr><td>ktb_hb compressive_strength -&gt; density</td><td>MAPE 0.61 % (90 % CI 0.42-0.81); coverage 0.727; MEETS_TARGET</td><td>leave-one-out, n=11</td></tr>
+<tr><td>504b vp -&gt; wet_bulk_density</td><td>MAPE 0.84 % (90 % CI 0.65-1.04); coverage 0.806; MEETS_TARGET</td><td>leave-one-out, n=36</td></tr>
+<tr><td>504b grain_density -&gt; wet_bulk_density</td><td>MAPE 0.85 % (90 % CI 0.68-1.03); coverage 0.778; MEETS_TARGET</td><td>leave-one-out, n=36</td></tr>
+<tr><td>504b porosity -&gt; vp</td><td>MAPE 1.86 % (90 % CI 1.43-2.37); coverage 0.833; MEETS_TARGET</td><td>leave-one-out, n=36</td></tr>
+<tr><td>504b grain_density -&gt; vp</td><td>MAPE 2.72 % (90 % CI 2.16-3.34); coverage 0.778; MEETS_TARGET</td><td>leave-one-out, n=36</td></tr>
+<tr><td>504b porosity -&gt; water_content</td><td>MAPE 3.54 % (90 % CI 2.28-4.87); coverage 0.917; MEETS_TARGET</td><td>leave-one-out, n=36</td></tr>
+<tr><td>ktb_complog rho (g/cc) -&gt; Vp (m/s)</td><td>MAPE 4.98 % (90 % CI 3.48-6.58); coverage 0.789; BAND_2</td><td>leave-one-out, n=19</td></tr>
+<tr><td>ktb_hb density -&gt; youngs_modulus</td><td>MAPE 15.36 % (90 % CI 10.18-20.60); coverage 0.8; NOT_ACCEPTABLE</td><td>leave-one-out, n=10</td></tr>
+<tr><td>504b vp -&gt; water_content</td><td>MAPE 15.58 % (90 % CI 12.44-18.90); coverage 0.833; NOT_ACCEPTABLE</td><td>leave-one-out, n=36</td></tr>
+<tr><td>ktb_hb compressive_strength -&gt; youngs_modulus</td><td>MAPE 17.51 % (90 % CI 12.67-22.77); coverage 0.9; NOT_ACCEPTABLE</td><td>leave-one-out, n=10</td></tr>
+<tr><td>504b grain_density -&gt; porosity</td><td>MAPE 22.10 % (90 % CI 17.70-26.65); coverage 0.75; NOT_ACCEPTABLE</td><td>leave-one-out, n=36</td></tr>
+<tr><td>504b grain_density -&gt; water_content</td><td>MAPE 23.22 % (90 % CI 18.56-27.98); coverage 0.778; NOT_ACCEPTABLE</td><td>leave-one-out, n=36</td></tr>
+<tr><td>ktb_hb compressive_strength -&gt; temperature</td><td>PENDING (n=0 &lt; 10)</td><td>leave-one-out</td></tr>
+<tr><td>ktb_hb density -&gt; temperature</td><td>PENDING (n=0 &lt; 10)</td><td>leave-one-out</td></tr>
+<tr><td>ktb_hb temperature -&gt; youngs_modulus</td><td>PENDING (n=0 &lt; 10)</td><td>leave-one-out</td></tr>
+<tr><td>site_1027 cork_temperature -&gt; thermal_conductivity</td><td>PENDING (n=0 &lt; 10)</td><td>leave-one-out</td></tr>
+</table>
+<h2>7. Known limitations</h2>
+<p>(1) Estimates are empirical conditionals over a small public library; spreads are somewhat too narrow (median coverage below the CI level). (2) Five of fourteen quantities are NOT ACCEPTABLE at the 95 % target and are so labelled. (3) Extrapolation outside the given property&#x27;s support is flagged and returns no estimate.</p>
+<h2>8. Re-fit and retraining history</h2>
+<p>No re-fit on record for this model.</p>
+<h2>9. Components for inspection</h2>
+<p>Each component is named by role with the sha256 (first 16 hex) of the source file that implements it in this build; the delivered source matches these hashes.</p>
+<table>
+<tr><th>Component</th><th>sha256</th></tr>
+<tr><td>estimator and priors</td><td>68e7b2c64c0cf2d9</td></tr>
+<tr><td>co-located library</td><td>13a6e9d6d20a1324</td></tr>
+<tr><td>accuracy statement</td><td>b73112fd04a67c20</td></tr>
+</table>
+<footer>Generated from the live objects of this build; every evaluation is recomputed at generation time.</footer>
+</body></html>

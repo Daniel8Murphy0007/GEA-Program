@@ -1,12 +1,12 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""Headless CLI for the GEA Downhole Simulator.
+"""Headless CLI for GEA-Program.
 
     python -m gea run          --steps 200 --out run.csv
     python -m gea service-life --years 5 --out curves.csv
     python -m gea telemetry    --hours 24 --seed 11 --out field.csv
-    python -m gea case-study   --td 25000 --out case.md
+    python -m gea bench        --gauge-csv A.csv --spec geoq177_30k
 
 Shared options (all subcommands): --gauges N, --td FT, --profile CSV,
 --spec PRESET|JSON, --kickoff FT --inclination DEG (deviation).
@@ -77,7 +77,7 @@ def main(argv=None) -> int:
     p_run.add_argument("--steps", type=int, default=200)
     p_run.add_argument("--out", type=str, default="downhole_run.csv")
 
-    p_sl = sub.add_parser("service-life", help="accumulate twin-leg drift, export divergence curves")
+    p_sl = sub.add_parser("service-life", help="integrate each station's datasheet aging rate over years; years to the error budget")
     _add_well_args(p_sl)
     p_sl.add_argument("--years", type=float, default=5.0)
     p_sl.add_argument("--recal", type=float, default=None, help="recalibration interval, years")
@@ -103,11 +103,15 @@ def main(argv=None) -> int:
 
     sub.add_parser("accept", help="run the simulator ACCEPTANCE suite (product gate)")
 
-    p_b = sub.add_parser("bench", help="bench-test analysis per BENCH_TEST_PROTOCOL.md (or --selftest)")
-    p_b.add_argument("--program-csv", type=str, default=None, help="program-model-leg historian CSV (time_s + pressure column)")
-    p_b.add_argument("--conv-csv", type=str, default=None, help="conventional-leg historian CSV")
-    p_b.add_argument("--full-scale", type=float, default=30000.0)
-    p_b.add_argument("--selftest", action="store_true", help="SIMULATION_SELF_TEST: verify the analysis arithmetic on synthetic legs")
+    p_b = sub.add_parser("bench", help="the bench record: a gauge's measured drift at a held setpoint against its datasheet (BENCH_TEST_PROTOCOL.md), or --selftest")
+    p_b.add_argument("--gauge-csv", type=str, default=None, help="historian CSV of the gauge under test (timestamp or time_s + a pressure column)")
+    p_b.add_argument("--reference-csv", type=str, default=None, help="historian CSV of the reference standard at the same setpoint (optional; subtracted)")
+    p_b.add_argument("--spec", type=str, default=None, help="the gauge's datasheet: preset name or JSON path (default: the GEOQ 177 30k entry)")
+    p_b.add_argument("--serial", type=str, default="", help="the instrument's serial number, for the record")
+    p_b.add_argument("--certificate", type=str, default="", help="its calibration certificate id, for the record")
+    p_b.add_argument("--k-sigma", type=float, default=2.0)
+    p_b.add_argument("--out", type=str, default=None, help="append the record as a JSON line here (a site's bench register)")
+    p_b.add_argument("--selftest", action="store_true", help="SIMULATION_SELF_TEST: verify the analysis arithmetic on synthetic series")
 
     p_g = sub.add_parser("gamma", help="lithology-from-GR on a catalogue entry (measured API curves only)")
     p_g.add_argument("--catalog", type=str, default=None, help="catalogue entry (omit to list gamma-bearing entries)")
@@ -342,6 +346,28 @@ def main(argv=None) -> int:
     p_nt.add_argument("--example", action="store_true", help="print an example configuration to commit as 'notifications'")
     p_nt.add_argument("--actor", type=str, default="cli")
 
+    p_se = sub.add_parser("seismic", help="the second leg's ingest: miniSEED/SAC in, spectra and persistent lines out, an FDSN fetch, and the detectability test against known rigs")
+    p_se.add_argument("--action", choices=["info", "spectrum", "lines", "fetch", "stations", "detect", "selftest", "convert"], default="info")
+    p_se.add_argument("--file", type=str, default=None, help="a miniSEED or SAC file (decided by content)")
+    p_se.add_argument("--trace", type=int, default=0, help="which trace of the file when it holds several (default the first)")
+    p_se.add_argument("--band", type=float, nargs=2, default=[1.0, 50.0], metavar=("LO", "HI"), help="frequency band, Hz (default 1 50: rig machinery)")
+    p_se.add_argument("--win", type=float, default=None, help="window length, s (spectrum/lines default 60; detect default 600)")
+    p_se.add_argument("--snr-db", type=float, default=6.0, help="a line or a source must stand this far above the floor (default 6 dB)")
+    p_se.add_argument("--persistence", type=float, default=0.5, help="lines: the fraction of windows a line must be present in (default 0.5)")
+    p_se.add_argument("--base", type=str, default="iris", help="FDSN centre: iris, texnet, or a base URL")
+    p_se.add_argument("--network", type=str, default=None)
+    p_se.add_argument("--station", type=str, default=None)
+    p_se.add_argument("--location", type=str, default="*")
+    p_se.add_argument("--channel", type=str, default=None)
+    p_se.add_argument("--start", type=str, default=None, help="ISO UTC")
+    p_se.add_argument("--end", type=str, default=None, help="ISO UTC")
+    p_se.add_argument("--station-lat", type=float, default=None, help="detect: the station's latitude")
+    p_se.add_argument("--station-lon", type=float, default=None)
+    p_se.add_argument("--sources", type=str, default=None, help="detect: CSV of known sources (source_id, lat, lon, start_utc, end_utc[, kind, note])")
+    p_se.add_argument("--encoding", type=str, default="STEIM2", choices=["STEIM1", "STEIM2", "INT32", "FLOAT32", "FLOAT64"], help="convert: output encoding")
+    p_se.add_argument("--out", type=str, default=None, help="fetch: the .mseed to write; spectrum: a CSV; detect/lines: a JSON")
+    p_se.add_argument("--json", action="store_true")
+
     p_sw = sub.add_parser("swaps", help="sensor swap register: list, record a swap, propose candidates from a file; a swap segments the drift fit")
     p_sw.add_argument("--register", type=str, required=True, help="the well's sensor_swaps.jsonl")
     p_sw.add_argument("--action", choices=["list", "add", "detect"], default="list")
@@ -405,18 +431,10 @@ def main(argv=None) -> int:
     p_sy.add_argument("--elev", type=float, default=None)
     p_sy.add_argument("--out", type=str, default=None, help="directory for report.txt and survey.json")
 
-    p_cs = sub.add_parser("case-study", help="depth sweep, write the one-page markdown case")
-    _add_well_args(p_cs)
-    p_cs.add_argument("--points", type=int, default=12)
-    p_cs.add_argument("--name", type=str, default="case-study well")
-    p_cs.add_argument("--horizon", type=float, default=5.0)
-    p_cs.add_argument("--out", type=str, default="downhole_case_study.md")
-
     a = ap.parse_args(argv)
 
     from . import (DownholeEngine, ServiceLifeConfig, ServiceLifeSimulator,
-                   TelemetryConfig, TelemetryRecorder, CaseStudyConfig,
-                   case_study, write_markdown, GAUGE_SPECS, load_gauge_spec_json,
+                   TelemetryConfig, TelemetryRecorder, GAUGE_SPECS, load_gauge_spec_json,
                    load_well_profile_csv, DEFAULT_TD_FT)
 
     if a.cmd == "run":
@@ -426,15 +444,15 @@ def main(argv=None) -> int:
         out = eng.export_csv(a.out)
         s = eng.summary()
         print(f"run: {s['sensors']} gauges x {a.steps} steps -> {out} "
-              f"(avg drift {s['avg_drift_pct']} %FS/yr, suppression {s['canonical_suppression_at_unity_trims']})")
+              f"(datasheet aging {s['avg_drift_pct']} %FS/yr; {s['aging']['n_over_rating']} station(s) over rating)")
     elif a.cmd == "service-life":
         eng = DownholeEngine(_build_config(a))
         cfg = ServiceLifeConfig(years=a.years, recalibration_interval_years=a.recal, seed=a.seed)
         sim = ServiceLifeSimulator(engine=eng, config=cfg).run()
         out = sim.export_csv(a.out)
-        d = sim.divergence_summary()
+        d = sim.summary()
         print(f"service-life: {a.years:g} yr -> {out} "
-              f"(sep {d['predicted_separation_rate_psi_yr']} psi/yr, ratio pred {d['predicted_ratio_suppression']})")
+              f"(datasheet rate {d['rate_psi_yr']} psi/yr; years to the {d['error_budget_pct_fs']:g} %FS budget {d['years_to_budget']})")
     elif a.cmd == "telemetry":
         eng = DownholeEngine(_build_config(a))
         rec = TelemetryRecorder(engine=eng, config=TelemetryConfig(duration_hours=a.hours, seed=a.seed)).run()
@@ -451,21 +469,32 @@ def main(argv=None) -> int:
         import json as _json
         from .bench import bench_analysis, bench_selftest
         if a.selftest:
-            print(_json.dumps(bench_selftest(), indent=1))
-        elif a.csv and a.conv_csv:
-            from . import ingest as _ingest
-            import numpy as _np
-            def _leg(path):
-                st = _ingest(path, port="historian_csv")
-                pc = [c for c in st.channels if "P" in c.upper()]
-                if not pc:
-                    raise SystemExit(f"{path}: no pressure channel found")
-                return st.index, st.channels[pc[0]].values
-            tu, pu = _leg(a.csv)
-            tc, pc_ = _leg(a.conv_csv)
-            print(_json.dumps(bench_analysis(tu, pu, tc, pc_, full_scale_psi=a.full_scale), indent=1))
-        else:
-            raise SystemExit("bench needs --program-csv AND --conv-csv, or --selftest")
+            r = bench_selftest()
+            print(_json.dumps(r, indent=1))
+            return 0 if r["ok"] else 1
+        if not a.gauge_csv:
+            raise SystemExit("bench needs --gauge-csv (and optionally --reference-csv), or --selftest")
+        from .files import read_any
+        from .gauge_specs import get_spec
+
+        def _series(path):
+            st = read_any(path)
+            pc = [c for c in st.channels if c.upper().startswith("P")]
+            if not pc:
+                raise SystemExit(f"{path}: no pressure channel found")
+            return st.index, st.channels[pc[0]].values
+        spec = (get_spec(a.spec) if (a.spec or "") in GAUGE_SPECS or not a.spec else load_gauge_spec_json(a.spec))
+        t, p = _series(a.gauge_csv)
+        rt, rp = (_series(a.reference_csv) if a.reference_csv else (None, None))
+        r = bench_analysis(t, p, spec, rt, rp, k_sigma=a.k_sigma, serial=a.serial, certificate_id=a.certificate)
+        r["gauge_csv"] = a.gauge_csv
+        r["reference_csv"] = a.reference_csv
+        r["recorded_utc"] = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        print(_json.dumps(r, indent=1))
+        if a.out:
+            with open(a.out, "a", encoding="utf-8") as f:
+                f.write(_json.dumps(r, sort_keys=True) + "\n")
+            print(f"bench: record appended to {a.out}", file=sys.stderr)
     elif a.cmd == "gamma":
         import json as _json
         from .gamma import gamma_entries, gamma_report
@@ -686,6 +715,107 @@ def main(argv=None) -> int:
         if a.json:
             print(_json.dumps(r, indent=1))
         return 0 if r["ok"] else 1
+    elif a.cmd == "seismic":
+        import json as _json
+        from . import seismic as S
+        from . import seismic_detect as D
+
+        def _trace():
+            if not a.file:
+                raise SystemExit("seismic: --file is needed for this action")
+            trs = S.read_any(a.file)
+            if not trs:
+                raise SystemExit(f"seismic: {a.file} holds no samples")
+            if a.trace >= len(trs):
+                raise SystemExit(f"seismic: {a.file} holds {len(trs)} trace(s); --trace {a.trace} is out of range")
+            return trs, trs[a.trace]
+        band = (float(a.band[0]), float(a.band[1]))
+        if a.action == "selftest":
+            r = D.selftest()
+            if a.json:
+                print(_json.dumps(r, indent=1, default=str))
+            else:
+                print(f"seismic selftest: {r['status']} ok={r['ok']}")
+                print(D.report_text(r["result"]))
+            return 0 if r["ok"] else 1
+        if a.action == "info":
+            trs, _ = _trace()
+            infos = [t.info() for t in trs]
+            if a.json:
+                print(_json.dumps(infos, indent=1))
+            else:
+                for i in infos:
+                    print(f"{i['id']:18s} {i['start']} to {i['end']}  {i['sample_rate_hz']:g} Hz  {i['npts']} samples ({i['duration_s']:.1f} s)  {i['encoding']}  "
+                          f"{i['gaps']} gap(s)  [{i['unit']}]")
+            return 0
+        if a.action == "convert":
+            trs, _ = _trace()
+            if not a.out:
+                raise SystemExit("seismic convert: --out is needed")
+            S.write_mseed(trs, a.out, a.encoding)
+            print(f"seismic: {len(trs)} trace(s) written to {a.out} as {a.encoding}")
+            return 0
+        if a.action in ("spectrum", "lines"):
+            _, tr = _trace()
+            win = a.win or 60.0
+            if a.action == "spectrum":
+                f, p = S.welch_psd(tr.data, tr.sample_rate)
+                m = (f >= band[0]) & (f <= band[1])
+                if a.out:
+                    S.spectrum_csv(f[m], p[m], a.out, tr)
+                    print(f"seismic: Welch PSD of {tr.id} ({tr.duration_s:.0f} s) in {band[0]:g}-{band[1]:g} Hz -> {a.out} [counts^2/Hz, response not removed]")
+                else:
+                    top = sorted(zip(f[m], p[m]), key=lambda z: -z[1])[:10]
+                    print(f"seismic: Welch PSD of {tr.id}, {int(m.sum())} bins in {band[0]:g}-{band[1]:g} Hz (df {f[1] - f[0]:.4f} Hz); the ten strongest bins:")
+                    for fr, pv in top:
+                        print(f"  {fr:8.3f} Hz  {10 * __import__('math').log10(max(pv, 1e-30)):7.1f} dB")
+                return 0
+            spec = S.spectrogram(tr, win)
+            L = S.persistent_lines(spec, band, snr_db=a.snr_db, min_fraction=a.persistence)
+            if a.out:
+                with open(a.out, "w", encoding="utf-8") as fh:
+                    _json.dump(L, fh, indent=1)
+            if a.json:
+                print(_json.dumps(L, indent=1))
+            else:
+                print(f"seismic: {len(L['lines'])} persistent line(s) in {band[0]:g}-{band[1]:g} Hz over {L['windows']} windows of {win:g} s ({tr.id}); "
+                      f"a line is >= {a.snr_db:g} dB over its floor in >= {a.persistence:.0%} of windows")
+                for ln in L["lines"][:25]:
+                    print(f"  {ln['freq_hz']:8.3f} Hz  {ln['median_excess_db']:+6.1f} dB over the floor  in {ln['persistence']:.0%} of windows")
+                print(f"  not a measurement: {L['not_a_measurement']}")
+            return 0
+        if a.action == "stations":
+            if not a.network:
+                raise SystemExit("seismic stations: --network is needed")
+            st = S.fdsn_stations(a.base, a.network, a.station or "*", a.channel or "*", a.start, a.end)
+            if a.json:
+                print(_json.dumps(st, indent=1))
+            else:
+                for x in st:
+                    print(f"{x['network']}.{x['station']:6s} {x['latitude']:9.4f} {x['longitude']:10.4f}  {x['site']}  {x['start'][:10]}..{x['end'][:10]}")
+                print(f"seismic: {len(st)} station(s) from {S.fdsn_url(a.base, 'station').split('/fdsnws')[0]}")
+            return 0
+        if a.action == "fetch":
+            miss = [k for k in ("network", "station", "channel", "start", "end", "out") if not getattr(a, k)]
+            if miss:
+                raise SystemExit(f"seismic fetch needs --{' --'.join(miss)}")
+            rec = S.fdsn_fetch(a.base, a.network, a.station, a.channel, a.start, a.end, a.out, a.location)
+            print(f"seismic: {rec['bytes']} bytes -> {a.out} ({rec['unit']}); request written to {a.out}.request.json")
+            return 0
+        if a.action == "detect":
+            _, tr = _trace()
+            if a.station_lat is None or a.station_lon is None or not a.sources:
+                raise SystemExit("seismic detect needs --station-lat --station-lon and --sources CSV")
+            srcs = D.load_sources_csv(a.sources)
+            res = D.detectability_test(tr, a.station_lat, a.station_lon, srcs, band, win_s=a.win or 600.0, snr_db=a.snr_db)
+            if a.out:
+                with open(a.out, "w", encoding="utf-8") as fh:
+                    _json.dump(res, fh, indent=1, default=str)
+            if a.json:
+                print(_json.dumps(res, indent=1, default=str))
+            else:
+                print(D.report_text(res))
+            return 0
     elif a.cmd == "notify":
         import json as _json
         from .notify import Notifier, NotifyError, EXAMPLE
@@ -1149,27 +1279,6 @@ def main(argv=None) -> int:
               f"{'MODEL DRIFT DETECTED' if doc.data['drift_detected'] else 'NO MODEL DRIFT DETECTED'}")
         for k, v in paths.items():
             print(f"  {k}: {v}")
-    elif a.cmd == "case-study":
-        from .deviation import DeviationSurvey
-        if getattr(a, "well", None):
-            from . import demo_config
-            _cfg = demo_config(a.well)
-            td = _cfg.td_ft
-            kw = {"td_ft": td, "n_depth_points": a.points,
-                  "well_name": a.well, "horizon_years": a.horizon,
-                  "profile": _cfg.profile}
-        else:
-            td = a.td if a.td is not None else DEFAULT_TD_FT
-            kw = {"td_ft": td, "n_depth_points": a.points, "well_name": a.name, "horizon_years": a.horizon}
-        if a.profile and "profile" not in kw:
-            kw["profile"] = load_well_profile_csv(a.profile)
-        if a.spec:
-            kw["gauge_spec"] = (GAUGE_SPECS[a.spec] if a.spec in GAUGE_SPECS
-                                else load_gauge_spec_json(a.spec))
-        if a.kickoff is not None and a.inclination is not None:
-            kw["deviation"] = DeviationSurvey.from_kickoff(a.kickoff, a.inclination, td)
-        out = write_markdown(case_study(CaseStudyConfig(**kw)), a.out)
-        print(f"case-study: -> {out}")
     return 0
 
 

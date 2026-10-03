@@ -53,6 +53,14 @@ reaches a client document. Nothing unmeasured is ever reported as met.
 - **Survey track** (`earth_model.py`, `strata_join.py`, `inverse_engine.py`,
   `blind_harness.py`, `rock_inventory.py`, `forward_model.py`, ...): strata
   property estimation over a public co-located library, blind-scored on every run.
+- **The second leg - seismic** (`seismic.py`, `seismic_detect.py`): raw seismic
+  records in (miniSEED with Steim1/Steim2, SAC, or fetched from any FDSN
+  archive - TexNet, EarthScope), Welch spectra, spectrograms and the persistent
+  lines above the local floor out, and the detectability test: one station's
+  record against a list of known rigs with positions and working windows,
+  verdict per rig, the detection radius bracketed between the farthest rig
+  heard and the nearest not heard. The decoder is proven against records
+  written by libmseed. See *The second leg*.
 
 ## Quick start
 
@@ -64,8 +72,8 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (237 checks)
-gea help drift                 # the help library, by the job (14 pages; the same text is on every dashboard page)
+gea accept                     # the product gate (246 checks)
+gea help drift                 # the help library, by the job (15 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
 gea workspace --path C:\site --action init --name "Pad 3"     # a site folder
@@ -73,6 +81,7 @@ gea serve --workspace C:\site                                 # the dashboard as
 gea doctor --workspace C:\site                                # which code runs, can it serve, with every fix
 gea files --workspace C:\site --action list --root historian  # the import roots, detection by content, import, export, packs
 gea transient --file historian.csv --params params.json --out pta   # shut-ins and build-up analysis with a band
+gea seismic --action detect --file tx.mseed --station-lat 31.9 --station-lon -102.1 --sources rigs.csv   # the second leg: is a known rig in this record?
 gea swaps / gea certificates / gea notify / gea housekeeping / gea loadtest   # instruments, notification rules, site upkeep
 ```
 
@@ -192,10 +201,10 @@ text: JSON, JSON lines, CSV, Markdown, HTML.
 
 ### The help library
 
-`gea help` lists fourteen pages indexed by the job a reader arrives with -
+`gea help` lists fifteen pages indexed by the job a reader arrives with -
 start, bring data in, quality rules, drift, well tests, alarms and the month,
-the site, instruments, shut-ins and build-ups, patches, files, notifications,
-which code is running, upkeep. Each page carries four lines and stops: the
+the site, instruments, shut-ins and build-ups, seismic (the second leg),
+patches, files, notifications, which code is running, upkeep. Each page carries four lines and stops: the
 command, what it writes, the one number to check, and what the page will not
 call a measurement. The pages ship inside the package (`gea/help/`), and the
 same text is what `/api/help` serves and what the dashboard shows under every
@@ -247,6 +256,41 @@ chose it; an analyst can move the region (`gea transient --mtr 2:40`) and the
 result follows. It is the first look every shut-in should get automatically,
 not a replacement for a full interpretation, and it says so.
 
+### The second leg
+
+The second leg of the program is seismic: the client's site records ground
+motion that conventional processing treats as noise, and in that noise are
+the machinery lines of every rig working within range - mud pumps and their
+harmonics, rotary tables, engines. The leg starts with ingest and one measured
+number, not with a map. `gea seismic` reads the two formats the archives and
+most field recorders write (miniSEED with Steim1/Steim2 and integer/float
+encodings, decided by content; SAC), fetches records from any FDSN web service
+(`--base texnet` for the Texas network TX, `--base iris` for EarthScope), and
+produces the standard spectral products: the Welch PSD, a spectrogram, and
+the lines that persist above a running-median floor in the band where rig
+machinery sits (1-50 Hz by default). The decoder is proven in the acceptance
+suite against records written by libmseed, the format's reference
+implementation (`gea/reference/`).
+
+The first number is the detectability test (`--action detect`): one station's
+continuous record, the station's position, and a CSV of known rigs - position
+and working window from a public permit register or the operator's own
+schedule. For every rig that worked alone for enough windows the test
+compares the band power in its windows with the quiet baseline (the windows
+when no listed rig was working) and says DETECTED or NOT_DETECTED, with the
+excess in dB and the lines that belong to those windows and not to the quiet
+ones; a rig that never worked alone is AMBIGUOUS, and a record with no quiet
+hour gets NO_QUIET_BASELINE and no verdict at all. The result is the radius
+bracketed between the farthest rig heard and the nearest not heard - the
+station's measured reach for rigs like those on the list. Everything the leg
+can later claim sits inside that radius. What the test will not call a
+measurement is printed with it: a well's position or track (one station
+detects, it does not locate - locating is the array step that comes after
+this number exists), a radius beyond the farthest listed rig, anything about
+a rig not on the list, and any quantity in physical units until a station's
+response has been applied and named. `--action selftest` runs the test on a
+synthetic scene and labels its output SIMULATION_SELF_TEST.
+
 ### Before a site goes live
 
 `deploy/README.md` is the checklist: keep the service on the loopback
@@ -270,9 +314,14 @@ workspace folder it never deletes.
 
 ```
 python tools/build_installer.py                       # dist/gea-program-<version>-win64/ and .zip (needs internet here, none there)
-python tools/build_installer.py --extras live,plotting,xls,desktop   # add the PyQt6 desktop window (~100 MB)
+python tools/build_installer.py --extras live,plotting,xls   # a smaller kit without the PyQt6 desktop window
 python tools/build_installer.py --platform linux      # a venv-based kit for a Linux site server
 ```
+
+The kit carries every optional dependency by default - the live ports
+(asyncua, paho-mqtt, pymodbus, pyserial), matplotlib, xlrd and the PyQt6
+desktop window - so `gea sbom` from an installed kit lists all of them as
+installed; and `report-samples/`, one rendered example of every report.
 
 At the site: unzip, `install.cmd`, `start-dashboard.cmd`; the browser opens
 `http://127.0.0.1:8765/`. `verify.cmd` runs the acceptance gate from the
@@ -289,6 +338,8 @@ attaches the zips to the GitHub release of that tag.
 gea/            the package: engines, record layer, reports, monitor, dashboard, cli, shell, acceptance suite,
                 workspace, jobs, service, patches and web/app.html (the served dashboard)
 gea/catalog/    52 public archive entries, each with a provenance file
+gea/reference/  miniSEED records written by libmseed, with their provenance: the decoder's independent reference
+docs/report_samples/  one rendered example of every client report, from this build (tools/render_report_samples.py; SAMPLES.md names each command)
 docs/           TESTER_GUIDE.md, REQUIREMENTS_MATRIX.md (the scope-of-work mirror that shaped the reports), examples/ (port configs),
                 SESSION_LOG.md (the working record, session by session),
                 commercial/ (pilot proposal, bench readiness, commercial use), HISTORY.md (the ship-by-ship record)
@@ -309,10 +360,22 @@ density anchors and Vp ranges with their citations (Telford, Geldart and
 Sheriff; Schon). Every catalogue entry under `gea/catalog/` has a provenance
 file naming its public source.
 
-Two statements the product carries on its own model cards: the gauge aging
-envelope's lower bound is an engineering model with no field validation on
-record, and five of the fourteen back-tested strata quantities are NOT
-ACCEPTABLE at the 95 % target. Both are printed, never claimed otherwise.
+The gauge aging rate the drift evaluation uses is the instrument's published
+drift specification, read from a cited datasheet (`gea/gauge_specs.py`), with
+nothing added for temperature or pressure - above the rating the rate is
+flagged, not changed. The program carries no aging model of its own, no
+engineering constant that is not a datasheet number, and no claim about a
+gauge beyond what its datasheet says; `tools/standalone_check.py` fails the
+build on the names, phrases and numbers of the model that once stood there.
+The seismic leg is textbook signal processing - Welch's PSD estimate, a
+running-median floor, band power, great-circle distance - and the decoder is
+checked against libmseed; the synthetic scene behind its self-test states its
+own assumptions (body-wave spreading, a Q) and is labelled as a scene, not a
+ground. Two statements the product carries on its own model cards: the datasheet
+rate has no field validation on record against a gauge with a known history
+(`gea bench` is the instrument for it), and five of the fourteen back-tested
+strata quantities are NOT ACCEPTABLE at the 95 % target. Both are printed,
+never claimed otherwise.
 
 ## Shipping
 
@@ -322,7 +385,9 @@ not exist anywhere, every version in `SHIP_LOG.md` must have its tag, `python -m
 accept` must be green, `SHIP_MESSAGE.txt` must start with the tag; then commit, tag,
 push, and the remote tag must be seen before SHIPPED is printed. `CHANGELOG.md` must carry a
 section headed by the tag, and `tools/standalone_check.py` must report no findings. `-DryRun` runs every
-check and changes nothing; `-NoPush` stops after the local tag.
+check and changes nothing; `-NoPush` stops after the local tag. Before the gate, after the bump:
+`python tools/render_report_samples.py` re-renders `docs/report_samples/` from the new build
+(section AM fails on a stale build number).
 
 ## Publishing to PyPI
 

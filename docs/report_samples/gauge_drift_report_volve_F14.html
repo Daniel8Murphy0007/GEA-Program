@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Downhole Gauge Monitoring - Gauge Drift and Reconciliation Report</title>
+<style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
+<h1>Downhole Gauge Monitoring - Gauge Drift and Reconciliation Report</h1>
+<table class="front">
+<tr><td>Report ID</td><td>GDR-15-9-F-14-20261003T002409Z</td></tr>
+<tr><td>Well</td><td>15/9-F-14</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-03T00:24:09Z</td></tr>
+<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.5.0</td></tr>
+<tr><td>Data window</td><td>2008-07-13T00:00:00Z to 2008-07-21T00:00:00Z</td></tr>
+<tr><td>Stations</td><td>1</td></tr>
+<tr><td>Result</td><td class="result-bad">MODEL DRIFT DETECTED</td></tr>
+</table>
+<h2>1. Summary</h2>
+<p>1 gauge station evaluated against the well model over a 8-day window (2008-07-13T00:00:00Z to 2008-07-21T00:00:00Z). Classification: UNEXPLAINED_OFFSET x1. MODEL DRIFT DETECTED at 1 station: P_raw_psi_S1 (UNEXPLAINED_OFFSET, bias -991.84 psi). SLA clocks for notification, fallback and re-fit start at the evaluation timestamp (section 5).</p>
+<h2>2. Tag catalogue and data model (SOW 4.2.1.2)</h2>
+<p>One definition per tag: owner, engineering unit, engineering range, cadence and source layer. Quality rules in force per tag are listed in section 6.</p>
+<table>
+<tr><th>Tag</th><th>Description</th><th>Unit</th><th>Owner</th><th>Class</th><th>Engineering range</th><th>Cadence (s)</th><th>Source layer</th><th>Source</th></tr>
+<tr><td>P_raw_psi_S1</td><td>P_raw_psi_S1 from volve_f12_f14_production_excerpt[15/9-F-14] measured</td><td>psi</td><td>Production Operations</td><td>downhole_pressure</td><td>0 to 30,000</td><td>86,400</td><td>FIELD_EDGE</td><td>AVG_DOWNHOLE_PRESSURE[15/9-F-14]</td></tr>
+</table>
+<h2>3. Data quality (SOW 4.2.2)</h2>
+<p>Per-sample quality flags after the range, rate-of-change, flatline, spike and staleness rules. Every flagged sample carries the rule and limit that fired (records CSV).</p>
+<p>Rules that fired: P_raw_psi_S1: SPIKE (|v - rolling median| = 29.3 x MAD &gt; 6 x MAD (window 21)).</p>
+<p>Source records without a value in the evaluated channel: 149 (excluded from the evaluation window by the ingest adapter and counted here).</p>
+<p>Timestamp latency is reported per source layer (field/edge, OT lake, DOF) when ingest timestamps are present; this source carries none, so latency is not stamped.</p>
+<table>
+<tr><th>Tag</th><th>n</th><th>GOOD %</th><th>RANGE</th><th>ROC</th><th>FLATLINE</th><th>SPIKE</th><th>STALE</th><th>GAP</th><th>Longest gap</th><th>Latency p95 (s)</th></tr>
+<tr><td>P_raw_psi_S1</td><td>9</td><td>55.6</td><td>0</td><td>0</td><td>0</td><td>4</td><td>0</td><td>0</td><td>0</td><td>not stamped</td></tr>
+</table>
+<h2>4. Gauge drift evaluation and reconciliation (SOW 4.2.10)</h2>
+<p>For each station the live pressure series is compared with the well model baseline at that measured depth. Residual = measured - baseline. Bias is the mean residual; drift rate is the fitted linear trend of the residual; the datasheet aging rate is the instrument&#x27;s published drift specification (percent of full scale per year, from the cited datasheet), with no dependence on conditions added - a station above the instrument&#x27;s rating is marked; noise is the robust 1-sigma of the detrended residual. Classification and action follow the key below.</p>
+<table>
+<tr><th>Tag</th><th>Station MD (ft)</th><th>Baseline (psi)</th><th>n</th><th>Window (days)</th><th>Bias (psi)</th><th>Drift rate (psi/yr)</th><th>Datasheet aging rate (psi/yr)</th><th>Noise 1-sigma (psi)</th><th>Transients</th><th>Classification</th><th>Status</th><th>Action</th></tr>
+<tr><td>P_raw_psi_S1</td><td>10,000</td><td>4,665</td><td>9</td><td>8</td><td>-991.84</td><td>window too short</td><td>3</td><td>21.41</td><td>0</td><td>UNEXPLAINED_OFFSET</td><td>DRIFT DETECTED</td><td>FALLBACK - hold the model output for this station; investigate gauge and completion; SLA clocks start.</td></tr>
+</table>
+<table>
+<caption>Classification key</caption>
+<tr><th>Classification</th><th>Meaning</th><th>Status</th><th>Action</th></tr>
+<tr><td>IN_FAMILY</td><td>Residual within the gauge noise band; live data and model agree.</td><td>NO DRIFT</td><td>ACCEPT - no action.</td></tr>
+<tr><td>CALIBRATION_OFFSET</td><td>Constant bias above the noise band and within instrument scale.</td><td>DRIFT DETECTED</td><td>RE-FIT - apply the offset correction and record it in the change log.</td></tr>
+<tr><td>DRIFT_CONSISTENT</td><td>Trend of the order of the instrument&#x27;s datasheet aging rate.</td><td>AGING WITHIN ENVELOPE</td><td>MONITOR - schedule recalibration per the maintenance plan.</td></tr>
+<tr><td>TRANSIENTS</td><td>Clustered short excursions consistent with well events, not an instrument fault.</td><td>NO DRIFT</td><td>REVIEW - confirm the excursions against the operations log.</td></tr>
+<tr><td>UNEXPLAINED_OFFSET</td><td>Bias larger than a calibration correction can account for.</td><td>DRIFT DETECTED</td><td>FALLBACK - hold the model output for this station; investigate gauge and completion; SLA clocks start.</td></tr>
+<tr><td>UNEXPLAINED_TREND</td><td>Trend well beyond the instrument&#x27;s datasheet aging rate; a process change (for example drawdown) or an instrument fault.</td><td>DRIFT DETECTED</td><td>FALLBACK - hold the model output for this station; investigate process change versus instrument; SLA clocks start.</td></tr>
+<tr><td>INSUFFICIENT_DATA</td><td>Fewer than 8 valid samples in the window.</td><td>PENDING</td><td>PENDING - evaluate again when the window fills.</td></tr>
+</table>
+<h2>5. Model drift and staleness status (SLA 1.0; drift and staleness SLA)</h2>
+<p>Model Drift: the live residual at a station moves outside the band the well model and the instrument&#x27;s datasheet aging rate account for. Model Staleness: the evaluation is older than the cadence. Clocks below start at the evaluation timestamp when drift is detected.</p>
+<table>
+<tr><th>Item</th><th>Value</th></tr>
+<tr><td>Evaluation timestamp (UTC)</td><td>2026-10-03T00:24:09Z</td></tr>
+<tr><td>Evaluation cadence</td><td>every 24 h</td></tr>
+<tr><td>Next evaluation due (UTC)</td><td>2026-10-04T00:24:09Z</td></tr>
+<tr><td>Model staleness</td><td>CURRENT - evaluated within the cadence</td></tr>
+<tr><td>Model drift</td><td>DETECTED</td></tr>
+<tr><td>Stations requiring action</td><td>P_raw_psi_S1</td></tr>
+<tr><td>Notification due</td><td>2026-10-05 (1 business day)</td></tr>
+<tr><td>Fallback due</td><td>2026-10-06 (2 business days)</td></tr>
+<tr><td>Re-fit / redeploy due</td><td>2026-10-16 (10 business days)</td></tr>
+</table>
+<h2>6. Configuration in force (SOW 4.2.1.4)</h2>
+<p>Classification thresholds and per-tag quality rules applied by this evaluation. These are engineering settings under version control; a change is a change-log entry, never silent.</p>
+<table>
+<caption>Classification thresholds</caption>
+<tr><th>Threshold</th><th>Value</th></tr>
+<tr><td>Bias significance</td><td>4.0 x noise / sqrt(n) + 1 psi floor</td></tr>
+<tr><td>Transient gate</td><td>6.0 x noise, single sample</td></tr>
+<tr><td>Bias too large for calibration</td><td>500.0 psi</td></tr>
+<tr><td>Aging-rate margin</td><td>2.0 x the datasheet rate (half the rate to the margin times the rate counts as aging)</td></tr>
+<tr><td>Minimum window for a trend</td><td>18 days</td></tr>
+<tr><td>Minimum samples per station</td><td>8</td></tr>
+</table>
+<table>
+<caption>Quality rules per tag</caption>
+<tr><th>Tag</th><th>Engineering range</th><th>Rate-of-change limit</th><th>Flatline</th><th>Spike</th><th>Staleness</th><th>Basis</th></tr>
+<tr><td>P_raw_psi_S1</td><td>0 to 30,000 psi</td><td>off</td><td>3 samples</td><td>6 x MAD, window 21</td><td>259,200 s</td><td>class defaults; rate-of-change: off; staleness: 3 x cadence; spike: 6 x MAD of rolling median</td></tr>
+</table>
+<h2>7. Change log entries proposed by this evaluation</h2>
+<p>No configuration or model coefficient was changed by generating this report. Entries below are proposals for the approval workflow; an approved entry is applied and logged with the approver, timestamp and before/after values.</p>
+<table>
+<tr><th>Timestamp (UTC)</th><th>Tag</th><th>Change</th><th>Value</th><th>Status</th></tr>
+<tr><td>2026-10-03T00:24:09Z</td><td>P_raw_psi_S1</td><td>PROPOSED fallback</td><td>hold model output for this station</td><td>awaiting approval</td></tr>
+</table>
+<h2>8. Data provenance and limitations</h2>
+<p>Live data: volve_f12_f14_production_excerpt[15/9-F-14] measured downhole P (bar-&gt;psi x14.503773773). source channel: AVG_DOWNHOLE_PRESSURE[15/9-F-14]. source unit: bar. conversion: psi = bar x 14.503773773 (exact). station md ft: 10000 (CALLER-SUPPLIED - not in the archived excerpt). start date: 2008-02-12. end date: 2008-07-21. cadence s: 86400. Well model: total depth 10,500 ft; profile &#x27;linear gradients&#x27;; deviation &#x27;vertical&#x27;; gauge datasheet &#x27;geoq177_30k (default datasheet)&#x27;. Limitations: a trend is only classified when the window meets the minimum in section 6; the datasheet aging rate is the instrument&#x27;s published specification, not a measurement of this gauge; station depths supplied by the caller are marked as such above and should be confirmed from completion records.</p>
+<footer>Every number in this report is recomputed from the source data at generation time. Classifications are advisory; the numbers beside them are the record.</footer>
+</body></html>

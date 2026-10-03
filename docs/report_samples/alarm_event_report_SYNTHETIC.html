@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Downhole Gauge Monitoring - Alarm and Event Report</title>
+<style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
+<h1>Downhole Gauge Monitoring - Alarm and Event Report</h1>
+<table class="front">
+<tr><td>Report ID</td><td>ALM-SYNTHETIC_field_(gea_tel-20261003T002549Z</td></tr>
+<tr><td>Well</td><td>SYNTHETIC field (gea telemetry)</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-03T00:25:49Z</td></tr>
+<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.5.0</td></tr>
+<tr><td>Definitions / activations</td><td>72 / 7395</td></tr>
+<tr><td>Result</td><td class="result-ok">4 ACTIVE, 4 UNACKNOWLEDGED</td></tr>
+</table>
+<h2>1. Summary</h2>
+<p>72 alarm definitions in force on 24 tags; 7395 activations over 719.82 h (246.6 per day, average 1.712 per 10 min per operator position, peak 28.0). 55 ten-minute flood periods (1.27 % of the window); 0 standing; 0 chattering; 4 active unacknowledged at window end. Most frequent: P_raw_psi_S3.QUALITY (384, 5.2 %), P_clean_psi_S3.QUALITY (382, 5.2 %), P_clean_psi_S4.QUALITY (377, 5.1 %). The rate exceeds the manageable target; the definitions table shows which alarms carry the load, and the usual remedy is to move journal-type conditions (sample quality) out of the operator alarm list.</p>
+<h2>2. Alarm definitions in force (SOW 4.2.4)</h2>
+<p>Each alarm names its tag, kind, setpoint, return-to-normal deadband, on-delay, priority and the basis of the setpoint. Over-range alarms derive from the tag catalogue; process setpoints are client settings loaded from the definitions file.</p>
+<table>
+<tr><th>Alarm</th><th>Tag</th><th>Kind</th><th>Priority</th><th>Setpoint</th><th>Deadband</th><th>On-delay (s)</th><th>Enabled</th><th>Basis</th></tr>
+<tr><td>P_raw_psi_S1.HH_RANGE</td><td>P_raw_psi_S1</td><td>HIGH_HIGH</td><td>P2</td><td>30,000</td><td>150</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>P_raw_psi_S1.LL_RANGE</td><td>P_raw_psi_S1</td><td>LOW_LOW</td><td>P2</td><td>0</td><td>150</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>P_raw_psi_S1.QUALITY</td><td>P_raw_psi_S1</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>T_raw_F_S1.HH_RANGE</td><td>T_raw_F_S1</td><td>HIGH_HIGH</td><td>P2</td><td>500</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>T_raw_F_S1.LL_RANGE</td><td>T_raw_F_S1</td><td>LOW_LOW</td><td>P2</td><td>-40</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>T_raw_F_S1.QUALITY</td><td>T_raw_F_S1</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>P_clean_psi_S1.HH_RANGE</td><td>P_clean_psi_S1</td><td>HIGH_HIGH</td><td>P2</td><td>30,000</td><td>150</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>P_clean_psi_S1.LL_RANGE</td><td>P_clean_psi_S1</td><td>LOW_LOW</td><td>P2</td><td>0</td><td>150</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>P_clean_psi_S1.QUALITY</td><td>P_clean_psi_S1</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>T_clean_F_S1.HH_RANGE</td><td>T_clean_F_S1</td><td>HIGH_HIGH</td><td>P2</td><td>500</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>T_clean_F_S1.LL_RANGE</td><td>T_clean_F_S1</td><td>LOW_LOW</td><td>P2</td><td>-40</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>T_clean_F_S1.QUALITY</td><td>T_clean_F_S1</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>P_raw_psi_S2.HH_RANGE</td><td>P_raw_psi_S2</td><td>HIGH_HIGH</td><td>P2</td><td>30,000</td><td>150</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>P_raw_psi_S2.LL_RANGE</td><td>P_raw_psi_S2</td><td>LOW_LOW</td><td>P2</td><td>0</td><td>150</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>P_raw_psi_S2.QUALITY</td><td>P_raw_psi_S2</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>T_raw_F_S2.HH_RANGE</td><td>T_raw_F_S2</td><td>HIGH_HIGH</td><td>P2</td><td>500</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>T_raw_F_S2.LL_RANGE</td><td>T_raw_F_S2</td><td>LOW_LOW</td><td>P2</td><td>-40</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>T_raw_F_S2.QUALITY</td><td>T_raw_F_S2</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>P_clean_psi_S2.HH_RANGE</td><td>P_clean_psi_S2</td><td>HIGH_HIGH</td><td>P2</td><td>30,000</td><td>150</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>P_clean_psi_S2.LL_RANGE</td><td>P_clean_psi_S2</td><td>LOW_LOW</td><td>P2</td><td>0</td><td>150</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>P_clean_psi_S2.QUALITY</td><td>P_clean_psi_S2</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>T_clean_F_S2.HH_RANGE</td><td>T_clean_F_S2</td><td>HIGH_HIGH</td><td>P2</td><td>500</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>T_clean_F_S2.LL_RANGE</td><td>T_clean_F_S2</td><td>LOW_LOW</td><td>P2</td><td>-40</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>T_clean_F_S2.QUALITY</td><td>T_clean_F_S2</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>P_raw_psi_S3.HH_RANGE</td><td>P_raw_psi_S3</td><td>HIGH_HIGH</td><td>P2</td><td>30,000</td><td>150</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>P_raw_psi_S3.LL_RANGE</td><td>P_raw_psi_S3</td><td>LOW_LOW</td><td>P2</td><td>0</td><td>150</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>P_raw_psi_S3.QUALITY</td><td>P_raw_psi_S3</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>T_raw_F_S3.HH_RANGE</td><td>T_raw_F_S3</td><td>HIGH_HIGH</td><td>P2</td><td>500</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>T_raw_F_S3.LL_RANGE</td><td>T_raw_F_S3</td><td>LOW_LOW</td><td>P2</td><td>-40</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>T_raw_F_S3.QUALITY</td><td>T_raw_F_S3</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>P_clean_psi_S3.HH_RANGE</td><td>P_clean_psi_S3</td><td>HIGH_HIGH</td><td>P2</td><td>30,000</td><td>150</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>P_clean_psi_S3.LL_RANGE</td><td>P_clean_psi_S3</td><td>LOW_LOW</td><td>P2</td><td>0</td><td>150</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>P_clean_psi_S3.QUALITY</td><td>P_clean_psi_S3</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>T_clean_F_S3.HH_RANGE</td><td>T_clean_F_S3</td><td>HIGH_HIGH</td><td>P2</td><td>500</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>T_clean_F_S3.LL_RANGE</td><td>T_clean_F_S3</td><td>LOW_LOW</td><td>P2</td><td>-40</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>T_clean_F_S3.QUALITY</td><td>T_clean_F_S3</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>P_raw_psi_S4.HH_RANGE</td><td>P_raw_psi_S4</td><td>HIGH_HIGH</td><td>P2</td><td>30,000</td><td>150</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>P_raw_psi_S4.LL_RANGE</td><td>P_raw_psi_S4</td><td>LOW_LOW</td><td>P2</td><td>0</td><td>150</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>P_raw_psi_S4.QUALITY</td><td>P_raw_psi_S4</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>T_raw_F_S4.HH_RANGE</td><td>T_raw_F_S4</td><td>HIGH_HIGH</td><td>P2</td><td>500</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>T_raw_F_S4.LL_RANGE</td><td>T_raw_F_S4</td><td>LOW_LOW</td><td>P2</td><td>-40</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>T_raw_F_S4.QUALITY</td><td>T_raw_F_S4</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>P_clean_psi_S4.HH_RANGE</td><td>P_clean_psi_S4</td><td>HIGH_HIGH</td><td>P2</td><td>30,000</td><td>150</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>P_clean_psi_S4.LL_RANGE</td><td>P_clean_psi_S4</td><td>LOW_LOW</td><td>P2</td><td>0</td><td>150</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>P_clean_psi_S4.QUALITY</td><td>P_clean_psi_S4</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>T_clean_F_S4.HH_RANGE</td><td>T_clean_F_S4</td><td>HIGH_HIGH</td><td>P2</td><td>500</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>T_clean_F_S4.LL_RANGE</td><td>T_clean_F_S4</td><td>LOW_LOW</td><td>P2</td><td>-40</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>T_clean_F_S4.QUALITY</td><td>T_clean_F_S4</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>P_raw_psi_S5.HH_RANGE</td><td>P_raw_psi_S5</td><td>HIGH_HIGH</td><td>P2</td><td>30,000</td><td>150</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>P_raw_psi_S5.LL_RANGE</td><td>P_raw_psi_S5</td><td>LOW_LOW</td><td>P2</td><td>0</td><td>150</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>P_raw_psi_S5.QUALITY</td><td>P_raw_psi_S5</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>T_raw_F_S5.HH_RANGE</td><td>T_raw_F_S5</td><td>HIGH_HIGH</td><td>P2</td><td>500</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>T_raw_F_S5.LL_RANGE</td><td>T_raw_F_S5</td><td>LOW_LOW</td><td>P2</td><td>-40</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>T_raw_F_S5.QUALITY</td><td>T_raw_F_S5</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>P_clean_psi_S5.HH_RANGE</td><td>P_clean_psi_S5</td><td>HIGH_HIGH</td><td>P2</td><td>30,000</td><td>150</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>P_clean_psi_S5.LL_RANGE</td><td>P_clean_psi_S5</td><td>LOW_LOW</td><td>P2</td><td>0</td><td>150</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>P_clean_psi_S5.QUALITY</td><td>P_clean_psi_S5</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>T_clean_F_S5.HH_RANGE</td><td>T_clean_F_S5</td><td>HIGH_HIGH</td><td>P2</td><td>500</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>T_clean_F_S5.LL_RANGE</td><td>T_clean_F_S5</td><td>LOW_LOW</td><td>P2</td><td>-40</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>T_clean_F_S5.QUALITY</td><td>T_clean_F_S5</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>P_raw_psi_S6.HH_RANGE</td><td>P_raw_psi_S6</td><td>HIGH_HIGH</td><td>P2</td><td>30,000</td><td>150</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>P_raw_psi_S6.LL_RANGE</td><td>P_raw_psi_S6</td><td>LOW_LOW</td><td>P2</td><td>0</td><td>150</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>P_raw_psi_S6.QUALITY</td><td>P_raw_psi_S6</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>T_raw_F_S6.HH_RANGE</td><td>T_raw_F_S6</td><td>HIGH_HIGH</td><td>P2</td><td>500</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>T_raw_F_S6.LL_RANGE</td><td>T_raw_F_S6</td><td>LOW_LOW</td><td>P2</td><td>-40</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>T_raw_F_S6.QUALITY</td><td>T_raw_F_S6</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>P_clean_psi_S6.HH_RANGE</td><td>P_clean_psi_S6</td><td>HIGH_HIGH</td><td>P2</td><td>30,000</td><td>150</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>P_clean_psi_S6.LL_RANGE</td><td>P_clean_psi_S6</td><td>LOW_LOW</td><td>P2</td><td>0</td><td>150</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>P_clean_psi_S6.QUALITY</td><td>P_clean_psi_S6</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+<tr><td>T_clean_F_S6.HH_RANGE</td><td>T_clean_F_S6</td><td>HIGH_HIGH</td><td>P2</td><td>500</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range upper bound (class defaults)</td></tr>
+<tr><td>T_clean_F_S6.LL_RANGE</td><td>T_clean_F_S6</td><td>LOW_LOW</td><td>P2</td><td>-40</td><td>2.50</td><td>0</td><td>yes</td><td>engineering range lower bound (class defaults)</td></tr>
+<tr><td>T_clean_F_S6.QUALITY</td><td>T_clean_F_S6</td><td>QUALITY</td><td>P4</td><td>-</td><td>0</td><td>0</td><td>yes</td><td>record layer quality rules</td></tr>
+</table>
+<h2>3. Active alarms at window end</h2>
+<p>State per ISA-18.2: ACTIVE_UNACKED awaits operator acknowledgement; ACTIVE_ACKED is acknowledged and still in alarm.</p>
+<table>
+<tr><th>Alarm</th><th>Tag</th><th>Priority</th><th>State</th><th>Active since (UTC)</th><th>Last value</th></tr>
+<tr><td>P_raw_psi_S6.QUALITY</td><td>P_raw_psi_S6</td><td>P4</td><td>ACTIVE_UNACKED</td><td>2026-01-30T23:41:00Z</td><td>9,352.69</td></tr>
+<tr><td>T_raw_F_S6.QUALITY</td><td>T_raw_F_S6</td><td>P4</td><td>ACTIVE_UNACKED</td><td>2026-01-30T23:41:00Z</td><td>435.25</td></tr>
+<tr><td>P_clean_psi_S6.QUALITY</td><td>P_clean_psi_S6</td><td>P4</td><td>ACTIVE_UNACKED</td><td>2026-01-30T23:41:00Z</td><td>9,352.69</td></tr>
+<tr><td>T_clean_F_S6.QUALITY</td><td>T_clean_F_S6</td><td>P4</td><td>ACTIVE_UNACKED</td><td>2026-01-30T23:41:00Z</td><td>435.25</td></tr>
+</table>
+<h2>4. Event log (last 60 of 14786 events)</h2>
+<p>One line per transition; the full log is the JSON lines file named in section 6.</p>
+<table>
+<tr><th>Timestamp (UTC)</th><th>Alarm</th><th>Priority</th><th>Event</th><th>Value</th><th>Operator</th><th>Note</th></tr>
+<tr><td>2026-01-30T22:39:00Z</td><td>P_clean_psi_S5.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>7,757.38</td><td></td><td>|v - rolling median| = 6.1 x MAD &gt; 6 x MAD (window 21)</td></tr>
+<tr><td>2026-01-30T22:39:00Z</td><td>P_clean_psi_S6.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>9,217.63</td><td></td><td>|v - rolling median| = 6.3 x MAD &gt; 6 x MAD (window 21)</td></tr>
+<tr><td>2026-01-30T22:39:00Z</td><td>P_raw_psi_S5.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>7,757.38</td><td></td><td>|v - rolling median| = 6.1 x MAD &gt; 6 x MAD (window 21)</td></tr>
+<tr><td>2026-01-30T22:40:00Z</td><td>P_clean_psi_S5.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>7,932.52</td><td></td><td></td></tr>
+<tr><td>2026-01-30T22:40:00Z</td><td>P_clean_psi_S6.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>9,353.85</td><td></td><td></td></tr>
+<tr><td>2026-01-30T22:40:00Z</td><td>P_raw_psi_S5.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>7,932.52</td><td></td><td></td></tr>
+<tr><td>2026-01-30T22:41:00Z</td><td>P_clean_psi_S6.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>9,336.35</td><td></td><td>source flag SPIKE</td></tr>
+<tr><td>2026-01-30T22:41:00Z</td><td>P_raw_psi_S6.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>9,805.27</td><td></td><td>source flag SPIKE</td></tr>
+<tr><td>2026-01-30T22:41:00Z</td><td>T_clean_F_S6.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>436.75</td><td></td><td>source flag SPIKE</td></tr>
+<tr><td>2026-01-30T22:41:00Z</td><td>T_raw_F_S6.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>436.75</td><td></td><td>source flag SPIKE</td></tr>
+<tr><td>2026-01-30T22:42:00Z</td><td>P_clean_psi_S6.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>9,343.69</td><td></td><td></td></tr>
+<tr><td>2026-01-30T22:42:00Z</td><td>P_raw_psi_S6.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>9,343.69</td><td></td><td></td></tr>
+<tr><td>2026-01-30T22:42:00Z</td><td>T_clean_F_S6.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>436.03</td><td></td><td></td></tr>
+<tr><td>2026-01-30T22:42:00Z</td><td>T_raw_F_S6.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>436.03</td><td></td><td></td></tr>
+<tr><td>2026-01-30T22:50:00Z</td><td>P_clean_psi_S5.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>8,053.38</td><td></td><td>|v - rolling median| = 7.3 x MAD &gt; 6 x MAD (window 21)</td></tr>
+<tr><td>2026-01-30T22:50:00Z</td><td>P_raw_psi_S5.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>8,053.38</td><td></td><td>|v - rolling median| = 7.3 x MAD &gt; 6 x MAD (window 21)</td></tr>
+<tr><td>2026-01-30T22:51:00Z</td><td>P_clean_psi_S5.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>7,877.69</td><td></td><td></td></tr>
+<tr><td>2026-01-30T22:51:00Z</td><td>P_raw_psi_S5.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>7,877.69</td><td></td><td></td></tr>
+<tr><td>2026-01-30T22:57:00Z</td><td>P_clean_psi_S2.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>2,869.55</td><td></td><td>source flag SPIKE</td></tr>
+<tr><td>2026-01-30T22:57:00Z</td><td>P_raw_psi_S2.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>2,869.55</td><td></td><td>source flag SPIKE</td></tr>
+<tr><td>2026-01-30T22:57:00Z</td><td>T_clean_F_S2.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>186.74</td><td></td><td>source flag SPIKE</td></tr>
+<tr><td>2026-01-30T22:57:00Z</td><td>T_raw_F_S2.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>217.08</td><td></td><td>source flag SPIKE</td></tr>
+<tr><td>2026-01-30T22:58:00Z</td><td>P_clean_psi_S2.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>2,910.97</td><td></td><td></td></tr>
+<tr><td>2026-01-30T22:58:00Z</td><td>P_raw_psi_S2.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>2,910.97</td><td></td><td></td></tr>
+<tr><td>2026-01-30T22:58:00Z</td><td>T_clean_F_S2.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>187.70</td><td></td><td></td></tr>
+<tr><td>2026-01-30T22:58:00Z</td><td>T_raw_F_S2.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>187.70</td><td></td><td></td></tr>
+<tr><td>2026-01-30T23:37:00Z</td><td>P_clean_psi_S2.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>2,881.71</td><td></td><td>source flag SPIKE</td></tr>
+<tr><td>2026-01-30T23:37:00Z</td><td>P_raw_psi_S2.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>2,881.71</td><td></td><td>source flag SPIKE</td></tr>
+<tr><td>2026-01-30T23:37:00Z</td><td>T_clean_F_S2.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>186.92</td><td></td><td>source flag SPIKE</td></tr>
+<tr><td>2026-01-30T23:37:00Z</td><td>T_raw_F_S2.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>144.16</td><td></td><td>source flag SPIKE</td></tr>
+<tr><td>2026-01-30T23:38:00Z</td><td>P_clean_psi_S2.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>2,886.36</td><td></td><td></td></tr>
+<tr><td>2026-01-30T23:38:00Z</td><td>P_raw_psi_S2.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>2,886.36</td><td></td><td></td></tr>
+<tr><td>2026-01-30T23:38:00Z</td><td>T_clean_F_S2.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>188.44</td><td></td><td></td></tr>
+<tr><td>2026-01-30T23:38:00Z</td><td>T_raw_F_S2.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>188.44</td><td></td><td></td></tr>
+<tr><td>2026-01-30T23:39:00Z</td><td>T_clean_F_S6.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>433.39</td><td></td><td>|v - rolling median| = 13.9 x MAD &gt; 6 x MAD (window 21)</td></tr>
+<tr><td>2026-01-30T23:39:00Z</td><td>T_raw_F_S6.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>433.39</td><td></td><td>|v - rolling median| = 13.9 x MAD &gt; 6 x MAD (window 21)</td></tr>
+<tr><td>2026-01-30T23:40:00Z</td><td>T_clean_F_S6.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>435.60</td><td></td><td></td></tr>
+<tr><td>2026-01-30T23:40:00Z</td><td>T_raw_F_S6.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>435.60</td><td></td><td></td></tr>
+<tr><td>2026-01-30T23:41:00Z</td><td>P_clean_psi_S6.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>9,352.69</td><td></td><td>source flag STUCK</td></tr>
+<tr><td>2026-01-30T23:41:00Z</td><td>P_raw_psi_S6.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>9,352.69</td><td></td><td>source flag STUCK</td></tr>
+<tr><td>2026-01-30T23:41:00Z</td><td>T_clean_F_S6.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>435.25</td><td></td><td>source flag STUCK</td></tr>
+<tr><td>2026-01-30T23:41:00Z</td><td>T_raw_F_S6.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>435.25</td><td></td><td>source flag STUCK</td></tr>
+<tr><td>2026-01-30T23:43:00Z</td><td>T_clean_F_S3.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>249.11</td><td></td><td>|v - rolling median| = 7.3 x MAD &gt; 6 x MAD (window 21)</td></tr>
+<tr><td>2026-01-30T23:44:00Z</td><td>T_clean_F_S3.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>252.88</td><td></td><td></td></tr>
+<tr><td>2026-01-30T23:52:00Z</td><td>P_clean_psi_S1.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>1,521.49</td><td></td><td>source flag SPIKE</td></tr>
+<tr><td>2026-01-30T23:52:00Z</td><td>P_raw_psi_S1.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>1,521.49</td><td></td><td>source flag SPIKE</td></tr>
+<tr><td>2026-01-30T23:52:00Z</td><td>T_clean_F_S1.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>121.56</td><td></td><td>source flag SPIKE</td></tr>
+<tr><td>2026-01-30T23:52:00Z</td><td>T_raw_F_S1.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>121.56</td><td></td><td>source flag SPIKE</td></tr>
+<tr><td>2026-01-30T23:53:00Z</td><td>P_clean_psi_S1.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>1,178.22</td><td></td><td></td></tr>
+<tr><td>2026-01-30T23:53:00Z</td><td>P_raw_psi_S1.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>1,178.22</td><td></td><td></td></tr>
+<tr><td>2026-01-30T23:53:00Z</td><td>T_clean_F_S1.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>121.22</td><td></td><td></td></tr>
+<tr><td>2026-01-30T23:53:00Z</td><td>T_raw_F_S1.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>121.22</td><td></td><td></td></tr>
+<tr><td>2026-01-30T23:55:00Z</td><td>P_clean_psi_S4.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>6,287.07</td><td></td><td>source flag SPIKE</td></tr>
+<tr><td>2026-01-30T23:55:00Z</td><td>P_raw_psi_S4.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>6,287.07</td><td></td><td>source flag SPIKE</td></tr>
+<tr><td>2026-01-30T23:55:00Z</td><td>T_clean_F_S4.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>316.12</td><td></td><td>source flag SPIKE</td></tr>
+<tr><td>2026-01-30T23:55:00Z</td><td>T_raw_F_S4.QUALITY</td><td>P4</td><td>ACTIVATED</td><td>324.94</td><td></td><td>source flag SPIKE</td></tr>
+<tr><td>2026-01-30T23:56:00Z</td><td>P_clean_psi_S4.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>6,171.42</td><td></td><td></td></tr>
+<tr><td>2026-01-30T23:56:00Z</td><td>P_raw_psi_S4.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>6,171.42</td><td></td><td></td></tr>
+<tr><td>2026-01-30T23:56:00Z</td><td>T_clean_F_S4.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>315.50</td><td></td><td></td></tr>
+<tr><td>2026-01-30T23:56:00Z</td><td>T_raw_F_S4.QUALITY</td><td>P4</td><td>RTN_UNACKED</td><td>315.50</td><td></td><td></td></tr>
+</table>
+<h2>5. Alarm-management KPIs against targets</h2>
+<p>targets as commonly stated in ISA-18.2 / IEC 62682 alarm-management practice; printed as targets, not as results.</p>
+<table>
+<tr><th>KPI</th><th>Value</th><th>Target</th></tr>
+<tr><td>Activations per day</td><td>246.60</td><td>&lt;= 150 acceptable, &lt;= 300 manageable</td></tr>
+<tr><td>Average per 10 min per operator position</td><td>1.71</td><td>&lt;= 1 acceptable, &lt;= 2 manageable</td></tr>
+<tr><td>Peak per 10 min per operator position</td><td>28</td><td>&gt; 10 alarms in 10 min per operator position</td></tr>
+<tr><td>Ten-minute flood periods / % time in flood</td><td>55 / 1.27 %</td><td>&gt; 10 alarms in 10 min per operator position</td></tr>
+<tr><td>Standing alarms</td><td>none</td><td>active &gt; 24 h</td></tr>
+<tr><td>Chattering alarms</td><td>none</td><td>&gt;= 5 activations in 10 min</td></tr>
+<tr><td>Priority distribution (%)</td><td>P1 0.0, P2 0.0, P3 0.0, P4 100.0, P5 0.0</td><td>about 80 / 15 / 5 (P3 / P2 / P1) for a three-priority scheme</td></tr>
+</table>
+<table>
+<caption>Most frequent alarms</caption>
+<tr><th>Alarm</th><th>Activations</th><th>% of total</th></tr>
+<tr><td>P_raw_psi_S3.QUALITY</td><td>384</td><td>5.20</td></tr>
+<tr><td>P_clean_psi_S3.QUALITY</td><td>382</td><td>5.20</td></tr>
+<tr><td>P_clean_psi_S4.QUALITY</td><td>377</td><td>5.10</td></tr>
+<tr><td>P_raw_psi_S4.QUALITY</td><td>373</td><td>5</td></tr>
+<tr><td>P_clean_psi_S6.QUALITY</td><td>372</td><td>5</td></tr>
+<tr><td>P_raw_psi_S6.QUALITY</td><td>369</td><td>5</td></tr>
+<tr><td>P_clean_psi_S1.QUALITY</td><td>368</td><td>5</td></tr>
+<tr><td>P_raw_psi_S1.QUALITY</td><td>366</td><td>4.90</td></tr>
+<tr><td>P_clean_psi_S2.QUALITY</td><td>361</td><td>4.90</td></tr>
+<tr><td>P_raw_psi_S2.QUALITY</td><td>358</td><td>4.80</td></tr>
+</table>
+<h2>6. Provenance</h2>
+<p>Operator positions: 1. Event log: alarms/events.jsonl. Window: 2026-01-01T00:06:00Z to 2026-01-30T23:55:00Z. The state machine, deadband and on-delay are applied per alarm in time order; shelved alarms are suppressed and logged.</p>
+<footer>Every KPI is recomputed from the event log at generation time; targets are printed beside values, never in place of them.</footer>
+</body></html>

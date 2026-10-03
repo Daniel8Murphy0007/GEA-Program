@@ -37,6 +37,7 @@ CLIENT_SECTIONS = [
     ('AH', 'section_ah_band2', 'Instruments and transients: sensor swaps (register, detector, segmented fit), calibration certificates, shut-in detection and build-up analysis with a stated band'),
     ('AI', 'section_ai_hardening', 'Hardening: sign-in rate limit, live sessions and revocation, security headers, proxy mode, housekeeping, the supervisor load test'),
     ('AJ', 'section_aj_help', 'The help library and the guide in the wheel: one source for the terminal, the API and the dashboard'),
+    ('AK', 'section_ak_standard_physics', 'Standard physics only: the aging rate is the datasheet number, the removed model is absent, a datasheet cannot carry model parameters'),
     ('AG', 'section_ag_experience', 'The operator experience: alarm shelving and bulk acknowledgement, preferences and site defaults, since-last-visit, badges, search, notification rules'),
 ]
 

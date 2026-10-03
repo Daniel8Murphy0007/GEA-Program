@@ -1,15 +1,19 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""downhole_engine — the simulation engine of the GEA Downhole Simulator.
+"""downhole_engine - the synthetic well: a gauge string with noise and events.
 
-Imperial units (ft / degF / psi); six quartz gauges; noise and transient
-events; rolling history; CSV export. Drift comes from the aging models in
-quartz_hpht_extension; the per-sensor settings are the two engineering trims
-(k_structural_trim, phi_coupling_trim), never the model's constants.
+Imperial units (ft / degF / psi); a string of gauges at stations along a
+well; base pressure and temperature from gradients or a real profile; noise
+and transient events; rolling history; CSV export. Each gauge's aging rate
+is what its datasheet says (`gauge_aging`, through the tool library); the
+simulator adds nothing to it.
 
-Headless-safe by design: no matplotlib/Qt imports here — the engine runs and
-exports under the fidelity gate with no display.
+What is synthetic here is said so: the noise amplitudes, the event rate and
+shape, the plausibility clips are settings of a data generator used to
+rehearse the pipeline, not physics claims.
+
+Headless-safe by design: no matplotlib/Qt imports here.
 """
 
 from __future__ import annotations
@@ -23,12 +27,8 @@ from typing import List, Optional
 
 import numpy as np
 
-from .quartz_hpht_extension import (
-    calculate_quartz_transducer_hpht_program,
-    canonical_suppression,
-    conventional_drift,
-    PROGRAM_MODEL_AVAILABLE,
-)
+from .gauge_aging import aging_rate
+from .gauge_specs import DEFAULT_SPEC_NAME
 
 # Well geometry defaults (port of the template's 6,200 m TD well to the
 # converged imperial layout: TD ~20,300 ft, six gauges spanning the string).
@@ -87,35 +87,30 @@ class Sensor:
     depth_ft: float
     cal_offset_P: float = 0.0
     cal_offset_T: float = 0.0
-    k_structural_trim: float = 1.0    # engineering trim (renamed from template 'K_MEX' knob)
-    phi_coupling_trim: float = 1.0    # engineering trim (renamed from template 'Phi_res' knob)
     name: str = ""
-    tool_name: str = "quartz_pt_program_geoq177_30k"   # mixed strings: which library tool sits here
+    tool_name: str = "quartz_pt_geoq177_30k"   # which library tool sits here (its datasheet gives the aging rate)
 
 
 @dataclass
 class SimulatorConfig:
     td_ft: float = DEFAULT_TD_FT
     sensor_depths_ft: List[float] = field(default_factory=lambda: DEFAULT_SENSOR_DEPTHS_FT.copy())
-    surface_temp_F: float = 75.0                    # anchor: surface ambient (template)
-    surface_pressure_psi: float = 14.7              # anchor: 1 atm
-    temp_gradient_F_per_ft: float = 0.018           # anchor: geothermal gradient (template)
-    pressure_gradient_psi_per_ft: float = 0.465     # anchor: hydrostatic gradient (industry)
-    global_k_structural_trim: float = 1.0
-    global_phi_coupling_trim: float = 1.0
+    surface_temp_F: float = 75.0                    # simulator setting: surface ambient
+    surface_pressure_psi: float = 14.7              # 1 atm
+    temp_gradient_F_per_ft: float = 0.018           # simulator setting: a geothermal gradient (about 33 C/km)
+    pressure_gradient_psi_per_ft: float = 0.465     # hydrostatic gradient of brine (industry rule of thumb)
     noise_scale: float = 1.0
-    event_probability: float = 0.27                 # template transient-event rate
+    event_probability: float = 0.27                 # simulator setting: transient-event rate per step
     history_length: int = 400
     profile: Optional[WellProfile] = None           # real well profile (CSV); overrides gradients
-    comparison_mode: bool = True                    # twin-gauge GEA-vs-conventional tracking
-    gauge_spec: object = None                       # GaugeSpec (gauge_specs); None = template anchors
+    gauge_spec: object = None                       # GaugeSpec (gauge_specs); None = the default cited datasheet
     deviation: object = None                        # DeviationSurvey: sensors at MD, physics at TVD
     toolstring: object = None                       # ToolString: mixed per-station tool models
     acknowledge_over_rating: bool = False           # the ONLY way past the in-engine rating block
 
 
 class DownholeEngine:
-    """Deep-well quartz-gauge string simulator (GEA-stabilized drift)."""
+    """A synthetic gauge string in a described well."""
 
     def __init__(self, config: SimulatorConfig | None = None):
         self.cfg = config or SimulatorConfig()
@@ -150,22 +145,10 @@ class DownholeEngine:
     def _build_sensors(self) -> None:
         if self.cfg.toolstring is not None:
             stations = sorted(self.cfg.toolstring.stations, key=lambda x: x[0])
-            self.sensors = [
-                Sensor(depth_ft=float(md),
-                       k_structural_trim=self.cfg.global_k_structural_trim,
-                       phi_coupling_trim=self.cfg.global_phi_coupling_trim,
-                       name=f"S{i + 1}", tool_name=tn)
-                for i, (md, tn) in enumerate(stations)
-            ]
+            self.sensors = [Sensor(depth_ft=float(md), name=f"S{i + 1}", tool_name=tn) for i, (md, tn) in enumerate(stations)]
             self.cfg.sensor_depths_ft = [s.depth_ft for s in self.sensors]
         else:
-            self.sensors = [
-                Sensor(depth_ft=float(d),
-                       k_structural_trim=self.cfg.global_k_structural_trim,
-                       phi_coupling_trim=self.cfg.global_phi_coupling_trim,
-                       name=f"S{i + 1}")
-                for i, d in enumerate(self.cfg.sensor_depths_ft)
-            ]
+            self.sensors = [Sensor(depth_ft=float(d), name=f"S{i + 1}") for i, d in enumerate(self.cfg.sensor_depths_ft)]
 
     def _physics_depth_ft(self, md_ft: float) -> float:
         """Sensor addresses are MD (position on the string); pressure and
@@ -193,134 +176,72 @@ class DownholeEngine:
         self.history_P: List[np.ndarray] = [self.P.copy()]
         self.history_T: List[np.ndarray] = [self.T.copy()]
 
-    # -- physics ------------------------------------------------------------
+    # -- aging ----------------------------------------------------------------
     def compute_drift(self, sensor: Sensor, temp_F: float, pressure_psi: float) -> float:
+        """The gauge's datasheet aging rate (%FS/yr) at this station. With a toolstring the
+        station's tool decides; otherwise the config's gauge_spec (or the default datasheet)."""
         temp_C = (temp_F - 32.0) * 5.0 / 9.0
-        depth_m = sensor.depth_ft / 3.28084
-        r = calculate_quartz_transducer_hpht_program(
-            depth_m=depth_m, temp_c=temp_C, pressure_psi=pressure_psi,
-            k_structural_trim=sensor.k_structural_trim,
-            phi_coupling_trim=sensor.phi_coupling_trim,
-            spec=self.cfg.gauge_spec)
-        return float(r["value"]["drift_pct"])
+        if self.cfg.toolstring is not None:
+            from .tool_library import TOOL_LIBRARY, drift_model_for, PARAMETERS_USER_SUPPLIED
+            tool = TOOL_LIBRARY[sensor.tool_name]
+            if tool.spec_status == PARAMETERS_USER_SUPPLIED or tool.drift_model is None:
+                return float('nan')                                   # no rate on record: the station carries none
+            return float(drift_model_for(tool)(temp_C, pressure_psi))
+        return float(aging_rate(self.cfg.gauge_spec, temp_C, pressure_psi)['rate_pct_fs_yr'])
 
-    def station_drift_legs(self, i: int) -> dict:
-        """Mixed strings: each station's drift legs come from ITS
-        tool's runnable model - and tools without a runnable model REFUSE
-        (status says why) instead of borrowing the quartz curve."""
-        from .tool_library import TOOL_LIBRARY, piezoresistive_drift
+    def station_aging(self, i: int) -> dict:
+        """One station's aging on record: the rate, its source, and whether the station is over the rating."""
         s = self.sensors[i]
-        tool = TOOL_LIBRARY.get(s.tool_name)
         t_C = (float(self.T[i]) - 32.0) * 5.0 / 9.0
-        out = {"station": s.name, "md_ft": s.depth_ft, "tool": s.tool_name,
-               "tool_class": tool.tool_class if tool else "?",
-               "drift_pct": None, "conventional_drift_pct": None}
-        if tool is None:
-            out["status"] = f"UNKNOWN_TOOL '{s.tool_name}' - refused"
-            return out
-        if tool.tool_class == "QUARTZ_PT_GAUGE":
-            out["conventional_drift_pct"] = round(
-                conventional_drift(t_C, float(self.P[i]),
-                                   spec=self.cfg.gauge_spec), 4)
-            if "conventional" in s.tool_name:
-                out["status"] = ("NO_PROGRAM_LEG: conventional instrument - the "
-                                 "reference leg only (twin comparison needs "
-                                 "the GEA tool at this station)")
-            else:
-                out["drift_pct"] = round(
-                    self.compute_drift(s, float(self.T[i]),
-                                       float(self.P[i])), 4)
-                out["status"] = "TWIN_LEGS"
-        elif tool.tool_class == "PIEZORESISTIVE_PT_GAUGE":
-            out["conventional_drift_pct"] = round(piezoresistive_drift(t_C), 4)
-            out["status"] = ("PIEZO_CLASS_ENVELOPE (labeled representative "
-                            "fit, vendor-scatter disclosed) - NO_PROGRAM_MODEL: "
-                            "no GEA piezo derivation in the corpus, refused "
-                            "rather than invented")
+        out = {"station": s.name, "md_ft": s.depth_ft, "tool": s.tool_name if self.cfg.toolstring is not None else None,
+               "temp_C": round(t_C, 1), "pressure_psi": round(float(self.P[i]), 0)}
+        if self.cfg.toolstring is not None:
+            from .tool_library import TOOL_LIBRARY, PARAMETERS_USER_SUPPLIED
+            tool = TOOL_LIBRARY[s.tool_name]
+            if tool.spec_status == PARAMETERS_USER_SUPPLIED or tool.gauge_spec is None:
+                out.update({"rate_pct_fs_yr": None, "status": "NO_RATE_ON_RECORD: the cited page publishes no drift rate for this tool; supply its datasheet"})
+                return out
+            spec = tool.gauge_spec
         else:
-            out["status"] = ("PARAMETERS_USER_SUPPLIED: no vendor datasheet "
-                            "fetched for this tool class - drift model "
-                            "REFUSED; station still streams well P/T")
+            spec = self.cfg.gauge_spec
+        a = aging_rate(spec, t_C, float(self.P[i]))
+        out.update({"rate_pct_fs_yr": a["rate_pct_fs_yr"], "rate_psi_yr": round(a["rate_psi_yr"], 3), "gauge_spec": a["gauge_spec"],
+                    "status": ("OVER_RATING: " + a["over_rating_detail"]) if a["over_rating"] else "DATASHEET_RATE"})
         return out
 
-    def mixed_summary(self) -> dict:
-        """Per-station tool report + aggregates computed ONLY over stations
-        possessing both legs, with the counts disclosed."""
-        rows = [self.station_drift_legs(i) for i in range(len(self.sensors))]
-        twin = [r for r in rows if r["status"] == "TWIN_LEGS"]
-        agg = None
-        if twin:
-            uq = float(np.mean([r["drift_pct"] for r in twin]))
-            cv = float(np.mean([r["conventional_drift_pct"] for r in twin]))
-            agg = {"avg_program_drift_pct": round(uq, 4),
-                   "avg_conventional_drift_pct": round(cv, 4),
-                   "measured_ratio_mean": round(cv / uq, 4) if uq > 0 else None}
-        return {"stations": rows,
-                "twin_leg_stations": len(twin),
-                "single_or_refused_stations": len(rows) - len(twin),
-                "aggregate_over_twin_stations_only": agg}
+    def aging_summary(self) -> dict:
+        rows = [self.station_aging(i) for i in range(len(self.sensors))]
+        rates = [r["rate_pct_fs_yr"] for r in rows if r.get("rate_pct_fs_yr") is not None]
+        return {"stations": rows, "avg_rate_pct_fs_yr": (round(float(np.mean(rates)), 4) if rates else None),
+                "n_without_rate": sum(1 for r in rows if r.get("rate_pct_fs_yr") is None),
+                "n_over_rating": sum(1 for r in rows if str(r.get("status", "")).startswith("OVER_RATING"))}
 
     def _noise_drifts(self) -> np.ndarray:
-        """Drift values feeding the template noise-suppression map: each
-        station's own runnable model; refused stations contribute 0.0
-        (neutral suppression - template noise unshaped, per mixed_summary)."""
-        if self.cfg.toolstring is None:
-            return self.current_drifts
-        out = []
-        for i in range(len(self.sensors)):
-            legs = self.station_drift_legs(i)
-            d = legs["drift_pct"]
-            if d is None:
-                d = legs["conventional_drift_pct"]
-            out.append(0.0 if d is None else float(d))
-        return np.array(out)
+        """Per-station aging rates feeding the synthetic noise shaping; a station with no rate on record gets 0."""
+        d = self.current_drifts
+        return np.where(np.isnan(d), 0.0, d)
 
     @property
     def current_drifts(self) -> np.ndarray:
-        return np.array([self.compute_drift(s, self.T[i], self.P[i])
-                         for i, s in enumerate(self.sensors)])
+        return np.array([self.compute_drift(s, self.T[i], self.P[i]) for i, s in enumerate(self.sensors)], dtype=float)
 
-    @property
-    def current_conventional_drifts(self) -> np.ndarray:
-        """Comparison-mode reference leg: conventional gauges at the same T/P."""
-        out = []
-        for i in range(len(self.sensors)):
-            temp_C = (self.T[i] - 32.0) * 5.0 / 9.0
-            out.append(conventional_drift(temp_C, self.P[i], spec=self.cfg.gauge_spec))
-        return np.array(out)
-
-    def comparison_summary(self) -> dict:
-        """Twin-gauge report: measured conventional/GEA drift ratio vs the
-        suppression prediction (equal when no gauge clips)."""
-        uq = self.current_drifts
-        cv = self.current_conventional_drifts
-        ratios = cv / np.where(uq > 0, uq, np.nan)
-        return {
-            'avg_program_drift_pct': round(float(np.mean(uq)), 4),
-            'avg_conventional_drift_pct': round(float(np.mean(cv)), 4),
-            'measured_ratio_mean': round(float(np.nanmean(ratios)), 4),
-            'predicted_ratio_suppression': round(canonical_suppression(
-                self.cfg.global_k_structural_trim, self.cfg.global_phi_coupling_trim), 4),
-            'per_sensor_ratio': [round(float(r), 4) for r in ratios],
-        }
-
-    # -- stepping (template-faithful) ---------------------------------------
+    # -- stepping (a synthetic data generator) ----------------------------------
     def step(self, dt: float = 0.12) -> None:
         self.time += dt
         n = len(self.sensors)
         drifts = self._noise_drifts()
-        suppression = np.clip(1.0 - (drifts / 0.28), 0.25, 1.0)   # template noise-suppression map
-        noise_P = np.random.normal(0, 28 * self.cfg.noise_scale, n) * suppression
-        noise_T = np.random.normal(0, 0.9 * self.cfg.noise_scale, n) * suppression
+        shaping = np.clip(1.0 - (drifts / 0.28), 0.25, 1.0)   # simulator setting: noisier stations are the ones aging faster
+        noise_P = np.random.normal(0, 28 * self.cfg.noise_scale, n) * shaping
+        noise_T = np.random.normal(0, 0.9 * self.cfg.noise_scale, n) * shaping
         event = 0.0
         if random.random() < self.cfg.event_probability:
-            event = 110.0 * np.sin(self.time / 7.2) * float(np.mean(suppression))
+            event = 110.0 * np.sin(self.time / 7.2) * float(np.mean(shaping))
         self.P = self.base_P + noise_P + event
         self.T = self.base_T + noise_T
         for i, s in enumerate(self.sensors):
             self.P[i] += s.cal_offset_P
             self.T[i] += s.cal_offset_T
-        self.P = np.clip(self.P, 50, 28000)     # template plausibility bounds
+        self.P = np.clip(self.P, 50, 28000)     # simulator plausibility bounds
         self.T = np.clip(self.T, 40, 550)
         self.history_t.append(self.time)
         self.history_P.append(self.P.copy())
@@ -330,14 +251,7 @@ class DownholeEngine:
             self.history_P = self.history_P[-self.cfg.history_length:]
             self.history_T = self.history_T[-self.cfg.history_length:]
 
-    def set_global_trims(self, k_structural_trim: float, phi_coupling_trim: float) -> None:
-        self.cfg.global_k_structural_trim = float(k_structural_trim)
-        self.cfg.global_phi_coupling_trim = float(phi_coupling_trim)
-        for s in self.sensors:
-            s.k_structural_trim = float(k_structural_trim)
-            s.phi_coupling_trim = float(phi_coupling_trim)
-
-    # -- export (template-faithful) -----------------------------------------
+    # -- export -----------------------------------------------------------------
     def export_csv(self, path: str | None = None) -> Path:
         if path is None:
             path = f"downhole_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
@@ -347,18 +261,12 @@ class DownholeEngine:
             header = ["time_s"]
             for s in self.sensors:
                 header += [f"P_{s.name}_{s.depth_ft:.0f}ft", f"T_{s.name}_{s.depth_ft:.0f}ft"]
-            if self.cfg.comparison_mode:
-                cmp_now = self.comparison_summary()
-                header += ["avg_program_drift_pct", "avg_conventional_drift_pct", "measured_ratio_mean"]
             writer.writerow(header)
             for i, t in enumerate(self.history_t):
                 row = [round(t, 3)]
                 for j in range(len(self.sensors)):
                     row.append(round(float(self.history_P[i][j]), 2))
                     row.append(round(float(self.history_T[i][j]), 2))
-                if self.cfg.comparison_mode:
-                    row += [cmp_now['avg_program_drift_pct'], cmp_now['avg_conventional_drift_pct'],
-                            cmp_now['measured_ratio_mean']]
                 writer.writerow(row)
         return p
 
@@ -367,18 +275,17 @@ class DownholeEngine:
         return np.array([s.depth_ft for s in self.sensors])
 
     def summary(self) -> dict:
+        d = self.current_drifts
         return {
-            "live": PROGRAM_MODEL_AVAILABLE,
-            "canonical_suppression_at_unity_trims": round(canonical_suppression(), 4),
             "sensors": len(self.sensors),
             "td_ft": self.cfg.td_ft,
             "time_s": round(self.time, 3),
-            "avg_drift_pct": round(float(np.mean(self.current_drifts)), 4),
+            "avg_drift_pct": (round(float(np.nanmean(d)), 4) if np.any(~np.isnan(d)) else None),
             "history_points": len(self.history_t),
             "profile": self.cfg.profile.name if self.cfg.profile else "linear gradients",
             "deviation": self.cfg.deviation.name if self.cfg.deviation is not None else "vertical (MD == TVD)",
-            "gauge_spec": getattr(self.cfg.gauge_spec, 'name', None) or "template_generic (default)",
-            "comparison": self.comparison_summary() if self.cfg.comparison_mode else None,
+            "gauge_spec": getattr(self.cfg.gauge_spec, 'name', None) or f"{DEFAULT_SPEC_NAME} (default datasheet)",
+            "aging": self.aging_summary(),
         }
 
 

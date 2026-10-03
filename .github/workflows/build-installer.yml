@@ -5,6 +5,11 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "attach the kits to this existing release tag (e.g. v0.4.0); empty = build only"
+        required: false
+        default: ""
 
 permissions:
   contents: write   # to attach the kit to the GitHub release of the tag
@@ -18,18 +23,22 @@ jobs:
         with:
           python-version: "3.12"
       - name: Build the kit (embeddable Python + every wheel + scripts)
-        run: python tools/build_installer.py --extras live,plotting,xls
+        run: python tools/build_installer.py --extras live,plotting,xls,desktop
       - name: Install the kit the way a client does, then run its gate
         shell: cmd
         run: |
-          cd dist\gea-program-*-win64 || exit /b 1
+          rem cmd.exe's cd does not expand wildcards - resolve the kit folder first (this line failed the v0.4.0 run)
+          set "KIT="
+          for /d %%d in (dist\gea-program-*-win64) do set "KIT=%%d"
+          if not defined KIT ( echo no kit folder under dist\ & dir dist & exit /b 1 )
+          cd /d "%KIT%" || exit /b 1
           call install.cmd || exit /b 1
           call verify.cmd || exit /b 1
       - name: Attach the kit to the release of this tag
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release_tag != ''
         shell: bash
         run: |
-          TAG="${GITHUB_REF#refs/tags/}"
+          TAG="${{ inputs.release_tag }}"; TAG="${TAG:-${GITHUB_REF#refs/tags/}}"
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes-file SHIP_MESSAGE.txt
           gh release upload "$TAG" dist/gea-program-*-win64.zip --clobber
         env:
@@ -46,14 +55,14 @@ jobs:
         with:
           python-version: "3.12"
       - name: Build the Linux kit
-        run: python tools/build_installer.py --platform linux --extras live,plotting,xls
+        run: python tools/build_installer.py --platform linux --extras live,plotting,xls,desktop
       - name: Install it offline and run its gate
         run: |
           cd dist/gea-program-*-linux-*/ && ./install.sh && ./verify.sh
       - name: Attach to the release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release_tag != ''
         run: |
-          TAG="${GITHUB_REF#refs/tags/}"
+          TAG="${{ inputs.release_tag }}"; TAG="${TAG:-${GITHUB_REF#refs/tags/}}"
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes-file SHIP_MESSAGE.txt
           gh release upload "$TAG" dist/gea-program-*-linux-*.zip --clobber
         env:

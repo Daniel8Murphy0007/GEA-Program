@@ -15,7 +15,7 @@ split honestly in two:
   display exists.
 * launch_operator_app() - the Qt6 view over that controller (one window:
   well picker, toolstring builder with rating lights, live P/T + drift
-  charts, service-life/case-study export, reconcile + undervalued-stream
+  charts, service-life export, reconcile + undervalued-stream
   alerts, and a citations pane that is ALWAYS visible).
   Refuses with the pip hint when PyQt6 is absent, same pattern as the ports.
 
@@ -24,9 +24,9 @@ Product-honesty rules carried into the surface:
   station (against the MEASURED profile) stops start_run with the stations
   named. There is no silent override; `acknowledge_over_rating=True` is the
   explicit, logged operator decision.
-- The citations pane never disappears: gauge-spec sources, catalogue
-  provenance, and the DERIVED_HYBRID suppression labeling ride with every
-  view. The UI does not sell 1.0324 as a derived constant.
+- The citations pane never disappears: gauge-spec sources and catalogue
+  provenance ride with every view. The only aging number shown is the
+  datasheet's.
 """
 from __future__ import annotations
 
@@ -35,7 +35,6 @@ from typing import Dict, List, Optional, Tuple
 
 from .downhole_engine import (SimulatorConfig, DownholeEngine,
                                    WellProfile, load_well_profile_csv)
-from .quartz_hpht_extension import canonical_suppression
 from .tool_library import TOOL_LIBRARY, ToolString, rating_check
 from .well_assembler import (BUILTIN_ASSEMBLIES, demo_config,
                                   production_live_stream)
@@ -148,45 +147,29 @@ class OperatorSession:
             raise NotImplementedError("run not started - start_run() first")
         for _ in range(n):
             self.engine.step()
-        return self.engine.comparison_summary()
+        return self.engine.aging_summary()
 
     def mixed_report(self) -> dict:
-        """Per-station tool legs from the running engine (twin /
-        single / refused, with the aggregate over twin stations only)."""
+        """Per-station aging on record from the running engine (the tool's datasheet rate, or none)."""
         if self.engine is None:
             raise NotImplementedError("run not started - start_run() first")
         if self.config.toolstring is None:
             raise NotImplementedError("no toolstring on this run - hang tools "
                                       "with set_toolstring() before start_run()")
-        return self.engine.mixed_summary()
+        return self.engine.aging_summary()
 
     # -- exports -----------------------------------------------------------
     def service_life(self, years: float = 5.0, **kw) -> dict:
-        """Twin-leg accumulated error on THIS well: the service-life engine
-        evaluates its rates at the loaded (measured) profile's base
-        stations, so the divergence summary belongs to the archived well,
-        not the template."""
+        """Accumulated datasheet aging on THIS well: the rates are evaluated at the loaded
+        (measured) profile's base stations, so the summary belongs to the archived well."""
         from .service_life import ServiceLifeConfig, ServiceLifeSimulator
         if self.config is None:
             raise NotImplementedError("no well loaded")
         sim = ServiceLifeSimulator(engine=DownholeEngine(self.config),
                                    config=ServiceLifeConfig(years=years, **kw))
-        summ = sim.run().divergence_summary()
-        self.log.append(f"service life {years} yr: {summ.get('years_to_budget_conventional', '?')}")
+        summ = sim.run().summary()
+        self.log.append(f"service life {years} yr: years to budget {summ.get('years_to_budget', '?')}")
         return summ
-
-    def case_study(self, out_path: str, points: int = 12,
-                   horizon_years: float = 5.0) -> str:
-        from .case_study import CaseStudyConfig, case_study, write_markdown
-        if self.config is None:
-            raise NotImplementedError("no well loaded")
-        cfg = CaseStudyConfig(td_ft=self.config.td_ft, n_depth_points=points,
-                              well_name=self.well_name or "operator well",
-                              horizon_years=horizon_years,
-                              profile=self.config.profile)
-        write_markdown(case_study(cfg), out_path)
-        self.log.append(f"case study -> {out_path}")
-        return out_path
 
     # -- ingest + reconcile + alerts ---------------------------------------
     def ingest(self, source, port: str = "historian_csv"):
@@ -226,16 +209,14 @@ class OperatorSession:
         """Everything the operator is looking at, sourced. The UI renders
         this pane permanently; it is never hidden behind a menu."""
         out = {
-            "suppression": ("canonical_suppression() = "
-                            f"{canonical_suppression():.4f} at unity trims - "
-                            "DERIVED_HYBRID: industry baseline drift x the "
-                            "program's locked suppression composition (NOT a "
-                            "derived constant; see BENCH_TEST_PROTOCOL.md)"),
+            "aging": "each station's aging rate is its datasheet's published drift specification; nothing is added (gea help drift; BENCH_TEST_PROTOCOL.md)",
             "gauge_spec": None, "well_provenance": {}, "tools": {}}
         if self.config is not None:
             spec = getattr(self.config, "gauge_spec", None)
-            out["gauge_spec"] = (f"{spec.name}: {spec.source}" if spec
-                                 else "template_generic (template class - no vendor claim)")
+            from .gauge_specs import DEFAULT_SPEC
+            spec = spec or DEFAULT_SPEC
+            out["gauge_spec"] = f"{spec.name}: {spec.source}"
+
         if self.well_name in BUILTIN_ASSEMBLIES:
             a = BUILTIN_ASSEMBLIES[self.well_name]()
             for r, c in a.components.items():
@@ -298,7 +279,6 @@ def launch_operator_app() -> int:
             b_hang = QPushButton("Hang tool + rating check"); left.addWidget(b_hang)
             self.rating_lbl = QLabel("rating: -"); left.addWidget(self.rating_lbl)
             b_run = QPushButton("Start run"); left.addWidget(b_run)
-            b_case = QPushButton("Case study (.md)"); left.addWidget(b_case)
             b_rec = QPushButton("Reconcile Volve F-12 (live catalogue)")
             left.addWidget(b_rec)
             b_ing = QPushButton("Ingest LAS / historian CSV...")
@@ -312,7 +292,7 @@ def launch_operator_app() -> int:
             tabs.addTab(self.canvas, "Live P/T")
             self.dfig = Figure(figsize=(6, 4))
             self.dcanvas = FigureCanvasQTAgg(self.dfig)
-            tabs.addTab(self.dcanvas, "Twin-leg drift")
+            tabs.addTab(self.dcanvas, "Datasheet aging")
             self.alerts_list = QListWidget()
             tabs.addTab(self.alerts_list, "Alerts")
             self.log_view = QTextEdit(); self.log_view.setReadOnly(True)
@@ -330,7 +310,6 @@ def launch_operator_app() -> int:
             b_csv.clicked.connect(self._load_csv)
             b_hang.clicked.connect(self._hang)
             b_run.clicked.connect(self._run)
-            b_case.clicked.connect(self._case)
             b_rec.clicked.connect(self._reconcile)
             b_ing.clicked.connect(self._ingest)
             self._refresh_citations()
@@ -388,22 +367,15 @@ def launch_operator_app() -> int:
                 ax.set_xlabel("t, s"); ax.set_ylabel("P, psi")
                 ax.set_title(session.config.profile.name, fontsize=8)
             self.canvas.draw_idle()
-            summ = eng.comparison_summary()
+            ag = eng.aging_summary()
             self.dfig.clear()
             dax = self.dfig.add_subplot(111)
-            dax.bar([0, 1], [summ["avg_program_drift_pct"],
-                             summ["avg_conventional_drift_pct"]],
-                    tick_label=["program-model leg", "conventional leg"])
-            dax.set_ylabel("avg drift, %FS/yr")
-            dax.set_title(f"twin-leg ratio {summ['measured_ratio_mean']:.4f} "
-                          "(suppression: DERIVED_HYBRID - see citations)",
-                          fontsize=8)
+            rates = [st.get("rate_pct_fs_yr") or 0.0 for st in ag["stations"]]
+            dax.bar(range(len(rates)), rates, tick_label=[st["station"] for st in ag["stations"]])
+            dax.set_ylabel("datasheet aging, %FS/yr")
+            dax.set_title(f"{ag['n_over_rating']} station(s) over rating; {ag['n_without_rate']} without a rate on record", fontsize=8)
             self.dcanvas.draw_idle()
             self._refresh_citations()
-
-        def _case(self):
-            path = session.case_study("operator_case_study.md")
-            self.log_view.append(f"case study -> {path}")
 
         def _ingest(self):
             path, _ = QFileDialog.getOpenFileName(

@@ -65,8 +65,8 @@ other) automatically.
 1. **Data-room verification.** We ingest a well's existing exports (surveys, EDR,
    logs, plan files) verbatim, cross-checksum them against each other, and deliver
    a discrepancy report in which every finding is reproducible from your own files.
-2. **Plan-vs-actual and twin-stream reconciliation.** Your planned trajectory and
-   drilled surveys, or twin gauge streams, reconciled with disclosed thresholds —
+2. **Plan-vs-actual and two-stream reconciliation.** Your planned trajectory and
+   drilled surveys, or gauge streams against the described well, reconciled with disclosed thresholds —
    divergences located and quantified, causes identified where the data supports it.
 3. **Strata inference with stated uncertainty.** Where the data permits (density,
    gravity, sonic), the inverse engine delivers property columns with stated

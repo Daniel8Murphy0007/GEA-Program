@@ -234,3 +234,120 @@ summary; `docs/HISTORY.md` the record by layer.
   decode subprocess output as UTF-8, and the arrow is plain text. Verified
   under a cp1252 pipe before re-sending. Nothing else had been missed: the
   version, CHANGELOG section, SHIP_MESSAGE and ship-log chain all passed.
+
+## 2026-10-02 (later) - the physics made standard
+
+- The question was put plainly: is the predecessor's physics in the engine? Yes - renamed,
+  not removed. `quartz_hpht_extension.py` held the four constants and the
+  fixed divisor under a program-owned name; the reconciler's band, the
+  model card, the simulator's synthetic drift, the bench ratio test, the
+  service-life divergence, the case study, the desktop panels, the demo and
+  the help page I had written that morning all carried it. The standalone
+  guard caught the word, not the number.
+- Removed, not relabelled: the model, its constants, the trims, the second
+  leg, the ratio machinery, the template preset and its engineering-fit
+  knees and exponents, the case study module and command. Kept: the datasheet
+  rate (`gauge_aging.py`), the reconciler's classification on it, the bench
+  rebuilt as the datasheet-conformance test with a register, the service-life
+  arithmetic on the datasheet rate, the simulator as a synthetic generator
+  whose settings are labelled as such.
+- Found on the way: a stale editable install in the cloud workspace still
+  resolved the deleted modules from the old folder - exactly the failure
+  `gea doctor` was built for; uninstalled. Section AK imports the removed
+  names (spelled in halves so the guard does not flag the test itself) and
+  expects ImportError.
+- Re-derived against the datasheet-only engine: C4/C5 (a 3 psi/yr datasheet
+  drift needs a 400-day window to resolve above the bias gate - the test now
+  uses one), AA17/AA34 (the +40 psi injection measures 43.1 psi once the
+  simulator's noise lost the removed model's shaping), A2/A8, E3-E5, H1/H2,
+  I1-I5. Gate 240/240 in the cloud; guard 0 findings with the new patterns.
+
+## 2026-10-02 (later still) - the second leg begins
+
+- The owner's brief for the second leg: the site's seismic records, treated
+  as noise by conventional processing, carry the signatures of every rig
+  within range; the leg should map them. Assessed before building: drill-bit
+  and machinery seismic, passive arrays and interferometry are standard;
+  InSAR-like Doppler tomography of well tracks and a hundred-mile reach are
+  not supportable from one site, and nothing was promised. The first step is
+  a number - at what distance does a known rig show in a record - and the
+  leg is built so that number comes first.
+- Public data found for it: TexNet (network TX, open FDSN at the BEG, Texas
+  RRC permits as ground truth - the closest fit), EarthScope/IRIS, Utah FORGE
+  nodal and DAS sets and Brady's Geothermal nodal data on the DOE GDR
+  (CC-BY). The owner said go.
+- Built: `seismic.py` (miniSEED Steim1/Steim2/int/float reader and writer,
+  SAC reader and writer, content detection, FDSN dataselect/station client,
+  Welch PSD, spectrogram, persistent lines, band power), `seismic_detect.py`
+  (sources CSV, haversine, the detectability test with its four verdicts and
+  the bracketed radius, a labelled synthetic scene and selftest), `gea
+  seismic` with eight actions, the `seismic` help page, `files.detect` kinds
+  `mseed`/`sac` with the well import refusing them, section AL (5 checks).
+- Independent check of the decoder: neither the cloud workspace nor PyPI
+  from it could supply a reference, but the device VM reaches PyPI, so
+  `pymseed` (libmseed 3.5.4) was installed there, outside the repository,
+  and wrote Steim1/Steim2/int32 records of a seeded 1,904-sample series that
+  exercises every packing form including 2^29 jumps. This program's reader
+  decoded them bit for bit; libmseed read this program's Steim1, Steim2,
+  int32, int16 and float32 records back exactly. The libmseed files are now
+  `gea/reference/` with a provenance file carrying their hashes and the
+  series' hash, and AL1 repeats the check on every run.
+- Found on the way: Python 3.10's `fromisoformat` rejects a four-digit
+  fraction (the 0.1 ms miniSEED time); `parse_time` pads to microseconds. A
+  synthetic engine tone above Nyquist aliased into the band; the scene now
+  keeps nothing above 80 % of Nyquist, as a recorder's anti-alias filter
+  would. A line present in a tenth of the windows was invisible to a
+  median-over-all-windows strength; the strength is now the median excess in
+  the windows where the line is present, and adjacent bins collapse to one
+  line.
+- Not possible from here: fetching real TexNet or EarthScope data - both the
+  cloud workspace and the device VM are refused at the proxy. The owner
+  fetches the first record from a browser and drops it into the clone;
+  the command and the URL form are in the help page and README.
+- The kit-workflow failure, read at last from the public Actions pages (the
+  API and the logs still need a sign-in): windows-kit failed in 38 s at
+  "Install the kit the way a client does", linux-kit passed and attached its
+  kit to the v0.4.0 release. The cause is one line: `cd dist\gea-program-*-win64`
+  under `shell: cmd` - cmd.exe's `cd` does not expand wildcards, so the step
+  exited 1 before install.cmd ran. Fixed with a `for /d` resolution of the
+  folder; `workflow_dispatch` gained a `release_tag` input so a manual run
+  attaches both kits to the existing v0.4.0 release. The `ci/` mirror of the
+  workflow is byte-identical again. What the Windows kit's own install and
+  gate do on the runner is still unseen - that line failed before them.
+- Asked where the report templates and the other two wells went: nothing was
+  ever deleted - GEA-Program's git history has no deleted report or template
+  file, the reports are built in code (`client_reports.py`, nine builders:
+  the predecessor's eight plus the transient report), and the quickstart
+  runs one catalogue well (Volve 15/9-F-12) by design, with F-14's nine days
+  in the same excerpt reachable through a second `--catalog-well`. Awaiting
+  the owner's word on which three wells were meant.
+- "Wrong answer about the reports, look harder" - and it was. The twelve
+  report files the owner meant were found in the session's own outputs
+  folder: rendered on 2026-09-28/29 by the predecessor's build 1.90.0 and
+  sent into the chat as samples, never committed to any repository (no git
+  history in either repo has them), and carrying the removed model card's
+  name. The answer is `docs/report_samples/`: `tools/render_report_samples.py`
+  renders seventeen reports from the current checkout (five minutes: the SAT
+  protocol runs the gate and the synthetic field is 720 hours), names each
+  with its command in SAMPLES.md, labels the synthetic ones, and the kit
+  builder copies the folder in as `report-samples/`. Section AM holds the
+  set to the build number, so a bump without a re-render fails the gate;
+  README's shipping section says to re-render after the bump.
+- The owner's SBOM screenshot (PyQt6, asyncua, paho-mqtt, pymodbus, xlrd,
+  pyserial "not installed") was from a development checkout, not a kit; the
+  kit already carried live, plotting and xls. `desktop` (PyQt6, ~85 MB of
+  wheels) is now in the default extras and in the workflow; checked from the
+  device VM that pip resolves PyQt6's abi3 wheel for win_amd64/cp312 with the
+  flags the builder uses.
+
+## 2026-10-03 - the v0.5.0 ship prepared
+
+- "Update files and prepare the ship": version 0.5.0 in pyproject.toml and
+  gea.__version__; the `[Unreleased]` section headed `[v0.5.0] - 2026-10-03`
+  in CHANGELOG and HISTORY; SHIP_MESSAGE.txt written with the tag on its first
+  line (the deleted modules are not named there - the guard reads the ship
+  message as any tracked file, and only the changelog, history and this log
+  may carry a removed name in a removal line). docs/report_samples re-rendered
+  at build 0.5.0 (section AM holds them to it). Gate run in the cloud and on
+  the development machine; guard 0 findings; the clone synced. The owner
+  runs `.\ship.ps1`; `git add -A` in it records the two deleted modules.

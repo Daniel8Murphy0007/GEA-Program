@@ -5,6 +5,114 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.5.0] - 2026-10-03 - standard physics only, the second leg begins, the report samples, and the kit made whole
+
+### Removed
+- The program's own gauge aging model. Until v0.4.0 the drift band had two
+  edges: the instrument's datasheet aging rate, and a second model that
+  scaled it by a fixed composition of engineering constants inherited from the
+  predecessor program - a fixed divisor just below one on the datasheet rate, with no
+  field validation on record. Both the model and its constants are removed
+  from the package (`quartz_hpht_extension.py` deleted), together with
+  everything built on the comparison between the two: the two-leg bench ratio
+  test, the service-life divergence curves, the depth-sweep case study
+  (`case_study.py` deleted, `gea case-study` removed), the instrument "trims",
+  and the suppression panels of the desktop windows and the demo. The
+  datasheet rate alone remains, and the program adds nothing to it.
+- The template gauge preset (a baseline and stress "knees" and "exponents"
+  that were engineering fits from the predecessor's design note). The default
+  datasheet is now the cited GEOQ 177 30,000 psi entry; `GaugeSpec` carries
+  only published numbers (full scale, drift specification, accuracy, rating)
+  and its citation, and a datasheet JSON with any other field is declined.
+
+### Added
+- The second leg begins: `gea/seismic.py` reads miniSEED (SEED 2.4 data
+  records; Steim1, Steim2, int16/int32, float32/float64; byte order and record
+  length from the header and blockette 1000; records joined into traces with
+  gaps listed) and SAC, both decided by content; writes both (so a recorder's
+  CSV can be archived in the format the archives use); fetches from any FDSN
+  dataselect/station service (`--base texnet`, `--base iris`, or a URL) with
+  the request filed beside the file; and produces Welch PSDs, spectrograms,
+  band power and the persistent lines above a running-median floor. The
+  Steim decoders are proven bit for bit against records written by libmseed
+  (`gea/reference/`, with provenance), in both directions.
+- `gea/seismic_detect.py`: the detectability test - one station's record
+  against a CSV of known rigs (position, working window); verdict per rig
+  (DETECTED / NOT_DETECTED / AMBIGUOUS / INSUFFICIENT_WINDOWS) from band power
+  in the rig's exclusive windows against the quiet baseline; the lines that
+  belong to a detected rig and not to the quiet hours; the radius bracketed
+  between the farthest rig heard and the nearest not heard; NO_QUIET_BASELINE
+  when the record has no hour with every listed rig down. The report prints
+  its basis and what it will not call a measurement. A labelled synthetic
+  scene (`SIMULATION_SELF_TEST`) exercises every verdict.
+- `gea seismic` (info, spectrum, lines, fetch, stations, detect, convert,
+  selftest); the `seismic` help page; `files.detect` names `mseed` and `sac`
+  and the well import refuses them; `gea/reference/*` as package data.
+- Acceptance section AL (5 checks): the libmseed records decode to the filed
+  series; the writer's records read back in every encoding and a gap splits a
+  channel; SAC round-trips; the spectra find exactly the tones put in and
+  Parseval holds; the detectability test earns every verdict on the scene;
+  the CLI, the help page and the FDSN URL builder work without a network.
+  Gate: 246 checks.
+- `docs/report_samples/`: one rendered example of every client report
+  (dashboard index, gauge drift for the two Volve wells and for a monitored
+  synthetic historian, well-test validation, alarm and event, data
+  resilience, the six model cards, the accuracy statement, a monthly SLA
+  report, the SAT protocol), produced by `tools/render_report_samples.py`
+  from this checkout and named in `SAMPLES.md` with the command behind each;
+  the synthetic ones say SYNTHETIC. Shipped inside the install kit as
+  `report-samples/`. Section AM (1 check) holds the set to the build.
+- The install kit carries every optional dependency by default (`desktop`
+  added: PyQt6), so `gea sbom` from a kit lists them all as installed.
+- `gea/gauge_aging.py`: the one aging function - the datasheet's published
+  drift specification as the rate, with an `over_rating` flag above the
+  instrument's rated temperature or full scale (flagged, never changed).
+- `gea bench` rebuilt as the datasheet-conformance test, the bench record the
+  drift report cites as NONE ON RECORD until it exists: one gauge against a
+  reference standard at a held setpoint, the drift slope with its standard
+  error against the datasheet specification, verdicts WITHIN_DATASHEET /
+  EXCEEDS_DATASHEET / INSUFFICIENT_SPAN / INSUFFICIENT_SNR, the serial and
+  certificate on the record, a JSON-lines register (`--out`).
+  `BENCH_TEST_PROTOCOL.md` and `docs/commercial/BENCH_READINESS.md` rewritten
+  for it.
+- `gea service-life`: years to the error budget from the datasheet rate per
+  station; a station whose tool has no published rate carries none.
+- `tool_library.user_gauge_tool`: a tool from the user's own datasheet.
+- Acceptance section AK (4 checks): the rate is the datasheet number at every
+  temperature and pressure; the removed model does not import and none of
+  its names, constants or ratio appear in any module, help page or protocol;
+  a datasheet cannot carry model parameters; the reconciler's band and the
+  simulator's outputs carry no model quantity. `tools/standalone_check.py`
+  blocks the removed model's names, phrases and numbers in every tracked file.
+
+### Fixed
+- The install-kit workflow's Windows job (`build-installer.yml`) failed on the
+  v0.4.0 tag in 38 seconds at "Install the kit the way a client does": the
+  step opened the kit folder with `cd dist\gea-program-*-win64`, and cmd.exe's
+  `cd` does not expand wildcards. The folder is now resolved with `for /d`
+  first. The Linux job had passed and attached its kit to the v0.4.0 release;
+  the Windows kit was never built there. A manual run (`workflow_dispatch`)
+  now takes an optional `release_tag` and attaches both kits to that existing
+  release, so the v0.4.0 Windows kit can be added without a new tag.
+
+### Changed
+- `reconciler.py`: DRIFT_CONSISTENT is a slope between half and twice the
+  datasheet rate; the station record carries `datasheet_rate_psi_yr`,
+  `datasheet_accuracy_psi` and `over_rating` instead of an envelope pair.
+- `client_reports.py`: the drift table's "Aging envelope" column is
+  "Datasheet aging rate"; the model card is `gauge_aging_rate`.
+- `downhole_engine.py`: each station's aging rate comes from its tool's
+  datasheet; a tool whose cited page publishes no rate (the piezoresistive
+  class) carries `NO_RATE_ON_RECORD` rather than a representative fit; the
+  CSV export carries readings only.
+- `tool_library.py`: the quartz entries are `quartz_pt_geoq177_30k` and
+  `quartz_pt_geoq177_16k`; the piezoresistive class is PARAMETERS_USER_SUPPLIED.
+- Acceptance sections A, C, E, H, I, AA re-derived against the datasheet-only
+  engine (the injected-offset checks AA17/AA34 now measure 43.1 psi for a
+  +40 psi injection, the simulator's synthetic noise having lost the removed
+  model's shaping).
+- The gate banner names GEA-Program.
+
 ## [v0.4.0] - 2026-10-02 - doctor, files, the operator's experience, instruments and transients, hardening, and the help library
 
 ### Added

@@ -13,7 +13,7 @@ GEA-Program is licensed under the **Mozilla Public License 2.0** (repository
 ## What ENRGYONE offers on top
 
 - **Pilot engagements** (see `PILOT_PROPOSAL_SUBSURFACE_SURVEYING.md`): data-room
-  verification, twin-stream reconciliation, strata inference with stated
+  verification, two-stream reconciliation, strata inference with stated
   uncertainty, delivered as reproducible reports from the client's own files.
 - **Site integration:** tag maps for OPC UA, MQTT (Sparkplug B) and Modbus,
   gauge datasheets and tool-library entries with citations, alarm definitions,

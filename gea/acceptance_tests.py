@@ -27,8 +27,8 @@ Sections:
   D. Catalogue integrity  - all entries load; provenance mandatory keys;
                             verbatim spot pins on archived values
   E. Operator loop        - blocking rating check, acknowledged override,
-                            run, service life, case study, reconcile+alerts,
-                            citations (DERIVED_HYBRID labeling present)
+                            run, service life, reconcile+alerts, citations
+                            (the datasheet named as the only aging source)
   F. Ports & protocol     - registry states + disciplined refusals
   G. Gamma / lithology    - unit-disciplined channel detection on the
                             catalogue's own trap cases; Vsh + formation
@@ -88,14 +88,10 @@ def section_a_cli(tmp: str) -> None:
     head = body.splitlines()[0] if body else ""
     rows = body.count("\n") - 1
     ok(r.returncode == 0 and "T=measured" in r.stdout
-       and all(c in head for c in ("P_S1", "T_S1", "P_S6",
-                                   "avg_program_drift_pct",
-                                   "avg_conventional_drift_pct",
-                                   "measured_ratio_mean"))
-       and rows >= 20
-       and 1.02 < float(body.splitlines()[1].split(",")[head.split(",").index("measured_ratio_mean")]) < 1.05,
-       "A2 run --well ktb_hb: measured profile banner, 6-gauge CSV with "
-       "comparison columns, suppression ratio in-file")
+       and all(c in head for c in ("P_S1", "T_S1", "P_S6")) and "program" not in head and "ratio" not in head
+       and rows >= 20 and "datasheet aging" in r.stdout,
+       "A2 run --well ktb_hb: measured profile banner, 6-gauge CSV of readings only (no model columns), "
+       "the datasheet aging rate on the summary line")
 
     r = _cli(["run", "--td", "20300", "--gauges", "4", "--steps", "10",
               "--out", "run_tpl.csv"], tmp)
@@ -133,10 +129,12 @@ def section_a_cli(tmp: str) -> None:
        "A7 reconcile --live-catalog: Volve F-12 measured drawdown classifies "
        "UNEXPLAINED_TREND (drawdown is not drift)")
 
-    r = _cli(["case-study", "--well", "site_1027", "--out", "case_1027.md"], tmp)
-    body = Path(tmp, "case_1027.md").read_text() if Path(tmp, "case_1027.md").exists() else ""
-    ok(r.returncode == 0 and len(body) > 800 and "site_1027" in body,
-       "A8 case-study --well: one-page markdown on the measured 1027 well")
+    r = _cli(["bench", "--selftest"], tmp)
+    j = json.loads(r.stdout) if r.returncode == 0 else {}
+    ok(r.returncode == 0 and j.get("status") == "SIMULATION_SELF_TEST" and j.get("ok") is True
+       and j["cases"]["three_times_rate"]["verdict"] == "EXCEEDS_DATASHEET" and j["cases"]["too_short"]["verdict"] == "INSUFFICIENT_SPAN",
+       "A8 bench --selftest: the bench arithmetic on synthetic series - a gauge drifting at three times its datasheet rate is EXCEEDS_DATASHEET, "
+       "a 10-day record is INSUFFICIENT_SPAN; the output is labelled a simulation self-test")
 
 
 def section_b_las(tmp: str) -> None:
@@ -182,9 +180,9 @@ def section_c_reconciler(tmp: str) -> None:
     rec = Reconciler(cfg)
     md = 15000.0
     pred, _ = rec.predicted_baseline(md)
-    uq_env, cv_env = rec.drift_envelope_psi_yr(md)
+    rate = rec.datasheet_rate_psi_yr(md)['rate_psi_yr']               # the datasheet's own aging rate at this station (psi/yr)
     c = rec.cfg
-    days = 60
+    days = 400                                                           # a datasheet-rate drift (3 psi/yr here) needs a long window to show
     t = np.arange(days) * 86400.0
     ty = t / (365.25 * 86400.0)
     rng = np.random.default_rng(11)
@@ -213,13 +211,13 @@ def section_c_reconciler(tmp: str) -> None:
        "model-mismatch")
     ok(classify(pred + noise + 12.0 * c.model_mismatch_psi) == "UNEXPLAINED_OFFSET",
        "C3 UNEXPLAINED_OFFSET: constant offset far beyond model mismatch")
-    drift_slope = 0.9 * cv_env
-    ok(0.5 * uq_env <= drift_slope <= c.drift_envelope_margin * cv_env
+    drift_slope = 0.9 * rate
+    ok(rate > 0 and 0.5 * rate <= drift_slope <= c.drift_envelope_margin * rate
        and drift_slope * span > bias_gate
        and classify(pred + noise + drift_slope * (ty - ty.mean())) == "DRIFT_CONSISTENT",
-       "C4 DRIFT_CONSISTENT: slope inside the published drift envelope")
-    ok(classify(pred + noise + 60.0 * cv_env * (ty - ty.mean())) == "UNEXPLAINED_TREND",
-       "C5 UNEXPLAINED_TREND: slope far outside the envelope")
+       "C4 DRIFT_CONSISTENT: a slope of the order of the gauge's datasheet aging rate, over a window long enough to resolve it")
+    ok(classify(pred + noise + 60.0 * rate * (ty - ty.mean())) == "UNEXPLAINED_TREND",
+       "C5 UNEXPLAINED_TREND: a slope far beyond the datasheet rate")
     short = rec.reconcile(stream((pred + noise)[:5]) if False else LiveStream(
         name="short", source_format="synth", index_kind="time_s", index=t[:5],
         channels={"P_raw_psi_S1": StreamChannel(
@@ -265,26 +263,27 @@ def section_e_operator(tmp: str) -> None:
     s.start_run(acknowledge_over_rating=True)
     ok(any("ACKNOWLEDGED" in l for l in s.log),
        "E2 operator: override is explicit and logged")
-    s.set_toolstring([(lo + 200.0, "quartz_pt_program_geoq177_30k")])
+    s.set_toolstring([(lo + 200.0, "quartz_pt_geoq177_30k")])
     s.start_run(); summ = s.step(5)
-    ok(summ["avg_conventional_drift_pct"] > summ["avg_program_drift_pct"],
-       "E3 operator: twin-leg run on the measured well")
+    ok(summ["stations"][0]["rate_pct_fs_yr"] == 0.01 and summ["stations"][0]["status"] == "DATASHEET_RATE" and summ["n_without_rate"] == 0,
+       "E3 operator: a run on the measured well reports the station's datasheet aging rate and nothing else")
     sl = s.service_life(years=1.0)
-    ok("final_separation_psi" in sl, "E4 operator: service-life summary")
-    out = str(Path(tmp, "op_case.md"))
-    s.case_study(out)
-    ok(Path(out).stat().st_size > 800, "E5 operator: case study written")
+    ok("years_to_budget" in sl and sl["rate_psi_yr"][0] == 3.0 and sl["years_to_budget"][0] == 50.0,
+       "E4 operator: service-life summary - the datasheet rate (3 psi/yr at 30,000 psi full scale) reaches a 0.5 %FS budget in 50 years")
+    s.set_toolstring([(lo + 200.0, "piezoresistive_pt_class")])
+    s.start_run(acknowledge_over_rating=True); summ = s.step(2)
+    ok(summ["stations"][0]["rate_pct_fs_yr"] is None and "NO_RATE_ON_RECORD" in summ["stations"][0]["status"] and summ["n_without_rate"] == 1,
+       "E5 operator: a tool whose cited page publishes no drift rate carries none - the program does not invent one")
     s.reconcile(live_catalog="volve_f12_f14_production_excerpt",
                 live_well="15/9-F-12", station_md_ft=10000.0)
     ok(len(s.alerts()) == 1
        and s.alerts()[0]["classification"] == "UNEXPLAINED_TREND",
        "E6 operator: the Volve drawdown surfaces as an alert")
     cit = s.citations()
-    ok("DERIVED_HYBRID" in cit["suppression"]
-       and "NOT a derived" in cit["suppression"]
+    ok("datasheet" in cit["aging"] and "nothing is added" in cit["aging"] and "geopsi.com" in (cit["gauge_spec"] or "")
        and cit["well_provenance"] and cit["tools"],
-       "E7 operator: citations pane content - suppression honestly labeled, "
-       "well provenance + tool sources present")
+       "E7 operator: citations pane content - the aging rate named as the datasheet's with nothing added, the datasheet's source, "
+       "well provenance and tool sources present")
     try:
         launch_operator_app()
         ok(True, "E8 operator GUI: launched (PyQt6 present)")
@@ -365,30 +364,22 @@ def section_h_mixed() -> None:
     s = OperatorSession()
     info = s.load_well("site_1027", n_gauges=4)
     lo, hi = info["window_ft"]
-    s.set_toolstring([(lo + 300.0, "quartz_pt_program_geoq177_30k"),
-                      (lo + 700.0, "quartz_pt_conventional_geoq177_30k"),
+    s.set_toolstring([(lo + 300.0, "quartz_pt_geoq177_30k"),
+                      (lo + 700.0, "quartz_pt_geoq177_16k"),
                       (lo + 1100.0, "piezoresistive_pt_class"),
                       (lo + 1500.0, "fiber_dts_geopulse")])
-    s.start_run(); s.step(3)
+    s.start_run(acknowledge_over_rating=True); s.step(3)
     m = s.mixed_report()
     st = m["stations"]
-    ok(m["twin_leg_stations"] == 1 and m["single_or_refused_stations"] == 3
-       and st[0]["status"] == "TWIN_LEGS"
-       and "NO_PROGRAM_LEG" in st[1]["status"]
-       and st[1]["conventional_drift_pct"] is not None
-       and "NO_PROGRAM_MODEL" in st[2]["status"]
-       and st[2]["conventional_drift_pct"] is not None
-       and "PARAMETERS_USER_SUPPLIED" in st[3]["status"]
-       and st[3]["conventional_drift_pct"] is None,
-       "H1 mixed string: four tool classes on one string, each with its "
-       "honest legs (twin / reference-only / labeled envelope / refused)")
-    ok(m["aggregate_over_twin_stations_only"] is not None
-       and m["aggregate_over_twin_stations_only"]["measured_ratio_mean"] > 1.0,
-       "H2 mixed string: aggregate computed over twin stations ONLY, "
-       "counts disclosed")
-    ok(float(s.engine.P[3]) > 1000.0,
-       "H3 mixed string: a refused-model station still streams well P/T "
-       "(the well's state is the well's)")
+    ok(len(st) == 4 and st[0]["rate_pct_fs_yr"] == 0.01 and st[1]["rate_pct_fs_yr"] == 0.01
+       and st[0]["gauge_spec"] == "geoq177_30k" and st[1]["gauge_spec"] == "geoq177_16k"
+       and st[2]["rate_pct_fs_yr"] is None and "NO_RATE_ON_RECORD" in st[2]["status"]
+       and st[3]["rate_pct_fs_yr"] is None and "NO_RATE_ON_RECORD" in st[3]["status"]
+       and m["n_without_rate"] == 2 and m["avg_rate_pct_fs_yr"] == 0.01,
+       "H1 mixed string: four tool classes on one string - two quartz gauges carry their own datasheets' rates, "
+       "the piezoresistive class and the fibre interrogator carry none (nothing published), and the average is over the stations that have one")
+    ok(all("DATASHEET_RATE" in x["status"] or "OVER_RATING" in x["status"] or "NO_RATE" in x["status"] for x in st),
+       "H2 mixed string: every station's status names where its number came from, or that there is none")
     cfg = demo_config("ktb_hb")
     cfg.toolstring = ToolString(stations=[
         (cfg.profile.depths_ft[-1] - 30.0, "piezoresistive_pt_class")])
@@ -407,25 +398,35 @@ def section_h_mixed() -> None:
 
 
 def section_i_bench() -> None:
-    from .bench import bench_selftest
+    from .bench import bench_selftest, bench_analysis, fit_slope
+    from .gauge_specs import GAUGE_SPECS
     r = bench_selftest()
-    ok(r["verdict"] == "MEASURED_CONFIRMS"
-       and abs(r["measured_ratio"] - r["prediction_ratio"]) < 0.02
-       and "SIMULATION_SELF_TEST" in r["mode"]
-       and "NOT the physics" in r["mode"]
-       and "DERIVED_HYBRID" in r["prediction_status"],
-       "I1 bench: self-test confirms the analysis arithmetic on synthetic "
-       "legs AND labels itself a simulation (not a measurement)")
-    ok(bench_selftest(conv_scale=1.25)["verdict"] == "MEASURED_REFUTES",
-       "I2 bench: the refutation path is live - a first-class outcome, "
-       "not an error")
-    ok(bench_selftest(days=10)["verdict"] == "INSUFFICIENT_SPAN",
-       "I3 bench: the 18-day span floor (the reconciler's own rule) refuses "
-       "a rushed bench")
-    ok(bench_selftest(noise_psi=60.0, days=30)["verdict"] == "INSUFFICIENT_SNR",
-       "I4 bench: a band containing both 1.0324 and 1.0 returns no verdict")
-    ok(Path(__file__).with_name("BENCH_TEST_PROTOCOL.md").exists(),
-       "I5 bench: the protocol document ships inside the package")
+    c = r["cases"]
+    ok(r["status"] == "SIMULATION_SELF_TEST" and r["ok"] and c["three_times_rate"]["verdict"] == "EXCEEDS_DATASHEET"
+       and c["too_short"]["verdict"] == "INSUFFICIENT_SPAN" and c["at_datasheet_rate"]["verdict"] in ("WITHIN_DATASHEET", "INSUFFICIENT_SNR"),
+       "I1 bench: the self-test labels itself a simulation and exercises every verdict - a gauge drifting at three times its datasheet "
+       "rate is EXCEEDS_DATASHEET, ten days is INSUFFICIENT_SPAN, a gauge exactly at its rate cannot be told from the bound")
+    spec = GAUGE_SPECS["geoq177_30k"]
+    days = np.arange(0, 180, 1.0); t = days * 86400.0
+    rng = np.random.default_rng(3)
+    p_good = 12000.0 + 0.3 * 3.0 * t / (365.25 * 86400.0) + rng.normal(0, 0.05, len(t))     # 0.3 x the datasheet rate, 0.05 psi noise
+    ref = 12000.0 + 2.0 * np.sin(t / 86400.0 / 20.0)                                              # the setpoint wanders 2 psi
+    r_good = bench_analysis(t, p_good + (ref - 12000.0), spec, t, ref, serial="SN-1", certificate_id="CERT-1")
+    r_noref = bench_analysis(t, p_good + (ref - 12000.0), spec)
+    ok(r_good["verdict"] == "WITHIN_DATASHEET" and r_good["serial"] == "SN-1" and r_good["datasheet_rate_pct_fs_yr"] == 0.01
+       and "subtracted" in r_good["reference"] and r_good["fit"]["n"] == 180
+       and r_noref["verdict"] in ("INSUFFICIENT_SNR", "WITHIN_DATASHEET", "EXCEEDS_DATASHEET") and r_noref["fit"]["rms_resid_psi"] > r_good["fit"]["rms_resid_psi"],
+       "I2 bench: a gauge drifting at a third of its datasheet rate for 180 days against a wandering reference is WITHIN_DATASHEET once the "
+       "reference is subtracted, with the serial and certificate on the record; without the reference the setpoint's wander inflates the residual")
+    r_bad = bench_analysis(t, 12000.0 + 4.0 * 3.0 * t / (365.25 * 86400.0) + rng.normal(0, 0.05, len(t)), spec)
+    ok(r_bad["verdict"] == "EXCEEDS_DATASHEET" and "first-class outcome" in r_bad["detail"] and r_bad["band_pct_fs_yr"][0] > 0.01,
+       "I3 bench: four times the datasheet rate is EXCEEDS_DATASHEET - a first-class outcome, not an error")
+    ok(bench_analysis(t[:12], p_good[:12], spec)["verdict"] == "INSUFFICIENT_SPAN",
+       "I4 bench: the 18-day span floor (the reconciler's own rule) refuses a rushed bench")
+    proto = Path(__file__).with_name("BENCH_TEST_PROTOCOL.md")
+    body = proto.read_text(encoding="utf-8") if proto.exists() else ""
+    ok(proto.exists() and "WITHIN_DATASHEET" in body and "EXCEEDS_DATASHEET" in body and "suppression" not in body.lower() and "two legs" not in body.lower(),
+       "I5 bench: the protocol document ships inside the package and describes the datasheet-conformance test, with no ratio claim")
 
 
 def section_j_strata() -> None:
@@ -754,10 +755,9 @@ def section_x_do_all_three() -> None:
     ok(1.05 < ratio < 1.12,
        "X6: the +10 pct investigation - the v1 cross-family refutation "
        "REPRODUCES LIVE (measured/predicted = %.4f on the co-located "
-       "window); the (1+F_TRZ) family-offset factor is a FLAGGED CANDIDATE "
-       "(the record benchmark 6228/5675 = 1.0974 sits 0.24 pct from 1.1; "
-       "+1.7 pct on the window mean) - falsifiable on the deep-sonic file, "
-       "not canon; the method fix (family priors, V2 in-sample -1.2 pct) "
+       "window): a transferred oceanic-crust prior under-predicts the KTB "
+       "sonic by about a tenth; no constant explains it and none is "
+       "offered; the method fix (family priors, V2 in-sample -1.2 pct) "
        "stands PINNED_AWAITING_DEEP_SONIC" % ratio)
 
 
@@ -992,7 +992,7 @@ def section_aa_client_reports(tmp: str) -> None:
     r1 = mon.run_scheduled(off, now=T0)
     ok(r1["action"] == "EVALUATED" and r1["drift_detected"]
        and r1["proposals"][0]["type"] == "REFIT_OFFSET" and r1["proposals"][0]["status"] == "PROPOSED"
-       and abs(r1["proposals"][0]["after"] - 40.66) < 0.5 and r1["proposals"][0]["before"] == 0.0
+       and abs(r1["proposals"][0]["after"] - 43.12) < 0.5 and r1["proposals"][0]["before"] == 0.0
        and r1["sla_clocks"] == {"notify_due": "2026-10-02", "fallback_due": "2026-10-05", "refit_due": "2026-10-15"},
        "AA17 drift monitor: a +40 psi injected offset is evaluated as CALIBRATION_OFFSET, "
        "logged, proposed as a re-fit with before/after coefficients, and the SLA "
@@ -1099,7 +1099,7 @@ def section_aa_client_reports(tmp: str) -> None:
     ok([e["event"] for e in eng2.events] == ["ACTIVATED", "ACKNOWLEDGED", "CLEARED"]
        and eng2.events[1]["operator"] == "op1" and eng2.active() == [],
        "AA30 acknowledgement: ACTIVE_UNACKED -> ACTIVE_ACKED -> CLEARED with the operator on the record")
-    cat_al = TagCatalogue.from_stream(_ingest_fn(str(Path(tmp, "tm_dm.csv"))), gauge_spec=GAUGE_SPECS["template_generic"])
+    cat_al = TagCatalogue.from_stream(_ingest_fn(str(Path(tmp, "tm_dm.csv"))), gauge_spec=GAUGE_SPECS["geoq177_30k"])
     defs = defaults_from_catalogue(cat_al)
     wpath = write_alarm_definitions(defs, str(Path(tmp, "alarms.json")))
     defs2 = load_alarm_definitions(wpath)
@@ -1109,7 +1109,7 @@ def section_aa_client_reports(tmp: str) -> None:
        "AA31 catalogue-derived definitions: over-range (datasheet basis) and quality "
        "(record-layer basis) per tag, no invented process setpoint, JSON round-trip")
     _cli(["telemetry", "--hours", "24", "--seed", "3", "--out", "tm_al.csv"], tmp)
-    r = _cli(["alarms", "--file", "tm_al.csv", "--spec", "template_generic", "--out", "alm"], tmp)
+    r = _cli(["alarms", "--file", "tm_al.csv", "--spec", "geoq177_30k", "--out", "alm"], tmp)
     body = Path(tmp, "alm", "alarm_event_report.md").read_text() if Path(tmp, "alm", "alarm_event_report.md").exists() else ""
     kp = json.loads(Path(tmp, "alm", "alarm_event_report.json").read_text())["kpis"] if body else {}
     ok(r.returncode == 0 and kp.get("n_activations", 0) > 200 and kp.get("flood_10min_bins", 0) >= 1
@@ -1124,21 +1124,22 @@ def section_aa_client_reports(tmp: str) -> None:
     from .client_reports import model_card_report
     cards = build_cards(monitor_log_dir=str(Path(tmp, "mon")))
     ids = [c.model_id for c in cards]
-    ok(ids == ["well_baseline", "gauge_aging_envelope", "strata_property_estimator",
+    ok(ids == ["well_baseline", "gauge_aging_rate", "strata_property_estimator",
                "rock_density_inventory", "quality_rules", "well_test_detector"]
        and all(c.inputs and c.settings and c.calibration_data and c.evaluation and c.limitations and c.components for c in cards),
        "AA33 model cards: six cards, each with inputs, settings, calibration data, "
        "evaluation, limitations and component hashes")
     wb = cards[0]
     ok(len(wb.refit_history) == 1 and wb.refit_history[0]["status"] == "APPLIED"
-       and wb.refit_history[0]["after"] == 40.66,
+       and abs(wb.refit_history[0]["after"] - 43.12) < 0.5,
        "AA34 re-fit history: the well-baseline card carries the monitor's APPLIED "
        "offset correction with before/after")
     ge = cards[1]
     ok(any(e["value"] == "NONE ON RECORD" for e in ge.evaluation)
-       and any("without field validation" in x["basis"] for x in ge.settings),
-       "AA35 the aging-envelope card states NONE ON RECORD for field validation and "
-       "labels the lower bound as an unvalidated engineering model")
+       and any(x["setting"] == "aging rate" and "datasheet" in x["value"] and "nothing added" in x["basis"] for x in ge.settings)
+       and not any("model" in x["value"].lower() and "program" in x["value"].lower() for x in ge.settings),
+       "AA35 the aging-rate card states NONE ON RECORD for field validation, names the datasheet as the only source of the rate, "
+       "and carries no aging model of the program's own")
     se = cards[2]
     ok(sum(1 for e in se.evaluation if "NOT_ACCEPTABLE" in e["value"]) == 5
        and all(d["url"].startswith("http") for d in se.calibration_data if d["records"] != "-"),
@@ -1242,7 +1243,7 @@ def section_aa_client_reports(tmp: str) -> None:
     r = orchestrate(str(Path(tmp, "dash")),
                     [{"entry": "volve_f12_f14_production_excerpt", "well": "15/9-F-12", "md_ft": 10000.0},
                      {"entry": "volve_f12_f14_production_excerpt", "well": "15/9-F-14", "md_ft": 9500.0}],
-                    [{"path": str(Path(tmp, "tm_al.csv"))}], td_ft=10500.0, gauge_spec=GAUGE_SPECS["template_generic"],
+                    [{"path": str(Path(tmp, "tm_al.csv"))}], td_ft=10500.0, gauge_spec=GAUGE_SPECS["geoq177_30k"],
                     outages=["2026-01-01T06:00:00Z,2026-01-01T09:30:00Z"], month="2026-01", site_name="acceptance site")
     page = Path(r["index"]).read_text(encoding="utf-8")
     d = collect(str(Path(tmp, "dash")))
@@ -2647,9 +2648,9 @@ def section_aj_help(tmp: str) -> None:
         st3 = call("GET", "/api/help/nope")[0]
         ok(st_anon == 401 and st == 200 and [t["topic"] for t in idx["topics"]] == [t for t, _, _ in H.INDEX] and all(t["summary"] for t in idx["topics"])
            and idx["views"] == H.VIEW_TOPIC and st2 == 200 and pg["markdown"] == H.page("drift") and "<b>The command</b>" in pg["html"]
-           and "NONE ON RECORD" in pg["html"] and "0.9686" in pg["html"] and st3 == 404,
+           and "NONE ON RECORD" in pg["html"] and "datasheet" in pg["html"] and st3 == 404,
            "AJ3 the API serves the same pages to a signed-in viewer: the index with each page's summary and the view-to-topic map, "
-           "a page as Markdown and as rendered HTML (the drift page names the 0.9686 factor and NONE ON RECORD), 404 for an unknown topic")
+           "a page as Markdown and as rendered HTML (the drift page names the datasheet and NONE ON RECORD), 404 for an unknown topic")
     finally:
         svc.stop()
     # the wheel: build it when pip and setuptools are here, and look inside
@@ -2681,9 +2682,250 @@ def section_aj_help(tmp: str) -> None:
            "the release workflow builds the wheel and runs this section from the installed kit")
 
 
+def section_ak_standard_physics(tmp: str) -> None:
+    """Section AK - standard physics only: the gauge aging rate is the datasheet's
+    number and nothing else; the model that once scaled it is gone from the
+    package, its names and numbers are blocked by the guard, a datasheet cannot
+    smuggle model parameters in, and no client output carries a program model."""
+    import importlib.util
+    import re
+    from .gauge_aging import aging_rate
+    from .gauge_specs import GAUGE_SPECS, DEFAULT_SPEC, load_gauge_spec_json, GaugeSpec
+    from .reconciler import Reconciler, ReconcilerConfig
+    from . import SimulatorConfig, DownholeEngine
+    spec = GAUGE_SPECS["geoq177_30k"]
+    cold, hot, deep = aging_rate(spec, 25.0, 5000.0), aging_rate(spec, 200.0, 5000.0), aging_rate(spec, 100.0, 40000.0)
+    ok(cold["rate_pct_fs_yr"] == hot["rate_pct_fs_yr"] == deep["rate_pct_fs_yr"] == spec.baseline_drift_pct_fs_yr
+       and cold["rate_psi_yr"] == 3.0 and not cold["over_rating"] and hot["over_rating"] and "above the rated 177" in hot["over_rating_detail"]
+       and deep["over_rating"] and "above full scale" in deep["over_rating_detail"] and abs(cold["accuracy_psi"] - 7.5) < 1e-9
+       and "no dependence" in cold["basis"] and "published drift specification" in cold["basis"],
+       "AK1 the aging rate is the datasheet's published specification at every temperature and pressure (3 psi/yr for a 0.01 %FS/yr gauge at "
+       "30,000 psi); above the rating or the full scale it is flagged, never changed; the accuracy band is the datasheet's too")
+    gone = []
+    removed = ["quartz_hpht" + "_extension", "case_" + "study"]                # spelled in halves: the guard blocks the whole names
+    for m in removed:
+        try:
+            importlib.import_module("gea." + m); gone.append(m)
+        except ImportError:
+            pass
+    gone += [m for m in removed if (Path(__file__).parent / (m + ".py")).exists()]
+    src = Path(__file__).parent
+    words = ["canonical_" + "suppression", "suppression " + "composition", "K_" + "MEX", "PHI_" + "RES", "F_" + "TRZ", "DERIVED_" + "HYBRID",
+             "k_structural" + "_trim", "0." + "9686", "1." + "0324", "program aging " + "model"]
+    pat = re.compile("|".join(re.escape(w) for w in words) + r"|\b25\s*/\s*12\b")
+    hits = []
+    for py in sorted(src.glob("*.py")):
+        if py.name == Path(__file__).name:
+            continue
+        for i, line in enumerate(py.read_text(encoding="utf-8").splitlines(), 1):
+            if pat.search(line):
+                hits.append(f"{py.name}:{i}")
+    for md in sorted((src / "help").glob("*.md")) + [src / "BENCH_TEST_PROTOCOL.md"]:
+        if pat.search(md.read_text(encoding="utf-8")):
+            hits.append(md.name)
+    ok(not gone and not hits,
+       "AK2 the removed aging model is absent from the package: its modules do not import, and no module, help page or protocol names its functions, "
+       "its constants, its ratio or its trims")
+    bad = []
+    for name, d in (("no source", {"name": "x", "full_scale_psi": 1000, "baseline_drift_pct_fs_yr": 0.1}),
+                    ("hidden model parameter", {"name": "x", "source": "s", "full_scale_psi": 1000, "baseline_drift_pct_fs_yr": 0.1, "thermal_knee_C": 150})):
+        p = Path(tmp, "spec_bad.json"); p.write_text(json.dumps(d))
+        try:
+            load_gauge_spec_json(str(p)); bad.append(name)
+        except (ValueError, TypeError):
+            pass
+    p = Path(tmp, "spec_ok.json"); p.write_text(json.dumps({"name": "mine", "source": "my datasheet, page 3", "full_scale_psi": 10000, "baseline_drift_pct_fs_yr": 0.02, "max_temp_C": 150}))
+    mine = load_gauge_spec_json(str(p))
+    ok(not bad and all(("fetched" in s.source and "geopsi.com" in s.source) for s in GAUGE_SPECS.values()) and DEFAULT_SPEC.name == "geoq177_30k"
+       and aging_rate(mine)["rate_psi_yr"] == 2.0 and set(GaugeSpec.__dataclass_fields__) == {"name", "source", "full_scale_psi", "baseline_drift_pct_fs_yr", "max_temp_C", "accuracy_pct_fs", "notes"},
+       "AK3 a datasheet is only its published numbers and its citation: a spec without a source or with an extra model parameter is declined, "
+       "every preset cites a fetched public page, the default is a cited datasheet, and a user's own datasheet gives its own rate")
+    rec = Reconciler(SimulatorConfig(td_ft=16000.0, sensor_depths_ft=[15000.0], gauge_spec=spec))
+    ds = rec.datasheet_rate_psi_yr(15000.0)
+    c = ReconcilerConfig()
+    eng = DownholeEngine(SimulatorConfig(gauge_spec=spec))
+    for _ in range(5):
+        eng.step()
+    summ = eng.summary()
+    csvp = eng.export_csv(str(Path(tmp, "ak_run.csv")))
+    head = Path(csvp).read_text().splitlines()[0]
+    flat = json.dumps(summ).lower()
+    ok(ds["rate_psi_yr"] == 3.0 and ds["gauge_spec"] == "geoq177_30k" and c.drift_envelope_margin == 2.0
+       and all(k not in flat for k in ("suppression", "ratio", "program", "trim", "conventional"))
+       and summ["aging"]["stations"][0]["status"] in ("DATASHEET_RATE",) and all(("program" not in h and "ratio" not in h) for h in head.split(","))
+       and set(head.split(",")) == {"time_s"} | {f"P_{s.name}_{s.depth_ft:.0f}ft" for s in eng.sensors} | {f"T_{s.name}_{s.depth_ft:.0f}ft" for s in eng.sensors},
+       "AK4 the reconciler's band is the datasheet rate alone (half to twice it); the simulator's summary and CSV carry readings and the "
+       "datasheet rate per station, and no model quantity of the program's own")
+
+
+def section_al_seismic(tmp: str) -> None:
+    """Section AL - the second leg's ingest and its first number: the miniSEED
+    decoder is proven against records written by libmseed (the reference
+    implementation), the writer's records read back exactly, SAC round-trips,
+    the spectra find what was put in and nothing else, the detectability test
+    earns every verdict on a labelled synthetic scene, and the CLI, the help
+    page and the file router all know the new kind."""
+    import hashlib
+    import re
+    import subprocess as _sp
+    from . import seismic as S
+    from . import seismic_detect as D
+    from . import helplib as H
+    from .files import detect as _detect, read_any as _files_read_any
+    pkg = Path(__file__).parent
+    ref_dir = pkg / "reference"
+    prov = json.loads((ref_dir / "libmseed_steim.provenance.json").read_text(encoding="utf-8"))
+    # AL1 - the libmseed records: every file's sha256 as filed; the decoded samples are the filed series, bit for bit
+    sha_ok = all(hashlib.sha256((ref_dir / name).read_bytes()).hexdigest() == meta["sha256"] for name, meta in prov["files"].items())
+    full = S.read_mseed(str(ref_dir / "libmseed_steim2_4096.mseed"))[0]
+    full1 = S.read_mseed(str(ref_dir / "libmseed_steim1_4096.mseed"))[0]
+    small = S.read_mseed(str(ref_dir / "libmseed_steim2_512.mseed"))
+    want = prov["samples"]
+    x = full.data.astype(np.int64)
+    ok(sha_ok and full.encoding == "STEIM2" and full1.encoding == "STEIM1" and full.npts == full1.npts == want["count"] == 1904
+       and np.array_equal(full.data, full1.data) and int(x[0]) == want["first"] and int(x[-1]) == want["last"] and int(x.sum()) == want["sum"]
+       and hashlib.sha256(full.data.astype("<i4").tobytes()).hexdigest() == want["sha256_of_int32_little_endian"]
+       and int(np.abs(np.diff(x)).max()) == want["largest_difference"] and full.id == "TX.PB01.00.HHZ" and full.sample_rate == 100.0
+       and S.iso(full.starttime) == "2024-03-01T12:34:56.1234Z"
+       and len(small) == 1 and small[0].npts == 900 and np.array_equal(small[0].data, full.data[:900]) and small[0].sample_rate == 50.0 and not small[0].gaps,
+       "AL1 the Steim1 and Steim2 decoders reproduce, bit for bit, 1,904 samples written by libmseed (the format's reference implementation) that exercise "
+       "every packing form including 2^29 jumps; the record header gives the channel, 100 Hz and the start time to 0.1 ms; two 512-byte records join into one trace")
+    # AL2 - the writer's own records read back exactly in every encoding; a gap splits and is listed; SAC round-trips; the router knows the kinds
+    rng = np.random.default_rng(5)
+    t0 = S.parse_time("2025-06-01T00:00:00Z")
+    rt_ok = True
+    for enc, scale in (("STEIM1", 3), ("STEIM1", 2e6), ("STEIM2", 3), ("STEIM2", 40000), ("INT32", 1e5), ("INT16", 100), ("FLOAT32", 10), ("FLOAT64", 10)):
+        xs = np.cumsum(rng.normal(0, scale, 5000)).astype(np.int64)
+        if enc == "INT16":
+            xs = np.clip(xs, -30000, 30000)
+        if enc.startswith("FLOAT"):
+            xs = xs.astype(np.float64) * 0.5 + 0.25
+        p = str(Path(tmp, f"al_{enc}_{scale:g}.mseed"))
+        S.write_mseed([S.Trace("TX", "PB01", "00", "HHZ", t0, 100.0, xs)], p, enc, 512)
+        back = S.read_mseed(p)
+        exp = xs.astype("f4").astype("f8") if enc == "FLOAT32" else xs
+        rt_ok = rt_ok and len(back) == 1 and np.array_equal(back[0].data, exp) and back[0].encoding == enc and abs(back[0].starttime - t0) < 1e-4
+    a = S.Trace("TX", "PB01", "", "HHZ", t0, 100.0, np.arange(1000))
+    b = S.Trace("TX", "PB01", "", "HHZ", t0 + 20.0, 100.0, np.arange(1000))
+    gp = str(Path(tmp, "al_gap.mseed")); S.write_mseed([a, b], gp)
+    gap = S.read_mseed(gp)
+    sacp = str(Path(tmp, "al.sac")); S.write_sac(a, sacp, 31.5, -100.25)
+    sac = S.read_sac(sacp)
+    det_m, det_s, det_las = _detect(gp), _detect(sacp), _detect(str(pkg / "catalog" / "collingwood_1_28_ks_complete.las"))
+    try:
+        _files_read_any(gp)
+        refused = False
+    except ValueError as e:
+        refused = "gea seismic" in str(e)
+    ok(rt_ok and len(gap) == 2 and gap[0].gaps == gap[1].gaps and len(gap[0].gaps) == 1 and gap[0].gaps[0]["gap_s"] == 10.0 and gap[0].gaps[0]["kind"] == "gap"
+       and sac.encoding == "SAC" and sac.sample_rate == 100.0 and np.array_equal(sac.data, a.data) and abs(sac.starttime - t0) < 1e-3 and sac.id == "TX.PB01..HHZ"
+       and sac.sac["stla"] == 31.5 and abs(sac.sac["stlo"] + 100.25) < 1e-6
+       and [t.id for t in S.read_any(sacp)] == ["TX.PB01..HHZ"] and len(S.read_any(gp)) == 2
+       and det_m["kind"] == "mseed" and det_s["kind"] == "sac" and det_las["kind"] == "las" and refused,
+       "AL2 records this program writes (Steim1, Steim2, int32, int16, float32, float64; 512-byte records) read back sample-exact; a 10 s gap splits a channel into two traces "
+       "that both list it; SAC round-trips with its station coordinates; the file router names mseed and sac by content and refuses to import a seismic record as a well")
+    # AL3 - spectra: a tone lands in its bin, Parseval holds, the lines found are the lines put in, an intermittent tone is not called persistent
+    fs = 100.0
+    tt = np.arange(0, 1800, 1 / fs)
+    rng = np.random.default_rng(2)
+    noise = rng.normal(0, 100.0, len(tt))
+    sig = noise + 400.0 * np.sin(2 * np.pi * 12.5 * tt) + 150.0 * np.sin(2 * np.pi * 1.7 * tt)
+    burst = (tt < 120.0) * 800.0 * np.sin(2 * np.pi * 7.25 * tt)              # present in the first two of thirty windows only
+    tr = S.Trace("XX", "S1", "", "HHZ", 0.0, fs, sig + burst)
+    f, p = S.welch_psd(sig, fs, nperseg=4096)
+    peak = float(f[np.argmax(p)])
+    parseval = float(np.sum(p) * (f[1] - f[0]))
+    spec = S.spectrogram(tr, 60.0)
+    lines = S.persistent_lines(spec, (1.0, 50.0))
+    freqs = sorted(round(l["freq_hz"], 1) for l in lines["lines"])
+    loose = S.persistent_lines(spec, (1.0, 50.0), min_fraction=0.05)
+    ok(abs(peak - 12.5) <= (f[1] - f[0]) and abs(parseval / np.var(sig) - 1.0) < 0.05 and freqs == [1.7, 12.5]
+       and all(l["persistence"] == 1.0 for l in lines["lines"])
+       and min(abs(l["freq_hz"] - 7.25) for l in loose["lines"]) < 0.05 and spec["unit"].startswith("counts^2/Hz")
+       and "not_a_measurement" in lines and "does not name the machine" in lines["not_a_measurement"],
+       f"AL3 Welch PSD: a 12.5 Hz tone peaks in its bin, the integrated PSD equals the variance within 5 % (Parseval), the persistent lines are exactly the two tones put in "
+       f"(found {freqs}), a tone present in two windows of thirty is not persistent at the default and is found when the floor is lowered; the spectra are in counts^2/Hz "
+       f"with the response not removed, and the line list says it does not name the machine")
+    # AL4 - the detectability test on the labelled scene: every verdict earned, the radius bracketed, the refusals when the scene cannot be judged
+    st = D.selftest()
+    res = st["result"]
+    v = {r["source_id"]: r["verdict"] for r in res["sources"]}
+    tr_s, srcs, meta = D.synthetic_scene()
+    # two rigs working the same hour: AMBIGUOUS; a rig spanning the whole record: no quiet baseline
+    overlap = [D.Source("A", srcs[0].lat, srcs[0].lon, srcs[0].start, srcs[0].end), D.Source("B", srcs[1].lat, srcs[1].lon, srcs[0].start, srcs[0].end)]
+    amb = D.detectability_test(tr_s, 31.0, -102.0, overlap)
+    always = D.detectability_test(tr_s, 31.0, -102.0, [D.Source("ALL", 31.1, -102.0, tr_s.starttime - 1, tr_s.endtime + 1)])
+    d_1deg = D.haversine_km(31.0, -102.0, 32.0, -102.0)
+    ok(st["status"] == "SIMULATION_SELF_TEST" and st["ok"] and res["status"] == "OK" and v == {"RIG-1": "DETECTED", "RIG-2": "DETECTED", "RIG-3": "DETECTED", "RIG-4": "NOT_DETECTED", "RIG-5": "NOT_DETECTED"}
+       and abs(res["farthest_detected_km"] - 20.0) < 0.05 and abs(res["nearest_not_detected_km"] - 45.0) < 0.05 and "between 20.0 km" in res["radius"] and res["quiet_windows"] == 30
+       and all(abs(r["distance_km"] - d) < 0.05 for r, d in zip(res["sources"], (3.0, 8.0, 20.0, 45.0, 90.0)))
+       and all(any(abs(l - 1.4 * k) < 0.03 for l in r["lines_hz"]) for r in res["sources"][:1] for k in (1, 2, 3, 4))
+       and {r["verdict"] for r in amb["sources"]} == {"AMBIGUOUS"} and always["status"] == "NO_QUIET_BASELINE" and "nothing to compare" in always["detail"]
+       and abs(d_1deg - 111.19) < 0.05 and "one station detects, it does not locate" in res["not_a_measurement"][0] and meta["status"] == "SIMULATION_SELF_TEST",
+       "AL4 the detectability test on the labelled synthetic scene: three rigs heard, two not, the radius bracketed between 20 km (farthest heard) and 45 km (nearest missed), "
+       "the near rig's pump harmonics found as its lines; two rigs sharing an hour are AMBIGUOUS, a rig never down leaves NO_QUIET_BASELINE and no verdict; "
+       "one degree of latitude is 111.19 km; the report says one station detects and does not locate")
+    # AL5 - the CLI, the help page, the FDSN URLs (built, not fetched), the package data
+    sp = str(Path(tmp, "al_scene.mseed")); S.write_mseed([tr_s], sp, "STEIM2")
+    srcp = str(Path(tmp, "al_rigs.csv")); D.write_sources_csv(srcs, srcp)
+    outp = str(Path(tmp, "al_detect.json"))
+    runs = {}
+    for key, args in {"selftest": ["--action", "selftest"], "info": ["--action", "info", "--file", sp],
+                      "detect": ["--action", "detect", "--file", sp, "--station-lat", "31", "--station-lon", "-102", "--sources", srcp, "--out", outp],
+                      "fetch": ["--action", "fetch"], "help": None}.items():
+        cmd = [sys.executable, "-m", "gea.cli", "help", "seismic"] if args is None else [sys.executable, "-m", "gea", "seismic"] + args
+        r = _sp.run(cmd, capture_output=True, timeout=600)
+        runs[key] = (r.returncode, r.stdout.decode("utf-8", "replace"), r.stderr.decode("utf-8", "replace"))
+    detj = json.loads(Path(outp).read_text(encoding="utf-8")) if Path(outp).exists() else {}
+    url = S.fdsn_url("texnet", "dataselect", network="TX", station="PB01", channel="HHZ", starttime="2024-03-01T00:00:00")
+    url2 = S.fdsn_url("iris", "station", network="TX", level="station", format="text")
+    pyproj = (pkg.parent / "pyproject.toml").read_text(encoding="utf-8") if (pkg.parent / "pyproject.toml").exists() else '"reference/*"'
+    ok(runs["selftest"][0] == 0 and "SIMULATION_SELF_TEST ok=True" in runs["selftest"][1]
+       and runs["info"][0] == 0 and "XX.SYN..HHZ" in runs["info"][1] and "STEIM2" in runs["info"][1] and "response not removed" in runs["info"][1]
+       and runs["detect"][0] == 0 and "between 20.0 km" in runs["detect"][1] and detj.get("status") == "OK" and len(detj.get("sources", [])) == 5
+       and runs["fetch"][0] == 1 and "needs --network" in runs["fetch"][2]
+       and runs["help"][0] == 0 and all(ln in runs["help"][1] for ln in H.REQUIRED_LINES) and "does not locate" in runs["help"][1] and not H.check("seismic")
+       and url.startswith("https://rtserve.beg.utexas.edu/fdsnws/dataselect/1/query?") and "network=TX" in url and url2.startswith("https://service.iris.edu/fdsnws/station/1/query?")
+       and '"reference/*"' in pyproj and (pkg / "reference" / "libmseed_steim2_4096.mseed").exists(),
+       "AL5 `gea seismic` selftest, info and detect run from the command line (the detect JSON carries five verdicts and the bracketed radius); fetch without its arguments "
+       "exits 1 naming them and touches no network; `gea help seismic` carries the four lines and says one station does not locate; FDSN URLs for TexNet and EarthScope "
+       "are built from the centre's name; the libmseed reference records ship as package data")
+
+
+def section_am_report_samples(tmp: str) -> None:
+    """Section AM - the report samples: one rendered example of every client
+    report lives in the repository (docs/report_samples) and ships in the kit,
+    rendered from this build by tools/render_report_samples.py; every file is
+    named in SAMPLES.md with the command behind it, carries this build number,
+    and the synthetic ones say so."""
+    from . import __version__
+    root = Path(__file__).parent.parent
+    d = root / "docs" / "report_samples"
+    if not d.is_dir():
+        d2 = root / "report-samples"                       # inside an installed kit
+        d = d2 if d2.is_dir() else d
+    if not d.is_dir():
+        ok(True, "AM1 (no checkout or kit folder here: the report samples are checked where docs/report_samples exists)")
+        return
+    want = {"dashboard_index.html", "gauge_drift_report_volve_F12.html", "gauge_drift_report_volve_F14.html", "well_test_validation_volve_F12.html",
+            "well_test_validation_volve_F14.html", "accuracy_statement_library.html", "model_card_gauge_aging_rate.html", "model_card_quality_rules.html",
+            "model_card_well_baseline.html", "model_card_well_test_detector.html", "model_card_rock_density_inventory.html",
+            "model_card_strata_property_estimator.html", "gauge_drift_report_monitored_SYNTHETIC.html", "alarm_event_report_SYNTHETIC.html",
+            "data_resilience_report_SYNTHETIC.html", "sla_report_SYNTHETIC.html", "sat_protocol.html"}
+    have = {p.name for p in d.glob("*.html")}
+    md = (d / "SAMPLES.md").read_text(encoding="utf-8") if (d / "SAMPLES.md").exists() else ""
+    texts = {n: (d / n).read_text(encoding="utf-8", errors="replace") for n in sorted(have & want)}
+    stale = sorted(n for n, t in texts.items() if f"build {__version__}" not in t and f"{__version__}" not in t)
+    unlabelled = sorted(n for n, t in texts.items() if "SYNTHETIC" in n and "SYNTHETIC" not in t)
+    foreign = sorted(n for n, t in texts.items() if "envelope" in t.lower() and "model_card_gauge_aging" in n)
+    ok(have == want and all(f"`{n}`" in md for n in want) and "tools/render_report_samples.py" in md and not stale and not unlabelled and not foreign,
+       f"AM1 docs/report_samples holds exactly the {len(want)} rendered reports, each named in SAMPLES.md with the command that made it, each carrying build "
+       f"{__version__} (re-rendered before every ship), the synthetic ones labelled SYNTHETIC in their text" + (f"; stale: {stale}" if stale else "")
+       + (f"; missing: {sorted(want - have)}; extra: {sorted(have - want)}" if have != want else ""))
+
+
 def main() -> int:
-    print("GEA Downhole Simulator - ACCEPTANCE SUITE (product gate, "
-          "independent of the physics corpus)")
+    print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     with tempfile.TemporaryDirectory() as tmp:
         section_a_cli(tmp)
         section_b_las(tmp)
@@ -2719,13 +2961,16 @@ def main() -> int:
         section_ah_band2(tmp)
         section_ai_hardening(tmp)
         section_aj_help(tmp)
+        section_ak_standard_physics(tmp)
+        section_al_seismic(tmp)
+        section_am_report_samples(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:
             print("  -", f)
         return 1
     print(f"[ACCEPTANCE] OK - {_PASS} checks passed. "
-          "The simulator is acceptable as an offline product.")
+          "The program is acceptable as an offline product.")
     return 0
 
 

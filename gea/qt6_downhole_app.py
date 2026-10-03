@@ -1,12 +1,11 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""qt6_downhole_app — PyQt6 GUI for the GEA Downhole Simulator (optional).
+"""qt6_downhole_app - PyQt6 window for the synthetic well (optional).
 
 Control panel + embedded matplotlib canvas, QTimer-driven stepping at 120 ms,
-CSV export button. The spinboxes are the ENGINEERING TRIMS (k_structural_trim /
-phi_coupling_trim, range 0.50-1.50, default 1.00) — the constants K_MEX = 25/12
-and Phi_res = 0.84 are locked inside the aging model and shown read-only.
+CSV export button. The panel shows each station's datasheet aging rate and
+whether the station is over the instrument's rating; there is nothing to tune.
 
 PyQt6 is an OPTIONAL dependency: `pip install PyQt6 matplotlib`.
 Run:  python -m gea.qt6_downhole_app
@@ -17,11 +16,10 @@ from __future__ import annotations
 import sys
 
 from .downhole_engine import SimulatorConfig, DownholeEngine
-from .quartz_hpht_extension import canonical_suppression
 
 try:
     from PyQt6.QtCore import QTimer
-    from PyQt6.QtWidgets import (QApplication, QDoubleSpinBox, QFormLayout,
+    from PyQt6.QtWidgets import (QApplication, QFormLayout,
                                  QGroupBox, QHBoxLayout, QLabel, QMainWindow,
                                  QPushButton, QVBoxLayout, QWidget)
     from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
@@ -62,29 +60,14 @@ if QT_AVAILABLE:
             control.setFixedWidth(360)
             clayout = QVBoxLayout(control)
 
-            gbox = QGroupBox("Aging-model constants (LOCKED)")
+            gbox = QGroupBox("Gauge aging (from the datasheet)")
             form0 = QFormLayout(gbox)
-            form0.addRow("K_MEX", QLabel("25/12 = 2.0833"))
-            form0.addRow("Phi_res", QLabel("0.84"))
-            form0.addRow("rho ratio", QLabel("F_TRZ = 0.1"))
-            form0.addRow("suppression", QLabel(f"{canonical_suppression():.4f} at unity trims"))
+            ag = self.engine.aging_summary()
+            form0.addRow("datasheet", QLabel(self.engine.summary()["gauge_spec"]))
+            for st in ag["stations"]:
+                rate = st.get("rate_pct_fs_yr")
+                form0.addRow(st["station"], QLabel((f"{rate:g} %FS/yr" if rate is not None else "no rate on record") + ("  OVER RATING" if str(st["status"]).startswith("OVER") else "")))
             clayout.addWidget(gbox)
-
-            tbox = QGroupBox("Engineering trims (instrument tuning)")
-            form = QFormLayout(tbox)
-            self.spin_k = QDoubleSpinBox()
-            self.spin_k.setRange(0.50, 1.50)
-            self.spin_k.setSingleStep(0.01)
-            self.spin_k.setValue(1.00)
-            self.spin_phi = QDoubleSpinBox()
-            self.spin_phi.setRange(0.50, 1.50)
-            self.spin_phi.setSingleStep(0.01)
-            self.spin_phi.setValue(1.00)
-            form.addRow("k_structural_trim", self.spin_k)
-            form.addRow("phi_coupling_trim", self.spin_phi)
-            self.spin_k.valueChanged.connect(self._on_trims)
-            self.spin_phi.valueChanged.connect(self._on_trims)
-            clayout.addWidget(tbox)
 
             self.btn_start = QPushButton("Start")
             self.btn_stop = QPushButton("Stop")
@@ -99,9 +82,6 @@ if QT_AVAILABLE:
             self.canvas = MplCanvas()
             main_layout.addWidget(control)
             main_layout.addWidget(self.canvas, stretch=1)
-
-        def _on_trims(self):
-            self.engine.set_global_trims(self.spin_k.value(), self.spin_phi.value())
 
         def _on_export(self):
             p = self.engine.export_csv()
@@ -123,8 +103,8 @@ if QT_AVAILABLE:
                 ax.legend(fontsize=7, loc="upper right")
             s = e.summary()
             self.statusBar().showMessage(
-                f"t={s['time_s']}s  avg drift={s['avg_drift_pct']}% FS/yr  "
-                f"suppression={s['canonical_suppression_at_unity_trims']} (unity trims)")
+                f"t={s['time_s']}s  datasheet aging={s['avg_drift_pct']} %FS/yr  "
+                f"{s['aging']['n_over_rating']} station(s) over rating")
             self.canvas.draw_idle()
 
 

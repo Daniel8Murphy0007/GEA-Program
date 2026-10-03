@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Model Card - Rock density inventory (cited anchors)</title>
+<style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
+<h1>Model Card - Rock density inventory (cited anchors)</h1>
+<table class="front">
+<tr><td>Model ID</td><td>rock_density_inventory</td></tr>
+<tr><td>Version</td><td>Downhole Gauge Monitoring build 0.5.0</td></tr>
+<tr><td>Owner</td><td>assigned by the client at deployment</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-03T00:24:09Z</td></tr>
+<tr><td>Inputs / datasets / evaluations</td><td>17 / 1 / 1</td></tr>
+</table>
+<h2>1. Intended use</h2>
+<p>Classify a measured bulk density into ranked candidate rock types by overlap with published density ranges.</p>
+<h2>2. Out-of-scope uses</h2>
+<p>Not a lithology log; overlapping ranges return several candidates by design; densities outside the inventory return no candidate.</p>
+<h2>3. Inputs and feature definitions (with sources)</h2>
+<table>
+<tr><th>Input</th><th>Unit / definition</th><th>Source</th></tr>
+<tr><td>quartz (mineral)</td><td>g/cc, anchor 2.65, range 2.63-2.66</td><td>anchor: standard geophysics density tables (Telford et al. 1990; Schoen 2015), range disclosed</td></tr>
+<tr><td>calcite (mineral)</td><td>g/cc, anchor 2.71, range 2.7-2.72</td><td>anchor: standard geophysics density tables (Telford et al. 1990; Schoen 2015), range disclosed</td></tr>
+<tr><td>dolomite (mineral)</td><td>g/cc, anchor 2.87, range 2.85-2.9</td><td>anchor: standard geophysics density tables (Telford et al. 1990; Schoen 2015), range disclosed</td></tr>
+<tr><td>halite (mineral)</td><td>g/cc, anchor 2.16, range 2.1-2.2</td><td>anchor: standard geophysics density tables (Telford et al. 1990; Schoen 2015), range disclosed</td></tr>
+<tr><td>gypsum (mineral)</td><td>g/cc, anchor 2.32, range 2.3-2.35</td><td>anchor: standard geophysics density tables (Telford et al. 1990; Schoen 2015), range disclosed</td></tr>
+<tr><td>anhydrite (mineral)</td><td>g/cc, anchor 2.97, range 2.9-3.0</td><td>anchor: standard geophysics density tables (Telford et al. 1990; Schoen 2015), range disclosed</td></tr>
+<tr><td>ice (mineral)</td><td>g/cc, anchor 0.917, range 0.9-0.92</td><td>anchor: standard geophysics density tables (Telford et al. 1990; Schoen 2015), range disclosed</td></tr>
+<tr><td>seawater (fluid)</td><td>g/cc, anchor 1.025, range 1.02-1.03</td><td>anchor: standard geophysics density tables (Telford et al. 1990; Schoen 2015), range disclosed</td></tr>
+<tr><td>granite (rock)</td><td>g/cc, anchor 2.67, range 2.5-2.81</td><td>anchor: standard geophysics density tables (Telford et al. 1990; Schoen 2015), range disclosed</td></tr>
+<tr><td>gneiss (rock)</td><td>g/cc, anchor 2.75, range 2.59-3.0</td><td>anchor: standard geophysics density tables (Telford et al. 1990; Schoen 2015), range disclosed</td></tr>
+<tr><td>basalt (rock)</td><td>g/cc, anchor 2.9, range 2.7-3.3</td><td>anchor: standard geophysics density tables (Telford et al. 1990; Schoen 2015), range disclosed</td></tr>
+<tr><td>shale (rock)</td><td>g/cc, anchor 2.4, range 1.95-2.7</td><td>anchor: standard geophysics density tables (Telford et al. 1990; Schoen 2015), range disclosed</td></tr>
+<tr><td>sandstone (rock)</td><td>g/cc, anchor 2.35, range 2.05-2.55</td><td>anchor: standard geophysics density tables (Telford et al. 1990; Schoen 2015), range disclosed</td></tr>
+<tr><td>limestone (rock)</td><td>g/cc, anchor 2.55, range 2.35-2.71</td><td>anchor: standard geophysics density tables (Telford et al. 1990; Schoen 2015), range disclosed</td></tr>
+<tr><td>amphibolite (rock)</td><td>g/cc, anchor 2.96, range 2.9-3.04</td><td>anchor: standard geophysics density tables (Telford et al. 1990; Schoen 2015), range disclosed</td></tr>
+<tr><td>peridotite (rock)</td><td>g/cc, anchor 3.3, range 3.1-3.4</td><td>anchor: standard geophysics density tables (Telford et al. 1990; Schoen 2015), range disclosed</td></tr>
+<tr><td>coal (rock)</td><td>g/cc, anchor 1.35, range 1.2-1.5</td><td>anchor: standard geophysics density tables (Telford et al. 1990; Schoen 2015), range disclosed</td></tr>
+</table>
+<h2>4. Settings and hyperparameters</h2>
+<table>
+<tr><th>Setting</th><th>Value</th><th>Basis</th></tr>
+<tr><td>anchors</td><td>17</td><td>standard geophysics density tables (Telford et al. 1990; Schoen 2015)</td></tr>
+</table>
+<h2>5. Calibration and training data (provenance)</h2>
+<table>
+<tr><th>Dataset</th><th>Records</th><th>Database</th><th>URL</th><th>Licence</th><th>Fetch date</th></tr>
+<tr><td>published density tables</td><td>17</td><td>Telford, Geldart &amp; Sheriff (1990); Schoen (2015)</td><td></td><td>published reference values</td><td></td></tr>
+</table>
+<h2>6. Evaluation, validation and back-test results (recomputed)</h2>
+<table>
+<tr><th>Metric</th><th>Result</th><th>Method</th></tr>
+<tr><td>anchor reproduction</td><td>worst anchor residual 0.000 %</td><td>each anchor re-derived at gate time</td></tr>
+</table>
+<h2>7. Known limitations</h2>
+<p>(1) Ranges overlap; the classifier returns ranked candidates, never one confident name.</p>
+<h2>8. Re-fit and retraining history</h2>
+<p>No re-fit on record for this model.</p>
+<h2>9. Components for inspection</h2>
+<p>Each component is named by role with the sha256 (first 16 hex) of the source file that implements it in this build; the delivered source matches these hashes.</p>
+<table>
+<tr><th>Component</th><th>sha256</th></tr>
+<tr><td>inventory and classifier</td><td>e716ba1cc5c6eadf</td></tr>
+</table>
+<footer>Generated from the live objects of this build; every evaluation is recomputed at generation time.</footer>
+</body></html>

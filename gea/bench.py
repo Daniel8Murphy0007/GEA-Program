@@ -1,144 +1,123 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""Bench-test analysis.
+"""bench - does this gauge drift within its datasheet? The bench record.
 
-The analysis half of BENCH_TEST_PROTOCOL.md: fit each leg's drift slope,
-propagate uncertainties into the conventional/GEA ratio, and return a
-verdict from the protocol's vocabulary (MEASURED_CONFIRMS /
-MEASURED_REFUTES / INSUFFICIENT_SPAN / INSUFFICIENT_SNR).
+The analysis half of BENCH_TEST_PROTOCOL.md. One gauge under test is held at
+a constant setpoint against a reference standard for weeks; its readings are
+logged; this module fits the drift slope with its standard error and compares
+it with the instrument's published drift specification. The outcome is the
+bench record the drift report has been waiting for: a gauge with a known
+history, measured against the rate the program uses, pass or fail, written
+down.
 
-Honesty rules:
-- The 18-day span floor is READ FROM the reconciler's own configuration -
-  the bench cannot be rushed past the product's standing rule.
-- The self-test is labeled SIMULATION_SELF_TEST in its own output: it
-  verifies the analysis arithmetic against the engine's twin models, and
-  proves NOTHING about physical gauges.
-- A refutation is a first-class outcome, not an error.
+Verdicts:
+    WITHIN_DATASHEET    the measured rate plus k sigma is inside the specification
+    EXCEEDS_DATASHEET   the measured rate minus k sigma is above the specification
+    INSUFFICIENT_SPAN   the record is shorter than the reconciler's own slope floor (18 days)
+    INSUFFICIENT_SNR    the k-sigma band contains both zero and the specification: more data, no verdict
+
+Rules:
+- The span floor is READ FROM the reconciler's configuration - the bench
+  cannot be rushed past the product's standing rule.
+- A reference series, when given, is subtracted first (the setpoint's own
+  wander is not the gauge's drift); without one the setpoint is assumed held.
+- The self-test is labelled SIMULATION_SELF_TEST in its own output: it checks
+  the arithmetic on synthetic data and proves nothing about a physical gauge.
+- EXCEEDS_DATASHEET is a first-class outcome, not an error.
 """
+
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Optional
 
 import numpy as np
 
-from .quartz_hpht_extension import (calculate_quartz_transducer_hpht_program,
-                                         canonical_suppression,
-                                         conventional_drift)
+from .gauge_aging import aging_rate
+from .gauge_specs import GaugeSpec, DEFAULT_SPEC
 from .reconciler import ReconcilerConfig
 
 YEAR_S = 365.25 * 86400.0
 
 
-def _leg_slope(times_s: np.ndarray, p_psi: np.ndarray,
-               full_scale_psi: float) -> dict:
-    """OLS drift slope of one leg at constant setpoint: %FS/yr with the
-    standard error of the slope propagated from the fit residuals."""
+def fit_slope(times_s, p_psi, full_scale_psi: float) -> dict:
+    """OLS drift slope of a series at constant setpoint: psi/yr and %FS/yr with the standard error from the residuals."""
     t = np.asarray(times_s, dtype=float) / YEAR_S
     p = np.asarray(p_psi, dtype=float)
     m = ~(np.isnan(t) | np.isnan(p))
     t, p = t[m], p[m]
     n = len(t)
     if n < 8:
-        raise ValueError(f"leg needs >= 8 finite samples (got {n})")
+        raise ValueError(f"a series needs >= 8 finite samples (got {n})")
     span_years = float(t.max() - t.min())
     A = np.vstack([t - t.mean(), np.ones(n)]).T
     coef, res, _, _ = np.linalg.lstsq(A, p, rcond=None)
     slope_psi_yr = float(coef[0])
     dof = max(n - 2, 1)
     sigma2 = float(res[0]) / dof if len(res) else float(np.var(p - A @ coef))
-    se_slope = float(np.sqrt(sigma2 / np.sum((t - t.mean()) ** 2)))
-    return {"n": n, "span_years": round(span_years, 4),
-            "slope_psi_yr": round(slope_psi_yr, 3),
-            "se_slope_psi_yr": round(se_slope, 3),
-            "drift_pct_fs_yr": round(slope_psi_yr / full_scale_psi * 100.0, 5),
-            "se_drift_pct_fs_yr": round(se_slope / full_scale_psi * 100.0, 5)}
+    se_slope = float(np.sqrt(sigma2 / np.sum((t - t.mean()) ** 2))) if np.sum((t - t.mean()) ** 2) > 0 else float('nan')
+    return {"n": n, "span_years": round(span_years, 4), "slope_psi_yr": round(slope_psi_yr, 3), "se_slope_psi_yr": round(se_slope, 3),
+            "drift_pct_fs_yr": round(slope_psi_yr / full_scale_psi * 100.0, 5), "se_drift_pct_fs_yr": round(se_slope / full_scale_psi * 100.0, 5),
+            "rms_resid_psi": round(float(np.sqrt(sigma2)), 3)}
 
 
-def bench_analysis(times_s, p_psi, conv_times_s, conv_p_psi,
-                   full_scale_psi: float = 30000.0,
-                   k_sigma: float = 2.0) -> dict:
-    """The protocol section 5 analysis. Inputs are the two legs' raw
-    pressure series at a constant setpoint; output carries the measured
-    ratio, its propagated uncertainty, the prediction, and the verdict."""
+def bench_analysis(times_s, p_psi, spec: Optional[GaugeSpec] = None, ref_times_s=None, ref_p_psi=None,
+                   k_sigma: float = 2.0, serial: str = '', certificate_id: str = '') -> dict:
+    """The protocol's section 5: the gauge's drift against its datasheet specification."""
+    spec = spec or DEFAULT_SPEC
     cfg = ReconcilerConfig()
-    uq = _leg_slope(times_s, p_psi, full_scale_psi)
-    cv = _leg_slope(conv_times_s, conv_p_psi, full_scale_psi)
-    prediction = canonical_suppression()
-    out = {"protocol": "BENCH_TEST_PROTOCOL.md section 5",
-           "prediction_ratio": round(prediction, 4),
-           "prediction_status": ("DERIVED_HYBRID composition - the quantity "
-                                 "this bench exists to confirm or refute"),
-           "leg": uq, "conventional_leg": cv,
-           "full_scale_psi": full_scale_psi}
+    t = np.asarray(times_s, dtype=float)
+    p = np.asarray(p_psi, dtype=float)
+    ref_note = 'no reference series given: the setpoint is taken as held'
+    if ref_times_s is not None and ref_p_psi is not None:
+        rt, rp = np.asarray(ref_times_s, dtype=float), np.asarray(ref_p_psi, dtype=float)
+        m = ~np.isnan(rp)
+        p = p - np.interp(t, rt[m], rp[m])                        # the gauge against the standard, not against the clock
+        ref_note = f'reference series subtracted ({int(m.sum())} points)'
+    fit = fit_slope(t, p, spec.full_scale_psi)
+    a = aging_rate(spec)
+    out = {"protocol": "BENCH_TEST_PROTOCOL.md section 5", "gauge_spec": spec.name, "serial": serial, "certificate_id": certificate_id,
+           "datasheet_rate_pct_fs_yr": a["rate_pct_fs_yr"], "datasheet_rate_psi_yr": round(a["rate_psi_yr"], 3),
+           "datasheet_source": spec.source, "fit": fit, "reference": ref_note, "k_sigma": k_sigma,
+           "measured_rate_pct_fs_yr": abs(fit["drift_pct_fs_yr"]), "measured_direction": ("up" if fit["slope_psi_yr"] >= 0 else "down")}
     min_span = float(cfg.min_trend_span_years)
-    if uq["span_years"] < min_span or cv["span_years"] < min_span:
+    if fit["span_years"] < min_span:
         out["verdict"] = "INSUFFICIENT_SPAN"
-        out["detail"] = (f"span floor {min_span:g} yr "
-                         f"(the reconciler's own >=18-day slope rule) not met "
-                         f"- no verdict; the bench cannot be rushed")
+        out["detail"] = (f"span {fit['span_years'] * 365.25:.0f} days is below the floor {min_span * 365.25:.0f} days "
+                         "(the reconciler's own slope rule) - no verdict; the bench cannot be rushed")
         return out
-    if uq["slope_psi_yr"] <= 0:
-        out["verdict"] = "INSUFFICIENT_SNR"
-        out["detail"] = ("program-model-leg slope is non-positive - a drift ratio has "
-                         "no meaning here; check setpoint stability")
-        return out
-    r = cv["slope_psi_yr"] / uq["slope_psi_yr"]
-    se_r = abs(r) * float(np.sqrt(
-        (cv["se_slope_psi_yr"] / cv["slope_psi_yr"]) ** 2
-        + (uq["se_slope_psi_yr"] / uq["slope_psi_yr"]) ** 2))
-    out["measured_ratio"] = round(r, 4)
-    out["se_ratio"] = round(se_r, 4)
-    lo, hi = r - k_sigma * se_r, r + k_sigma * se_r
-    contains_pred = lo <= prediction <= hi
-    contains_unity = lo <= 1.0 <= hi
-    if contains_pred and contains_unity:
-        out["verdict"] = "INSUFFICIENT_SNR"
-        out["detail"] = (f"the {k_sigma:.0f}-sigma band [{lo:.4f}, {hi:.4f}] "
-                         "contains BOTH the prediction and 1.0 - suppression "
-                         "cannot be distinguished from no-suppression; more "
-                         "data required, no verdict")
-    elif contains_pred:
-        out["verdict"] = "MEASURED_CONFIRMS"
-        out["detail"] = (f"measured R = {r:.4f} +/- {se_r:.4f} contains the "
-                         f"predicted {prediction:.4f} and excludes 1.0 - on "
-                         "REAL bench data this outcome would support "
-                         "relabeling per protocol section 6")
+    rate = abs(fit["drift_pct_fs_yr"])
+    se = fit["se_drift_pct_fs_yr"]
+    lo, hi = rate - k_sigma * se, rate + k_sigma * se
+    spec_rate = a["rate_pct_fs_yr"]
+    out["band_pct_fs_yr"] = [round(max(lo, 0.0), 5), round(hi, 5)]
+    if hi <= spec_rate:
+        out["verdict"] = "WITHIN_DATASHEET"
+        out["detail"] = f"measured {rate:.4f} +/- {k_sigma:.0f}x{se:.4f} %FS/yr is inside the specification {spec_rate:g} %FS/yr"
+    elif lo > spec_rate:
+        out["verdict"] = "EXCEEDS_DATASHEET"
+        out["detail"] = (f"measured {rate:.4f} +/- {k_sigma:.0f}x{se:.4f} %FS/yr is above the specification {spec_rate:g} %FS/yr - "
+                         "a first-class outcome: this gauge, at these conditions, drifts faster than its datasheet")
     else:
-        out["verdict"] = "MEASURED_REFUTES"
-        out["detail"] = (f"measured R = {r:.4f} +/- {se_r:.4f} excludes the "
-                         f"predicted {prediction:.4f} - a first-class "
-                         "outcome: the composition is falsified at these "
-                         "conditions; the label stays DERIVED_HYBRID with "
-                         "this refutation on record (protocol section 6)")
+        out["verdict"] = "INSUFFICIENT_SNR"
+        out["detail"] = (f"the {k_sigma:.0f}-sigma band [{max(lo, 0):.4f}, {hi:.4f}] %FS/yr straddles the specification {spec_rate:g} - "
+                         "more data (a longer span or a quieter setpoint) is needed for a verdict")
     return out
 
 
-def bench_selftest(days: int = 120, setpoint_psi: float = 10000.0,
-                   setpoint_temp_C: float = 150.0,
-                   noise_psi: float = 0.5, seed: int = 8,
-                   conv_scale: float = 1.0) -> dict:
-    """SIMULATION_SELF_TEST: synthesize both legs from the engine's own
-    drift models at the protocol's setpoint class and run the analysis.
-    Verifies the ARITHMETIC, proves nothing about gauges - and says so in
-    its own output. conv_scale != 1 exercises the refutation path."""
-    r_uq = float(calculate_quartz_transducer_hpht_program(
-        depth_m=3000.0, temp_c=setpoint_temp_C,
-        pressure_psi=setpoint_psi)["value"]["drift_pct"])
-    r_cv = conventional_drift(setpoint_temp_C, setpoint_psi) * conv_scale
-    fs = 30000.0
+def bench_selftest(seed: int = 7) -> dict:
+    """SIMULATION_SELF_TEST: synthetic series at the datasheet rate, at three times it, and too short - the arithmetic only."""
     rng = np.random.default_rng(seed)
-    t = np.arange(days) * 86400.0
-    ty = t / YEAR_S
-    p_uq = setpoint_psi + r_uq / 100.0 * fs * ty + rng.normal(0, noise_psi, days)
-    p_cv = setpoint_psi + r_cv / 100.0 * fs * ty + rng.normal(0, noise_psi, days)
-    out = bench_analysis(t, p_uq, t, p_cv, full_scale_psi=fs)
-    out["mode"] = ("SIMULATION_SELF_TEST: both legs synthesized from the "
-                   "engine's own models - this verifies the analysis "
-                   "arithmetic and the bench pipeline, NOT the physics; "
-                   "no gauge was measured")
-    out["synth_inputs"] = {"days": days, "setpoint_psi": setpoint_psi,
-                           "setpoint_temp_C": setpoint_temp_C,
-                           "noise_psi": noise_psi, "seed": seed,
-                           "conv_scale": conv_scale}
+    spec = DEFAULT_SPEC
+    fs = spec.full_scale_psi
+    rate_psi_yr = aging_rate(spec)["rate_psi_yr"]
+    days = np.arange(0, 120, 1.0)
+    t = days * 86400.0
+    out = {"status": "SIMULATION_SELF_TEST", "note": "synthetic series; proves the arithmetic, not a gauge", "cases": {}}
+    for name, mult, n_days in (("at_datasheet_rate", 1.0, 120), ("three_times_rate", 3.0, 120), ("too_short", 1.0, 10)):
+        tt = t[:n_days]
+        p = 10000.0 + mult * rate_psi_yr * tt / YEAR_S + rng.normal(0, 0.02, len(tt))
+        out["cases"][name] = {k: v for k, v in bench_analysis(tt, p, spec).items() if k in ("verdict", "detail", "measured_rate_pct_fs_yr", "band_pct_fs_yr", "fit")}
+    expect = {"at_datasheet_rate": ("WITHIN_DATASHEET", "INSUFFICIENT_SNR"), "three_times_rate": ("EXCEEDS_DATASHEET",), "too_short": ("INSUFFICIENT_SPAN",)}
+    out["ok"] = all(out["cases"][k]["verdict"] in v for k, v in expect.items())
     return out

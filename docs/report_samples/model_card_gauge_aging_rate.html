@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Model Card - Gauge aging rate from the datasheet</title>
+<style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
+<h1>Model Card - Gauge aging rate from the datasheet</h1>
+<table class="front">
+<tr><td>Model ID</td><td>gauge_aging_rate</td></tr>
+<tr><td>Version</td><td>Downhole Gauge Monitoring build 0.5.0</td></tr>
+<tr><td>Owner</td><td>assigned by the client at deployment</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-03T00:24:09Z</td></tr>
+<tr><td>Inputs / datasets / evaluations</td><td>3 / 2 / 1</td></tr>
+</table>
+<h2>1. Intended use</h2>
+<p>The instrument&#x27;s published drift specification (psi/yr at its full scale), used to judge whether a measured residual trend is of the order of the aging the datasheet allows for (half the rate to twice the rate) or something else.</p>
+<h2>2. Out-of-scope uses</h2>
+<p>Not a measurement of any specific gauge&#x27;s drift; not a warranty figure; not a substitute for recalibration records; no dependence on temperature or pressure is modelled - above the rating the rate is flagged, not changed.</p>
+<h2>3. Inputs and feature definitions (with sources)</h2>
+<table>
+<tr><th>Input</th><th>Unit / definition</th><th>Source</th></tr>
+<tr><td>gauge datasheet</td><td>full scale psi; drift %FS/yr; rating C; accuracy %FS</td><td>GEO PSI GEOQ 177 public specification table (Quartzdyne sensor), geopsi.com/products/downhole-gauges/geoq-177/, fetched 2026-08-23: 16,000 p</td></tr>
+<tr><td>gauge datasheet</td><td>full scale psi; drift %FS/yr; rating C; accuracy %FS</td><td>GEO PSI GEOQ 177 public specification table (Quartzdyne sensor), geopsi.com/products/downhole-gauges/geoq-177/, fetched 2026-08-23: 30,000 p</td></tr>
+<tr><td>station pressure and temperature</td><td>psi, degC</td><td>well baseline model (for the rating check only)</td></tr>
+</table>
+<h2>4. Settings and hyperparameters</h2>
+<table>
+<tr><th>Setting</th><th>Value</th><th>Basis</th></tr>
+<tr><td>aging rate</td><td>the datasheet drift specification, as published</td><td>cited datasheet; nothing added</td></tr>
+<tr><td>classification margin</td><td>0.5 x to 2 x the rate</td><td>disclosed engineering heuristic (reconciler)</td></tr>
+</table>
+<h2>5. Calibration and training data (provenance)</h2>
+<table>
+<tr><th>Dataset</th><th>Records</th><th>Database</th><th>URL</th><th>Licence</th><th>Fetch date</th></tr>
+<tr><td>geoq177_16k</td><td>-</td><td>public datasheet</td><td></td><td>vendor-published specification</td><td>2026-08-23</td></tr>
+<tr><td>geoq177_30k</td><td>-</td><td>public datasheet</td><td></td><td>vendor-published specification</td><td>2026-08-23</td></tr>
+</table>
+<h2>6. Evaluation, validation and back-test results (recomputed)</h2>
+<table>
+<tr><th>Metric</th><th>Result</th><th>Method</th></tr>
+<tr><td>field validation of the rate against a gauge with a known history</td><td>NONE ON RECORD</td><td>no gauge-drift field or bench dataset has been evaluated against the datasheet rate by this program; the bench test (gea bench) is the instrument for it</td></tr>
+</table>
+<h2>7. Known limitations</h2>
+<p>(1) The rate is a specification, not a measurement. (2) Datasheet drift bounds are reference-condition limits; stressed-service drift can exceed them, and the program does not model that.</p>
+<h2>8. Re-fit and retraining history</h2>
+<p>No re-fit on record for this model.</p>
+<h2>9. Components for inspection</h2>
+<p>Each component is named by role with the sha256 (first 16 hex) of the source file that implements it in this build; the delivered source matches these hashes.</p>
+<table>
+<tr><th>Component</th><th>sha256</th></tr>
+<tr><td>aging rate</td><td>ce3a3facd8ea357a</td></tr>
+<tr><td>gauge datasheets</td><td>74ca901f20606853</td></tr>
+</table>
+<footer>Generated from the live objects of this build; every evaluation is recomputed at generation time.</footer>
+</body></html>

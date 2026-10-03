@@ -49,7 +49,7 @@ from typing import Dict, List, Optional
 
 from .workspace import Workspace, WorkspaceError, sha256_file, utc_now_iso, slug
 
-KINDS = ('las', 'historian_csv', 'csv', 'pangaea', 'operator_table', 'segy', 'xls', 'json', 'unknown')
+KINDS = ('las', 'historian_csv', 'csv', 'pangaea', 'operator_table', 'segy', 'mseed', 'sac', 'xls', 'json', 'unknown')
 TEXT_SNIFF = 64 * 1024
 
 
@@ -84,6 +84,11 @@ def detect(path: str) -> dict:
             ebcdic, asc = '', ''
         if ebcdic.startswith('C 1') or ebcdic.startswith('C1 ') or asc.startswith('C 1') or asc.startswith('C1 '):
             return {'kind': 'segy', 'detail': 'SEG-Y seismic volume (survey input; not a gauge stream)', 'bytes': size, 'text': False}
+    # miniSEED: a six-digit sequence number and a data-quality byte; SAC: header version 6 or 7 at byte 304
+    if size >= 256 and head[6:7] in (b'D', b'R', b'Q', b'M') and head[:6].strip(b' ').isdigit():
+        return {'kind': 'mseed', 'detail': 'miniSEED seismic record (the second leg: gea seismic; not a gauge stream)', 'bytes': size, 'text': False}
+    if size >= 632 and (head[304:308] in (b'\x06\x00\x00\x00', b'\x07\x00\x00\x00', b'\x00\x00\x00\x06', b'\x00\x00\x00\x07')):
+        return {'kind': 'sac', 'detail': 'SAC seismic trace (the second leg: gea seismic; not a gauge stream)', 'bytes': size, 'text': False}
     try:
         text = head.decode('utf-8')
     except UnicodeDecodeError:
@@ -126,6 +131,12 @@ def preview(path: str, lines: int = 12) -> dict:
                 if i >= lines:
                     break
                 out['lines'].append(line.rstrip('\n')[:240])
+    elif d['kind'] in ('mseed', 'sac'):
+        try:
+            from .seismic import read_any as _read_seis
+            out['lines'] = [f"{t.id}  {t.info()['start']} to {t.info()['end']}  {t.sample_rate:g} Hz  {t.npts} samples  {t.encoding}  {len(t.gaps)} gap(s)" for t in _read_seis(path)[:12]]
+        except Exception as e:
+            out['lines'] = [f'seismic record could not be read: {e}']
     elif d['kind'] == 'segy':
         try:
             from .segy import read_segy
@@ -156,6 +167,8 @@ def read_any(path: str, kind: Optional[str] = None):
         return read_drift_xls(path)
     if kind == 'segy':
         raise ValueError('a SEG-Y volume is a survey input (gea survey), not a gauge stream')
+    if kind in ('mseed', 'sac'):
+        raise ValueError('a seismic record is the second leg\'s input (gea seismic), not a gauge stream')
     if kind == 'csv':
         raise ValueError('delimited text whose first column is not a timestamp - a historian export needs a timestamp (or elapsed seconds) first')
     raise ValueError(f'no reader for a file of kind {kind!r}')
@@ -252,7 +265,7 @@ def import_file(ws: Workspace, root_name: str, rel: str, actor: str, display: Op
     if not os.path.isfile(full):
         raise WorkspaceError(f'not a file: {rel}')
     d = detect(full)
-    if d['kind'] in ('segy', 'csv', 'unknown', 'json'):
+    if d['kind'] in ('segy', 'mseed', 'sac', 'csv', 'unknown', 'json'):
         raise WorkspaceError(f"{os.path.basename(full)} is {d['detail']} - not a gauge stream the program ingests as a well")
     if d['kind'] == 'xls':
         import importlib.util

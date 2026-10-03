@@ -12,6 +12,7 @@ client runs with nothing installed, not even Python, and no internet.
 What the Windows kit contains (dist/gea-program-<version>-win64/):
 
     python/              CPython <ver> embeddable distribution (python.org), site-packages enabled
+    report-samples/      one rendered example of every report (docs/report_samples, from this checkout)
     wheels/              gea-program-<version>-py3-none-any.whl, numpy, the chosen extras, pip, setuptools:
                          every file the install needs, for win_amd64 / cp312, with a SHA-256 list
     install.cmd          installs the wheels into python/ from the wheels/ folder - no network, no admin
@@ -49,7 +50,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PY_DEFAULT = '3.12.7'
-EXTRAS_DEFAULT = 'live,plotting,xls'
+EXTRAS_DEFAULT = 'live,plotting,xls,desktop'
 
 
 def sh(cmd, **kw):
@@ -249,8 +250,10 @@ workspace) that this kit creates on first start and never deletes.
 3. Wells -> add a well from a file (historian CSV, LAS) or the catalogue.
    Patch panel -> add a patch to read the drill floor (WITS0), a WITSML
    store, OPC UA, MQTT or Modbus. Home -> Refresh every report.
-4. {verify}  runs the 199-check acceptance gate from this installation and
+4. {verify}  runs the acceptance gate (246 checks) from this installation and
    is your own acceptance evidence (also on the Verification page).
+5. report-samples\  holds one rendered example of every report the program
+   writes, from the build in this kit; SAMPLES.md names the command behind each.
 
 {service}
 
@@ -317,6 +320,9 @@ def main(argv=None) -> int:
                                service='To run as a service: copy the kit to /opt/gea-program, edit gea-program.service if the paths differ, then\n  cp gea-program.service ~/.config/systemd/user/ && systemctl --user enable --now gea-program',
                                stop='Ctrl+C', uninstall='delete the kit folder', workspace='~/.local/share/gea-program/site')
     (kit / 'README.txt').write_text(readme, encoding='utf-8')
+    samples = ROOT / 'docs' / 'report_samples'
+    if samples.is_dir():
+        shutil.copytree(samples, kit / 'report-samples')
     # manifest + hashes
     files = sorted(p for p in kit.rglob('*') if p.is_file())
     sums = [(sha256(p), p.relative_to(kit).as_posix()) for p in files]

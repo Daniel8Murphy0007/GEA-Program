@@ -47,7 +47,18 @@ FOREIGN_PATTERNS = [
     r'\bRule 7\b|\bPAPER_',        # its rule names and paper numbers
     r'aetheric',                   # sibling programs
     r'grok_conversation',          # working notes that are not part of any product
+    # the aging model that was removed after v0.4.0: its names, its phrases and its numbers. None may return under any label.
+    r'K_MEX|PHI_RES|Phi_res|F_TRZ|\bU_i\b|_U_I\b|rho_SCm',
+    r'canonical_suppression|suppression composition|drift[- ]suppression|DERIVED_HYBRID|locked constant',
+    r'k_structural_trim|phi_coupling_trim|unity trims',
+    r'program aging model|program[- ]model leg|GEA-stabili[sz]ed|twin[- ]leg\b|twin[- ]gauge',
+    r'\b25\s*/\s*12\b|\b2\.0833\b|\b0\.9686\b|\b1\.0324\b|\b2\.75e-7\b',
+    r'quartz_hpht_extension|case_study\.py|\bcase-study\b',
 ]
+# A FOREIGN pattern may be named in a changelog or history line that records its removal: mark that line
+# '# standalone-check: allow' is not available in Markdown, so those two files are read with the removal
+# words themselves stripped first (the guard still fails on any other occurrence).
+REMOVAL_CONTEXT_FILES = ('CHANGELOG.md', 'docs/HISTORY.md', 'docs/SESSION_LOG.md')
 TEXT_EXT = {'.py', '.md', '.txt', '.toml', '.yml', '.yaml', '.json', '.csv', '.cff', '.ps1', '.html', '.gitignore', '.gitattributes'}
 SELF = os.path.relpath(os.path.abspath(__file__), ROOT).replace(os.sep, '/')
 
@@ -108,6 +119,8 @@ def check_text(files: list[str]) -> list[str]:
         for i, line in enumerate(text.splitlines(), 1):
             if 'standalone-check: allow' in line:      # the vocabulary gate must spell what it blocks
                 continue
+            if rel in REMOVAL_CONTEXT_FILES and ('removed' in line.lower() or 'removal' in line.lower() or 'deleted' in line.lower()):
+                continue                               # a record of the removal may name what was removed
             m = rx.search(line)
             if m:
                 findings.append(f'{rel}:{i}: {m.group(0)!r} in: {line.strip()[:90]}')

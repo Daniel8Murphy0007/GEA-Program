@@ -63,7 +63,7 @@ CLASS_KEY: Dict[str, dict] = {
         meaning='Constant bias above the noise band and within instrument scale.',
         status='DRIFT DETECTED', action='RE-FIT - apply the offset correction and record it in the change log.'),
     'DRIFT_CONSISTENT': dict(
-        meaning='Trend inside the instrument aging envelope at station conditions.',
+        meaning='Trend of the order of the instrument\'s datasheet aging rate.',
         status='AGING WITHIN ENVELOPE', action='MONITOR - schedule recalibration per the maintenance plan.'),
     'TRANSIENTS': dict(
         meaning='Clustered short excursions consistent with well events, not an instrument fault.',
@@ -72,7 +72,7 @@ CLASS_KEY: Dict[str, dict] = {
         meaning='Bias larger than a calibration correction can account for.',
         status='DRIFT DETECTED', action='FALLBACK - hold the model output for this station; investigate gauge and completion; SLA clocks start.'),
     'UNEXPLAINED_TREND': dict(
-        meaning='Trend outside the instrument aging envelope; a process change (for example drawdown) or an instrument fault.',
+        meaning='Trend well beyond the instrument\'s datasheet aging rate; a process change (for example drawdown) or an instrument fault.',
         status='DRIFT DETECTED', action='FALLBACK - hold the model output for this station; investigate process change versus instrument; SLA clocks start.'),
     'INSUFFICIENT_DATA': dict(
         meaning='Fewer than 8 valid samples in the window.',
@@ -215,22 +215,23 @@ def gauge_drift_report(evaluation: dict, stream, catalogue: Optional[TagCatalogu
     # 4. Gauge drift evaluation (SOW 4.2.10) ------------------------------------
     st_rows = []
     for s in stations:
-        env = s.get('drift_envelope_psi_yr') or [None, None]
+        rate = s.get('datasheet_rate_psi_yr')
         key = CLASS_KEY.get(s['classification'], {'status': '-', 'action': '-'})
         st_rows.append([s['channel'], _fmt(s.get('md_ft')), _fmt(s.get('predicted_baseline_psi')), s.get('n'),
                         f"{(s.get('span_years') or 0)*365.25:.0f}", _fmt(s.get('bias_psi')),
                         _fmt(s.get('slope_psi_yr')) if s.get('trend_usable') else 'window too short',
-                        f"{_fmt(min(env))} to {_fmt(max(env))}" if env[0] is not None else '-',
+                        (_fmt(rate) + (' (over rating)' if s.get('over_rating') else '')) if rate is not None else '-',
                         _fmt(s.get('noise_sigma_psi')), s.get('transient_count'),
                         s['classification'], key['status'], key['action']])
     drift_sec = Section('4', 'Gauge drift evaluation and reconciliation (SOW 4.2.10)',
                         ['For each station the live pressure series is compared with the well model baseline at '
                          'that measured depth. Residual = measured - baseline. Bias is the mean residual; drift rate '
-                         'is the fitted linear trend of the residual; the aging envelope is the expected instrument '
-                         'drift band at station pressure and temperature from the gauge library; noise is the '
+                         'is the fitted linear trend of the residual; the datasheet aging rate is the instrument\'s published '
+                         'drift specification (percent of full scale per year, from the cited datasheet), with no dependence '
+                         'on conditions added - a station above the instrument\'s rating is marked; noise is the '
                          'robust 1-sigma of the detrended residual. Classification and action follow the key below.'],
                         [Table(['Tag', 'Station MD (ft)', 'Baseline (psi)', 'n', 'Window (days)', 'Bias (psi)',
-                                'Drift rate (psi/yr)', 'Aging envelope (psi/yr)', 'Noise 1-sigma (psi)', 'Transients',
+                                'Drift rate (psi/yr)', 'Datasheet aging rate (psi/yr)', 'Noise 1-sigma (psi)', 'Transients',
                                 'Classification', 'Status', 'Action'], st_rows),
                          Table(['Classification', 'Meaning', 'Status', 'Action'],
                                [[k, v['meaning'], v['status'], v['action']] for k, v in CLASS_KEY.items()],
@@ -276,7 +277,7 @@ def gauge_drift_report(evaluation: dict, stream, catalogue: Optional[TagCatalogu
                                  for h in hist[-10:]], caption='Evaluation history (last 10 entries)'))
     sla_sec = Section('5', 'Model drift and staleness status (SLA 1.0; drift and staleness SLA)',
                       ['Model Drift: the live residual at a station moves outside the band the well model and the '
-                       'instrument aging envelope account for. Model Staleness: the evaluation is older than the '
+                       'instrument\'s datasheet aging rate account for. Model Staleness: the evaluation is older than the '
                        'cadence. Clocks below start at the evaluation timestamp when drift is detected.'],
                       sla_tables)
 
@@ -286,7 +287,7 @@ def gauge_drift_report(evaluation: dict, stream, catalogue: Optional[TagCatalogu
     cfg_rows = [['Bias significance', f"{th.get('bias_n_sigma')} x noise / sqrt(n) + 1 psi floor"],
                 ['Transient gate', f"{th.get('transient_n_sigma')} x noise, single sample"],
                 ['Bias too large for calibration', f"{th.get('model_mismatch_psi')} psi"],
-                ['Aging envelope margin', f"{th.get('drift_envelope_margin')} x upper envelope"],
+                ['Aging-rate margin', f"{th.get('drift_envelope_margin')} x the datasheet rate (half the rate to the margin times the rate counts as aging)"],
                 ['Minimum window for a trend', f"{(th.get('min_trend_span_years') or 0)*365.25:.0f} days"],
                 ['Minimum samples per station', '8']]
     rule_rows = []
@@ -338,7 +339,7 @@ def gauge_drift_report(evaluation: dict, stream, catalogue: Optional[TagCatalogu
     prov.append(f"Well model: total depth {_fmt(w.get('td_ft'))} ft; profile '{w.get('profile')}'; "
                 f"deviation '{w.get('deviation')}'; gauge datasheet '{w.get('gauge_spec')}'.")
     prov.append('Limitations: a trend is only classified when the window meets the minimum in section 6; '
-                'the aging envelope is a model band, not a measurement of this gauge; station depths supplied '
+                'the datasheet aging rate is the instrument\'s published specification, not a measurement of this gauge; station depths supplied '
                 'by the caller are marked as such above and should be confirmed from completion records.')
     prov_sec = Section('8', 'Data provenance and limitations', [' '.join(prov)])
 

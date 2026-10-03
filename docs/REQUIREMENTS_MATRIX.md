@@ -15,7 +15,7 @@ A grade of HAVE means a code hit that does the thing; PARTIAL means the mechanis
 ## 1.0 ABBREVIATIONS & ACRONYMS
 
 **Tender asks:** a shared vocabulary (CHP, THP, FLP, FLT, GOR, PI, PIP, PDP, MPFM, VFM, PDMS, MAAPE…).
-**Program today:** its own vocabulary — "station", "leg", "twin", "closed stream / live stream", "toolstring". None of the tender's terms appear in the user-facing surface.
+**Program today:** its own vocabulary — "station", "closed stream / live stream", "toolstring". None of the tender's terms appear in the user-facing surface.
 **Gets better by:** adopting the tender's acronyms as the canonical tag and label vocabulary in every screen, export and log. A user reading CHP on the wellhead and CHP in the program should never translate. Ship a glossary in-app (§1.0 table, verbatim).
 
 ## 2.0 INTRODUCTION

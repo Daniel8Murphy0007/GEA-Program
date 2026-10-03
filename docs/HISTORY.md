@@ -4,6 +4,62 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.5.0 - 2026-10-03 - standard physics only, the second leg begins, the report samples, and the kit made whole
+
+- **The second leg: seismic ingest and the detectability test.** The client's
+  site records ground motion that conventional processing treats as noise;
+  the leg's purpose is the rigs inside it. It starts with ingest and one
+  measured number, not a map. `seismic.py` reads miniSEED (Steim1/Steim2 and
+  the plain encodings) and SAC by content, writes both, fetches from any FDSN
+  service (TexNet, EarthScope), and gives Welch PSDs, spectrograms, band power
+  and persistent lines over a running-median floor. The Steim decoders were
+  checked against libmseed, the reference implementation, on the maintainer's
+  machine in both directions (1,904 samples exercising every packing form,
+  bit for bit) and the libmseed records ship under `gea/reference/` so the
+  gate repeats the check anywhere. `seismic_detect.py` is the detectability
+  test: one station's record against a CSV of known rigs, verdict per rig
+  from band power in its exclusive windows against the quiet baseline, the
+  lines that belong to it, and the radius bracketed between the farthest rig
+  heard and the nearest missed; the report prints what it will not call a
+  measurement (a position or track - one station detects, it does not
+  locate). Public data to start on: TexNet (network TX, open FDSN, Texas
+  RRC permits as ground truth), EarthScope, Utah FORGE and Brady's nodal sets
+  on the DOE GDR. Neither the cloud workspace nor the device VM can reach the
+  FDSN hosts (egress policy), so the first real record is fetched by the
+  owner and dropped into the clone. Gate: 246 checks.
+
+- **The program's own aging model removed.** An independent review of 0.3.0
+  pointed at the fixed factor on the band; the owner's rule is that the program carries
+  standard physics and cited numbers only. Reading the code: the drift band's
+  lower edge was the datasheet rate divided by a composition of constants
+  inherited from the predecessor program, renamed but not removed in the
+  standalone rewrite, and the bench protocol, service-life curves, case
+  study, desktop panels and demo were built around the comparison between
+  that model and the datasheet. All of it is gone: `gauge_aging.py` returns
+  the datasheet's published drift specification and nothing else (flagged
+  above the rating, never changed); the reconciler's band is half to twice
+  that rate; the simulator's stations take their rate from their tool's
+  datasheet and a tool with no published rate carries none; the template
+  preset with its engineering-fit knees is gone and the default datasheet is
+  the cited GEOQ 177 entry; a datasheet JSON cannot carry a model parameter.
+  The bench is rebuilt as the datasheet-conformance test the drift report
+  cites as NONE ON RECORD - the bench record on the list. The guard now
+  blocks the removed model's names, phrases and numbers in every tracked
+  file; section AK proves the absence from inside the package. Report numbers changed only where the removed model had reached:
+  the band's lower edge (now the datasheet rate) and the synthetic
+  simulator's noise shaping (the injected-offset checks re-derived).
+
+- **The report samples live in the repository.** The twelve rendered reports
+  the owner had been reading were chat deliverables from 2026-09-28, made by
+  the predecessor's build before this package existed, and never committed
+  anywhere; they carried that build's number and the removed model card. They
+  are replaced by `docs/report_samples/`, seventeen files rendered from this
+  checkout by `tools/render_report_samples.py` (both Volve wells; the alarm,
+  resilience, monitored-drift and SLA reports from the synthetic field
+  generator, labelled), named in `SAMPLES.md` with their commands, shipped
+  in the kit, held to the build by section AM. The kit now carries every
+  optional dependency including the desktop window.
+
 ## v0.4.0 - 2026-10-02 - doctor, files, the operator's experience, instruments and transients, hardening, and the help library
 
 - **The help library** (`help/*.md`, `helplib.py`): indexed by the job a
@@ -186,15 +242,13 @@ What the package contains, by layer:
 - **Model cards, store-and-forward, configuration versioning, SBOM, monthly
   SLA, FAT/SAT, dashboard** (`model_card`, `store_forward`,
   `config_versioning`, `sbom`, `sla_report`, `fat_sat`, `dashboard`).
-- **Aging models** (`quartz_hpht_extension`, `downhole_engine`,
-  `service_life`, `case_study`, `bench`): the conventional datasheet model and
-  the program aging model, which multiplies it by a fixed suppression
-  composition of three locked engineering constants (K_MEX = 25/12,
-  PHI_RES = 0.84, F_TRZ = 0.1; ratio 1.0324 at unity trims). The composition
-  is an engineering model with no field validation on record; the model card
-  says so and the drift evaluation uses the band between the two models. The
-  bench protocol that would confirm or refute it ships in
-  `gea/BENCH_TEST_PROTOCOL.md`.
+- **Aging models** (`downhole_engine`, `service_life`, `bench`, and a module
+  since removed): at this version the drift band had two edges - a
+  conventional datasheet model and a second model that scaled it by a fixed
+  composition of engineering constants inherited from the predecessor
+  program. That second model was labelled as having no field validation and
+  was removed entirely after v0.4.0 (see the entry above); the datasheet rate
+  alone remains.
 - **Instrument library and ingest** (`gauge_specs`, `tool_library`, `ports`,
   `follower`, `modbus`, `telemetry`, `deviation`, `profile_catalog`,
   `well_assembler`, `segy`): cited datasheets and tools (an entry without a

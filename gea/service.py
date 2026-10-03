@@ -63,7 +63,7 @@ PBKDF2_ROUNDS = 200_000
 # Commands the page may run as jobs. Anything else is refused (never `serve`, never a shell).
 RUNNABLE = ('accept', 'fat-sat', 'sbom', 'sla-report', 'model-cards', 'client-report', 'dashboard', 'workspace', 'drift-monitor',
             'well-test', 'alarms', 'notify', 'swaps', 'certificates', 'transient', 'housekeeping', 'store-forward', 'config', 'reconcile', 'ingest', 'opcua', 'mqtt', 'report', 'gamma', 'bench',
-            'case-study', 'service-life', 'telemetry', 'run', 'wells', 'survey', 'wits0', 'witsml', 'wits0-sim', 'files', 'doctor')
+            'service-life', 'telemetry', 'run', 'wells', 'survey', 'wits0', 'witsml', 'wits0-sim', 'files', 'doctor')
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web')
 
 

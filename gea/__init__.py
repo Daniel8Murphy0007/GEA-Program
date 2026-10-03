@@ -1,17 +1,15 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""gea — the GEA Downhole HPHT Quartz-Gauge Simulator.
+"""gea - GEA-Program: the downhole gauge monitoring program.
 
-The gea-program's first packaged industry-application module: a
-deep-well (TD ~20,300 ft) six-gauge quartz P/T string with GEA-stabilized
-drift, transient events, live animation (matplotlib / optional PyQt6), and
-CSV export.
-
-The program aging model composes a fixed drift-suppression factor from three
-locked engineering constants (K_MEX = 25/12, PHI_RES = 0.84, F_TRZ = 0.1); the
-user-facing settings are the two instrument trims (k_structural_trim,
-phi_coupling_trim), never the constants. See README.md.
+A described well (gradients or a real profile, a toolstring of cited
+instruments), the data that comes back from it (files or live ports), and
+the report family that judges the two against each other: data quality,
+gauge drift against each instrument's datasheet aging rate, well tests,
+alarms, shut-ins and build-ups, instruments and certificates, the monthly
+service note. Every number on a report names the rule or the datasheet it
+came from; the program adds no physics of its own.
 
 Quick use (headless):
     from gea import DownholeEngine, SimulatorConfig
@@ -19,18 +17,10 @@ Quick use (headless):
     for _ in range(100): e.step()
     print(e.summary()); e.export_csv("run.csv")
 
-Demos (need a display):
-    python -m gea.matplotlib_demo
-    python -m gea.qt6_downhole_app   (pip install PyQt6)
+The dashboard: gea workspace --path C:\\site --action init --name "Pad 3"; gea serve --workspace C:\\site
 """
 
-from .quartz_hpht_extension import (
-    calculate_quartz_transducer_hpht_program,
-    canonical_suppression,
-    conventional_drift,
-    drift_comparison,
-    PROGRAM_MODEL_AVAILABLE,
-)
+from .gauge_aging import aging_rate, rate_psi_yr, accuracy_psi
 from .downhole_engine import (
     Sensor,
     SimulatorConfig,
@@ -49,15 +39,11 @@ from .telemetry import (
     TelemetryConfig,
     TelemetryRecorder,
 )
-from .case_study import (
-    CaseStudyConfig,
-    case_study,
-    depth_sweep,
-    write_markdown,
-)
 from .gauge_specs import (
     GaugeSpec,
     GAUGE_SPECS,
+    DEFAULT_SPEC,
+    get_spec,
     load_gauge_spec_json,
 )
 from .deviation import (
@@ -70,7 +56,7 @@ from .tool_library import (
     TOOL_LIBRARY,
     ToolString,
     drift_model_for,
-    piezoresistive_drift,
+    user_gauge_tool,
     rating_check,
 )
 from .ports import (
@@ -109,6 +95,11 @@ from .well_assembler import (
 from .gamma import (
     find_gr_channels, shale_volume, formation_flags, gamma_report, gamma_entries,
 )
+from .seismic import (
+    Trace as SeismicTrace, read_mseed, write_mseed, read_sac, write_sac, read_any as read_seismic, fdsn_fetch, fdsn_stations,
+    welch_psd, spectrogram, persistent_lines, band_power,
+)
+from .seismic_detect import Source as SeismicSource, detectability_test, load_sources_csv, haversine_km, DRILLING_BAND_HZ
 from .bench import (
     bench_analysis, bench_selftest,
 )
@@ -129,19 +120,17 @@ from .profile_catalog import (
     read_pangaea_txt,
 )
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 __all__ = [
-    "calculate_quartz_transducer_hpht_program", "canonical_suppression",
-    "conventional_drift", "drift_comparison",
-    "PROGRAM_MODEL_AVAILABLE", "Sensor", "SimulatorConfig", "DownholeEngine",
+    "aging_rate", "rate_psi_yr", "accuracy_psi",
+    "Sensor", "SimulatorConfig", "DownholeEngine",
     "WellProfile", "load_well_profile_csv", "make_sensor_string",
     "ServiceLifeConfig", "ServiceLifeSimulator",
     "TelemetryConfig", "TelemetryRecorder",
-    "CaseStudyConfig", "case_study", "depth_sweep", "write_markdown",
-    "GaugeSpec", "GAUGE_SPECS", "load_gauge_spec_json",
+    "GaugeSpec", "GAUGE_SPECS", "DEFAULT_SPEC", "get_spec", "load_gauge_spec_json",
     "DeviationSurvey", "load_deviation_csv", "run_batch",
     "ToolSpec", "TOOL_LIBRARY", "ToolString", "drift_model_for",
-    "piezoresistive_drift", "rating_check",
+    "user_gauge_tool", "rating_check",
     "LiveStream", "StreamChannel", "PortSpec", "PORT_REGISTRY",
     "ingest", "read_historian_csv", "read_las", "register_port",
     "Reconciler", "ReconcilerConfig", "auto_station_map",

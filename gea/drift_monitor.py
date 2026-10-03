@@ -198,7 +198,7 @@ class DriftMonitor:
                      'n': s.get('n'), 'span_years': s.get('span_years'), 'bias_psi': s.get('bias_psi'),
                      'slope_psi_yr': s.get('slope_psi_yr'), 'noise_sigma_psi': s.get('noise_sigma_psi'),
                      'transient_count': s.get('transient_count'),
-                     'drift_envelope_psi_yr': s.get('drift_envelope_psi_yr'),
+                     'datasheet_rate_psi_yr': s.get('datasheet_rate_psi_yr'),
                      'correction_in_force_psi': float(self.state['corrections_psi'].get(s['channel'], 0.0)),
                      'drift_detected': s['classification'] in DRIFT_CLASSES}
             self._append(self.eval_path, entry)

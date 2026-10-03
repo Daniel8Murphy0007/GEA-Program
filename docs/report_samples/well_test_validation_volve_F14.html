@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Downhole Gauge Monitoring - Well Test Validation Report</title>
+<style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
+<h1>Downhole Gauge Monitoring - Well Test Validation Report</h1>
+<table class="front">
+<tr><td>Report ID</td><td>WTV-15-9-F-14-20261003T002409Z</td></tr>
+<tr><td>Well</td><td>15/9-F-14</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-03T00:24:09Z</td></tr>
+<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.5.0</td></tr>
+<tr><td>Data window</td><td>2008-02-12T00:00:00Z to 2008-07-21T00:00:00Z</td></tr>
+<tr><td>Accepted / rejected</td><td>0 / 4</td></tr>
+<tr><td>Result</td><td class="result-ok">NO STABLE PERIOD FOUND</td></tr>
+</table>
+<h2>1. Summary</h2>
+<p>158 samples from 2008-02-12T00:00:00Z to 2008-07-21T00:00:00Z; 8 eligible (on stream, complete, quality GOOD). 0 stable periods detected and ACCEPTED as well tests covering 0 samples; 4 candidate periods REJECTED with reason codes. 0 of 0 accepted tests approved at all levels; the rest await review. Virtual rates are the means over each accepted test and are released to allocation only after approval.</p>
+<h2>2. Stability criteria in force (client-agreed logic; SOW 4.2.3.1)</h2>
+<p>Criteria: &#x27;default well-test stability criteria&#x27;. Source: built-in defaults (no criteria file given) (sha256 6dab307153975eec). Basis: engineering defaults for daily-cadence production data; the client agrees and versions this file. A change to this file is a change-log entry; the report always prints the version it ran with.</p>
+<table>
+<caption>Parameters</caption>
+<tr><th>Parameter</th><th>Value</th></tr>
+<tr><td>min_samples</td><td>5</td></tr>
+<tr><td>min_on_stream_hours</td><td>23</td></tr>
+<tr><td>max_flagged_fraction</td><td>0</td></tr>
+<tr><td>rate_max_cv_pct</td><td>3</td></tr>
+<tr><td>rate_negligible_fraction</td><td>0.01</td></tr>
+<tr><td>pressure_max_cv_pct</td><td>1</td></tr>
+<tr><td>max_trend_pct_over_window</td><td>3</td></tr>
+<tr><td>operating_max_change_pct</td><td>2</td></tr>
+<tr><td>approval levels</td><td>level 1: production engineer; level 2: production supervisor</td></tr>
+</table>
+<table>
+<caption>Channel roles</caption>
+<tr><th>Role</th><th>Channel</th></tr>
+<tr><td>on_stream</td><td>ON_STREAM_HRS[15/9-F-14]</td></tr>
+<tr><td>rate:oil</td><td>BORE_OIL_VOL[15/9-F-14]</td></tr>
+<tr><td>rate:gas</td><td>BORE_GAS_VOL[15/9-F-14]</td></tr>
+<tr><td>rate:water</td><td>BORE_WAT_VOL[15/9-F-14]</td></tr>
+<tr><td>pressure:downhole</td><td>AVG_DOWNHOLE_PRESSURE[15/9-F-14]</td></tr>
+<tr><td>pressure:wellhead</td><td>AVG_WHP_P[15/9-F-14]</td></tr>
+<tr><td>operating:choke</td><td>AVG_CHOKE_SIZE_P[15/9-F-14]</td></tr>
+</table>
+<h2>3. Accepted well tests</h2>
+<p>Each accepted test is the longest window from its start that satisfies every criterion. Means are the test result; CV and trend per channel are in the machine JSON.</p>
+<h2>4. Rejected candidate periods (reason codes)</h2>
+<p>Every period not accepted is listed with the rule that failed and the number that failed it.</p>
+<table>
+<tr><th>Candidate</th><th>Start (UTC)</th><th>End (UTC)</th><th>n</th><th>Primary reason</th><th>Detail</th></tr>
+<tr><td>C001</td><td>2008-02-12</td><td>2008-07-12</td><td>149</td><td>MISSING_VALUE</td><td>MISSING_VALUE:on_stream</td></tr>
+<tr><td>C002</td><td>2008-07-13</td><td>2008-07-13</td><td>1</td><td>INSUFFICIENT_DURATION</td><td>INSUFFICIENT_DURATION:1 samples &lt; min_samples 5</td></tr>
+<tr><td>C003</td><td>2008-07-14</td><td>2008-07-14</td><td>1</td><td>ON_STREAM_BELOW_MIN</td><td>ON_STREAM_BELOW_MIN:5.57h&lt;23h</td></tr>
+<tr><td>C004</td><td>2008-07-15</td><td>2008-07-21</td><td>7</td><td>RATE_UNSTABLE:gas</td><td>RATE_UNSTABLE:gas:cv 8.03%&gt;3%</td></tr>
+</table>
+<h2>5. Approval trail</h2>
+<p>No approvals recorded yet.</p>
+<h2>6. Data provenance and limitations</h2>
+<p>Source stream: volve_f12_f14_production_excerpt. Detection is deterministic from the stream and the criteria file; re-running with the same inputs reproduces this report. Rates whose mean is below the negligible fraction of the largest rate in the window are not stability criteria (disclosed in section 2). Quality flags come from the record layer&#x27;s rules when a tag catalogue is supplied.</p>
+<footer>Every number in this report is recomputed from the source data and the criteria file at generation time; reason codes name the rule and the value that failed it.</footer>
+</body></html>
