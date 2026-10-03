@@ -16,6 +16,7 @@ What the Windows kit contains (dist/gea-program-<version>-win64/):
     wheels/              gea-program-<version>-py3-none-any.whl, numpy, the chosen extras, pip, setuptools:
                          every file the install needs, for win_amd64 / cp312, with a SHA-256 list
     install.cmd          installs the wheels into python/ from the wheels/ folder - no network, no admin
+    pip_bootstrap.py     runs pip from its wheel as a module (install.cmd uses it; pip will not install itself any other way on Windows)
     gea.cmd              the `gea` command: python\\python.exe -m gea ...
     start-dashboard.cmd  creates the site workspace if it is missing, starts the service, opens the browser
     stop-dashboard.cmd   stops the service started by start-dashboard
@@ -123,7 +124,9 @@ if not exist python\python.exe ( echo python\python.exe is missing - the kit is 
 for %%f in (wheels\pip-*.whl) do set PIPWHL=%%f
 if "%PIPWHL%"=="" ( echo pip wheel missing from wheels\ & exit /b 1 )
 echo == installing the package and every dependency from wheels\ ...
-python\python.exe "%PIPWHL%\pip" install --no-index --find-links wheels --no-warn-script-location "gea-program[{extras}]=={version}" pip setuptools
+rem pip refuses to install pip when it is run as "python wheel\pip" on Windows (it wants "python -m pip"); the embeddable
+rem Python ignores PYTHONPATH, so pip_bootstrap.py puts the wheel on sys.path and runs pip as a module from inside it
+python\python.exe pip_bootstrap.py install --no-index --find-links wheels --no-warn-script-location "gea-program[{extras}]=={version}" pip setuptools
 if errorlevel 1 ( echo INSTALL FAILED & exit /b 1 )
 python\python.exe -c "import gea, numpy; print('installed: gea-program', gea.__version__, '/ numpy', numpy.__version__)"
 if errorlevel 1 ( echo INSTALL FAILED: the package does not import & exit /b 1 )
@@ -175,6 +178,15 @@ cd /d "%~dp0"
 echo == the acceptance gate from the installed kit (two to four minutes; the client's own SAT evidence)
 python\python.exe -m gea accept
 endlocal
+''',
+'pip_bootstrap.py': r'''# runs pip from the pip wheel in wheels\ as a module, so pip may install itself (Windows refuses "python wheel\pip install pip")
+import glob, os, runpy, sys
+here = os.path.dirname(os.path.abspath(__file__))
+whl = sorted(glob.glob(os.path.join(here, 'wheels', 'pip-*.whl')))
+if not whl:
+    sys.exit('pip wheel missing from wheels\\')
+sys.path.insert(0, whl[-1])
+runpy.run_module('pip', run_name='__main__', alter_sys=True)
 ''',
 'uninstall.cmd': r'''@echo off
 setlocal

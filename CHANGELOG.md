@@ -5,6 +5,20 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [Unreleased]
+
+### Fixed
+- The install kit's `install.cmd` failed on the v0.5.0 runner at the pip
+  step: "To modify pip, please run ... python.exe -m pip install ...". pip,
+  run as `python wheels\pip-*.whl\pip`, refuses on Windows to install pip
+  itself; `python -m pip` is the only form it accepts, and the embeddable
+  Python ignores PYTHONPATH, so the wheel cannot be put on the path that way.
+  The kit now carries `pip_bootstrap.py`, which puts the pip wheel on
+  `sys.path` and runs pip as a module from inside it (argv[0] is then pip's
+  own `__main__.py`, the form pip accepts); `install.cmd` calls it. The Linux
+  kit installs into a venv with `-m pip` and was never affected. Both kits
+  can be attached to the v0.5.0 release by a manual run with `release_tag`.
+
 ## [v0.5.0] - 2026-10-03 - standard physics only, the second leg begins, the report samples, and the kit made whole
 
 ### Removed

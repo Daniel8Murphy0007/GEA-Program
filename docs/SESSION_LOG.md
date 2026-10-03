@@ -351,3 +351,21 @@ summary; `docs/HISTORY.md` the record by layer.
   at build 0.5.0 (section AM holds them to it). Gate run in the cloud and on
   the development machine; guard 0 findings; the clone synced. The owner
   runs `.\ship.ps1`; `git add -A` in it records the two deleted modules.
+
+## 2026-10-03 - v0.5.0 shipped; the Windows kit, third look
+
+- Shipped: HEAD 6c2e672 = tag v0.5.0 = origin/main; tags v0.1.0..v0.5.0 in
+  `.git`; SHIP_LOG line written. CI and the PyPI release green; the kit
+  workflow red again on windows-kit (41 s), linux-kit green.
+- The log, finally: the owner signed the browser pane in to GitHub and the
+  step's lines came up. The `cd` fix held; the build step took 26 s with all
+  36 wheels (PyQt6 and its Qt6 wheel among them); `install.cmd` reached pip
+  and pip refused: "To modify pip, please run ... python.exe -m pip install".
+  pip, run as `python wheel\pip`, will not install pip on Windows - it checks
+  the basename of argv[0] - and the embeddable Python ignores PYTHONPATH, so
+  `-m pip` cannot see the wheel. The kit now carries `pip_bootstrap.py`
+  (the wheel on sys.path, `runpy.run_module('pip', alter_sys=True)` so
+  argv[0] is pip's `__main__.py`); install.cmd calls it. Proven on the
+  device VM that pip runs from its wheel this way and installs pip; the
+  Windows refusal itself cannot be reproduced on Linux, so the next manual
+  run of the workflow (`release_tag = v0.5.0`) is the proof.

@@ -4,6 +4,16 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## Unreleased - after v0.5.0
+
+- **The Windows kit's install step, read at last.** With the owner signed in
+  to GitHub in the browser pane the v0.5.0 log could be read: the `cd` fix
+  held, the build step passed in 26 s with every wheel including PyQt6, and
+  `install.cmd` failed at pip's own guard - pip run as `python wheel\pip`
+  will not install pip on Windows. `pip_bootstrap.py` runs pip as a module
+  from inside its wheel; install.cmd uses it. Unverified on a Windows runner
+  until the next manual run.
+
 ## v0.5.0 - 2026-10-03 - standard physics only, the second leg begins, the report samples, and the kit made whole
 
 - **The second leg: seismic ingest and the detectability test.** The client's
