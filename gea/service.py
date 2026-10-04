@@ -387,7 +387,12 @@ class App:
             with open(dj, encoding='utf-8') as f:
                 data = json.load(f)
         from . import __version__
-        return {'workspace': s, 'dashboard': data, 'jobs_running': [j['id'] for j in self.runner.list(20, 'RUNNING')],
+        seismic = []
+        for st in self.ws.seismic_stations():
+            sm = self.ws.seismic_results(st['id']).get('summary') or {}
+            seismic.append({'id': st['id'], 'display': st['display'], 'kind': st['kind'], 'detected': sm.get('detected'), 'n_sources': sm.get('n_sources'),
+                            'pointed': sm.get('pointed'), 'lines': sm.get('lines'), 'unit': sm.get('unit'), 'generated_utc': sm.get('generated_utc')})
+        return {'workspace': s, 'dashboard': data, 'seismic': seismic, 'jobs_running': [j['id'] for j in self.runner.list(20, 'RUNNING')],
                 'taps': dict(self.taps), 'patches': [{k: st[k] for k in ('name', 'protocol', 'well_id', 'status', 'last_sample_utc', 'samples_last_min')} for st in self.patches.states()],
                 'service': {'started_utc': self.started_utc, 'program_version': __version__,
                                                      'users': self.users.count(), 'schedule': self.scheduler.entries()}}
@@ -694,6 +699,49 @@ class App:
         with open(os.path.join(self.ws.well_dir(w['id']), 'well.json'), 'w', encoding='utf-8') as f:
             json.dump(w, f, indent=1)
         return w
+
+    def add_seismic(self, user: dict, body: dict) -> dict:
+        """Records (and the optional station file, sensors CSV and rigs CSV) arrive base64-encoded; each lands in a temporary
+        folder and is copied into the workspace verbatim by the workspace, which hashes it."""
+        files = body.get('files') or []
+        if not files:
+            raise ApiError(400, 'at least one record file is needed')
+        tmp_dir = os.path.join(self.ws.path, 'jobs', '_uploads', secrets.token_hex(4))
+        os.makedirs(tmp_dir, exist_ok=True)
+        paths, names = [], []
+        try:
+            for f in files:
+                name = str(f.get('filename', ''))
+                if not name or '/' in name or '\\' in name:
+                    raise ApiError(400, 'a plain file name is required for every record')
+                p = os.path.join(tmp_dir, name)
+                with open(p, 'wb') as fh:
+                    fh.write(base64.b64decode(f.get('content_b64') or ''))
+                paths.append(p); names.append(name)
+            extras = {}
+            for key in ('stationxml', 'sensors', 'sources'):
+                f = body.get(key)
+                if f and f.get('filename'):
+                    name = str(f['filename'])
+                    if '/' in name or '\\' in name:
+                        raise ApiError(400, 'a plain file name is required')
+                    p = os.path.join(tmp_dir, name)
+                    with open(p, 'wb') as fh:
+                        fh.write(base64.b64decode(f.get('content_b64') or ''))
+                    extras[key] = p
+            band = body.get('band')
+            try:
+                st = self.ws.add_seismic_station(str(body.get('display') or os.path.splitext(names[0])[0]), paths,
+                                                 float(body['lat']) if body.get('lat') not in (None, '') else None,
+                                                 float(body['lon']) if body.get('lon') not in (None, '') else None,
+                                                 actor=user['name'], stationxml=extras.get('stationxml'), sensors_csv=extras.get('sensors'),
+                                                 sources_csv=extras.get('sources'), band=[float(band[0]), float(band[1])] if band else None,
+                                                 filenames=names, note=str(body.get('note', '')))
+            except (WorkspaceError, ValueError) as e:
+                raise ApiError(409, str(e))
+            return st
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
     def start_tap(self, user: dict, well_id: str, seconds: float) -> dict:
         w = self.ws.well(well_id)
@@ -1292,6 +1340,15 @@ def make_handler(app: App):
                     return self._json(200, app.notifications_view(user))
                 if path == '/api/wells':
                     return self._json(200, {'wells': app.ws.wells()})
+                if path == '/api/seismic':
+                    return self._json(200, {'stations': [{**st, 'summary': app.ws.seismic_results(st['id']).get('summary')} for st in app.ws.seismic_stations()]})
+                if path.startswith('/api/seismic/'):
+                    sid = path[len('/api/seismic/'):]
+                    try:
+                        st = app.ws.seismic_station(sid)
+                    except WorkspaceError as e:
+                        raise ApiError(404, str(e))
+                    return self._json(200, {'station': st, 'results': app.ws.seismic_results(sid)})
                 if path.startswith('/api/wells/') and path.endswith('/series'):
                     return self._json(200, app.series(path[len('/api/wells/'):-len('/series')], int(qs.get('points', ['1500'])[0])))
                 if path.startswith('/api/wells/'):
@@ -1395,6 +1452,22 @@ def make_handler(app: App):
                 if path.startswith('/api/wells/') and path.endswith('/remove'):
                     App.require(user, 'admin')
                     app.ws.remove_well(path[len('/api/wells/'):-len('/remove')], actor=user['name'])
+                    return self._json(200, {'ok': True})
+                if path == '/api/seismic/add':
+                    App.require(user, 'operator')
+                    return self._json(200, app.add_seismic(user, body))
+                if path.startswith('/api/seismic/') and path.endswith('/refresh'):
+                    App.require(user, 'operator')
+                    sid = path[len('/api/seismic/'):-len('/refresh')]
+                    app.ws.seismic_station(sid)
+                    return self._json(200, app._job(['workspace', '--path', app.ws.path, '--action', 'refresh-seismic', '--station', sid, '--actor', user['name']],
+                                                    user, f'refresh seismic station {sid}'))
+                if path.startswith('/api/seismic/') and path.endswith('/remove'):
+                    App.require(user, 'admin')
+                    try:
+                        app.ws.remove_seismic_station(path[len('/api/seismic/'):-len('/remove')], actor=user['name'])
+                    except WorkspaceError as e:
+                        raise ApiError(404, str(e))
                     return self._json(200, {'ok': True})
                 if path.startswith('/api/wells/') and path.endswith('/tap/start'):
                     App.require(user, 'operator')

@@ -5,7 +5,79 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
-## [Unreleased]
+## [v0.6.0] - 2026-10-04 - the second leg whole - the reader proven on real files, the response, the array step, and the Seismic page
+
+### Added
+- The second leg on the dashboard. `Workspace.add_seismic_station` /
+  `refresh_seismic` / `remove_seismic_station` / `seismic_results`: a station
+  (one miniSEED or SAC record) or an array (one record per sensor plus a
+  sensors CSV) under `seismic/<station>/`, copied in verbatim and hashed with
+  its position, band, rigs list and StationXML; the refresh runs the leg
+  (response removal when the station file is there, Welch spectrum,
+  persistent lines, the detectability test, the beam and the array test for
+  an array) and writes the machine JSONs and the new Seismic Station Report
+  (`client_reports.seismic_station_report`) under `reports/seismic/<station>/`.
+  `gea workspace --action add-seismic | refresh-seismic | remove-seismic`.
+  Service: `GET /api/seismic`, `GET /api/seismic/<id>`, `POST
+  /api/seismic/add` (upload), `/api/seismic/<id>/refresh` (a job),
+  `/api/seismic/<id>/remove` (admin); the overview carries the stations.
+  Page: the Seismic view (list, add by upload, refresh, remove), the station
+  view (spectrum drawn on a canvas, lines, detectability, array), a nav
+  entry, a home tile; both views map to the seismic help page.
+  `docs/report_samples/seismic_station_report_SYNTHETIC.html` from the
+  labelled scene, through the workspace. Section AP (4 checks). Gate: 258
+  checks.
+- `gea/seismic_array.py`: the array step. Sensor geometry on the local plane;
+  the Welch cross-spectral matrix; Bartlett and Capon beamforming over a
+  slowness grid, refined around the maximum; the array response function
+  with its half-power width (the bearing's resolution) and aliasing lobes;
+  per-frequency coherence at the found slowness and the coherent
+  frequencies; the weighted crossing of several arrays' bearings with its
+  1-sigma ellipse, crossing angle, residuals and the in-front check;
+  location from station-pair lags (envelope cross-correlation, Gauss-Newton)
+  with the velocity named as an input; the array detectability test
+  (POINTED / NOT_POINTED / INCOHERENT / AMBIGUOUS / INSUFFICIENT_WINDOWS)
+  against the ground-truth list with the array's own tolerance; a labelled
+  synthetic array scene and self-test. `gea seismic --action beam |
+  array-detect | locate | array-selftest`; `--files`, `--sensors`,
+  `--bearings`, `--method`, `--seg`, `--smax`; `--start/--end` window the
+  beam. Section AO (4 checks): a plane wave's direction and slowness
+  recovered with the ARF width beside them; three bearings crossing at their
+  point and six lags locating theirs; the scene's four rigs POINTED from 6 to
+  45 km with a wrong bearing NOT_POINTED and noise INCOHERENT; the command
+  line.
+- `gea/seismic_response.py`: the instrument response. FDSN StationXML read
+  into channels and stages (poles/zeros in radians, hertz or z-transform;
+  coefficient and FIR stages with symmetry, decimation and delay correction;
+  stage gains; polynomial stages named and refused); the response evaluated
+  as evalresp evaluates it and checked against the declared sensitivity;
+  removal in the frequency domain with a water level and a cosine pre-filter
+  to VEL (m/s), DISP (m) or ACC (m/s^2); `fdsn_stationxml` to fetch the file.
+  `gea seismic --action response | remove-response`, `--stationxml` on
+  spectrum, lines and detect, `fetch --with-response`. Every trace now carries
+  its unit and every spectrum the unit of its trace.
+- `gea/reference/IU_ANMO_10_BHZ_response.xml` (IRIS StationXML, with
+  provenance) and evalresp's values at seven frequencies for VEL, DISP and
+  ACC: the response evaluation's independent reference. Section AN (4
+  checks): the file's stages, the evaluation against evalresp to 1e-5 in
+  amplitude and 1e-6 degree in phase, a known motion through the response
+  and back with no error in the band, the six refusals, the command line.
+- `tools/seismic_reader_check.py`: the miniSEED reader against libmseed on
+  the obspy test corpus (about ninety real-station and odd-recorder files,
+  fetched with pip, not redistributed). Result on the maintainer's machine:
+  76 files sample-exact, 5 text/log files skipped by design, 0 mismatches;
+  SAC: 12 of 12 readable files exact against obspy.
+
+### Changed
+- `seismic.py`: the Steim decoders follow the reference implementation's
+  byte-order rules (8-bit differences in memory order, 16-bit in memory
+  order as int16, multi-bit fields from the swapped word), which little-endian
+  Steim data needs; a blockette 1000 byte-order value other than 0 is
+  big-endian; a data offset of 0 means no data; text (log) records are listed
+  as skipped, not read as samples; the gain-ranged formats GEOSCOPE, CDSN, SRO
+  and DWWSSN and 24-bit integers are decoded; a record that cannot be read is
+  written down and stepped over (`read_mseed(...).skipped`); SAC files with
+  no reference time or NUL-terminated strings read.
 
 ### Fixed
 - The install kit's `install.cmd` failed on the v0.5.0 runner at the pip

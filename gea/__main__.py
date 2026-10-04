@@ -279,7 +279,16 @@ def main(argv=None) -> int:
     p_ws = sub.add_parser("workspace", help="the client site folder: init, add wells (file | catalogue | live), list, migrate a --out folder, refresh the dashboard, audit log")
     p_ws.add_argument("--path", type=str, required=True, help="the workspace folder")
     p_ws.add_argument("--action", type=str, default="list",
-                      choices=["init", "add-file", "add-catalog", "add-live", "remove", "list", "migrate", "refresh", "audit"])
+                      choices=["init", "add-file", "add-catalog", "add-live", "remove", "list", "migrate", "refresh", "audit",
+                               "add-seismic", "refresh-seismic", "remove-seismic"])
+    p_ws.add_argument("--files", type=str, nargs="+", default=None, help="add-seismic: the station's record (or one record per sensor of an array, in the sensors CSV's order)")
+    p_ws.add_argument("--lat", type=float, default=None, help="add-seismic: the station's latitude")
+    p_ws.add_argument("--lon", type=float, default=None, help="add-seismic: the station's longitude")
+    p_ws.add_argument("--stationxml", type=str, default=None, help="add-seismic: the station's FDSN StationXML (the response is removed at every refresh)")
+    p_ws.add_argument("--sensors", type=str, default=None, help="add-seismic: sensors CSV (sensor_id, lat, lon) - makes the station an array")
+    p_ws.add_argument("--sources", type=str, default=None, help="add-seismic: the rigs CSV (source_id, lat, lon, start_utc, end_utc[, kind, note])")
+    p_ws.add_argument("--band", type=float, nargs=2, default=None, metavar=("LO", "HI"), help="add-seismic: the band, Hz (default 1 50)")
+    p_ws.add_argument("--station", type=str, default=None, help="refresh-seismic / remove-seismic: the station id")
     p_ws.add_argument("--name", type=str, default=None, help="init: site name; add-*: display name")
     p_ws.add_argument("--file", type=str, default=None, help="add-file: the client's data file; add-live: the port configuration JSON")
     p_ws.add_argument("--entry", type=str, default=None, help="add-catalog: catalogue entry")
@@ -347,7 +356,19 @@ def main(argv=None) -> int:
     p_nt.add_argument("--actor", type=str, default="cli")
 
     p_se = sub.add_parser("seismic", help="the second leg's ingest: miniSEED/SAC in, spectra and persistent lines out, an FDSN fetch, and the detectability test against known rigs")
-    p_se.add_argument("--action", choices=["info", "spectrum", "lines", "fetch", "stations", "detect", "selftest", "convert"], default="info")
+    p_se.add_argument("--action", choices=["info", "spectrum", "lines", "fetch", "stations", "detect", "selftest", "convert", "response", "remove-response",
+                                           "beam", "array-detect", "locate", "array-selftest"], default="info")
+    p_se.add_argument("--files", type=str, nargs="+", default=None, help="beam/array-detect: one record per sensor, in the order of --sensors")
+    p_se.add_argument("--sensors", type=str, default=None, help="beam/array-detect: CSV of the array's sensors (sensor_id, lat, lon[, elevation_m])")
+    p_se.add_argument("--bearings", type=str, default=None, help="locate: CSV of arrays' bearings (lat, lon, back_azimuth_deg, sigma_deg)")
+    p_se.add_argument("--method", type=str, default="bartlett", choices=["bartlett", "capon"], help="beam: the beamformer")
+    p_se.add_argument("--seg", type=float, default=10.0, help="beam: Welch segment length, s (default 10)")
+    p_se.add_argument("--smax", type=float, default=3.0, help="beam: slowness grid half-width, s/km (default 3: apparent velocities down to 0.33 km/s)")
+    p_se.add_argument("--stationxml", type=str, default=None, help="the station's FDSN StationXML (level=response); with spectrum/lines/detect the response is removed first")
+    p_se.add_argument("--output", type=str, default="VEL", choices=["VEL", "DISP", "ACC"], help="ground-motion unit after response removal (default VEL, m/s)")
+    p_se.add_argument("--water-level", type=float, default=60.0, help="water level for the deconvolution, dB (default 60)")
+    p_se.add_argument("--pre-filt", type=float, nargs=4, default=None, metavar=("F1", "F2", "F3", "F4"), help="cosine band window applied before the deconvolution, Hz")
+    p_se.add_argument("--with-response", action="store_true", help="fetch: also fetch the StationXML with responses, beside the record")
     p_se.add_argument("--file", type=str, default=None, help="a miniSEED or SAC file (decided by content)")
     p_se.add_argument("--trace", type=int, default=0, help="which trace of the file when it holds several (default the first)")
     p_se.add_argument("--band", type=float, nargs=2, default=[1.0, 50.0], metavar=("LO", "HI"), help="frequency band, Hz (default 1 50: rig machinery)")
@@ -720,7 +741,7 @@ def main(argv=None) -> int:
         from . import seismic as S
         from . import seismic_detect as D
 
-        def _trace():
+        def _trace(apply_response=True):
             if not a.file:
                 raise SystemExit("seismic: --file is needed for this action")
             trs = S.read_any(a.file)
@@ -728,8 +749,133 @@ def main(argv=None) -> int:
                 raise SystemExit(f"seismic: {a.file} holds no samples")
             if a.trace >= len(trs):
                 raise SystemExit(f"seismic: {a.file} holds {len(trs)} trace(s); --trace {a.trace} is out of range")
-            return trs, trs[a.trace]
+            tr = trs[a.trace]
+            if a.stationxml and apply_response:
+                from . import seismic_response as R
+                try:
+                    chan = R.select(R.read_stationxml(a.stationxml), tr)
+                    tr, note = R.remove_response(tr, chan, a.output, a.water_level, tuple(a.pre_filt) if a.pre_filt else None)
+                except (LookupError, ValueError) as e:
+                    raise SystemExit(f"seismic: response not removed - {e}")
+                print(f"seismic: response of {chan.id} removed ({chan.sensor or 'sensor unnamed'}); the record is now in {note['unit']}", file=sys.stderr)
+            return trs, tr
         band = (float(a.band[0]), float(a.band[1]))
+        if a.action == "array-selftest":
+            from . import seismic_array as AR
+            r = AR.selftest()
+            if a.json:
+                print(_json.dumps({k: v for k, v in r.items() if k != "detectability"} | {"detectability": {kk: vv for kk, vv in r["detectability"].items()}}, indent=1, default=str))
+            else:
+                print(f"seismic array-selftest: {r['status']} ok={r['ok']}")
+                print(AR.report_text(r["detectability"]))
+                c = r["crossing"]
+                print(f"  three arrays' bearings cross {c['miss_km']:.2f} km from the rig; 1-sigma ellipse {c['ellipse_1sigma']['major_km']} x {c['ellipse_1sigma']['minor_km']} km; "
+                      f"crossing angle {c['crossing_angle_deg']} deg; in front of every array: {c['in_front_of_every_array']}")
+            return 0 if r["ok"] else 1
+        if a.action in ("beam", "array-detect"):
+            from . import seismic_array as AR
+            if not a.files or not a.sensors:
+                raise SystemExit(f"seismic {a.action} needs --files (one per sensor) and --sensors CSV")
+            sensors = AR.load_sensors_csv(a.sensors)
+            if len(a.files) != len(sensors):
+                raise SystemExit(f"seismic {a.action}: {len(a.files)} files for {len(sensors)} sensors")
+            trs = []
+            for f in a.files:
+                t = S.read_any(f)
+                if not t:
+                    raise SystemExit(f"seismic: {f} holds no samples")
+                tr = t[0]
+                if a.start or a.end:
+                    tr = tr.slice(S.parse_time(a.start) if a.start else tr.starttime, S.parse_time(a.end) if a.end else tr.endtime)
+                trs.append(tr)
+            if a.action == "beam":
+                b = AR.beam(trs, sensors, band, a.seg, a.smax, 61, a.method)
+                b = {k: v for k, v in b.items() if not k.startswith("_")}
+                if a.out:
+                    with open(a.out, "w", encoding="utf-8") as fh:
+                        _json.dump(b, fh, indent=1)
+                if a.json:
+                    print(_json.dumps(b, indent=1))
+                else:
+                    print(f"seismic beam: {b['n_sensors']} sensors, aperture {b['aperture_km']} km, {b['window']['start']} to {b['window']['end']}, band {band[0]:g}-{band[1]:g} Hz ({b['method']})")
+                    print(f"  back-azimuth {b['back_azimuth_deg']} deg +/- {b['resolution']['azimuth_half_width_deg']} (array response), slowness {b['slowness_s_km']} s/km "
+                          f"(apparent velocity {b['apparent_velocity_km_s']} km/s), best-bin coherence {b['coherence_max_bin']} with {b['coherent_bins']} coherent bins"
+                          + (f" at {', '.join(f'{x:g}' for x in b['coherent_frequencies_hz'][:6])} Hz" if b['coherent_frequencies_hz'] else ''))
+                    if b["resolution"]["aliasing_lobes"]:
+                        print("  the array response has aliasing lobes at this band: a lone peak may be a lobe of the geometry")
+                    for pk in b["peaks"][1:4]:
+                        print(f"  also: {pk['back_azimuth_deg']} deg at {pk['slowness_s_km']} s/km (power {pk['power']})")
+                    print(f"  plane-wave limit: sources nearer than {b['plane_wave_limit_km']} km are not plane waves here")
+                    print("  not a measurement: " + "; ".join(b["not_a_measurement"]))
+                return 0
+            if not a.sources:
+                raise SystemExit("seismic array-detect needs --sources CSV")
+            res = AR.array_detectability(trs, sensors, D.load_sources_csv(a.sources), band, a.win or 600.0, a.seg, a.smax, 61, a.method)
+            if a.out:
+                with open(a.out, "w", encoding="utf-8") as fh:
+                    _json.dump(res, fh, indent=1, default=str)
+            if a.json:
+                print(_json.dumps(res, indent=1, default=str))
+            else:
+                print(AR.report_text(res))
+            return 0
+        if a.action == "locate":
+            from . import seismic_array as AR
+            import csv as _csv
+            if not a.bearings:
+                raise SystemExit("seismic locate needs --bearings CSV (lat, lon, back_azimuth_deg, sigma_deg)")
+            with open(a.bearings, newline="", encoding="utf-8") as fh:
+                rows = [{k.strip(): float(v) for k, v in r.items() if k} for r in _csv.DictReader(fh)]
+            c = AR.intersect_backazimuths(rows)
+            if a.out:
+                with open(a.out, "w", encoding="utf-8") as fh:
+                    _json.dump(c, fh, indent=1)
+            if a.json:
+                print(_json.dumps(c, indent=1))
+            else:
+                e = c["ellipse_1sigma"]
+                print(f"seismic locate: {len(rows)} bearings cross at ({c['lat']:.5f}, {c['lon']:.5f}); 1-sigma ellipse {e['major_km']} x {e['minor_km']} km "
+                      f"(major axis at {e['major_azimuth_deg']} deg); crossing angle {c['crossing_angle_deg']} deg; residuals {c['residual_deg']} deg; "
+                      f"in front of every array: {c['in_front_of_every_array']}")
+                print("  not a measurement: " + "; ".join(c["not_a_measurement"]))
+            return 0
+        if a.action == "response":
+            from . import seismic_response as R
+            if not a.stationxml:
+                raise SystemExit("seismic response needs --stationxml")
+            chans = R.read_stationxml(a.stationxml)
+            if a.json:
+                print(_json.dumps([c.summary() for c in chans], indent=1))
+            else:
+                for c in chans:
+                    sm = c.summary()
+                    print(f"{c.id:18s} {sm['start'] or '..'} to {sm['end'] or '..'}  ({sm['latitude']}, {sm['longitude']}) {sm['sample_rate_hz']} Hz  "
+                          f"{sm['sensor']}  sensitivity {sm['sensitivity']} {sm['output_units']}/({sm['input_units']}) at {sm['sensitivity_frequency_hz']} Hz  stages {', '.join(sm['stages'])}")
+                print(f"seismic: {len(chans)} channel(s) in {a.stationxml}")
+            return 0
+        if a.action == "remove-response":
+            from . import seismic_response as R
+            if not a.stationxml or not a.out:
+                raise SystemExit("seismic remove-response needs --stationxml and --out")
+            trs, _ = _trace(apply_response=False)
+            resp = R.read_stationxml(a.stationxml)
+            done, notes = [], []
+            for tr in trs:
+                try:
+                    chan = R.select(resp, tr)
+                    out_tr, note = R.remove_response(tr, chan, a.output, a.water_level, tuple(a.pre_filt) if a.pre_filt else None)
+                except (LookupError, ValueError) as e:
+                    print(f"  {tr.id}: left in counts - {e}", file=sys.stderr)
+                    continue
+                done.append(out_tr)
+                notes.append({"id": tr.id, **note})
+            if not done:
+                raise SystemExit("seismic remove-response: no trace had a usable response")
+            S.write_mseed(done, a.out, "FLOAT64")
+            with open(a.out + ".units.json", "w", encoding="utf-8") as fh:
+                _json.dump({"unit": done[0].unit, "traces": notes}, fh, indent=1)
+            print(f"seismic: {len(done)} trace(s) in {done[0].unit} -> {a.out} (FLOAT64 miniSEED; the unit and the response record are in {a.out}.units.json)")
+            return 0
         if a.action == "selftest":
             r = D.selftest()
             if a.json:
@@ -763,7 +909,7 @@ def main(argv=None) -> int:
                 m = (f >= band[0]) & (f <= band[1])
                 if a.out:
                     S.spectrum_csv(f[m], p[m], a.out, tr)
-                    print(f"seismic: Welch PSD of {tr.id} ({tr.duration_s:.0f} s) in {band[0]:g}-{band[1]:g} Hz -> {a.out} [counts^2/Hz, response not removed]")
+                    print(f"seismic: Welch PSD of {tr.id} ({tr.duration_s:.0f} s) in {band[0]:g}-{band[1]:g} Hz -> {a.out} [{'counts^2/Hz, response not removed' if tr.unit == 'counts' else '(' + tr.unit + ')^2/Hz, response removed'}]")
                 else:
                     top = sorted(zip(f[m], p[m]), key=lambda z: -z[1])[:10]
                     print(f"seismic: Welch PSD of {tr.id}, {int(m.sum())} bins in {band[0]:g}-{band[1]:g} Hz (df {f[1] - f[0]:.4f} Hz); the ten strongest bins:")
@@ -801,6 +947,11 @@ def main(argv=None) -> int:
                 raise SystemExit(f"seismic fetch needs --{' --'.join(miss)}")
             rec = S.fdsn_fetch(a.base, a.network, a.station, a.channel, a.start, a.end, a.out, a.location)
             print(f"seismic: {rec['bytes']} bytes -> {a.out} ({rec['unit']}); request written to {a.out}.request.json")
+            if a.with_response:
+                from . import seismic_response as R
+                xml_out = os.path.splitext(a.out)[0] + ".stationxml"
+                rx = R.fdsn_stationxml(a.base, a.network, a.station, a.channel, a.start, a.end, xml_out, a.location)
+                print(f"seismic: station file with responses -> {xml_out} ({', '.join(rx['channels']) or 'no channels'})")
             return 0
         if a.action == "detect":
             _, tr = _trace()
@@ -935,6 +1086,27 @@ def main(argv=None) -> int:
                 for row in ws.audit_log(limit=50):
                     print(row["utc"], row["actor"], row["action"], _json.dumps(row["detail"]))
                 return 0
+            elif a.action == "add-seismic":
+                if not (a.name and a.files):
+                    raise SystemExit("add-seismic needs --name and --files (one record, or one per sensor with --sensors)")
+                st = ws.add_seismic_station(a.name, a.files, a.lat, a.lon, actor=a.actor, stationxml=a.stationxml, sensors_csv=a.sensors,
+                                            sources_csv=a.sources, band=a.band)
+                print("seismic station:", st["id"], f"({st['kind']}, {len(st['files'])} record(s))"); return 0
+            elif a.action == "refresh-seismic":
+                ids = [a.station] if a.station else [x["id"] for x in ws.seismic_stations()]
+                if not ids:
+                    raise SystemExit("refresh-seismic: no seismic station in the workspace")
+                for sid in ids:
+                    r = ws.refresh_seismic(sid, actor=a.actor)
+                    print(f"seismic {sid}: {r['records']} record(s), {r['hours']} h, {r['unit']}; {r['lines']} line(s)"
+                          + (f"; detectability {r['detect_status']}: {r['detected']} of {r['n_sources']} detected - {r['radius']}" if r["detect_status"] else "; no detectability test (needs --sources and a position)")
+                          + (f"; beam {r['beam_back_azimuth_deg']} deg, pointed at {r['pointed']}" if r["beam_back_azimuth_deg"] is not None else "")
+                          + f"\n  report: {r['report']}")
+                return 0
+            elif a.action == "remove-seismic":
+                if not a.station:
+                    raise SystemExit("remove-seismic needs --station <id>")
+                ws.remove_seismic_station(a.station, actor=a.actor); print("removed (folder kept):", a.station); return 0
             else:
                 print(_json.dumps(ws.summary(), indent=1)); return 0
             print("well:", w["id"], f"({w['kind']})"); return 0

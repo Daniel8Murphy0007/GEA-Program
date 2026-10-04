@@ -1,0 +1,122 @@
+{
+ "what": "An FDSN StationXML document with a full instrument response (poles and zeros, two coefficient stages including a 39-term FIR), used by the acceptance suite to prove this program's response evaluation against evalresp.",
+ "file": "IU_ANMO_10_BHZ_response.xml",
+ "sha256": "829713175417b6eac19f345319794afd6c5fa8d3f27501bd92bc6e3e31a1bde7",
+ "channel": "IU.ANMO.10.BHZ (Albuquerque, New Mexico; Guralp CMG3-T borehole; 40 Hz; sensitivity 3.31283E10 counts per m/s at 0.02 Hz)",
+ "source": "IRIS-DMC fdsnws-station, level=response (the ModuleURI inside the file names the query); the document as carried in obspy 1.5.1's test data (obspy/core/tests/data/IRIS_single_channel_with_response.xml). FDSN station metadata served by IRIS/EarthScope is openly redistributable.",
+ "reference_values": {
+  "how": "obspy 1.5.1 Response.get_evalresp_response_for_frequencies (evalresp) on the maintainer's machine, 2026-10-03; [frequency Hz, |H| counts per unit, phase degrees]",
+  "VEL": [
+   [
+    0.02,
+    33128378162.54596,
+    35.831800668767464
+   ],
+   [
+    0.1,
+    33744551211.426224,
+    6.73811104220434
+   ],
+   [
+    1.0,
+    33971502777.867886,
+    -0.4673526928565621
+   ],
+   [
+    5.0,
+    34297669935.96825,
+    -6.032469397980552
+   ],
+   [
+    10.0,
+    34443111725.79463,
+    -13.799694976896554
+   ],
+   [
+    15.0,
+    33361302282.132793,
+    -21.488098366656367
+   ],
+   [
+    19.0,
+    312679349.5713673,
+    -27.748100823702096
+   ]
+  ],
+  "DISP": [
+   [
+    0.02,
+    4163034778.4319572,
+    125.83180066876747
+   ],
+   [
+    0.1,
+    21202326836.900234,
+    96.73811104220434
+   ],
+   [
+    1.0,
+    213449247116.71,
+    89.53264730714345
+   ],
+   [
+    5.0,
+    1077493079060.8536,
+    83.96753060201945
+   ],
+   [
+    10.0,
+    2164124535290.5776,
+    76.20030502310345
+   ],
+   [
+    15.0,
+    3144228664912.1035,
+    68.51190163334364
+   ],
+   [
+    19.0,
+    37327823606.62041,
+    62.251899176297904
+   ]
+  ],
+  "ACC": [
+   [
+    0.02,
+    263627257059.3395,
+    -54.16819933123254
+   ],
+   [
+    0.1,
+    53706121277.16089,
+    -83.26188895779566
+   ],
+   [
+    1.0,
+    5406732591.357728,
+    -90.46735269285656
+   ],
+   [
+    5.0,
+    1091728741.3687272,
+    -96.03246939798055
+   ],
+   [
+    10.0,
+    548179148.6626638,
+    -103.79969497689656
+   ],
+   [
+    15.0,
+    353974411.07895756,
+    -111.48809836665637
+   ],
+   [
+    19.0,
+    2619182.320370622,
+    -117.74810082370209
+   ]
+  ]
+ },
+ "deconvolution_check": "on the maintainer's machine, this program's remove_response against obspy's on a real 3-hour IU.ULN.00.LH1 record with this response forced on it: relative rms difference 0.9 % (VEL), 1.1 % (DISP), 1.1 % (ACC) with the pre-filter 0.005-0.01-0.4-0.45 Hz; the remainder is the two programs' taper and detrend conventions"
+}

@@ -1021,6 +1021,106 @@ def transient_report(detection: dict, analyses: List[dict], well_name: str = '',
                           'evaluated_at_utc': now.strftime('%Y-%m-%dT%H:%M:%SZ'), '_records': [], '_catalogue_obj': None})
 
 
+# ---------------------------------------------------------------------------
+# Report 10 - Seismic Station (the second leg)
+# ---------------------------------------------------------------------------
+def seismic_station_report(station: dict, info: List[dict], spectrum: Optional[dict], lines: Optional[dict], detect: Optional[dict],
+                           beam_res: Optional[dict] = None, array_detect: Optional[dict] = None, response_note: Optional[dict] = None,
+                           evaluated_at: Optional[datetime] = None, program_version: str = '') -> Document:
+    """What one station (or array) recorded, what persists in its spectrum, whether the listed rigs were heard and,
+    with an array, whether it pointed at them. Every number is the leg's own output; nothing is recomputed here."""
+    now = evaluated_at or _utc_now()
+    name = station.get('display') or station.get('id') or 'station'
+    report_id = f"SEIS-{name.replace('/', '-').replace(' ', '_')[:24]}-{now.strftime('%Y%m%dT%H%M%SZ')}"
+    unit = (response_note or {}).get('unit') or 'counts'
+    parts = []
+    if info:
+        i0 = info[0]
+        parts.append(f"{len(info)} record{'s' if len(info) != 1 else ''}; {i0['id']} from {i0['start']} to {i0['end']} at {i0['sample_rate_hz']:g} Hz "
+                     f"({i0['duration_s'] / 3600:.1f} h, {i0['gaps']} gap{'s' if i0['gaps'] != 1 else ''}), in {unit}"
+                     + (' with the station response removed' if unit != 'counts' else ' with the instrument response left as recorded') + '.')
+    if lines:
+        parts.append(f"{len(lines['lines'])} persistent line{'s' if len(lines['lines']) != 1 else ''} in {lines['band_hz'][0]:g}-{lines['band_hz'][1]:g} Hz over {lines['windows']} windows of {lines['win_s']:g} s.")
+    if detect:
+        if detect.get('status') == 'OK':
+            n_det = sum(1 for r in detect['sources'] if r['verdict'] == 'DETECTED')
+            parts.append(f"Detectability: {n_det} of {detect['n_sources']} listed source{'s' if detect['n_sources'] != 1 else ''} detected; radius {detect['radius']}.")
+        else:
+            parts.append(f"Detectability: {detect.get('status')} - {detect.get('detail', '')}")
+    if beam_res:
+        parts.append(f"Array: back-azimuth {beam_res['back_azimuth_deg']} deg (half-width {beam_res['resolution']['azimuth_half_width_deg']} deg), "
+                     f"slowness {beam_res['slowness_s_km']} s/km, best-bin coherence {beam_res['coherence_max_bin']}.")
+    if array_detect:
+        n_p = sum(1 for r in array_detect['sources'] if r['verdict'] == 'POINTED')
+        parts.append(f"The array pointed at {n_p} of {len(array_detect['sources'])} listed source{'s' if len(array_detect['sources']) != 1 else ''}.")
+    summary = Section('1', 'Summary', [' '.join(parts) or 'No record was read.'])
+    rec_rows = [[i['id'], i['start'], i['end'], _fmt(i['sample_rate_hz']), i['npts'], _fmt(round(i['duration_s'] / 3600, 2)), i['encoding'], i['gaps'], i['unit']] for i in info]
+    rec = Section('2', 'The record', [f"Station position: {station.get('lat')}, {station.get('lon')}." if station.get('lat') is not None else 'Station position: not given (the detectability test needs it).'],
+                  [Table(['Channel', 'Start (UTC)', 'End (UTC)', 'Rate (Hz)', 'Samples', 'Hours', 'Encoding', 'Gaps', 'Unit'], rec_rows)] if rec_rows else [])
+    sp_paras = []
+    sp_tables = []
+    if spectrum:
+        sp_paras.append(f"Welch PSD over the whole record in {spectrum['unit']}; {spectrum['n_bins']} bins at {spectrum['df_hz']:.4f} Hz in {spectrum['band_hz'][0]:g}-{spectrum['band_hz'][1]:g} Hz; "
+                        f"the strongest bin at {spectrum['peak_hz']:.3f} Hz ({spectrum['peak_db']:.1f} dB).")
+    if lines:
+        sp_paras.append(f"A persistent line is a bin that stands {lines['snr_db']:g} dB above a running-median floor in at least {lines['min_fraction']:.0%} of the windows; "
+                        'it is consistent with machinery and does not name the machine.')
+        sp_tables.append(Table(['Frequency (Hz)', 'Over the floor (dB)', 'Present in windows', 'Width (bins)'],
+                               [[_fmt(l['freq_hz']), _fmt(l['median_excess_db']), f"{l['present_windows']} of {l['windows']} ({l['persistence']:.0%})", l.get('width_bins', '-')] for l in lines['lines'][:25]]))
+    spec_sec = Section('3', 'Spectrum and persistent lines', sp_paras or ['No spectrum (the record was too short for one window).'], sp_tables)
+    det_secs = []
+    if detect:
+        rows = [[r['source_id'], _fmt(r['distance_km']), r['verdict'], r.get('excess_over_quiet_db', '-'), r.get('exclusive_windows', 0),
+                 ', '.join(f"{x:g}" for x in r.get('lines_hz', [])[:6]) or '-', r.get('detail', '')] for r in sorted(detect['sources'], key=lambda r: r['distance_km'])]
+        paras = [f"Status {detect['status']}. {detect.get('detail', '')}".strip()]
+        if detect.get('quiet_baseline'):
+            qb = detect['quiet_baseline']
+            paras.append(f"Quiet baseline (windows with no listed source working): median {qb['median_db']:.1f} dB, 95th percentile {qb['p95_db']:.1f} dB over {detect['quiet_windows']} windows; "
+                         f"a source is DETECTED when its exclusive windows stand {detect['snr_db']:g} dB above the median in at least half of them.")
+        paras.append(f"Radius: {detect['radius']}")
+        det_secs.append(Section('4', 'Detectability - the listed sources', paras, [Table(['Source', 'Distance (km)', 'Verdict', 'Over quiet (dB)', 'Exclusive windows', 'Its lines (Hz)', 'Detail'], rows)] if rows else []))
+    if beam_res or array_detect:
+        paras, tables = [], []
+        if beam_res:
+            r = beam_res['resolution']
+            paras.append(f"{beam_res['n_sensors']} sensors, aperture {beam_res['aperture_km']} km, {beam_res['window']['start']} to {beam_res['window']['end']}, band {beam_res['band_hz'][0]:g}-{beam_res['band_hz'][1]:g} Hz ({beam_res['method']}): "
+                         f"back-azimuth {beam_res['back_azimuth_deg']} deg with an array-response half-width of {r['azimuth_half_width_deg']} deg; slowness {beam_res['slowness_s_km']} s/km "
+                         f"(apparent velocity {beam_res['apparent_velocity_km_s']} km/s); best-bin coherence {beam_res['coherence_max_bin']} with {beam_res['coherent_bins']} coherent bins"
+                         + (f" at {', '.join(f'{x:g}' for x in beam_res['coherent_frequencies_hz'][:6])} Hz" if beam_res.get('coherent_frequencies_hz') else '') + '. '
+                         + ('The geometry has aliasing lobes at this band: a lone peak may be a lobe. ' if r.get('aliasing_lobes') else '')
+                         + f"Sources nearer than {beam_res['plane_wave_limit_km']} km are not plane waves to this array.")
+            if beam_res.get('peaks'):
+                tables.append(Table(['Peak', 'Back-azimuth (deg)', 'Slowness (s/km)', 'Power'], [[k + 1, p['back_azimuth_deg'], p['slowness_s_km'], p['power']] for k, p in enumerate(beam_res['peaks'][:6])]))
+        if array_detect:
+            tables.append(Table(['Source', 'Distance (km)', 'True bearing', 'Beam bearing', 'Error (deg)', 'Tolerance (deg)', 'Best-bin coherence', 'Verdict'],
+                                [[r['source_id'], _fmt(r['distance_km']), _fmt(r['true_back_azimuth_deg']), r.get('beam_back_azimuth_deg', '-'), r.get('azimuth_error_deg', '-'),
+                                  r.get('tolerance_deg', '-'), r.get('coherence', '-'), r['verdict']] for r in sorted(array_detect['sources'], key=lambda r: r['distance_km'])]))
+        det_secs.append(Section('5' if detect else '4', 'The array', paras, tables))
+    nxt = str(len(det_secs) + 4)
+    method = Section(nxt, 'Method', [
+        'Records are read from miniSEED or SAC by content; the station response, when its StationXML is given, is built from the file\'s stages as evalresp builds it and removed in the frequency domain with a water level and a pre-filter. '
+        'Spectra are Welch estimates (Hann window, half overlap); persistent lines are bins above a running-median floor in a fraction of the windows. '
+        'Detectability compares band power in each listed source\'s exclusive windows with the quiet baseline. '
+        'An array\'s direction is frequency-domain beamforming over a slowness grid with the array response function\'s half-power width as its resolution.'])
+    nam = []
+    for src in (lines, detect, beam_res, array_detect):
+        if src and src.get('not_a_measurement'):
+            v = src['not_a_measurement']
+            nam += (v if isinstance(v, list) else [v])
+    if unit == 'counts':
+        nam.append('any quantity in physical units: the instrument response was not removed (no station file was given)')
+    limits = Section(str(int(nxt) + 1), 'What this report does not call a measurement', [c.rstrip('.') + '.' for c in dict.fromkeys(nam)] or ['-'])
+    front = [['Report ID', report_id], ['Station', name], ['Generated (UTC)', now.strftime('%Y-%m-%dT%H:%M:%SZ')],
+             ['Program', f'{PROGRAM_NAME}' + (f' build {program_version}' if program_version else '')],
+             ['Unit', unit], ['Result', (f"{sum(1 for r in detect['sources'] if r['verdict'] == 'DETECTED')} OF {detect['n_sources']} LISTED SOURCES DETECTED" if detect and detect.get('status') == 'OK'
+                                        else (detect.get('status', 'NO DETECTABILITY TEST') if detect else 'RECORD READ; NO SOURCE LIST'))]]
+    return Document(title=f'{PROGRAM_NAME} - Seismic Station Report', report_id=report_id, front=front,
+                    sections=[summary, rec, spec_sec] + det_secs + [method, limits],
+                    footer='Every number is the leg\'s own output at generation time; the band, the windows and the thresholds that produced each verdict are printed beside it.',
+                    data={'station': station, 'records': info, 'spectrum': spectrum, 'lines': lines, 'detect': detect, 'beam': beam_res, 'array_detect': array_detect,
+                          'response': response_note, 'report_id': report_id, 'evaluated_at_utc': now.strftime('%Y-%m-%dT%H:%M:%SZ'), '_records': [], '_catalogue_obj': None})
+
+
 def forbidden_terms(text: str) -> List[str]:
     low = text.lower()
     return [t for t in FORBIDDEN_TERMS if t in low]

@@ -143,6 +143,7 @@ VIEWS.home = async () => {
   h += tile('Patches connected', `${pUp} of ${pc.length}`, pBad ? 'serious' : (pc.length ? 'good' : 'neutral'), '#/live', pBad ? `${pBad} down or degraded` : '');
   if (site.certificates) { const cc = site.certificates.counts; h += tile('Calibration certificates', `${cc.VALID + cc.EXPIRING} of ${cc.VALID + cc.EXPIRING + cc.EXPIRED + cc.MISSING} in date`, (cc.EXPIRED || cc.MISSING) ? 'serious' : (cc.EXPIRING ? 'warn' : 'good'), '#/wells', `${cc.EXPIRING} expiring · ${cc.EXPIRED} expired · ${cc.MISSING} missing · ${site.certificates.swaps} swap(s) on record`); }
   if (site.transient && site.transient.shut_ins) h += tile('Build-ups analysed', `${site.transient.analysed} of ${site.transient.shut_ins} shut-ins`, 'neutral', '#/wells');
+  if (o.seismic && o.seismic.length) { const sd = o.seismic.filter(x => x.detected !== null && x.detected !== undefined); const det = sd.reduce((n, x) => n + x.detected, 0), tot = sd.reduce((n, x) => n + x.n_sources, 0); h += tile('Seismic stations', `${o.seismic.length}${sd.length ? ` · ${det} of ${tot} listed rigs heard` : ''}`, 'neutral', '#/seismic', o.seismic.filter(x => x.pointed !== null && x.pointed !== undefined).length ? `arrays pointed at ${o.seismic.reduce((n, x) => n + (x.pointed || 0), 0)}` : ''); }
   h += `</div>`;
   h += `<div class="row card">${can('operator') ? `<label>Month for the SLA (optional)<input id="month" placeholder="YYYY-MM" pattern="\\d{4}-\\d{2}"></label><label><input type="checkbox" id="sat"> also run the SAT protocol</label><button id="refreshBtn" type="button">Refresh every report</button>` : need('operator')}<a class="btn secondary" href="/reports/index.html" target="_blank" rel="noopener">Open the printed dashboard</a></div>`;
   if (d) {
@@ -257,6 +258,57 @@ VIEWS.well = async (id) => {
   try { const s = await get(`/api/wells/${id}/series`); const sel = $('#chan'); sel.innerHTML = Object.keys(s.channels).map(c => `<option>${esc(c)}</option>`).join(''); $('#chanNote').textContent = `${s.n_source} source samples, every ${s.stride}${s.stride > 1 ? 'th' : ''} shown · index ${s.index_kind}${s.start_time ? ' from ' + s.start_time : ''}`;
     const draw = () => { const c = s.channels[sel.value]; $('#chart').innerHTML = lineChart(s.index, c.values, c.quality, c.unit, sel.value); }; sel.onchange = draw; draw(); }
   catch (e) { $('#chart').innerHTML = `<p class="muted">${esc(e.message)}</p>`; }
+};
+
+VIEWS.seismic = async () => {
+  const {stations} = await get('/api/seismic');
+  let h = `<h2>Seismic - the second leg</h2><p class="muted small">A station's record in, its spectrum and persistent lines out, and the detectability test against the rigs on its list; an array adds the direction. Every refresh is a job; the report is under Reports.</p>`;
+  h += `<table><thead><tr><th>Station</th><th>Kind</th><th>Records</th><th>Unit</th><th>Lines</th><th>Detectability</th><th>Array</th><th>Last refresh</th><th></th></tr></thead><tbody>`;
+  for (const s of stations) { const m = s.summary || {};
+    h += `<tr><td><a href="#/seismic/${esc(s.id)}">${esc(s.display)}</a></td><td>${esc(s.kind)}</td><td>${s.files.length}</td><td>${esc(m.unit || '—')}</td><td>${m.lines ?? '—'}</td><td>${m.detect_status ? statusPill(m.detect_status === 'OK' ? (m.detected ? 'good' : 'warn') : 'warn', m.detect_status === 'OK' ? `${m.detected} of ${m.n_sources} heard` : m.detect_status) : '<span class="muted small">no source list</span>'}</td><td>${m.beam_back_azimuth_deg !== null && m.beam_back_azimuth_deg !== undefined ? `${fmt(m.beam_back_azimuth_deg, 1)}° · pointed at ${m.pointed}` : '—'}</td><td class="small">${m.generated_utc ? tz(m.generated_utc) : 'never'}</td><td>${can('operator') ? `<button data-sref="${esc(s.id)}" type="button">Refresh</button>` : ''} ${can('admin') ? `<button class="secondary danger" data-srm="${esc(s.id)}" type="button">Remove</button>` : ''}</td></tr>`; }
+  h += `</tbody></table>`;
+  if (can('operator')) {
+    h += `<div class="card"><h3>Add a station or an array</h3><p class="small muted">One miniSEED or SAC record for a station; one record per sensor plus a sensors CSV (sensor_id, lat, lon) for an array. The rigs CSV (source_id, lat, lon, start_utc, end_utc) is the ground truth the detectability test judges against; the StationXML turns counts into m/s. Files are copied in verbatim and hashed.</p>
+      <div class="row"><label>Display name<input id="sName"></label><label>Record file(s)<input type="file" id="sFiles" multiple></label><label>Latitude<input id="sLat" type="number" step="0.000001"></label><label>Longitude<input id="sLon" type="number" step="0.000001"></label></div>
+      <div class="row"><label>Rigs CSV (optional)<input type="file" id="sSources"></label><label>StationXML (optional)<input type="file" id="sXml"></label><label>Sensors CSV (array only)<input type="file" id="sSensors"></label><label>Band, Hz<input id="sLo" type="number" value="1" step="0.1" style="width:5em"> – <input id="sHi" type="number" value="50" step="0.1" style="width:5em"></label><button id="sAdd" type="button">Add station</button></div></div>`;
+  } else h += need('operator');
+  $('#main').innerHTML = h;
+  document.querySelectorAll('[data-sref]').forEach(b => b.onclick = async () => { b.disabled = true; try { const j = await post(`/api/seismic/${b.dataset.sref}/refresh`); toast('Refresh started: job ' + j.id, 'ok'); watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); } b.disabled = false; });
+  document.querySelectorAll('[data-srm]').forEach(b => b.onclick = async () => { if (!confirm(`Remove ${b.dataset.srm}? Its folder is kept, renamed.`)) return; try { await post(`/api/seismic/${b.dataset.srm}/remove`); toast('Removed', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+  const add = $('#sAdd'); if (!add) return;
+  const one = async (id) => { const f = $(id).files[0]; return f ? {filename: f.name, content_b64: await readFile(f)} : null; };
+  add.onclick = async () => { const fs = Array.from($('#sFiles').files); if (!fs.length) return toast('Choose at least one record', 'err'); add.disabled = true;
+    try { const files = []; for (const f of fs) files.push({filename: f.name, content_b64: await readFile(f)});
+      const st = await post('/api/seismic/add', {display: $('#sName').value || fs[0].name, files, lat: $('#sLat').value || null, lon: $('#sLon').value || null, sources: await one('#sSources'), stationxml: await one('#sXml'), sensors: await one('#sSensors'), band: [+$('#sLo').value || 1, +$('#sHi').value || 50]});
+      toast(`Added ${st.id}`, 'ok'); location.hash = '#/seismic/' + st.id; } catch (e) { toast(e.message, 'err'); } add.disabled = false; };
+};
+
+VIEWS.seismic_station = async (id) => {
+  const d = await get('/api/seismic/' + id); const st = d.station, R = d.results, dir = 'seismic/' + id, m = R.summary;
+  let h = `<h2>${esc(st.display)} <span class="muted small">(seismic ${esc(st.kind)})</span></h2>`;
+  h += `<dl class="kv card"><dt>Records</dt><dd class="mono small">${st.files.map(esc).join(', ')}</dd><dt>Position</dt><dd>${st.lat !== null && st.lat !== undefined ? `${st.lat}, ${st.lon}` : '<span class="muted">not given - the detectability test needs it</span>'}</dd><dt>Band</dt><dd>${st.band_hz[0]}–${st.band_hz[1]} Hz</dd><dt>Station file</dt><dd>${st.stationxml ? esc(st.stationxml) : '<span class="muted">none - the record stays in counts</span>'}</dd><dt>Rigs list</dt><dd>${st.sources ? esc(st.sources) : '<span class="muted">none - no detectability test</span>'}</dd>${st.sensors ? `<dt>Sensors</dt><dd>${esc(st.sensors)}</dd>` : ''}<dt>Added</dt><dd>${esc(st.added_utc)} by ${esc(st.added_by)}</dd></dl>`;
+  if (can('operator')) h += `<div class="row card"><button id="sRefresh" type="button">Refresh this station</button><span class="small muted">reads the record, removes the response when a station file is there, the spectrum, the lines, the detectability test, the beam for an array; every run is a job</span></div>`;
+  if (!m) { h += `<p class="card">Not refreshed yet.</p>`; $('#main').innerHTML = h; const b = $('#sRefresh'); if (b) b.onclick = async () => { try { const j = await post(`/api/seismic/${id}/refresh`); toast('Refresh started: job ' + j.id, 'ok'); watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); } }; return; }
+  h += `<div class="card"><h3>Seismic station report <span class="small muted">${esc(m.report_id)} · ${reportLinks(dir, 'seismic_station_report')}</span></h3><p class="small">${m.records} record(s), ${m.hours} h, in <b>${esc(m.unit)}</b>${m.response_removed ? ' (station response removed)' : (m.response_note ? ` (response not removed: ${esc(m.response_note)})` : ' (instrument response as recorded)')}; ${m.lines} persistent line(s)${m.detect_status ? `; detectability ${esc(m.detect_status)}` : ''}.</p></div>`;
+  if (R.spectrum) { h += `<div class="card"><h3>Spectrum <span class="small muted">${esc(R.spectrum.unit)} · strongest bin ${fmt(R.spectrum.peak_hz, 3)} Hz</span></h3><canvas id="psd" width="900" height="260" style="width:100%;max-width:900px"></canvas></div>`; }
+  if (R.lines && R.lines.lines && R.lines.lines.length) { h += `<div class="card"><h3>Persistent lines <span class="small muted">${R.lines.band_hz[0]}–${R.lines.band_hz[1]} Hz, ${R.lines.windows} windows of ${R.lines.win_s} s</span></h3><table><thead><tr><th>Frequency (Hz)</th><th>Over the floor (dB)</th><th>Present in</th></tr></thead><tbody>`;
+    for (const l of R.lines.lines.slice(0, 20)) h += `<tr><td class="mono">${fmt(l.freq_hz, 3)}</td><td>${fmt(l.median_excess_db, 1)}</td><td>${l.present_windows} of ${l.windows} windows</td></tr>`;
+    h += `</tbody></table><p class="small muted">A persistent line is consistent with machinery; it does not name the machine.</p></div>`; }
+  if (R.detect) { const D = R.detect; h += `<div class="card"><h3>Detectability <span class="small muted">${esc(D.status)} · ${D.quiet_windows} quiet of ${D.windows} windows</span></h3>`;
+    if (D.detail) h += `<p class="small">${esc(D.detail)}</p>`;
+    h += `<table><thead><tr><th>Source</th><th>Distance (km)</th><th>Verdict</th><th>Over quiet (dB)</th><th>Its lines (Hz)</th></tr></thead><tbody>`;
+    for (const r of D.sources.slice().sort((a, b) => a.distance_km - b.distance_km)) h += `<tr><td>${esc(r.source_id)}</td><td>${fmt(r.distance_km, 1)}</td><td>${statusPill(r.verdict === 'DETECTED' ? 'good' : (r.verdict === 'NOT_DETECTED' ? 'warn' : 'neutral'), r.verdict)}</td><td>${r.excess_over_quiet_db !== undefined ? fmt(r.excess_over_quiet_db, 1) : '—'}</td><td class="small mono">${(r.lines_hz || []).slice(0, 6).map(x => fmt(x, 2)).join(', ') || '—'}</td></tr>`;
+    h += `</tbody></table><p class="small"><b>Radius:</b> ${esc(D.radius)}</p><p class="small muted">Not a measurement: ${D.not_a_measurement.map(esc).join('; ')}.</p></div>`; }
+  if (R.beam) { const B = R.beam, r = B.resolution; h += `<div class="card"><h3>Array <span class="small muted">${B.n_sensors} sensors, aperture ${B.aperture_km} km, ${B.method}</span></h3><p>Back-azimuth <b>${fmt(B.back_azimuth_deg, 1)}°</b> ± ${fmt(r.azimuth_half_width_deg, 1)}° (array response) · slowness ${fmt(B.slowness_s_km, 3)} s/km (apparent velocity ${fmt(B.apparent_velocity_km_s, 2)} km/s) · best-bin coherence ${fmt(B.coherence_max_bin, 2)} with ${B.coherent_bins} coherent bins${B.coherent_frequencies_hz.length ? ` at ${B.coherent_frequencies_hz.slice(0, 6).map(x => fmt(x, 1)).join(', ')} Hz` : ''}.${r.aliasing_lobes ? ' <b>The geometry has aliasing lobes at this band: a lone peak may be a lobe.</b>' : ''} Sources nearer than ${B.plane_wave_limit_km} km are not plane waves here.</p>`;
+    if (R.array_detect) { h += `<table><thead><tr><th>Source</th><th>Distance (km)</th><th>True bearing</th><th>Beam</th><th>Error</th><th>Tolerance</th><th>Verdict</th></tr></thead><tbody>`;
+      for (const r2 of R.array_detect.sources) h += `<tr><td>${esc(r2.source_id)}</td><td>${fmt(r2.distance_km, 1)}</td><td>${fmt(r2.true_back_azimuth_deg, 1)}°</td><td>${r2.beam_back_azimuth_deg !== undefined ? fmt(r2.beam_back_azimuth_deg, 1) + '°' : '—'}</td><td>${r2.azimuth_error_deg !== undefined ? fmt(r2.azimuth_error_deg, 1) + '°' : '—'}</td><td>${r2.tolerance_deg !== undefined ? fmt(r2.tolerance_deg, 1) + '°' : '—'}</td><td>${statusPill(r2.verdict === 'POINTED' ? 'good' : (r2.verdict === 'NOT_POINTED' ? 'warn' : 'neutral'), r2.verdict)}</td></tr>`;
+      h += `</tbody></table>`; }
+    h += `<p class="small muted">Not a measurement: ${B.not_a_measurement.map(esc).join('; ')}.</p></div>`; }
+  $('#main').innerHTML = h;
+  const b = $('#sRefresh'); if (b) b.onclick = async () => { b.disabled = true; try { const j = await post(`/api/seismic/${id}/refresh`); toast('Refresh started: job ' + j.id, 'ok'); watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); } b.disabled = false; };
+  const cv = $('#psd'); if (cv && R.spectrum) { const c = cv.getContext('2d'), W = cv.width, H = cv.height, F = R.spectrum.freqs_hz, P = R.spectrum.psd_db; const fg = getComputedStyle(document.body).color; const lo = Math.min(...P), hi = Math.max(...P), f0 = F[0], f1 = F[F.length - 1]; c.clearRect(0, 0, W, H); c.strokeStyle = fg; c.globalAlpha = 0.25; c.strokeRect(50.5, 10.5, W - 60, H - 40); c.globalAlpha = 1; c.font = '12px system-ui'; c.fillStyle = fg;
+    for (let i = 0; i <= 4; i++) { const v = lo + (hi - lo) * i / 4, y = H - 30 - (H - 40) * i / 4; c.fillText(v.toFixed(0) + ' dB', 2, y + 4); } for (let i = 0; i <= 5; i++) { const f = f0 + (f1 - f0) * i / 5, x = 50 + (W - 60) * i / 5; c.fillText(f.toFixed(1) + ' Hz', x - 14, H - 12); }
+    c.beginPath(); for (let i = 0; i < F.length; i++) { const x = 50 + (W - 60) * (F[i] - f0) / (f1 - f0 || 1), y = H - 30 - (H - 40) * (P[i] - lo) / ((hi - lo) || 1); i ? c.lineTo(x, y) : c.moveTo(x, y); } c.strokeStyle = fg; c.lineWidth = 1.2; c.stroke(); }
 };
 
 VIEWS.live = async () => {
@@ -521,7 +573,7 @@ function authScreen(first) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/wells', 'Wells'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/jobs', 'Jobs'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/wells', 'Wells'], ['#/seismic', 'Seismic'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/jobs', 'Jobs'], ['#/admin', 'Administration'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, '']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }
@@ -535,6 +587,7 @@ async function _route() {
   const view = parts[0] || 'home', arg = parts.slice(1).join('/');
   try {
     if (view === 'wells' && arg) await VIEWS.well(decodeURIComponent(arg));
+    else if (view === 'seismic' && arg) await VIEWS.seismic_station(decodeURIComponent(arg));
     else if (view === 'live' && arg) await VIEWS.patch(decodeURIComponent(arg));
     else if (view === 'help') await VIEWS.help(arg ? decodeURIComponent(arg) : undefined);
     else if (VIEWS[view]) await VIEWS[view](arg ? decodeURIComponent(arg) : undefined);

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Downhole Gauge Monitoring - Seismic Station Report</title>
+<style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
+<h1>Downhole Gauge Monitoring - Seismic Station Report</h1>
+<table class="front">
+<tr><td>Report ID</td><td>SEIS-SYNTHETIC_node-20261004T005058Z</td></tr>
+<tr><td>Station</td><td>SYNTHETIC node</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-04T00:50:58Z</td></tr>
+<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.6.0</td></tr>
+<tr><td>Unit</td><td>counts</td></tr>
+<tr><td>Result</td><td class="result-bad">3 OF 5 LISTED SOURCES DETECTED</td></tr>
+</table>
+<h2>1. Summary</h2>
+<p>1 record; XX.SYN..HHZ from 2025-06-01T00:00:00.0000Z to 2025-06-01T05:59:59.9800Z at 50 Hz (6.0 h, 0 gaps), in counts with the instrument response left as recorded. 0 persistent lines in 1-20 Hz over 36 windows of 600 s. Detectability: 3 of 5 listed sources detected; radius every judged source detected out to 20.0 km; the radius is at least that and is not bounded above by this list.</p>
+<h2>2. The record</h2>
+<p>Station position: 31.0, -102.0.</p>
+<table>
+<tr><th>Channel</th><th>Start (UTC)</th><th>End (UTC)</th><th>Rate (Hz)</th><th>Samples</th><th>Hours</th><th>Encoding</th><th>Gaps</th><th>Unit</th></tr>
+<tr><td>XX.SYN..HHZ</td><td>2025-06-01T00:00:00.0000Z</td><td>2025-06-01T05:59:59.9800Z</td><td>50</td><td>1080000</td><td>6</td><td>STEIM2</td><td>0</td><td>counts (instrument response not removed)</td></tr>
+</table>
+<h2>3. Spectrum and persistent lines</h2>
+<p>Welch PSD over the whole record in counts^2/Hz (response not removed); 1557 bins at 0.0122 Hz in 1-20 Hz; the strongest bin at 1.404 Hz (71.6 dB).</p>
+<p>A persistent line is a bin that stands 6 dB above a running-median floor in at least 50% of the windows; it is consistent with machinery and does not name the machine.</p>
+<table>
+<tr><th>Frequency (Hz)</th><th>Over the floor (dB)</th><th>Present in windows</th><th>Width (bins)</th></tr>
+</table>
+<h2>4. Detectability - the listed sources</h2>
+<p>Status OK.</p>
+<p>Quiet baseline (windows with no listed source working): median 28.3 dB, 95th percentile 28.4 dB over 18 windows; a source is DETECTED when its exclusive windows stand 6 dB above the median in at least half of them.</p>
+<p>Radius: every judged source detected out to 20.0 km; the radius is at least that and is not bounded above by this list</p>
+<table>
+<tr><th>Source</th><th>Distance (km)</th><th>Verdict</th><th>Over quiet (dB)</th><th>Exclusive windows</th><th>Its lines (Hz)</th><th>Detail</th></tr>
+<tr><td>RIG-1</td><td>3</td><td>DETECTED</td><td>36.97</td><td>6</td><td>1.001, 1.404, 2.795, 4.199, 5.603, 18.005</td><td>band power +37.0 dB over the quiet median in 100% of 6 exclusive windows</td></tr>
+<tr><td>RIG-2</td><td>8.00</td><td>DETECTED</td><td>26.85</td><td>6</td><td>1.294, 1.648, 3.296, 4.956, 6.604</td><td>band power +26.9 dB over the quiet median in 100% of 6 exclusive windows</td></tr>
+<tr><td>RIG-3</td><td>20.01</td><td>DETECTED</td><td>15.79</td><td>6</td><td>1.599, 1.904, 3.796, 5.701, 7.605</td><td>band power +15.8 dB over the quiet median in 100% of 6 exclusive windows</td></tr>
+<tr><td>RIG-4</td><td>45.02</td><td>INSUFFICIENT_WINDOWS</td><td>-</td><td>0</td><td>-</td><td>the source was not active inside this record</td></tr>
+<tr><td>RIG-5</td><td>90.01</td><td>INSUFFICIENT_WINDOWS</td><td>-</td><td>0</td><td>-</td><td>the source was not active inside this record</td></tr>
+</table>
+<h2>5. Method</h2>
+<p>Records are read from miniSEED or SAC by content; the station response, when its StationXML is given, is built from the file&#x27;s stages as evalresp builds it and removed in the frequency domain with a water level and a pre-filter. Spectra are Welch estimates (Hann window, half overlap); persistent lines are bins above a running-median floor in a fraction of the windows. Detectability compares band power in each listed source&#x27;s exclusive windows with the quiet baseline. An array&#x27;s direction is frequency-domain beamforming over a slowness grid with the array response function&#x27;s half-power width as its resolution.</p>
+<h2>6. What this report does not call a measurement</h2>
+<p>the source of any line: a persistent line is consistent with machinery, it does not name the machine or place it.</p>
+<p>a well position or track - one station detects, it does not locate; locating needs an array.</p>
+<p>a radius beyond the farthest source on the ground-truth list.</p>
+<p>any source that is absent from the list, or that never worked alone.</p>
+<p>anything outside the band 1-20 Hz.</p>
+<p>any quantity in physical units: the instrument response was not removed (no station file was given).</p>
+<footer>Every number is the leg&#x27;s own output at generation time; the band, the windows and the thresholds that produced each verdict are printed beside it.</footer>
+</body></html>

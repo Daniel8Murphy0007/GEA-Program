@@ -2911,7 +2911,7 @@ def section_am_report_samples(tmp: str) -> None:
             "well_test_validation_volve_F14.html", "accuracy_statement_library.html", "model_card_gauge_aging_rate.html", "model_card_quality_rules.html",
             "model_card_well_baseline.html", "model_card_well_test_detector.html", "model_card_rock_density_inventory.html",
             "model_card_strata_property_estimator.html", "gauge_drift_report_monitored_SYNTHETIC.html", "alarm_event_report_SYNTHETIC.html",
-            "data_resilience_report_SYNTHETIC.html", "sla_report_SYNTHETIC.html", "sat_protocol.html"}
+            "data_resilience_report_SYNTHETIC.html", "sla_report_SYNTHETIC.html", "sat_protocol.html", "seismic_station_report_SYNTHETIC.html"}
     have = {p.name for p in d.glob("*.html")}
     md = (d / "SAMPLES.md").read_text(encoding="utf-8") if (d / "SAMPLES.md").exists() else ""
     texts = {n: (d / n).read_text(encoding="utf-8", errors="replace") for n in sorted(have & want)}
@@ -2922,6 +2922,346 @@ def section_am_report_samples(tmp: str) -> None:
        f"AM1 docs/report_samples holds exactly the {len(want)} rendered reports, each named in SAMPLES.md with the command that made it, each carrying build "
        f"{__version__} (re-rendered before every ship), the synthetic ones labelled SYNTHETIC in their text" + (f"; stale: {stale}" if stale else "")
        + (f"; missing: {sorted(want - have)}; extra: {sorted(have - want)}" if have != want else ""))
+
+
+def section_an_response(tmp: str) -> None:
+    """Section AN - the instrument response: a station's StationXML read into its
+    stages, the response evaluated as evalresp evaluates it (proven on a real
+    IRIS channel against evalresp's numbers), counts turned into ground motion
+    and back, every refusal earned, and the reader's real-file corpus check
+    on record."""
+    import subprocess as _sp
+    from . import seismic as S
+    from . import seismic_response as R
+    pkg = Path(__file__).parent
+    xml = pkg / "reference" / "IU_ANMO_10_BHZ_response.xml"
+    prov = json.loads((pkg / "reference" / "IU_ANMO_10_BHZ_response.provenance.json").read_text(encoding="utf-8"))
+    import hashlib
+    chans = R.read_stationxml(str(xml))
+    c = chans[0]
+    sm = c.summary()
+    amp_ok, ph_ok = True, True
+    for out in ("VEL", "DISP", "ACC"):
+        ref = prov["reference_values"][out]
+        f = np.array([r[0] for r in ref])
+        h, note = R.transfer(c, f, out)
+        amp_ok = amp_ok and np.all(np.abs(np.abs(h) / np.array([r[1] for r in ref]) - 1.0) < 1e-5)
+        ph_ok = ph_ok and np.all(np.abs(np.degrees(np.angle(h)) - np.array([r[2] for r in ref])) < 1e-6)
+    ok(hashlib.sha256(xml.read_bytes()).hexdigest() == prov["sha256"] and len(chans) == 1 and c.id == "IU.ANMO.10.BHZ" and c.sample_rate == 40.0
+       and c.sensitivity == 3.31283e10 and c.sensitivity_frequency == 0.02 and c.input_units == "M/S" and sm["stages"] == ["1:PZ(5p/2z)", "2:COEF(0 coef)", "3:COEF(39 coef)"]
+       and abs(c.latitude - 34.945913) < 1e-6 and c.sensor.startswith("Guralp") and c.covers(S.parse_time("2015-01-01T00:00:00Z")) and not c.covers(S.parse_time("2011-01-01T00:00:00Z"))
+       and amp_ok and ph_ok and note["stages_vs_sensitivity"] == 1.0,
+       "AN1 the IRIS StationXML of IU.ANMO.10.BHZ reads into its three stages (poles/zeros, gain, 39-term FIR with its delay correction) and the response "
+       "evaluated here equals evalresp's at seven frequencies for VEL, DISP and ACC - amplitude within 1e-5, phase within 1e-6 degree; the stages' product "
+       "equals the declared sensitivity")
+    # AN2 - counts from a known motion through the real response, and back: VEL, ACC and DISP recovered exactly in the band
+    fs, n = 40.0, 40 * 600
+    t = np.arange(n) / fs
+    v = 1e-6 * np.sin(2 * np.pi * 1.0 * t) + 5e-7 * np.sin(2 * np.pi * 5.0 * t)
+    nfft = 1 << int(np.ceil(np.log2(2 * n)))
+    F = np.fft.rfftfreq(nfft, 1 / fs)
+    H, _ = R.transfer(c, F, "VEL")
+    counts = np.fft.irfft(np.fft.rfft(v, nfft) * H, nfft)[:n]
+    tr = S.Trace("IU", "ANMO", "10", "BHZ", S.parse_time("2015-01-01T00:00:00Z"), fs, counts)
+    m = slice(n // 10, -n // 10)
+    refs = {"VEL": v, "ACC": 2 * np.pi * 1e-6 * np.cos(2 * np.pi * t) + 2 * np.pi * 5 * 5e-7 * np.cos(2 * np.pi * 5 * t),
+            "DISP": -1e-6 / (2 * np.pi) * np.cos(2 * np.pi * t) - 5e-7 / (2 * np.pi * 5) * np.cos(2 * np.pi * 5 * t)}
+    errs = {}
+    units = {}
+    for out, ref in refs.items():
+        back, note = R.remove_response(tr, c, out, 60.0, (0.05, 0.1, 15.0, 18.0))
+        errs[out] = float(np.linalg.norm(back.data[m] - ref[m]) / np.linalg.norm(ref[m]))
+        units[out] = back.unit
+    raw_counts_scale = float(np.std(counts) / np.std(v))
+    ok(all(e < 1e-6 for e in errs.values()) and units == {"VEL": "m/s", "ACC": "m/s^2", "DISP": "m"} and 3.0e10 < raw_counts_scale < 3.6e10
+       and tr.unit == "counts" and "response not removed" in tr.unit_label and S.spectrogram(back, 60.0)["unit"].startswith("(m)^2/Hz"),
+       f"AN2 a known ground velocity sent through the real response gives counts at the instrument's sensitivity ({raw_counts_scale:.3e} counts per m/s), "
+       "and the deconvolution returns velocity, acceleration and displacement in SI units with no error in the band (relative rms "
+       + ", ".join(f"{k} {e:.1e}" for k, e in errs.items()) + "); a record not deconvolved says so in its unit, a spectrum carries the unit of its trace")
+    # AN3 - the refusals
+    refusals = {}
+    other = S.Trace("TX", "PB01", "00", "HHZ", tr.starttime, 100.0, counts[:2000])
+    try:
+        R.select(chans, other); refusals["wrong channel"] = "accepted"
+    except LookupError as e:
+        refusals["wrong channel"] = "IU.ANMO.10.BHZ" in str(e)
+    early = S.Trace("IU", "ANMO", "10", "BHZ", S.parse_time("2011-01-01T00:00:00Z"), 40.0, counts[:2000])
+    try:
+        R.select(chans, early); refusals["wrong epoch"] = "accepted"
+    except LookupError as e:
+        refusals["wrong epoch"] = "no epoch covering" in str(e)
+    import copy
+    bad = copy.deepcopy(c)
+    bad.stages[0].gain *= 2.0
+    try:
+        R.transfer(bad, np.array([1.0]), "VEL"); refusals["inconsistent"] = "accepted"
+    except ValueError as e:
+        refusals["inconsistent"] = "inconsistent" in str(e)
+    poly = copy.deepcopy(c)
+    poly.stages[0].kind = "POLY"
+    poly.sensitivity = None
+    try:
+        R.transfer(poly, np.array([1.0]), "VEL"); refusals["polynomial"] = "accepted"
+    except ValueError as e:
+        refusals["polynomial"] = "polynomial" in str(e)
+    rad = copy.deepcopy(c)
+    rad.input_units = "RAD/S"
+    try:
+        R.transfer(rad, np.array([1.0]), "VEL"); refusals["units"] = "accepted"
+    except ValueError as e:
+        refusals["units"] = "not a ground-motion unit" in str(e)
+    empty = copy.deepcopy(c)
+    empty.stages = []
+    try:
+        R.transfer(empty, np.array([1.0]), "VEL"); refusals["no stages"] = "accepted"
+    except ValueError as e:
+        refusals["no stages"] = "no response stages" in str(e)
+    ok(all(v is True for v in refusals.values()),
+       f"AN3 the response is refused, with the reason, for a channel not in the file (naming what the file has), an epoch the file does not cover, "
+       f"stages whose product disagrees with the declared sensitivity, a polynomial stage, a non-ground-motion input unit, and a channel with no stages ({refusals})")
+    # AN4 - the command line: response listing, remove-response to a FLOAT64 file with its units sidecar, spectrum with the response removed; the corpus check tool exists
+    src = str(Path(tmp, "an_counts.mseed")); S.write_mseed([tr], src, "FLOAT64")
+    dst = str(Path(tmp, "an_vel.mseed"))
+    r1 = _sp.run([sys.executable, "-m", "gea", "seismic", "--action", "response", "--stationxml", str(xml)], capture_output=True, timeout=300)
+    r2 = _sp.run([sys.executable, "-m", "gea", "seismic", "--action", "remove-response", "--file", src, "--stationxml", str(xml), "--pre-filt", "0.05", "0.1", "15", "18", "--out", dst], capture_output=True, timeout=300)
+    r3 = _sp.run([sys.executable, "-m", "gea", "seismic", "--action", "spectrum", "--file", src, "--stationxml", str(xml), "--pre-filt", "0.05", "0.1", "15", "18", "--band", "0.5", "10"], capture_output=True, timeout=300)
+    r4 = _sp.run([sys.executable, "-m", "gea", "seismic", "--action", "spectrum", "--file", src, "--stationxml", str(xml), "--trace", "0", "--band", "0.5", "10", "--out", str(Path(tmp, "an_psd.csv"))], capture_output=True, timeout=300)
+    o1, o2, e2, o3, e3 = (r1.stdout.decode("utf-8", "replace"), r2.stdout.decode("utf-8", "replace"), r2.stderr.decode("utf-8", "replace"),
+                          r3.stdout.decode("utf-8", "replace"), r3.stderr.decode("utf-8", "replace"))
+    side = json.loads(Path(dst + ".units.json").read_text(encoding="utf-8")) if Path(dst + ".units.json").exists() else {}
+    vel = S.read_mseed(dst) if Path(dst).exists() else []
+    csv_head = Path(tmp, "an_psd.csv").read_text(encoding="utf-8").splitlines()[0] if Path(tmp, "an_psd.csv").exists() else ""
+    ok(r1.returncode == 0 and "IU.ANMO.10.BHZ" in o1 and "Guralp" in o1 and "1:PZ(5p/2z)" in o1
+       and r2.returncode == 0 and "in m/s ->" in o2 and side.get("unit") == "m/s" and side["traces"][0]["stages_vs_sensitivity"] == 1.0 and side["traces"][0]["pre_filt_hz"] == [0.05, 0.1, 15.0, 18.0]
+       and len(vel) == 1 and vel[0].encoding == "FLOAT64" and abs(float(np.std(vel[0].data[m])) - float(np.std(v[m]))) / float(np.std(v[m])) < 1e-3
+       and r3.returncode == 0 and "the record is now in m/s" in e3 and ("0.996 Hz" in o3 or "1.006 Hz" in o3)
+       and r4.returncode == 0 and "(m/s)^2/Hz" in csv_head
+       and (pkg.parent / "tools" / "seismic_reader_check.py").exists(),
+       "AN4 `gea seismic --action response` lists the station file's channels with sensor, sensitivity and stages; `--action remove-response` writes a FLOAT64 "
+       "miniSEED in m/s with a units sidecar carrying the pre-filter, water level and the sensitivity check; `--action spectrum --stationxml` removes the "
+       "response first and labels the PSD in (m/s)^2/Hz; tools/seismic_reader_check.py (the reader against libmseed on a corpus of real-station files) is in the repository")
+
+
+def section_ao_array(tmp: str) -> None:
+    """Section AO - the array step: a plane wave's direction and slowness recovered
+    by the beam with the array response function's width beside it, three
+    bearings crossing at a known point with their ellipse, lags locating a known
+    point, the array detectability test earning POINTED on the labelled scene and
+    NOT_POINTED / INCOHERENT when it should, and the command line."""
+    import csv as _csv
+    import math
+    import subprocess as _sp
+    from . import seismic as S
+    from . import seismic_array as AR
+    from . import seismic_detect as D
+    # AO1 - a pure plane wave across the scene's nine-sensor array: direction and slowness within the fine grid, coherence ~1, the ARF width
+    traces, sens, _srcs, _meta = AR.synthetic_array_scene(hours=0.2, distances_km=(6.0,))
+    geo = AR.array_geometry(sens)
+    fs, n = 50.0, int(600 * 50)
+    rng = np.random.default_rng(3)
+    baz_true, s_true = 70.0, 0.4
+    u = np.array([math.sin(math.radians(baz_true)), math.cos(math.radians(baz_true))])
+    sig = AR.bandpass(rng.normal(0, 1, n), fs, (1, 20))
+    F = np.fft.rfftfreq(n, 1 / fs); Sg = np.fft.rfft(sig)
+    trs = [S.Trace("XX", sens[k].sensor_id, "", "HHZ", 0.0, fs, np.fft.irfft(Sg * np.exp(-2j * np.pi * F * (-(geo["xy_km"][k] @ u) * s_true)), n) + 0.05 * rng.normal(0, 1, n))
+           for k in range(len(sens))]
+    b1 = AR.beam(trs, sens, (1, 20), 10.0, 3.0, 61, "bartlett")
+    b2 = AR.beam(trs, sens, (1, 20), 10.0, 3.0, 61, "capon")
+    arf = AR.array_response(geo["xy_km"], np.linspace(1, 20, 20), 1.0, 81, (0.0, 0.0))
+    ok(abs(AR._angle_diff(b1["back_azimuth_deg"], baz_true)) < 1.0 and abs(b1["slowness_s_km"] - s_true) < 0.01 and b1["coherence"] > 0.98
+       and abs(AR._angle_diff(b2["back_azimuth_deg"], baz_true)) < 1.0 and abs(b2["slowness_s_km"] - s_true) < 0.01
+       and 0.05 < arf["half_power_width_s_km"] < 0.15 and not arf["aliasing_lobes"] and abs(arf["power"].max() - 1.0) < 1e-9
+       and b1["resolution"]["azimuth_half_width_deg"] > 3.0 and "not plane" in b1["not_a_measurement"][1] and b1["plane_wave_limit_km"] == round(5 * geo["aperture_km"], 2)
+       and len(b1["peaks"]) >= 1 and b1["peaks"][0]["back_azimuth_deg"] == round(b1["back_azimuth_deg"], 1),
+       f"AO1 a plane wave from {baz_true:g} deg at {s_true:g} s/km crosses the nine-sensor, {geo['aperture_km']:.1f} km array: Bartlett and Capon beams return "
+       f"{b1['back_azimuth_deg']:.1f} deg and {b1['slowness_s_km']:.3f} s/km (coherence {b1['coherence']:.3f}); the array response function peaks at 1 with a "
+       f"half-power width of {arf['half_power_width_s_km']:.3f} s/km and no aliasing lobe at 1-20 Hz; the report carries the azimuth half-width, the plane-wave limit and the peaks")
+    # AO2 - three bearings cross at the point they were drawn to; lags locate a point to metres; the refusals of geometry are printed
+    P = (31.2, -101.8)
+    arrays = [{"lat": la, "lon": lo, "back_azimuth_deg": AR.bearing_deg(la, lo, *P), "sigma_deg": 1.0} for la, lo in ((31.0, -102.0), (31.4, -101.6), (31.0, -101.5))]
+    c = AR.intersect_backazimuths(arrays)
+    miss = AR.haversine_km(c["lat"], c["lon"], *P)
+    behind = AR.intersect_backazimuths([{**arrays[0], "back_azimuth_deg": (arrays[0]["back_azimuth_deg"] + 180) % 360}, arrays[1]])
+    stations = [(31.0, -102.0), (31.3, -101.7), (30.9, -101.5), (31.35, -102.1)]
+    src = (31.15, -101.85)
+    d = [AR.haversine_km(*st, *src) for st in stations]
+    lags = [(i, j, (d[j] - d[i]) / 2.5, 0.02) for i in range(4) for j in range(i + 1, 4)]
+    L = AR.locate_from_lags(stations, lags, 2.5)
+    miss_l = AR.haversine_km(L["lat"], L["lon"], *src)
+    L2 = AR.locate_from_lags(stations, lags, 3.0)
+    ok(miss < 0.1 and c["in_front_of_every_array"] and all(abs(r) < 0.05 for r in c["residual_deg"]) and c["crossing_angle_deg"] > 60
+       and 0.3 < c["ellipse_1sigma"]["major_km"] < 1.5 and not behind["in_front_of_every_array"]
+       and miss_l < 0.01 and L["converged"] and L["ellipse_1sigma_km"]["major"] < 0.05 and L["v_km_s_assumed"] == 2.5
+       and AR.haversine_km(L2["lat"], L2["lon"], *src) > miss_l and "velocity" in L["not_a_measurement"][0],
+       f"AO2 three bearings drawn to a point cross {miss * 1000:.0f} m from it with a 1-sigma ellipse of {c['ellipse_1sigma']['major_km']} x {c['ellipse_1sigma']['minor_km']} km "
+       f"(1 deg bearings, {c['crossing_angle_deg']} deg crossing); a reversed bearing is reported as behind its array; six lags at 2.5 km/s locate a point to "
+       f"{miss_l * 1000:.1f} m, and the same lags at a wrong velocity land elsewhere - the velocity is named as the input it is")
+    # AO3 - the labelled scene: every rig POINTED within the array's own tolerance; a rig listed at the wrong bearing NOT_POINTED; noise alone INCOHERENT
+    st = AR.selftest()
+    res = st["detectability"]
+    v = {r["source_id"]: r["verdict"] for r in res["sources"]}
+    errs = [r["azimuth_error_deg"] for r in res["sources"]]
+    tr2, sens2, srcs2, _ = AR.synthetic_array_scene(hours=2.0, distances_km=(12.0,))
+    wrong = [D.Source("WRONG", *AR.xy_to_latlon(12.0 * math.sin(math.radians(250)), 12.0 * math.cos(math.radians(250)), 31.0, -102.0), srcs2[0].start, srcs2[0].end)]
+    r_wrong = AR.array_detectability(tr2, sens2, wrong, (1, 20), 600.0)["sources"][0]
+    tr3, sens3, _, _ = AR.synthetic_array_scene(hours=1.0, distances_km=(), noise=0.0, sensor_noise=5.0)
+    quiet = [D.Source("NOTHING", 31.05, -101.95, tr3[0].starttime, tr3[0].endtime)]
+    r_quiet = AR.array_detectability(tr3, sens3, quiet, (1, 20), 600.0)["sources"][0]
+    cr = st["crossing"]
+    ok(st["status"] == "SIMULATION_SELF_TEST" and st["ok"] and v == {"RIG-1": "POINTED", "RIG-2": "POINTED", "RIG-3": "POINTED", "RIG-4": "POINTED"}
+       and max(errs) < 2.0 and all(r["coherent_bins"] >= 2 for r in res["sources"]) and "caveat" in res["sources"][0] and "caveat" not in res["sources"][2]
+       and r_wrong["verdict"] == "NOT_POINTED" and r_quiet["verdict"] == "INCOHERENT" and cr["in_front_of_every_array"] and cr["miss_km"] < 2.0
+       and ("one array gives a direction" in " ".join(res["not_a_measurement"]) or "a position" in res["not_a_measurement"][0]),
+       f"AO3 on the labelled scene the array points at all four rigs from 6 to 45 km (largest error {max(errs):.1f} deg against a {res['sources'][0]['tolerance_deg']:.1f} deg tolerance, "
+       f"the near one carrying the plane-wave caveat); a rig listed at the wrong bearing is NOT_POINTED, sensor noise alone is INCOHERENT; three arrays' bearings "
+       f"cross {cr['miss_km']:.2f} km from the rig inside a {cr['ellipse_1sigma']['major_km']} km ellipse; the report says a position is not this test's to give")
+    # AO4 - the command line: beam and locate on files
+    d_ = Path(tmp, "ao"); d_.mkdir()
+    files = []
+    for t in tr2:
+        p = d_ / f"{t.station}.mseed"; S.write_mseed([t], str(p), "STEIM2"); files.append(str(p))
+    with open(d_ / "sensors.csv", "w", newline="", encoding="utf-8") as fh:
+        w = _csv.writer(fh); w.writerow(["sensor_id", "lat", "lon"]); [w.writerow([x.sensor_id, x.lat, x.lon]) for x in sens2]
+    with open(d_ / "bearings.csv", "w", newline="", encoding="utf-8") as fh:
+        w = _csv.writer(fh); w.writerow(["lat", "lon", "back_azimuth_deg", "sigma_deg"]); [w.writerow([a["lat"], a["lon"], a["back_azimuth_deg"], a["sigma_deg"]]) for a in arrays]
+    r1 = _sp.run([sys.executable, "-m", "gea", "seismic", "--action", "beam", "--files", *files, "--sensors", str(d_ / "sensors.csv"), "--band", "1", "20",
+                  "--start", S.iso(srcs2[0].start, 0), "--end", S.iso(srcs2[0].end, 0), "--out", str(d_ / "beam.json")], capture_output=True, timeout=600)
+    r2 = _sp.run([sys.executable, "-m", "gea", "seismic", "--action", "locate", "--bearings", str(d_ / "bearings.csv")], capture_output=True, timeout=300)
+    r3 = _sp.run([sys.executable, "-m", "gea", "seismic", "--action", "beam", "--files", files[0], "--sensors", str(d_ / "sensors.csv")], capture_output=True, timeout=300)
+    o1, o2, e3 = r1.stdout.decode("utf-8", "replace"), r2.stdout.decode("utf-8", "replace"), r3.stderr.decode("utf-8", "replace")
+    bj = json.loads((d_ / "beam.json").read_text(encoding="utf-8")) if (d_ / "beam.json").exists() else {}
+    true_baz = AR.bearing_deg(31.0, -102.0, srcs2[0].lat, srcs2[0].lon)
+    ok(r1.returncode == 0 and "back-azimuth" in o1 and abs(AR._angle_diff(bj.get("back_azimuth_deg", 0), true_baz)) < 2.0 and "plane-wave limit" in o1 and "not a measurement" in o1
+       and r2.returncode == 0 and "cross at (31.2" in o2 and "in front of every array: True" in o2
+       and r3.returncode == 1 and "1 files for 9 sensors" in e3,
+       f"AO4 `gea seismic --action beam` on nine files and a sensors CSV, windowed to the rig's hour, reports its bearing ({bj.get('back_azimuth_deg')} vs true {true_baz:.1f} deg) "
+       "with the array-response half-width, the plane-wave limit and what it will not call a measurement; `--action locate` crosses a bearings CSV; a file count that "
+       "does not match the sensors is refused")
+
+
+def section_ap_seismic_page(tmp: str) -> None:
+    """Section AP - the second leg on the dashboard: a seismic station or array
+    in the workspace with its files copied in and hashed, a refresh that writes
+    the Seismic Station report and the machine JSONs under reports/seismic/,
+    the API that lists, adds, refreshes and serves it, and the page that shows
+    it beside the wells."""
+    import base64
+    import csv as _csv
+    import http.cookiejar
+    import re
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    from . import seismic as S
+    from . import seismic_detect as D
+    from . import seismic_array as AR
+    from . import helplib as H
+    from .workspace import Workspace, WorkspaceError
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ap"); d.mkdir()
+    tr, srcs, _meta = D.synthetic_scene(hours=4)
+    rec = str(d / "node.mseed"); S.write_mseed([tr], rec, "STEIM2")
+    rigs = str(d / "rigs.csv"); D.write_sources_csv(srcs, rigs)
+    wsp = str(d / "site"); ws = Workspace.create(wsp, "Seismic Site", actor="tester")
+    st = ws.add_seismic_station("Pad 3 node", [rec], 31.0, -102.0, "tester", sources_csv=rigs, band=[1.0, 20.0])
+    bad = None
+    try:
+        ws.add_seismic_station("Not seismic", [str(pkg / "sample_well_profile.csv")], 31.0, -102.0, "tester")
+    except WorkspaceError as e:
+        bad = str(e)
+    sm = ws.refresh_seismic(st["id"], "tester")
+    out = Path(ws.seismic_reports_dir(st["id"]))
+    res = ws.seismic_results(st["id"])
+    html = (out / "seismic_station_report.html").read_text(encoding="utf-8")
+    ok(st["kind"] == "single" and st["files"] == ["node.mseed"] and st["sources"] == "rigs.csv" and st["sha256"]["node.mseed"] and st["band_hz"] == [1.0, 20.0]
+       and Path(wsp, "seismic", st["id"], "source", "node.mseed").exists() and bad and "not a seismic record" in bad
+       and sm["detect_status"] == "OK" and sm["detected"] >= 2 and sm["n_sources"] == 5 and sm["unit"] == "counts"
+       and all((out / f).exists() for f in ("seismic_station_report.html", "seismic_station_report.md", "seismic_station_report.json", "spectrum.json", "lines.json", "detect.json", "summary.json"))
+       and res["detect"]["status"] == "OK" and len(res["spectrum"]["freqs_hz"]) > 100 and "Seismic Station Report" in html and "RIG-1" in html and "does not call a measurement" in html
+       and any(a["action"] == "seismic.refresh" for a in ws.audit_log()),
+       f"AP1 a seismic station joins the workspace with its record copied in verbatim and hashed, its rigs list and band; a file that is not a seismic record is turned away; "
+       f"the refresh writes the Seismic Station report (html, md, json) and the spectrum, lines, detect and summary JSONs under reports/seismic/ "
+       f"({sm['detected']} of {sm['n_sources']} listed sources detected), and the audit log records it")
+    # AP2 - an array station: beam and the array test on the refresh
+    traces, sens, srcs2, _ = AR.synthetic_array_scene(hours=2.0, distances_km=(12.0,))
+    files = []
+    for t in traces:
+        p = str(d / f"{t.station}.mseed"); S.write_mseed([t], p, "STEIM2"); files.append(p)
+    sens_csv = str(d / "sensors.csv")
+    with open(sens_csv, "w", newline="", encoding="utf-8") as fh:
+        w = _csv.writer(fh); w.writerow(["sensor_id", "lat", "lon"]); [w.writerow([x.sensor_id, x.lat, x.lon]) for x in sens]
+    rigs2 = str(d / "rigs2.csv"); D.write_sources_csv(srcs2, rigs2)
+    mism = None
+    try:
+        ws.add_seismic_station("Short array", files[:4], 31.0, -102.0, "tester", sensors_csv=sens_csv)
+    except WorkspaceError as e:
+        mism = str(e)
+    st2 = ws.add_seismic_station("Pad 3 array", files, 31.0, -102.0, "tester", sensors_csv=sens_csv, sources_csv=rigs2, band=[1.0, 20.0])
+    sm2 = ws.refresh_seismic(st2["id"], "tester")
+    res2 = ws.seismic_results(st2["id"])
+    true_baz = AR.bearing_deg(31.0, -102.0, srcs2[0].lat, srcs2[0].lon)
+    ok(st2["kind"] == "array" and len(st2["files"]) == 9 and mism and "9 sensors but 4 records" in mism
+       and sm2["beam_back_azimuth_deg"] is not None and abs(AR._angle_diff(sm2["beam_back_azimuth_deg"], true_baz)) < 2.0 and sm2["pointed"] == 1
+       and res2["beam"]["n_sensors"] == 9 and res2["array_detect"]["sources"][0]["verdict"] == "POINTED"
+       and "The array" in (Path(ws.seismic_reports_dir(st2["id"])) / "seismic_station_report.html").read_text(encoding="utf-8"),
+       f"AP2 nine records and a sensors CSV make an array station (a count that does not match the sensors is turned away); its refresh beams the record "
+       f"({sm2['beam_back_azimuth_deg']} vs true {true_baz:.1f} deg), runs the array test (POINTED) and writes the beam and array JSONs and the array section of the report")
+    # AP3 - the API: list, detail, add by upload, refresh as a job, remove; roles
+    Users(str(Path(wsp, "users.json"))).add("op", "operator-pass-1", "operator")
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer")
+    svc = Service(wsp, host="127.0.0.1", port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+    op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json")
+        if method == "POST":
+            req.add_header("X-GEA-Action", "1")
+        try:
+            with op.open(req, timeout=60) as r:
+                return r.status, json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        call("POST", "/api/login", {"name": "v", "password": "viewer-pass-1"})
+        st_list, lst = call("GET", "/api/seismic")
+        st_det, det = call("GET", f"/api/seismic/{st['id']}")
+        st_404 = call("GET", "/api/seismic/nope")[0]
+        st_forbid = call("POST", "/api/seismic/add", {"files": []})[0]
+        call("POST", "/api/logout")
+        call("POST", "/api/login", {"name": "op", "password": "operator-pass-1"})
+        b64 = base64.b64encode(Path(rec).read_bytes()).decode()
+        rb64 = base64.b64encode(Path(rigs).read_bytes()).decode()
+        st_add, added = call("POST", "/api/seismic/add", {"display": "Uploaded node", "files": [{"filename": "up.mseed", "content_b64": b64}], "lat": 31.0, "lon": -102.0,
+                                                           "sources": {"filename": "rigs.csv", "content_b64": rb64}, "band": [1, 20]})
+        st_ref, job = call("POST", f"/api/seismic/{added['id']}/refresh")
+        svc.app.runner.wait(job["id"], 300)
+        st_after, after = call("GET", f"/api/seismic/{added['id']}")
+        st_ov, ov = call("GET", "/api/overview")
+        st_rm = call("POST", f"/api/seismic/{added['id']}/remove")[0]
+        with op.open(urllib.request.Request(base + f"/reports/seismic/{st['id']}/seismic_station_report.html"), timeout=60) as rr:
+            page = (rr.status, rr.read().decode("utf-8", "replace"))
+    finally:
+        svc.stop()
+    ok(st_list == 200 and [x["id"] for x in lst["stations"]] == [st["id"], st2["id"]] and lst["stations"][0]["summary"]["detected"] == sm["detected"]
+       and st_det == 200 and det["station"]["id"] == st["id"] and "detect" in det["results"] and st_404 == 404 and st_forbid == 403
+       and st_add == 200 and added["kind"] == "single" and added["files"] == ["up.mseed"] and added["sources"] == "rigs.csv"
+       and st_ref == 200 and st_after == 200 and after["results"].get("summary", {}).get("detect_status") == "OK"
+       and st_ov == 200 and len(ov["seismic"]) == 3 and st_rm == 403 and page[0] == 200 and "Seismic Station Report" in page[1],
+       "AP3 the API lists the stations with their last summary, serves a station's results, 404s an unknown one, refuses an add to a viewer; an operator adds a station "
+       "by upload (record and rigs list, base64), starts its refresh as a job that completes with a detectability verdict, the overview carries the stations, "
+       "a removal needs the admin role, and the report is served under /reports/seismic/")
+    # AP4 - the page and the help: the Seismic view, the station view, the nav entry, the home tile, the help mapping; the workspace CLI
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    r = _sp.run([sys.executable, "-m", "gea", "workspace", "--path", wsp, "--action", "refresh-seismic", "--station", st["id"]], capture_output=True, timeout=600)
+    o = r.stdout.decode("utf-8", "replace")
+    ok("VIEWS.seismic = " in page_src and "VIEWS.seismic_station = " in page_src and "['#/seismic', 'Seismic']" in page_src and "/api/seismic/add" in page_src
+       and "Seismic stations" in page_src and "getContext('2d')" in page_src and H.VIEW_TOPIC.get("seismic") == "seismic" and H.VIEW_TOPIC.get("seismic_station") == "seismic"
+       and r.returncode == 0 and "detectability OK" in o and "report:" in o,
+       "AP4 the page has the Seismic view (list, add by upload, refresh, remove), the station view with the spectrum drawn, the lines, the detectability and the array cards, "
+       "a nav entry and a home tile; both views map to the seismic help page; `gea workspace --action refresh-seismic` runs the leg from the command line")
 
 
 def main() -> int:
@@ -2964,6 +3304,9 @@ def main() -> int:
         section_ak_standard_physics(tmp)
         section_al_seismic(tmp)
         section_am_report_samples(tmp)
+        section_an_response(tmp)
+        section_ao_array(tmp)
+        section_ap_seismic_page(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

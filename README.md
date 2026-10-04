@@ -59,8 +59,19 @@ reaches a client document. Nothing unmeasured is ever reported as met.
   lines above the local floor out, and the detectability test: one station's
   record against a list of known rigs with positions and working windows,
   verdict per rig, the detection radius bracketed between the farthest rig
-  heard and the nearest not heard. The decoder is proven against records
-  written by libmseed. See *The second leg*.
+  heard and the nearest not heard. The instrument response (`seismic_response.py`):
+  the station's StationXML read into its stages, evaluated as evalresp does,
+  removed with a water level - counts to m/s, m or m/s^2. The decoder is proven
+  against libmseed on a corpus of real-station files; the response against
+  evalresp on a real IRIS channel. The array step (`seismic_array.py`):
+  beamforming over a slowness grid with the array response function's width
+  beside every bearing, the crossing of bearings from several arrays with its
+  ellipse, location from lags with the velocity named as an input, and the
+  array's detectability test - did it point at each known rig. On a site the
+  leg lives on the dashboard: a Seismic page where a station or an array is
+  added by upload with its rigs list and station file, refreshed as a job,
+  and read - spectrum, lines, verdicts, bearing - with its Seismic Station
+  Report under Reports. See *The second leg*.
 
 ## Quick start
 
@@ -72,7 +83,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (246 checks)
+gea accept                     # the product gate (258 checks)
 gea help drift                 # the help library, by the job (15 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -270,7 +281,60 @@ produces the standard spectral products: the Welch PSD, a spectrogram, and
 the lines that persist above a running-median floor in the band where rig
 machinery sits (1-50 Hz by default). The decoder is proven in the acceptance
 suite against records written by libmseed, the format's reference
-implementation (`gea/reference/`).
+implementation (`gea/reference/`), and `tools/seismic_reader_check.py` runs it
+against libmseed on about ninety real-station files of every encoding and
+byte order (the obspy test corpus, fetched with pip, never redistributed):
+every time-series file sample-exact.
+
+Physical units come from the station's own response file. `gea seismic
+--action remove-response --stationxml station.xml` reads the FDSN StationXML
+the archives serve beside the data (`fetch --with-response` fetches it),
+builds the response from its stages - the poles and zeros of the sensor, the
+gain of each stage, the FIR and IIR coefficients of the digitizer with their
+delay corrections - the way evalresp builds it, and removes it in the
+frequency domain with a water level and a pre-filter, giving velocity,
+displacement or acceleration in SI units. The acceptance suite holds the
+evaluation to evalresp's numbers on a real IRIS channel (IU.ANMO.10.BHZ,
+`gea/reference/`) to one part in a hundred thousand. A station file whose
+stages disagree with their own declared sensitivity, a polynomial stage, a
+channel the file does not cover: refused with the reason, never patched, and
+the record stays in counts, labelled.
+
+One station detects; an array gives a direction. `gea seismic --action beam`
+takes three or more sensors' records with their positions and returns the
+back-azimuth and slowness the band's energy crossed the array with, by
+frequency-domain beamforming over a slowness grid (the conventional Bartlett
+beam, or Capon), refined around its maximum - and, beside the bearing, the
+array response function's half-power width, which is the resolution the
+geometry allows at that band, and whether the geometry has aliasing lobes
+there, so a lone peak is not mistaken for a source. `--action array-detect`
+is the array's form of the detectability test: for each rig on the
+ground-truth list, in the windows it worked alone, did the array point at it
+within its own tolerance (POINTED, NOT_POINTED, INCOHERENT). `--action
+locate` crosses the bearings of two or more arrays, weighted by their
+uncertainties, and returns the point with its 1-sigma ellipse, the crossing
+angle and the residual of each bearing; a location from station-pair lags is
+there too, with the medium velocity it needs named as the input it is. On
+the labelled synthetic scene (`--action array-selftest`) a 1.2 km,
+nine-sensor array points at rigs from 6 to 45 km within 0.3 degrees against
+a 7-degree tolerance, and three arrays' bearings cross within a kilometre of
+the rig. What none of it claims: a position from one array, a bearing to a
+source nearer than five apertures, a direction finer than the array response
+function, or a velocity that was not measured.
+
+On a site the leg is a page. Seismic, beside Wells: a station (one record)
+or an array (one record per sensor and a sensors CSV) is added by upload with
+its position, its rigs list and, when there is one, its StationXML, and lives
+under `seismic/<station>/` in the workspace with its files copied in verbatim
+and hashed. Refresh - a button, or `gea workspace --action refresh-seismic`,
+and like every other action a job with its log - reads the record, removes
+the response when the station file is there, writes the spectrum, the
+persistent lines, the detectability verdicts and, for an array, the beam and
+the array verdicts under `reports/seismic/<station>/`, and the Seismic
+Station Report beside them; the station page draws the spectrum and shows
+the tables with the limits printed under each. The home page counts the
+stations and the listed rigs heard. The sample report is in
+`docs/report_samples/`.
 
 The first number is the detectability test (`--action detect`): one station's
 continuous record, the station's position, and a CSV of known rigs - position
@@ -338,7 +402,7 @@ attaches the zips to the GitHub release of that tag.
 gea/            the package: engines, record layer, reports, monitor, dashboard, cli, shell, acceptance suite,
                 workspace, jobs, service, patches and web/app.html (the served dashboard)
 gea/catalog/    52 public archive entries, each with a provenance file
-gea/reference/  miniSEED records written by libmseed, with their provenance: the decoder's independent reference
+gea/reference/  miniSEED records written by libmseed and an IRIS StationXML with evalresp's numbers, with provenance: the independent references
 docs/report_samples/  one rendered example of every client report, from this build (tools/render_report_samples.py; SAMPLES.md names each command)
 docs/           TESTER_GUIDE.md, REQUIREMENTS_MATRIX.md (the scope-of-work mirror that shaped the reports), examples/ (port configs),
                 SESSION_LOG.md (the working record, session by session),

@@ -1,44 +1,47 @@
-v0.5.0 — STANDARD PHYSICS ONLY, THE SECOND LEG BEGINS, THE REPORT SAMPLES, AND THE KIT MADE WHOLE
+v0.6.0 — THE SECOND LEG WHOLE: THE READER PROVEN ON REAL FILES, THE RESPONSE, THE ARRAY STEP, AND THE SEISMIC PAGE
 
-The program's own gauge aging model is gone. Until v0.4.0 the drift band had
-a second edge: the datasheet rate scaled by a composition of constants
-inherited from the predecessor program, with no field validation on record.
-The model, its constants, the trims, the ratio bench test, the service-life
-divergence curves, the case study and the desktop panels built on the
-comparison are removed, not relabelled (two modules and one command deleted;
-CHANGELOG names them). gea/gauge_aging.py returns
-the instrument's published drift specification and nothing else, flagged
-above the rating and never changed; the reconciler's band is half to twice
-that rate; a tool with no published rate carries none; a datasheet JSON
-cannot carry a model parameter. `gea bench` is rebuilt as the
-datasheet-conformance test with a JSON-lines register - the bench record the
-drift report cites as NONE ON RECORD until it exists. The guard blocks the
-removed model's names, phrases and numbers in every tracked file; section AK
-proves the absence from inside the package.
+The reader proven on real files. On a corpus of about ninety miniSEED files
+from real stations and odd recorders (the obspy test data, fetched with pip,
+never redistributed), with libmseed as the reference: 76 files sample-exact,
+5 text files skipped by design, no mismatches, and SAC 12 of 12 against
+obspy. What that found: the Steim byte-order rules of little-endian data
+(8-bit differences in memory order), the meaning of the byte-order flag,
+the data-offset-zero case, text records, and the gain-ranged formats of the
+old networks - all read from the reference's own source. A record that
+cannot be read is written down and stepped over. tools/seismic_reader_check.py
+repeats the check anywhere.
 
-The second leg begins. gea/seismic.py reads miniSEED (Steim1, Steim2,
-integer and float encodings) and SAC by content, writes both, fetches from
-any FDSN service (TexNet, EarthScope), and gives Welch PSDs, spectrograms,
-band power and the persistent lines above a running-median floor; the Steim
-decoders are proven bit for bit against records written by libmseed, which
-ship under gea/reference/ with their provenance. gea/seismic_detect.py is
-the detectability test: one station's record against a CSV of known rigs,
-a verdict per rig from band power in its exclusive windows against the quiet
-baseline, the lines that belong to it, and the radius bracketed between the
-farthest rig heard and the nearest missed; the report prints what it will
-not call a measurement (a position or track - one station detects, it does
-not locate). `gea seismic` with eight actions; the `seismic` help page.
+Physical units. gea/seismic_response.py reads FDSN StationXML into its
+stages (poles and zeros, gains, FIR and IIR coefficients with their delay
+corrections), evaluates the response as evalresp does - proven on IRIS
+IU.ANMO.10.BHZ to 1e-5 in amplitude and 1e-6 degree in phase - checks the
+stages against the declared sensitivity, and removes the response with a
+water level and pre-filter to m/s, m or m/s^2; a known motion through the
+real response and back comes out with no error in the band. A file whose
+stages disagree with their own sensitivity, a polynomial stage, a channel
+the file does not cover: named and not applied; the record stays in counts,
+labelled. The IRIS StationXML and evalresp's numbers ship as reference data.
 
-docs/report_samples/: one rendered example of every client report from this
-build (tools/render_report_samples.py; SAMPLES.md names each command; the
-synthetic ones say so), shipped in the kit as report-samples/. The kit
-carries every optional dependency, the desktop window included.
+The array step. gea/seismic_array.py: Bartlett and Capon beamforming over a
+slowness grid, refined around the maximum; the array response function's
+half-power width beside every bearing and its aliasing lobes named;
+coherence judged per frequency bin at the found slowness; the weighted
+crossing of arrays' bearings with its ellipse; lag location with the
+velocity named as an input; the array detectability test. On the labelled
+scene a 1.2 km nine-sensor array points at rigs from 6 to 45 km within 0.3
+degrees against a 7-degree tolerance. Nothing is claimed from one array but
+a direction.
 
-Fixed: the install-kit workflow's Windows job failed on v0.4.0 at `cd` of a
-wildcard path under cmd.exe; resolved with `for /d`, and a manual run can
-now attach the kits to an existing release (release_tag).
+The Seismic page. A station or an array is a thing in the workspace beside
+the wells: added by upload or `gea workspace --action add-seismic` with its
+record(s), position, band, rigs list and station file, copied in verbatim
+and hashed; refreshed as a job that runs the whole leg and writes the new
+Seismic Station Report and the machine JSONs under reports/seismic/; read
+on its own page with the spectrum drawn, the lines, the detectability
+verdicts and the array bearing, the limits printed under each card. Home
+counts the stations and the listed rigs heard. The sample report joins
+docs/report_samples/ and the kit.
 
-Acceptance sections AK (4), AL (5), AM (1); sections A, C, E, H, I, AA
-re-derived against the datasheet-only engine. Gate 246/246 in the cloud and
-on the development machine; standalone check 0 findings - numpy is still the
-only dependency.
+Acceptance sections AN (4), AO (4), AP (4); AL and AM extended. Gate
+258/258 in the cloud and on the development machine; standalone check 0
+findings - numpy is still the only dependency.

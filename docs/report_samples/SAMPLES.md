@@ -25,3 +25,4 @@ is a measurement of any site. Re-rendered before every ship; the acceptance suit
 | `data_resilience_report_SYNTHETIC.html` | `gea store-forward --file field.csv --outage "<day 3 06:00,day 3 18:00>" --name "SYNTHETIC field (gea telemetry)" --out sf` |
 | `sla_report_SYNTHETIC.html` | `gea sla-report --month 2026-01 --monitor-log-dir monitor --alarm-log alarms/events.jsonl --name "SYNTHETIC field (gea telemetry)" --out sla` |
 | `sat_protocol.html` | `gea fat-sat --kind SAT --name "Report samples" --out sat` |
+| `seismic_station_report_SYNTHETIC.html` | `gea workspace --path seis_site --action add-seismic --name "SYNTHETIC node" --files scene.mseed --lat 31 --lon -102 --sources rigs.csv --band 1 20; gea workspace --path seis_site --action refresh-seismic (the record and the rigs are the labelled synthetic scene of gea seismic --action selftest)` |

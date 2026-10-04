@@ -4,7 +4,47 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
-## Unreleased - after v0.5.0
+## v0.6.0 - 2026-10-04 - the second leg whole - the reader proven on real files, the response, the array step, and the Seismic page
+
+- **The leg on the dashboard.** A seismic station or array is a thing in the
+  workspace now, beside the wells: added by upload or from the command line
+  with its record, position, band, rigs list and station file, refreshed as
+  a job that runs the whole leg and writes the Seismic Station Report, and
+  read on its own page - the spectrum drawn, the persistent lines, the
+  detectability verdicts with the radius, the beam with its half-width, the
+  array verdicts - with the limits printed under each card. The sample report
+  joins `docs/report_samples/` and the kit. Gate: 258 checks.
+- **The array step.** One station detects; an array gives a direction;
+  arrays give a point. `seismic_array.py` is the standard array processing
+  (Rost and Thomas 2002): Bartlett and Capon beams over a slowness grid on
+  the Welch cross-spectral matrix, refined around the maximum so the grid is
+  not the error; the array response function beside every bearing, so the
+  resolution is a number and the aliasing lobes of a sparse geometry are
+  named; coherence judged per frequency bin at the found slowness, because a
+  rig's lines are a few bins in a band of noise; the weighted crossing of
+  bearings with its ellipse; lag location with its velocity named as the
+  input it is; and the array detectability test against the ground-truth
+  list. On the labelled scene a 1.2 km, nine-sensor array points at rigs
+  from 6 to 45 km within 0.3 degrees of their bearings against a 7-degree
+  tolerance, and three arrays cross within a kilometre of the rig. Nothing
+  is claimed from one array but a direction.
+- **The reader proven on real files; the response added.** With obspy's
+  test corpus fetched by pip on the device VM (about ninety miniSEED files
+  from real stations and odd recorders) and libmseed beside it, the reader
+  was held to the reference file by file: the first pass found the
+  little-endian Steim rule (8-bit differences in memory order, not in the
+  swapped word), the byte-order flag's meaning, the data-offset-zero case,
+  the text records, and the gain-ranged formats of the old networks, all
+  read from libmseed's own source; the last pass is 76 files sample-exact,
+  5 text files skipped by design, no mismatches, and SAC 12 of 12 against
+  obspy. `tools/seismic_reader_check.py` repeats it anywhere. Then the
+  response: `seismic_response.py` reads StationXML into its stages and
+  evaluates them as evalresp does - proven on IU.ANMO.10.BHZ to 1e-5 in
+  amplitude and 1e-6 degree in phase, the FIR delay correction included -
+  and removes the response with a water level and pre-filter to m/s, m or
+  m/s^2; a known motion through the real response and back comes out with
+  no error in the band. The reference files ship under `gea/reference/`
+  with provenance; section AN holds the evaluation to evalresp's numbers.
 
 - **The Windows kit's install step, read at last.** With the owner signed in
   to GitHub in the browser pane the v0.5.0 log could be read: the `cd` fix

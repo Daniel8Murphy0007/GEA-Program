@@ -100,6 +100,8 @@ from .seismic import (
     welch_psd, spectrogram, persistent_lines, band_power,
 )
 from .seismic_detect import Source as SeismicSource, detectability_test, load_sources_csv, haversine_km, DRILLING_BAND_HZ
+from .seismic_response import read_stationxml, remove_response, transfer as response_transfer, fdsn_stationxml
+from .seismic_array import Sensor as SeismicSensor, load_sensors_csv, beam as array_beam, array_detectability, intersect_backazimuths, locate_from_lags
 from .bench import (
     bench_analysis, bench_selftest,
 )
@@ -120,7 +122,7 @@ from .profile_catalog import (
     read_pangaea_txt,
 )
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 __all__ = [
     "aging_rate", "rate_psi_yr", "accuracy_psi",
     "Sensor", "SimulatorConfig", "DownholeEngine",

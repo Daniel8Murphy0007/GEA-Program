@@ -381,3 +381,104 @@ summary; `docs/HISTORY.md` the record by layer.
   main build to the release of the version in pyproject.toml only where that
   platform's kit is missing - the v0.5.0 Windows kit, once the install step
   passes. The owner's next push of these two files is the run.
+
+## 2026-10-03 (later) - the reader on real files; the response
+
+- "Continue." The leg's next piece that needs no data from the owner: the
+  reader held to real files, and physical units.
+- The corpus: obspy's wheel, fetched by pip on the device VM (which reaches
+  PyPI), holds about ninety miniSEED test files from real stations - every
+  encoding, both byte orders, 512- to 4096-byte records, gaps, time
+  corrections, odd blockettes, broken records. pymseed (libmseed 3.5.4) was
+  the reference. First pass: 61 exact, 13 failures, 6 mismatches. The
+  failures were read out of libmseed's own unpackdata.c and unpack.c (in the
+  pymseed sdist): Steim 8-bit differences are the word's bytes in memory
+  order and 16-bit ones two int16 in memory order (big-endian data hides
+  this; little-endian data was wrong by a few counts and failed the Xn
+  check); any non-zero blockette-1000 byte-order value is big-endian; a data
+  offset of 0 means no data; text records are not samples; GEOSCOPE, CDSN,
+  SRO and DWWSSN are 16-bit gain-ranged formats, ported line for line. Last
+  pass: 76 exact, 5 text files skipped by design, 0 mismatches. obspy was
+  then installed on the VM (100 MB of wheels) for the SAC check: 12 of 12
+  readable files exact, after two fixes (an undefined reference time, a
+  NUL-terminated string). `tools/seismic_reader_check.py` repeats the
+  miniSEED check anywhere with internet; the corpus is not redistributed.
+- The response: `seismic_response.py`. StationXML stages (PZ in radians,
+  hertz or z-transform; coefficient and FIR stages with symmetry,
+  decimation and delay correction; gains; polynomial refused), the product
+  checked against the declared sensitivity, the unit derivative chain to
+  VEL/DISP/ACC, a water-level deconvolution with a cosine pre-filter.
+  Against obspy's evalresp on IU.ANMO.10.BHZ: amplitude ratio 1.00000 at
+  every frequency from the first run; phase off by exactly the FIR stage's
+  0.43046 s correction until the correction was applied as evalresp applies
+  it (multiply by exp(+i 2 pi f c)); then 1e-6 degree. The full
+  deconvolution against obspy's on a real 3-hour IU.ULN record: 0.9-1.1 %
+  rms with the pre-filter, the rest being the two programs' taper and
+  detrend conventions; without a pre-filter both programs' results are
+  dominated by the water-level region and differ by 60-70 %, which is why a
+  pre-filter is the standard. The IRIS StationXML and evalresp's seven
+  values per unit are `gea/reference/` with provenance; section AN (4).
+- A device_commit_files call that reuses a staged path wrote a stale copy
+  once (38,663 bytes of an older seismic.py); verified by md5 and staged
+  under a new name. Gate 250 in the cloud; device sections AL, AM, AN to run.
+
+## 2026-10-03 (later still) - the array step
+
+- "GO." The leg's purpose, built on the synthetic scene so it is ready
+  when multi-station data arrives: `seismic_array.py`.
+- The first beam put a 70-degree plane wave at 76 degrees with coherence
+  0.43: the 0.1 s/km coarse grid was the error (at 0.4 s/km one step is 14
+  degrees of azimuth, and a 0.03 s/km mismatch across 0.6 km at 20 Hz is a
+  third of a cycle). A 41 x 41 refinement around the coarse maximum gives
+  69.99 degrees, 0.4018 s/km, coherence 0.994. The array response function
+  is computed on its own fine grid around zero (the pattern is
+  shift-invariant) and on the coarse full grid for the lobes.
+- The second false alarm: band-averaged coherence called the 25 and 45 km
+  rigs INCOHERENT (0.24, 0.18) while the beam pointed at them to 0.3
+  degrees - a rig's lines are a few bins in a band of noise, so the
+  band's average says little. Coherence is now judged per frequency bin
+  at the found slowness: best-bin 1.00 for all four rigs, with the coherent
+  frequencies listed (they are the rigs' lines). Verdict needs best-bin
+  coherence >= 0.5 and two coherent bins.
+- Negative controls earned: a rig listed at the wrong bearing is
+  NOT_POINTED; sensor noise alone is INCOHERENT; a reversed bearing is
+  reported as behind its array; the same lags at a wrong velocity land
+  elsewhere, which is why the velocity is printed as the input it is.
+- Section AO (4), 70 s of it the full scene. Gate 254 in the cloud; device
+  AO to run. Help page, README, CHANGELOG, HISTORY written.
+
+## 2026-10-04 - the leg on the dashboard
+
+- "Go": the seismic page. The leg becomes a site thing: `Workspace`
+  gained seismic stations (`seismic/<id>/source/` with the files copied in
+  and hashed, `station.json` with position, band, rigs list, station file,
+  sensors), `refresh_seismic` runs the whole leg and writes the machine
+  JSONs and the Seismic Station Report under `reports/seismic/<id>/` so the
+  existing `/reports/` route serves them; `seismic_results` reads them back.
+  A new report builder in `client_reports.py` (sections: summary, the record,
+  spectrum and lines, detectability, the array, method, what it does not call
+  a measurement - every `not_a_measurement` list the leg's functions print is
+  gathered there). The service: five routes and an upload handler that takes
+  several files base64 like the well upload does; the page: the Seismic view
+  with the add form (multi-file), the station view with the spectrum drawn
+  on a canvas from spectrum.json (decimated to 2,000 points), a nav entry, a
+  home tile, help mapping. The refresh is `workspace --action
+  refresh-seismic` as a job, so it has a log like everything else.
+- The client-report writer's forbidden-term list includes "refus", so the
+  report's limits text says "turned away" where the help page says
+  "refused"; the first render passed.
+- Section AP (4): the workspace (single and array, the two refusals), the
+  API as viewer and operator with a real upload and a job that completes,
+  the page source and help mapping, the CLI. The report sample renders
+  through the workspace from the labelled scene (18 samples now). Gate 258
+  in the cloud; device AP, AM to run.
+
+## 2026-10-04 (later) - the v0.6.0 ship prepared
+
+- "Update the files and prepare the ship": version 0.6.0 in pyproject.toml
+  and gea.__version__; `[Unreleased]` headed `[v0.6.0] - 2026-10-04` in
+  CHANGELOG and HISTORY; SHIP_MESSAGE.txt with the tag on its first line;
+  docs/report_samples re-rendered at build 0.6.0 (section AM holds them to
+  it). Gate in the cloud and on the development machine; guard; clone
+  synced. The owner runs `.\ship.ps1`; the tag starts CI, the PyPI release
+  and the kit build, whose Windows job attaches its kit to the release.

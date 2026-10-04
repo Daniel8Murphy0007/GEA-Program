@@ -20,7 +20,9 @@ The real well is Volve 15/9-F-12 and F-14 (the catalogue excerpt). The alarm,
 resilience, monitored-drift and SLA samples need a historian with faults and
 months in it, and no public catalogue entry has one: those are rendered from
 `gea telemetry`, the program's own synthetic field generator, and the reports
-say SYNTHETIC in their well name. Nothing here is a measurement of any site.
+say SYNTHETIC in their well name; the seismic station report is rendered from
+the labelled synthetic scene of the second leg. Nothing here is a measurement
+of any site.
 """
 
 from __future__ import annotations
@@ -55,6 +57,8 @@ SAMPLES = [
     ('data_resilience_report_SYNTHETIC.html', 'sf/data_resilience_report.html', 'gea store-forward --file field.csv --outage "<day 3 06:00,day 3 18:00>" --name "SYNTHETIC field (gea telemetry)" --out sf'),
     ('sla_report_SYNTHETIC.html', 'sla/sla_report_{month}.html', 'gea sla-report --month {month} --monitor-log-dir monitor --alarm-log alarms/events.jsonl --name "SYNTHETIC field (gea telemetry)" --out sla'),
     ('sat_protocol.html', 'sat/sat_protocol.html', 'gea fat-sat --kind SAT --name "Report samples" --out sat'),
+    ('seismic_station_report_SYNTHETIC.html', 'seis_site/reports/seismic/SYNTHETIC-node/seismic_station_report.html',
+     'gea workspace --path seis_site --action add-seismic --name "SYNTHETIC node" --files scene.mseed --lat 31 --lon -102 --sources rigs.csv --band 1 20; gea workspace --path seis_site --action refresh-seismic (the record and the rigs are the labelled synthetic scene of gea seismic --action selftest)'),
 ]
 
 
@@ -91,6 +95,13 @@ def main(argv=None) -> int:
         run(g + ['store-forward', '--file', 'field.csv', '--outage', f'{day3}T06:00:00Z,{day3}T18:00:00Z', '--name', 'SYNTHETIC field (gea telemetry)', '--out', 'sf'], work)
         run(g + ['sla-report', '--month', month, '--monitor-log-dir', 'monitor', '--alarm-log', 'alarms/events.jsonl', '--name', 'SYNTHETIC field (gea telemetry)', '--out', 'sla'], work)
         run(g + ['fat-sat', '--kind', 'SAT', '--name', 'Report samples', '--out', 'sat'], work)
+        # the seismic station: the labelled synthetic scene through the workspace, as a site would run it
+        run([PY, '-c', 'from gea import seismic as S, seismic_detect as D; tr, srcs, m = D.synthetic_scene(hours=6); '
+                       'S.write_mseed([tr], "scene.mseed", "STEIM2"); D.write_sources_csv(srcs, "rigs.csv")'], work)
+        run(g + ['workspace', '--path', 'seis_site', '--action', 'init', '--name', 'Report samples'], work)
+        run(g + ['workspace', '--path', 'seis_site', '--action', 'add-seismic', '--name', 'SYNTHETIC node', '--files', 'scene.mseed', '--lat', '31', '--lon', '-102',
+                 '--sources', 'rigs.csv', '--band', '1', '20'], work)
+        run(g + ['workspace', '--path', 'seis_site', '--action', 'refresh-seismic'], work)
         if out.exists():
             for p in out.glob('*.html'):
                 p.unlink()

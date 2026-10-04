@@ -146,7 +146,7 @@ def detectability_test(tr: Trace, station_lat: float, station_lon: float, source
     quiet = n_active == 0
     out = {'protocol': 'seismic_detect.detectability_test', 'station': {'id': tr.id, 'lat': station_lat, 'lon': station_lon},
            'record': {'start': iso(tr.starttime, 0), 'end': iso(tr.endtime, 0), 'sample_rate_hz': tr.sample_rate, 'npts': tr.npts, 'gaps': len(tr.gaps),
-                      'unit': 'counts (instrument response not removed)'},
+                      'unit': tr.unit_label},
            'band_hz': list(band), 'win_s': win_s, 'snr_db': snr_db, 'min_windows': min_windows, 'windows': int(nwin),
            'quiet_windows': int(quiet.sum()), 'sources': [], 'n_sources': len(sources)}
     if quiet.sum() < min_windows:

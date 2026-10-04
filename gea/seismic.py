@@ -104,6 +104,7 @@ class Trace:
     source: str = ''                 # file or URL
     encoding: str = ''               # STEIM1 / STEIM2 / INT32 / INT16 / FLOAT32 / FLOAT64 / SAC
     gaps: List[dict] = field(default_factory=list)      # gaps inside the record that were bridged or split
+    unit: str = 'counts'             # 'counts' as recorded; 'm/s', 'm' or 'm/s^2' once the station's response has been removed
 
     @property
     def id(self) -> str:
@@ -124,18 +125,22 @@ class Trace:
     def times(self) -> np.ndarray:
         return self.starttime + np.arange(self.npts) / self.sample_rate
 
+    @property
+    def unit_label(self) -> str:
+        return 'counts (instrument response not removed)' if self.unit == 'counts' else f'{self.unit} (instrument response removed)'
+
     def slice(self, t0: float, t1: float) -> "Trace":
         i0 = int(max(0, np.ceil((t0 - self.starttime) * self.sample_rate - 1e-6)))
         i1 = int(min(self.npts, np.floor((t1 - self.starttime) * self.sample_rate + 1e-6) + 1))
         if i1 <= i0:
-            return Trace(self.network, self.station, self.location, self.channel, t0, self.sample_rate, self.data[:0], self.source, self.encoding)
+            return Trace(self.network, self.station, self.location, self.channel, t0, self.sample_rate, self.data[:0], self.source, self.encoding, unit=self.unit)
         return Trace(self.network, self.station, self.location, self.channel, self.starttime + i0 / self.sample_rate, self.sample_rate,
-                     self.data[i0:i1], self.source, self.encoding)
+                     self.data[i0:i1], self.source, self.encoding, unit=self.unit)
 
     def info(self) -> dict:
         d = np.asarray(self.data, dtype=float)
         return {'id': self.id, 'start': iso(self.starttime), 'end': iso(self.endtime), 'sample_rate_hz': self.sample_rate, 'npts': self.npts,
-                'duration_s': round(self.duration_s, 3), 'encoding': self.encoding, 'unit': 'counts (instrument response not removed)',
+                'duration_s': round(self.duration_s, 3), 'encoding': self.encoding, 'unit': self.unit_label,
                 'min': float(d.min()) if d.size else None, 'max': float(d.max()) if d.size else None,
                 'mean': round(float(d.mean()), 3) if d.size else None, 'gaps': len(self.gaps), 'source': self.source}
 
@@ -153,89 +158,117 @@ def _steim_frames(buf: bytes, order: str) -> np.ndarray:
     return np.frombuffer(buf[:n * 64], dtype=order + 'u4').reshape(n, 16)
 
 
-def steim1_decode(buf: bytes, nsamp: int, order: str = '>') -> np.ndarray:
-    frames = _steim_frames(buf, order)
-    if frames.size == 0:
-        return np.zeros(0, dtype=np.int32)
-    x0 = int(np.int32(frames[0, 1]))
-    xn = int(np.int32(frames[0, 2]))
+def _steim_diffs(buf: bytes, nsamp: int, order: str, steim2: bool) -> Tuple[int, int, np.ndarray]:
+    """The differences of a Steim1/2 payload, with the byte-order rules of the reference implementation
+    (libmseed unpackdata.c): the control word, X0, Xn and every multi-bit field come from the 32-bit word
+    read in the data's byte order; 8-bit differences are the word's bytes in memory order, 16-bit
+    differences (Steim1) two int16 in memory order. Big-endian data makes no distinction; little-endian
+    data does, and a decoder that only swaps words reads it wrong by a few counts."""
+    nframes = len(buf) // 64
+    if nframes == 0:
+        return 0, 0, np.zeros(0, dtype=np.int64)
+    words = _steim_frames(buf, order)
+    x0 = int(np.int32(words[0, 1]))
+    xn = int(np.int32(words[0, 2]))
     diffs: List[np.ndarray] = []
-    for fi in range(frames.shape[0]):
-        w0 = int(frames[fi, 0])
+    total = 0
+    for fi in range(nframes):
+        w0 = int(words[fi, 0])
+        base = fi * 64
         for k in range(1, 16):
             if fi == 0 and k in (1, 2):
                 continue
             nib = (w0 >> (2 * (15 - k))) & 3
-            w = frames[fi, k]
             if nib == 0:
                 continue
-            elif nib == 1:
-                b = np.array([(w >> 24) & 0xFF, (w >> 16) & 0xFF, (w >> 8) & 0xFF, w & 0xFF], dtype=np.int64)
-                diffs.append(_sign_extend(b, 8))
-            elif nib == 2:
-                b = np.array([(w >> 16) & 0xFFFF, w & 0xFFFF], dtype=np.int64)
-                diffs.append(_sign_extend(b, 16))
+            raw = buf[base + 4 * k: base + 4 * k + 4]
+            if nib == 1:
+                d = np.frombuffer(raw, dtype=np.int8).astype(np.int64)
+            elif not steim2:
+                if nib == 2:
+                    d = np.frombuffer(raw, dtype=order + 'i2').astype(np.int64)
+                else:
+                    d = np.frombuffer(raw, dtype=order + 'i4').astype(np.int64)
             else:
-                diffs.append(np.array([int(np.int32(w))], dtype=np.int64))
+                w = int(words[fi, k])
+                dnib = (w >> 30) & 3
+                if nib == 2:
+                    if dnib == 1:
+                        d = _sign_extend(np.array([w & 0x3FFFFFFF], dtype=np.int64), 30)
+                    elif dnib == 2:
+                        d = _sign_extend(np.array([(w >> 15) & 0x7FFF, w & 0x7FFF], dtype=np.int64), 15)
+                    elif dnib == 3:
+                        d = _sign_extend(np.array([(w >> 20) & 0x3FF, (w >> 10) & 0x3FF, w & 0x3FF], dtype=np.int64), 10)
+                    else:
+                        raise ValueError("Steim2: nibble 2 with dnib 0 is undefined")
+                else:
+                    if dnib == 0:
+                        d = _sign_extend(np.array([(w >> (6 * (4 - j))) & 0x3F for j in range(5)], dtype=np.int64), 6)
+                    elif dnib == 1:
+                        d = _sign_extend(np.array([(w >> (5 * (5 - j))) & 0x1F for j in range(6)], dtype=np.int64), 5)
+                    elif dnib == 2:
+                        d = _sign_extend(np.array([(w >> (4 * (6 - j))) & 0x0F for j in range(7)], dtype=np.int64), 4)
+                    else:
+                        raise ValueError("Steim2: nibble 3 with dnib 3 is undefined")
+            diffs.append(d)
+            total += len(d)
+            if total >= nsamp:
+                break
+        if total >= nsamp:
+            break
     d = np.concatenate(diffs) if diffs else np.zeros(0, dtype=np.int64)
-    d = d[:nsamp]
+    return x0, xn, d[:nsamp]
+
+
+def _steim_integrate(x0: int, xn: int, d: np.ndarray, label: str) -> np.ndarray:
     if d.size == 0:
         return np.zeros(0, dtype=np.int32)
     x = np.cumsum(d)
     x = x - x[0] + x0                      # the first difference is against the previous record: the first sample is X0
-    if x.size and int(x[-1]) != xn:
-        raise ValueError(f"Steim1 reverse integration constant mismatch (got {int(x[-1])}, record says {xn})")
+    if int(x[-1]) != xn:
+        raise ValueError(f"{label} reverse integration constant mismatch (got {int(x[-1])}, record says {xn})")
     return x.astype(np.int32)
+
+
+def steim1_decode(buf: bytes, nsamp: int, order: str = '>') -> np.ndarray:
+    x0, xn, d = _steim_diffs(buf, nsamp, order, steim2=False)
+    return _steim_integrate(x0, xn, d, "Steim1")
 
 
 def steim2_decode(buf: bytes, nsamp: int, order: str = '>') -> np.ndarray:
-    frames = _steim_frames(buf, order)
-    if frames.size == 0:
-        return np.zeros(0, dtype=np.int32)
-    x0 = int(np.int32(frames[0, 1]))
-    xn = int(np.int32(frames[0, 2]))
-    diffs: List[np.ndarray] = []
-    for fi in range(frames.shape[0]):
-        w0 = int(frames[fi, 0])
-        for k in range(1, 16):
-            if fi == 0 and k in (1, 2):
-                continue
-            nib = (w0 >> (2 * (15 - k))) & 3
-            w = int(frames[fi, k])
-            if nib == 0:
-                continue
-            if nib == 1:
-                b = np.array([(w >> 24) & 0xFF, (w >> 16) & 0xFF, (w >> 8) & 0xFF, w & 0xFF], dtype=np.int64)
-                diffs.append(_sign_extend(b, 8))
-                continue
-            dnib = (w >> 30) & 3
-            if nib == 2:
-                if dnib == 1:
-                    diffs.append(_sign_extend(np.array([w & 0x3FFFFFFF], dtype=np.int64), 30))
-                elif dnib == 2:
-                    diffs.append(_sign_extend(np.array([(w >> 15) & 0x7FFF, w & 0x7FFF], dtype=np.int64), 15))
-                elif dnib == 3:
-                    diffs.append(_sign_extend(np.array([(w >> 20) & 0x3FF, (w >> 10) & 0x3FF, w & 0x3FF], dtype=np.int64), 10))
-                else:
-                    raise ValueError("Steim2: nibble 2 with dnib 0 is undefined")
-            else:   # nib == 3
-                if dnib == 0:
-                    diffs.append(_sign_extend(np.array([(w >> (6 * (4 - j))) & 0x3F for j in range(5)], dtype=np.int64), 6))
-                elif dnib == 1:
-                    diffs.append(_sign_extend(np.array([(w >> (5 * (5 - j))) & 0x1F for j in range(6)], dtype=np.int64), 5))
-                elif dnib == 2:
-                    diffs.append(_sign_extend(np.array([(w >> (4 * (6 - j))) & 0x0F for j in range(7)], dtype=np.int64), 4))
-                else:
-                    raise ValueError("Steim2: nibble 3 with dnib 3 is undefined")
-    d = np.concatenate(diffs) if diffs else np.zeros(0, dtype=np.int64)
-    d = d[:nsamp]
-    if d.size == 0:
-        return np.zeros(0, dtype=np.int32)
-    x = np.cumsum(d)
-    x = x - x[0] + x0
-    if x.size and int(x[-1]) != xn:
-        raise ValueError(f"Steim2 reverse integration constant mismatch (got {int(x[-1])}, record says {xn})")
-    return x.astype(np.int32)
+    x0, xn, d = _steim_diffs(buf, nsamp, order, steim2=True)
+    return _steim_integrate(x0, xn, d, "Steim2")
+
+
+def _decode_gain_ranged(data_buf: bytes, nsamp: int, order: str, enc: int) -> np.ndarray:
+    """The 16-bit gain-ranged formats of the older networks (SEED 2.4 appendix B, after libmseed): GEOSCOPE 3- and
+    4-bit gain, CDSN, SRO, DWWSSN, and GEOSCOPE 24-bit. Rare in any current archive; read so that no record of a
+    public archive is refused for its age."""
+    if enc == 12:                                             # GEOSCOPE 24-bit
+        b = np.frombuffer(data_buf[:3 * nsamp], dtype=np.uint8).reshape(-1, 3).astype(np.int64)
+        m = (b[:, 0] << 16) | (b[:, 1] << 8) | b[:, 2] if order == '>' else (b[:, 2] << 16) | (b[:, 1] << 8) | b[:, 0]
+        m = np.where(m > 0x7FFFFF, m - 2 * (0x7FFFFF + 1), m)
+        return m.astype(np.float64)
+    s = np.frombuffer(data_buf[:2 * nsamp], dtype=order + 'u2').astype(np.int64)
+    if enc in (13, 14):                                       # GEOSCOPE 16-bit, 3- or 4-bit gain
+        mant = s & 0x0FFF
+        gain = ((s & (0x7000 if enc == 13 else 0xF000)) >> 12)
+        return (mant - 2048).astype(np.float64) / np.power(2.0, gain)
+    if enc == 16:                                             # CDSN
+        mant = (s & 0x3FFF) - 0x1FFF
+        mult = np.array([0, 2, 4, 7])[(s & 0xC000) >> 14]
+        return (mant * (1 << mult.astype(np.int64))).astype(np.int32)
+    if enc == 30:                                             # SRO
+        mant = s & 0x0FFF
+        mant = np.where(mant > 0x7FF, mant - 2 * (0x7FF + 1), mant)
+        gain = (s & 0xF000) >> 12
+        expo = 10 - gain
+        if np.any(expo < 0) or np.any(expo > 10):
+            raise ValueError("SRO gain ranging exponent out of range")
+        return (mant * (1 << expo.astype(np.int64))).astype(np.int32)
+    if enc == 32:                                             # DWWSSN
+        return np.where(s > 0x7FFF, s - 2 * (0x7FFF + 1), s).astype(np.int32)
+    raise ValueError(f"encoding {enc} is not a gain-ranged format")
 
 
 def steim1_encode(x: Sequence[int], max_frames: int, order: str = '>', prev: Optional[int] = None) -> Tuple[bytes, int]:
@@ -335,7 +368,9 @@ def steim2_encode(x: Sequence[int], max_frames: int, order: str = '>', prev: Opt
 # ---------------------------------------------------------------------------
 # miniSEED
 # ---------------------------------------------------------------------------
-_ENCODINGS = {0: 'ASCII', 1: 'INT16', 3: 'INT32', 4: 'FLOAT32', 5: 'FLOAT64', 10: 'STEIM1', 11: 'STEIM2'}
+_ENCODINGS = {0: 'TEXT', 1: 'INT16', 2: 'INT24', 3: 'INT32', 4: 'FLOAT32', 5: 'FLOAT64', 10: 'STEIM1', 11: 'STEIM2',
+              12: 'GEOSCOPE24', 13: 'GEOSCOPE163', 14: 'GEOSCOPE164', 16: 'CDSN', 30: 'SRO', 32: 'DWWSSN'}
+_GAIN_RANGED = {12, 13, 14, 16, 30, 32}
 
 
 def _sample_rate(fac: int, mult: int) -> float:
@@ -368,14 +403,16 @@ def _parse_record(buf: bytes, off: int) -> Tuple[dict, int]:
     # byte order from the year
     year_be = struct.unpack('>H', hdr[20:22])[0]
     order = '>' if 1900 <= year_be <= 2100 else '<'
-    sta = hdr[8:13].decode('ascii', 'replace').strip()
-    loc = hdr[13:15].decode('ascii', 'replace').strip()
-    cha = hdr[15:18].decode('ascii', 'replace').strip()
-    net = hdr[18:20].decode('ascii', 'replace').strip()
+    def clean(b: bytes) -> str:
+        # a code is printable ASCII; padding goes, and a field holding any other byte is noise, not a code (as the reference reads it)
+        t = b.rstrip(b' \x00').strip(b' ')
+        return t.decode('ascii') if all(33 <= c < 127 for c in t) else ''
+    sta, loc, cha, net = clean(hdr[8:13]), clean(hdr[13:15]), clean(hdr[15:18]), clean(hdr[18:20])
     year, doy, hh, mm, ss, _, frac = struct.unpack(order + 'HHBBBBH', hdr[20:30])
     nsamp, fac, mult = struct.unpack(order + 'Hhh', hdr[30:36])
     act, io_f, dq, nblk = hdr[36], hdr[37], hdr[38], hdr[39]
     tcorr, doff, boff = struct.unpack(order + 'iHH', hdr[40:48])
+    hdr_order = order
     enc = None
     reclen = None
     usec = 0
@@ -383,11 +420,11 @@ def _parse_record(buf: bytes, off: int) -> Tuple[dict, int]:
     for _ in range(nblk):
         if p == 0 or p + 4 > len(buf) - off:
             break
-        btype, nxt = struct.unpack(order + 'HH', buf[off + p:off + p + 4])
+        btype, nxt = struct.unpack(hdr_order + 'HH', buf[off + p:off + p + 4])
         if btype == 1000:
             enc, word_order, rl = struct.unpack('BBB', buf[off + p + 4:off + p + 7])
             reclen = 1 << rl
-            order = '>' if word_order == 1 else '<'
+            order = '>' if word_order != 0 else '<'          # the reference reads any non-zero value as big-endian
         elif btype == 1001:
             usec = struct.unpack('b', buf[off + p + 5:off + p + 6])[0]
         if nxt == 0:
@@ -406,10 +443,18 @@ def _parse_record(buf: bytes, off: int) -> Tuple[dict, int]:
         t0 += tcorr / 10000.0
     t0 += usec / 1e6
     rate = _sample_rate(fac, mult)
-    data_buf = buf[off + doff:off + reclen]
+    data_buf = buf[off + doff:off + reclen] if 0 < doff < reclen else b''     # a data offset of 0 (or past the record) means no data
     enc_name = _ENCODINGS.get(enc, f'UNKNOWN_{enc}') if enc is not None else 'STEIM1'
-    if nsamp == 0:
+    skipped = None
+    if nsamp == 0 or not data_buf:
         data = np.zeros(0, dtype=np.int32)
+        nsamp = 0
+    elif enc_name == 'TEXT':
+        data = np.zeros(0, dtype=np.int32)                   # a log or text record: not a time series
+        skipped = f"text record ({nsamp} bytes of text) - not a time series"
+        nsamp = 0
+    elif enc in _GAIN_RANGED:
+        data = _decode_gain_ranged(data_buf, nsamp, order, enc)
     elif enc_name == 'STEIM1':
         data = steim1_decode(data_buf, nsamp, order)
     elif enc_name == 'STEIM2':
@@ -422,15 +467,35 @@ def _parse_record(buf: bytes, off: int) -> Tuple[dict, int]:
         data = np.frombuffer(data_buf[:4 * nsamp], dtype=order + 'f4').astype(np.float64)
     elif enc_name == 'FLOAT64':
         data = np.frombuffer(data_buf[:8 * nsamp], dtype=order + 'f8').astype(np.float64)
+    elif enc_name == 'INT24':
+        b = np.frombuffer(data_buf[:3 * nsamp], dtype=np.uint8).reshape(-1, 3).astype(np.int64)
+        v = (b[:, 0] << 16) | (b[:, 1] << 8) | b[:, 2] if order == '>' else (b[:, 2] << 16) | (b[:, 1] << 8) | b[:, 0]
+        data = np.where(v > 0x7FFFFF, v - (1 << 24), v).astype(np.int32)
     else:
         raise ValueError(f"miniSEED encoding {enc} ({enc_name}) is not supported")
     if len(data) != nsamp:
         raise ValueError(f"record claims {nsamp} samples, decoded {len(data)}")
     return {'network': net, 'station': sta, 'location': loc, 'channel': cha, 'starttime': t0, 'sample_rate': rate,
-            'data': data, 'encoding': enc_name, 'reclen': reclen, 'quality': hdr[6:7].decode()}, reclen
+            'data': data, 'encoding': enc_name, 'reclen': reclen, 'quality': hdr[6:7].decode(), 'skipped': skipped}, reclen
 
 
-def read_mseed(src: Union[str, bytes, io.BufferedIOBase], gap_tolerance_samples: float = 0.5) -> List[Trace]:
+class TraceList(list):
+    """The traces of a file, plus `skipped`: the records that were not time series (text) or could not be read."""
+    skipped: List[dict] = []
+
+
+def _next_record_offset(buf: bytes, start: int) -> Optional[int]:
+    """The next offset at a 64-byte boundary that looks like a data record header."""
+    off = (start + 63) // 64 * 64
+    while off + 48 <= len(buf):
+        h = buf[off:off + 48]
+        if h[6:7] in (b'D', b'R', b'Q', b'M') and h[:6].strip(b' ').isdigit():
+            return off
+        off += 64
+    return None
+
+
+def read_mseed(src: Union[str, bytes, io.BufferedIOBase], gap_tolerance_samples: float = 0.5) -> "TraceList":
     """Read a miniSEED file (path, bytes or file object) into continuous traces.
     Records of the same channel that follow within half a sample are joined; a
     larger gap or an overlap starts a new trace and is written in `gaps`."""
@@ -443,15 +508,28 @@ def read_mseed(src: Union[str, bytes, io.BufferedIOBase], gap_tolerance_samples:
             buf = f.read()
         name = os.fspath(src)
     recs: List[dict] = []
+    skipped: List[dict] = []
     off = 0
     while off + 48 <= len(buf):
         if buf[off:off + 48] == b'\x00' * 48:
             off += 64
             continue
-        rec, rl = _parse_record(buf, off)
+        try:
+            rec, rl = _parse_record(buf, off)
+        except ValueError as e:
+            # a record that cannot be read is written down and stepped over: the next record is found by its header
+            skipped.append({'offset': off, 'reason': str(e)})
+            nxt = _next_record_offset(buf, off + 64)
+            if nxt is None:
+                break
+            off = nxt
+            continue
+        if rec.get('skipped'):
+            skipped.append({'offset': off, 'reason': rec['skipped'], 'channel': f"{rec['network']}.{rec['station']}.{rec['location']}.{rec['channel']}"})
         recs.append(rec)
         off += rl
-    traces: List[Trace] = []
+    traces: TraceList = TraceList()
+    traces.skipped = skipped
     by_id: Dict[str, List[dict]] = {}
     for r in recs:
         by_id.setdefault(f"{r['network']}.{r['station']}.{r['location']}.{r['channel']}", []).append(r)
@@ -562,7 +640,9 @@ def read_sac(path: str) -> Trace:
     p = 0
     for name in _SAC_K:
         w = 16 if name == 'kevnm' else 8
-        strs[name] = ks[p:p + w].decode('ascii', 'replace').strip().rstrip('\x00').strip()
+        raw = ks[p:p + w].split(b'\x00', 1)[0]                       # NUL-terminated strings happen; so do undefined (-12345) ones
+        txt = raw.decode('ascii', 'replace').strip()
+        strs[name] = '' if (txt == '-12345' or any(ord(c) > 126 or ord(c) < 32 for c in txt)) else txt
         p += w
     delta, b = float(fl[0]), float(fl[5])
     npts = int(it[9])
@@ -570,9 +650,13 @@ def read_sac(path: str) -> Trace:
     data = np.frombuffer(buf[632:632 + 4 * npts], dtype=order + 'f4').astype(np.float64)
     if len(data) != npts:
         raise ValueError(f"SAC header says {npts} points, file holds {len(data)}")
-    ref = _dt.datetime(nzyear, 1, 1, tzinfo=_dt.timezone.utc) + _dt.timedelta(days=nzjday - 1, hours=nzhour, minutes=nzmin, seconds=nzsec, milliseconds=nzmsec)
-    t0 = ref.timestamp() + b
-    clean = lambda s: '' if s in ('-12345', '') else s
+    if nzyear == -12345 or nzjday == -12345:                       # no reference time in the header: times are relative to the epoch
+        t0 = b
+    else:
+        ref = _dt.datetime(nzyear, 1, 1, tzinfo=_dt.timezone.utc) + _dt.timedelta(days=nzjday - 1, hours=max(nzhour, 0), minutes=max(nzmin, 0),
+                                                                                  seconds=max(nzsec, 0), milliseconds=max(nzmsec, 0))
+        t0 = ref.timestamp() + b
+    clean = lambda s: s
     rate = 1.0 / delta
     if abs(rate - round(rate)) < 1e-4 * rate:      # delta is a float32 in the header: 0.01 reads back as 100.0000022 Hz
         rate = float(round(rate))
@@ -732,7 +816,8 @@ def spectrogram(tr: Trace, win_s: float = 60.0, step_s: Optional[float] = None, 
         raise ValueError(f"the record ({tr.duration_s:.1f} s) is shorter than one window ({win_s:g} s)")
     psd = np.vstack(rows)
     return {'id': tr.id, 'times': np.asarray(times), 'freqs': f, 'psd': psd, 'psd_db': 10.0 * np.log10(np.maximum(psd, 1e-30)),
-            'win_s': win_s, 'step_s': step_s or win_s, 'nperseg': nperseg, 'df_hz': float(f[1] - f[0]), 'unit': 'counts^2/Hz (response not removed)'}
+            'win_s': win_s, 'step_s': step_s or win_s, 'nperseg': nperseg, 'df_hz': float(f[1] - f[0]),
+            'unit': ('counts^2/Hz (response not removed)' if tr.unit == 'counts' else f'({tr.unit})^2/Hz (response removed)')}
 
 
 def noise_floor_db(psd_db_row: np.ndarray, freqs: np.ndarray, width_hz: float = 2.0) -> np.ndarray:
@@ -794,8 +879,9 @@ def spectrum_csv(freqs: np.ndarray, psd: np.ndarray, path: str, tr: Optional[Tra
     import csv
     with open(path, 'w', newline='', encoding='utf-8') as f:
         w = csv.writer(f)
-        w.writerow(['# Welch PSD', tr.id if tr else '', f'{tr.sample_rate:g} Hz' if tr else '', 'counts^2/Hz (instrument response not removed)'])
-        w.writerow(['freq_hz', 'psd_counts2_per_hz', 'psd_db'])
+        unit = ('counts^2/Hz (instrument response not removed)' if (tr is None or tr.unit == 'counts') else f'({tr.unit})^2/Hz (instrument response removed)')
+        w.writerow(['# Welch PSD', tr.id if tr else '', f'{tr.sample_rate:g} Hz' if tr else '', unit])
+        w.writerow(['freq_hz', 'psd_per_hz', 'psd_db'])
         for fr, p in zip(freqs, psd):
             w.writerow([f'{fr:.5f}', f'{p:.6e}', f'{10 * np.log10(max(p, 1e-30)):.3f}'])
     return path
