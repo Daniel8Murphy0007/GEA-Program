@@ -143,6 +143,7 @@ VIEWS.home = async () => {
   h += tile('Patches connected', `${pUp} of ${pc.length}`, pBad ? 'serious' : (pc.length ? 'good' : 'neutral'), '#/live', pBad ? `${pBad} down or degraded` : '');
   if (site.certificates) { const cc = site.certificates.counts; h += tile('Calibration certificates', `${cc.VALID + cc.EXPIRING} of ${cc.VALID + cc.EXPIRING + cc.EXPIRED + cc.MISSING} in date`, (cc.EXPIRED || cc.MISSING) ? 'serious' : (cc.EXPIRING ? 'warn' : 'good'), '#/wells', `${cc.EXPIRING} expiring · ${cc.EXPIRED} expired · ${cc.MISSING} missing · ${site.certificates.swaps} swap(s) on record`); }
   if (site.transient && site.transient.shut_ins) h += tile('Build-ups analysed', `${site.transient.analysed} of ${site.transient.shut_ins} shut-ins`, 'neutral', '#/wells');
+  if (o.tracks && o.tracks.length) { const tv = o.tracks.filter(t => t.verdict); h += tile('Seismic tracks', `${o.tracks.length}${tv.length ? ` · ${tv.filter(t => t.verdict === 'TRACKED').length} tracked of ${tv.length} judged` : ''}`, tv.some(t => t.verdict === 'NOT_TRACKED') ? 'warn' : 'neutral', '#/seismic', o.tracks.filter(t => t.heading_deg !== null && t.heading_deg !== undefined).map(t => `${t.display}: ${t.length_km} km on ${t.heading_deg}°`).join('; ')); }
   if (o.seismic && o.seismic.length) { const sd = o.seismic.filter(x => x.detected !== null && x.detected !== undefined); const det = sd.reduce((n, x) => n + x.detected, 0), tot = sd.reduce((n, x) => n + x.n_sources, 0); h += tile('Seismic stations', `${o.seismic.length}${sd.length ? ` · ${det} of ${tot} listed rigs heard` : ''}`, 'neutral', '#/seismic', o.seismic.filter(x => x.pointed !== null && x.pointed !== undefined).length ? `arrays pointed at ${o.seismic.reduce((n, x) => n + (x.pointed || 0), 0)}` : ''); }
   h += `</div>`;
   h += `<div class="row card">${can('operator') ? `<label>Month for the SLA (optional)<input id="month" placeholder="YYYY-MM" pattern="\\d{4}-\\d{2}"></label><label><input type="checkbox" id="sat"> also run the SAT protocol</label><button id="refreshBtn" type="button">Refresh every report</button>` : need('operator')}<a class="btn secondary" href="/reports/index.html" target="_blank" rel="noopener">Open the printed dashboard</a></div>`;
@@ -261,7 +262,7 @@ VIEWS.well = async (id) => {
 };
 
 VIEWS.seismic = async () => {
-  const {stations} = await get('/api/seismic'); const sar = await get('/api/seismic/sar');
+  const {stations} = await get('/api/seismic'); const sar = await get('/api/seismic/sar'); const {tracks} = await get('/api/tracks');
   let h = `<h2>Seismic - the second leg</h2><p class="muted small">A station's record in, its spectrum and persistent lines out, and the detectability test against the rigs on its list; an array adds the direction. Every refresh is a job; the report is under Reports.</p>`;
   h += `<table><thead><tr><th>Station</th><th>Kind</th><th>Records</th><th>Unit</th><th>Lines</th><th>Detectability</th><th>Array</th><th>Last refresh</th><th></th></tr></thead><tbody>`;
   for (const s of stations) { const m = s.summary || {};
@@ -270,10 +271,12 @@ VIEWS.seismic = async () => {
   if (can('operator')) {
     h += `<div class="card"><h3>Add a station or an array</h3><p class="small muted">One miniSEED or SAC record for a station; one record per sensor plus a sensors CSV (sensor_id, lat, lon) for an array. The rigs CSV (source_id, lat, lon, start_utc, end_utc) is the ground truth the detectability test judges against; the StationXML turns counts into m/s. Files are copied in verbatim and hashed.</p>
       <div class="row"><label>Display name<input id="sName"></label><label>Record file(s)<input type="file" id="sFiles" multiple></label><label>Latitude<input id="sLat" type="number" step="0.000001"></label><label>Longitude<input id="sLon" type="number" step="0.000001"></label></div>
-      <div class="row"><label>Rigs CSV (optional)<input type="file" id="sSources"></label><label>StationXML (optional)<input type="file" id="sXml"></label><label>Sensors CSV (array only)<input type="file" id="sSensors"></label><label>Band, Hz<input id="sLo" type="number" value="1" step="0.1" style="width:5em"> – <input id="sHi" type="number" value="50" step="0.1" style="width:5em"></label><button id="sAdd" type="button">Add station</button></div></div>`;
+      <div class="row"><label>Rigs CSV (optional)<input type="file" id="sSources"></label><label>or a permit export (converted to the rigs CSV)<input type="file" id="sPermits"></label><label>StationXML (optional)<input type="file" id="sXml"></label><label>Sensors CSV (array only)<input type="file" id="sSensors"></label><label>Band, Hz<input id="sLo" type="number" value="1" step="0.1" style="width:5em"> – <input id="sHi" type="number" value="50" step="0.1" style="width:5em"></label><button id="sAdd" type="button">Add station</button></div></div>`;
   } else h += need('operator');
+  h += tracksCardHtml(tracks, stations);
   h += sarPanelHtml(sar);
   $('#main').innerHTML = h;
+  tracksCardBind(stations);
   sarPanelBind(sar);
   document.querySelectorAll('[data-sref]').forEach(b => b.onclick = async () => { b.disabled = true; try { const j = await post(`/api/seismic/${b.dataset.sref}/refresh`); toast('Refresh started: job ' + j.id, 'ok'); watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); } b.disabled = false; });
   document.querySelectorAll('[data-srm]').forEach(b => b.onclick = async () => { if (!confirm(`Remove ${b.dataset.srm}? Its folder is kept, renamed.`)) return; try { await post(`/api/seismic/${b.dataset.srm}/remove`); toast('Removed', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
@@ -281,7 +284,7 @@ VIEWS.seismic = async () => {
   const one = async (id) => { const f = $(id).files[0]; return f ? {filename: f.name, content_b64: await readFile(f)} : null; };
   add.onclick = async () => { const fs = Array.from($('#sFiles').files); if (!fs.length) return toast('Choose at least one record', 'err'); add.disabled = true;
     try { const files = []; for (const f of fs) files.push({filename: f.name, content_b64: await readFile(f)});
-      const st = await post('/api/seismic/add', {display: $('#sName').value || fs[0].name, files, lat: $('#sLat').value || null, lon: $('#sLon').value || null, sources: await one('#sSources'), stationxml: await one('#sXml'), sensors: await one('#sSensors'), band: [+$('#sLo').value || 1, +$('#sHi').value || 50]});
+      const st = await post('/api/seismic/add', {display: $('#sName').value || fs[0].name, files, lat: $('#sLat').value || null, lon: $('#sLon').value || null, sources: await one('#sSources'), permits: await one('#sPermits'), stationxml: await one('#sXml'), sensors: await one('#sSensors'), band: [+$('#sLo').value || 1, +$('#sHi').value || 50]});
       toast(`Added ${st.id}`, 'ok'); location.hash = '#/seismic/' + st.id; } catch (e) { toast(e.message, 'err'); } add.disabled = false; };
 };
 
@@ -291,16 +294,16 @@ function sarPanelHtml(sar) {
   const f = sar.film;
   let h = `<div class="card" id="sarPanel"><h3>SAR panel <span class="small muted">the second leg's arithmetic, played forward in time on a labelled synthetic scene</span></h3>
     <p class="small muted">The screen plays a film of what the program does with an array record, window by window: the trace, the spectrogram column, the beam power map swinging onto the working rig, the bearing against the rig's true bearing with the array's own tolerance beside it, and at the end the array detectability test's verdict - the same function a real record goes through. Every frame is stamped <b>SIMULATION_SELF_TEST</b>: the scene is an assumption for showing the arithmetic, and nothing on this screen is a measurement of any ground. A real record is refreshed on its station above; the page shows what it earned, never a film.</p>`;
-  h += `<div class="row"><label>Scene length, h<input id="sarHours" type="number" value="${f ? f.hours : 8}" min="0.5" max="24" step="0.5" style="width:5em"></label><label>Seconds per frame<input id="sarStep" type="number" value="${f ? f.step_s : 600}" min="60" max="3600" step="60" style="width:6em"></label><label>Band, Hz<input id="sarLo" type="number" value="${f ? f.band_hz[0] : 1}" step="0.5" style="width:5em"> – <input id="sarHi" type="number" value="${f ? f.band_hz[1] : 20}" step="0.5" style="width:5em"></label><label>Beamformer<select id="sarMethod"><option value="bartlett"${f && f.method === 'capon' ? '' : ' selected'}>Bartlett</option><option value="capon"${f && f.method === 'capon' ? ' selected' : ''}>Capon</option></select></label><label>Seed<input id="sarSeed" type="number" value="${f ? f.seed : 5}" style="width:5em"></label>${can('operator') ? '<button id="sarRun" type="button">Run the scene</button>' : ''}<span class="small muted" id="sarRunNote">${f ? `last film ${tz(f.generated_utc)}: ${f.frames} frames, ${f.hours} h, ${f.method}` : 'no film yet' + (can('operator') ? ' - Run the scene makes one (a job, about a minute)' : '')}</span></div>`;
+  h += `<div class="row"><label>Scene length, h<input id="sarHours" type="number" value="${f ? f.hours : 8}" min="0.5" max="24" step="0.5" style="width:5em"></label><label>Seconds per frame<input id="sarStep" type="number" value="${f ? f.step_s : 600}" min="60" max="3600" step="60" style="width:6em"></label><label>Band, Hz<input id="sarLo" type="number" value="${f ? f.band_hz[0] : 1}" step="0.5" style="width:5em"> – <input id="sarHi" type="number" value="${f ? f.band_hz[1] : 20}" step="0.5" style="width:5em"></label><label>Scene<select id="sarScene"><option value="rigs"${f && f.scene === 'lateral' ? '' : ' selected'}>Fixed rigs, one array</option><option value="lateral"${f && f.scene === 'lateral' ? ' selected' : ''}>A bit along a lateral, two arrays</option></select></label><label>Beamformer<select id="sarMethod"><option value="bartlett"${f && f.method === 'capon' ? '' : ' selected'}>Bartlett</option><option value="capon"${f && f.method === 'capon' ? ' selected' : ''}>Capon</option></select></label><label>Seed<input id="sarSeed" type="number" value="${f ? f.seed : 5}" style="width:5em"></label>${can('operator') ? '<button id="sarRun" type="button">Run the scene</button>' : ''}<span class="small muted" id="sarRunNote">${f ? `last film ${tz(f.generated_utc)}: ${f.scene === 'lateral' ? 'the lateral scene' : 'the rigs scene'}, ${f.frames} frames, ${f.hours} h, ${f.method}` : 'no film yet' + (can('operator') ? ' - Run the scene makes one (a job, about a minute)' : '')}</span></div>`;
   h += `<div class="row"><button id="sarPlay" type="button" ${f ? '' : 'disabled'}>Play</button><button id="sarPause" type="button" class="secondary" disabled>Pause</button><button id="sarStop" type="button" class="secondary" ${f ? '' : 'disabled'}>Stop</button><label>Speed<select id="sarSpeed"><option value="0.5">½×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label><label style="flex:1">Frame<input id="sarScrub" type="range" min="0" max="${f ? Math.max(f.frames - 1, 0) : 0}" value="0" style="width:100%" ${f ? '' : 'disabled'}></label><span class="mono small" id="sarClock">—</span></div>`;
   h += `<canvas id="sarScreen" width="960" height="540" style="width:100%;max-width:960px;background:#0b0f14;border-radius:6px"></canvas>`;
-  h += `<div class="small" id="sarCaption">${f ? `Closing verdicts of the last film: ${Object.entries(f.verdicts || {}).map(([k, v]) => `${esc(k)} ${esc(v)}`).join(' · ')} (tolerance ${f.tolerance_deg}°)` : ''}</div></div>`;
+  h += `<div class="small" id="sarCaption">${f ? (f.scene === 'lateral' ? `Closing of the last film: ${f.positions} positions${f.heading_deg !== null && f.heading_deg !== undefined ? `, heading ${f.heading_deg}°, length ${f.length_km} km` : ''}; verdict ${esc(f.final_status || '—')} (tolerance ${f.tolerance_deg}°)` : `Closing verdicts of the last film: ${Object.entries(f.verdicts || {}).map(([k, v]) => `${esc(k)} ${esc(v)}`).join(' · ')} (tolerance ${f.tolerance_deg}°)`) : ''}</div></div>`;
   return h;
 }
 function sarPanelBind(sar) {
   const run = $('#sarRun');
   if (run) run.onclick = async () => { run.disabled = true; try {
-      const j = await post('/api/seismic/sar/run', {hours: +$('#sarHours').value, step_s: +$('#sarStep').value, band_hz: [+$('#sarLo').value, +$('#sarHi').value], method: $('#sarMethod').value, seed: +$('#sarSeed').value});
+      const j = await post('/api/seismic/sar/run', {hours: +$('#sarHours').value, step_s: +$('#sarStep').value, band_hz: [+$('#sarLo').value, +$('#sarHi').value], method: $('#sarMethod').value, seed: +$('#sarSeed').value, scene: $('#sarScene').value});
       toast('SAR film started: job ' + j.id, 'ok'); $('#sarRunNote').textContent = 'rendering the film (job ' + j.id + ')…'; watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); run.disabled = false; } };
   if (!sar.film) { sarDrawEmpty(); return; }
   const load = async () => { if (SAR.film && SAR.film._url === sar.url + '?' + sar.film.generated_utc) return SAR.film; const r = await fetch(sar.url + '?t=' + encodeURIComponent(sar.film.generated_utc), {credentials: 'same-origin'}); if (!r.ok) throw new Error('film not readable'); const film = await r.json(); film._url = sar.url + '?' + sar.film.generated_utc; SAR.film = film; return film; };
@@ -341,6 +344,7 @@ function sarDraw(film, i) {
     const cx = P.beam[0] + P.beam[2] / 2, cy = P.beam[1] + P.beam[3] / 2; g.strokeStyle = '#ffffff55'; g.beginPath(); g.moveTo(cx, P.beam[1]); g.lineTo(cx, P.beam[1] + P.beam[3]); g.moveTo(P.beam[0], cy); g.lineTo(P.beam[0] + P.beam[2], cy); g.stroke(); }
   g.fillStyle = fr.beam.coherent ? '#ffd166' : '#8899aa';
   g.fillText(fr.beam.back_azimuth_deg === null ? 'no beam' : `back-azimuth ${fr.beam.back_azimuth_deg}° · ${fr.beam.apparent_velocity_km_s} km/s · coherence ${fr.beam.coherence_max_bin} (${fr.beam.coherent_bins} bins)${fr.beam.coherent ? '' : ' - not coherent'}`, P.beam[0], P.beam[1] + P.beam[3] + 16);
+  if (film.scene_kind === 'lateral') { sarDrawLateral(film, i, g, P); return sarDrawStamp(film, i, g, W, H); }
   // 4. the map: array centre, rigs, the bearing with its tolerance wedge
   box(P.map, 'Map · array and rigs (scene positions)');
   const rigs = M.rigs; const maxd = Math.max(...rigs.map(r => r.distance_km), 1) * 1.15; const mx = P.map[0] + P.map[2] / 2, my = P.map[1] + P.map[3] / 2, sc = (P.map[2] / 2) / maxd;
@@ -355,11 +359,45 @@ function sarDraw(film, i) {
   for (const r of rigs) { const t = fr.tally[r.source_id] || {}; const st = fr.rigs.find(x => x.source_id === r.source_id) || {};
     line(`${r.source_id} ${r.true_bearing_deg.toFixed(1)}° ${r.distance_km} km · worked ${t.windows_working || 0} · coherent ${t.windows_coherent || 0} · pointed (±${M.tolerance_deg}°) ${t.windows_pointed || 0}` + (st.bearing_error_deg !== undefined ? ` · now ${st.bearing_error_deg >= 0 ? '+' : ''}${st.bearing_error_deg}°` : ''), st.working ? '#ffd166' : '#9fb0c0'); }
   if (i === n - 1 && film.final && film.final.sources) { line('Closing - the array detectability test on the whole scene,', '#ffffff'); line('the same function a real record runs:', '#ffffff'); for (const r of film.final.sources) line(`  ${r.source_id}: ${r.verdict}`, r.verdict === 'POINTED' ? '#6fd3a0' : '#ffb3b3'); }
-  // the stamp, on every frame
+  sarDrawStamp(film, i, g, W, H);
+  const cap = $('#sarCaption'); if (cap && i === n - 1 && film.final) cap.textContent = `Closing verdicts: ${film.final.sources.map(r => `${r.source_id} ${r.verdict}`).join(' · ')} (tolerance ${M.tolerance_deg}°). ${film.closing}`;
+}
+function sarDrawStamp(film, i, g, W, H) {
+  const fr = film.frames[i], n = film.frames.length;
   g.fillStyle = '#ff6b6b'; g.font = 'bold 14px system-ui, sans-serif'; g.fillText(film.label, W - 190, H - 12); g.font = '12px system-ui, sans-serif';
   g.fillStyle = '#8899aa'; g.fillText('not a measurement of any ground', 16, H - 12);
   const clock = $('#sarClock'); if (clock) clock.textContent = `${fr.start_utc} (${i + 1}/${n})`;
-  const cap = $('#sarCaption'); if (cap && i === n - 1 && film.final) cap.textContent = `Closing verdicts: ${film.final.sources.map(r => `${r.source_id} ${r.verdict}`).join(' · ')} (tolerance ${M.tolerance_deg}°). ${film.closing}`;
+}
+function sarDrawLateral(film, i, g, P) {
+  const fr = film.frames[i], M = film.meta, n = film.frames.length;
+  const box = (r, title) => { g.strokeStyle = '#2a3542'; g.strokeRect(r[0], r[1], r[2], r[3]); g.fillStyle = '#9fb0c0'; g.fillText(title, r[0], r[1] - 6); };
+  box(P.map, 'Map · two arrays, the lateral, the track');
+  const pts = [...M.arrays.map(a => [a.x_km, a.y_km]), ...M.truth.map(t => [t.x_km, t.y_km])];
+  for (const f2 of film.frames.slice(0, i + 1)) if (f2.position) pts.push([f2.position.x_km, f2.position.y_km]);
+  const maxr = Math.max(1, ...pts.map(([x, y]) => Math.max(Math.abs(x), Math.abs(y)))) * 1.15; const mx = P.map[0] + P.map[2] / 2, my = P.map[1] + P.map[3] / 2, sc = (P.map[2] / 2) / maxr;
+  const X = (x, y) => [mx + x * sc, my - y * sc];
+  // the lateral (truth)
+  g.strokeStyle = '#6fd3a0'; g.lineWidth = 2; g.beginPath(); M.truth.forEach((t, k) => { const [x, y] = X(t.x_km, t.y_km); if (k) g.lineTo(x, y); else g.moveTo(x, y); }); g.stroke(); g.lineWidth = 1;
+  if (fr.truth) { const [x, y] = X(fr.truth.x_km, fr.truth.y_km); g.fillStyle = '#6fd3a0'; g.beginPath(); g.arc(x, y, 4, 0, 2 * Math.PI); g.fill(); g.fillText('bit', x + 6, y - 4); }
+  // the arrays and their bearings
+  M.arrays.forEach((a, k) => { const [x, y] = X(a.x_km, a.y_km); g.fillStyle = '#9fb0c0'; g.beginPath(); g.arc(x, y, 4, 0, 2 * Math.PI); g.fill(); g.fillText(a.name, x + 6, y + 12);
+    const b = fr.beams[k]; if (b && b.back_azimuth_deg !== null) { const th = b.back_azimuth_deg * Math.PI / 180, L = P.map[2] * 0.6; g.strokeStyle = b.coherent ? '#ffd166' : '#55667a'; g.beginPath(); g.moveTo(x, y); g.lineTo(x + L * Math.sin(th), y - L * Math.cos(th)); g.stroke(); } });
+  // the positions so far, with ellipses
+  film.frames.slice(0, i + 1).forEach((f2, k) => { if (!f2.position) return; const p = f2.position, e = p.ellipse_1sigma, last = k === i; const [x, y] = X(p.x_km, p.y_km);
+    g.save(); g.translate(x, y); g.rotate(-(e.major_azimuth_deg || 0) * Math.PI / 180 + Math.PI / 2); g.strokeStyle = last ? '#ff6b6b99' : '#ff6b6b33'; g.beginPath(); g.ellipse(0, 0, Math.max(e.major_km * sc, 1), Math.max(e.minor_km * sc, 1), 0, 0, 2 * Math.PI); g.stroke(); g.restore();
+    g.fillStyle = last ? '#ff6b6b' : '#ffb3b3'; g.beginPath(); g.arc(x, y, last ? 4 : 2, 0, 2 * Math.PI); g.fill(); });
+  // the text pane
+  const T = P.text; let y = T[1] + 14; const line = (txt, col) => { g.fillStyle = col || '#d7e0ea'; g.fillText(txt, T[0], y); y += 16; };
+  line(`Window ${i + 1} of ${n} · hour ${fr.hour.toFixed(2)} · ${fr.truth ? 'the bit is advancing along the lateral' : 'the lateral is quiet'}`, '#ffffff');
+  fr.beams.forEach(b => line(`${b.array}: ${b.back_azimuth_deg === null ? 'no beam' : `bearing ${b.back_azimuth_deg}° (±${b.tolerance_deg}°), coherence ${b.coherence_max_bin}, ${b.coherent_bins} bins`}${b.coherent ? '' : ' - not coherent'}`, b.coherent ? '#ffd166' : '#9fb0c0'));
+  if (fr.position) line(`crossing: ${fr.position.x_km.toFixed(2)} E, ${fr.position.y_km.toFixed(2)} N km · ellipse ${fr.position.ellipse_1sigma.major_km.toFixed(2)}×${fr.position.ellipse_1sigma.minor_km.toFixed(2)} km · ${fr.position.crossing_angle_deg}°`, '#ffb3b3');
+  else line(`no position: ${fr.gap || 'gap'}`, '#9fb0c0');
+  line(`positions so far: ${fr.positions_so_far}`);
+  if (i === n - 1 && film.final) { const t = film.final.track || {}, v = film.final.verdict || {}; line('Closing - the tracker on the whole scene:', '#ffffff');
+    if (t.heading_deg !== null && t.heading_deg !== undefined) line(`  longest segment: ${t.n_positions} positions, heading ${t.heading_deg}°, length ${t.length_km} km`, '#6fd3a0');
+    if (t.n_segments > 1) line(`  ${t.n_segments} segments (a jump larger than the ellipses splits them)`, '#9fb0c0');
+    line(`  verdict vs the lateral: ${v.verdict} (${v.n_hit}/${v.n_compared} in their ellipse${v.n_outside_truth ? `; ${v.n_outside_truth} outside its time` : ''})`, v.verdict === 'TRACKED' ? '#6fd3a0' : '#ffb3b3'); }
+  const cap = $('#sarCaption'); if (cap && i === n - 1 && film.final) cap.textContent = `Closing: ${film.final.n_positions} positions; verdict ${(film.final.verdict || {}).verdict}. ${film.closing}`;
 }
 
 VIEWS.audit = async () => {
@@ -388,6 +426,80 @@ VIEWS.audit = async () => {
   const ud = $('#updData'); if (ud) ud.onclick = async () => { ud.disabled = true; try { const j = await post('/api/update/data', {}); toast('Data update started: job ' + j.id, 'ok'); watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); ud.disabled = false; } };
   const go = $('#auGo'); if (go) go.onclick = () => { location.hash = `#/audit?actor=${encodeURIComponent($('#auActor').value)}&action=${encodeURIComponent($('#auAction').value)}&since=${encodeURIComponent($('#auSince').value)}&limit=${encodeURIComponent($('#auLimit').value)}`; };
   const csv = $('#auCsv'); if (csv) csv.onclick = () => { const rows = [['utc', 'actor', 'action', 'detail']].concat(A.entries.map(a => [a.utc, a.actor, a.action, JSON.stringify(a.detail)])); const text = rows.map(r => r.map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n'); const b = new Blob([text], {type: 'text/csv'}); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = 'audit_log.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(u), 1000); };
+};
+
+// ---- tracks: two or more arrays crossed over time ----
+function tracksCardHtml(tracks, stations) {
+  const arrays = stations.filter(s => s.kind === 'array');
+  let h = `<div class="card" id="tracksCard"><h3>Tracks <span class="small muted">two or more arrays' bearings crossed window by window: positions with their ellipses, a heading and a length, a verdict against ground truth</span></h3>`;
+  h += `<table><thead><tr><th>Track</th><th>Arrays</th><th>Positions</th><th>Heading</th><th>Length (km)</th><th>Verdict</th><th>Last refresh</th><th></th></tr></thead><tbody>`;
+  for (const t of tracks) { const m = t.summary || {};
+    h += `<tr><td><a href="#/track/${esc(t.id)}">${esc(t.display)}</a></td><td>${t.stations.length}</td><td>${m.positions !== undefined ? `${m.positions} of ${m.windows}` : '—'}</td><td>${m.heading_deg !== null && m.heading_deg !== undefined ? fmt(m.heading_deg, 1) + '°' : '—'}</td><td>${fmt(m.length_km, 2)}</td><td>${m.verdict ? statusPill(m.verdict === 'TRACKED' ? 'good' : (m.verdict === 'PARTIAL' ? 'warn' : (m.verdict === 'NOT_TRACKED' ? 'serious' : 'neutral')), m.verdict) : (t.truth ? '<span class="muted small">not refreshed</span>' : '<span class="muted small">no ground truth</span>')}</td><td class="small">${m.generated_utc ? tz(m.generated_utc) : 'never'}</td><td>${can('operator') ? `<button data-tref="${esc(t.id)}" type="button">Refresh</button>` : ''} ${can('admin') ? `<button class="secondary danger" data-trm="${esc(t.id)}" type="button">Remove</button>` : ''}</td></tr>`; }
+  h += `</tbody></table>`;
+  if (can('operator')) {
+    h += arrays.length >= 2 ? `<div class="row"><label>Track name<input id="tName" placeholder="Pad 7 lateral"></label><label>Arrays (two or more)<select id="tStations" multiple size="${Math.min(arrays.length, 5)}">${arrays.map(a => `<option value="${esc(a.id)}">${esc(a.display)}</option>`).join('')}</select></label><label>Ground truth CSV (optional: point_id, lat, lon, utc)<input type="file" id="tTruth"></label><label>Band, Hz<input id="tLo" type="number" value="1" step="0.5" style="width:5em"> – <input id="tHi" type="number" value="20" step="0.5" style="width:5em"></label><label>Window, s<input id="tWin" type="number" value="600" step="60" style="width:6em"></label><button id="tAdd" type="button">Add track</button></div>`
+                           : `<p class="small muted">A track needs two or more array stations; ${arrays.length} array${arrays.length === 1 ? ' is' : 's are'} registered.</p>`;
+  }
+  return h + `</div>`;
+}
+function tracksCardBind(stations) {
+  document.querySelectorAll('[data-tref]').forEach(b => b.onclick = async () => { b.disabled = true; try { const j = await post(`/api/tracks/${b.dataset.tref}/refresh`); toast('Refresh started: job ' + j.id, 'ok'); watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); } b.disabled = false; });
+  document.querySelectorAll('[data-trm]').forEach(b => b.onclick = async () => { if (!confirm(`Remove track ${b.dataset.trm}? Its folder is kept, renamed.`)) return; try { await post(`/api/tracks/${b.dataset.trm}/remove`); toast('Removed', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+  const add = $('#tAdd'); if (!add) return;
+  add.onclick = async () => { const sel = Array.from($('#tStations').selectedOptions).map(o => o.value); if (sel.length < 2) return toast('Choose two or more arrays', 'err'); add.disabled = true;
+    try { const f = $('#tTruth').files[0]; const truth = f ? {filename: f.name, content_b64: await readFile(f)} : null;
+      const tk = await post('/api/tracks/add', {display: $('#tName').value || 'track', stations: sel, truth, band: [+$('#tLo').value || 1, +$('#tHi').value || 20], win_s: +$('#tWin').value || 600});
+      toast(`Added ${tk.id}`, 'ok'); location.hash = '#/track/' + tk.id; } catch (e) { toast(e.message, 'err'); } add.disabled = false; };
+}
+
+VIEWS.track = async (id) => {
+  const d = await get('/api/tracks/' + id); const tk = d.track, R = d.results, m = R.summary, dir = 'seismic/tracks/' + id;
+  let h = `<h2>${esc(tk.display)} <span class="muted small">(track over ${tk.stations.length} arrays)</span></h2>`;
+  h += `<dl class="kv card"><dt>Arrays</dt><dd>${tk.stations.map(sid => `<a href="#/seismic/${esc(sid)}">${esc(sid)}</a>`).join(', ')}</dd><dt>Ground truth</dt><dd>${tk.truth ? esc(tk.truth) : '<span class="muted">none - the track is reported, not judged</span>'}</dd><dt>Band</dt><dd>${tk.band_hz[0]}–${tk.band_hz[1]} Hz, windows of ${tk.win_s} s</dd><dt>Added</dt><dd class="small">${tz(tk.added_utc)} by ${esc(tk.added_by)}</dd></dl>`;
+  if (can('operator')) h += `<div class="row card"><button id="tRefresh" type="button">Refresh this track</button><span class="small muted">bearings on every window of every array, the crossings, the verdict; a job</span></div>`;
+  if (!m) { h += `<p class="card">Not refreshed yet.</p>`; $('#main').innerHTML = h; const b = $('#tRefresh'); if (b) b.onclick = async () => { try { const j = await post(`/api/tracks/${id}/refresh`); toast('Refresh started: job ' + j.id, 'ok'); watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); } }; return; }
+  const P = R.positions || {}, tr = P.track || {}, V = R.verdict;
+  h += `<div class="card"><h3>Seismic track report <span class="small muted">${esc(m.report_id)} · ${reportLinks(dir, 'seismic_track_report')}</span></h3><p class="small">${m.positions} positions of ${m.windows} windows${tr.heading_deg !== null && tr.heading_deg !== undefined ? `; the longest segment runs <b>${fmt(tr.length_km, 2)} km</b> on heading <b>${fmt(tr.heading_deg, 1)}°</b> (${tr.n_positions} positions, ${fmt(tr.rate_km_per_h, 2)} km/h, median ellipse ${fmt(tr.ellipse_major_km.median, 2)} km)` : `; ${esc(tr.note || 'no track')}`}${tr.segment_note ? `. ${esc(tr.segment_note)}` : ''}${V ? `. Verdict <b>${esc(V.verdict)}</b>: ${V.n_hit} of ${V.n_compared} positions within their ellipse of the truth${V.heading ? ` (heading ${V.heading.track_deg}° vs ${V.heading.truth_deg}°)` : ''}${V.outside_note ? `. ${esc(V.outside_note)}` : ''}` : ''}.</p></div>`;
+  h += `<div class="card"><h3>Map <span class="small muted">arrays, positions with their 1σ ellipses, the ground truth; drag the slider through time</span></h3><canvas id="trkMap" width="900" height="520" style="width:100%;max-width:900px;background:#0b0f14;border-radius:6px"></canvas><div class="row"><label style="flex:1">Up to window<input id="trkSlider" type="range" min="0" max="${Math.max((P.windows || []).length - 1, 0)}" value="${Math.max((P.windows || []).length - 1, 0)}" style="width:100%"></label><span class="mono small" id="trkClock">—</span></div></div>`;
+  h += `<div class="card"><h3>Bearings over time <span class="small muted">one line per array; a dot where the beam was coherent, nothing where it was not</span></h3><canvas id="trkBear" width="900" height="260" style="width:100%;max-width:900px"></canvas></div>`;
+  if (P.windows) { h += `<div class="card"><h3>Positions</h3><table><thead><tr><th>Window</th><th>Lat</th><th>Lon</th><th>Major (km)</th><th>Crossing</th><th>Arrays</th><th>Gap</th>${V ? '<th>Miss (km)</th><th>Hit</th>' : ''}</tr></thead><tbody>`;
+    const vrows = V ? Object.fromEntries(V.rows.map(r => [r.start_utc, r])) : {};
+    for (const w of P.windows) { const p = w.position, vr = vrows[w.start_utc]; h += `<tr><td class="small">${esc(w.start_utc)}</td><td class="mono small">${p ? p.lat.toFixed(5) : '—'}</td><td class="mono small">${p ? p.lon.toFixed(5) : '—'}</td><td>${p ? fmt(p.ellipse_1sigma.major_km, 2) : '—'}</td><td>${p ? fmt(p.crossing_angle_deg, 1) + '°' : '—'}</td><td class="small">${esc((w.arrays_coherent || []).join(', ') || '—')}</td><td class="small muted">${esc(w.gap || '')}</td>${V ? `<td>${vr ? fmt(vr.miss_km, 2) : '—'}</td><td>${vr ? (vr.hit ? '✓' : '✗') : '—'}</td>` : ''}</tr>`; }
+    h += `</tbody></table></div>`; }
+  $('#main').innerHTML = h;
+  const b = $('#tRefresh'); if (b) b.onclick = async () => { try { const j = await post(`/api/tracks/${id}/refresh`); toast('Refresh started: job ' + j.id, 'ok'); watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); } };
+  if (!P.windows) return;
+  // the map in a local plane about the mean of everything drawn
+  const pts = [];
+  for (const a of (P.arrays || [])) pts.push([a.lat, a.lon]);
+  for (const w of P.windows) if (w.position) pts.push([w.position.lat, w.position.lon]);
+  const truth = V ? V.truth_points : [];
+  for (const t of truth) pts.push([t.lat, t.lon]);
+  const lat0 = pts.reduce((s, p) => s + p[0], 0) / pts.length, lon0 = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+  const kx = 111.32 * Math.cos(lat0 * Math.PI / 180), ky = 110.57;
+  const xy = ([la, lo]) => [(lo - lon0) * kx, (la - lat0) * ky];
+  const ext = pts.map(xy); const maxr = Math.max(1, ...ext.map(([x, y]) => Math.max(Math.abs(x), Math.abs(y)))) * 1.15;
+  const draw = (upto) => { const c = $('#trkMap'); const g = c.getContext('2d'); const W = c.width, H = c.height; g.fillStyle = '#0b0f14'; g.fillRect(0, 0, W, H); const sc = Math.min(W, H) / 2 / maxr; const cx = W / 2, cy = H / 2;
+    const X = ([x, y]) => [cx + x * sc, cy - y * sc]; g.font = '12px system-ui, sans-serif';
+    // scale bar
+    const bar = maxr > 10 ? 5 : (maxr > 4 ? 2 : 1); g.strokeStyle = '#9fb0c0'; g.beginPath(); g.moveTo(16, H - 16); g.lineTo(16 + bar * sc, H - 16); g.stroke(); g.fillStyle = '#9fb0c0'; g.fillText(`${bar} km`, 16, H - 22);
+    // truth
+    if (truth.length) { g.strokeStyle = '#6fd3a0'; g.lineWidth = 2; g.beginPath(); truth.forEach((t, i) => { const [x, y] = X(xy([t.lat, t.lon])); if (i) g.lineTo(x, y); else g.moveTo(x, y); }); g.stroke(); g.lineWidth = 1; const [tx, ty] = X(xy([truth[0].lat, truth[0].lon])); g.fillStyle = '#6fd3a0'; g.fillText('ground truth', tx + 6, ty - 6); }
+    // arrays and their bearings in the current window
+    const cur = P.windows[upto];
+    (P.arrays || []).forEach((a, i) => { const [x, y] = X(xy([a.lat, a.lon])); g.fillStyle = '#9fb0c0'; g.beginPath(); g.arc(x, y, 5, 0, 2 * Math.PI); g.fill(); g.fillText(a.name || `array ${i + 1}`, x + 7, y + 4);
+      const bh = R.bearings[a.station_id]; const w = bh && bh.windows.find(z => z.start_utc === cur.start_utc); if (w && w.back_azimuth_deg !== null) { const th = w.back_azimuth_deg * Math.PI / 180, L = maxr * sc * 0.9; g.strokeStyle = w.coherent ? '#ffd166' : '#55667a'; g.beginPath(); g.moveTo(x, y); g.lineTo(x + L * Math.sin(th), y - L * Math.cos(th)); g.stroke(); } });
+    // positions up to the slider, with ellipses
+    P.windows.slice(0, upto + 1).forEach((w, i) => { if (!w.position) return; const p = w.position; const [x, y] = X(xy([p.lat, p.lon])); const e = p.ellipse_1sigma; const last = i === upto;
+      g.save(); g.translate(x, y); g.rotate(-(e.major_azimuth_deg || 0) * Math.PI / 180 + Math.PI / 2); g.strokeStyle = last ? '#ff6b6b88' : '#ff6b6b33'; g.beginPath(); g.ellipse(0, 0, Math.max(e.major_km * sc, 1), Math.max(e.minor_km * sc, 1), 0, 0, 2 * Math.PI); g.stroke(); g.restore();
+      g.fillStyle = last ? '#ff6b6b' : '#ffb3b3'; g.beginPath(); g.arc(x, y, last ? 4 : 2.5, 0, 2 * Math.PI); g.fill(); });
+    g.fillStyle = '#d7e0ea'; g.fillText(`${cur.start_utc}${cur.position ? '' : ' — ' + (cur.gap || 'gap')}`, 16, 18);
+    $('#trkClock').textContent = `${cur.start_utc} (${upto + 1}/${P.windows.length})`; };
+  const sl = $('#trkSlider'); sl.oninput = () => draw(+sl.value); draw(+sl.value);
+  // bearings over time
+  const cb = $('#trkBear'); const g2 = cb.getContext('2d'); const W2 = cb.width, H2 = cb.height; g2.clearRect(0, 0, W2, H2); const cols = ['#ffd166', '#6fd3a0', '#7fb2ff', '#ff9f68']; const n = P.windows.length;
+  g2.strokeStyle = '#8899aa44'; for (let k = 0; k <= 4; k++) { const y = 20 + (H2 - 40) * k / 4; g2.beginPath(); g2.moveTo(40, y); g2.lineTo(W2 - 10, y); g2.stroke(); g2.fillStyle = '#8899aa'; g2.font = '11px system-ui, sans-serif'; g2.fillText(`${360 - 90 * k}°`, 4, y + 4); }
+  Object.entries(R.bearings).forEach(([sid, bh], ai) => { g2.fillStyle = cols[ai % cols.length]; bh.windows.forEach((w, i) => { if (!w.coherent) return; const x = 40 + (W2 - 50) * (i + 0.5) / Math.max(n, 1), y = 20 + (H2 - 40) * (1 - w.back_azimuth_deg / 360); g2.beginPath(); g2.arc(x, y, 3, 0, 2 * Math.PI); g2.fill(); }); g2.fillText(bh.array.name || sid, 50 + ai * 160, 14); });
 };
 
 VIEWS.seismic_station = async (id) => {
@@ -695,6 +807,7 @@ async function _route() {
   try {
     if (view === 'wells' && arg) await VIEWS.well(decodeURIComponent(arg));
     else if (view === 'seismic' && arg) await VIEWS.seismic_station(decodeURIComponent(arg));
+    else if (view === 'track' && arg) await VIEWS.track(decodeURIComponent(arg));
     else if (view === 'live' && arg) await VIEWS.patch(decodeURIComponent(arg));
     else if (view === 'help') await VIEWS.help(arg ? decodeURIComponent(arg) : undefined);
     else if (VIEWS[view]) await VIEWS[view](arg ? decodeURIComponent(arg) : undefined);

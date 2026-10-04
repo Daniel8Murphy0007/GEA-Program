@@ -572,3 +572,55 @@ summary; `docs/HISTORY.md` the record by layer.
 - Rule: a kit is the commit, never the index. Any build step that can reach
   an index must be told exactly what it may fetch.
 
+## 2026-10-04 (late) - the tracker band for v0.7.0
+
+- Run #7 green on both platforms; the v0.6.0 release exists with both
+  kits, built from the commit. "What's next for SAR; a complete package
+  for v0.7.0": he chose the tracker band plus the permits importer, and a
+  bit advancing along a lateral as the scene's motion.
+- `seismic_track.py`: `bearing_history` (beam per window, coherent or gap,
+  tolerance, change points against the running mean), `position_history`
+  (crossing per window with the tracker's three refusals: fewer than two
+  coherent arrays, crossing under 15 degrees, a point behind an array),
+  `track_summary` (segments at jumps larger than the ellipses; the longest
+  is the track; heading from the principal line, in the direction of time),
+  `track_verdict` (positions against the truth interpolated to their time,
+  hits within the position's own major axis). The scene: two arrays, one
+  source quiet for an hour then advancing 3 km on heading 80 over the rest;
+  the self-test comes out TRACKED, heading 79.5 vs 80, length 2.84 vs 3.
+- The first 3 h run taught the segmenting rule: the quiet hour's background
+  wave was coherent at both arrays and crossed 7.5 km away; a single fit
+  through all positions gave 9.8 km on heading 101. The jump is now a cut,
+  the verdict counts positions outside the truth's time span as such, and
+  the report says both. That is exactly the kind of thing a real quiet
+  hour will do, and the program now says what it is instead of joining it.
+- Tracks in the workspace (`tracks/<id>`, the truth CSV hashed), the
+  refresh, the Seismic Track Report, five routes, the Tracks card, the track
+  view (map in a local plane with the ellipses drawn from their covariance,
+  a slider through time, the bearings chart), a home tile. Playwright drove
+  the add, the view and the slider; no console errors.
+- The film's lateral scene: frames carry both beams and the crossing; the
+  screen draws the lateral, the bit, the arrays' bearings and the track so
+  far; the close is the tracker's verdict. The permits importer with the
+  start-date fallback (approval date only where the spud date is empty,
+  said in the row) and every assumption counted; `add-seismic --permits`.
+- Sections AR (1) and AS (3): 266 checks; AR fits the device shell's
+  two minutes, AS (two refreshes and a job) does not and is proven by the
+  full gate in the cloud and on the owner's machine. Sample 19 (the track
+  report). README, help,
+  CHANGELOG, HISTORY. The ship is prepared on his word, not before.
+
+## 2026-10-04 (late) - the v0.7.0 ship prepared
+
+- "Update files and prepare the ship": version 0.7.0 in pyproject.toml and
+  gea.__version__; `[Unreleased]` headed `[v0.7.0] - 2026-10-04` in
+  CHANGELOG and HISTORY; SHIP_MESSAGE.txt with the tag at the head of its
+  first line (attach-kit.sh now takes a first line that starts with the
+  tag as that tag's message, so the release carries the ship message);
+  docs/report_samples re-rendered at build 0.7.0 (AM holds them to it).
+  Gate 266 from the checkout and from the installed wheel in the cloud, the
+  guard clean, the clone synced; the owner runs `gea accept` on his
+  machine and then `.\ship.ps1`. The tag starts CI, the PyPI release and
+  the kit build - whose two jobs now build the commit, gate it at 266 and
+  attach both kits to the v0.7.0 release.
+

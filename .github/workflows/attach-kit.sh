@@ -29,7 +29,7 @@ if ! gh release view "$tag" >/dev/null 2>&1; then
   # exists in the repository (the ship made it) - a fix pushed after a failed tag run must still be able to
   # put the kits on their release. The release notes are SHIP_MESSAGE.txt when it is that tag's own message.
   if [ "$replace" = 1 ] || [ -n "$(git ls-remote --tags origin "refs/tags/$tag" 2>/dev/null)" ]; then
-    if [ "$(head -n1 SHIP_MESSAGE.txt | tr -d '\r')" = "$tag" ]; then
+    if [[ "$(head -n1 SHIP_MESSAGE.txt | tr -d '\r')" == "$tag"* ]]; then
       gh release create "$tag" --title "$tag" --notes-file SHIP_MESSAGE.txt
     else
       gh release create "$tag" --title "$tag" --notes "Release $tag. See CHANGELOG.md."

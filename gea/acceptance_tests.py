@@ -2913,7 +2913,7 @@ def section_am_report_samples(tmp: str) -> None:
             "well_test_validation_volve_F14.html", "accuracy_statement_library.html", "model_card_gauge_aging_rate.html", "model_card_quality_rules.html",
             "model_card_well_baseline.html", "model_card_well_test_detector.html", "model_card_rock_density_inventory.html",
             "model_card_strata_property_estimator.html", "gauge_drift_report_monitored_SYNTHETIC.html", "alarm_event_report_SYNTHETIC.html",
-            "data_resilience_report_SYNTHETIC.html", "sla_report_SYNTHETIC.html", "sat_protocol.html", "seismic_station_report_SYNTHETIC.html"}
+            "data_resilience_report_SYNTHETIC.html", "sla_report_SYNTHETIC.html", "sat_protocol.html", "seismic_station_report_SYNTHETIC.html", "seismic_track_report_SYNTHETIC.html"}
     have = {p.name for p in d.glob("*.html")}
     md = (d / "SAMPLES.md").read_text(encoding="utf-8") if (d / "SAMPLES.md").exists() else ""
     texts = {n: (d / n).read_text(encoding="utf-8", errors="replace") for n in sorted(have & want)}
@@ -3323,7 +3323,7 @@ def section_aq_sar_and_audit(tmp: str) -> None:
     r3 = _sp.run([sys.executable, "-m", "gea", "update", "--check", "--json"], capture_output=True, timeout=120)
     upd = json.loads(r3.stdout.decode("utf-8", "replace")) if r3.returncode == 0 else {}
     ok(sm["label"] == "SIMULATION_SELF_TEST" and sm["frames"] == 6 and film_path.exists() and sm["path"] == str(film_path) and ws.sar_film_summary()["frames"] == 6
-       and not any(st["id"] == "SIMULATION" for st in ws.seismic_stations()) and ra == {"wells": 0, "seismic": 0, "errors": []} and ages == []
+       and not any(st["id"] == "SIMULATION" for st in ws.seismic_stations()) and ra == {"wells": 0, "seismic": 0, "tracks": 0, "errors": []} and ages == []
        and any(a["action"] == "seismic.sar_film" for a in ws.audit_log()) and any(a["action"] == "workspace.refresh_all" for a in ws.audit_log())
        and r.returncode == 0 and "SIMULATION_SELF_TEST" in o and "6 frames" in o and r2.returncode == 0 and "SAR FILM - SIMULATION_SELF_TEST" in o2 and (d / "film.json").exists()
        and r3.returncode == 0 and upd.get("running") and upd.get("state") in ("current", "behind", "unknown") and upd.get("ran_pip") is False
@@ -3398,6 +3398,219 @@ def section_aq_sar_and_audit(tmp: str) -> None:
        "has the audit-update page, the view maps to it, and the seismic page names the film and what it is not")
 
 
+def section_ar_tracker(tmp: str) -> None:
+    """Section AR - the time dimension: bearings over time, positions over time, the
+    track and its verdict on the labelled lateral scene; the command-line self-test."""
+    import csv as _csv
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    from . import seismic as S
+    from . import seismic_track as T
+    from . import seismic_film as FM
+    from . import permits as PM
+    from . import helplib as H
+    from .seismic_array import _angle_diff
+    from .workspace import Workspace, WorkspaceError
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ar"); d.mkdir()
+    # AR1 - the tracker on the lateral scene: histories, positions, segments, the verdict
+    traces, sensors, truth, meta = T.synthetic_lateral_scene(seed=9, hours=3.0)
+    hists = []
+    for i, (trs, sens) in enumerate(zip(traces, sensors)):
+        h = T.bearing_history(trs, sens, (1.0, 20.0), 600.0)
+        h["array"]["name"] = f"array-{i + 1}"
+        hists.append(h)
+    pos = T.position_history(hists)
+    ver = T.track_verdict(pos, truth)
+    tr = pos["track"]
+    one_arr = None
+    try:
+        T.position_history(hists[:1])
+    except ValueError as e:
+        one_arr = str(e)
+    short = None
+    try:
+        T.bearing_history([t.slice(t.starttime, t.starttime + 100) for t in traces[0]], sensors[0], (1.0, 20.0), 600.0)
+    except ValueError as e:
+        short = str(e)
+    moving = [w for w in hists[0]["windows"] if w["coherent"] and w["start"] >= truth[0].utc]
+    r2 = _sp.run([sys.executable, "-m", "gea", "seismic", "--action", "track-selftest"], capture_output=True, timeout=900)
+    o2 = r2.stdout.decode("utf-8", "replace")
+    ok(meta["status"] == "SIMULATION_SELF_TEST" and len(traces) == 2 and len(sensors[0]) == 9 and len(truth) >= 10
+       and all(h["n_windows"] == 17 and h["tolerance_deg"] and h["tolerance_deg"] < 3.0 for h in hists)
+       and all(w["coherent"] for w in moving) and len(moving) >= 10 and hists[0]["span_deg"] and hists[0]["span_deg"] > 10
+       and all(abs(_angle_diff(moving[0]["back_azimuth_deg"], moving[-1]["back_azimuth_deg"])) > hists[0]["tolerance_deg"] for _ in [0])
+       and pos["n_positions"] >= 10 and all((w["position"] is None) == bool(w.get("gap")) for w in pos["windows"])
+       and all(w["position"]["ellipse_1sigma"]["major_km"] > 0 and w["position"]["crossing_angle_deg"] >= 15 for w in pos["windows"] if w["position"])
+       and tr["heading_deg"] is not None and abs(_angle_diff(tr["heading_deg"], 80.0)) < 5.0 and 2.0 < tr["length_km"] < 3.2 and tr["n_segments"] >= 1
+       and ver["verdict"] == "TRACKED" and ver["n_hit"] == ver["n_compared"] >= 10 and ver["heading"]["difference_deg"] < 5.0
+       and one_arr and "two or more" in one_arr and short and "shorter than one window" in short
+       and "not_a_measurement" in pos and any("gap" in x for x in pos["not_a_measurement"])
+       and r2.returncode == 0 and "track-selftest: SIMULATION_SELF_TEST ok=True" in o2 and "SEISMIC TRACK" in o2,
+       f"AR1 the tracker on the labelled lateral scene: each array's bearing history is coherent and sweeps more than its tolerance while the bit advances "
+       f"({len(moving)} windows, span {hists[0]['span_deg']} deg); two histories crossed window by window give positions with ellipses and gaps with reasons "
+       f"({pos['n_positions']} of {pos['n_windows']}); the longest segment's heading {tr['heading_deg']} deg against the lateral's 80 and length "
+       f"{tr['length_km']} km against 3; the verdict TRACKED with every position inside its ellipse; one array or a record shorter than a window is refused; "
+       f"`gea seismic --action track-selftest` runs it from the command line")
+
+
+def section_as_tracks_page(tmp: str) -> None:
+    """Section AS - tracks on the dashboard: the workspace, the Seismic Track
+    Report, the API, the page and the film's lateral scene; the permits importer."""
+    import csv as _csv
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    from . import seismic as S
+    from . import seismic_track as T
+    from . import permits as PM
+    from . import helplib as H
+    from .workspace import Workspace, WorkspaceError
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "as"); d.mkdir()
+    traces, sensors, truth, meta = T.synthetic_lateral_scene(seed=9, hours=3.0)
+    # AS1 - tracks in the workspace and the Seismic Track Report
+    files = {}
+    for i, trs in enumerate(traces):
+        files[i] = []
+        for t in trs:
+            p = str(d / f"{t.station}.mseed"); S.write_mseed([t], p, "STEIM2"); files[i].append(p)
+    sens_csvs = []
+    for i, sens in enumerate(sensors):
+        pth = str(d / f"sensors{i + 1}.csv")
+        with open(pth, "w", newline="", encoding="utf-8") as fh:
+            w = _csv.writer(fh); w.writerow(["sensor_id", "lat", "lon"]); [w.writerow([x.sensor_id, x.lat, x.lon]) for x in sens]
+        sens_csvs.append(pth)
+    truth_csv = str(d / "truth.csv"); T.write_truth_csv(truth, truth_csv)
+    wsp = str(d / "site"); ws = Workspace.create(wsp, "Track site", actor="tester")
+    a1 = ws.add_seismic_station("Array one", files[0], 31.0, -102.0, "tester", sensors_csv=sens_csvs[0], band=[1.0, 20.0])
+    a2 = ws.add_seismic_station("Array two", files[1], 31.0, -102.0, "tester", sensors_csv=sens_csvs[1], band=[1.0, 20.0])
+    lone = ws.add_seismic_station("Lone node", files[0][:1], 31.0, -102.0, "tester", band=[1.0, 20.0])
+    refused = []
+    for bad in ([a1["id"]], [a1["id"], lone["id"]]):
+        try:
+            ws.add_track("bad", bad, "tester")
+        except WorkspaceError as e:
+            refused.append(str(e))
+    tk = ws.add_track("Pad 7 lateral", [a1["id"], a2["id"]], "tester", truth_csv=truth_csv, band=[1.0, 20.0])
+    sm = ws.refresh_track(tk["id"], "tester")
+    res = ws.track_results(tk["id"])
+    out = Path(ws.track_reports_dir(tk["id"]))
+    html = (out / "seismic_track_report.html").read_text(encoding="utf-8")
+    ok(len(refused) == 2 and "two or more" in refused[0] and "not an array" in refused[1] and tk["truth"] == "truth.csv" and tk["sha256"]["truth.csv"]
+       and sm["verdict"] == "TRACKED" and sm["positions"] >= 10 and sm["heading_deg"] is not None and sm["report"].endswith("seismic_track_report.html")
+       and set(res) >= {"summary", "positions", "verdict", "bearings"} and set(res["bearings"]) == {a1["id"], a2["id"]}
+       and all((out / f).exists() for f in ("seismic_track_report.html", "seismic_track_report.md", "seismic_track_report.json", "positions.json", "verdict.json", "summary.json"))
+       and "Seismic Track Report" in html and "TRACKED" in html and "does not call a measurement" in html and "Positions over time" in html
+       and any(a["action"] == "track.refresh" for a in ws.audit_log()) and ws.summary()["n_tracks"] == 1
+       and any(x["kind"] == "track" and x["id"] == tk["id"] for x in ws.report_ages()),
+       "AS1 a track joins the workspace over two or more array stations (one array, or a station that is not an array, is turned away) with its ground-truth CSV copied in "
+       "and hashed; the refresh writes every array's bearing history, the positions, the verdict and the Seismic Track Report (html, md, json) under "
+       "reports/seismic/tracks/, audits it and counts it in the summary and the report ages")
+    # AS2 - the API and the page: tracks listed, added by upload, refreshed as a job, served; the track view; the film's lateral scene; roles
+    Users(str(Path(wsp, "users.json"))).add("op", "operator-pass-1", "operator")
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer")
+    svc = Service(wsp, host="127.0.0.1", port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+    op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None, raw=False):
+        req = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json")
+        if method == "POST":
+            req.add_header("X-GEA-Action", "1")
+        try:
+            with op.open(req, timeout=60) as r:
+                return r.status, (r.read() if raw else json.loads(r.read()))
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        call("POST", "/api/login", {"name": "v", "password": "viewer-pass-1"})
+        st_list, lst = call("GET", "/api/tracks")
+        st_det, det = call("GET", f"/api/tracks/{tk['id']}")
+        st_404 = call("GET", "/api/tracks/nope")[0]
+        st_forbid = call("POST", "/api/tracks/add", {"stations": [a1["id"], a2["id"]]})[0]
+        call("POST", "/api/logout")
+        call("POST", "/api/login", {"name": "op", "password": "operator-pass-1"})
+        import base64
+        tb64 = base64.b64encode(Path(truth_csv).read_bytes()).decode()
+        st_add, added = call("POST", "/api/tracks/add", {"display": "Uploaded track", "stations": [a1["id"], a2["id"]], "truth": {"filename": "truth.csv", "content_b64": tb64}, "band": [1, 20], "win_s": 600})
+        st_ref, job = call("POST", f"/api/tracks/{added['id']}/refresh")
+        j = svc.app.runner.wait(job["id"], 900)
+        st_after, after = call("GET", f"/api/tracks/{added['id']}")
+        st_ov, ov = call("GET", "/api/overview")
+        st_rm = call("POST", f"/api/tracks/{added['id']}/remove")[0]
+        st_film, fjob = call("POST", "/api/seismic/sar/run", {"hours": 2.0, "step_s": 600, "scene": "lateral"})
+        fj = svc.app.runner.wait(fjob["id"], 900)
+        st_sar, sar = call("GET", "/api/seismic/sar")
+        st_page, body = call("GET", sar["url"], raw=True)
+        film = json.loads(body)
+        with op.open(urllib.request.Request(base + f"/reports/seismic/tracks/{tk['id']}/seismic_track_report.html"), timeout=60) as rr:
+            page = (rr.status, rr.read().decode("utf-8", "replace"))
+    finally:
+        svc.stop()
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    ok(st_list == 200 and [x["id"] for x in lst["tracks"]] == [tk["id"]] and lst["tracks"][0]["summary"]["verdict"] == "TRACKED"
+       and st_det == 200 and det["track"]["id"] == tk["id"] and "positions" in det["results"] and len(det["stations"]) == 2 and st_404 == 404 and st_forbid == 403
+       and st_add == 200 and added["truth"] == "truth.csv" and st_ref == 200 and j["status"] == "DONE" and st_after == 200 and after["results"]["summary"]["verdict"] == "TRACKED"
+       and st_ov == 200 and len(ov["tracks"]) == 2 and st_rm == 403
+       and st_film == 200 and fj["status"] == "DONE" and st_sar == 200 and sar["film"]["scene"] == "lateral" and st_page == 200 and film["scene_kind"] == "lateral"
+       and len(film["meta"]["arrays"]) == 2 and all(f["label"] == "SIMULATION_SELF_TEST" and len(f["beams"]) == 2 for f in film["frames"])
+       and any(f["position"] for f in film["frames"]) and film["final"]["verdict"]["verdict"] in ("TRACKED", "PARTIAL", "INSUFFICIENT")
+       and page[0] == 200 and "Seismic Track Report" in page[1]
+       and "VIEWS.track = " in page_src and "function tracksCardHtml" in page_src and "/api/tracks/add" in page_src and "trkMap" in page_src and "trkSlider" in page_src
+       and "function sarDrawLateral" in page_src and 'id="sarScene"' in page_src and "Seismic tracks" in page_src and H.VIEW_TOPIC.get("track") == "seismic",
+       "AS2 the API lists the tracks with their last summary, serves a track's results and its arrays, 404s an unknown one, refuses an add to a viewer; an operator adds a "
+       "track by upload (the truth CSV base64), refreshes it as a job that completes TRACKED, the overview carries the tracks, a removal needs admin; the SAR film "
+       "runs the lateral scene (two arrays, a position per frame, the tracker's verdict at the close); the page has the Tracks card, the track view with its map and "
+       "slider, the scene selector and the lateral drawing, a home tile, and the view maps to the seismic help page")
+    # AS3 - the permits importer: column detection, the fallback start, assumptions counted, drops counted, the mapping, the workspace
+    exp = d / "permits.csv"
+    exp.write_text("API No.,Lease Name,Well No.,Operator Name,County,Surface Latitude,Surface Longitude,Approved Date,Spud Date,Wellbore Profile\n"
+                   "42-000-00001,NORTH PAD,1H,SAMPLE OPERATOR,SAMPLE,31.012345,-102.098765,03/14/2025,03/20/2025,Horizontal\n"
+                   "42-000-00002,NORTH PAD,2H,SAMPLE OPERATOR,SAMPLE,31.013000,-102.100100,03/14/2025,,Horizontal\n"
+                   "42-000-00003,NO POSITION,1,SAMPLE OPERATOR,SAMPLE,,,04/01/2025,,Vertical\n"
+                   "42-000-00004,FAR AWAY,7,OTHER,ELSEWHERE,33.400000,-105.900000,04/02/2025,04/10/2025,Horizontal\n"
+                   "42-000-00001,NORTH PAD,1H,SAMPLE OPERATOR,SAMPLE,31.012345,-102.098765,03/14/2025,03/20/2025,Horizontal\n"
+                   "42-000-00005,NO DATE,2,SAMPLE OPERATOR,SAMPLE,31.000000,-102.100000,,,Vertical\n", encoding="utf-8")
+    note = PM.import_permits(str(exp), str(d / "rigs.csv"), within=(31.0, -102.0, 80.0))
+    from .seismic_detect import load_sources_csv
+    rigs = load_sources_csv(str(d / "rigs.csv"))
+    nomap = None
+    (d / "odd.csv").write_text("well,x,y,when\nw1,-102.1,31.0,2025-06-01\n", encoding="utf-8")
+    try:
+        PM.import_permits(str(d / "odd.csv"), str(d / "r_odd.csv"))
+    except ValueError as e:
+        nomap = str(e)
+    mapped = PM.import_permits(str(d / "odd.csv"), str(d / "r_odd.csv"), mapping={"lat": "y", "lon": "x", "start": "when", "id": "well"})
+    r3 = _sp.run([sys.executable, "-m", "gea", "permits", "--file", str(exp), "--out", str(d / "rigs_cli.csv"), "--within", "31.0", "-102.0", "80"], capture_output=True, timeout=120)
+    o3 = r3.stdout.decode("utf-8", "replace")
+    stp = ws.add_seismic_station("Permit node", files[0][:1], 31.0, -102.0, "tester", permits_csv=str(exp), band=[1.0, 20.0])
+    both = None
+    try:
+        ws.add_seismic_station("Both", files[0][:1], 31.0, -102.0, "tester", permits_csv=str(exp), sources_csv=str(d / "rigs.csv"))
+    except WorkspaceError as e:
+        both = str(e)
+    ok(note["rows_in"] == 6 and note["rows_out"] == 2 and note["dropped"] == {"no_position": 1, "no_start_date": 1, "outside_radius": 1, "duplicate_id": 1, "end_before_start": 0}
+       and note["columns_used"]["lat"] == "Surface Latitude" and note["columns_used"]["start"] == "Spud Date" and note["columns_used"]["start_fallback"] == "Approved Date"
+       and "end" in note["columns_not_found"] and note["end_assumed_rows"] == 2 and note["start_fallback_rows"] == 1
+       and len(rigs) == 2 and rigs[0].source_id == "42-000-00001" and rigs[0].kind == "Horizontal" and "end assumed" in rigs[0].note and "start from Approved Date" in rigs[1].note
+       and (rigs[0].end - rigs[0].start) == 30 * 86400 and (d / "rigs.csv.import.json").exists()
+       and nomap and "no column found for start" in nomap and mapped["rows_out"] == 1 and mapped["columns_used"]["lat"] == "y"
+       and r3.returncode == 0 and "2 of 6 rows" in o3 and "end assumed" in o3
+       and stp["sources"] == "rigs_from_permits.csv" and stp["permits"] == "permits.csv" and stp["permits_import"]["rows_out"] == 2 and stp["sha256"]["rigs_from_permits.csv"]
+       and both and "not both" in both,
+       "AS3 the permits importer finds the columns of a permit export by name (a mapping file overrides it, and a file whose columns it cannot name is refused with the "
+       "list), takes the approval date only where the spud date is empty and says so in the row, assumes an end date and counts the assumption, drops rows without a "
+       "position or a date, duplicates and rigs outside the radius with the counts in the import note, writes the rigs CSV the tests read; `gea permits` and "
+       "`add-seismic --permits` (not with --sources) do the same, keeping the export beside the converted list")
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     with tempfile.TemporaryDirectory() as tmp:
@@ -3442,6 +3655,8 @@ def main() -> int:
         section_ao_array(tmp)
         section_ap_seismic_page(tmp)
         section_aq_sar_and_audit(tmp)
+        section_ar_tracker(tmp)
+        section_as_tracks_page(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

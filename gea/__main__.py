@@ -280,11 +280,16 @@ def main(argv=None) -> int:
     p_ws.add_argument("--path", type=str, required=True, help="the workspace folder")
     p_ws.add_argument("--action", type=str, default="list",
                       choices=["init", "add-file", "add-catalog", "add-live", "remove", "list", "migrate", "refresh", "audit",
-                               "add-seismic", "refresh-seismic", "remove-seismic", "sar-film", "refresh-all"])
+                               "add-seismic", "refresh-seismic", "remove-seismic", "sar-film", "refresh-all", "add-track", "refresh-track", "remove-track"])
+    p_ws.add_argument("--stations", type=str, nargs="+", default=None, help="add-track: two or more array station ids of this workspace")
+    p_ws.add_argument("--truth", type=str, default=None, help="add-track: ground truth CSV (point_id, lat, lon, utc[, note])")
+    p_ws.add_argument("--track", type=str, default=None, help="refresh-track / remove-track: the track id")
+    p_ws.add_argument("--win", type=float, default=600.0, help="add-track: the window length, s (default 600)")
     p_ws.add_argument("--hours", type=float, default=8.0, help="sar-film: the synthetic scene's length, h")
     p_ws.add_argument("--step", type=float, default=600.0, help="sar-film: seconds per frame")
     p_ws.add_argument("--seed", type=int, default=5, help="sar-film: the scene's seed")
     p_ws.add_argument("--method", type=str, default="bartlett", choices=["bartlett", "capon"], help="sar-film: the beamformer")
+    p_ws.add_argument("--scene", type=str, default="rigs", choices=["rigs", "lateral"], help="sar-film: fixed rigs, or a bit advancing along a lateral past two arrays")
     p_ws.add_argument("--files", type=str, nargs="+", default=None, help="add-seismic: the station's record (or one record per sensor of an array, in the sensors CSV's order)")
     p_ws.add_argument("--lat", type=float, default=None, help="add-seismic: the station's latitude")
     p_ws.add_argument("--lon", type=float, default=None, help="add-seismic: the station's longitude")
@@ -292,6 +297,7 @@ def main(argv=None) -> int:
     p_ws.add_argument("--sensors", type=str, default=None, help="add-seismic: sensors CSV (sensor_id, lat, lon) - makes the station an array")
     p_ws.add_argument("--sources", type=str, default=None, help="add-seismic: the rigs CSV (source_id, lat, lon, start_utc, end_utc[, kind, note])")
     p_ws.add_argument("--band", type=float, nargs=2, default=None, metavar=("LO", "HI"), help="add-seismic: the band, Hz (default 1 50)")
+    p_ws.add_argument("--permits", type=str, default=None, help="add-seismic: a permit export to turn into the rigs CSV (instead of --sources)")
     p_ws.add_argument("--station", type=str, default=None, help="refresh-seismic / remove-seismic: the station id")
     p_ws.add_argument("--name", type=str, default=None, help="init: site name; add-*: display name")
     p_ws.add_argument("--file", type=str, default=None, help="add-file: the client's data file; add-live: the port configuration JSON")
@@ -352,6 +358,14 @@ def main(argv=None) -> int:
     p_dr.add_argument("--port", type=int, default=8765)
     p_dr.add_argument("--json", action="store_true")
 
+    p_pm = sub.add_parser("permits", help="a drilling-permit export (CSV/TSV) to the rigs CSV the seismic tests judge against, with an import note")
+    p_pm.add_argument("--file", type=str, required=True, help="the permit export (a regulator's query CSV, an operator's schedule)")
+    p_pm.add_argument("--out", type=str, required=True, help="the rigs CSV to write (an .import.json note is written beside it)")
+    p_pm.add_argument("--mapping", type=str, default=None, help='JSON {"lat": "<column>", "lon": ..., "start": ..., "end": ..., "id": ..., "name": ...} when the guesses are wrong')
+    p_pm.add_argument("--default-days", type=float, default=30.0, help="a row without an end date works this many days from its start (default 30)")
+    p_pm.add_argument("--within", type=float, nargs=3, default=None, metavar=("LAT", "LON", "KM"), help="keep only rigs within KM of LAT, LON")
+    p_pm.add_argument("--json", action="store_true")
+
     p_up = sub.add_parser("update", help="the program update: compare the running version with PyPI and, unless --check, run pip --upgrade for it from this Python")
     p_up.add_argument("--check", action="store_true", help="only report the running and the newest version")
     p_up.add_argument("--extras", type=str, default="live,plotting,xls,desktop", help="the extras to carry through the upgrade (default live,plotting,xls,desktop)")
@@ -366,7 +380,11 @@ def main(argv=None) -> int:
 
     p_se = sub.add_parser("seismic", help="the second leg's ingest: miniSEED/SAC in, spectra and persistent lines out, an FDSN fetch, and the detectability test against known rigs")
     p_se.add_argument("--action", choices=["info", "spectrum", "lines", "fetch", "stations", "detect", "selftest", "convert", "response", "remove-response",
-                                           "beam", "array-detect", "locate", "array-selftest", "sar-film"], default="info")
+                                           "beam", "array-detect", "locate", "array-selftest", "sar-film", "bearings", "track", "track-selftest"], default="info")
+    p_se.add_argument("--histories", type=str, nargs="+", default=None, help="track: two or more bearing-history JSONs (from --action bearings), one per array")
+    p_se.add_argument("--truth", type=str, default=None, help="track: ground truth CSV (point_id, lat, lon, utc[, note]) - the lateral's points in time")
+    p_se.add_argument("--name", type=str, default=None, help="bearings: a name for the array in the history")
+    p_se.add_argument("--scene", type=str, default="rigs", choices=["rigs", "lateral"], help="sar-film: the labelled scene - fixed rigs, or a bit advancing along a lateral past two arrays")
     p_se.add_argument("--hours", type=float, default=8.0, help="sar-film: the synthetic scene's length, h (default 8: four rigs, each working alone for an hour)")
     p_se.add_argument("--step", type=float, default=600.0, help="sar-film: one frame per this many seconds (default 600)")
     p_se.add_argument("--seed", type=int, default=5, help="sar-film: the scene's random seed")
@@ -774,7 +792,7 @@ def main(argv=None) -> int:
         band = (float(a.band[0]), float(a.band[1]))
         if a.action == "sar-film":
             from . import seismic_film as FM
-            film = FM.sar_film(seed=a.seed, hours=a.hours, step_s=a.step, band=(float(a.band[0]), float(a.band[1])) if a.band != [1.0, 50.0] else (1.0, 20.0), method=a.method)
+            film = FM.sar_film(seed=a.seed, hours=a.hours, step_s=a.step, band=(float(a.band[0]), float(a.band[1])) if a.band != [1.0, 50.0] else (1.0, 20.0), method=a.method, scene=a.scene)
             if a.out:
                 FM.write_film(film, a.out)
             if a.json:
@@ -796,7 +814,37 @@ def main(argv=None) -> int:
                 print(f"  three arrays' bearings cross {c['miss_km']:.2f} km from the rig; 1-sigma ellipse {c['ellipse_1sigma']['major_km']} x {c['ellipse_1sigma']['minor_km']} km; "
                       f"crossing angle {c['crossing_angle_deg']} deg; in front of every array: {c['in_front_of_every_array']}")
             return 0 if r["ok"] else 1
-        if a.action in ("beam", "array-detect"):
+        if a.action == "track-selftest":
+            from . import seismic_track as T
+            r = T.selftest()
+            if a.json:
+                print(_json.dumps({k: v for k, v in r.items() if k != "bearing_histories"}, indent=1, default=str))
+            else:
+                print(f"seismic track-selftest: {r['status']} ok={r['ok']}")
+                for h in r["bearing_histories"]:
+                    print(f"  {h['array']['name']}: {h['n_coherent']} coherent of {h['n_windows']} windows, tolerance {h['tolerance_deg']} deg, span {h['span_deg']} deg, {len(h['change_points'])} change point(s)")
+                print(T.report_text(r["positions"], r["verdict"]))
+            return 0 if r["ok"] else 1
+        if a.action == "track":
+            from . import seismic_track as T
+            if not a.histories or len(a.histories) < 2:
+                raise SystemExit("seismic track needs --histories (two or more bearing-history JSONs)")
+            hists = []
+            for hp in a.histories:
+                with open(hp, encoding="utf-8") as fh:
+                    hists.append(_json.load(fh))
+            pos = T.position_history(hists)
+            ver = T.track_verdict(pos, T.load_truth_csv(a.truth)) if a.truth else None
+            res = {"positions": pos, "verdict": ver}
+            if a.out:
+                with open(a.out, "w", encoding="utf-8") as fh:
+                    _json.dump(res, fh, indent=1, default=str)
+            if a.json:
+                print(_json.dumps(res, indent=1, default=str))
+            else:
+                print(T.report_text(pos, ver))
+            return 0
+        if a.action in ("beam", "array-detect", "bearings"):
             from . import seismic_array as AR
             if not a.files or not a.sensors:
                 raise SystemExit(f"seismic {a.action} needs --files (one per sensor) and --sensors CSV")
@@ -812,6 +860,22 @@ def main(argv=None) -> int:
                 if a.start or a.end:
                     tr = tr.slice(S.parse_time(a.start) if a.start else tr.starttime, S.parse_time(a.end) if a.end else tr.endtime)
                 trs.append(tr)
+            if a.action == "bearings":
+                from . import seismic_track as T
+                h = T.bearing_history(trs, sensors, band, a.win or 600.0, None, a.seg, a.smax, 41, a.method)
+                h["array"]["name"] = a.name or sensors[0].sensor_id
+                if a.out:
+                    with open(a.out, "w", encoding="utf-8") as fh:
+                        _json.dump(h, fh, indent=1)
+                if a.json:
+                    print(_json.dumps(h, indent=1))
+                else:
+                    print(f"seismic bearings: {h['array']['name']}, {h['n_coherent']} coherent of {h['n_windows']} windows of {h['win_s']:g} s, tolerance {h['tolerance_deg']} deg"
+                          + (f", span {h['span_deg']} deg" if h['span_deg'] is not None else "") + f", {len(h['change_points'])} change point(s)")
+                    for w in h["windows"]:
+                        print(f"  {w['start_utc']}  " + (f"{w['back_azimuth_deg']:7.2f} deg  coherence {w['coherence_max_bin']}" if w.get("back_azimuth_deg") is not None else "no beam")
+                              + ("" if w["coherent"] else "  (gap: not coherent)"))
+                return 0
             if a.action == "beam":
                 b = AR.beam(trs, sensors, band, a.seg, a.smax, 61, a.method)
                 b = {k: v for k, v in b.items() if not k.startswith("_")}
@@ -1017,6 +1081,19 @@ def main(argv=None) -> int:
     elif a.cmd == "doctor":
         from .doctor import run as _doctor
         return _doctor(a.workspace, a.host, a.port, a.json)
+    elif a.cmd == "permits":
+        import json as _json
+        from . import permits as PM
+        mapping = None
+        if a.mapping:
+            with open(a.mapping, encoding="utf-8") as fh:
+                mapping = _json.load(fh)
+        try:
+            note = PM.import_permits(a.file, a.out, mapping=mapping, default_days=a.default_days, within=tuple(a.within) if a.within else None)
+        except ValueError as e:
+            raise SystemExit(f"permits: {e}")
+        print(_json.dumps(note, indent=1) if a.json else PM.report_text(note))
+        return 0
     elif a.cmd == "update":
         from .doctor import update as _update
         return _update(check_only=a.check, extras=a.extras, as_json=a.json)
@@ -1117,7 +1194,7 @@ def main(argv=None) -> int:
                 if not (a.name and a.files):
                     raise SystemExit("add-seismic needs --name and --files (one record, or one per sensor with --sensors)")
                 st = ws.add_seismic_station(a.name, a.files, a.lat, a.lon, actor=a.actor, stationxml=a.stationxml, sensors_csv=a.sensors,
-                                            sources_csv=a.sources, band=a.band)
+                                            sources_csv=a.sources, band=a.band, permits_csv=a.permits)
                 print("seismic station:", st["id"], f"({st['kind']}, {len(st['files'])} record(s))"); return 0
             elif a.action == "refresh-seismic":
                 ids = [a.station] if a.station else [x["id"] for x in ws.seismic_stations()]
@@ -1130,8 +1207,27 @@ def main(argv=None) -> int:
                           + (f"; beam {r['beam_back_azimuth_deg']} deg, pointed at {r['pointed']}" if r["beam_back_azimuth_deg"] is not None else "")
                           + f"\n  report: {r['report']}")
                 return 0
+            elif a.action == "add-track":
+                if not (a.name and a.stations):
+                    raise SystemExit("add-track needs --name and --stations (two or more array station ids)")
+                tk = ws.add_track(a.name, a.stations, actor=a.actor, truth_csv=a.truth, band=a.band, win_s=a.win)
+                print("track:", tk["id"], f"({len(tk['stations'])} arrays" + (f", truth {tk['truth']}" if tk["truth"] else ", no ground truth") + ")"); return 0
+            elif a.action == "refresh-track":
+                ids = [a.track] if a.track else [x["id"] for x in ws.tracks()]
+                if not ids:
+                    raise SystemExit("refresh-track: no track in the workspace")
+                for tid in ids:
+                    r = ws.refresh_track(tid, actor=a.actor)
+                    print(f"track {tid}: {r['arrays']} arrays, {r['positions']} positions of {r['windows']} windows"
+                          + (f", {r['segments']} segment(s), heading {r['heading_deg']} deg, length {r['length_km']} km" if r["heading_deg"] is not None else "")
+                          + (f"; verdict {r['verdict']} ({r['hit_fraction']:.0%})" if r["verdict"] else "; no ground truth") + f"\n  report: {r['report']}")
+                return 0
+            elif a.action == "remove-track":
+                if not a.track:
+                    raise SystemExit("remove-track needs --track <id>")
+                ws.remove_track(a.track, actor=a.actor); print("removed (folder kept):", a.track); return 0
             elif a.action == "sar-film":
-                r = ws.sar_film(actor=a.actor, seed=a.seed, hours=a.hours, step_s=a.step, band=tuple(a.band) if a.band else (1.0, 20.0), method=a.method)
+                r = ws.sar_film(actor=a.actor, seed=a.seed, hours=a.hours, step_s=a.step, band=tuple(a.band) if a.band else (1.0, 20.0), method=a.method, scene=a.scene)
                 print(f"sar-film: {r['label']}, {r['frames']} frames over {r['hours']} h; verdicts {r['verdicts']}\n  film: {r['path']}"); return 0
             elif a.action == "refresh-all":
                 r = ws.refresh_all(actor=a.actor)

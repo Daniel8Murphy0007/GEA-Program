@@ -61,7 +61,7 @@ LOGIN_WINDOW_S = 15 * 60        # ... inside this window ...
 LOGIN_LOCK_S = 15 * 60          # ... lock that name/address out for this long (429, Retry-After)
 PBKDF2_ROUNDS = 200_000
 # Commands the page may run as jobs. Anything else is refused (never `serve`, never a shell).
-RUNNABLE = ('accept', 'fat-sat', 'sbom', 'sla-report', 'model-cards', 'client-report', 'dashboard', 'workspace', 'drift-monitor',
+RUNNABLE = ('accept', 'fat-sat', 'sbom', 'permits', 'sla-report', 'model-cards', 'client-report', 'dashboard', 'workspace', 'drift-monitor',
             'well-test', 'alarms', 'notify', 'swaps', 'certificates', 'transient', 'housekeeping', 'store-forward', 'config', 'reconcile', 'ingest', 'opcua', 'mqtt', 'report', 'gamma', 'bench',
             'service-life', 'telemetry', 'run', 'wells', 'survey', 'wits0', 'witsml', 'wits0-sim', 'files', 'doctor', 'update')
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web')
@@ -392,7 +392,12 @@ class App:
             sm = self.ws.seismic_results(st['id']).get('summary') or {}
             seismic.append({'id': st['id'], 'display': st['display'], 'kind': st['kind'], 'detected': sm.get('detected'), 'n_sources': sm.get('n_sources'),
                             'pointed': sm.get('pointed'), 'lines': sm.get('lines'), 'unit': sm.get('unit'), 'generated_utc': sm.get('generated_utc')})
-        return {'workspace': s, 'dashboard': data, 'seismic': seismic, 'jobs_running': [j['id'] for j in self.runner.list(20, 'RUNNING')],
+        tracks = []
+        for tk in self.ws.tracks():
+            sm = self.ws.track_results(tk['id']).get('summary') or {}
+            tracks.append({'id': tk['id'], 'display': tk['display'], 'arrays': len(tk['stations']), 'positions': sm.get('positions'), 'verdict': sm.get('verdict'),
+                           'heading_deg': sm.get('heading_deg'), 'length_km': sm.get('length_km'), 'generated_utc': sm.get('generated_utc')})
+        return {'workspace': s, 'dashboard': data, 'seismic': seismic, 'tracks': tracks, 'jobs_running': [j['id'] for j in self.runner.list(20, 'RUNNING')],
                 'taps': dict(self.taps), 'patches': [{k: st[k] for k in ('name', 'protocol', 'well_id', 'status', 'last_sample_utc', 'samples_last_min')} for st in self.patches.states()],
                 'service': {'started_utc': self.started_utc, 'program_version': __version__,
                                                      'users': self.users.count(), 'schedule': self.scheduler.entries()}}
@@ -722,6 +727,32 @@ class App:
                 'note': 'the program update runs pip against PyPI from this Python and needs the service restarted afterwards; an offline kit is updated by '
                         'installing the newer kit from the release page. The data update runs every report from its source again.'}
 
+    def add_track(self, user: dict, body: dict) -> dict:
+        """A track over two or more array stations; the optional truth CSV arrives base64 and is copied in by the workspace."""
+        stations = body.get('stations') or []
+        if len(stations) < 2:
+            raise ApiError(400, 'a track needs two or more array stations')
+        tmp_dir = os.path.join(self.ws.path, 'jobs', '_uploads', secrets.token_hex(4))
+        os.makedirs(tmp_dir, exist_ok=True)
+        try:
+            truth_path = None
+            f = body.get('truth')
+            if f and f.get('filename'):
+                name = str(f['filename'])
+                if '/' in name or '\\' in name:
+                    raise ApiError(400, 'a plain file name is required')
+                truth_path = os.path.join(tmp_dir, name)
+                with open(truth_path, 'wb') as fh:
+                    fh.write(base64.b64decode(f.get('content_b64') or ''))
+            band = body.get('band')
+            try:
+                return self.ws.add_track(str(body.get('display') or 'track'), [str(x) for x in stations], actor=user['name'], truth_csv=truth_path,
+                                         band=[float(band[0]), float(band[1])] if band else None, win_s=float(body.get('win_s') or 600.0), note=str(body.get('note', '')))
+            except (WorkspaceError, ValueError) as e:
+                raise ApiError(409, str(e))
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
     def add_seismic(self, user: dict, body: dict) -> dict:
         """Records (and the optional station file, sensors CSV and rigs CSV) arrive base64-encoded; each lands in a temporary
         folder and is copied into the workspace verbatim by the workspace, which hashes it."""
@@ -741,7 +772,7 @@ class App:
                     fh.write(base64.b64decode(f.get('content_b64') or ''))
                 paths.append(p); names.append(name)
             extras = {}
-            for key in ('stationxml', 'sensors', 'sources'):
+            for key in ('stationxml', 'sensors', 'sources', 'permits'):
                 f = body.get(key)
                 if f and f.get('filename'):
                     name = str(f['filename'])
@@ -758,7 +789,7 @@ class App:
                                                  float(body['lon']) if body.get('lon') not in (None, '') else None,
                                                  actor=user['name'], stationxml=extras.get('stationxml'), sensors_csv=extras.get('sensors'),
                                                  sources_csv=extras.get('sources'), band=[float(band[0]), float(band[1])] if band else None,
-                                                 filenames=names, note=str(body.get('note', '')))
+                                                 filenames=names, note=str(body.get('note', '')), permits_csv=extras.get('permits'))
             except (WorkspaceError, ValueError) as e:
                 raise ApiError(409, str(e))
             return st
@@ -1364,6 +1395,16 @@ def make_handler(app: App):
                     return self._json(200, {'wells': app.ws.wells()})
                 if path == '/api/seismic':
                     return self._json(200, {'stations': [{**st, 'summary': app.ws.seismic_results(st['id']).get('summary')} for st in app.ws.seismic_stations()]})
+                if path == '/api/tracks':
+                    return self._json(200, {'tracks': [{**tk, 'summary': app.ws.track_results(tk['id']).get('summary')} for tk in app.ws.tracks()]})
+                if path.startswith('/api/tracks/'):
+                    tid = path[len('/api/tracks/'):]
+                    try:
+                        tk = app.ws.track(tid)
+                    except WorkspaceError as e:
+                        raise ApiError(404, str(e))
+                    return self._json(200, {'track': tk, 'results': app.ws.track_results(tid),
+                                            'stations': [app.ws.seismic_station(sid) for sid in tk['stations'] if sid in app.ws.manifest.get('seismic', [])]})
                 if path == '/api/seismic/sar':
                     return self._json(200, {'film': app.ws.sar_film_summary(), 'url': f'/reports/seismic/{app.ws.SAR_ID}/sar_film.json', 'label': 'SIMULATION_SELF_TEST'})
                 if path.startswith('/api/seismic/'):
@@ -1494,14 +1535,34 @@ def make_handler(app: App):
                 if path == '/api/seismic/add':
                     App.require(user, 'operator')
                     return self._json(200, app.add_seismic(user, body))
+                if path == '/api/tracks/add':
+                    App.require(user, 'operator')
+                    return self._json(200, app.add_track(user, body))
+                if path.startswith('/api/tracks/') and path.endswith('/refresh'):
+                    App.require(user, 'operator')
+                    tid = path[len('/api/tracks/'):-len('/refresh')]
+                    try:
+                        app.ws.track(tid)
+                    except WorkspaceError as e:
+                        raise ApiError(404, str(e))
+                    return self._json(200, app._job(['workspace', '--path', app.ws.path, '--action', 'refresh-track', '--track', tid, '--actor', user['name']],
+                                                    user, f'refresh track {tid}'))
+                if path.startswith('/api/tracks/') and path.endswith('/remove'):
+                    App.require(user, 'admin')
+                    try:
+                        app.ws.remove_track(path[len('/api/tracks/'):-len('/remove')], actor=user['name'])
+                    except WorkspaceError as e:
+                        raise ApiError(404, str(e))
+                    return self._json(200, {'ok': True})
                 if path == '/api/seismic/sar/run':
                     App.require(user, 'operator')
                     hours = float(body.get('hours', 8.0)); step = float(body.get('step_s', 600.0)); seed = int(body.get('seed', 5))
-                    method = str(body.get('method', 'bartlett')); band = body.get('band_hz') or [1.0, 20.0]
-                    if not (0.5 <= hours <= 24 and 60 <= step <= 3600 and method in ('bartlett', 'capon') and len(band) == 2 and 0 < float(band[0]) < float(band[1]) <= 25):
-                        raise ApiError(400, 'sar-film: hours 0.5-24, step 60-3600 s, method bartlett|capon, band 0 < lo < hi <= 25 Hz')
+                    method = str(body.get('method', 'bartlett')); band = body.get('band_hz') or [1.0, 20.0]; scene = str(body.get('scene', 'rigs'))
+                    if not (0.5 <= hours <= 24 and 60 <= step <= 3600 and method in ('bartlett', 'capon') and len(band) == 2 and 0 < float(band[0]) < float(band[1]) <= 25
+                            and scene in ('rigs', 'lateral')):
+                        raise ApiError(400, 'sar-film: hours 0.5-24, step 60-3600 s, method bartlett|capon, band 0 < lo < hi <= 25 Hz, scene rigs|lateral')
                     args = ['workspace', '--path', app.ws.path, '--action', 'sar-film', '--hours', str(hours), '--step', str(step), '--seed', str(seed),
-                            '--method', method, '--band', str(float(band[0])), str(float(band[1])), '--actor', user['name']]
+                            '--method', method, '--band', str(float(band[0])), str(float(band[1])), '--scene', scene, '--actor', user['name']]
                     return self._json(200, app._job(args, user, 'SAR film (synthetic scene)'))
                 if path == '/api/update/program':
                     App.require(user, 'admin')

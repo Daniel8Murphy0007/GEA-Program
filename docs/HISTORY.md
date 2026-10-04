@@ -4,8 +4,17 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
-## Unreleased
+## v0.7.0 - 2026-10-04 - the time dimension - tracks from two arrays, the SAR panel, the Audit / Update tab, the permits importer, and the kit made the commit
 
+- **The time dimension and the first mapped track.** `seismic_track.py`
+  runs the array step window after window: bearing histories, positions
+  from two or more arrays with their ellipses, the longest continuous
+  segment as the track, and a verdict against ground truth - proven on a
+  labelled scene of a bit advancing along a lateral (TRACKED, heading
+  within a degree or two of the scene's). Tracks live in the workspace
+  with their own report and view; the SAR screen's second scene draws the
+  track as it is earned; `gea permits` turns a permit export into the rigs
+  CSV with every assumption counted. Sections AR and AS; gate 266; 19 samples.
 - **The SAR panel and the Audit / Update tab.** The Seismic page gained its
   control panel and screen: the second leg's arithmetic played forward in
   time on the labelled synthetic scene (`seismic_film.py`), every frame

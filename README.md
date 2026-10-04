@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (262 checks)
+gea accept                     # the product gate (266 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -370,6 +370,39 @@ function a real record goes through. Every frame carries SIMULATION_SELF_TEST
 and the line "not a measurement of any ground"; a real record is refreshed on
 its station and the page shows what it earned, never a film. `gea seismic
 --action sar-film --out film.json` writes the same film from the command line.
+
+### Tracks - the time dimension
+
+The array step gives one bearing for one window. `seismic_track.py` runs it
+window after window: a bearing history per array (a bearing with the array's
+own tolerance where the beam was coherent, a gap where it was not, change
+points where the bearing moved beyond the tolerance), a position history from
+two or more arrays crossed window by window (a position only where two or
+more arrays were coherent, the bearings crossed at 15 degrees or more and the
+point lies in front of every array - every other window a gap with its
+reason), and the track: the principal line through the longest continuous
+segment of positions, with its heading, length and rate, the ellipses beside
+every point, and segments listed apart where positions jump farther than
+their ellipses allow (a coherent background crossing in a quiet hour is not
+the rig an hour later). The verdict against ground truth - the lateral's
+surveyed points or a permit's surface hole with its date, interpolated to
+each position's time - is TRACKED, PARTIAL, NOT_TRACKED or INSUFFICIENT, with
+the fraction and the heading difference printed. The labelled scene behind
+`--action track-selftest` is a bit advancing along a straight lateral past
+two arrays. On a site a track is two or more array stations and an optional
+truth CSV, refreshed as a job into the Seismic Track Report; the track view
+shows the map with every position's ellipse, a slider through time and the
+bearings over time, and the SAR panel's second scene plays the same thing
+forward with the track drawn as it is earned.
+
+Ground truth from a permit export: `gea permits --file export.csv --out
+rigs.csv --within LAT LON KM` finds the columns of a regulator's query (an
+identifier, a surface position, a spud or approval date) by name, with a
+mapping file when the guesses are wrong, and writes the rigs CSV the tests
+read beside an import note that says which columns were used, how many rows
+were dropped and why, and how many end dates it assumed (a permit rarely says
+when drilling stopped). The Seismic page's add form takes a permit export in
+place of the rigs CSV and keeps both.
 
 ### Audit / Update
 

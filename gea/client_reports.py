@@ -1121,6 +1121,88 @@ def seismic_station_report(station: dict, info: List[dict], spectrum: Optional[d
                           'response': response_note, 'report_id': report_id, 'evaluated_at_utc': now.strftime('%Y-%m-%dT%H:%M:%SZ'), '_records': [], '_catalogue_obj': None})
 
 
+def seismic_track_report(track: dict, histories: List[dict], positions: dict, verdict: Optional[dict] = None,
+                         evaluated_at: Optional[datetime] = None, program_version: str = '') -> Document:
+    """A track: two or more arrays' bearings over time, crossed window by window into positions with their
+    ellipses, the fit through the longest continuous segment, and the verdict against the user's ground truth.
+    Every number is seismic_track's own output; nothing is recomputed here."""
+    now = evaluated_at or _utc_now()
+    name = track.get('display') or track.get('id') or 'track'
+    report_id = f"TRACK-{name.replace('/', '-').replace(' ', '_')[:24]}-{now.strftime('%Y%m%dT%H%M%SZ')}"
+    tr = positions.get('track') or {}
+    parts = [f"{len(histories)} arrays over {positions['n_windows']} windows; {positions['n_positions']} positions, {positions['n_windows'] - positions['n_positions']} gaps."]
+    if tr.get('heading_deg') is not None:
+        parts.append(f"The longest continuous segment runs {tr['length_km']} km on a heading of {tr['heading_deg']} deg over {tr['n_positions']} positions "
+                     f"({tr['rate_km_per_h']} km/h), {tr['rms_off_line_km']} km rms off the line, with a median 1-sigma ellipse of {tr['ellipse_major_km']['median']} km.")
+    elif tr.get('note'):
+        parts.append(tr['note'][0].upper() + tr['note'][1:] + '.')
+    if tr.get('segment_note'):
+        parts.append(tr['segment_note'][0].upper() + tr['segment_note'][1:] + '.')
+    if verdict:
+        parts.append(f"Against the ground truth: {verdict['verdict']} - {verdict['n_hit']} of {verdict['n_compared']} positions within their own ellipse of where the truth was at that time"
+                     + (f"; heading {verdict['heading']['track_deg']} deg against the truth's {verdict['heading']['truth_deg']} deg" if verdict.get('heading') else '') + '.')
+        if verdict.get('outside_note'):
+            parts.append(verdict['outside_note'][0].upper() + verdict['outside_note'][1:] + '.')
+    else:
+        parts.append('No ground truth was given: the track is reported, not judged.')
+    summary = Section('1', 'Summary', [' '.join(parts)])
+    arr_rows = [[h['array'].get('name', '-'), h['array']['n_sensors'], _fmt(h['array']['aperture_km']), f"{h['band_hz'][0]:g}-{h['band_hz'][1]:g}", _fmt(h['win_s']),
+                 h['n_coherent'], h['n_windows'], _fmt(h['tolerance_deg']), _fmt(h.get('span_deg')), len(h['change_points'])] for h in histories]
+    arrays = Section('2', 'The arrays and their bearings over time',
+                     [f"Each array's beam on every window of {histories[0]['win_s']:g} s; a window is a bearing only when the beam was coherent (best bin >= 0.5, two or more coherent bins), "
+                      'otherwise a gap. The tolerance is the array response function\'s half-width plus one degree; a change point is a coherent bearing more than the tolerance '
+                      'from the running mean of those before it.'],
+                     [Table(['Array', 'Sensors', 'Aperture (km)', 'Band (Hz)', 'Window (s)', 'Coherent', 'Windows', 'Tolerance (deg)', 'Span (deg)', 'Change points'], arr_rows)])
+    pos_rows = []
+    for w in positions['windows']:
+        if w['position']:
+            p = w['position']
+            pos_rows.append([w['start_utc'], f"{p['lat']:.5f}", f"{p['lon']:.5f}", _fmt(p['ellipse_1sigma']['major_km']), _fmt(p['ellipse_1sigma']['minor_km']),
+                             _fmt(p['crossing_angle_deg']), ', '.join(w['arrays_coherent']), '-'])
+        else:
+            pos_rows.append([w['start_utc'], '-', '-', '-', '-', '-', ', '.join(w['arrays_coherent']) or '-', w.get('gap', '-')])
+    pos_sec = Section('3', 'Positions over time',
+                      [f"Each window where two or more arrays were coherent is crossed (weighted least squares on the bearing lines, weights from the tolerances); a position needs a crossing "
+                       f"angle of {positions['min_crossing_deg']:g} deg or more and must lie in front of every array. The ellipse is the 1-sigma covariance of the crossing."],
+                      [Table(['Window (UTC)', 'Latitude', 'Longitude', 'Major (km)', 'Minor (km)', 'Crossing (deg)', 'Arrays', 'Gap'], pos_rows[:200])])
+    secs = [summary, arrays, pos_sec]
+    if tr.get('n_positions'):
+        seg_rows = [[k + 1, sg['n'], sg['start_utc'], sg['end_utc']] for k, sg in enumerate(tr.get('segments', []))]
+        paras = [f"The positions are cut into segments where consecutive positions jump farther than twice the sum of their ellipses' major axes; the longest segment is the track. "
+                 + (f"Heading {tr['heading_deg']} deg, length {tr['length_km']} km, {tr['rate_km_per_h']} km/h, rms off the line {tr['rms_off_line_km']} km." if tr.get('heading_deg') is not None else tr.get('note', ''))]
+        secs.append(Section('4', 'The track', paras, [Table(['Segment', 'Positions', 'From (UTC)', 'To (UTC)'], seg_rows)] if seg_rows else []))
+    if verdict:
+        rows = [[r['start_utc'], _fmt(r['miss_km']), _fmt(r['allowed_km']), 'yes' if r['hit'] else 'no'] for r in verdict['rows']]
+        paras = [f"Verdict {verdict['verdict']}: {verdict['n_hit']} of {verdict['n_compared']} positions within their own 1-sigma major axis"
+                 + (f" plus {verdict['margin_km']:g} km" if verdict.get('margin_km') else '') + ' of where the truth was at that time (interpolated between its points). '
+                 'TRACKED needs 80 % and three or more; PARTIAL half; fewer than three compared positions is INSUFFICIENT.']
+        if verdict.get('heading'):
+            h = verdict['heading']
+            paras.append(f"Heading {h['track_deg']} deg against the truth's {h['truth_deg']} deg (difference {h['difference_deg']} deg); length {h['track_length_km']} km against {h['truth_length_km']} km.")
+        if verdict.get('outside_note'):
+            paras.append(verdict['outside_note'][0].upper() + verdict['outside_note'][1:] + '.')
+        secs.append(Section(str(len(secs) + 1), 'Against the ground truth', paras, [Table(['Window (UTC)', 'Miss (km)', 'Allowed (km)', 'Hit'], rows[:200])]))
+    method = Section(str(len(secs) + 1), 'Method', [
+        'Bearings are frequency-domain beamforming over a slowness grid on each window, with the array response function\'s half-power width as each bearing\'s tolerance. '
+        'Positions are the weighted least-squares crossing of the coherent arrays\' bearing lines, with the covariance of the crossing as the ellipse. '
+        'The track is the principal line through the longest continuous segment of positions, headed in the direction of time. '
+        'The verdict compares every position with the ground truth interpolated to its time.'])
+    nam = []
+    for src in list(histories) + [positions] + ([verdict] if verdict else []):
+        v = src.get('not_a_measurement') or []
+        nam += (v if isinstance(v, list) else [v])
+    limits = Section(str(len(secs) + 2), 'What this report does not call a measurement', [c.rstrip('.') + '.' for c in dict.fromkeys(nam)] or ['-'])
+    front = [['Report ID', report_id], ['Track', name], ['Generated (UTC)', now.strftime('%Y-%m-%dT%H:%M:%SZ')],
+             ['Program', f'{PROGRAM_NAME}' + (f' build {program_version}' if program_version else '')],
+             ['Arrays', ', '.join(h['array'].get('name', '-') for h in histories)],
+             ['Result', (verdict['verdict'] if verdict else (f"{positions['n_positions']} POSITIONS, NO GROUND TRUTH" if positions['n_positions'] else 'NO POSITIONS'))]]
+    return Document(title=f'{PROGRAM_NAME} - Seismic Track Report', report_id=report_id, front=front, sections=secs + [method, limits],
+                    footer='Every number is the tracker\'s own output at generation time; every position carries the ellipse it earned, and a gap is printed as a gap.',
+                    data={'track': track, 'histories': [{k: v for k, v in h.items() if k != 'windows'} for h in histories], 'positions': {k: v for k, v in positions.items() if k != 'windows'},
+                          'verdict': ({k: v for k, v in verdict.items() if k != 'rows'} if verdict else None), 'report_id': report_id,
+                          'evaluated_at_utc': now.strftime('%Y-%m-%dT%H:%M:%SZ'), '_records': [], '_catalogue_obj': None})
+
+
 def forbidden_terms(text: str) -> List[str]:
     low = text.lower()
     return [t for t in FORBIDDEN_TERMS if t in low]

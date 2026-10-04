@@ -5,9 +5,51 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
-## [Unreleased]
+## [v0.7.0] - 2026-10-04 - the time dimension - tracks from two arrays, the SAR panel, the Audit / Update tab, the permits importer, and the kit made the commit
 
 ### Added
+- The time dimension of the second leg (`gea/seismic_track.py`). A bearing
+  history per array: the beam on every window, a bearing with the array's
+  tolerance where it was coherent, a gap where it was not, change points
+  where the bearing moved beyond the tolerance. A position history from two
+  or more arrays crossed window by window: a position only where two or more
+  arrays were coherent, the bearings crossed at 15 degrees or more and the
+  point lies in front of every array, every other window a gap with its
+  reason, every position with its 1-sigma ellipse. The track: the principal
+  line through the longest continuous segment, with heading, length and
+  rate; positions that jump farther than their ellipses allow are segments
+  listed apart, never joined. The verdict against ground truth (TRACKED,
+  PARTIAL, NOT_TRACKED, INSUFFICIENT) with the hit fraction and the heading
+  difference. A labelled scene of a bit advancing along a lateral past two
+  arrays; `gea seismic --action bearings | track | track-selftest`.
+- Tracks on the dashboard. `Workspace.add_track` over two or more array
+  stations with an optional truth CSV (copied in, hashed), `refresh_track`
+  writing every array's bearing history, the positions, the verdict and the
+  new Seismic Track Report (`client_reports.seismic_track_report`) under
+  `reports/seismic/tracks/<id>/`; `gea workspace --action add-track |
+  refresh-track | remove-track`; routes `/api/tracks`, `/api/tracks/<id>`,
+  `/api/tracks/add`, `/<id>/refresh` (a job), `/<id>/remove`; the overview
+  and the home tile carry the tracks; the Tracks card on the Seismic page
+  and the track view (map with every position's ellipse, a slider through
+  time, the bearings over time, the positions table with hits).
+  `refresh-all` and the report ages include tracks.
+- The SAR panel's second scene: a bit advancing along a lateral past two
+  arrays, with both arrays' bearings, the crossing with its ellipse and the
+  track drawn as it is earned, and the tracker's verdict at the close -
+  still SIMULATION_SELF_TEST on every frame. A Scene selector on the panel;
+  `--scene lateral` on `sar-film`.
+- The permits importer (`gea/permits.py`, `gea permits`). A permit export
+  (a regulator's query CSV/TSV, an operator's schedule) to the rigs CSV the
+  tests read: columns found by name with a mapping file to override, the
+  approval date used only where the spud date is empty and said so in the
+  row, end dates assumed and counted, rows without a position or a date,
+  duplicates and rigs outside a radius dropped and counted - all in an
+  import note beside the output. `add-seismic --permits` and the page's add
+  form take a permit export in place of the rigs CSV and keep both.
+- The seismic track report sample (19 samples); sections AR (1 check: the
+  tracker and its scene, the self-test) and AS (3: tracks in the workspace
+  and the report, the API, the page and the lateral film, the permits
+  importer). The gate is 266.
 - The SAR panel on the Seismic page: a control panel (scene length, seconds
   per frame, band, beamformer, seed; Run the scene; Play, Pause, Stop, speed,
   a frame scrubber) and a screen that plays the second leg's arithmetic

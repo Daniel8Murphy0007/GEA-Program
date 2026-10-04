@@ -1,47 +1,70 @@
-v0.6.0 — THE SECOND LEG WHOLE: THE READER PROVEN ON REAL FILES, THE RESPONSE, THE ARRAY STEP, AND THE SEISMIC PAGE
+v0.7.0 — THE TIME DIMENSION: TRACKS FROM TWO ARRAYS, THE SAR PANEL, THE AUDIT / UPDATE TAB, THE PERMITS IMPORTER, AND THE KIT MADE THE COMMIT
 
-The reader proven on real files. On a corpus of about ninety miniSEED files
-from real stations and odd recorders (the obspy test data, fetched with pip,
-never redistributed), with libmseed as the reference: 76 files sample-exact,
-5 text files skipped by design, no mismatches, and SAC 12 of 12 against
-obspy. What that found: the Steim byte-order rules of little-endian data
-(8-bit differences in memory order), the meaning of the byte-order flag,
-the data-offset-zero case, text records, and the gain-ranged formats of the
-old networks - all read from the reference's own source. A record that
-cannot be read is written down and stepped over. tools/seismic_reader_check.py
-repeats the check anywhere.
+The time dimension. gea/seismic_track.py runs the array step window after
+window. A bearing history per array: the beam on every window, a bearing
+with the array's own tolerance where it was coherent, a gap where it was
+not, change points where the bearing moved beyond the tolerance against
+the running mean. A position history from two or more arrays crossed
+window by window: a position only where two arrays were coherent, the
+bearings crossed at 15 degrees or more and the point lies in front of every
+array; every other window a gap with its reason; every position with its
+1-sigma ellipse. The track: the principal line through the longest
+continuous segment, headed in the direction of time, with heading, length
+and rate - and positions that jump farther than their ellipses allow are
+segments listed apart, never joined (a coherent background crossing in a
+quiet hour is not the rig an hour later; the first run showed exactly that
+and the rule came from it). The verdict against ground truth - the
+lateral's surveyed points, or a permit's surface hole with its date,
+interpolated to each position's time - TRACKED, PARTIAL, NOT_TRACKED or
+INSUFFICIENT, with the hit fraction and the heading difference. The
+labelled scene is a bit advancing 3 km along a lateral on heading 80 past
+two arrays: TRACKED, heading within a degree, every position inside its
+ellipse. `gea seismic --action bearings | track | track-selftest`.
 
-Physical units. gea/seismic_response.py reads FDSN StationXML into its
-stages (poles and zeros, gains, FIR and IIR coefficients with their delay
-corrections), evaluates the response as evalresp does - proven on IRIS
-IU.ANMO.10.BHZ to 1e-5 in amplitude and 1e-6 degree in phase - checks the
-stages against the declared sensitivity, and removes the response with a
-water level and pre-filter to m/s, m or m/s^2; a known motion through the
-real response and back comes out with no error in the band. A file whose
-stages disagree with their own sensitivity, a polynomial stage, a channel
-the file does not cover: named and not applied; the record stays in counts,
-labelled. The IRIS StationXML and evalresp's numbers ship as reference data.
+Tracks on the dashboard. Two or more array stations and an optional truth
+CSV make a track in the workspace; its refresh writes every array's
+bearing history, the positions, the verdict and the new Seismic Track
+Report under reports/seismic/tracks/; the Tracks card on the Seismic page,
+the track view with the map (every position's ellipse drawn from its
+covariance, a slider through time), the bearings over time and the
+positions with their hits; a home tile; `gea workspace --action add-track |
+refresh-track | remove-track`; five routes.
 
-The array step. gea/seismic_array.py: Bartlett and Capon beamforming over a
-slowness grid, refined around the maximum; the array response function's
-half-power width beside every bearing and its aliasing lobes named;
-coherence judged per frequency bin at the found slowness; the weighted
-crossing of arrays' bearings with its ellipse; lag location with the
-velocity named as an input; the array detectability test. On the labelled
-scene a 1.2 km nine-sensor array points at rigs from 6 to 45 km within 0.3
-degrees against a 7-degree tolerance. Nothing is claimed from one array but
-a direction.
+The SAR panel. On the Seismic page: a control panel and a screen that plays
+the leg's arithmetic forward in time on a labelled synthetic scene - the
+trace, the spectrogram column arriving, the beam power map swinging onto
+the working rig, the map with the bearing and the tolerance wedge, the
+tally per rig, and at the close the array detectability test's verdict;
+the second scene is the lateral, with both arrays' bearings, the crossing
+and the track drawn as it is earned and the tracker's verdict at the end.
+Every frame is stamped SIMULATION_SELF_TEST and says "not a measurement of
+any ground"; a real record never goes through the film.
 
-The Seismic page. A station or an array is a thing in the workspace beside
-the wells: added by upload or `gea workspace --action add-seismic` with its
-record(s), position, band, rigs list and station file, copied in verbatim
-and hashed; refreshed as a job that runs the whole leg and writes the new
-Seismic Station Report and the machine JSONs under reports/seismic/; read
-on its own page with the spectrum drawn, the lines, the detectability
-verdicts and the array bearing, the limits printed under each card. Home
-counts the stations and the listed rigs heard. The sample report joins
-docs/report_samples/ and the kit.
+The Audit / Update tab. The whole audit log with filters and a CSV; the
+program against PyPI with `gea update` as a job (pip --upgrade from the
+same Python, then restart - the program never restarts itself; an offline
+kit is updated by installing the newer kit); every report against its
+source with `workspace --action refresh-all` as a job.
 
-Acceptance sections AN (4), AO (4), AP (4); AL and AM extended. Gate
-258/258 in the cloud and on the development machine; standalone check 0
-findings - numpy is still the only dependency.
+The permits importer. `gea permits` turns a permit export into the rigs
+CSV the tests read: columns found by name with a mapping file to override,
+the approval date used only where the spud date is empty and said so in
+the row, end dates assumed and counted, rows without a position or a date,
+duplicates and rigs outside a radius dropped and counted, all in an import
+note. `add-seismic --permits` and the page's add form take the export.
+
+The kit made the commit. Three v0.6.0 kit runs installed and gated PyPI's
+wheel of the same version, because pip took the index's copy over the one
+just built from the checkout. The builder now downloads only the built
+wheel's own requirements, asserts the package wheel it ships is the one it
+built, and records the commit; the main-push path creates the release when
+the tag exists. Also: the installed kit's gate no longer asks for a
+checkout-only file; a missing input file at the prompt is one line, not a
+traceback; the tester guide carries no gate count to go stale; doctor finds
+a per-user launcher.
+
+Gate 266 (sections AQ, AR, AS new), green from the checkout, from the
+installed wheel and on the development machine; 19 report samples
+re-rendered at this build; sixteen help pages. Nothing in this release is a
+measurement of any ground: the tracker's numbers are proven on a labelled
+scene, and the first real record is still to come.

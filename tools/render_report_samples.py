@@ -20,8 +20,8 @@ The real well is Volve 15/9-F-12 and F-14 (the catalogue excerpt). The alarm,
 resilience, monitored-drift and SLA samples need a historian with faults and
 months in it, and no public catalogue entry has one: those are rendered from
 `gea telemetry`, the program's own synthetic field generator, and the reports
-say SYNTHETIC in their well name; the seismic station report is rendered from
-the labelled synthetic scene of the second leg. Nothing here is a measurement
+say SYNTHETIC in their well name; the seismic station and track reports are
+rendered from the labelled synthetic scenes of the second leg. Nothing here is a measurement
 of any site.
 """
 
@@ -59,6 +59,8 @@ SAMPLES = [
     ('sat_protocol.html', 'sat/sat_protocol.html', 'gea fat-sat --kind SAT --name "Report samples" --out sat'),
     ('seismic_station_report_SYNTHETIC.html', 'seis_site/reports/seismic/SYNTHETIC-node/seismic_station_report.html',
      'gea workspace --path seis_site --action add-seismic --name "SYNTHETIC node" --files scene.mseed --lat 31 --lon -102 --sources rigs.csv --band 1 20; gea workspace --path seis_site --action refresh-seismic (the record and the rigs are the labelled synthetic scene of gea seismic --action selftest)'),
+    ('seismic_track_report_SYNTHETIC.html', 'seis_site/reports/seismic/tracks/SYNTHETIC-lateral/seismic_track_report.html',
+     'gea workspace --path seis_site --action add-seismic --name "SYNTHETIC array 1" --files A1S00.mseed ... --sensors sensors1.csv --band 1 20 (and array 2); gea workspace --path seis_site --action add-track --name "SYNTHETIC lateral" --stations SYNTHETIC-array-1 SYNTHETIC-array-2 --truth truth.csv; gea workspace --path seis_site --action refresh-track (the records and the truth are the labelled lateral scene of gea seismic --action track-selftest)'),
 ]
 
 
@@ -102,6 +104,20 @@ def main(argv=None) -> int:
         run(g + ['workspace', '--path', 'seis_site', '--action', 'add-seismic', '--name', 'SYNTHETIC node', '--files', 'scene.mseed', '--lat', '31', '--lon', '-102',
                  '--sources', 'rigs.csv', '--band', '1', '20'], work)
         run(g + ['workspace', '--path', 'seis_site', '--action', 'refresh-seismic'], work)
+        # the track: the labelled lateral scene (two arrays, a bit advancing) through the workspace
+        run([PY, '-c', 'import csv\n'
+                       'from gea import seismic as S, seismic_track as T\n'
+                       'traces, sensors, truth, meta = T.synthetic_lateral_scene(hours=3.0)\n'
+                       'for i, (trs, sens) in enumerate(zip(traces, sensors)):\n'
+                       '    [S.write_mseed([t], t.station + ".mseed", "STEIM2") for t in trs]\n'
+                       '    with open("sensors%d.csv" % (i + 1), "w", newline="") as f:\n'
+                       '        w = csv.writer(f); w.writerow(["sensor_id", "lat", "lon"]); [w.writerow([x.sensor_id, x.lat, x.lon]) for x in sens]\n'
+                       'T.write_truth_csv(truth, "truth.csv")'], work)
+        for i in (1, 2):
+            run(g + ['workspace', '--path', 'seis_site', '--action', 'add-seismic', '--name', f'SYNTHETIC array {i}', '--files'] + [f'A{i}S{k:02d}.mseed' for k in range(9)]
+                + ['--lat', '31', '--lon', '-102', '--sensors', f'sensors{i}.csv', '--band', '1', '20'], work)
+        run(g + ['workspace', '--path', 'seis_site', '--action', 'add-track', '--name', 'SYNTHETIC lateral', '--stations', 'SYNTHETIC-array-1', 'SYNTHETIC-array-2', '--truth', 'truth.csv'], work)
+        run(g + ['workspace', '--path', 'seis_site', '--action', 'refresh-track'], work)
         if out.exists():
             for p in out.glob('*.html'):
                 p.unlink()

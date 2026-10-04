@@ -338,11 +338,15 @@ class Workspace:
 
     def add_seismic_station(self, display: str, files: List[str], lat: Optional[float] = None, lon: Optional[float] = None, actor: str = 'system',
                             stationxml: Optional[str] = None, sensors_csv: Optional[str] = None, sources_csv: Optional[str] = None,
-                            band: Optional[List[float]] = None, filenames: Optional[List[str]] = None, note: str = '') -> dict:
+                            band: Optional[List[float]] = None, filenames: Optional[List[str]] = None, note: str = '',
+                            permits_csv: Optional[str] = None) -> dict:
         """A seismic station (one record) or an array (one record per sensor plus a sensors CSV), copied in verbatim
-        and hashed, with the station file, the rigs list and the band the leg will use."""
+        and hashed, with the station file, the rigs list and the band the leg will use. A permit export may stand in
+        for the rigs list: it is copied in as given and converted beside it, with the import note."""
         if not files:
             raise WorkspaceError('a seismic station needs at least one record file')
+        if permits_csv and sources_csv:
+            raise WorkspaceError('give the rigs list as --sources or as --permits, not both')
         for f in files:
             if not os.path.isfile(f):
                 raise WorkspaceError(f'file not found: {f}')
@@ -371,13 +375,31 @@ class Workspace:
                 shutil.copyfile(src, os.path.join(d, name))
                 extras[key] = name
                 hashes[name] = sha256_file(os.path.join(d, name))
+        permit_note = None
+        if permits_csv:
+            from . import permits as PM
+            if not os.path.isfile(permits_csv):
+                raise WorkspaceError(f'permits file not found: {permits_csv}')
+            raw = os.path.basename(permits_csv)
+            shutil.copyfile(permits_csv, os.path.join(d, raw))
+            hashes[raw] = sha256_file(os.path.join(d, raw))
+            try:
+                permit_note = PM.import_permits(os.path.join(d, raw), os.path.join(d, 'rigs_from_permits.csv'), within=((lat, lon, 160.0) if lat is not None and lon is not None else None))
+            except ValueError as e:
+                raise WorkspaceError(f'permits: {e}')
+            if permit_note['rows_out'] == 0:
+                raise WorkspaceError(f"permits: no usable row ({permit_note['dropped']})")
+            extras['sources'] = 'rigs_from_permits.csv'
+            extras['permits'] = raw
+            hashes['rigs_from_permits.csv'] = sha256_file(os.path.join(d, 'rigs_from_permits.csv'))
         if sensors_csv:
             from .seismic_array import load_sensors_csv
             n_sens = len(load_sensors_csv(os.path.join(d, extras['sensors'])))
             if n_sens != len(names):
                 raise WorkspaceError(f'the sensors CSV lists {n_sens} sensors but {len(names)} records were given (one per sensor, in order)')
         station = {'id': sid, 'display': display, 'kind': 'array' if sensors_csv else 'single', 'files': names, 'lat': lat, 'lon': lon,
-                   'stationxml': extras.get('stationxml'), 'sensors': extras.get('sensors'), 'sources': extras.get('sources'),
+                   'stationxml': extras.get('stationxml'), 'sensors': extras.get('sensors'), 'sources': extras.get('sources'), 'permits': extras.get('permits'),
+                   'permits_import': ({k: permit_note[k] for k in ('rows_in', 'rows_out', 'dropped', 'columns_used', 'end_assumed_rows', 'default_days', 'within')} if permit_note else None),
                    'band_hz': list(band) if band else [1.0, 50.0], 'note': note, 'sha256': hashes,
                    'added_utc': utc_now_iso(), 'added_by': actor}
         with open(os.path.join(self.path, 'seismic', sid, 'station.json'), 'w', encoding='utf-8') as f:
@@ -494,21 +516,174 @@ class Workspace:
                    inputs=[os.path.join(src, n) for n in st['files']])
         return summary
 
+    # -- tracks: two or more array stations crossed over time -------------------------------
+    def tracks(self) -> List[dict]:
+        out = []
+        for tid in self.manifest.get('tracks', []):
+            p = os.path.join(self.path, 'tracks', tid, 'track.json')
+            if os.path.isfile(p):
+                with open(p, encoding='utf-8') as f:
+                    out.append(json.load(f))
+        return out
+
+    def track(self, track_id: str) -> dict:
+        p = os.path.join(self.path, 'tracks', track_id, 'track.json')
+        if track_id not in self.manifest.get('tracks', []) or not os.path.isfile(p):
+            raise WorkspaceError(f'no such track: {track_id}')
+        with open(p, encoding='utf-8') as f:
+            return json.load(f)
+
+    def add_track(self, display: str, station_ids: List[str], actor: str = 'system', truth_csv: Optional[str] = None, band: Optional[List[float]] = None,
+                  win_s: float = 600.0, note: str = '', truth_filename: Optional[str] = None) -> dict:
+        """A track: two or more array stations of this workspace whose bearings are crossed window by window, with
+        an optional ground-truth CSV (point_id, lat, lon, utc) - the lateral's surveyed points, or a permit's
+        surface hole with its date - copied in and hashed."""
+        if len(station_ids) < 2:
+            raise WorkspaceError('a track needs two or more array stations')
+        from .seismic_array import load_sensors_csv
+        for sid in station_ids:
+            st = self.seismic_station(sid)
+            if st.get('kind') != 'array' or not st.get('sensors'):
+                raise WorkspaceError(f'{sid} is not an array station (a track crosses arrays)')
+        tid = slug(display)
+        if tid in self.manifest.setdefault('tracks', []):
+            raise WorkspaceError(f'track already exists: {tid}')
+        d = os.path.join(self.path, 'tracks', tid)
+        os.makedirs(d, exist_ok=True)
+        hashes = {}
+        truth_name = None
+        if truth_csv:
+            if not os.path.isfile(truth_csv):
+                raise WorkspaceError(f'truth file not found: {truth_csv}')
+            from .seismic_track import load_truth_csv
+            try:
+                n_truth = len(load_truth_csv(truth_csv))
+            except (KeyError, ValueError) as e:
+                raise WorkspaceError(f'the truth CSV needs point_id, lat, lon, utc columns: {e}')
+            if n_truth < 1:
+                raise WorkspaceError('the truth CSV holds no points')
+            truth_name = os.path.basename(truth_filename or truth_csv)
+            shutil.copyfile(truth_csv, os.path.join(d, truth_name))
+            hashes[truth_name] = sha256_file(os.path.join(d, truth_name))
+        track = {'id': tid, 'display': display, 'stations': list(station_ids), 'truth': truth_name, 'band_hz': list(band) if band else [1.0, 20.0],
+                 'win_s': win_s, 'note': note, 'sha256': hashes, 'added_utc': utc_now_iso(), 'added_by': actor}
+        with open(os.path.join(d, 'track.json'), 'w', encoding='utf-8') as f:
+            json.dump(track, f, indent=1)
+        self.manifest['tracks'].append(tid)
+        self._save()
+        self.audit(actor, 'track.add', {'id': tid, 'stations': station_ids, 'truth': truth_name, 'display': display},
+                   inputs=[os.path.join(d, truth_name)] if truth_name else None)
+        return track
+
+    def remove_track(self, track_id: str, actor: str = 'system') -> None:
+        if track_id not in self.manifest.get('tracks', []):
+            raise WorkspaceError(f'no such track: {track_id}')
+        self.manifest['tracks'].remove(track_id)
+        self._save()
+        src = os.path.join(self.path, 'tracks', track_id)
+        if os.path.isdir(src):
+            os.rename(src, src + '.removed-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+        self.audit(actor, 'track.remove', {'id': track_id})
+
+    def track_reports_dir(self, track_id: str) -> str:
+        return self.dir('reports', 'seismic', 'tracks', track_id)
+
+    def refresh_track(self, track_id: str, actor: str = 'system') -> dict:
+        """Bearing histories for every array of the track (the response removed where a station file is there),
+        the position history, the verdict against the truth when one was given, the Seismic Track Report."""
+        from . import __version__
+        from . import seismic as S
+        from . import seismic_track as T
+        from . import seismic_array as AR
+        from .client_reports import seismic_track_report, write as _write
+        tk = self.track(track_id)
+        out = self.track_reports_dir(track_id)
+        band = tuple(tk.get('band_hz') or (1.0, 20.0))
+        hists = []
+        inputs = []
+        for sid in tk['stations']:
+            st = self.seismic_station(sid)
+            src = os.path.join(self.path, 'seismic', sid, 'source')
+            traces = []
+            for name in st['files']:
+                trs = S.read_any(os.path.join(src, name))
+                if not trs:
+                    raise WorkspaceError(f'{name} holds no samples')
+                traces.append(trs[0])
+                inputs.append(os.path.join(src, name))
+            if st.get('stationxml'):
+                from . import seismic_response as R
+                resp = R.read_stationxml(os.path.join(src, st['stationxml']))
+                done = []
+                for tr in traces:
+                    try:
+                        chan = R.select(resp, tr)
+                        nyq = 0.5 * tr.sample_rate
+                        pre = (max(band[0] * 0.5, 0.01), band[0], min(band[1], 0.8 * nyq), min(band[1] * 1.1, 0.9 * nyq))
+                        done.append(R.remove_response(tr, chan, 'VEL', 60.0, pre)[0])
+                    except (LookupError, ValueError):
+                        done.append(tr)
+                traces = done
+            sensors = AR.load_sensors_csv(os.path.join(src, st['sensors']))
+            h = T.bearing_history(traces, sensors, band, float(tk.get('win_s') or 600.0))
+            h['array']['name'] = st['display']
+            h['array']['station_id'] = sid
+            hists.append(h)
+            with open(os.path.join(out, f'bearings_{sid}.json'), 'w', encoding='utf-8') as fh:
+                json.dump(h, fh, indent=1)
+        pos = T.position_history(hists)
+        with open(os.path.join(out, 'positions.json'), 'w', encoding='utf-8') as fh:
+            json.dump(pos, fh, indent=1)
+        ver = None
+        truth = []
+        if tk.get('truth'):
+            truth = T.load_truth_csv(os.path.join(self.path, 'tracks', track_id, tk['truth']))
+            ver = T.track_verdict(pos, truth)
+            with open(os.path.join(out, 'verdict.json'), 'w', encoding='utf-8') as fh:
+                json.dump(ver, fh, indent=1)
+        doc = seismic_track_report(tk, hists, pos, ver, program_version=__version__)
+        paths = _write(doc, out, basename='seismic_track_report')
+        tr = pos.get('track') or {}
+        summary = {'track_id': track_id, 'report_id': doc.report_id, 'generated_utc': doc.data['evaluated_at_utc'], 'arrays': len(hists),
+                   'windows': pos['n_windows'], 'positions': pos['n_positions'], 'segments': tr.get('n_segments'), 'heading_deg': tr.get('heading_deg'),
+                   'length_km': tr.get('length_km'), 'ellipse_major_median_km': (tr.get('ellipse_major_km') or {}).get('median'),
+                   'verdict': ver['verdict'] if ver else None, 'hit_fraction': ver['hit_fraction'] if ver else None, 'n_truth': len(truth), 'report': paths['html']}
+        with open(os.path.join(out, 'summary.json'), 'w', encoding='utf-8') as fh:
+            json.dump(summary, fh, indent=1)
+        self.audit(actor, 'track.refresh', {'id': track_id, 'positions': summary['positions'], 'verdict': summary['verdict'], 'heading_deg': summary['heading_deg']}, inputs=inputs)
+        return summary
+
+    def track_results(self, track_id: str) -> dict:
+        out = os.path.join(self.path, 'reports', 'seismic', 'tracks', track_id)
+        res = {}
+        for name in ('summary', 'positions', 'verdict'):
+            p = os.path.join(out, name + '.json')
+            if os.path.isfile(p):
+                with open(p, encoding='utf-8') as fh:
+                    res[name] = json.load(fh)
+        res['bearings'] = {}
+        if os.path.isdir(out):
+            for n in sorted(os.listdir(out)):
+                if n.startswith('bearings_') and n.endswith('.json'):
+                    with open(os.path.join(out, n), encoding='utf-8') as fh:
+                        res['bearings'][n[len('bearings_'):-5]] = json.load(fh)
+        return res
+
     SAR_ID = 'SIMULATION'
 
-    def sar_film(self, actor: str = 'system', seed: int = 5, hours: float = 8.0, step_s: float = 600.0, band=(1.0, 20.0), method: str = 'bartlett') -> dict:
+    def sar_film(self, actor: str = 'system', seed: int = 5, hours: float = 8.0, step_s: float = 600.0, band=(1.0, 20.0), method: str = 'bartlett', scene: str = 'rigs') -> dict:
         """The SAR panel's film: the labelled synthetic scene played forward in time, written under
         reports/seismic/SIMULATION/ so the page's /reports/ route serves it. Never a real record."""
         from . import seismic_film as FM
-        film = FM.sar_film(seed=seed, hours=hours, step_s=step_s, band=tuple(band), method=method)
+        film = FM.sar_film(seed=seed, hours=hours, step_s=step_s, band=tuple(band), method=method, scene=scene)
         out = self.seismic_reports_dir(self.SAR_ID)
         path = FM.write_film(film, os.path.join(out, 'sar_film.json'))
         summary = FM.film_summary(film)
         summary.update({'path': path, 'generated_utc': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), 'seed': seed,
-                        'params': {'seed': seed, 'hours': hours, 'step_s': step_s, 'band_hz': list(band), 'method': method}})
+                        'params': {'seed': seed, 'hours': hours, 'step_s': step_s, 'band_hz': list(band), 'method': method, 'scene': scene}})
         with open(os.path.join(out, 'sar_film.summary.json'), 'w', encoding='utf-8') as fh:
             json.dump(summary, fh, indent=1)
-        self.audit(actor, 'seismic.sar_film', {'label': summary['label'], 'frames': summary['frames'], 'hours': hours, 'method': method, 'seed': seed})
+        self.audit(actor, 'seismic.sar_film', {'label': summary['label'], 'frames': summary['frames'], 'hours': hours, 'method': method, 'seed': seed, 'scene': scene})
         return summary
 
     def sar_film_summary(self) -> Optional[dict]:
@@ -535,8 +710,15 @@ class Workspace:
                 n_seis += 1
             except Exception as e:
                 errors.append(f"seismic {st['id']}: {e}")
-        self.audit(actor, 'workspace.refresh_all', {'wells': n_wells, 'seismic': n_seis, 'errors': len(errors)})
-        return {'wells': n_wells, 'seismic': n_seis, 'errors': errors}
+        n_tracks = 0
+        for tk in self.tracks():
+            try:
+                self.refresh_track(tk['id'], actor=actor)
+                n_tracks += 1
+            except Exception as e:
+                errors.append(f"track {tk['id']}: {e}")
+        self.audit(actor, 'workspace.refresh_all', {'wells': n_wells, 'seismic': n_seis, 'tracks': n_tracks, 'errors': len(errors)})
+        return {'wells': n_wells, 'seismic': n_seis, 'tracks': n_tracks, 'errors': errors}
 
     def report_ages(self) -> List[dict]:
         """Each report family's generated time against its source's modification time - the staleness table."""
@@ -558,6 +740,11 @@ class Workspace:
             gen_iso = sm.get('generated_utc') if sm else None
             rows.append({'kind': 'seismic', 'id': st['id'], 'generated_utc': gen_iso, 'source_utc': src_iso,
                          'stale': bool(gen_iso is None or (src_iso and src_iso > gen_iso))})
+        for tk in self.tracks():
+            sm = self.track_results(tk['id']).get('summary')
+            gen_iso = sm.get('generated_utc') if sm else None
+            rows.append({'kind': 'track', 'id': tk['id'], 'generated_utc': gen_iso, 'source_utc': tk.get('added_utc'),
+                         'stale': bool(gen_iso is None or (tk.get('added_utc') and tk['added_utc'] > gen_iso))})
         return rows
 
     def seismic_results(self, station_id: str) -> dict:
@@ -609,5 +796,5 @@ class Workspace:
         return {'name': self.manifest['name'], 'path': self.path, 'created_utc': self.manifest['created_utc'],
                 'program_version': self.manifest['program_version'], 'schema': self.manifest['schema'],
                 'wells': [{'id': w['id'], 'display': w['display'], 'kind': w['kind']} for w in wells],
-                'n_wells': len(wells), 'n_seismic': len(self.manifest.get('seismic', [])), 'audit_entries': len(self.audit_log()),
+                'n_wells': len(wells), 'n_seismic': len(self.manifest.get('seismic', [])), 'n_tracks': len(self.manifest.get('tracks', [])), 'audit_entries': len(self.audit_log()),
                 'dashboard': os.path.join(self.reports_dir, 'index.html') if os.path.isfile(os.path.join(self.reports_dir, 'index.html')) else None}
