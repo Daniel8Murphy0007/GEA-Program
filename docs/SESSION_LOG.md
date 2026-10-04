@@ -482,3 +482,40 @@ summary; `docs/HISTORY.md` the record by layer.
   it). Gate in the cloud and on the development machine; guard; clone
   synced. The owner runs `.\ship.ps1`; the tag starts CI, the PyPI release
   and the kit build, whose Windows job attaches its kit to the release.
+
+## 2026-10-04 (later again) - v0.6.0 shipped; both kits failed their gate
+
+- v0.6.0 shipped (commit 94fcffb = tag v0.6.0 = origin/main; tags v0.1.0 to
+  v0.6.0; SHIP_LOG line). PyPI took the release. The kit workflow's run #5
+  failed on both platforms at about four minutes: the kit built, installed
+  offline with every extra, and its own `verify` reported one failure,
+  AN4 - the check asked for `tools/seismic_reader_check.py` beside the
+  package, which an installed kit does not have. Twelve hours of a leg and
+  the kit fell on one `exists()` that the cloud gate (run in the checkout)
+  could never see.
+- The fix: AN4's tool check is asked only in a checkout (`pyproject.toml`
+  beside the package), like AJ1 and AM1. The lesson, now a rule: a check
+  that reads anything outside the package must guard on the checkout, and
+  the gate is run once from an installed layout before a ship - the package
+  copied into a bare venv's site-packages and `gea accept` run from another
+  directory. Done here before the clone was touched.
+- Because both tag jobs failed before "Attach to the release", no v0.6.0
+  release exists on GitHub, and the main-push path of `attach-kit.sh`
+  refused to create one. It now creates the release when the tag is in the
+  repository, and the workflow runs on pushes touching the attach script or
+  the gate module. The owner commits and pushes; that run builds both kits,
+  gates them (258), creates the v0.6.0 release and attaches both.
+- The owner's walk through the README quick tour on Python 3.14 (screens):
+  `gea accept` 258 OK from the checkout; `pip install -e .` failed with
+  WinError 32 because a running `gea serve` held `gea.exe` (the same
+  service that makes `gea serve` report port 8765 in use and `doctor` warn
+  that pip's record says 0.4.0 while 0.6.0 runs) - stop that window, then
+  `pip install -e .`. Two program defects seen and fixed here: missing
+  input files raised tracebacks (now one line, exit 2); the tester guide
+  carried a stale "189-check" count (removed; AJ1 refuses a count).
+- Also seen: `doctor` missed a launcher in the per-user Scripts folder
+  (fixed); and the owner's `git add` was blocked by a `.git/index.lock` that
+  my own `git status` from the device shell had left behind (that shell
+  cannot delete files) - moved to `_to_delete/`. Rule: no git commands from
+  the device shell against the clone; read `.git` files directly instead.
+

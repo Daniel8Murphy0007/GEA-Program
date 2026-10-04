@@ -134,18 +134,24 @@ def main(argv=None) -> int:
     if not argv or argv[0] in ('help', '-h', '--help'):
         return cmd_help(argv[1:] if argv else [])
     cmd, rest = argv[0], argv[1:]
-    if cmd == 'quickstart':
-        return cmd_quickstart(rest)
-    if cmd == 'survey':
-        return cmd_survey(rest)
-    if cmd == 'guide':
-        return cmd_guide(rest)
-    if cmd == 'docs':
-        return cmd_docs(rest)
-    if cmd == 'gui':
-        return cmd_gui(rest)
-    from .__main__ import main as sub
-    return sub(argv)
+    try:
+        if cmd == 'quickstart':
+            return cmd_quickstart(rest)
+        if cmd == 'survey':
+            return cmd_survey(rest)
+        if cmd == 'guide':
+            return cmd_guide(rest)
+        if cmd == 'docs':
+            return cmd_docs(rest)
+        if cmd == 'gui':
+            return cmd_gui(rest)
+        from .__main__ import main as sub
+        return sub(argv)
+    except FileNotFoundError as e:
+        # an input file that is not there is the commonest mistake at a prompt; it earns one line, not a traceback
+        name = e.filename if getattr(e, 'filename', None) else str(e)
+        print(f"gea {cmd}: no such file: {name}", file=sys.stderr)
+        return 2
 
 
 if __name__ == '__main__':

@@ -100,12 +100,20 @@ def check_environment() -> List[dict]:
             f.append(_finding('block', 'numpy is missing (the only required dependency)', 'python -m pip install numpy'))
         else:
             f.append(_finding('ok' if present else 'info', f'{mod}: {"installed" if present else "not installed"}' + ('' if present or not extra else f' (optional: pip install "gea-program[{extra}]")')))
-    scripts = sysconfig.get_path('scripts') or ''
-    gea_cmd = os.path.join(scripts, 'gea.exe' if os.name == 'nt' else 'gea')
-    if scripts and not os.path.isfile(gea_cmd):
-        f.append(_finding('info', f'no `gea` launcher in {scripts}; use `python -m gea ...`'))
-    elif scripts and scripts not in os.environ.get('PATH', '').split(os.pathsep):
-        f.append(_finding('warn', f'the `gea` launcher is in {scripts}, which is not on PATH', 'use `python -m gea ...`, or add that folder to PATH'))
+    # the launcher may be in the interpreter's Scripts or, after a per-user install, in the user Scripts folder
+    exe = 'gea.exe' if os.name == 'nt' else 'gea'
+    candidates = [sysconfig.get_path('scripts') or '']
+    try:
+        candidates.append(sysconfig.get_path('scripts', 'nt_user' if os.name == 'nt' else 'posix_user') or '')
+    except KeyError:
+        pass
+    candidates = [c for c in candidates if c]
+    found = [c for c in candidates if os.path.isfile(os.path.join(c, exe))]
+    on_path = os.environ.get('PATH', '').split(os.pathsep)
+    if candidates and not found:
+        f.append(_finding('info', f'no `gea` launcher in {" or ".join(candidates)}; use `python -m gea ...`'))
+    elif found and not any(c in on_path for c in found):
+        f.append(_finding('warn', f'the `gea` launcher is in {found[0]}, which is not on PATH', 'use `python -m gea ...`, or add that folder to PATH'))
     newest = pypi_newest()
 
     def _vt(v):

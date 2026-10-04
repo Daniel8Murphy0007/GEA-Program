@@ -4,6 +4,17 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## Unreleased
+
+- **The installed kit's gate.** Both v0.6.0 kit jobs built and installed the
+  kit and then failed its own `verify` at 257/258: check AN4 asked for
+  `tools/seismic_reader_check.py` beside the package, true in a checkout and
+  false in site-packages. The check now guards on the checkout like AJ1 and
+  AM1, and the gate was run from the package installed in a bare virtual
+  environment before the fix left the cloud. `attach-kit.sh` creates the
+  release on a push to main when the tag exists and a failed tag run left
+  none; the workflow runs on pushes touching the attach script or the gate.
+
 ## v0.6.0 - 2026-10-04 - the second leg whole - the reader proven on real files, the response, the array step, and the Seismic page
 
 - **The leg on the dashboard.** A seismic station or array is a thing in the

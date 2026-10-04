@@ -5,6 +5,35 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [Unreleased]
+
+### Fixed
+- The installed kit's gate. Check AN4 asked for `tools/seismic_reader_check.py`
+  beside the package, which is true in a checkout and false in every
+  installed kit (site-packages has no `tools/`), so both v0.6.0 kit jobs
+  built, installed and then failed their own `verify` at 257/258. The check
+  is now asked only where a checkout is (where `pyproject.toml` sits beside
+  the package), the way AJ1 and AM1 already read their checkout-only files.
+  Proven by running `gea accept` from the package installed in a bare
+  virtual environment with nothing beside it.
+- The kit workflow. `attach-kit.sh` on a push to main now creates the
+  release when the tag exists in the repository but a failed tag run left no
+  release (v0.6.0's case), using SHIP_MESSAGE.txt as the notes when its
+  first line is that tag; the workflow also runs on pushes that touch the
+  attach script or `gea/acceptance_tests.py`, since the gate is what the
+  installed kit runs.
+- A missing input file at the prompt (`gea survey mywell.las`, `gea
+  transient --file historian.csv`, `gea seismic --file tx.mseed` with no
+  such file) printed a Python traceback. The console entry point now
+  answers `gea <command>: no such file: <name>` and exits 2.
+- The tester guide said the Verification page runs "the same 189-check
+  gate"; the gate is 258 and the number had gone stale twice. The guide
+  names no count now, and AJ1 refuses one.
+- `gea doctor` said "no `gea` launcher in C:\Python314\Scripts" on a machine
+  where `gea.exe` was in the per-user Scripts folder (a `pip install --user`
+  or a "Defaulting to user installation"). It looks in both now and names
+  whichever holds the launcher.
+
 ## [v0.6.0] - 2026-10-04 - the second leg whole - the reader proven on real files, the response, the array step, and the Seismic page
 
 ### Added

@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -2606,9 +2607,10 @@ def section_aj_help(tmp: str) -> None:
     r_guide = _sp.run([sys.executable, "-m", "gea.cli", "guide"], capture_output=True)
     r_guide.stdout = r_guide.stdout.decode("utf-8", "replace")
     pyproj = (pkg.parent / "pyproject.toml").read_text(encoding="utf-8") if (pkg.parent / "pyproject.toml").exists() else '"help/*"'
-    ok(pkg_guide.exists() and same and r_guide.returncode == 0 and "HOW TO TEST GEA" in r_guide.stdout and '"help/*"' in pyproj,
+    stale_count = re.search(r"\b\d+-check\b", pkg_guide.read_text(encoding="utf-8")) if pkg_guide.exists() else None
+    ok(pkg_guide.exists() and same and r_guide.returncode == 0 and "HOW TO TEST GEA" in r_guide.stdout and '"help/*"' in pyproj and stale_count is None,
        "AJ1 the tester guide ships inside the package (gea/help/TESTER_GUIDE.md, declared as package data) and is byte-identical to docs/TESTER_GUIDE.md; "
-       "`gea guide` prints it from the installed package, not from a checkout")
+       "`gea guide` prints it from the installed package, not from a checkout; the guide carries no hard-coded gate count to go stale")
     bad = {t["topic"]: H.check(t["topic"]) for t in H.topics()}
     bad = {k: v for k, v in bad.items() if v}
     page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
@@ -3036,10 +3038,11 @@ def section_an_response(tmp: str) -> None:
        and len(vel) == 1 and vel[0].encoding == "FLOAT64" and abs(float(np.std(vel[0].data[m])) - float(np.std(v[m]))) / float(np.std(v[m])) < 1e-3
        and r3.returncode == 0 and "the record is now in m/s" in e3 and ("0.996 Hz" in o3 or "1.006 Hz" in o3)
        and r4.returncode == 0 and "(m/s)^2/Hz" in csv_head
-       and (pkg.parent / "tools" / "seismic_reader_check.py").exists(),
+       # the reader-check tool is part of the checkout, not the installed package: asked for only where a checkout is
+       and ((not (pkg.parent / "pyproject.toml").exists()) or (pkg.parent / "tools" / "seismic_reader_check.py").exists()),
        "AN4 `gea seismic --action response` lists the station file's channels with sensor, sensitivity and stages; `--action remove-response` writes a FLOAT64 "
        "miniSEED in m/s with a units sidecar carrying the pre-filter, water level and the sensitivity check; `--action spectrum --stationxml` removes the "
-       "response first and labels the PSD in (m/s)^2/Hz; tools/seismic_reader_check.py (the reader against libmseed on a corpus of real-station files) is in the repository")
+       "response first and labels the PSD in (m/s)^2/Hz; in a checkout, tools/seismic_reader_check.py (the reader against libmseed on a corpus of real-station files) is present")
 
 
 def section_ao_array(tmp: str) -> None:

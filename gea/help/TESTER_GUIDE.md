@@ -92,7 +92,7 @@ characters). After that: **Wells** -> "Add a well from a file" -> choose your
 historian CSV or LAS file -> "Add file well". Then **Home** -> "Refresh every
 report". Every tile and every row opens the report behind it; **Jobs** shows
 every run with its log if something fails; **Verification** -> "Run the
-acceptance suite" runs the same 189-check gate from the page. Close the
+acceptance suite" runs the same full gate (every check `gea accept` runs) from the page. Close the
 command window to stop the service; your folder keeps everything.
 
 To see live data without a rig: open a second command window and type

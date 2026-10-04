@@ -1,10 +1,11 @@
 name: Build the standalone install kit
 
-# Runs on every tag (the release's kits), on every push to main that touches the kit builder or this
-# file (so a kit fix is proven at once), and by hand. The attach step decides for itself: a tag run
-# attaches to that tag's release; a main run attaches only when the release of the version in
-# pyproject.toml has no kit for that platform yet (the v0.5.0 Windows kit was missing after two failed
-# runs); a manual run with release_tag attaches to that tag, replacing what is there.
+# Runs on every tag (the release's kits), on every push to main that touches the kit builder, the attach
+# script, the acceptance gate or this file (so a kit fix is proven at once), and by hand. The attach step
+# decides for itself: a tag run attaches to that tag's release; a main run attaches only when the release of
+# the version in pyproject.toml has no kit for that platform yet, creating that release if the tag exists and
+# a failed tag run left none (v0.5.0's Windows kit and both v0.6.0 kits were missing after failed tag runs);
+# a manual run with release_tag attaches to that tag, replacing what is there.
 on:
   push:
     tags:
@@ -14,6 +15,8 @@ on:
     paths:
       - "tools/build_installer.py"
       - ".github/workflows/build-installer.yml"
+      - ".github/workflows/attach-kit.sh"
+      - "gea/acceptance_tests.py"   # the gate the installed kit runs: a gate change must be proven in a kit
       - "pyproject.toml"
   workflow_dispatch:
     inputs:
