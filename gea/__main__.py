@@ -1252,7 +1252,9 @@ def main(argv=None) -> int:
             print(f"wits0-sim: pushed {n} frames to {a.connect}")
             return 0
         th, port, stop = _w0.simulate_server(port=a.port, frames=a.frames, interval_s=a.interval, seed=a.seed, verbose=True)
-        print(f"wits0-sim: listening on 127.0.0.1:{port}; it waits (silently is normal) until a patch connects, then sends {a.frames} frames {a.interval:g} s apart. Ctrl+C stops it.", flush=True)
+        print(f"wits0-sim: listening on 127.0.0.1:{port} - this window is the SENDER and stays here; nothing happens until a reader connects.\n"
+              f"  Open a SECOND window and run:  gea wits0 --config wits0.json --seconds 60 --out floor   (with wits0.json: transport tcp, host 127.0.0.1, port {port})\n"
+              f"  or on the dashboard: Patch panel -> Add a patch -> wits0, tcp, 127.0.0.1, {port}. Then it sends {a.frames} frames {a.interval:g} s apart. Ctrl+C stops it.", flush=True)
         try:
             while th.is_alive():
                 th.join(0.5)
@@ -1293,7 +1295,11 @@ def main(argv=None) -> int:
                 recs = tap.run(a.seconds)
                 src = tap.cfg["url"]
         except (NotImplementedError, ConnectionError, ValueError) as e:
-            raise SystemExit(f"{a.cmd}: {e}")          # the reason, without a traceback
+            hint = {"wits0": "nothing is sending on that host:port - start `gea wits0-sim --port 5001` in a SECOND window first (it must be running while this reads), or point the config at the rig's real WITS0 feed",
+                    "witsml": "no WITSML store answers at that url - the example config points at 127.0.0.1:8000, a placeholder; put the real store's url, uids and credential env names in it",
+                    "opcua": "no OPC UA server answers at that endpoint - the example config is a placeholder; put the real server's endpoint, security and node ids in it",
+                    "mqtt": "no MQTT broker answers at that host:port - the example config is a placeholder; put the real broker in it"}.get(a.cmd, "")
+            raise SystemExit(f"{a.cmd}: {e}" + (f"\n  {hint}" if hint else ""))          # the reason and what to do, without a traceback
         print(f"{a.cmd}: {src}")
         print(_json.dumps(summarize(recs), indent=1))
         if a.out:

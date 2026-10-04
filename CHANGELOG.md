@@ -5,6 +5,17 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [Unreleased]
+
+### Fixed
+- The live-port commands say what to do when nothing answers. `gea
+  wits0-sim` says it is the sender, that it waits until a reader connects,
+  and gives the reader's command for a second window; `gea wits0 | witsml |
+  opcua | mqtt` on a refused connection say what was missing (the sender in
+  a second window; a real store or server in place of the example config's
+  placeholder) instead of a bare WinError. The README's live-data tour says
+  "in a SECOND window" and "needs a real store" where it should have.
+
 ## [v0.7.0] - 2026-10-04 - the time dimension - tracks from two arrays, the SAR panel, the Audit / Update tab, the permits importer, and the kit made the commit
 
 ### Added

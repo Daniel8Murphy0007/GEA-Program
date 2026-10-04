@@ -113,12 +113,12 @@ site session is reproduced offline and how the mapping logic is tested.
 ```
 pip install "gea-program[live]"                       # asyncua, paho-mqtt, pymodbus, pyserial (or one extra at a time)
 gea wits0  --write-example-config wits0.json          # drill floor: transport tcp | listen | serial; item codes -> tags, units
-gea wits0-sim --port 5001                             # a WITS0 sender to rehearse with (no rig needed)
-gea wits0  --config wits0.json --seconds 60 --record floor/session.jsonl --out floor --stream-csv floor/stream.csv
+gea wits0-sim --port 5001                             # a WITS0 sender to rehearse with (no rig needed) - run it in a SECOND window and leave it running
+gea wits0  --config wits0.json --seconds 60 --record floor/session.jsonl --out floor --stream-csv floor/stream.csv   # in the first window, while the sender runs
 gea witsml --write-example-config witsml.json         # a WITSML 1.4.1 store: url, uids, mnemonics -> tags; credentials by env name
-gea witsml --config witsml.json --seconds 60 --out store
+gea witsml --config witsml.json --seconds 60 --out store                 # needs a real store: the example url is a placeholder until you edit it
 gea opcua  --write-example-config opcua.json          # edit: endpoint, security, credential env names, nodes
-gea opcua  --config opcua.json --seconds 60 --record opc/session.jsonl --out opc --stream-csv opc/stream.csv
+gea opcua  --config opcua.json --seconds 60 --record opc/session.jsonl --out opc --stream-csv opc/stream.csv   # needs a real OPC UA server, likewise
 gea mqtt   --write-example-config mqtt.json           # edit: broker, TLS, credential env names, topics
 gea mqtt   --config mqtt.json --replay mq/session.jsonl --out mq_replay     # no broker needed
 gea ingest --file floor/stream.csv                    # a stream CSV feeds the historian port like any other
