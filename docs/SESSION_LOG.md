@@ -519,3 +519,56 @@ summary; `docs/HISTORY.md` the record by layer.
   cannot delete files) - moved to `_to_delete/`. Rule: no git commands from
   the device shell against the clone; read `.git` files directly instead.
 
+## 2026-10-04 (evening) - the SAR panel and the Audit / Update tab
+
+- "Back to the SAR program module": a user SAR tab with a control panel and a
+  video simulator screen that runs the final GEA/SAR output, and an
+  Audit/Update tab. Asked three things and got: the simulator plays the
+  synthetic scene only for now; Audit/Update covers the audit log, the
+  program update and the workspace data update; the Seismic tab stays the
+  door with the SAR panel inside it.
+- The honest form of a "final output" screen today: the second leg has no
+  mapped well track yet (that needs the real record and two arrays over
+  time), so the screen plays the labelled synthetic array scene forward in
+  time through the leg's own functions - trace, spectrogram column, beam
+  power on the slowness grid, bearing and tolerance wedge on the map, the
+  per-rig tally - and ends on `array_detectability`'s verdict, the same call
+  a real record runs. `gea/seismic_film.py`: the film is JSON (about 400 KB
+  for 8 h at 600 s; 40 s to make), written by a workspace job under
+  `reports/seismic/SIMULATION/` so the existing `/reports/` route serves it;
+  the page plays it on a canvas with Play/Pause/Stop/speed/scrub. Every frame
+  carries SIMULATION_SELF_TEST and "not a measurement of any ground".
+- The quiet hour in the film beams the scene's own background wave (a
+  coherent plane wave from a random bearing): the beam is coherent and points
+  at it, not at the rig. That is the scene's truth and AQ1 checks the quiet
+  bearing is away from the rig rather than demanding incoherence. The beam
+  map is drawn floor-to-peak (the broadband Bartlett floor sits near 0.6 of
+  the peak, which hid the lobes on a 0-1 scale).
+- Audit / Update: `/api/audit` filters (actor, action, since, limit) and
+  reports the totals and the distinct actors and actions; the page downloads
+  a CSV client-side. `/api/update` and `gea update` (new command, in
+  RUNNABLE): running vs PyPI, extras present, report ages; the program update
+  is an admin job that runs pip from the same interpreter and says to restart;
+  `refresh-all` is an operator job over every well and station. Playwright
+  drove the page in the cloud: sign-in, Run, Play, scrub, the Audit page;
+  no console errors; screenshots read.
+- Section AQ (4): 262 checks. README (the SAR panel, an Audit / Update
+  section, counts, layout), help page `audit-update`, CHANGELOG, HISTORY.
+
+## 2026-10-04 (night) - why run #6 failed too
+
+- The log, once the browser pane got past GitHub's 2FA reminder: AN4 again,
+  with the OLD message text - the kit had gated the released 0.6.0 wheel,
+  not commit 9c95566. The builder's `pip download gea-program[extras]`
+  resolved against PyPI as well as `--find-links wheels`, and pip's copy of
+  0.6.0 overwrote the checkout's. Every main-push kit run since the v0.6.0
+  release has been testing PyPI's code; the tag runs happened to use the
+  local wheel because PyPI did not have 0.6.0 yet when they built.
+- Fix: the dependency download is built from the wheel's own Requires-Dist
+  (gea-program is never asked of the index), an assertion that the package
+  wheel in the kit is byte-identical to the one built, and the commit in
+  MANIFEST.json. Proven by building the checkout's wheel, installing it alone
+  into a fresh venv and running `gea accept` from it.
+- Rule: a kit is the commit, never the index. Any build step that can reach
+  an index must be told exactly what it may fetch.
+

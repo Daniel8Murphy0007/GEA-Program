@@ -74,6 +74,14 @@ def version() -> str:
     raise SystemExit('no version in pyproject.toml')
 
 
+def git_commit() -> str | None:
+    try:
+        r = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=str(ROOT), capture_output=True, text=True, timeout=10)
+        return r.stdout.strip() if r.returncode == 0 else None
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
 def build_wheel(wheels: Path) -> Path:
     sh([sys.executable, '-m', 'pip', 'wheel', str(ROOT), '--no-deps', '-w', str(wheels), '-q'])
     w = sorted(wheels.glob('gea_program-*.whl'))
@@ -82,13 +90,41 @@ def build_wheel(wheels: Path) -> Path:
     return w[-1]
 
 
-def download_wheels(wheels: Path, extras: str, py: str, target: str) -> None:
-    spec = f'gea-program[{extras}]' if extras else 'gea-program'
+def requirements_from_wheel(whl: Path, extras: str) -> list[str]:
+    """The wheel's own Requires-Dist lines for the base package and the named extras - so the dependency
+    download never names gea-program itself. (The v0.6.0 kit runs #4-#6 asked pip for `gea-program[...]`
+    with the index on, and pip took PyPI's wheel of the same version over the one just built from the
+    checkout, overwriting it: the kit then carried the released code, not the commit being built.)"""
+    import email
+    import re
+    want = {e.strip() for e in extras.split(',') if e.strip()}
+    reqs: list[str] = []
+    with zipfile.ZipFile(whl) as z:
+        meta = next(n for n in z.namelist() if n.endswith('.dist-info/METADATA'))
+        msg = email.message_from_bytes(z.read(meta))
+    for line in msg.get_all('Requires-Dist') or []:
+        req, _, marker = line.partition(';')
+        m = re.search(r"""extra\s*==\s*['"]([^'"]+)['"]""", marker)
+        if m and m.group(1) not in want:
+            continue
+        reqs.append(req.strip())
+    return reqs
+
+
+def download_wheels(wheels: Path, pkg: Path, extras: str, py: str, target: str) -> None:
+    reqs = requirements_from_wheel(pkg, extras)
     base = [sys.executable, '-m', 'pip', 'download', '--only-binary=:all:', '-d', str(wheels), '--find-links', str(wheels)]
     if target == 'windows':
         tag = 'cp' + py.replace('.', '')[:3]
         base += ['--platform', 'win_amd64', '--python-version', py, '--implementation', 'cp', '--abi', tag]
-    sh(base + [spec, 'pip', 'setuptools'])
+    sh(base + reqs + ['pip', 'setuptools'])
+
+
+def assert_checkout_wheel(wheels: Path, pkg: Path, built_sha: str) -> None:
+    """The kit carries exactly one gea-program wheel and it is the one built from this checkout."""
+    found = sorted(wheels.glob('gea_program-*.whl'))
+    if found != [pkg] or sha256(pkg) != built_sha:
+        raise SystemExit(f'the package wheel in the kit is not the one built from this checkout: {[p.name for p in found]} (sha changed: {sha256(pkg) != built_sha})')
 
 
 def fetch_python(py: str, out: Path, zip_path: Path | None) -> Path:
@@ -262,7 +298,7 @@ workspace) that this kit creates on first start and never deletes.
 3. Wells -> add a well from a file (historian CSV, LAS) or the catalogue.
    Patch panel -> add a patch to read the drill floor (WITS0), a WITSML
    store, OPC UA, MQTT or Modbus. Home -> Refresh every report.
-4. {verify}  runs the acceptance gate (258 checks) from this installation and
+4. {verify}  runs the acceptance gate (262 checks) from this installation and
    is your own acceptance evidence (also on the Verification page).
 5. report-samples\  holds one rendered example of every report the program
    writes, from the build in this kit; SAMPLES.md names the command behind each.
@@ -307,8 +343,10 @@ def main(argv=None) -> int:
     print(f'== kit {kit.name}')
     print('== the package wheel (from this checkout)')
     pkg = build_wheel(wheels)
-    print('== dependency wheels')
-    download_wheels(wheels, a.extras, a.python, a.platform)
+    built_sha = sha256(pkg)
+    print('== dependency wheels (from the package wheel\'s own requirements; gea-program itself is never asked of the index)')
+    download_wheels(wheels, pkg, a.extras, a.python, a.platform)
+    assert_checkout_wheel(wheels, pkg, built_sha)
     if a.platform == 'windows':
         print('== embeddable Python')
         z = fetch_python(a.python, out, Path(a.python_zip) if a.python_zip else None)
@@ -341,7 +379,7 @@ def main(argv=None) -> int:
     (kit / 'SHA256SUMS.txt').write_text('\n'.join(f'{h}  {n}' for h, n in sums) + '\n', encoding='utf-8')
     manifest = {'name': 'gea-program', 'version': ver, 'platform': tag, 'python': (a.python if a.platform == 'windows' else 'system python3 >= 3.10'),
                 'extras': a.extras.split(','), 'built_utc': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-                'package_wheel': pkg.name, 'package_wheel_sha256': sha256(pkg), 'wheels': sorted(p.name for p in wheels.glob('*.whl')),
+                'package_wheel': pkg.name, 'package_wheel_sha256': sha256(pkg), 'commit': git_commit(), 'wheels': sorted(p.name for p in wheels.glob('*.whl')),
                 'n_files': len(files), 'bytes': sum(p.stat().st_size for p in files)}
     (kit / 'MANIFEST.json').write_text(json.dumps(manifest, indent=1), encoding='utf-8')
     print(f'== {len(files)} files, {manifest["bytes"] / 1e6:.1f} MB, {len(manifest["wheels"])} wheels')

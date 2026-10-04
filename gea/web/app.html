@@ -261,7 +261,7 @@ VIEWS.well = async (id) => {
 };
 
 VIEWS.seismic = async () => {
-  const {stations} = await get('/api/seismic');
+  const {stations} = await get('/api/seismic'); const sar = await get('/api/seismic/sar');
   let h = `<h2>Seismic - the second leg</h2><p class="muted small">A station's record in, its spectrum and persistent lines out, and the detectability test against the rigs on its list; an array adds the direction. Every refresh is a job; the report is under Reports.</p>`;
   h += `<table><thead><tr><th>Station</th><th>Kind</th><th>Records</th><th>Unit</th><th>Lines</th><th>Detectability</th><th>Array</th><th>Last refresh</th><th></th></tr></thead><tbody>`;
   for (const s of stations) { const m = s.summary || {};
@@ -272,7 +272,9 @@ VIEWS.seismic = async () => {
       <div class="row"><label>Display name<input id="sName"></label><label>Record file(s)<input type="file" id="sFiles" multiple></label><label>Latitude<input id="sLat" type="number" step="0.000001"></label><label>Longitude<input id="sLon" type="number" step="0.000001"></label></div>
       <div class="row"><label>Rigs CSV (optional)<input type="file" id="sSources"></label><label>StationXML (optional)<input type="file" id="sXml"></label><label>Sensors CSV (array only)<input type="file" id="sSensors"></label><label>Band, Hz<input id="sLo" type="number" value="1" step="0.1" style="width:5em"> – <input id="sHi" type="number" value="50" step="0.1" style="width:5em"></label><button id="sAdd" type="button">Add station</button></div></div>`;
   } else h += need('operator');
+  h += sarPanelHtml(sar);
   $('#main').innerHTML = h;
+  sarPanelBind(sar);
   document.querySelectorAll('[data-sref]').forEach(b => b.onclick = async () => { b.disabled = true; try { const j = await post(`/api/seismic/${b.dataset.sref}/refresh`); toast('Refresh started: job ' + j.id, 'ok'); watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); } b.disabled = false; });
   document.querySelectorAll('[data-srm]').forEach(b => b.onclick = async () => { if (!confirm(`Remove ${b.dataset.srm}? Its folder is kept, renamed.`)) return; try { await post(`/api/seismic/${b.dataset.srm}/remove`); toast('Removed', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
   const add = $('#sAdd'); if (!add) return;
@@ -281,6 +283,111 @@ VIEWS.seismic = async () => {
     try { const files = []; for (const f of fs) files.push({filename: f.name, content_b64: await readFile(f)});
       const st = await post('/api/seismic/add', {display: $('#sName').value || fs[0].name, files, lat: $('#sLat').value || null, lon: $('#sLon').value || null, sources: await one('#sSources'), stationxml: await one('#sXml'), sensors: await one('#sSensors'), band: [+$('#sLo').value || 1, +$('#sHi').value || 50]});
       toast(`Added ${st.id}`, 'ok'); location.hash = '#/seismic/' + st.id; } catch (e) { toast(e.message, 'err'); } add.disabled = false; };
+};
+
+// ---- SAR: the control panel and the simulator screen (the labelled synthetic scene played forward in time) ----
+const SAR = {film: null, frame: 0, timer: null, speed: 1};
+function sarPanelHtml(sar) {
+  const f = sar.film;
+  let h = `<div class="card" id="sarPanel"><h3>SAR panel <span class="small muted">the second leg's arithmetic, played forward in time on a labelled synthetic scene</span></h3>
+    <p class="small muted">The screen plays a film of what the program does with an array record, window by window: the trace, the spectrogram column, the beam power map swinging onto the working rig, the bearing against the rig's true bearing with the array's own tolerance beside it, and at the end the array detectability test's verdict - the same function a real record goes through. Every frame is stamped <b>SIMULATION_SELF_TEST</b>: the scene is an assumption for showing the arithmetic, and nothing on this screen is a measurement of any ground. A real record is refreshed on its station above; the page shows what it earned, never a film.</p>`;
+  h += `<div class="row"><label>Scene length, h<input id="sarHours" type="number" value="${f ? f.hours : 8}" min="0.5" max="24" step="0.5" style="width:5em"></label><label>Seconds per frame<input id="sarStep" type="number" value="${f ? f.step_s : 600}" min="60" max="3600" step="60" style="width:6em"></label><label>Band, Hz<input id="sarLo" type="number" value="${f ? f.band_hz[0] : 1}" step="0.5" style="width:5em"> – <input id="sarHi" type="number" value="${f ? f.band_hz[1] : 20}" step="0.5" style="width:5em"></label><label>Beamformer<select id="sarMethod"><option value="bartlett"${f && f.method === 'capon' ? '' : ' selected'}>Bartlett</option><option value="capon"${f && f.method === 'capon' ? ' selected' : ''}>Capon</option></select></label><label>Seed<input id="sarSeed" type="number" value="${f ? f.seed : 5}" style="width:5em"></label>${can('operator') ? '<button id="sarRun" type="button">Run the scene</button>' : ''}<span class="small muted" id="sarRunNote">${f ? `last film ${tz(f.generated_utc)}: ${f.frames} frames, ${f.hours} h, ${f.method}` : 'no film yet' + (can('operator') ? ' - Run the scene makes one (a job, about a minute)' : '')}</span></div>`;
+  h += `<div class="row"><button id="sarPlay" type="button" ${f ? '' : 'disabled'}>Play</button><button id="sarPause" type="button" class="secondary" disabled>Pause</button><button id="sarStop" type="button" class="secondary" ${f ? '' : 'disabled'}>Stop</button><label>Speed<select id="sarSpeed"><option value="0.5">½×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label><label style="flex:1">Frame<input id="sarScrub" type="range" min="0" max="${f ? Math.max(f.frames - 1, 0) : 0}" value="0" style="width:100%" ${f ? '' : 'disabled'}></label><span class="mono small" id="sarClock">—</span></div>`;
+  h += `<canvas id="sarScreen" width="960" height="540" style="width:100%;max-width:960px;background:#0b0f14;border-radius:6px"></canvas>`;
+  h += `<div class="small" id="sarCaption">${f ? `Closing verdicts of the last film: ${Object.entries(f.verdicts || {}).map(([k, v]) => `${esc(k)} ${esc(v)}`).join(' · ')} (tolerance ${f.tolerance_deg}°)` : ''}</div></div>`;
+  return h;
+}
+function sarPanelBind(sar) {
+  const run = $('#sarRun');
+  if (run) run.onclick = async () => { run.disabled = true; try {
+      const j = await post('/api/seismic/sar/run', {hours: +$('#sarHours').value, step_s: +$('#sarStep').value, band_hz: [+$('#sarLo').value, +$('#sarHi').value], method: $('#sarMethod').value, seed: +$('#sarSeed').value});
+      toast('SAR film started: job ' + j.id, 'ok'); $('#sarRunNote').textContent = 'rendering the film (job ' + j.id + ')…'; watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); run.disabled = false; } };
+  if (!sar.film) { sarDrawEmpty(); return; }
+  const load = async () => { if (SAR.film && SAR.film._url === sar.url + '?' + sar.film.generated_utc) return SAR.film; const r = await fetch(sar.url + '?t=' + encodeURIComponent(sar.film.generated_utc), {credentials: 'same-origin'}); if (!r.ok) throw new Error('film not readable'); const film = await r.json(); film._url = sar.url + '?' + sar.film.generated_utc; SAR.film = film; return film; };
+  const show = (i) => { if (!SAR.film) return; SAR.frame = Math.max(0, Math.min(i, SAR.film.frames.length - 1)); $('#sarScrub').value = SAR.frame; sarDraw(SAR.film, SAR.frame); };
+  const stopTimer = () => { if (SAR.timer) { clearInterval(SAR.timer); SAR.timer = null; } $('#sarPause').disabled = true; $('#sarPlay').disabled = false; };
+  $('#sarPlay').onclick = async () => { try { await load(); } catch (e) { return toast(e.message, 'err'); } stopTimer(); $('#sarPlay').disabled = true; $('#sarPause').disabled = false;
+    if (SAR.frame >= SAR.film.frames.length - 1) SAR.frame = 0; show(SAR.frame);
+    SAR.timer = setInterval(() => { if (SAR.frame >= SAR.film.frames.length - 1) { stopTimer(); return; } show(SAR.frame + 1); }, 700 / (+$('#sarSpeed').value || 1)); };
+  $('#sarPause').onclick = () => stopTimer();
+  $('#sarStop').onclick = () => { stopTimer(); SAR.frame = 0; if (SAR.film) show(0); };
+  $('#sarSpeed').onchange = () => { if (SAR.timer) { $('#sarPause').onclick(); $('#sarPlay').onclick(); } };
+  $('#sarScrub').oninput = async () => { try { await load(); } catch (e) { return; } stopTimer(); show(+$('#sarScrub').value); };
+  load().then(() => show(0)).catch(() => sarDrawEmpty());
+}
+function sarDrawEmpty() { const c = $('#sarScreen'); if (!c) return; const g = c.getContext('2d'); g.fillStyle = '#0b0f14'; g.fillRect(0, 0, c.width, c.height); g.fillStyle = '#8899aa'; g.font = '16px system-ui, sans-serif'; g.fillText('No film yet. Run the scene to make one; the screen stays dark until it exists.', 24, 40); }
+function sarDraw(film, i) {
+  const c = $('#sarScreen'); if (!c) return; const g = c.getContext('2d'); const W = c.width, H = c.height; const fr = film.frames[i], M = film.meta;
+  g.fillStyle = '#0b0f14'; g.fillRect(0, 0, W, H);
+  g.font = '12px system-ui, sans-serif';
+  // pane geometry: trace (top left), spectrogram (bottom left), beam map (top right), map (bottom right)
+  const P = {trace: [16, 28, 456, 150], spec: [16, 206, 456, 300], beam: [496, 28, 220, 220], map: [740, 28, 204, 220], text: [496, 270, 448, 240]};
+  const box = (r, title) => { g.strokeStyle = '#2a3542'; g.strokeRect(r[0], r[1], r[2], r[3]); g.fillStyle = '#9fb0c0'; g.fillText(title, r[0], r[1] - 6); };
+  // 1. the trace
+  box(P.trace, `Trace, centre sensor · ${M.trace_unit} · ${fr.start_utc.slice(0, 16)}Z – ${fr.end_utc.slice(11, 16)}Z`);
+  const tr = fr.trace; if (tr.length) { let lo = Infinity, hi = -Infinity; for (const [a, b] of tr) { lo = Math.min(lo, a); hi = Math.max(hi, b); } const span = Math.max(hi - lo, 1);
+    g.strokeStyle = '#6fd3a0'; g.beginPath(); for (let k = 0; k < tr.length; k++) { const x = P.trace[0] + k / tr.length * P.trace[2]; const y0 = P.trace[1] + P.trace[3] * (1 - (tr[k][1] - lo) / span), y1 = P.trace[1] + P.trace[3] * (1 - (tr[k][0] - lo) / span); g.moveTo(x, y0); g.lineTo(x, y1); } g.stroke(); }
+  // 2. the spectrogram: every frame so far, this one at the right edge
+  box(P.spec, `Spectrogram · ${M.band_hz[0]}–${M.band_hz[1]} Hz · dB, each column one window`);
+  const n = film.frames.length, nb = fr.spectrum_db.length; let dlo = Infinity, dhi = -Infinity; for (const f2 of film.frames) for (const v of f2.spectrum_db) { dlo = Math.min(dlo, v); dhi = Math.max(dhi, v); }
+  const cw = P.spec[2] / n, ch = P.spec[3] / Math.max(nb, 1);
+  for (let k = 0; k <= i; k++) { const col = film.frames[k].spectrum_db; for (let b = 0; b < col.length; b++) { const v = (col[b] - dlo) / Math.max(dhi - dlo, 1); g.fillStyle = `hsl(${220 - 220 * v}, 80%, ${25 + 45 * v}%)`; g.fillRect(P.spec[0] + k * cw, P.spec[1] + P.spec[3] - (b + 1) * ch, Math.ceil(cw), Math.ceil(ch)); } }
+  g.strokeStyle = '#ffffff'; g.strokeRect(P.spec[0] + i * cw, P.spec[1], Math.max(cw, 1), P.spec[3]);
+  g.fillStyle = '#9fb0c0'; g.fillText(`${M.band_hz[1]} Hz`, P.spec[0] + P.spec[2] - 40, P.spec[1] + 12); g.fillText(`${M.band_hz[0]} Hz`, P.spec[0] + P.spec[2] - 40, P.spec[1] + P.spec[3] - 4);
+  // 3. the beam power map on the slowness grid
+  box(P.beam, `Beam power, floor to peak · ±${M.slowness_grid.s_max_s_km} s/km`);
+  const B = fr.beam.power; if (B.length) { const ng = B.length, s = P.beam[2] / ng; let bmin = Infinity; for (const row of B) for (const v of row) bmin = Math.min(bmin, v); for (let r = 0; r < ng; r++) for (let q = 0; q < ng; q++) { const v = (B[r][q] - bmin) / Math.max(1 - bmin, 1e-6); g.fillStyle = `hsl(${215 - 170 * v}, 85%, ${10 + 52 * v}%)`; g.fillRect(P.beam[0] + q * s, P.beam[1] + (ng - 1 - r) * s, Math.ceil(s), Math.ceil(s)); }
+    // the grid is power[i][j] at (sx[i,j], sy[i,j]); the back-azimuth is the direction the energy came FROM: the peak sits opposite it
+    const cx = P.beam[0] + P.beam[2] / 2, cy = P.beam[1] + P.beam[3] / 2; g.strokeStyle = '#ffffff55'; g.beginPath(); g.moveTo(cx, P.beam[1]); g.lineTo(cx, P.beam[1] + P.beam[3]); g.moveTo(P.beam[0], cy); g.lineTo(P.beam[0] + P.beam[2], cy); g.stroke(); }
+  g.fillStyle = fr.beam.coherent ? '#ffd166' : '#8899aa';
+  g.fillText(fr.beam.back_azimuth_deg === null ? 'no beam' : `back-azimuth ${fr.beam.back_azimuth_deg}° · ${fr.beam.apparent_velocity_km_s} km/s · coherence ${fr.beam.coherence_max_bin} (${fr.beam.coherent_bins} bins)${fr.beam.coherent ? '' : ' - not coherent'}`, P.beam[0], P.beam[1] + P.beam[3] + 16);
+  // 4. the map: array centre, rigs, the bearing with its tolerance wedge
+  box(P.map, 'Map · array and rigs (scene positions)');
+  const rigs = M.rigs; const maxd = Math.max(...rigs.map(r => r.distance_km), 1) * 1.15; const mx = P.map[0] + P.map[2] / 2, my = P.map[1] + P.map[3] / 2, sc = (P.map[2] / 2) / maxd;
+  g.fillStyle = '#9fb0c0'; g.beginPath(); g.arc(mx, my, 4, 0, 2 * Math.PI); g.fill(); g.fillText('array', mx + 6, my + 4);
+  for (const r of rigs) { const st = fr.rigs.find(x => x.source_id === r.source_id) || {}; const x = mx + r.x_km * sc, y = my - r.y_km * sc; g.fillStyle = st.working ? '#ff6b6b' : '#55667a'; g.beginPath(); g.arc(x, y, st.working ? 5 : 3, 0, 2 * Math.PI); g.fill(); g.fillStyle = st.working ? '#ffb3b3' : '#8899aa'; g.fillText(`${r.source_id} ${r.distance_km} km`, x + 6, y + 4); }
+  if (fr.beam.back_azimuth_deg !== null) { const a = fr.beam.back_azimuth_deg * Math.PI / 180, L = P.map[2] / 2 - 6, tol = M.tolerance_deg * Math.PI / 180;
+    g.fillStyle = fr.beam.coherent ? '#ffd16633' : '#8899aa22'; g.beginPath(); g.moveTo(mx, my); g.arc(mx, my, L, -Math.PI / 2 + a - tol, -Math.PI / 2 + a + tol); g.closePath(); g.fill();
+    g.strokeStyle = fr.beam.coherent ? '#ffd166' : '#55667a'; g.lineWidth = 2; g.beginPath(); g.moveTo(mx, my); g.lineTo(mx + L * Math.sin(a), my - L * Math.cos(a)); g.stroke(); g.lineWidth = 1; }
+  // 5. the text: the window, the rigs' tally, the closing verdict at the end
+  const T = P.text; let y = T[1] + 14; const line = (txt, col) => { g.fillStyle = col || '#d7e0ea'; g.fillText(txt, T[0], y); y += 16; };
+  line(`Window ${i + 1} of ${n} · hour ${fr.hour.toFixed(2)} · ${fr.working ? fr.working + ' working' : 'no rig working (quiet)'}`, '#ffffff');
+  for (const r of rigs) { const t = fr.tally[r.source_id] || {}; const st = fr.rigs.find(x => x.source_id === r.source_id) || {};
+    line(`${r.source_id} ${r.true_bearing_deg.toFixed(1)}° ${r.distance_km} km · worked ${t.windows_working || 0} · coherent ${t.windows_coherent || 0} · pointed (±${M.tolerance_deg}°) ${t.windows_pointed || 0}` + (st.bearing_error_deg !== undefined ? ` · now ${st.bearing_error_deg >= 0 ? '+' : ''}${st.bearing_error_deg}°` : ''), st.working ? '#ffd166' : '#9fb0c0'); }
+  if (i === n - 1 && film.final && film.final.sources) { line('Closing - the array detectability test on the whole scene,', '#ffffff'); line('the same function a real record runs:', '#ffffff'); for (const r of film.final.sources) line(`  ${r.source_id}: ${r.verdict}`, r.verdict === 'POINTED' ? '#6fd3a0' : '#ffb3b3'); }
+  // the stamp, on every frame
+  g.fillStyle = '#ff6b6b'; g.font = 'bold 14px system-ui, sans-serif'; g.fillText(film.label, W - 190, H - 12); g.font = '12px system-ui, sans-serif';
+  g.fillStyle = '#8899aa'; g.fillText('not a measurement of any ground', 16, H - 12);
+  const clock = $('#sarClock'); if (clock) clock.textContent = `${fr.start_utc} (${i + 1}/${n})`;
+  const cap = $('#sarCaption'); if (cap && i === n - 1 && film.final) cap.textContent = `Closing verdicts: ${film.final.sources.map(r => `${r.source_id} ${r.verdict}`).join(' · ')} (tolerance ${M.tolerance_deg}°). ${film.closing}`;
+}
+
+VIEWS.audit = async () => {
+  const q = new URLSearchParams((location.hash.split('?')[1] || ''));
+  const actor = q.get('actor') || '', action = q.get('action') || '', since = q.get('since') || '', limit = q.get('limit') || '200';
+  const A = can('admin') ? await get(`/api/audit?limit=${encodeURIComponent(limit)}&actor=${encodeURIComponent(actor)}&action=${encodeURIComponent(action)}&since=${encodeURIComponent(since)}`) : null;
+  const U = await get('/api/update');
+  let h = `<h2>Audit / Update</h2>`;
+  // the update panel
+  const r = U.running;
+  h += `<div class="card"><h3>The program <span class="small muted">${statusPill(U.state === 'current' ? 'good' : (U.state === 'behind' ? 'warn' : 'neutral'), U.state === 'current' ? 'current' : (U.state === 'behind' ? `${U.newest_pypi} is newer` : 'PyPI not reachable'))}</span></h3>
+    <dl class="kv"><dt>Running</dt><dd>${esc(r.version)} <span class="mono small muted">${esc(r.code_path)}</span></dd><dt>Python</dt><dd>${esc(r.python)} <span class="mono small muted">${esc(r.executable)}</span></dd><dt>Newest on PyPI</dt><dd>${U.newest_pypi ? esc(U.newest_pypi) : '<span class="muted">unknown (offline)</span>'}</dd><dt>Extras here</dt><dd>${Object.entries(U.extras).map(([k, v]) => statusPill(v ? 'good' : 'neutral', k)).join(' ')}</dd><dt>Links</dt><dd class="small"><a href="${esc(U.links.pypi)}" target="_blank" rel="noopener">PyPI</a> · <a href="${esc(U.links.releases)}" target="_blank" rel="noopener">releases and install kits</a> · <a href="${esc(U.links.changelog)}" target="_blank" rel="noopener">CHANGELOG</a></dd></dl>
+    <p class="small muted">${esc(U.note)}</p>
+    ${can('admin') ? `<div class="row"><button id="updProg" type="button" ${U.state === 'behind' ? '' : 'disabled'}>Update the program from PyPI</button><span class="small muted">a job: pip --upgrade from this Python; then restart the service</span></div>` : need('admin')}</div>`;
+  // the data panel
+  h += `<div class="card"><h3>The data <span class="small muted">every report against its source</span></h3><table><thead><tr><th>Kind</th><th>Id</th><th>Report generated</th><th>Source last changed</th><th>State</th></tr></thead><tbody>${(U.reports || []).map(x => `<tr><td>${esc(x.kind)}</td><td>${esc(x.id)}</td><td class="small">${x.generated_utc ? tz(x.generated_utc) : '<span class="muted">never</span>'}</td><td class="small">${x.source_utc ? tz(x.source_utc) : '—'}</td><td>${statusPill(x.stale ? 'warn' : 'good', x.stale ? 'stale' : 'current')}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">no wells or stations yet</td></tr>'}</tbody></table>
+    ${can('operator') ? `<div class="row"><button id="updData" type="button">Update every report from its source</button><span class="small muted">a job: the dashboard for every well, then every seismic station</span></div>` : need('operator')}</div>`;
+  // the audit log
+  if (A) {
+    h += `<div class="card"><h3>Audit log <span class="small muted">${A.total} matching · showing the last ${Math.min(A.entries.length, A.total)}</span></h3>
+      <div class="row"><label>Who<select id="auActor"><option value="">anyone</option>${A.actors.map(a => `<option ${a === actor ? 'selected' : ''}>${esc(a)}</option>`).join('')}</select></label><label>Action contains<input id="auAction" value="${esc(action)}" list="auActions"><datalist id="auActions">${A.actions.map(a => `<option value="${esc(a)}">`).join('')}</datalist></label><label>Since (UTC)<input id="auSince" value="${esc(since)}" placeholder="2026-10-01"></label><label>Limit<input id="auLimit" type="number" value="${esc(limit)}" style="width:6em"></label><button id="auGo" type="button">Filter</button><button id="auCsv" type="button" class="secondary">Download CSV</button></div>
+      <table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Detail</th></tr></thead><tbody>${A.entries.slice().reverse().map(a => `<tr><td class="small">${tz(a.utc)}</td><td>${esc(a.actor)}</td><td class="mono small">${esc(a.action)}</td><td class="small mono">${esc(JSON.stringify(a.detail)).slice(0, 200)}</td></tr>`).join('')}</tbody></table></div>`;
+  } else h += `<div class="card"><h3>Audit log</h3>${need('admin')}</div>`;
+  $('#main').innerHTML = h;
+  const up = $('#updProg'); if (up) up.onclick = async () => { if (!confirm(`Update the program to ${U.newest_pypi} from PyPI? The service must be restarted afterwards.`)) return; up.disabled = true; try { const j = await post('/api/update/program', {}); toast('Program update started: job ' + j.id, 'ok'); watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); up.disabled = false; } };
+  const ud = $('#updData'); if (ud) ud.onclick = async () => { ud.disabled = true; try { const j = await post('/api/update/data', {}); toast('Data update started: job ' + j.id, 'ok'); watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); ud.disabled = false; } };
+  const go = $('#auGo'); if (go) go.onclick = () => { location.hash = `#/audit?actor=${encodeURIComponent($('#auActor').value)}&action=${encodeURIComponent($('#auAction').value)}&since=${encodeURIComponent($('#auSince').value)}&limit=${encodeURIComponent($('#auLimit').value)}`; };
+  const csv = $('#auCsv'); if (csv) csv.onclick = () => { const rows = [['utc', 'actor', 'action', 'detail']].concat(A.entries.map(a => [a.utc, a.actor, a.action, JSON.stringify(a.detail)])); const text = rows.map(r => r.map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n'); const b = new Blob([text], {type: 'text/csv'}); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = 'audit_log.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(u), 1000); };
 };
 
 VIEWS.seismic_station = async (id) => {
@@ -498,7 +605,7 @@ VIEWS.admin = async () => {
   h += `<details><summary>Edit the configuration</summary><label>JSON<textarea id="ntCfg" spellcheck="false"></textarea></label><div class="row"><label>Note<input id="ntNote"></label><button class="secondary" id="ntLoad" type="button">Load current</button><button id="ntSave" type="button">Validate and commit</button></div></details>`;
   h += nt.log.length ? `<h4 class="small muted">Last deliveries</h4><table><thead><tr><th>When</th><th>Event</th><th>Channel</th><th>Result</th></tr></thead><tbody>${nt.log.slice().reverse().slice(0, 15).map(l => `<tr><td class="small">${tz(l.utc)}</td><td class="mono small">${esc(l.event)}</td><td>${esc(l.channel || '—')}</td><td>${statusPill(l.ok ? 'good' : 'serious', l.ok ? (l.result.suppressed ? 'suppressed' : 'sent') : 'failed')} <span class="small muted">${esc(l.result.error || l.result.suppressed || l.subject || '')}</span></td></tr>`).join('')}</tbody></table>` : '';
   h += `</div>`;
-  h += `<div class="card"><h3>Audit log (last 100)</h3><table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Detail</th></tr></thead><tbody>${audit.map(a => `<tr><td class="small">${tz(a.utc)}</td><td>${esc(a.actor)}</td><td class="mono small">${esc(a.action)}</td><td class="small mono">${esc(JSON.stringify(a.detail)).slice(0, 160)}</td></tr>`).join('')}</tbody></table></div>`;
+  h += `<div class="card"><h3>Audit log (last 100) <span class="small muted">the whole log, with filters and a CSV, is under <a href="#/audit">Audit / Update</a></span></h3><table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Detail</th></tr></thead><tbody>${audit.map(a => `<tr><td class="small">${tz(a.utc)}</td><td>${esc(a.actor)}</td><td class="mono small">${esc(a.action)}</td><td class="small mono">${esc(JSON.stringify(a.detail)).slice(0, 160)}</td></tr>`).join('')}</tbody></table></div>`;
   $('#main').innerHTML = h;
   const o = await get('/api/overview'); const wsPath = o.workspace.path;
   document.querySelectorAll('[data-rs]').forEach(b => b.onclick = async () => { try { const r = await post('/api/sessions/revoke', {sid: b.dataset.rs}); toast(`${r.revoked} session(s) revoked`, 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
@@ -573,7 +680,7 @@ function authScreen(first) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/wells', 'Wells'], ['#/seismic', 'Seismic'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/jobs', 'Jobs'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/wells', 'Wells'], ['#/seismic', 'Seismic'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, '']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }

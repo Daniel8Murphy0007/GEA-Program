@@ -7,7 +7,48 @@ session-by-session working record is `docs/SESSION_LOG.md`.
 
 ## [Unreleased]
 
+### Added
+- The SAR panel on the Seismic page: a control panel (scene length, seconds
+  per frame, band, beamformer, seed; Run the scene; Play, Pause, Stop, speed,
+  a frame scrubber) and a screen that plays the second leg's arithmetic
+  forward in time on the labelled synthetic array scene. `gea/seismic_film.py`
+  makes the film - one frame per window with the trace envelope, the spectrum
+  column, the beam power grid on the slowness grid, the bearing, which rig
+  works and the per-rig tally - and closes it with the array detectability
+  test's verdict on the whole scene, the same function a real record runs.
+  Every frame and the film carry SIMULATION_SELF_TEST and the screen prints
+  "not a measurement of any ground" on each; a real record never goes through
+  the film. `gea seismic --action sar-film --out film.json`; `gea workspace
+  --action sar-film` writes it under `reports/seismic/SIMULATION/`; the
+  routes `GET /api/seismic/sar` and `POST /api/seismic/sar/run` (operator, a
+  job, parameters checked).
+- The Audit / Update tab. The whole audit log with filters by who, by action
+  and since a date (`/api/audit?actor=&action=&since=&limit=`) and a CSV
+  download; Administration keeps its last hundred lines and points here. The
+  program card (`GET /api/update`): running version and code path, the
+  newest on PyPI, the extras installed here, links to PyPI, the releases and
+  the CHANGELOG, and "Update the program from PyPI" (admin) - the new `gea
+  update [--check] [--extras ...]` command as a job, pip --upgrade from the
+  same Python, after which the service must be restarted. The data card:
+  every report against its source (`Workspace.report_ages`, `current` or
+  `stale`) and "Update every report from its source" (operator) - the new
+  `gea workspace --action refresh-all`, the dashboard for every well then
+  every seismic station, errors collected and listed.
+- Help page `audit-update` (sixteen pages); the seismic page names the film
+  and what it is not. Section AQ (4 checks): the film engine, the workspace
+  and CLI, the routes and roles, the page and the help. The gate is 262.
+
 ### Fixed
+- The kit carried the released wheel, not the commit. `tools/build_installer.py`
+  built the checkout's wheel into `wheels/` and then asked pip to download
+  `gea-program[extras]` with the index on; pip took PyPI's wheel of the same
+  version and wrote it over the one just built, so kit runs #4, #5 and #6 of
+  v0.6.0 all installed and gated the released 0.6.0 - which is why run #6
+  failed on AN4 after AN4 had been fixed. The builder now reads the
+  dependencies from the built wheel's own `Requires-Dist` (base and the named
+  extras) and never names gea-program to the index, asserts afterwards that
+  the only package wheel in the kit is the one it built (same SHA-256), and
+  records the commit in MANIFEST.json.
 - The installed kit's gate. Check AN4 asked for `tools/seismic_reader_check.py`
   beside the package, which is true in a checkout and false in every
   installed kit (site-packages has no `tools/`), so both v0.6.0 kit jobs

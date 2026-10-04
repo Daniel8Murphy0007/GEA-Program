@@ -494,6 +494,72 @@ class Workspace:
                    inputs=[os.path.join(src, n) for n in st['files']])
         return summary
 
+    SAR_ID = 'SIMULATION'
+
+    def sar_film(self, actor: str = 'system', seed: int = 5, hours: float = 8.0, step_s: float = 600.0, band=(1.0, 20.0), method: str = 'bartlett') -> dict:
+        """The SAR panel's film: the labelled synthetic scene played forward in time, written under
+        reports/seismic/SIMULATION/ so the page's /reports/ route serves it. Never a real record."""
+        from . import seismic_film as FM
+        film = FM.sar_film(seed=seed, hours=hours, step_s=step_s, band=tuple(band), method=method)
+        out = self.seismic_reports_dir(self.SAR_ID)
+        path = FM.write_film(film, os.path.join(out, 'sar_film.json'))
+        summary = FM.film_summary(film)
+        summary.update({'path': path, 'generated_utc': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), 'seed': seed,
+                        'params': {'seed': seed, 'hours': hours, 'step_s': step_s, 'band_hz': list(band), 'method': method}})
+        with open(os.path.join(out, 'sar_film.summary.json'), 'w', encoding='utf-8') as fh:
+            json.dump(summary, fh, indent=1)
+        self.audit(actor, 'seismic.sar_film', {'label': summary['label'], 'frames': summary['frames'], 'hours': hours, 'method': method, 'seed': seed})
+        return summary
+
+    def sar_film_summary(self) -> Optional[dict]:
+        p = os.path.join(self.path, 'reports', 'seismic', self.SAR_ID, 'sar_film.summary.json')
+        if not os.path.isfile(p):
+            return None
+        with open(p, encoding='utf-8') as fh:
+            return json.load(fh)
+
+    def refresh_all(self, actor: str = 'system') -> dict:
+        """Every report from its source again: the dashboard (every well) and every seismic station. The
+        Audit/Update page's data update. Errors are collected, never hidden; the result lists them."""
+        errors: List[str] = []
+        n_wells = 0
+        try:
+            self.refresh_dashboard(actor=actor)
+            n_wells = len(self.wells())
+        except Exception as e:                                   # a refresh must not stop the stations behind it
+            errors.append(f'dashboard: {e}')
+        n_seis = 0
+        for st in self.seismic_stations():
+            try:
+                self.refresh_seismic(st['id'], actor=actor)
+                n_seis += 1
+            except Exception as e:
+                errors.append(f"seismic {st['id']}: {e}")
+        self.audit(actor, 'workspace.refresh_all', {'wells': n_wells, 'seismic': n_seis, 'errors': len(errors)})
+        return {'wells': n_wells, 'seismic': n_seis, 'errors': errors}
+
+    def report_ages(self) -> List[dict]:
+        """Each report family's generated time against its source's modification time - the staleness table."""
+        rows = []
+        dj = os.path.join(self.reports_dir, 'dashboard.json')
+        if os.path.isfile(dj):
+            gen = datetime.fromtimestamp(os.path.getmtime(dj), timezone.utc)
+            for w in self.wells():
+                srcp = os.path.join(self.path, 'wells', w['id'], 'source', w['files'][0]) if w.get('kind') == 'file' and w.get('files') else None
+                src_m = datetime.fromtimestamp(os.path.getmtime(srcp), timezone.utc) if srcp and os.path.isfile(srcp) else None
+                rows.append({'kind': 'well', 'id': w['id'], 'generated_utc': gen.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                             'source_utc': src_m.strftime('%Y-%m-%dT%H:%M:%SZ') if src_m else None,
+                             'stale': bool(src_m and src_m > gen)})
+        for st in self.seismic_stations():
+            sm = self.seismic_results(st['id']).get('summary')
+            src_dir = os.path.join(self.path, 'seismic', st['id'], 'source')
+            src_m = max((os.path.getmtime(os.path.join(src_dir, n)) for n in st.get('files', []) if os.path.isfile(os.path.join(src_dir, n))), default=None)
+            src_iso = datetime.fromtimestamp(src_m, timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ') if src_m else None
+            gen_iso = sm.get('generated_utc') if sm else None
+            rows.append({'kind': 'seismic', 'id': st['id'], 'generated_utc': gen_iso, 'source_utc': src_iso,
+                         'stale': bool(gen_iso is None or (src_iso and src_iso > gen_iso))})
+        return rows
+
     def seismic_results(self, station_id: str) -> dict:
         out = os.path.join(self.path, 'reports', 'seismic', station_id)
         res = {}

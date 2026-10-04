@@ -63,7 +63,7 @@ PBKDF2_ROUNDS = 200_000
 # Commands the page may run as jobs. Anything else is refused (never `serve`, never a shell).
 RUNNABLE = ('accept', 'fat-sat', 'sbom', 'sla-report', 'model-cards', 'client-report', 'dashboard', 'workspace', 'drift-monitor',
             'well-test', 'alarms', 'notify', 'swaps', 'certificates', 'transient', 'housekeeping', 'store-forward', 'config', 'reconcile', 'ingest', 'opcua', 'mqtt', 'report', 'gamma', 'bench',
-            'service-life', 'telemetry', 'run', 'wells', 'survey', 'wits0', 'witsml', 'wits0-sim', 'files', 'doctor')
+            'service-life', 'telemetry', 'run', 'wells', 'survey', 'wits0', 'witsml', 'wits0-sim', 'files', 'doctor', 'update')
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web')
 
 
@@ -699,6 +699,28 @@ class App:
         with open(os.path.join(self.ws.well_dir(w['id']), 'well.json'), 'w', encoding='utf-8') as f:
             json.dump(w, f, indent=1)
         return w
+
+    def update_view(self, check_pypi: bool = True) -> dict:
+        """The Audit/Update page's Update panel: what runs here, what is newest, where the kit is, what is stale."""
+        from . import __version__
+        from . import doctor as DR
+        import importlib.util
+        import platform
+        newest = DR.pypi_newest() if check_pypi else None
+        extras = {}
+        for mod, extra in (('matplotlib', 'plotting'), ('PyQt6', 'desktop'), ('asyncua', 'opcua'), ('paho', 'mqtt'), ('pymodbus', 'modbus'), ('serial', 'serial'), ('xlrd', 'xls')):
+            extras[extra] = importlib.util.find_spec(mod) is not None
+        ver_t = lambda v: tuple(int(x) if x.isdigit() else 0 for x in str(v).split('.'))
+        state = 'unknown' if newest is None else ('current' if ver_t(newest) <= ver_t(__version__) else 'behind')
+        return {'running': {'version': __version__, 'code_path': os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'python': platform.python_version(),
+                            'executable': sys.executable, 'started_utc': self.started_utc},
+                'newest_pypi': newest, 'state': state,
+                'links': {'pypi': 'https://pypi.org/project/gea-program/', 'releases': 'https://github.com/Daniel8Murphy0007/GEA-Program/releases',
+                          'release': f'https://github.com/Daniel8Murphy0007/GEA-Program/releases/tag/v{newest or __version__}',
+                          'changelog': 'https://github.com/Daniel8Murphy0007/GEA-Program/blob/main/CHANGELOG.md'},
+                'extras': extras, 'reports': self.ws.report_ages(),
+                'note': 'the program update runs pip against PyPI from this Python and needs the service restarted afterwards; an offline kit is updated by '
+                        'installing the newer kit from the release page. The data update runs every report from its source again.'}
 
     def add_seismic(self, user: dict, body: dict) -> dict:
         """Records (and the optional station file, sensors CSV and rigs CSV) arrive base64-encoded; each lands in a temporary
@@ -1342,6 +1364,8 @@ def make_handler(app: App):
                     return self._json(200, {'wells': app.ws.wells()})
                 if path == '/api/seismic':
                     return self._json(200, {'stations': [{**st, 'summary': app.ws.seismic_results(st['id']).get('summary')} for st in app.ws.seismic_stations()]})
+                if path == '/api/seismic/sar':
+                    return self._json(200, {'film': app.ws.sar_film_summary(), 'url': f'/reports/seismic/{app.ws.SAR_ID}/sar_film.json', 'label': 'SIMULATION_SELF_TEST'})
                 if path.startswith('/api/seismic/'):
                     sid = path[len('/api/seismic/'):]
                     try:
@@ -1365,7 +1389,21 @@ def make_handler(app: App):
                 if path.startswith('/api/jobs/'):
                     return self._json(200, app.runner.status(path[len('/api/jobs/'):]))
                 if path == '/api/audit':
-                    return self._json(200, {'entries': app.ws.audit_log(int(qs.get('limit', ['200'])[0]))})
+                    rows = app.ws.audit_log()
+                    actor = qs.get('actor', [''])[0].strip(); action = qs.get('action', [''])[0].strip(); since = qs.get('since', [''])[0].strip()
+                    if actor:
+                        rows = [r for r in rows if r.get('actor') == actor]
+                    if action:
+                        rows = [r for r in rows if action in str(r.get('action', ''))]
+                    if since:
+                        rows = [r for r in rows if str(r.get('utc', '')) >= since]
+                    total = len(rows)
+                    limit = int(qs.get('limit', ['200'])[0])
+                    actors = sorted({r.get('actor', '') for r in app.ws.audit_log()})
+                    actions = sorted({str(r.get('action', '')) for r in app.ws.audit_log()})
+                    return self._json(200, {'entries': rows[-limit:] if limit else rows, 'total': total, 'actors': actors, 'actions': actions})
+                if path == '/api/update':
+                    return self._json(200, app.update_view(qs.get('check', ['1'])[0] != '0'))
                 if path == '/api/config':
                     return self._json(200, {'configs': app.config_index()})
                 if path.startswith('/api/config/defaults/'):
@@ -1456,6 +1494,22 @@ def make_handler(app: App):
                 if path == '/api/seismic/add':
                     App.require(user, 'operator')
                     return self._json(200, app.add_seismic(user, body))
+                if path == '/api/seismic/sar/run':
+                    App.require(user, 'operator')
+                    hours = float(body.get('hours', 8.0)); step = float(body.get('step_s', 600.0)); seed = int(body.get('seed', 5))
+                    method = str(body.get('method', 'bartlett')); band = body.get('band_hz') or [1.0, 20.0]
+                    if not (0.5 <= hours <= 24 and 60 <= step <= 3600 and method in ('bartlett', 'capon') and len(band) == 2 and 0 < float(band[0]) < float(band[1]) <= 25):
+                        raise ApiError(400, 'sar-film: hours 0.5-24, step 60-3600 s, method bartlett|capon, band 0 < lo < hi <= 25 Hz')
+                    args = ['workspace', '--path', app.ws.path, '--action', 'sar-film', '--hours', str(hours), '--step', str(step), '--seed', str(seed),
+                            '--method', method, '--band', str(float(band[0])), str(float(band[1])), '--actor', user['name']]
+                    return self._json(200, app._job(args, user, 'SAR film (synthetic scene)'))
+                if path == '/api/update/program':
+                    App.require(user, 'admin')
+                    extras = body.get('extras') or 'live,plotting,xls,desktop'
+                    return self._json(200, app._job(['update', '--extras', str(extras)], user, 'program update from PyPI'))
+                if path == '/api/update/data':
+                    App.require(user, 'operator')
+                    return self._json(200, app._job(['workspace', '--path', app.ws.path, '--action', 'refresh-all', '--actor', user['name']], user, 'data update: every report from its source'))
                 if path.startswith('/api/seismic/') and path.endswith('/refresh'):
                     App.require(user, 'operator')
                     sid = path[len('/api/seismic/'):-len('/refresh')]

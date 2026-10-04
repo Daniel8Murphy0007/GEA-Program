@@ -280,7 +280,11 @@ def main(argv=None) -> int:
     p_ws.add_argument("--path", type=str, required=True, help="the workspace folder")
     p_ws.add_argument("--action", type=str, default="list",
                       choices=["init", "add-file", "add-catalog", "add-live", "remove", "list", "migrate", "refresh", "audit",
-                               "add-seismic", "refresh-seismic", "remove-seismic"])
+                               "add-seismic", "refresh-seismic", "remove-seismic", "sar-film", "refresh-all"])
+    p_ws.add_argument("--hours", type=float, default=8.0, help="sar-film: the synthetic scene's length, h")
+    p_ws.add_argument("--step", type=float, default=600.0, help="sar-film: seconds per frame")
+    p_ws.add_argument("--seed", type=int, default=5, help="sar-film: the scene's seed")
+    p_ws.add_argument("--method", type=str, default="bartlett", choices=["bartlett", "capon"], help="sar-film: the beamformer")
     p_ws.add_argument("--files", type=str, nargs="+", default=None, help="add-seismic: the station's record (or one record per sensor of an array, in the sensors CSV's order)")
     p_ws.add_argument("--lat", type=float, default=None, help="add-seismic: the station's latitude")
     p_ws.add_argument("--lon", type=float, default=None, help="add-seismic: the station's longitude")
@@ -348,6 +352,11 @@ def main(argv=None) -> int:
     p_dr.add_argument("--port", type=int, default=8765)
     p_dr.add_argument("--json", action="store_true")
 
+    p_up = sub.add_parser("update", help="the program update: compare the running version with PyPI and, unless --check, run pip --upgrade for it from this Python")
+    p_up.add_argument("--check", action="store_true", help="only report the running and the newest version")
+    p_up.add_argument("--extras", type=str, default="live,plotting,xls,desktop", help="the extras to carry through the upgrade (default live,plotting,xls,desktop)")
+    p_up.add_argument("--json", action="store_true")
+
     p_nt = sub.add_parser("notify", help="notification rules: validate the configuration, send a test message, show the delivery log")
     p_nt.add_argument("--workspace", type=str, default=None)
     p_nt.add_argument("--test", type=str, default=None, help="send a test message through this channel name")
@@ -357,7 +366,10 @@ def main(argv=None) -> int:
 
     p_se = sub.add_parser("seismic", help="the second leg's ingest: miniSEED/SAC in, spectra and persistent lines out, an FDSN fetch, and the detectability test against known rigs")
     p_se.add_argument("--action", choices=["info", "spectrum", "lines", "fetch", "stations", "detect", "selftest", "convert", "response", "remove-response",
-                                           "beam", "array-detect", "locate", "array-selftest"], default="info")
+                                           "beam", "array-detect", "locate", "array-selftest", "sar-film"], default="info")
+    p_se.add_argument("--hours", type=float, default=8.0, help="sar-film: the synthetic scene's length, h (default 8: four rigs, each working alone for an hour)")
+    p_se.add_argument("--step", type=float, default=600.0, help="sar-film: one frame per this many seconds (default 600)")
+    p_se.add_argument("--seed", type=int, default=5, help="sar-film: the scene's random seed")
     p_se.add_argument("--files", type=str, nargs="+", default=None, help="beam/array-detect: one record per sensor, in the order of --sensors")
     p_se.add_argument("--sensors", type=str, default=None, help="beam/array-detect: CSV of the array's sensors (sensor_id, lat, lon[, elevation_m])")
     p_se.add_argument("--bearings", type=str, default=None, help="locate: CSV of arrays' bearings (lat, lon, back_azimuth_deg, sigma_deg)")
@@ -760,6 +772,18 @@ def main(argv=None) -> int:
                 print(f"seismic: response of {chan.id} removed ({chan.sensor or 'sensor unnamed'}); the record is now in {note['unit']}", file=sys.stderr)
             return trs, tr
         band = (float(a.band[0]), float(a.band[1]))
+        if a.action == "sar-film":
+            from . import seismic_film as FM
+            film = FM.sar_film(seed=a.seed, hours=a.hours, step_s=a.step, band=(float(a.band[0]), float(a.band[1])) if a.band != [1.0, 50.0] else (1.0, 20.0), method=a.method)
+            if a.out:
+                FM.write_film(film, a.out)
+            if a.json:
+                print(_json.dumps(FM.film_summary(film), indent=1))
+            else:
+                print(FM.report_text(film))
+                if a.out:
+                    print(f"film: {a.out} ({len(film['frames'])} frames)")
+            return 0
         if a.action == "array-selftest":
             from . import seismic_array as AR
             r = AR.selftest()
@@ -993,6 +1017,9 @@ def main(argv=None) -> int:
     elif a.cmd == "doctor":
         from .doctor import run as _doctor
         return _doctor(a.workspace, a.host, a.port, a.json)
+    elif a.cmd == "update":
+        from .doctor import update as _update
+        return _update(check_only=a.check, extras=a.extras, as_json=a.json)
     elif a.cmd == "serve":
         from .service import Service
         from .workspace import WorkspaceError
@@ -1103,6 +1130,15 @@ def main(argv=None) -> int:
                           + (f"; beam {r['beam_back_azimuth_deg']} deg, pointed at {r['pointed']}" if r["beam_back_azimuth_deg"] is not None else "")
                           + f"\n  report: {r['report']}")
                 return 0
+            elif a.action == "sar-film":
+                r = ws.sar_film(actor=a.actor, seed=a.seed, hours=a.hours, step_s=a.step, band=tuple(a.band) if a.band else (1.0, 20.0), method=a.method)
+                print(f"sar-film: {r['label']}, {r['frames']} frames over {r['hours']} h; verdicts {r['verdicts']}\n  film: {r['path']}"); return 0
+            elif a.action == "refresh-all":
+                r = ws.refresh_all(actor=a.actor)
+                print(f"refresh-all: {r['wells']} well(s) refreshed, {r['seismic']} seismic station(s) refreshed, {len(r['errors'])} error(s)")
+                for e in r["errors"]:
+                    print("  error:", e)
+                return 0 if not r["errors"] else 1
             elif a.action == "remove-seismic":
                 if not a.station:
                     raise SystemExit("remove-seismic needs --station <id>")

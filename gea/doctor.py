@@ -138,6 +138,37 @@ def pypi_newest(timeout_s: float = 3.0) -> Optional[str]:
         return None
 
 
+def update(check_only: bool = False, extras: str = 'live,plotting,xls,desktop', as_json: bool = False) -> int:
+    """`gea update`: the running version against PyPI; unless check_only, `python -m pip install --upgrade
+    "gea-program[extras]"` from this interpreter. The service must be restarted afterwards - this function
+    says so; it never restarts anything itself. An offline kit has no PyPI: it says to install the newer kit."""
+    from . import __version__
+    import subprocess
+    newest = pypi_newest()
+    vt = lambda v: tuple(int(x) if x.isdigit() else 0 for x in str(v).split('.'))
+    res = {'running': __version__, 'newest_pypi': newest, 'python': sys.executable, 'extras': extras,
+           'state': 'unknown' if newest is None else ('current' if vt(newest) <= vt(__version__) else 'behind'), 'ran_pip': False, 'returncode': None}
+    if newest is None:
+        res['note'] = 'PyPI is not reachable from here; an offline installation is updated by installing the newer kit from the release page'
+    if not check_only and newest is not None and res['state'] == 'behind':
+        spec = f'gea-program[{extras}]=={newest}' if extras else f'gea-program=={newest}'
+        r = subprocess.run([sys.executable, '-m', 'pip', 'install', '--upgrade', spec], capture_output=True, text=True)
+        res.update({'ran_pip': True, 'returncode': r.returncode, 'pip_tail': (r.stdout + r.stderr)[-1500:]})
+        res['note'] = ('installed; restart the service (gea serve) to run the new version' if r.returncode == 0
+                       else 'pip failed; the tail of its output is in pip_tail (a running gea.exe or service holding the files is the usual cause on Windows)')
+    if as_json:
+        print(json.dumps(res, indent=1))
+    else:
+        print(f"update: running {res['running']}, newest on PyPI {res['newest_pypi'] or 'unknown'} - {res['state']}")
+        if res.get('ran_pip'):
+            print(f"  pip --upgrade gea-program[{extras}]=={newest}: {'ok' if res['returncode'] == 0 else 'FAILED'}")
+            if res['returncode'] != 0:
+                print(res['pip_tail'])
+        if res.get('note'):
+            print('  ' + res['note'])
+    return 0 if res['returncode'] in (None, 0) else 1
+
+
 def port_free(host: str, port: int) -> bool:
     """Can the service bind this port? (The only question that matters for serving.)"""
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

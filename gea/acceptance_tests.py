@@ -3267,6 +3267,137 @@ def section_ap_seismic_page(tmp: str) -> None:
        "a nav entry and a home tile; both views map to the seismic help page; `gea workspace --action refresh-seismic` runs the leg from the command line")
 
 
+def section_aq_sar_and_audit(tmp: str) -> None:
+    """Section AQ - the SAR panel and the Audit/Update tab: the film engine
+    (the labelled synthetic scene played forward in time, every frame stamped,
+    the closing verdict from the real array test), the workspace job and the
+    routes behind the control panel, the audit log with filters, the update
+    panel (program against PyPI, every report against its source) and the
+    data update, the page and the help."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    from . import seismic_film as FM
+    from . import helplib as H
+    from .workspace import Workspace
+    from .service import Service, Users, RUNNABLE
+    pkg = Path(__file__).parent
+    d = Path(tmp, "aq"); d.mkdir()
+    # AQ1 - the film engine
+    film = FM.sar_film(seed=5, hours=2.0, step_s=600.0)
+    fr = film["frames"]
+    rig1 = next(r for r in film["meta"]["rigs"] if r["source_id"] == "RIG-1")
+    working = [f for f in fr if f["working"] == "RIG-1"]
+    quiet = [f for f in fr if f["working"] is None]
+    errs = [abs(next(r for r in f["rigs"] if r["source_id"] == "RIG-1").get("bearing_error_deg", 999)) for f in working]
+    bad = None
+    try:
+        FM.sar_film(hours=1.0, method="music")
+    except ValueError as e:
+        bad = str(e)
+    from .seismic_array import _angle_diff
+    tol = film["meta"]["tolerance_deg"]
+    away = [abs(_angle_diff(f["beam"]["back_azimuth_deg"], rig1["true_bearing_deg"])) for f in quiet]       # the quiet hour's beam: the scene's background wave, not the rig
+    ok(film["label"] == "SIMULATION_SELF_TEST" and film["status"] == "SIMULATION_SELF_TEST" and len(fr) == 12 and all(f["label"] == "SIMULATION_SELF_TEST" for f in fr)
+       and len(working) == 6 and len(quiet) == 6 and all(f["beam"]["coherent"] for f in working) and all(a > tol for a in away)
+       and all(e <= tol for e in errs) and fr[-1]["tally"]["RIG-1"]["windows_pointed"] == 6
+       and all(len(f["trace"]) == 240 and len(f["spectrum_db"]) == 64 and len(f["beam"]["power"]) == 31 for f in fr)
+       and film["final"]["sources"][0]["verdict"] == "POINTED" and film["final"]["protocol"] == "seismic_array.array_detectability"
+       and "SIMULATION_SELF_TEST" in film["closing"] and "SIMULATION_SELF_TEST" in film["meta"]["not_a_measurement"][0]
+       and bad and "bartlett" in bad and rig1["distance_km"] == 6.0,
+       f"AQ1 the SAR film: the synthetic array scene played forward in time, one frame per window with the trace envelope, the spectrum column, the beam power grid, "
+       f"the bearing and the per-rig tally; every frame and the film carry SIMULATION_SELF_TEST; while the rig works the beam is coherent and within the tolerance "
+       f"({tol} deg) of its true bearing in every window, and in the quiet hour it points elsewhere; the closing verdict is the array detectability test's own "
+       f"(POINTED); an unknown beamformer is refused")
+    # AQ2 - the workspace: sar-film writes under reports/seismic/SIMULATION/, never a station; refresh-all; report_ages
+    wsp = str(d / "site"); ws = Workspace.create(wsp, "SAR site", actor="tester")
+    sm = ws.sar_film(actor="tester", hours=1.0, step_s=600.0)
+    film_path = Path(wsp, "reports", "seismic", "SIMULATION", "sar_film.json")
+    ra = ws.refresh_all(actor="tester")
+    ages = ws.report_ages()
+    r = _sp.run([sys.executable, "-m", "gea", "workspace", "--path", wsp, "--action", "sar-film", "--hours", "1", "--step", "600"], capture_output=True, timeout=600)
+    o = r.stdout.decode("utf-8", "replace")
+    r2 = _sp.run([sys.executable, "-m", "gea", "seismic", "--action", "sar-film", "--hours", "1", "--out", str(d / "film.json")], capture_output=True, timeout=600)
+    o2 = r2.stdout.decode("utf-8", "replace")
+    r3 = _sp.run([sys.executable, "-m", "gea", "update", "--check", "--json"], capture_output=True, timeout=120)
+    upd = json.loads(r3.stdout.decode("utf-8", "replace")) if r3.returncode == 0 else {}
+    ok(sm["label"] == "SIMULATION_SELF_TEST" and sm["frames"] == 6 and film_path.exists() and sm["path"] == str(film_path) and ws.sar_film_summary()["frames"] == 6
+       and not any(st["id"] == "SIMULATION" for st in ws.seismic_stations()) and ra == {"wells": 0, "seismic": 0, "errors": []} and ages == []
+       and any(a["action"] == "seismic.sar_film" for a in ws.audit_log()) and any(a["action"] == "workspace.refresh_all" for a in ws.audit_log())
+       and r.returncode == 0 and "SIMULATION_SELF_TEST" in o and "6 frames" in o and r2.returncode == 0 and "SAR FILM - SIMULATION_SELF_TEST" in o2 and (d / "film.json").exists()
+       and r3.returncode == 0 and upd.get("running") and upd.get("state") in ("current", "behind", "unknown") and upd.get("ran_pip") is False
+       and "update" in RUNNABLE,
+       "AQ2 `gea workspace --action sar-film` writes the film and its summary under reports/seismic/SIMULATION/ (not a station) and audits it; `--action refresh-all` runs every "
+       "well and station and audits the counts; `gea seismic --action sar-film --out` writes the film from the command line; `gea update --check` compares the running "
+       "version with PyPI without running pip, and `update` is a command the page may run as a job")
+    # AQ3 - the API: the SAR routes, the audit filters, the update panel and the data update; roles
+    Users(str(Path(wsp, "users.json"))).add("adm", "admin-pass-1", "admin")
+    Users(str(Path(wsp, "users.json"))).add("op", "operator-pass-1", "operator")
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer")
+    svc = Service(wsp, host="127.0.0.1", port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+    op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None, raw=False):
+        req = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json")
+        if method == "POST":
+            req.add_header("X-GEA-Action", "1")
+        try:
+            with op.open(req, timeout=60) as r:
+                return r.status, (r.read() if raw else json.loads(r.read()))
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        call("POST", "/api/login", {"name": "v", "password": "viewer-pass-1"})
+        st_sar0, sar0 = call("GET", "/api/seismic/sar")
+        st_v_run = call("POST", "/api/seismic/sar/run", {})[0]
+        st_v_data = call("POST", "/api/update/data", {})[0]
+        st_v_prog = call("POST", "/api/update/program", {})[0]
+        call("POST", "/api/logout")
+        call("POST", "/api/login", {"name": "op", "password": "operator-pass-1"})
+        st_bad = call("POST", "/api/seismic/sar/run", {"hours": 99})[0]
+        st_run, job = call("POST", "/api/seismic/sar/run", {"hours": 1.0, "step_s": 600, "seed": 7, "method": "capon", "band_hz": [1, 20]})
+        j = svc.app.runner.wait(job["id"], 600)
+        st_sar, sar = call("GET", "/api/seismic/sar")
+        st_file, body = call("GET", sar["url"], raw=True)
+        served = json.loads(body)
+        st_up, up = call("GET", "/api/update?check=0")
+        st_data, dj = call("POST", "/api/update/data", {})
+        jd = svc.app.runner.wait(dj["id"], 600)
+        st_op_prog = call("POST", "/api/update/program", {})[0]
+        call("POST", "/api/logout")
+        call("POST", "/api/login", {"name": "adm", "password": "admin-pass-1"})
+        st_au, au = call("GET", "/api/audit?action=seismic.sar_film&limit=50")
+        st_au2, au2 = call("GET", "/api/audit?actor=op&since=2020-01-01")
+        st_au3, au3 = call("GET", "/api/audit?since=2999-01-01")
+    finally:
+        svc.stop()
+    ok(st_sar0 == 200 and sar0["film"]["frames"] == 6 and sar0["label"] == "SIMULATION_SELF_TEST" and st_v_run == 403 and st_v_data == 403 and st_v_prog == 403
+       and st_bad == 400 and st_run == 200 and j["status"] == "DONE" and st_sar == 200 and sar["film"]["method"] == "capon" and sar["film"]["seed"] == 7
+       and st_file == 200 and served["label"] == "SIMULATION_SELF_TEST" and len(served["frames"]) == 6 and served["meta"]["method"] == "capon"
+       and st_up == 200 and up["running"]["version"] and up["state"] == "unknown" and up["newest_pypi"] is None and "plotting" in up["extras"] and up["reports"] == []
+       and st_data == 200 and jd["status"] == "DONE" and st_op_prog == 403
+       and st_au == 200 and au["total"] >= 2 and all(a["action"] == "seismic.sar_film" for a in au["entries"]) and "op" in au["actors"]
+       and st_au2 == 200 and all(a["actor"] == "op" for a in au2["entries"]) and "workspace.refresh_all" in {a["action"] for a in au2["entries"]}
+       and st_au3 == 200 and au3["total"] == 0,
+       "AQ3 the API: /api/seismic/sar names the last film and its URL; an operator runs the scene as a job with its parameters checked (hours, step, method, band) and "
+       "the film is served under /reports/seismic/SIMULATION/; a viewer may run nothing; /api/update reports the running version, the extras here and every report's "
+       "age without reaching PyPI when asked not to; the data update is an operator's job and the program update an admin's; /api/audit filters by actor, action and since")
+    # AQ4 - the page and the help
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    ok("function sarPanelHtml" in page_src and "function sarDraw" in page_src and "id=\"sarScreen\"" in page_src and "/api/seismic/sar/run" in page_src
+       and "SIMULATION_SELF_TEST" in page_src and "film.label" in page_src and "not a measurement of any ground" in page_src
+       and "VIEWS.audit = " in page_src and "['#/audit', 'Audit / Update']" in page_src and "/api/update/program" in page_src and "/api/update/data" in page_src
+       and "Download CSV" in page_src and 'href="#/audit"' in page_src.split("VIEWS.admin = ")[1].split("VIEWS.")[0]
+       and H.VIEW_TOPIC.get("audit") == "audit-update" and any(t["topic"] == "audit-update" for t in H.topics()) and not H.check("audit-update")
+       and "sar-film" in (pkg / "help" / "seismic.md").read_text(encoding="utf-8") and "never a film" in (pkg / "help" / "seismic.md").read_text(encoding="utf-8"),
+       "AQ4 the Seismic page carries the SAR panel (the controls, Run the scene as a job, Play/Pause/Stop/speed/scrub, the four-pane screen with the stamp on every frame); "
+       "the Audit / Update view has the program card, the data card with its two jobs, the audit log with filters and a CSV; Administration points at it; the help index "
+       "has the audit-update page, the view maps to it, and the seismic page names the film and what it is not")
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     with tempfile.TemporaryDirectory() as tmp:
@@ -3310,6 +3441,7 @@ def main() -> int:
         section_an_response(tmp)
         section_ao_array(tmp)
         section_ap_seismic_page(tmp)
+        section_aq_sar_and_audit(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

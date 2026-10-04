@@ -71,7 +71,10 @@ reaches a client document. Nothing unmeasured is ever reported as met.
   leg lives on the dashboard: a Seismic page where a station or an array is
   added by upload with its rigs list and station file, refreshed as a job,
   and read - spectrum, lines, verdicts, bearing - with its Seismic Station
-  Report under Reports. See *The second leg*.
+  Report under Reports; and the SAR panel on that page, a control panel and a
+  screen that plays the leg's arithmetic forward in time on the labelled
+  synthetic scene (`seismic_film.py`), every frame stamped SIMULATION_SELF_TEST.
+  See *The second leg*.
 
 ## Quick start
 
@@ -83,8 +86,8 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (258 checks)
-gea help drift                 # the help library, by the job (15 pages; the same text is on every dashboard page)
+gea accept                     # the product gate (262 checks)
+gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
 gea workspace --path C:\site --action init --name "Pad 3"     # a site folder
@@ -212,10 +215,10 @@ text: JSON, JSON lines, CSV, Markdown, HTML.
 
 ### The help library
 
-`gea help` lists fifteen pages indexed by the job a reader arrives with -
+`gea help` lists sixteen pages indexed by the job a reader arrives with -
 start, bring data in, quality rules, drift, well tests, alarms and the month,
 the site, instruments, shut-ins and build-ups, seismic (the second leg),
-patches, files, notifications, which code is running, upkeep. Each page carries four lines and stops: the
+patches, files, notifications, which code is running, audit / update, upkeep. Each page carries four lines and stops: the
 command, what it writes, the one number to check, and what the page will not
 call a measurement. The pages ship inside the package (`gea/help/`), and the
 same text is what `/api/help` serves and what the dashboard shows under every
@@ -355,6 +358,37 @@ a rig not on the list, and any quantity in physical units until a station's
 response has been applied and named. `--action selftest` runs the test on a
 synthetic scene and labels its output SIMULATION_SELF_TEST.
 
+The SAR panel at the foot of the Seismic page is the control panel and the
+screen. "Run the scene" is `gea workspace --action sar-film` as a job: the
+labelled synthetic array scene, one frame per window, written under
+`reports/seismic/SIMULATION/`. The screen plays it - the trace, the
+spectrogram column arriving, the beam power map on the slowness grid swinging
+onto the working rig, the map with the bearing and the array's tolerance
+wedge against the rigs where the scene put them, the tally per rig, and at
+the end the array detectability test's verdict on the whole scene, the same
+function a real record goes through. Every frame carries SIMULATION_SELF_TEST
+and the line "not a measurement of any ground"; a real record is refreshed on
+its station and the page shows what it earned, never a film. `gea seismic
+--action sar-film --out film.json` writes the same film from the command line.
+
+### Audit / Update
+
+The Audit / Update tab holds three things. The whole audit log
+(`records/audit.jsonl`) with filters by who, by action and since a date, and
+a CSV download - Administration keeps the last hundred lines and points here.
+The program card: the running version and code path, the newest release on
+PyPI (`current`, `behind`, or `PyPI not reachable` when the machine is
+offline), which extras are installed here, and links to PyPI, the releases
+with the install kits, and the CHANGELOG; "Update the program from PyPI"
+(admin) is `gea update` as a job - pip --upgrade from the same Python, after
+which the service must be restarted; the program never restarts itself, and
+an offline kit is updated by installing the newer kit. The data card: every
+report against its source - `current` or `stale` when the source changed
+after the report was written - and "Update every report from its source"
+(operator), which is `gea workspace --action refresh-all` as a job: the
+dashboard for every well, then every seismic station, errors collected and
+listed, never hidden.
+
 ### Before a site goes live
 
 `deploy/README.md` is the checklist: keep the service on the loopback
@@ -407,7 +441,8 @@ docs/report_samples/  one rendered example of every client report, from this bui
 docs/           TESTER_GUIDE.md, REQUIREMENTS_MATRIX.md (the scope-of-work mirror that shaped the reports), examples/ (port configs),
                 SESSION_LOG.md (the working record, session by session),
                 commercial/ (pilot proposal, bench readiness, commercial use), HISTORY.md (the ship-by-ship record)
-tools/          standalone_check.py (the self-contained guard; run by ci and ship.ps1), build_installer.py (the kit)
+tools/          standalone_check.py (the self-contained guard; run by ci and ship.ps1), build_installer.py (the kit),
+                render_report_samples.py (docs/report_samples), seismic_reader_check.py (the reader against libmseed)
 CHANGELOG.md    per-release summary (a tag ships only with its section); SHIP_LOG.md is written by ship.ps1
 tests/          pytest wrapper around the acceptance suite and the standalone check
 ```

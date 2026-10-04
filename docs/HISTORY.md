@@ -6,6 +6,18 @@ claim the gate does not re-verify on every run.
 
 ## Unreleased
 
+- **The SAR panel and the Audit / Update tab.** The Seismic page gained its
+  control panel and screen: the second leg's arithmetic played forward in
+  time on the labelled synthetic scene (`seismic_film.py`), every frame
+  stamped SIMULATION_SELF_TEST, closing on the array detectability test's own
+  verdict; a real record never goes through it. A new tab holds the whole
+  audit log with filters and a CSV, the running program against PyPI with
+  `gea update` as a job, and every report against its source with
+  `refresh-all` as a job. Section AQ; gate 262; sixteen help pages.
+- **The kit is the commit.** The kit builder let pip replace the checkout's
+  wheel with PyPI's of the same version, so three v0.6.0 kit runs gated the
+  released code instead of the commit; it now downloads only the wheel's own
+  requirements, asserts the built wheel survived, and records the commit.
 - **The installed kit's gate.** Both v0.6.0 kit jobs built and installed the
   kit and then failed its own `verify` at 257/258: check AN4 asked for
   `tools/seismic_reader_check.py` beside the package, true in a checkout and
