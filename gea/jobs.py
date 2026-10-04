@@ -64,12 +64,12 @@ class JobRunner:
 
     def _read(self, job_id: str) -> dict:
         p = os.path.join(self._dir(job_id), 'job.json')
-        for attempt in range(20):                        # a writer may be mid-replace; the file is never half-written (see _write)
+        for attempt in range(40):                        # a writer may be mid-replace; the file is never half-written (see _write)
             try:
                 with open(p, encoding='utf-8') as f:
                     return json.load(f)
-            except (json.JSONDecodeError, FileNotFoundError):
-                time.sleep(0.05)
+            except (json.JSONDecodeError, FileNotFoundError, PermissionError):
+                time.sleep(0.05)                          # PermissionError: Windows refuses a read during os.replace (the v0.7.0 kit run #8)
         with open(p, encoding='utf-8') as f:
             return json.load(f)
 
@@ -79,7 +79,14 @@ class JobRunner:
         with self._lock:
             with open(tmp, 'w', encoding='utf-8') as f:
                 json.dump(job, f, indent=1)
-            os.replace(tmp, p)                            # atomic on every platform the program runs on
+            for attempt in range(40):
+                try:
+                    os.replace(tmp, p)                    # atomic on every platform the program runs on
+                    break
+                except PermissionError:                   # Windows: a reader holds the file open for a moment
+                    time.sleep(0.05)
+            else:
+                os.replace(tmp, p)
 
     # -- API ------------------------------------------------------------------------
     def submit(self, args: List[str], actor: str, label: str = '', kind: str = '', inputs: Optional[List[str]] = None) -> str:

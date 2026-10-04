@@ -623,4 +623,12 @@ summary; `docs/HISTORY.md` the record by layer.
   machine and then `.\ship.ps1`. The tag starts CI, the PyPI release and
   the kit build - whose two jobs now build the commit, gate it at 266 and
   attach both kits to the v0.7.0 release.
+- The commit and the tag were made on the development machine from the
+  device shell (the owner's own identity from the repository config), the
+  SHIP_LOG line written, and the push left to the owner. His push of main
+  started kit run #8: the Linux kit built from the commit, installed and
+  gated green; the Windows kit built and installed and its gate crashed in
+  section AC on a Windows file race - a reader got PermissionError while
+  the runner was replacing job.json. jobs.py retries both sides; the tag
+  moved to the fix before it was pushed.
 

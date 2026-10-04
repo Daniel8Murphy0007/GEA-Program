@@ -46,6 +46,10 @@ session-by-session working record is `docs/SESSION_LOG.md`.
   duplicates and rigs outside a radius dropped and counted - all in an
   import note beside the output. `add-seismic --permits` and the page's add
   form take a permit export in place of the rigs CSV and keep both.
+- The job runner on Windows: a reader could hit PermissionError while the
+  writer was replacing `job.json` (the v0.7.0 kit's first Windows run, in
+  section AC); both sides now retry through the moment, as they already did
+  for a half-replaced file.
 - The seismic track report sample (19 samples); sections AR (1 check: the
   tracker and its scene, the self-test) and AS (3: tracks in the workspace
   and the report, the API, the page and the lateral film, the permits
