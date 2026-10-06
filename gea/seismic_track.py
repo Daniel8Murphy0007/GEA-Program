@@ -103,10 +103,15 @@ def truth_at(points: Sequence[TruthPoint], t: float) -> Optional[Tuple[float, fl
 # ---------------------------------------------------------------------------
 def bearing_history(traces: Sequence[Trace], sensors: Sequence[Sensor], band: Tuple[float, float] = (1.0, 20.0), win_s: float = 600.0,
                     step_s: Optional[float] = None, seg_s: float = 10.0, s_max: float = 3.0, n_grid: int = 41, method: str = 'bartlett',
-                    min_coherence: float = 0.5, min_bins: int = 2) -> dict:
+                    min_coherence: float = 0.5, min_bins: int = 2, measure_sigma: bool = False, sigma_parts: int = 3) -> dict:
     """The beam on every window of the record: a bearing with the array's tolerance where the beam was
     coherent, a gap where it was not, and the change points - windows where the bearing moved beyond the
-    tolerance against the running mean of the coherent windows before it."""
+    tolerance against the running mean of the coherent windows before it.
+
+    With `measure_sigma` each coherent window also gets an uncertainty measured from its own sub-windows
+    rather than taken from the array's geometry, and the positions crossed from these bearings use it. The
+    tolerance stays what it was - it is the test for whether the array pointed at a listed source, which is a
+    question about resolution - but the ellipse is drawn from what the data is worth."""
     if len(traces) != len(sensors) or len(sensors) < 3:
         raise ValueError('a bearing history needs three or more sensors, one record each, in the same order')
     step_s = step_s or win_s
@@ -130,6 +135,14 @@ def bearing_history(traces: Sequence[Trace], sensors: Sequence[Sensor], band: Tu
             row.update({'back_azimuth_deg': b['back_azimuth_deg'], 'slowness_s_km': b['slowness_s_km'], 'apparent_velocity_km_s': b['apparent_velocity_km_s'],
                         'coherence_max_bin': b['coherence_max_bin'], 'coherent_bins': b['coherent_bins'], 'coherent': coherent, 'tolerance_deg': tol,
                         'aliasing_lobes': b['resolution']['aliasing_lobes']})
+            if measure_sigma and coherent:
+                from . import seismic_uncertainty as UQ
+                try:
+                    u = UQ.bearing_sigma(win, sensors, band, seg_s, s_max, n_grid, method, parts=sigma_parts)
+                    row.update({'sigma_deg': u['sigma_deg'], 'sigma_status': u['status'], 'sigma_parts': u.get('n_parts'),
+                                'sigma_scatter_deg': u.get('sigma_scatter_deg'), 'sigma_floor_deg': u.get('floor_deg')})
+                except ValueError:
+                    pass
         except ValueError as e:
             row.update({'back_azimuth_deg': None, 'note': str(e)})
         windows.append(row)
@@ -187,14 +200,19 @@ def position_history(histories: Sequence[dict], min_crossing_deg: float = MIN_CR
         if len(coh) < 2:
             row['gap'] = 'fewer than two arrays coherent'
             rows.append(row); continue
-        arrays = [{'lat': histories[i]['array']['lat'], 'lon': histories[i]['array']['lon'], 'back_azimuth_deg': w['back_azimuth_deg'], 'sigma_deg': w['tolerance_deg']}
+        # the ellipse is drawn from what each bearing is worth: the measured sigma where there is one, and
+        # the array's own resolution where there is not - which is a floor, not an error bar, and is marked
+        arrays = [{'lat': histories[i]['array']['lat'], 'lon': histories[i]['array']['lon'], 'back_azimuth_deg': w['back_azimuth_deg'],
+                   'sigma_deg': (w.get('sigma_deg') or w['tolerance_deg'])}
                   for i, w in coh]
+        row['sigma_deg'] = [round(float(w.get('sigma_deg') or w['tolerance_deg']), 3) for _, w in coh]
+        row['sigma_measured'] = [bool(w.get('sigma_deg')) for _, w in coh]
         x = AR.intersect_backazimuths(arrays)
         if x['crossing_angle_deg'] < min_crossing_deg:
             row['gap'] = f"bearings cross at {x['crossing_angle_deg']} deg (under {min_crossing_deg:g})"
         elif not x['in_front_of_every_array']:
             row['gap'] = 'the crossing lies behind an array'
-        elif not math.isfinite(x['ellipse_1sigma']['major_km']):
+        elif x['ellipse_1sigma']['major_km'] is None or not math.isfinite(x['ellipse_1sigma']['major_km']):
             row['gap'] = 'the crossing has no finite ellipse'
         else:
             row['position'] = {'lat': round(x['lat'], 6), 'lon': round(x['lon'], 6), 'ellipse_1sigma': x['ellipse_1sigma'], 'crossing_angle_deg': x['crossing_angle_deg'],
@@ -204,7 +222,8 @@ def position_history(histories: Sequence[dict], min_crossing_deg: float = MIN_CR
     out = {'protocol': 'seismic_track.position_history', 'arrays': [h['array'] for h in histories], 'n_windows': len(rows), 'n_positions': len(pts),
            'windows': rows, 'min_crossing_deg': min_crossing_deg,
            'basis': 'seismic_array.intersect_backazimuths on each window where two or more arrays were coherent; the ellipse is the 1-sigma covariance from the arrays\' tolerances',
-           'not_a_measurement': ['a position in any window listed as a gap', 'a position finer than its ellipse', 'anything at all when fewer than two arrays exist']}
+           'not_a_measurement': ['a position in any window listed as a gap', 'a position finer than its ellipse', 'anything at all when fewer than two arrays exist',
+                                 'motion smaller than the ellipses the positions carry: a line fitted through a scatter always has a heading, and it means nothing until the extent beats the ellipse']}
     out['track'] = track_summary(pts)
     return out
 
@@ -259,6 +278,20 @@ def track_summary(points: Sequence[dict]) -> dict:
                     'rate_km_per_h': round(float((proj[-1] - proj[0]) / max((points[-1]['start'] - points[0]['start']) / 3600.0, 1e-9)), 3)})
     else:
         out['note'] = 'fewer than three positions: no heading or length'
+    # did it move at all? A line fitted through a scatter always has a heading and a length; they mean
+    # something only when the extent is larger than the ellipses the positions carry.
+    med = out['ellipse_major_km']['median']
+    if out.get('length_km') is None:
+        out['motion'] = 'NOT_JUDGED'
+        out['motion_note'] = 'fewer than three positions: whether the source moved is not judged'
+    elif out['length_km'] <= 2.0 * med:
+        out['motion'] = 'NOT_RESOLVED'
+        out['motion_note'] = (f"the positions span {out['length_km']:.2f} km, within twice the median 1-sigma ellipse ({med:.2f} km): they are consistent "
+                              'with a source that did not move, and the heading below is the scatter\'s, not a direction of travel')
+    else:
+        out['motion'] = 'RESOLVED'
+        out['motion_note'] = (f"the positions span {out['length_km']:.2f} km against a median 1-sigma ellipse of {med:.2f} km: the source moved, and the "
+                              'heading is the direction it moved in')
     return out
 
 
@@ -417,6 +450,8 @@ def report_text(pos: dict, ver: Optional[dict] = None) -> str:
     tr = pos.get('track') or {}
     lines = ['SEISMIC TRACK', '=' * 60,
              f"arrays: {len(pos['arrays'])}; windows: {pos['n_windows']}; positions: {pos['n_positions']} (gaps: {pos['n_windows'] - pos['n_positions']})"]
+    if tr.get('motion_note'):
+        lines.append('motion: ' + tr['motion_note'])
     if tr.get('heading_deg') is not None:
         lines.append(f"track: heading {tr['heading_deg']} deg, length {tr['length_km']} km over {tr['n_positions']} positions, {tr['rate_km_per_h']} km/h; "
                      f"rms off the line {tr['rms_off_line_km']} km; ellipse major median {tr['ellipse_major_km']['median']} km (max {tr['ellipse_major_km']['max']})")

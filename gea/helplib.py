@@ -33,6 +33,7 @@ INDEX: List[tuple] = [
     ('site', 'The site', 'the folder layout, the four roles and what each cannot do'),
     ('instruments', 'Instruments', 'sensor swaps and calibration certificates'),
     ('transients', 'Shut-ins and build-ups', 'the first-look build-up analysis and its band'),
+    ('sites', 'Sites - the engagement', 'the wells, stations and tracks of one client\'s ground, and the one report for all of it'),
     ('seismic', 'Seismic - the second leg', 'miniSEED/SAC in, spectra and persistent lines out, the detectability test against known rigs'),
     ('patches', 'Patches', 'supervised live connections, their states and records'),
     ('files', 'Files', 'import and export roots, detection by content, the evidence pack'),
@@ -47,7 +48,7 @@ REQUIRED_LINES = ('**The command**', '**What it writes**', '**The number to chec
 VIEW_TOPIC: Dict[str, str] = {
     'home': 'start', 'wells': 'data-in', 'well': 'drift', 'live': 'patches', 'patch': 'patches', 'files': 'files', 'alarms': 'alarms',
     'approvals': 'well-tests', 'config': 'site', 'reports': 'drift', 'verify': 'start', 'survey': 'data-in', 'jobs': 'site',
-    'admin': 'site', 'prefs': 'site', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'audit': 'audit-update',
+    'admin': 'site', 'prefs': 'site', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'sites': 'sites', 'audit': 'audit-update',
 }
 
 

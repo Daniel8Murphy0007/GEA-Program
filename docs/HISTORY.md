@@ -4,6 +4,98 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.8.0 - 2026-10-06 - the machine behind the lines, the ground under the positions, the site that owns them, and a panel that survives the power going out
+
+- **The control panel owns its own stopping and starting.** It had one way to
+  end - the window closed - and the operator was left looking at whatever
+  shell was underneath, which on a console opened from a Python profile is a
+  bare `>>>` where a program used to be. The service now states how it ended
+  in its exit code (0 stop, 86 start me again), the launcher reads it, and on
+  any other code hands the window to a PowerShell prompt that names the
+  program; it never falls through. Stop, Restart behind an explicit
+  authorisation, and an auto-restart switch live on the Administration page.
+  The switch is one character in one file because the launcher is a batch
+  script, capped at five stops in a row so a panel that crashes while starting
+  hands over the error instead of flickering all night. Every start, stop and
+  recovery is appended to `records/runlog.jsonl` and flushed before it is
+  attempted, so a run that was killed reads back as killed; the recovery
+  brings the live patches up first and rebuilds the stale records behind them,
+  because what the stream does not record is not recoverable and a report that
+  is behind its source always is. `gea doctor` reads the installed launcher
+  and says whether it honours the contract. Section BB; gate 302.
+- **The site: the engagement, not the leg.** A site holds the wells, the
+  seismic stations and the tracks of one client's ground, and the Site Report
+  pulls every leg of it into one document with anything not run since its
+  source changed named. That is what makes this one program rather than three
+  tools in a package. Section BA.
+- **How well a bearing is known.** The ellipses came from geometry: what the
+  array could resolve at perfect signal-to-noise, identical for a clean
+  record and a marginal one. The sigma is now measured by cutting the window
+  up and beaming each piece, floored at the beamformer's own grid, and -
+  the part that matters - `coverage` counts how often the truth really falls
+  inside it and returns the factor that would centre the claim. CALIBRATED on
+  the labelled scene, with a median error of 0.37 degrees against a sigma of
+  0.54. Section AZ.
+- **The site, not the station.** Two reports the leg had no answer for: the
+  Seismic Dataset Report, which says what is held - every record, its span,
+  rate, gaps, checksum and datum, and whether any result is older than the
+  record it came from - and the Seismic Field Report, which says what the
+  site heard, rig by rig and station by station, with what nobody listed
+  beside it. Section AY.
+- **What else is out there.** `seismic_unlisted.py` is the first part of this
+  leg that finds instead of confirming. Lines no listed source claims are
+  grouped into combs; a comb with a fundamental is a machine, and it is
+  beamed on its own lines like any other. Proven by leaving one of three rigs
+  off the list: it comes back at half a degree of its true bearing and its
+  true pump rate, while the mains line and the mains harmonic that folds back
+  under Nyquist are named as electrical rather than as machines, and with
+  every rig listed there is nothing to find. Section AX.
+- **Is this array any good?** `seismic_qc.py` checks the assumption every
+  bearing rested on. The timing test is the one that matters and it needs no
+  reference clock: for a plane wave the delays must lie on a plane, so the
+  plane is fitted to the array's own measured delays and each residual is
+  what the wavefront does not explain. Proven by putting four known faults
+  into a clean array - a dead channel, a clock 40 ms out, a sensor wired
+  backwards, one at 8 % gain - and finding exactly those four, recovering the
+  clock error to 0.04 ms, and measuring what they cost: 173 degrees of
+  bearing. The same array with no faults comes back USABLE with nothing
+  named, which is the half of the test that matters most. Section AW.
+- **Which datum a position is on.** `geodesy.py` ends the program's oldest
+  silent assumption: that a latitude and a longitude mean the same ground
+  whoever wrote them. A Texas permit export is often NAD27 and a network's
+  metadata WGS84, and at 31 N, 102 W those differ by 46 m - the size of a
+  position ellipse, which is why a datum error never looked like an error.
+  Positions carry their datum, conversions carry their accuracy, an unstated
+  datum is UNKNOWN and prints what assuming costs in metres at that site, and
+  the separation between two datums is computed there rather than quoted.
+  Under it: Vincenty on the ellipsoid, the published three-parameter shifts,
+  UTM and Texas state plane both ways, and the two feet kept apart. Checked
+  against published values this program did not produce. Section AV.
+- **The machine behind the lines.** `seismic_harmonic.py` stops treating a
+  signature as a list of bins. A comb search over every line divided by every
+  order recovers the fundamental - a pump rate in strokes per minute, not a
+  bin index - and says how often this record's line density would produce
+  that comb by accident, setting aside the ones it would. Every line is then
+  followed window to window, so a machine whose rate walks with its load
+  keeps its signature instead of disappearing from it, the walk is read as a
+  rate over time, and a harmonic the fixed bins missed is attributed back to
+  its machine by its whole-number ratio to a line already claimed. A line no
+  listed source claims is listed as such. And the ground truth every earlier
+  verdict rested on is now measurable: each source's working spells come off
+  the record and sit beside the ones the rigs list declares, agreeing or
+  disagreeing, because a permit date is a permission and not a drilling log.
+  Proven on a labelled scene whose pump ramps 1.40 to 1.85 Hz with a stop in
+  it: fixed bins hold two lines of it, the tracker holds every one with the
+  harmonics walking k times as fast, and the fundamental comes back within
+  0.01 Hz of the rate the scene was running at in that window. Section AU.
+- **A field, not a rig.** `seismic_signature.py` learns each rig's own lines
+  while it works alone and then beams it on those lines alone, so several
+  rigs working together get a bearing each in the same window and a track
+  each from two arrays. The refusals are the method: no signature without a
+  spell alone, NOT_SEPARABLE for rigs whose lines collide, ALIASED where the
+  geometry cannot tell the peak from its lobes. The track now also says
+  whether the source moved at all. Section AT.
+
 ## v0.7.0 - 2026-10-04 - the time dimension - tracks from two arrays, the SAR panel, the Audit / Update tab, the permits importer, and the kit made the commit
 
 - **The time dimension and the first mapped track.** `seismic_track.py`

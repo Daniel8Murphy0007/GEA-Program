@@ -50,6 +50,18 @@ from typing import Callable, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from .workspace import Workspace, WorkspaceError, slug, utc_now_iso
+
+
+def _finite(o):
+    """NaN and Infinity are valid to Python's json and are a syntax error to every browser: a page that fetched
+    one would fail to parse the whole body. Every number the service sends is finite or null."""
+    if isinstance(o, float):
+        return o if o == o and o not in (float('inf'), float('-inf')) else None
+    if isinstance(o, dict):
+        return {k: _finite(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)):
+        return [_finite(v) for v in o]
+    return o
 from .jobs import JobRunner, Scheduler
 from .patches import PatchSupervisor, PROTOCOLS
 
@@ -1294,7 +1306,7 @@ def make_handler(app: App):
             return self.client_address[0]
 
         def _json(self, status: int, obj, set_cookie: Optional[str] = None, retry_after: Optional[int] = None) -> None:
-            body = json.dumps(obj, default=str).encode('utf-8')
+            body = json.dumps(_finite(obj), default=str, allow_nan=False).encode('utf-8')
             self.send_response(status)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
             self.send_header('Content-Length', str(len(body)))
@@ -1393,8 +1405,39 @@ def make_handler(app: App):
                     return self._json(200, app.notifications_view(user))
                 if path == '/api/wells':
                     return self._json(200, {'wells': app.ws.wells()})
+                if path == '/api/control':
+                    from . import supervisor as _SV
+                    from . import __version__ as _v
+                    st = _SV.state(app.ws.path, getattr(self.server, 'gea_started_utc', None) or app.started_utc, _v)
+                    svc = getattr(self.server, 'gea_service', None)
+                    res = getattr(svc, 'resume', None) if svc else None
+                    st['resume'] = ({k: v for k, v in res.items() if not k.startswith('_')} if res else None)
+                    if res and res.get('_result'):
+                        st['catch_up'] = res['_result'] or {'status': 'RUNNING',
+                                                            'detail': 'the catch-up is still running behind the stream'}
+                    st['runlog_tail'] = _SV.tail(app.ws.path, 30)
+                    st['auto_restart'] = bool(st.get('auto_restart_flag', {}).get('enabled'))
+                    st['auto_restart_manifest'] = bool((app.ws.manifest.get('control') or {}).get('auto_restart', False))
+                    return self._json(200, st)
+                if path == '/api/sites':
+                    import os as _os
+                    rows = []
+                    for st in app.ws.sites():
+                        f = _os.path.join(app.ws.dir('reports', 'sites', st['id']), 'site_report.html')
+                        rows.append({**st, 'report': (_os.path.relpath(f, app.ws.reports_dir).replace('\\', '/') if _os.path.isfile(f) else None),
+                                     'report_utc': (datetime.fromtimestamp(_os.path.getmtime(f), timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+                                                    if _os.path.isfile(f) else None)})
+                    return self._json(200, {'sites': rows})
                 if path == '/api/seismic':
-                    return self._json(200, {'stations': [{**st, 'summary': app.ws.seismic_results(st['id']).get('summary')} for st in app.ws.seismic_stations()]})
+                    import os as _os
+                    sdir = app.ws.dir('reports', 'seismic')
+                    site = {}
+                    for nm in ('seismic_dataset_report', 'seismic_field_report'):
+                        f = _os.path.join(sdir, nm + '.html')
+                        if _os.path.isfile(f):
+                            site[nm] = {'generated_utc': datetime.fromtimestamp(_os.path.getmtime(f), timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}
+                    return self._json(200, {'stations': [{**st, 'summary': app.ws.seismic_results(st['id']).get('summary')} for st in app.ws.seismic_stations()],
+                                            'site_reports': site})
                 if path == '/api/tracks':
                     return self._json(200, {'tracks': [{**tk, 'summary': app.ws.track_results(tk['id']).get('summary')} for tk in app.ws.tracks()]})
                 if path.startswith('/api/tracks/'):
@@ -1564,6 +1607,39 @@ def make_handler(app: App):
                     args = ['workspace', '--path', app.ws.path, '--action', 'sar-film', '--hours', str(hours), '--step', str(step), '--seed', str(seed),
                             '--method', method, '--band', str(float(band[0])), str(float(band[1])), '--scene', scene, '--actor', user['name']]
                     return self._json(200, app._job(args, user, 'SAR film (synthetic scene)'))
+                if path in ('/api/control/shutdown', '/api/control/restart'):
+                    App.require(user, 'admin')
+                    from . import supervisor as _SV
+                    svc = getattr(self.server, 'gea_service', None)
+                    if svc is None:
+                        raise ApiError(409, 'this process is not the serving one, so it cannot stop or start it')
+                    restart = path.endswith('restart')
+                    # a restart is authorised explicitly, every time. A control that reboots the program on a
+                    # stray click is not a control, and the launcher is what actually brings it back - so the
+                    # answer says what will happen rather than leaving the operator looking at a dead window.
+                    if restart and not bool(body.get('authorize')):
+                        raise ApiError(400, 'a restart needs authorising: send {"authorize": true}. The control panel will stop and the launcher will '
+                                            'start it again; anyone using it will be signed out and will have to sign in once it is back')
+                    reason = str(body.get('reason') or ('authorised from the control panel' if restart else 'stopped from the control panel'))[:200]
+                    r = svc.request_exit(_SV.EXIT_RESTART if restart else _SV.EXIT_CLEAN, user['name'], reason)
+                    return self._json(200, r)
+                if path == '/api/control/auto-restart':
+                    App.require(user, 'admin')
+                    on = bool(body.get('enabled'))
+                    ctl = app.ws.manifest.setdefault('control', {})
+                    ctl['auto_restart'] = on
+                    app.ws._save()
+                    app.ws.audit(user['name'], 'control.auto_restart', {'enabled': on})
+                    from . import supervisor as _SV
+                    # the manifest is the record of the choice; the flag file is how it reaches the launcher,
+                    # which is a batch file and cannot read JSON. Both, or the setting is decoration.
+                    _SV.set_auto_restart(app.ws.path, on)
+                    _SV.log(app.ws.path, 'auto_restart', enabled=on, actor=user['name'], flag=_SV.auto_flag_path(app.ws.path))
+                    return self._json(200, {'auto_restart': on, 'flag': _SV.auto_flag_path(app.ws.path),
+                                            'launcher_reads': _SV.auto_restart(app.ws.path),
+                                            'detail': ('the launcher will start the control panel again by itself if it stops unexpectedly'
+                                                       if on else
+                                                       'the launcher will hand the window to a PowerShell prompt when the control panel stops')})
                 if path == '/api/update/program':
                     App.require(user, 'admin')
                     extras = body.get('extras') or 'live,plotting,xls,desktop'
@@ -1741,9 +1817,34 @@ class Service:
         self.app = App(self.ws, workers=workers, scheduler=scheduler)
         self.app.behind_proxy = behind_proxy
         self.httpd = ThreadingHTTPServer((host, port), make_handler(self.app))
+        self.httpd.gea_service = self          # the handler reaches the run it belongs to, to stop or restart it
+        self.httpd.gea_started_utc = None
         self.httpd.daemon_threads = True
         self.host, self.port = self.httpd.server_address[0], self.httpd.server_address[1]
         self._thread: Optional[threading.Thread] = None
+        # how this run ends. The launcher reads it: EXIT_RESTART means run me again, anything else means
+        # hand the window to a PowerShell prompt. Nothing else decides this.
+        from . import supervisor as _SV
+        self.exit_code = _SV.EXIT_CLEAN
+        self.started_utc = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        self.httpd.gea_started_utc = self.started_utc
+        self.resume: Optional[dict] = None
+        self._exit_reason = ''
+
+    def request_exit(self, code: int, actor: str = 'system', reason: str = '') -> dict:
+        """Stop this run with a stated code and a stated reason, both written to the run log before the
+        server is touched - so a machine that loses power in the middle of a restart still finds out what
+        was being attempted."""
+        from . import supervisor as _SV
+        self.exit_code = int(code)
+        self._exit_reason = reason
+        event = 'restart' if int(code) == _SV.EXIT_RESTART else 'stop'
+        _SV.log(self.ws.path, event, reason=reason, actor=actor, code=int(code), url=self.url)
+        self.ws.audit(actor, f'service.{event}', {'reason': reason, 'code': int(code)})
+        threading.Thread(target=self.httpd.shutdown, name='gea-exit', daemon=True).start()
+        return {'event': event, 'code': int(code), 'reason': reason,
+                'detail': ('the launcher will start the control panel again' if event == 'restart'
+                           else 'the launcher will hand this window to a PowerShell prompt')}
 
     @property
     def url(self) -> str:
@@ -1755,14 +1856,23 @@ class Service:
         self.ws.audit('system', 'service.start', {'url': self.url})
         return self
 
-    def serve_forever(self) -> None:
+    def serve_forever(self) -> int:
+        from . import supervisor as _SV
+        from . import __version__ as _v
+        _SV.log(self.ws.path, 'start', version=_v, url=self.url, workspace=self.ws.path)
+        # the setting lives in the manifest and is acted on from the flag file. Write it out at every start,
+        # so a workspace that was copied without the records directory still launches the way it was set.
+        _SV.set_auto_restart(self.ws.path, bool((self.ws.manifest.get('control') or {}).get('auto_restart', False)))
         self.ws.audit('system', 'service.start', {'url': self.url})
+        self.resume = _SV.resume(self.ws, self.app.patches, 'supervisor')
         try:
             self.httpd.serve_forever()
         except KeyboardInterrupt:
-            pass
+            _SV.log(self.ws.path, 'stop', reason='Ctrl+C at the console', actor='console', code=_SV.EXIT_CLEAN)
+            self.exit_code = _SV.EXIT_CLEAN
         finally:
             self.stop()
+        return self.exit_code
 
     def stop(self) -> None:
         self.app.stop_background()

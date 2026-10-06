@@ -261,8 +261,20 @@ VIEWS.well = async (id) => {
   catch (e) { $('#chart').innerHTML = `<p class="muted">${esc(e.message)}</p>`; }
 };
 
+VIEWS.sites = async () => {
+  const {sites} = await get('/api/sites');
+  let h = `<h2>Sites</h2><p class="muted small">A site is the engagement: the wells, the seismic stations and the tracks that belong to one client's ground, held together so there is one thing to refresh and one thing to hand over. The Site Report pulls every leg of it into one document and names anything that has not been run since the thing it was made from changed.</p>`;
+  h += `<table><thead><tr><th>Site</th><th>Client</th><th>Wells</th><th>Seismic</th><th>Tracks</th><th>Report</th></tr></thead><tbody>`;
+  for (const s of sites) h += `<tr><td>${esc(s.display)}</td><td>${esc(s.client || '—')}</td><td>${(s.wells || []).map(esc).join(', ') || '—'}</td><td>${(s.seismic || []).map(esc).join(', ') || '—'}</td><td>${(s.tracks || []).map(esc).join(', ') || '—'}</td><td class="small">${s.report ? `<a href="reports/${esc(s.report)}" target="_blank">site report</a> <span class="muted">${tz(s.report_utc)}</span>` : '<span class="muted">none yet</span>'}</td></tr>`;
+  if (!sites.length) h += `<tr><td colspan="6" class="muted">no sites yet — <span class="mono">gea workspace --action add-site --name "&lt;name&gt;" --seismic &lt;id&gt; --wells &lt;id&gt;</span></td></tr>`;
+  h += `</tbody></table>`;
+  h += `<p class="small muted">A site is a list of what belongs to one engagement, not a boundary on the ground.</p>`;
+  $('#main').innerHTML = h;
+};
+
 VIEWS.seismic = async () => {
-  const {stations} = await get('/api/seismic'); const sar = await get('/api/seismic/sar'); const {tracks} = await get('/api/tracks');
+  const _sl = await get('/api/seismic'); const stations = _sl.stations, siteReports = _sl.site_reports || {};
+  const sar = await get('/api/seismic/sar'); const {tracks} = await get('/api/tracks');
   let h = `<h2>Seismic - the second leg</h2><p class="muted small">A station's record in, its spectrum and persistent lines out, and the detectability test against the rigs on its list; an array adds the direction. Every refresh is a job; the report is under Reports.</p>`;
   h += `<table><thead><tr><th>Station</th><th>Kind</th><th>Records</th><th>Unit</th><th>Lines</th><th>Detectability</th><th>Array</th><th>Last refresh</th><th></th></tr></thead><tbody>`;
   for (const s of stations) { const m = s.summary || {};
@@ -459,7 +471,16 @@ VIEWS.track = async (id) => {
   if (can('operator')) h += `<div class="row card"><button id="tRefresh" type="button">Refresh this track</button><span class="small muted">bearings on every window of every array, the crossings, the verdict; a job</span></div>`;
   if (!m) { h += `<p class="card">Not refreshed yet.</p>`; $('#main').innerHTML = h; const b = $('#tRefresh'); if (b) b.onclick = async () => { try { const j = await post(`/api/tracks/${id}/refresh`); toast('Refresh started: job ' + j.id, 'ok'); watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); } }; return; }
   const P = R.positions || {}, tr = P.track || {}, V = R.verdict;
-  h += `<div class="card"><h3>Seismic track report <span class="small muted">${esc(m.report_id)} · ${reportLinks(dir, 'seismic_track_report')}</span></h3><p class="small">${m.positions} positions of ${m.windows} windows${tr.heading_deg !== null && tr.heading_deg !== undefined ? `; the longest segment runs <b>${fmt(tr.length_km, 2)} km</b> on heading <b>${fmt(tr.heading_deg, 1)}°</b> (${tr.n_positions} positions, ${fmt(tr.rate_km_per_h, 2)} km/h, median ellipse ${fmt(tr.ellipse_major_km.median, 2)} km)` : `; ${esc(tr.note || 'no track')}`}${tr.segment_note ? `. ${esc(tr.segment_note)}` : ''}${V ? `. Verdict <b>${esc(V.verdict)}</b>: ${V.n_hit} of ${V.n_compared} positions within their ellipse of the truth${V.heading ? ` (heading ${V.heading.track_deg}° vs ${V.heading.truth_deg}°)` : ''}${V.outside_note ? `. ${esc(V.outside_note)}` : ''}` : ''}.</p></div>`;
+  h += `<div class="card"><h3>Seismic track report <span class="small muted">${esc(m.report_id)} · ${reportLinks(dir, 'seismic_track_report')}</span></h3><p class="small">${m.positions} positions of ${m.windows} windows${tr.heading_deg !== null && tr.heading_deg !== undefined ? `; the longest segment runs <b>${fmt(tr.length_km, 2)} km</b> on heading <b>${fmt(tr.heading_deg, 1)}°</b> (${tr.n_positions} positions, ${fmt(tr.rate_km_per_h, 2)} km/h, median ellipse ${fmt(tr.ellipse_major_km.median, 2)} km)` : `; ${esc(tr.note || 'no track')}`}${tr.motion_note ? `. Motion ${esc(tr.motion || '')}: ${esc(tr.motion_note)}` : ''}${tr.segment_note ? `. ${esc(tr.segment_note)}` : ''}${V ? `. Verdict <b>${esc(V.verdict)}</b>: ${V.n_hit} of ${V.n_compared} positions within their ellipse of the truth${V.heading ? ` (heading ${V.heading.track_deg}° vs ${V.heading.truth_deg}°)` : ''}${V.outside_note ? `. ${esc(V.outside_note)}` : ''}` : ''}.</p></div>`;
+  if (R.multi_track && R.multi_track.tracks) { const MT = R.multi_track, SIG = R.signatures;
+    h += `<div class="card"><h3>Several sources at once <span class="small muted">each rig learned while it worked alone, then beamed on its own lines</span></h3>
+      <p class="small muted">A single bearing is one direction for every machine in the band: when several rigs work at once, crossing whole-band bearings means nothing. Each source below was learned from the windows it worked alone and then beamed on those frequencies alone, which gives one bearing per source in the same window.${SIG ? ` ${SIG.n_with_signature} of ${SIG.signatures.length} source(s) have a signature, over ${SIG.windows} windows (${SIG.quiet_windows} quiet, ${SIG.together_windows} with two or more working).` : ''}</p>
+      <table><thead><tr><th>Source</th><th>Arrays</th><th>Positions</th><th>Motion</th><th>Heading</th><th>Length (km)</th><th>Ellipse (km)</th><th>Verdict</th><th></th></tr></thead><tbody>`;
+    for (const [sid, r] of Object.entries(MT.tracks)) { const t = r.track || {}, v = r.verdict || {};
+      h += `<tr><td>${esc(sid)}</td><td>${r.arrays ?? '—'}</td><td>${r.status === 'OK' ? `${r.positions} of ${r.windows}` : '—'}</td><td>${t.motion ? statusPill(t.motion === 'RESOLVED' ? 'good' : 'neutral', t.motion) : '—'}</td><td>${t.heading_deg !== null && t.heading_deg !== undefined ? fmt(t.heading_deg, 1) + '°' : '—'}</td><td>${fmt(t.length_km, 2)}</td><td>${fmt((t.ellipse_major_km || {}).median, 2)}</td><td>${v.verdict ? statusPill(v.verdict === 'TRACKED' ? 'good' : (v.verdict === 'PARTIAL' ? 'warn' : (v.verdict === 'NOT_TRACKED' ? 'serious' : 'neutral')), v.verdict) : '—'}</td><td class="small muted">${esc(r.detail || t.motion_note || '')}</td></tr>`; }
+    h += `</tbody></table>`;
+    if (SIG) { h += `<table><thead><tr><th>Source</th><th>Signature</th><th>Exclusive windows</th><th>Its lines (Hz)</th></tr></thead><tbody>${SIG.signatures.map(g => `<tr><td>${esc(g.source_id)}</td><td>${statusPill(g.status === 'OK' ? 'good' : 'neutral', g.status)}</td><td>${g.exclusive_windows}</td><td class="mono small">${esc(g.freqs_hz.map(x => fmt(x, 2)).join(', ') || '—')}</td></tr>`).join('')}</tbody></table>`; }
+    h += `</div>`; }
   h += `<div class="card"><h3>Map <span class="small muted">arrays, positions with their 1σ ellipses, the ground truth; drag the slider through time</span></h3><canvas id="trkMap" width="900" height="520" style="width:100%;max-width:900px;background:#0b0f14;border-radius:6px"></canvas><div class="row"><label style="flex:1">Up to window<input id="trkSlider" type="range" min="0" max="${Math.max((P.windows || []).length - 1, 0)}" value="${Math.max((P.windows || []).length - 1, 0)}" style="width:100%"></label><span class="mono small" id="trkClock">—</span></div></div>`;
   h += `<div class="card"><h3>Bearings over time <span class="small muted">one line per array; a dot where the beam was coherent, nothing where it was not</span></h3><canvas id="trkBear" width="900" height="260" style="width:100%;max-width:900px"></canvas></div>`;
   if (P.windows) { h += `<div class="card"><h3>Positions</h3><table><thead><tr><th>Window</th><th>Lat</th><th>Lon</th><th>Major (km)</th><th>Crossing</th><th>Arrays</th><th>Gap</th>${V ? '<th>Miss (km)</th><th>Hit</th>' : ''}</tr></thead><tbody>`;
@@ -509,7 +530,89 @@ VIEWS.seismic_station = async (id) => {
   if (can('operator')) h += `<div class="row card"><button id="sRefresh" type="button">Refresh this station</button><span class="small muted">reads the record, removes the response when a station file is there, the spectrum, the lines, the detectability test, the beam for an array; every run is a job</span></div>`;
   if (!m) { h += `<p class="card">Not refreshed yet.</p>`; $('#main').innerHTML = h; const b = $('#sRefresh'); if (b) b.onclick = async () => { try { const j = await post(`/api/seismic/${id}/refresh`); toast('Refresh started: job ' + j.id, 'ok'); watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); } }; return; }
   h += `<div class="card"><h3>Seismic station report <span class="small muted">${esc(m.report_id)} · ${reportLinks(dir, 'seismic_station_report')}</span></h3><p class="small">${m.records} record(s), ${m.hours} h, in <b>${esc(m.unit)}</b>${m.response_removed ? ' (station response removed)' : (m.response_note ? ` (response not removed: ${esc(m.response_note)})` : ' (instrument response as recorded)')}; ${m.lines} persistent line(s)${m.detect_status ? `; detectability ${esc(m.detect_status)}` : ''}.</p></div>`;
+  if (R.unlisted) { const UL = R.unlisted, UC = UL.candidates || {};
+    const kind = UL.status === 'FOUND' ? 'serious' : (UL.status === 'NOTHING_UNLISTED' || UL.status === 'ONLY_ELECTRICAL' ? 'good' : 'warn');
+    h += `<div class="card"><h3>What else is out there <span class="small muted">${UL.n_found || 0} source(s) not on the list</span></h3>
+      <p>${statusPill(kind, UL.status)} ${esc(UL.detail || '')}</p>
+      <p class="small muted">Every other test answers a question somebody already asked. This one asks what else is out there, because the source nobody listed is the one nobody is watching. Lines nobody claims are grouped into combs, and a comb with a fundamental is a machine running at a rate.</p>`;
+    if ((UL.sources || []).length) { h += `<table><thead><tr><th>Candidate</th><th>Verdict</th><th>Back-azimuth</th><th>Rate</th><th>Per minute</th><th>Orders</th><th>By chance</th></tr></thead><tbody>`;
+      for (const r of UL.sources) h += `<tr><td class="mono">${esc(r.source_id)}</td><td>${statusPill(r.verdict === 'POINTED' ? 'serious' : 'neutral', r.verdict)}</td><td>${r.back_azimuth_deg !== null && r.back_azimuth_deg !== undefined ? fmt(r.back_azimuth_deg, 1) + '° ± ' + fmt(r.tolerance_deg, 1) : '—'}</td><td class="mono">${fmt(r.fundamental_hz, 3)} Hz</td><td>${fmt(r.line_rate_per_min, 0)}</td><td class="mono">${(r.orders || []).join(',')}</td><td>${((r.by_chance || 0) * 100).toFixed(1)}%</td></tr>`;
+      h += `</tbody></table>`;
+      for (const r of UL.sources) if (r.verdict !== 'POINTED' && r.detail) h += `<p class="small"><b>${esc(r.source_id)}</b> — ${esc(r.detail)}</p>`; }
+    for (const [k, v] of Object.entries(UC.mains || {})) for (const hh of v) h += `<p class="small muted">${fmt(hh.freq_hz, 3)} Hz is ${esc(hh.note)} — electrical, not a machine in the ground.</p>`;
+    if ((UC.leftover_hz || []).length) h += `<p class="small">Lines nobody claims that form no comb: <span class="mono">${UC.leftover_hz.slice(0, 12).map(x => fmt(x, 3)).join(', ')}</span> Hz. Something is making them; nothing here says what.</p>`;
+    h += `<p class="small muted">Not a measurement: ${(UL.not_a_measurement || []).map(esc).join('; ')}.</p></div>`; }
+  if (R.array_qc && R.array_qc.qc) { const Q = R.array_qc.qc, C = R.array_qc.cost;
+    const kind = Q.status === 'USABLE' ? 'good' : (Q.status === 'DEGRADED' ? 'warn' : 'serious');
+    h += `<div class="card"><h3>Array quality <span class="small muted">${Q.n_usable} of ${Q.n_sensors} sensor(s) pass</span></h3>
+      <p>${statusPill(kind, Q.status)} ${esc(Q.detail || '')}</p>
+      <p class="small muted">An array is not a set of records, it is the differences between them. A dead channel drags the beam toward nothing; a clock a few tens of milliseconds out looks exactly like a source in a slightly different direction; a sensor wired backwards subtracts where it should add. The timing test needs no reference clock: for a plane wave the delays must lie on a plane, so the plane is fitted and each sensor's residual is what the wavefront does not explain.</p>`;
+    if (Q.plane_fit) h += `<p class="small">The plane fitted to the measured delays: <b>${fmt(Q.plane_fit.apparent_velocity_km_s, 2)} km/s</b> from <b>${fmt(Q.plane_fit.back_azimuth_deg, 0)}°</b>, scatter ${fmt(Q.timing_scatter_s * 1000, 1)} ms${Q.plane_fit.refit_excluded ? ` (fitted again without ${Q.plane_fit.refit_excluded.map(esc).join(', ')})` : ''}.</p>`;
+    h += `<table><thead><tr><th>Sensor</th><th>Verdict</th><th>Gain vs median</th><th>Correlation</th><th>Timing</th><th>As azimuth</th></tr></thead><tbody>`;
+    for (const r of Q.sensors) h += `<tr><td class="mono">${esc(r.sensor_id)}</td><td>${statusPill(r.verdict === 'OK' ? 'good' : (r.verdict === 'DEAD' || r.verdict === 'NOT_USABLE' ? 'serious' : 'warn'), r.verdict)}</td><td>${fmt(r.gain_db_vs_median, 1)} dB</td><td>${r.correlation !== null && r.correlation !== undefined ? fmt(r.correlation, 2) : '—'}</td><td class="mono">${r.timing_residual_s !== null && r.timing_residual_s !== undefined ? (r.timing_residual_s * 1000).toFixed(1) + ' ms' : '—'}</td><td>${r.timing_residual_deg !== null && r.timing_residual_deg !== undefined ? fmt(r.timing_residual_deg, 1) + '°' : '—'}</td></tr>`;
+    h += `</tbody></table>`;
+    for (const r of Q.sensors) if (r.verdict !== 'OK') h += `<p class="small"><b>${esc(r.sensor_id)}</b> — ${esc(r.detail)}</p>`;
+    if (C && C.bearing_change_deg !== undefined && C.bearing_change_deg !== null) h += `<p class="small">${statusPill(C.status === 'CHANGED' ? 'serious' : 'neutral', C.status)} ${esc(C.detail)}</p>`;
+    h += `<p class="small muted">Not a measurement: ${(Q.not_a_measurement || []).map(esc).join('; ')}.</p></div>`; }
+  if (R.datum) { const DT = R.datum;
+    const kind = DT.status === 'OK' ? 'good' : (DT.status === 'MIXED' || DT.status === 'MIXED_UNKNOWN' ? 'serious' : 'warn');
+    h += `<div class="card"><h3>Datum <span class="small muted">${DT.n} position(s) on ${DT.datums.map(esc).join(', ')}</span></h3>
+      <p>${statusPill(kind, DT.status)} ${esc(DT.detail || '')}</p>
+      <p class="small muted">A position is a pair of numbers on a datum, and the same ground has different numbers on different ones. The separation is tens of metres, varies by where you are, and is the size of a position ellipse — so a datum error does not look like an error. It is computed here, not quoted.</p>`;
+    if ((DT.separations || []).length) { h += `<table><thead><tr><th>Datums in use together</th><th>Apart here (m)</th><th>Bearing</th></tr></thead><tbody>`;
+      for (const x of DT.separations) h += `<tr><td>${x.datums.map(esc).join(' and ')}</td><td class="mono">${fmt(x.separation_m, 1)}</td><td>${fmt(x.bearing_deg, 0)}°</td></tr>`;
+      h += `</tbody></table>`; }
+    if (DT.converted_on_load && Object.keys(DT.converted_on_load).length) h += `<p class="small">Converted on the way in: ${Object.entries(DT.converted_on_load).map(([k, v]) => `${v} from ${esc(k)}`).join(', ')}${DT.converted_moved_m ? `, moving the ground up to ${fmt(DT.converted_moved_m, 1)} m` : ''}. The shift is the published three-parameter one — good to several metres, not centimetres.</p>`;
+    if (DT.if_wrong) h += `<p class="small">${statusPill('warn', 'IF WRONG')} If the positions that state no datum are NAD27 rather than WGS84, the ground they name is ${fmt(DT.if_wrong.separation_m, 1)} m away, bearing ${fmt(DT.if_wrong.bearing_deg, 0)}°.</p>`;
+    h += `<p class="small muted">Not a measurement: ${(DT.not_a_measurement || []).map(esc).join('; ')}.</p></div>`; }
   if (R.spectrum) { h += `<div class="card"><h3>Spectrum <span class="small muted">${esc(R.spectrum.unit)} · strongest bin ${fmt(R.spectrum.peak_hz, 3)} Hz</span></h3><canvas id="psd" width="900" height="260" style="width:100%;max-width:900px"></canvas></div>`; }
+  if (R.signatures) { const SG2 = R.signatures, MB = R.multi_beam;
+    h += `<div class="card"><h3>Signatures <span class="small muted">${SG2.n_with_signature} of ${SG2.signatures.length} source(s) learned from their exclusive windows</span></h3>
+      <p class="small muted">A source's signature is the set of bins that stand above the floor while it worked alone and do not in the quiet windows. With it, the array can beam each source on its own lines and give a bearing per source in a window where several are working. A source that never worked alone has no signature and gets no bearing of its own.</p>
+      <table><thead><tr><th>Source</th><th>Signature</th><th>Exclusive windows</th><th>Its lines (Hz)</th>${MB ? '<th>In a shared window</th>' : ''}</tr></thead><tbody>`;
+    const mb = MB ? Object.fromEntries(MB.sources.map(x => [x.source_id, x])) : {};
+    for (const g of SG2.signatures) { const m = mb[g.source_id];
+      h += `<tr><td>${esc(g.source_id)}</td><td>${statusPill(g.status === 'OK' ? 'good' : 'neutral', g.status)}</td><td>${g.exclusive_windows}</td><td class="mono small">${esc(g.freqs_hz.map(x => fmt(x, 2)).join(', ') || '—')}</td>${MB ? `<td class="small">${m ? (m.verdict === 'POINTED' ? `${statusPill('good', 'POINTED')} ${fmt(m.back_azimuth_deg, 1)}° ± ${fmt(m.tolerance_deg, 1)}` : `${statusPill(m.verdict === 'NOT_SEPARABLE' || m.verdict === 'ALIASED' ? 'warn' : 'neutral', m.verdict)} <span class="muted">${esc(m.detail || '')}</span>`) : '—'}</td>` : ''}</tr>`; }
+    h += `</tbody></table>`;
+    if (MB) h += `<p class="small muted">In that window the whole band beams ${fmt(MB.whole_band.back_azimuth_deg, 1)}° — one direction for every machine in it.${(MB.shared_lines || []).length ? ` ${MB.shared_lines.length} line(s) are claimed by more than one source and separate nothing.` : ''}</p>`;
+    h += `</div>`; }
+  if (R.harmonics) { const HQ = R.harmonics, TL = HQ.line_tracks, FM = HQ.families, RT = HQ.rate, SF = HQ.signature_families, ACT = HQ.activity || [];
+    h += `<div class="card"><h3>The machine behind the lines <span class="small muted">${TL.n_tracks} line(s) followed across ${TL.n_windows} window(s) · bin ${fmt(TL.bin_width_hz, 4)} Hz${FM && FM.fundamental_hz ? ` · a family on ${fmt(FM.fundamental_hz, 3)} Hz (${fmt(FM.line_rate_per_min, 0)} per minute)` : ''}</span></h3>
+      <p class="small muted">A pump at a given rate puts energy at that rate and at its multiples, so lines spaced by a common fundamental are one machine at one rate — and the rate is a number in strokes per minute, not a bin index. A rate follows the load, so every line is also followed window to window: a line that walks further than a spectral bin is <b>DRIFTING</b>, and a signature of fixed bins loses it.</p>`;
+    if (TL.tracks.length) h += `<canvas id="htr" width="900" height="250" style="width:100%;max-width:900px"></canvas>`;
+    h += `<table><thead><tr><th>Frequency (Hz)</th><th>Status</th><th>Windows</th><th>First → last (Hz)</th><th>Drift (Hz/h)</th><th>Over the floor (dB)</th></tr></thead><tbody>`;
+    for (const t of TL.tracks.slice(0, 24)) h += `<tr><td class="mono">${fmt(t.freq_median_hz, 3)}</td><td>${statusPill(t.status === 'DRIFTING' ? 'warn' : (t.status === 'STEADY' ? 'good' : 'neutral'), t.status)}</td><td>${t.windows_present} of ${t.windows_spanned}</td><td class="mono small">${fmt(t.freq_first_hz, 3)} → ${fmt(t.freq_last_hz, 3)}</td><td class="mono">${fmt(t.drift_hz_per_hour, 3)}</td><td>${fmt(t.excess_db_median, 1)}</td></tr>`;
+    h += `</tbody></table>`;
+    if (TL.dropped_short) h += `<p class="small muted">${TL.dropped_short} line(s) stood in too few windows to follow.</p>`;
+    if (FM && FM.families && FM.families.length) {
+      h += `<table><thead><tr><th>Fundamental (Hz)</th><th>Per minute</th><th>Orders</th><th>Lines (Hz)</th><th>Comb filled</th><th>By chance</th><th>Fundamental seen</th></tr></thead><tbody>`;
+      for (const f of FM.families) h += `<tr><td class="mono">${fmt(f.fundamental_hz, 3)}</td><td>${fmt(f.line_rate_per_min, 0)}</td><td class="mono">${f.orders.join(',')}</td><td class="mono small">${f.freqs_hz.slice(0, 8).map(x => fmt(x, 3)).join(', ')}</td><td>${(f.fill * 100).toFixed(0)}%</td><td>${(f.by_chance * 100).toFixed(1)}%</td><td class="small">${f.fundamental_observed ? 'yes' : '<span class="muted">no — the spacing only</span>'}</td></tr>`;
+      h += `</tbody></table>`;
+      if (FM.orphan_hz && FM.orphan_hz.length) h += `<p class="small muted">In no family: <span class="mono">${FM.orphan_hz.slice(0, 12).map(x => fmt(x, 3)).join(', ')}</span> Hz — lines that stand on their own here.</p>`;
+    }
+    for (const r of ((FM && FM.refused) || [])) h += `<p class="small">${statusPill('warn', r.status)} ${esc(r.detail)}</p>`;
+    if (RT && RT.status) h += `<p class="small">${statusPill(RT.status === 'RATE_STEADY' ? 'good' : (RT.status === 'RATE_VARIES' ? 'warn' : 'neutral'), RT.status)} ${esc(RT.detail || '')}</p>`;
+    if (SF && SF.sources && SF.sources.length) {
+      h += `<h4 class="small">Each source's own rate <span class="muted">${SF.n_with_fundamental} of ${SF.sources.length} have one</span></h4>
+        <table><thead><tr><th>Source</th><th>Status</th><th>Fundamental (Hz)</th><th>Per minute</th><th>Orders</th><th>Lines taken from</th></tr></thead><tbody>`;
+      for (const r of SF.sources) h += `<tr><td>${esc(r.source_id)}</td><td>${statusPill(r.status === 'OK' ? 'good' : 'neutral', r.status)}</td><td class="mono">${r.fundamental_hz ? fmt(r.fundamental_hz, 3) : '—'}</td><td>${r.line_rate_per_min ? fmt(r.line_rate_per_min, 0) : '—'}</td><td class="mono">${r.families && r.families.length ? r.families[0].orders.join(',') : '—'}</td><td class="small muted">${esc(r.lines_from || '')}</td></tr>`;
+      h += `</tbody></table>`;
+      const AT = SF.attribution || {};
+      if ((AT.unattributed || []).length) h += `<p class="small">${statusPill('warn', 'UNATTRIBUTED')} ${AT.unattributed.length} tracked line(s) no listed source was learned on: <span class="mono">${AT.unattributed.slice(0, 8).map(u => fmt(u.freq_median_hz, 3)).join(', ')}</span> Hz. Something is making them and this program was not told what.</p>`;
+      for (const c of (AT.contested || [])) h += `<p class="small muted">The line at <span class="mono">${fmt(c.freq_median_hz, 3)}</span> Hz is as close to ${c.sources.map(esc).join(' as to ')} — it separates nothing and is given to neither.</p>`;
+      for (const o of (AT.by_harmonic_order || [])) h += `<p class="small muted">The line at <span class="mono">${fmt(o.freq_median_hz, 3)}</span> Hz stands at ${esc(o.ratio)} to a line ${esc(o.source_id)} already claims, so it is the same comb.</p>`;
+      for (const sh of (SF.shared_fundamentals || [])) h += `<p class="small">${statusPill('warn', 'SAME RATE')} ${sh.sources.map(esc).join(' and ')} both run at ${fmt(sh.fundamental_hz, 3)} Hz: nothing here tells two machines at the same rate apart.</p>`;
+    }
+    const judged = ACT.filter(a => a.status === 'OK');
+    if (judged.length) {
+      h += `<h4 class="small">When was each source working?</h4><p class="small muted">Measured from its own lines — looked for within ${((HQ.drift_tol_frac || 0) * 100).toFixed(1)}% of each line's own frequency of where it was learned, because a rate that follows its load walks out of its own bins and a harmonic walks as far as its order — and set beside the window the rigs list declares. A permit date is a permission, not a drilling log, so a disagreement is a finding and not an error.</p>
+        <table><thead><tr><th>Source</th><th>Verdict</th><th>Spells heard</th><th>Heard</th><th>Declared</th><th>Declared and heard</th><th>Declared but silent</th><th>Heard, not declared</th></tr></thead><tbody>`;
+      for (const a of judged) { const g = a.agreement || {};
+        h += `<tr><td>${esc(a.source_id)}</td><td>${statusPill(a.verdict === 'AGREES' ? 'good' : (a.verdict === 'DIFFERS' ? 'warn' : 'neutral'), a.verdict)}</td><td>${a.n_spells}</td><td>${a.heard_windows} of ${a.n_windows}</td><td>${g.declared_windows !== undefined ? g.declared_windows : '—'}</td><td>${g.declared_and_heard !== undefined ? g.declared_and_heard : '—'}</td><td>${g.declared_but_silent !== undefined ? g.declared_but_silent : '—'}</td><td>${g.heard_but_not_declared !== undefined ? g.heard_but_not_declared : '—'}</td></tr>`; }
+      h += `</tbody></table>`;
+      for (const a of judged) if ((a.spells || []).length) h += `<p class="small muted">${esc(a.source_id)}: ${a.spells.map(s => `${esc(s.start_utc)} → ${esc(s.end_utc)} (${fmt(s.hours, 2)} h)`).join(' · ')}</p>`;
+    }
+    h += `<p class="small muted">Not a measurement: ${(TL.not_a_measurement || []).map(esc).join('; ')}.</p></div>`; }
   if (R.lines && R.lines.lines && R.lines.lines.length) { h += `<div class="card"><h3>Persistent lines <span class="small muted">${R.lines.band_hz[0]}–${R.lines.band_hz[1]} Hz, ${R.lines.windows} windows of ${R.lines.win_s} s</span></h3><table><thead><tr><th>Frequency (Hz)</th><th>Over the floor (dB)</th><th>Present in</th></tr></thead><tbody>`;
     for (const l of R.lines.lines.slice(0, 20)) h += `<tr><td class="mono">${fmt(l.freq_hz, 3)}</td><td>${fmt(l.median_excess_db, 1)}</td><td>${l.present_windows} of ${l.windows} windows</td></tr>`;
     h += `</tbody></table><p class="small muted">A persistent line is consistent with machinery; it does not name the machine.</p></div>`; }
@@ -525,6 +628,19 @@ VIEWS.seismic_station = async (id) => {
     h += `<p class="small muted">Not a measurement: ${B.not_a_measurement.map(esc).join('; ')}.</p></div>`; }
   $('#main').innerHTML = h;
   const b = $('#sRefresh'); if (b) b.onclick = async () => { b.disabled = true; try { const j = await post(`/api/seismic/${id}/refresh`); toast('Refresh started: job ' + j.id, 'ok'); watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); } b.disabled = false; };
+  const hc = $('#htr'); if (hc && R.harmonics && R.harmonics.line_tracks.tracks.length) { const TL = R.harmonics.line_tracks;
+    const c = hc.getContext('2d'), W = hc.width, H = hc.height, fg = getComputedStyle(document.body).color;
+    const all = TL.tracks.flatMap(t => t.freqs_hz); const lo = Math.min(...all), hi = Math.max(...all), nw = Math.max(TL.n_windows - 1, 1);
+    const X = i => 54 + (W - 64) * i / nw, Y = f => H - 30 - (H - 44) * (f - lo) / ((hi - lo) || 1);
+    c.clearRect(0, 0, W, H); c.strokeStyle = fg; c.globalAlpha = 0.25; c.strokeRect(54.5, 10.5, W - 64, H - 44); c.globalAlpha = 1;
+    c.font = '12px system-ui'; c.fillStyle = fg;
+    for (let i = 0; i <= 4; i++) { const v = lo + (hi - lo) * i / 4, y = H - 30 - (H - 44) * i / 4; c.fillText(v.toFixed(2), 2, y + 4); }
+    for (let i = 0; i <= 5; i++) { const w = Math.round(nw * i / 5); c.fillText('w' + w, X(w) - 8, H - 12); }
+    c.fillText('Hz', 2, 10);
+    for (const t of TL.tracks) { c.beginPath(); c.setLineDash(t.status === 'STEADY' ? [4, 3] : []); c.globalAlpha = t.status === 'INTERMITTENT' ? 0.45 : 0.95;
+      for (let k = 0; k < t.windows.length; k++) { const x = X(t.windows[k]), y = Y(t.freqs_hz[k]); k ? c.lineTo(x, y) : c.moveTo(x, y); }
+      c.strokeStyle = fg; c.lineWidth = t.status === 'DRIFTING' ? 1.8 : 1.2; c.stroke(); }
+    c.setLineDash([]); c.globalAlpha = 1; }
   const cv = $('#psd'); if (cv && R.spectrum) { const c = cv.getContext('2d'), W = cv.width, H = cv.height, F = R.spectrum.freqs_hz, P = R.spectrum.psd_db; const fg = getComputedStyle(document.body).color; const lo = Math.min(...P), hi = Math.max(...P), f0 = F[0], f1 = F[F.length - 1]; c.clearRect(0, 0, W, H); c.strokeStyle = fg; c.globalAlpha = 0.25; c.strokeRect(50.5, 10.5, W - 60, H - 40); c.globalAlpha = 1; c.font = '12px system-ui'; c.fillStyle = fg;
     for (let i = 0; i <= 4; i++) { const v = lo + (hi - lo) * i / 4, y = H - 30 - (H - 40) * i / 4; c.fillText(v.toFixed(0) + ' dB', 2, y + 4); } for (let i = 0; i <= 5; i++) { const f = f0 + (f1 - f0) * i / 5, x = 50 + (W - 60) * i / 5; c.fillText(f.toFixed(1) + ' Hz', x - 14, H - 12); }
     c.beginPath(); for (let i = 0; i < F.length; i++) { const x = 50 + (W - 60) * (F[i] - f0) / (f1 - f0 || 1), y = H - 30 - (H - 40) * (P[i] - lo) / ((hi - lo) || 1); i ? c.lineTo(x, y) : c.moveTo(x, y); } c.strokeStyle = fg; c.lineWidth = 1.2; c.stroke(); }
@@ -670,6 +786,10 @@ VIEWS.verify = async () => {
   h += `<table><thead><tr><th>Check</th><th>Last run</th><th>Result</th><th></th></tr></thead><tbody>`;
   for (const [k, l, j] of rows) h += `<tr><td>${esc(l)}</td><td class="small">${j ? esc(j.finished_utc || j.started_utc || j.submitted_utc) + ' by ' + esc(j.actor) : '—'}</td><td>${j ? statusPill(classKind(j.status), j.status) : statusPill('neutral', 'not run')}</td><td>${j ? `<a href="#/jobs/${esc(j.id)}">log</a>` : ''}</td></tr>`;
   h += `</tbody></table>`;
+  h += `<div class="card"><h3>The site as a whole <span class="small muted">two reports about all of it, not about one station</span></h3>
+    <p class="small muted">The <b>Dataset Report</b> says what is held: every station, every record, its span and rate and gaps, its checksum, the datum its positions are on, and whether any result is older than the record it came from. It says nothing about whether the data is good. The <b>Field Report</b> says what the site heard: every station and how far it can hear, every listed rig and where it was heard from, every track, and everything found that nobody listed.</p>
+    <p class="small">${siteReports.seismic_dataset_report ? `Dataset Report · ${reportLinks('seismic', 'seismic_dataset_report')} <span class="muted">${tz(siteReports.seismic_dataset_report.generated_utc)}</span>` : '<span class="muted">No Dataset Report yet — <span class="mono">gea workspace --action seismic-dataset</span></span>'}</p>
+    <p class="small">${siteReports.seismic_field_report ? `Field Report · ${reportLinks('seismic', 'seismic_field_report')} <span class="muted">${tz(siteReports.seismic_field_report.generated_utc)}</span>` : '<span class="muted">No Field Report yet — <span class="mono">gea workspace --action seismic-field</span></span>'}</p></div>`;
   if (can('operator')) h += `<div class="row card"><button data-v="accept" type="button">Run the acceptance suite</button><button class="secondary" data-v="fat" type="button">FAT</button><button class="secondary" data-v="sat" type="button">SAT</button><button class="secondary" data-v="sbom" type="button">SBOM</button><button class="secondary" data-v="standalone" type="button">Standalone check</button></div><div id="vout"></div>`; else h += need('operator');
   $('#main').innerHTML = h;
   document.querySelectorAll('[data-v]').forEach(b => b.onclick = async () => { b.disabled = true; try { const j = await post('/api/verify', {what: b.dataset.v}); if (j.output !== undefined) $('#vout').innerHTML = `<pre>${esc(j.output)}</pre>`; else { toast('Started: job ' + j.id, 'ok'); watch(j.id, () => route()); } } catch (e) { toast(e.message, 'err'); } b.disabled = false; });
@@ -701,7 +821,26 @@ VIEWS.jobs = async (id) => {
 VIEWS.admin = async () => {
   if (!can('admin')) { $('#main').innerHTML = `<h2>Administration</h2>${need('admin')}<div class="card"><h3>Your password</h3><div class="row"><label>New password<input type="password" id="pw1"></label><button id="pwBtn" type="button">Change</button></div></div>`; $('#pwBtn').onclick = async () => { try { await post('/api/users/password', {password: $('#pw1').value}); toast('Password changed', 'ok'); } catch (e) { toast(e.message, 'err'); } }; return; }
   const {users} = await get('/api/users'); const {entries} = await get('/api/schedule'); const audit = (await get('/api/audit?limit=100')).entries.reverse();
+  let CTL = null; try { CTL = await get('/api/control'); } catch (e) { CTL = null; }
   let h = `<h2>Administration</h2>`;
+  if (CTL) { const prev = CTL.previous_run || {}, cu = CTL.catch_up || (CTL.resume || {}).catch_up || null, rs = CTL.resume || {};
+    h += `<div class="card"><h3>Operations control <span class="small muted">this run: pid ${CTL.pid} since ${tz(CTL.started_utc)}</span></h3>
+      <p class="small muted">The control panel decides how it ends and says so in its exit code: <b>0</b> stop, <b>86</b> start me again. The launcher reads it — on 86 it starts the panel again, and on anything else it hands the window to a <b>PowerShell</b> prompt that names the program and how to start it. It never drops to a Python prompt.</p>
+      <p class="small">${statusPill(prev.status === 'UNCLEAN' ? 'serious' : (prev.status === 'FIRST_RUN' ? 'neutral' : 'good'), 'previous run: ' + (prev.status || '—'))} ${esc(prev.detail || '')}</p>`;
+    if (rs.patches_running) h += `<p class="small">On this start the live patches came up first — ${rs.patches_running.length ? `<span class="mono">${rs.patches_running.map(esc).join(', ')}</span>` : 'none are defined'} — because a stream that is not running is losing records nothing can recover.</p>`;
+    if (cu) h += `<p class="small">${statusPill(cu.status === 'CAUGHT_UP' || cu.status === 'NOTHING_BEHIND' ? 'good' : (cu.status === 'FAILED' ? 'serious' : 'warn'), 'catch-up: ' + cu.status)} ${esc(cu.detail || '')}</p>`;
+    h += `<div class="row"><button class="secondary" id="ctlStop" type="button">Stop the control panel</button>
+      <button id="ctlRestart" type="button">Restart…</button>
+      <label class="small"><input type="checkbox" id="ctlAuto" ${CTL.auto_restart ? 'checked' : ''}> let the launcher start it again by itself if it stops unexpectedly</label></div>
+      <div id="ctlConfirm" class="card" style="display:none;border-color:#b58900">
+        <h4 class="small">Authorise a restart</h4>
+        <p class="small">This run will stop with code 86 and the launcher will start it again. Everyone signed in is signed out and signs in once it is back. The live patches come up first; anything behind its source is rebuilt behind them.</p>
+        <p class="small"><a href="#" id="ctlAuthorize"><b>Authorise the restart</b></a> &nbsp; · &nbsp; <a href="#" id="ctlCancel">cancel</a></p>
+      </div>`;
+    if ((CTL.runlog_tail || []).length) { h += `<h4 class="small">Run log <span class="muted">${esc(CTL.runlog)} — appended and flushed to the disk before each thing it describes is attempted, so a power cut leaves it readable</span></h4><table><thead><tr><th>UTC</th><th>Event</th><th>pid</th><th>Detail</th></tr></thead><tbody>`;
+      for (const r of CTL.runlog_tail.slice().reverse().slice(0, 12)) h += `<tr><td class="small">${tz(r.utc)}</td><td class="mono small">${esc(r.event)}</td><td class="small">${r.pid || ''}</td><td class="small muted">${esc([r.reason, r.actor, r.previous, (r.patches_started || []).join(' '), r.error].filter(Boolean).join(' · '))}</td></tr>`;
+      h += `</tbody></table>`; }
+    h += `<p class="small muted">Not a measurement: ${(CTL.not_a_measurement || []).map(esc).join('; ')}.</p></div>`; }
   h += `<div class="card"><h3>Users</h3><table><thead><tr><th>Name</th><th>Role</th><th>State</th><th>Since</th><th></th></tr></thead><tbody>${users.map(u => `<tr><td>${esc(u.name)}</td><td><select data-role="${esc(u.name)}" aria-label="role of ${esc(u.name)}">${Object.keys(ROLE).map(r => `<option ${r === u.role ? 'selected' : ''}>${r}</option>`).join('')}</select></td><td>${statusPill(u.disabled ? 'serious' : 'good', u.disabled ? 'disabled' : 'active')}</td><td class="small">${tz(u.created_utc)}</td><td>${u.name !== me.name ? `<button class="secondary" data-dis="${esc(u.name)}" data-to="${u.disabled ? '0' : '1'}" type="button">${u.disabled ? 'Enable' : 'Disable'}</button>` : ''} <button class="secondary" data-pw="${esc(u.name)}" type="button">Set password</button></td></tr>`).join('')}</tbody></table>
     <h3>Add a user</h3><div class="row"><label>Name<input id="uName"></label><label>Password (8+)<input id="uPw" type="password"></label><label>Role<select id="uRole">${Object.keys(ROLE).map(r => `<option>${r}</option>`).join('')}</select></label><button id="uAdd" type="button">Add</button></div></div>`;
   const fr = await get('/api/files/roots');
@@ -752,6 +891,12 @@ VIEWS.prefs = async () => {
   $('#main').innerHTML = h;
   $('#outEverywhere').onclick = async () => { try { const r = await post('/api/sessions/revoke', {name: me.name}); toast(`${r.revoked} other session(s) signed out`, 'ok'); } catch (e) { toast(e.message, 'err'); } };
   $('#pSave').onclick = async () => { try { const z = $('#pTz').value.trim() || 'UTC'; try { new Intl.DateTimeFormat(undefined, {timeZone: z}); } catch (e) { return toast(`Unknown time zone: ${z}`, 'err'); } const r = await post('/api/prefs', {prefs: {units: $('#pUnits').value, time_zone: z, theme: $('#pTheme').value, help_open: $('#pHelp').checked}}); PREFS = r.prefs; applyTheme(); toast('Preferences saved', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } };
+  const cStop = $('#ctlStop'), cRe = $('#ctlRestart'), cBox = $('#ctlConfirm'), cAuth = $('#ctlAuthorize'), cCan = $('#ctlCancel'), cAuto = $('#ctlAuto');
+  if (cStop) cStop.onclick = async () => { if (!confirm('Stop the control panel? The launcher will hand this window to a PowerShell prompt; start-dashboard starts it again.')) return; cStop.disabled = true; try { const r = await post('/api/control/shutdown', {}); toast(r.detail, 'ok'); } catch (e) { toast(e.message, 'err'); cStop.disabled = false; } };
+  if (cRe) cRe.onclick = () => { cBox.style.display = cBox.style.display === 'none' ? '' : 'none'; };
+  if (cCan) cCan.onclick = (e) => { e.preventDefault(); cBox.style.display = 'none'; };
+  if (cAuth) cAuth.onclick = async (e) => { e.preventDefault(); cAuth.textContent = 'restarting…'; try { const r = await post('/api/control/restart', {authorize: true}); toast(r.detail, 'ok'); setTimeout(() => location.reload(), 6000); } catch (err) { toast(err.message, 'err'); cAuth.innerHTML = '<b>Authorise the restart</b>'; } };
+  if (cAuto) cAuto.onchange = async () => { try { const r = await post('/api/control/auto-restart', {enabled: cAuto.checked}); toast(r.detail, 'ok'); } catch (e) { toast(e.message, 'err'); cAuto.checked = !cAuto.checked; } };
   $('#pwBtn').onclick = async () => { try { await post('/api/users/password', {password: $('#pw1').value}); toast('Password changed', 'ok'); } catch (e) { toast(e.message, 'err'); } };
 };
 VIEWS.search = async (q) => {
@@ -792,7 +937,7 @@ function authScreen(first) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/wells', 'Wells'], ['#/seismic', 'Seismic'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/seismic', 'Seismic'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, '']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }

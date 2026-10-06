@@ -12,8 +12,12 @@ exactly which columns were used, how many rows went in, how many were dropped an
 was assumed. The usual assumption: a permit says when drilling may start, rarely when it stopped,
 so the working window ends `default_days` after it starts, and every such row's note says so.
 
-Nothing here is a measurement, and nothing here knows a permit's datum: positions are copied as
-the export gives them, and the note says that too.
+A permit export's positions are on whatever datum the regulator keeps - in Texas, often NAD27. This
+module now asks: a `datum` column (or the `datum` argument) names it, every row is converted to WGS84
+on the way out, and the import note records the shift that cost and what the conversion is worth. An
+export that gives projected coordinates instead - state plane or UTM easting and northing, often in US
+survey feet - is read with `zone` and `unit`. A file that says nothing about its datum produces rows
+marked UNKNOWN: used as given, which is an assumption and is printed as one.
 """
 
 from __future__ import annotations
@@ -37,6 +41,7 @@ DEFAULT_CANDIDATES: Dict[str, List[str]] = {
     'kind': ['well type', 'wellbore profile', 'profile', 'type', 'kind', 'purpose'],
     'operator': ['operator', 'operator name', 'company', 'operator_name'],
     'county': ['county', 'county name'],
+    'datum': ['datum', 'horizontal datum', 'geodetic datum', 'coordinate system', 'crs', 'horiz datum', 'datum name', 'spheroid'],
 }
 REQUIRED = ('lat', 'lon', 'start')
 
@@ -125,11 +130,18 @@ def read_table(path: str) -> Tuple[List[str], List[dict]]:
 
 
 def import_permits(path: str, out_csv: str, mapping: Optional[Dict[str, str]] = None, default_days: float = 30.0,
-                   within: Optional[Tuple[float, float, float]] = None, kind: str = 'rig') -> dict:
+                   within: Optional[Tuple[float, float, float]] = None, kind: str = 'rig', datum: Optional[str] = None,
+                   zone: Optional[str] = None, unit: str = 'm') -> dict:
     """The export at `path` to the rigs CSV at `out_csv`, with `out_csv + '.import.json'` beside it. Rows without a
     position or a start date are dropped and counted; a missing end date is assumed start + default_days and the row's
-    note says so; `within` = (lat, lon, km) keeps only rigs inside that radius."""
+    note says so; `within` = (lat, lon, km) keeps only rigs inside that radius.
+
+    `datum` names the datum of the export's positions when no column does; every row is converted to WGS84 and the
+    note records what that moved. `zone` (a state plane or UTM zone) reads the position columns as easting and
+    northing instead of latitude and longitude, in `unit` - US survey feet and international feet are different
+    units here, because over a state plane northing they differ by metres."""
     from .seismic_detect import haversine_km
+    from . import geodesy as GD
     header, rows = read_table(path)
     if not header:
         raise ValueError('the file has no header row')
@@ -141,14 +153,56 @@ def import_permits(path: str, out_csv: str, mapping: Optional[Dict[str, str]] = 
     dropped = {'no_position': 0, 'no_start_date': 0, 'outside_radius': 0, 'duplicate_id': 0, 'end_before_start': 0}
     assumed_end = 0
     fell_back = 0
+    converted = 0
+    taken_as = 0
+    unknown_datum = 0
+    datums_seen: Dict[str, int] = {}
+    shifts: List[float] = []
     seen = set()
+    if zone:
+        GD.length_unit(unit)                       # refuse an unknown unit before reading a single row
     for i, r in enumerate(rows):
         lat, lon = _float(r.get(cols['lat'])), _float(r.get(cols['lon']))
+        row_datum = GD.datum_name(r.get(cols['datum']) if cols.get('datum') else (datum or ''))
+        if cols.get('datum') and not str(r.get(cols['datum']) or '').strip() and datum:
+            row_datum = GD.datum_name(datum)       # a blank cell falls back to the file-level datum
+        conv_note = ''
+        if zone:
+            if lat is None or lon is None:
+                dropped['no_position'] += 1
+                continue
+            try:
+                g = GD.grid_to_wgs84(lon, lat, zone, row_datum if row_datum != 'UNKNOWN' else 'NAD83', unit)
+            except ValueError as e:
+                raise ValueError(f'row {i + 1}: {e}')
+            lat, lon = g['lat'], g['lon']
+            conv_note = (f"from {zone} easting/northing in {g['unit']} on {g['from']}" +
+                         (f", moved {g['shift_m']:.1f} m to WGS84" if g.get('applied')
+                          else (f", used as WGS84 ({g['note']})" if g['from'] != 'WGS84' else '')))
+            if g.get('applied'):
+                converted += 1
+                shifts.append(float(g['shift_m'] or 0.0))
+            elif g['from'] != 'WGS84':
+                taken_as += 1
         if lat is None or lon is None or not (-90 <= lat <= 90 and -180 <= lon <= 180):
             dropped['no_position'] += 1
             continue
+        datums_seen[row_datum] = datums_seen.get(row_datum, 0) + 1
+        if not zone and row_datum not in ('WGS84', 'UNKNOWN'):
+            c = GD.to_wgs84(lat, lon, 0.0, row_datum)
+            lat, lon = c['lat'], c['lon']
+            if c['applied']:
+                converted += 1
+                shifts.append(float(c['shift_m'] or 0.0))
+                conv_note = (f"converted from {row_datum} to WGS84, moved {c['shift_m']:.1f} m "
+                             f"(this conversion is good to about {c['accuracy_m']:.0f} m)")
+            else:
+                taken_as += 1
+                conv_note = f"on {row_datum}, used as WGS84 ({c['note']})"
+        if row_datum == 'UNKNOWN':
+            unknown_datum += 1
         start = parse_date(r.get(cols['start']))
-        note_bits = []
+        note_bits = [conv_note] if conv_note else []
         if start is None and cols.get('start_fallback'):
             start = parse_date(r.get(cols['start_fallback']))
             if start is not None:
@@ -185,20 +239,28 @@ def import_permits(path: str, out_csv: str, mapping: Optional[Dict[str, str]] = 
         k = (str(r.get(cols['kind']) or '').strip() if cols.get('kind') else '') or kind
         note = '; '.join([b for b in [f'permit export {os.path.basename(path)}', name and f'name {name}', op and f'operator {op}', county and f'county {county}'] + note_bits if b])
         out_rows.append({'source_id': sid, 'lat': round(lat, 6), 'lon': round(lon, 6), 'start_utc': start.strftime('%Y-%m-%dT%H:%M:%SZ'),
-                         'end_utc': end.strftime('%Y-%m-%dT%H:%M:%SZ'), 'kind': k, 'note': note})
+                         'end_utc': end.strftime('%Y-%m-%dT%H:%M:%SZ'), 'kind': k, 'note': note,
+                         'datum': 'WGS84' if row_datum != 'UNKNOWN' else 'UNKNOWN'})
     with open(out_csv, 'w', newline='', encoding='utf-8') as f:
-        w = csv.DictWriter(f, fieldnames=['source_id', 'lat', 'lon', 'start_utc', 'end_utc', 'kind', 'note'])
+        w = csv.DictWriter(f, fieldnames=['source_id', 'lat', 'lon', 'start_utc', 'end_utc', 'kind', 'note', 'datum'])
         w.writeheader()
         for row in out_rows:
             w.writerow(row)
     note = {'protocol': 'permits.import_permits/1', 'source': os.path.abspath(path), 'rows_in': len(rows), 'rows_out': len(out_rows), 'dropped': dropped,
             'columns_used': {k: v for k, v in cols.items() if v}, 'columns_not_found': [k for k, v in cols.items() if not v],
             'end_assumed_rows': assumed_end, 'start_fallback_rows': fell_back, 'default_days': default_days, 'within': ({'lat': within[0], 'lon': within[1], 'km': within[2]} if within else None),
+            'datum': {'argument': (GD.datum_name(datum) if datum else None), 'column': cols.get('datum'), 'seen': datums_seen,
+                      'converted_rows': converted, 'taken_as_wgs84_rows': taken_as, 'unknown_rows': unknown_datum, 'zone': zone, 'unit': (GD.length_unit(unit)[1] if zone else None),
+                      'shift_m': ({'min': round(min(shifts), 2), 'max': round(max(shifts), 2),
+                                   'mean': round(sum(shifts) / len(shifts), 2)} if shifts else None),
+                      'out_datum': 'WGS84 for every converted row; UNKNOWN for rows whose datum nobody stated'},
             'out': os.path.abspath(out_csv), 'imported_utc': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-            'assumptions': ['positions are copied as the export gives them; the datum is the export\'s and is not converted',
+            'assumptions': ['a row whose datum nobody stated is written out as UNKNOWN and used as given, which is an assumption, not a conversion',
                             f'a row without an end date works for {default_days:g} days from its start date (counted above)',
                             'the start date is whatever the chosen column holds (a spud date when there is one, else an approval date - which is not a spud date)'],
-            'not_a_measurement': ['a rig\'s working window: a permit date is a permission, not a drilling log']}
+            'not_a_measurement': ['a rig\'s working window: a permit date is a permission, not a drilling log',
+                                  'a three-parameter datum shift as a survey-grade transformation: it is good to several metres, not centimetres',
+                                  'the datum of a row that did not state one']}
     with open(out_csv + '.import.json', 'w', encoding='utf-8') as f:
         json.dump(note, f, indent=1)
     return note
@@ -216,6 +278,18 @@ def report_text(note: dict) -> str:
         lines.append(f"  end assumed (start + {note['default_days']:g} d) for {note['end_assumed_rows']} row(s)")
     if note.get('start_fallback_rows'):
         lines.append(f"  start taken from {note['columns_used'].get('start_fallback')} for {note['start_fallback_rows']} row(s) whose {note['columns_used'].get('start')} was empty")
+    d = note.get('datum') or {}
+    if d.get('converted_rows'):
+        sh = d.get('shift_m') or {}
+        lines.append(f"  converted {d['converted_rows']} row(s) to WGS84 from " + ', '.join(f'{k} ({v})' for k, v in d['seen'].items() if k != 'UNKNOWN')
+                     + (f"; the ground moved {sh['min']:g}-{sh['max']:g} m (mean {sh['mean']:g})" if sh else ''))
+    if d.get('taken_as_wgs84_rows'):
+        lines.append(f"  {d['taken_as_wgs84_rows']} row(s) on NAD83 used as WGS84: no shift applied, and the metre or two that costs is carried, not hidden")
+    if d.get('zone'):
+        lines.append(f"  read as {d['zone']} easting/northing in {d['unit']}"
+                     + (' on ' + ', '.join(k for k in d['seen'] if k != 'UNKNOWN') if any(k != 'UNKNOWN' for k in d['seen']) else ''))
+    if d.get('unknown_rows'):
+        lines.append(f"  {d['unknown_rows']} row(s) state no datum: used as given and marked UNKNOWN, which is an assumption and not a conversion")
     if note['within']:
         lines.append(f"  kept within {note['within']['km']:g} km of {note['within']['lat']}, {note['within']['lon']}")
     lines.append('  ' + '; '.join(note['assumptions']))

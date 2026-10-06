@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (266 checks)
+gea accept                     # the product gate (302 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -403,6 +403,91 @@ read beside an import note that says which columns were used, how many rows
 were dropped and why, and how many end dates it assumed (a permit rarely says
 when drilling stopped). The Seismic page's add form takes a permit export in
 place of the rigs CSV and keeps both.
+
+### Several rigs at once
+
+One bearing is one direction for every machine in the band, so when two rigs
+work together the crossing of whole-band bearings means nothing. That is the
+wall between "a rig" and "a field", and `seismic_signature.py` is the step
+through it. While a rig works alone, the bins that stand above the local
+floor in its windows and not in the quiet ones are kept as its signature -
+the same lines the detectability test already prints. In the windows where
+several rigs work together, the cross-spectral matrix is sliced to one rig's
+lines and beamed, which gives a bearing per rig in the same window; a
+machinery line arriving as one plane wave is coherent in its own bin even
+when the band as a whole is noise, which is why it works.
+
+What it refuses is as much of the method as what it claims. A rig that never
+worked alone has no signature and gets no bearing. Two rigs whose lines fall
+within the spectral resolution of each other are NOT_SEPARABLE, both of them,
+rather than handed a bearing each. A rig whose own lines all sit above the
+array's spatial Nyquist is ALIASED: the measured beam has another peak within
+a tenth of the height of the one found, the geometry cannot say which is the
+source, and the peaks it cannot separate are listed instead of a direction.
+Run through two arrays, every rig that both pointed at in the same window
+gets its own positions, ellipses and track, and a track whose extent is
+inside its own ellipses says `NOT_RESOLVED` instead of reporting the heading
+of a scatter as a direction of travel. `gea seismic --action signatures |
+multi-beam | multi-bearings | multi-track | signature-selftest |
+field-selftest`; on a site, an array station with a rigs list learns the
+signatures at every refresh and a track carries a track per rig beside the
+whole-band one.
+
+### The machine behind the lines
+
+A signature as a list of frequencies is a list of facts about bins. A pump at
+1.7 strokes per second is one fact about a machine, and it puts energy at
+1.7, 3.4, 5.1 and 8.5 Hz. `seismic_harmonic.py` searches every line divided
+by every order for the comb that explains the most of them, normalises it to
+the largest spacing the orders found allow - a comb of every second tooth is
+that comb at twice the spacing, and the larger one claims less - and reports
+the fundamental as a rate per minute. That is a far stronger claim than the
+same lines listed separately, and the module says how strong: `by chance` is
+how often this record's line density puts that many lines on a comb by
+accident, and a family above the ceiling is set aside rather than reported.
+Fewer than three lines is not a family, because any two lines define a comb;
+two spacings that explain the same lines equally well are AMBIGUOUS; and a
+fundamental whose half would fall below the analysed band is flagged, because
+the machine may be running at half that rate with only its even harmonics in
+view.
+
+The other half is time. A pump's rate follows the work: a line at 1.40 Hz
+walks to 1.85 Hz over a tour, no single bin stands above its floor in enough
+windows, and the rig all but disappears from its own signature - which is the
+defect this band exists to fix. Every line is followed window to window by
+nearest neighbour within a drift ceiling, each peak refined inside its bin by
+a parabola so a walk smaller than the bin width can be read, and each track
+carries STEADY, DRIFTING or INTERMITTENT with its drift in Hz per hour. A
+drift no larger than the bin width is not called a drift. The walk is also an
+observable in its own right: `rate_history` reads the rate over the record,
+and a rate that moves is the machine's load changing, not a different
+machine.
+
+Both halves meet in attribution. A track belongs to a source when it passes
+within tolerance of a line that source was learned on - or when it stands in
+a small whole-number ratio, in a window they share, to a track that source
+already claims, which is how a harmonic the fixed bins missed comes back to
+its machine wherever it has walked to. A line two sources could both claim is
+given to neither. A line no listed source claims is listed as exactly that:
+something is making it and the program was not told what.
+
+And it closes the loop on ground truth. Every verdict in the leg rested on
+the rigs CSV's working window - the detectability test, the array test and the
+track all believed it. `activity_from_signature` measures it instead: the
+fraction of a source's own lines standing above their floor, window by
+window, each line looked for within a fraction of its own frequency of where
+it was learned, because a harmonic walks as far as its order. The spells it
+finds sit beside the declared ones with AGREES or DIFFERS and the counts both
+ways. A permit date is a permission, not a drilling log, so a disagreement is
+a finding and not an error - and which of the two is right is not decided
+here.
+
+`gea seismic --action harmonics | harmonic-selftest`; on a site every station
+refresh does all of it - a single sensor as well as an array, using its own
+detectability test's lines per source when there is no array to learn from,
+so one geophone can still say when each rig was working - and the Seismic
+Station Report and the station page carry the section, with the tracks drawn
+against time.
 
 ### Audit / Update
 

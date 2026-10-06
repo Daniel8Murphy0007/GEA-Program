@@ -8,6 +8,13 @@
 
 **The number to check**: the last line: `nothing blocks serving`, or `N blocking finding(s)`.
 
+**The launcher**: with an installed kit, `gea doctor` reads `start-dashboard.cmd` or
+`start-dashboard.sh` off the disk and says whether it honours the restart contract -
+that it runs the panel again on exit 86, that it ends by handing the window to a
+PowerShell prompt rather than falling back to the shell underneath, and that it
+reads `records/auto_restart.flag`. A kit built before that contract existed comes
+back as three warnings with fixes; reinstalling the kit rewrites the launcher.
+
 **What this page will not call a measurement**: a WARN about PyPI having a newer release is a comparison, not an instruction; an offline site sees `not compared` and that is fine.
 
 Related: `gea help start`, `gea help site`.

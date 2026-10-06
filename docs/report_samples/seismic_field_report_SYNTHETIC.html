@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Downhole Gauge Monitoring - Seismic Field Report</title>
+<style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
+<h1>Downhole Gauge Monitoring - Seismic Field Report</h1>
+<table class="front">
+<tr><td>Report ID</td><td>SEIS-FIELD-20261006T130615Z</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-06T13:06:15Z</td></tr>
+<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.8.0</td></tr>
+<tr><td>Result</td><td class="result-ok">3 OF 5 LISTED SOURCES HEARD</td></tr>
+</table>
+<h2>1. Summary</h2>
+<p>3 station(s) over 60.0 hours; 3 of 5 listed source(s) heard by at least one station. 1 track(s), 0 source(s) tracked.</p>
+<h2>2. The stations</h2>
+<p>What each station is, what it last ran, how far it can hear and whether its own sensors agree.</p>
+<table>
+<tr><th>Station</th><th>Name</th><th>Kind</th><th>Hours</th><th>Last run (UTC)</th><th>Detectability</th><th>Radius</th><th>Array quality</th><th>Datum</th><th>Unlisted found</th></tr>
+<tr><td>SYNTHETIC-node</td><td>SYNTHETIC node</td><td>single</td><td>6</td><td>2026-10-06T13:02:50Z</td><td>OK</td><td>every judged source detected out to 20.0 km; the radius is at least that and is not bounded above by this list</td><td>-</td><td>MIXED_UNKNOWN</td><td>-</td></tr>
+<tr><td>SYNTHETIC-array-1</td><td>SYNTHETIC array 1</td><td>array</td><td>27</td><td>never</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>SYNTHETIC-array-2</td><td>SYNTHETIC array 2</td><td>array</td><td>27</td><td>never</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+</table>
+<h2>3. The listed sources</h2>
+<p>One row per rig on the list: which stations heard it and which did not, how far the nearest station is, the rate its own lines say it runs at, and whether the hours it was heard agree with the hours the list declares. A source nobody heard is not a source that was not working - it may be outside the radius of every station here.</p>
+<table>
+<tr><th>Source</th><th>Heard at</th><th>Not heard at</th><th>Nearest station (km)</th><th>Rate per minute</th><th>Declared vs heard</th><th>Spells</th></tr>
+<tr><td>RIG-1</td><td>SYNTHETIC-node</td><td>-</td><td>3</td><td>84.24</td><td>AGREES</td><td>1</td></tr>
+<tr><td>RIG-2</td><td>SYNTHETIC-node</td><td>-</td><td>8.00</td><td>98.88</td><td>AGREES</td><td>1</td></tr>
+<tr><td>RIG-3</td><td>SYNTHETIC-node</td><td>-</td><td>20.01</td><td>114.24</td><td>AGREES</td><td>1</td></tr>
+<tr><td>RIG-4</td><td>nowhere</td><td>SYNTHETIC-node</td><td>45.02</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td>RIG-5</td><td>nowhere</td><td>SYNTHETIC-node</td><td>90.01</td><td>-</td><td>-</td><td>-</td></tr>
+</table>
+<h2>4. Tracks</h2>
+<p>Each track and what it resolved, per source.</p>
+<table>
+<tr><th>Track</th><th>Name</th><th>Stations</th><th>Sources tracked</th><th>Per source</th></tr>
+<tr><td>SYNTHETIC-lateral</td><td>SYNTHETIC lateral</td><td>SYNTHETIC-array-1, SYNTHETIC-array-2</td><td>-</td><td>-</td></tr>
+</table>
+<h2>5. What needs attention</h2>
+<p>SYNTHETIC-array-1: never refreshed, so nothing is known about this record beyond what it is</p>
+<p>SYNTHETIC-array-2: never refreshed, so nothing is known about this record beyond what it is</p>
+<h2>6. What this report does not call a measurement</h2>
+<p>a source not heard as a source not working: it may be outside the radius of every station here.</p>
+<p>a period: this reports what each station&#x27;s last run holds, whatever hours that run covered.</p>
+<p>an unlisted candidate as a machine of any particular kind.</p>
+<footer>Every number here is a station&#x27;s own last run, collected; nothing is recomputed in this report.</footer>
+</body></html>

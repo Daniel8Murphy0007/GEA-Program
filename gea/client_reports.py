@@ -1026,7 +1026,8 @@ def transient_report(detection: dict, analyses: List[dict], well_name: str = '',
 # ---------------------------------------------------------------------------
 def seismic_station_report(station: dict, info: List[dict], spectrum: Optional[dict], lines: Optional[dict], detect: Optional[dict],
                            beam_res: Optional[dict] = None, array_detect: Optional[dict] = None, response_note: Optional[dict] = None,
-                           evaluated_at: Optional[datetime] = None, program_version: str = '') -> Document:
+                           evaluated_at: Optional[datetime] = None, program_version: str = '', harmonics: Optional[dict] = None,
+                           datum_check: Optional[dict] = None, array_qc: Optional[dict] = None, unlisted: Optional[dict] = None) -> Document:
     """What one station (or array) recorded, what persists in its spectrum, whether the listed rigs were heard and,
     with an array, whether it pointed at them. Every number is the leg's own output; nothing is recomputed here."""
     now = evaluated_at or _utc_now()
@@ -1053,10 +1054,62 @@ def seismic_station_report(station: dict, info: List[dict], spectrum: Optional[d
     if array_detect:
         n_p = sum(1 for r in array_detect['sources'] if r['verdict'] == 'POINTED')
         parts.append(f"The array pointed at {n_p} of {len(array_detect['sources'])} listed source{'s' if len(array_detect['sources']) != 1 else ''}.")
+    if unlisted and unlisted.get('n_found'):
+        parts.append(f"{unlisted['n_found']} source(s) not on the list, with a direction of their own.")
+    if array_qc and array_qc.get('qc'):
+        q = array_qc['qc']
+        bit = f"Array quality: {q['status']}, {q['n_usable']} of {q['n_sensors']} sensors pass"
+        c = array_qc.get('cost') or {}
+        if c.get('bearing_change_deg') is not None:
+            bit += f"; excluding the rest moves the bearing {c['bearing_change_deg']:.1f} deg"
+        parts.append(bit + '.')
+    if harmonics:
+        tl = harmonics['line_tracks']
+        bit = f"{tl['n_tracks']} line{'s' if tl['n_tracks'] != 1 else ''} followed through the record"
+        fam = harmonics.get('families') or {}
+        if fam.get('fundamental_hz'):
+            bit += f", a family on {fam['fundamental_hz']:.3f} Hz ({fam['line_rate_per_min']:.0f} per minute)"
+        rate = harmonics.get('rate') or {}
+        if rate.get('status') in ('RATE_STEADY', 'RATE_VARIES'):
+            bit += '; the rate ' + ('held' if rate['status'] == 'RATE_STEADY' else f"moved {rate['drift_hz_per_hour']:+.3f} Hz/h")
+        parts.append(bit + '.')
+    if datum_check:
+        dc = datum_check
+        if dc['status'] == 'OK':
+            parts.append(f"Every position is on {dc['datums'][0]}.")
+        elif dc['status'] == 'ALL_UNKNOWN':
+            parts.append(f"No position states its datum; if they are NAD27 rather than WGS84 the ground they name is {(dc.get('if_wrong') or {}).get('separation_m', 0):.0f} m away here.")
+        else:
+            parts.append(f"Positions on {', '.join(dc['datums'])}: up to {dc['worst_separation_m']:.0f} m apart here until they are on one datum.")
     summary = Section('1', 'Summary', [' '.join(parts) or 'No record was read.'])
     rec_rows = [[i['id'], i['start'], i['end'], _fmt(i['sample_rate_hz']), i['npts'], _fmt(round(i['duration_s'] / 3600, 2)), i['encoding'], i['gaps'], i['unit']] for i in info]
-    rec = Section('2', 'The record', [f"Station position: {station.get('lat')}, {station.get('lon')}." if station.get('lat') is not None else 'Station position: not given (the detectability test needs it).'],
-                  [Table(['Channel', 'Start (UTC)', 'End (UTC)', 'Rate (Hz)', 'Samples', 'Hours', 'Encoding', 'Gaps', 'Unit'], rec_rows)] if rec_rows else [])
+    rec_paras = [(f"Station position: {station.get('lat')}, {station.get('lon')}"
+                  + (f" on {station.get('datum')}." if station.get('datum') else '.'))
+                 if station.get('lat') is not None else 'Station position: not given (the detectability test needs it).']
+    rec_tables = [Table(['Channel', 'Start (UTC)', 'End (UTC)', 'Rate (Hz)', 'Samples', 'Hours', 'Encoding', 'Gaps', 'Unit'], rec_rows)] if rec_rows else []
+    if datum_check:
+        dc = datum_check
+        rec_paras.append('A position is a pair of numbers on a datum, and the same ground has different numbers on different ones. A regulator\'s '
+                         'permit export may be on NAD27, a network\'s station metadata on WGS84, a modern survey on NAD83. The separation between '
+                         'them is tens of metres and varies by where you are, so it is computed here rather than quoted - and it is the same size as '
+                         'a position ellipse, which means a datum error does not look like an error.')
+        rec_paras.append(f"Status {dc['status']}. {dc.get('detail', '')}".strip())
+        lab = dc.get('labels') or {}
+        rows = [[k.title(), v] for k, v in lab.items() if v]
+        if dc.get('separations'):
+            rec_tables.append(Table(['Datums in use together', 'Apart here (m)', 'Bearing (deg)'],
+                                    [[' and '.join(x['datums']), _fmt(x['separation_m']), _fmt(x['bearing_deg'])] for x in dc['separations']]))
+        if dc.get('converted_on_load'):
+            rec_paras.append('Converted on the way in: '
+                             + ', '.join(f'{v} position(s) from {k}' for k, v in dc['converted_on_load'].items())
+                             + (f", moving the ground up to {dc.get('converted_moved_m', 0):.1f} m" if dc.get('converted_moved_m') else '')
+                             + '. The conversion is the published three-parameter shift, good to several metres and not to centimetres.')
+        if dc.get('if_wrong'):
+            rec_paras.append(f"If the positions that state no datum are on NAD27 rather than WGS84, the ground they name is "
+                             f"{dc['if_wrong']['separation_m']:.1f} m away on a bearing of {dc['if_wrong']['bearing_deg']:.0f} degrees, at this site.")
+        if rows:
+            rec_tables.append(Table(['Positions checked', 'Count'], rows))
+    rec = Section('2', 'The record', rec_paras, rec_tables)
     sp_paras = []
     sp_tables = []
     if spectrum:
@@ -1096,14 +1149,142 @@ def seismic_station_report(station: dict, info: List[dict], spectrum: Optional[d
                                 [[r['source_id'], _fmt(r['distance_km']), _fmt(r['true_back_azimuth_deg']), r.get('beam_back_azimuth_deg', '-'), r.get('azimuth_error_deg', '-'),
                                   r.get('tolerance_deg', '-'), r.get('coherence', '-'), r['verdict']] for r in sorted(array_detect['sources'], key=lambda r: r['distance_km'])]))
         det_secs.append(Section('5' if detect else '4', 'The array', paras, tables))
+    if array_qc and array_qc.get('qc'):
+        q = array_qc['qc']
+        paras = ['An array is not a set of records, it is the differences between them, so a fault that would be invisible in one record is fatal '
+                 'across several. A dead channel drags the beam toward nothing; a sensor whose clock is out puts its energy in the wrong place and '
+                 'looks exactly like a source in a slightly different direction; a sensor wired backwards subtracts where it should add; a sensor at '
+                 'a fraction of the gain is barely in the beam, so the array quietly has fewer sensors than its geometry claims.',
+                 'The timing test needs no reference clock. For a plane wave the arrival delays must lie on a plane - delay = a*x + b*y + c - so the '
+                 'delays are measured by cross-correlation, that plane is fitted, and each sensor\'s residual is the part of its arrival the wavefront '
+                 'does not explain. The fit recovers the velocity and direction as a by-product, which is what makes it its own reference. The scatter '
+                 'is measured as a median absolute deviation, so the one wrong clock cannot raise the bar until it clears it, and the plane is fitted '
+                 'again without the sensors that stand outside it.',
+                 f"Status {q['status']}. {q.get('detail', '')}".strip()]
+        pf = q.get('plane_fit')
+        if pf:
+            paras.append(f"The plane fitted to the measured delays: {pf['apparent_velocity_km_s']:.2f} km/s from {pf['back_azimuth_deg']:.0f} degrees, "
+                         f"with a scatter of {q['timing_scatter_s'] * 1000:.1f} ms"
+                         + (f" (the fit was repeated without {', '.join(pf['refit_excluded'])})" if pf.get('refit_excluded') else '') + '.')
+        tables = [Table(['Sensor', 'Verdict', 'Gain vs median (dB)', 'Correlation', 'Timing (ms)', 'As azimuth (deg)', 'Detail'],
+                        [[r['sensor_id'], r['verdict'], _fmt(r['gain_db_vs_median']), _fmt(r['correlation']),
+                          (f"{r['timing_residual_s'] * 1000:+.1f}" if r['timing_residual_s'] is not None else '-'),
+                          _fmt(r['timing_residual_deg']) if r.get('timing_residual_deg') is not None else '-',
+                          r['detail']] for r in q['sensors']])]
+        c = array_qc.get('cost') or {}
+        if c.get('status') and c.get('bearing_change_deg') is not None:
+            paras.append(f"What the faults were doing to the answer: {c['detail']}")
+            tables.append(Table(['Beam', 'Back-azimuth (deg)', 'Slowness (s/km)', 'Best-bin coherence'],
+                                [['With every sensor', _fmt(c['with_all']['back_azimuth_deg']), _fmt(c['with_all']['slowness_s_km']), _fmt(c['with_all']['coherence_max_bin'])],
+                                 ['With only those that pass', _fmt(c['with_usable']['back_azimuth_deg']), _fmt(c['with_usable']['slowness_s_km']), _fmt(c['with_usable']['coherence_max_bin'])]]))
+        det_secs.append(Section(str(len(det_secs) + 4), 'Array quality - is this array any good?', paras, tables))
+    if harmonics:
+        tl, fam, rate = harmonics['line_tracks'], harmonics.get('families') or {}, harmonics.get('rate') or {}
+        _hz = lambda v: '-' if v is None else f'{float(v):.3f}'       # frequencies and drifts matter to more than two places
+        paras = ['A machine is not a list of frequencies: a pump at a given rate puts energy at that rate and at its multiples, so lines spaced by a common '
+                 'fundamental are one machine at one rate. A rate follows the load, so each line is also followed from window to window - a line that walks '
+                 'further than a spectral bin is DRIFTING, and a signature of fixed bins loses it.',
+                 f"{tl['n_tracks']} line{'s' if tl['n_tracks'] != 1 else ''} followed across {tl['n_windows']} window{'s' if tl['n_windows'] != 1 else ''} of "
+                 f"{tl['win_s']:g} s in {tl['band_hz'][0]:g}-{tl['band_hz'][1]:g} Hz; the spectral bin is {tl['bin_width_hz']:g} Hz, and no drift smaller "
+                 f"than that is called a drift"
+                 + (f"; {tl['dropped_short']} line(s) were present in too few windows to follow" if tl['dropped_short'] else '') + '.']
+        tables = [Table(['Frequency (Hz)', 'Status', 'Windows', 'First (Hz)', 'Last (Hz)', 'Drift (Hz/h)', 'Over the floor (dB)', 'From', 'To'],
+                        [[_hz(t['freq_median_hz']), t['status'], f"{t['windows_present']} of {t['windows_spanned']}", _hz(t['freq_first_hz']), _hz(t['freq_last_hz']),
+                          _hz(t['drift_hz_per_hour']), _fmt(t['excess_db_median']), t['start_utc'], t['end_utc']] for t in tl['tracks'][:25]])]
+        if fam.get('families'):
+            paras.append('The families in this record\'s own lines. `By chance` is how often this record\'s line density puts this many lines on a comb by '
+                         'accident; a family above that ceiling is set aside instead of reported. The rate is the rate of the line, not of the machine: a pump '
+                         'that puts out two lines per stroke runs at half the figure printed.')
+            tables.append(Table(['Fundamental (Hz)', 'Per minute', 'Orders', 'Lines (Hz)', 'Comb filled', 'By chance', 'Fundamental seen'],
+                                [[_hz(f['fundamental_hz']), _fmt(f['line_rate_per_min']), ','.join(str(n) for n in f['orders']),
+                                  ', '.join(f'{v:g}' for v in f['freqs_hz'][:8]), f"{f['fill']:.0%}", f"{f['by_chance']:.1%}",
+                                  'yes' if f['fundamental_observed'] else 'no - the spacing only'] for f in fam['families']]))
+            if fam.get('orphan_hz'):
+                paras.append('In no family: ' + ', '.join(f'{v:g}' for v in fam['orphan_hz'][:12]) + ' Hz - lines that stand on their own here.')
+        for r in (fam.get('refused') or []):
+            paras.append(f"Set aside ({r['status']}): {r['detail']}")
+        if rate.get('status'):
+            paras.append(f"Rate history: {rate['status']}. {rate.get('detail', '')}")
+        sf = harmonics.get('signature_families')
+        if sf and sf['sources']:
+            paras.append(f"Each listed source's own rate, from the lines learned while it worked alone: {sf['n_with_fundamental']} of {len(sf['sources'])} "
+                         'have one. Two sources at the same rate are marked, because nothing here tells two machines running at the same rate apart.')
+            tables.append(Table(['Source', 'Status', 'Fundamental (Hz)', 'Per minute', 'Orders', 'Lines taken from', 'In no family (Hz)'],
+                                [[r['source_id'], r['status'], _hz(r['fundamental_hz']) if r['fundamental_hz'] else '-',
+                                  _fmt(r['line_rate_per_min']) if r['line_rate_per_min'] else '-',
+                                  ','.join(str(n) for n in r['families'][0]['orders']) if r.get('families') else '-',
+                                  r.get('lines_from', '-'),
+                                  ', '.join(f'{v:g}' for v in (r.get('orphan_hz') or [])[:6]) or '-'] for r in sf['sources']]))
+            at = sf.get('attribution') or {}
+            if at.get('unattributed'):
+                paras.append(f"{len(at['unattributed'])} tracked line(s) no listed source was learned on: "
+                             + ', '.join(f"{u['freq_median_hz']:.3f} Hz ({u['status'].lower()})" for u in at['unattributed'][:8])
+                             + '. Something is making them and this program was not told what; they are listed, not named.')
+            for c in (at.get('contested') or []):
+                paras.append(f"The line at {c['freq_median_hz']:.3f} Hz sits close to a learned line of {' and '.join(c['sources'])}: "
+                             'it separates nothing and is given to neither.')
+            for sh in sf['shared_fundamentals']:
+                paras.append(f"{' and '.join(sh['sources'])} share a rate of {sh['fundamental_hz']:.3f} Hz: {sh['note']}.")
+        act = harmonics.get('activity') or []
+        judged = [a for a in act if a.get('status') == 'OK']
+        if judged:
+            paras.append('When was each source working? Measured from its own lines - looked for within '
+                         f"{harmonics.get('drift_tol_frac', 0):.1%} of each line's own frequency of where it was learned, because a rate that follows "
+                         'its load walks out of its own bins and a harmonic walks as far as its order - and set beside the window the rigs list '
+                         'declares. A permit date is a permission, not a drilling log, so a disagreement is a finding and not an error.')
+            tables.append(Table(['Source', 'Verdict', 'Spells heard', 'Heard windows', 'Declared windows', 'Declared and heard', 'Declared but silent', 'Heard, not declared'],
+                                [[a['source_id'], a.get('verdict', '-'), a.get('n_spells', 0), a.get('heard_windows', 0),
+                                  (a.get('agreement') or {}).get('declared_windows', '-'), (a.get('agreement') or {}).get('declared_and_heard', '-'),
+                                  (a.get('agreement') or {}).get('declared_but_silent', '-'), (a.get('agreement') or {}).get('heard_but_not_declared', '-')]
+                                 for a in judged]))
+        det_secs.append(Section(str(len(det_secs) + 4), 'The machine behind the lines - families, rates and when each source was working', paras, tables))
+    if unlisted:
+        u = unlisted
+        c = u.get('candidates') or {}
+        paras = ['Every test before this one answers a question somebody already asked: here is a list of rigs, were they heard, where are they. This '
+                 'one asks what else is out there, because the source nobody listed is the one nobody is watching. Each line followed through the '
+                 'record is given to the listed source whose own lines it matches, or to a whole-number ratio with a line that source already claims. '
+                 'What is left over is grouped into combs, and a comb with a fundamental is a machine running at a rate.',
+                 f"Status {u['status']}. {u.get('detail', '')}".strip()]
+        tables = []
+        for k, v in (c.get('mains') or {}).items():
+            paras.append(f"On the {k} Hz mains: " + '; '.join(f"{h['freq_hz']:g} Hz is {h['note']}" for h in v)
+                         + '. That is electrical, not a machine in the ground.')
+        if u.get('sources'):
+            tables.append(Table(['Candidate', 'Verdict', 'Back-azimuth (deg)', 'Tolerance (deg)', 'Rate (Hz)', 'Per minute', 'Orders', 'By chance'],
+                                [[r['source_id'], r['verdict'], _fmt(r.get('back_azimuth_deg')), _fmt(r.get('tolerance_deg')),
+                                  _fmt(r.get('fundamental_hz')), _fmt(r.get('line_rate_per_min')),
+                                  ','.join(str(n) for n in (r.get('orders') or [])), f"{r.get('by_chance', 0):.1%}"] for r in u['sources']]))
+            for r in u['sources']:
+                if r['verdict'] != 'POINTED' and r.get('detail'):
+                    paras.append(f"{r['source_id']}: {r['detail']}")
+        if c.get('leftover_hz'):
+            paras.append('Lines nobody claims that form no comb: ' + ', '.join(f'{v:g}' for v in c['leftover_hz'][:12])
+                         + ' Hz. Something is making them; nothing here says what.')
+        paras.append('A candidate is a direction with a rate on it and nothing more. A compressor, a pump jack, a water pump, a passing train and a '
+                     'drilling rig all put lines in this band.')
+        det_secs.append(Section(str(len(det_secs) + 4), 'What else is out there - sources not on the list', paras, tables))
     nxt = str(len(det_secs) + 4)
     method = Section(nxt, 'Method', [
         'Records are read from miniSEED or SAC by content; the station response, when its StationXML is given, is built from the file\'s stages as evalresp builds it and removed in the frequency domain with a water level and a pre-filter. '
         'Spectra are Welch estimates (Hann window, half overlap); persistent lines are bins above a running-median floor in a fraction of the windows. '
         'Detectability compares band power in each listed source\'s exclusive windows with the quiet baseline. '
-        'An array\'s direction is frequency-domain beamforming over a slowness grid with the array response function\'s half-power width as its resolution.'])
+        'An array\'s direction is frequency-domain beamforming over a slowness grid with the array response function\'s half-power width as its resolution. '
+        'A harmonic family is a comb search over every line divided by every order, normalised to the largest spacing the orders found allow, and kept only '
+        'when this record\'s line density would not produce it by accident; lines are followed between windows by nearest neighbour within a drift ceiling, '
+        'each peak refined inside its bin by a parabola through its three values. Datum shifts are the published three-parameter geocentric '
+        'shifts applied through geocentric coordinates, good to several metres and not to centimetres; the separation between two datums is '
+        'computed at the site rather than quoted, because it varies.'])
     nam = []
-    for src in (lines, detect, beam_res, array_detect):
+    _nam_srcs = [lines, detect, beam_res, array_detect, datum_check]
+    if array_qc:
+        _nam_srcs += [array_qc.get('qc'), array_qc.get('cost')]
+    if unlisted:
+        _nam_srcs += [unlisted, unlisted.get('candidates')]
+    if harmonics:
+        _nam_srcs += [harmonics.get('line_tracks'), harmonics.get('families'), harmonics.get('rate'), harmonics.get('signature_families')]
+        _nam_srcs += (harmonics.get('activity') or [])[:1]
+    for src in _nam_srcs:
         if src and src.get('not_a_measurement'):
             v = src['not_a_measurement']
             nam += (v if isinstance(v, list) else [v])
@@ -1118,11 +1299,184 @@ def seismic_station_report(station: dict, info: List[dict], spectrum: Optional[d
                     sections=[summary, rec, spec_sec] + det_secs + [method, limits],
                     footer='Every number is the leg\'s own output at generation time; the band, the windows and the thresholds that produced each verdict are printed beside it.',
                     data={'station': station, 'records': info, 'spectrum': spectrum, 'lines': lines, 'detect': detect, 'beam': beam_res, 'array_detect': array_detect,
-                          'response': response_note, 'report_id': report_id, 'evaluated_at_utc': now.strftime('%Y-%m-%dT%H:%M:%SZ'), '_records': [], '_catalogue_obj': None})
+                          'harmonics': harmonics, 'datum': datum_check, 'array_qc': array_qc, 'response': response_note, 'report_id': report_id, 'evaluated_at_utc': now.strftime('%Y-%m-%dT%H:%M:%SZ'), '_records': [], '_catalogue_obj': None})
+
+
+def site_report(summary: dict, evaluated_at: Optional[datetime] = None, program_version: str = '') -> Document:
+    """One site: every leg of it in one document. The wells with their gauge work, the seismic stations with
+    what they can hear and whether their own sensors agree, the tracks with what they resolved, and anything
+    that has not been run since the thing it was made from changed. Nothing is recomputed here."""
+    now = evaluated_at or _utc_now()
+    st = summary['site']
+    report_id = f"SITE-{str(st['id']).replace('/', '-')[:24]}-{now.strftime('%Y%m%dT%H%M%SZ')}"
+    c = summary['counts']
+    parts = [f"{st['display']}" + (f" for {st['client']}" if st.get('client') else '') + ': '
+             + ', '.join(x for x in [f"{c['wells']} well(s)" if c['wells'] else '',
+                                     f"{c['seismic']} seismic station(s)" if c['seismic'] else '',
+                                     f"{c['tracks']} track(s)" if c['tracks'] else ''] if x) + '.']
+    never = [w for w in summary['warnings'] if 'never refreshed' in w]
+    stale = [w for w in summary['warnings'] if 'older than' in w]
+    if never or stale:
+        parts.append(((f"{len(never)} member(s) have never been run. " if never else '')
+                      + (f"{len(stale)} hold results older than their own source. " if stale else '')).strip())
+    else:
+        parts.append('Every member has been run and every result is current with its source.')
+    secs = [Section('1', 'Summary', [' '.join(parts)] + ([st['note']] if st.get('note') else []))]
+    n = 2
+    if summary['wells']:
+        secs.append(Section(str(n), 'The wells', ['Each well of this site and when its dashboard was last written.'],
+                            [Table(['Well', 'Name', 'Kind', 'Last refresh (UTC)'],
+                                   [[w['id'], w['display'], w['kind'], w['refreshed_utc'] or 'never'] for w in summary['wells']])]))
+        n += 1
+    if summary['seismic']:
+        secs.append(Section(str(n), 'The seismic stations', [
+            'Each station of this site: how much record it holds, what its detectability test last said, whether its own sensors agree with each '
+            'other, which datum its positions are on, and whether anything it reports is older than the record it came from.'],
+            [Table(['Station', 'Name', 'Kind', 'Hours', 'Last refresh (UTC)', 'Detectability', 'Array quality', 'Datum', 'Stale outputs'],
+                   [[x['id'], x['display'], x['kind'], _fmt(x['hours']), x['refreshed_utc'] or 'never', x['detect_status'] or '-',
+                     x['qc_status'] or '-', x['datum_status'] or '-', ', '.join(x['stale']) or 'none'] for x in summary['seismic']])]))
+        n += 1
+    if summary['tracks']:
+        secs.append(Section(str(n), 'The tracks', ['Each track of this site and what it resolved.'],
+                            [Table(['Track', 'Name', 'Stations', 'Sources tracked', 'Verdict'],
+                                   [[t['id'], t['display'], ', '.join(t['stations'] or []), t['n_tracked'] if t['n_tracked'] is not None else '-',
+                                     t['verdict'] or '-'] for t in summary['tracks']])]))
+        n += 1
+    secs.append(Section(str(n), 'What needs attention', summary['warnings'] or
+                        ['Nothing: every member has been run and every result is current with its source.']))
+    secs.append(Section(str(n + 1), 'What this report does not call a measurement',
+                        [x.rstrip('.') + '.' for x in dict.fromkeys(summary.get('not_a_measurement') or [])] or ['-']))
+    front = [['Report ID', report_id], ['Site', st['display']], ['Client', st.get('client') or '-'],
+             ['Generated (UTC)', now.strftime('%Y-%m-%dT%H:%M:%SZ')],
+             ['Program', f'{PROGRAM_NAME}' + (f' build {program_version}' if program_version else '')],
+             ['Result', f"{c['wells']} WELLS, {c['seismic']} SEISMIC STATIONS, {c['tracks']} TRACKS"]]
+    return Document(title=f'{PROGRAM_NAME} - Site Report', report_id=report_id, front=front, sections=secs,
+                    footer='Every number here is a member\'s own last run, collected; nothing is recomputed in this report.',
+                    data={'summary': summary, 'report_id': report_id, 'evaluated_at_utc': now.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                          '_records': [], '_catalogue_obj': None})
+
+
+def seismic_dataset_report(inventory: dict, evaluated_at: Optional[datetime] = None, program_version: str = '') -> Document:
+    """What seismic this workspace holds: every station, every record, its span and rate and gaps, its
+    checksum, the datum its positions are on, which steps have been run against it and whether any of them
+    is older than the record it came from. It says nothing about whether the data is any good - that is the
+    array quality section of each station's own report - and nothing about what was concluded from it."""
+    now = evaluated_at or _utc_now()
+    report_id = f"SEIS-DATA-{now.strftime('%Y%m%dT%H%M%SZ')}"
+    inv = inventory
+    stale = [w for w in inv['warnings'] if 'older than the record' in w]
+    never = [w for w in inv['warnings'] if 'never refreshed' in w]
+    summary = Section('1', 'Summary', [
+        f"{inv['n_stations']} seismic station(s), {inv['n_records']} record(s), {inv['total_hours']:.1f} hours in all"
+        + (f", and {len(inv['tracks'])} track(s)" if inv['tracks'] else '') + '. '
+        + (f"{len(never)} station(s) have never been run. " if never else '')
+        + (f"{len(stale)} station(s) hold results older than their own record. " if stale else '')
+        + ('Everything held here is current with its source.' if not (never or stale) else '')])
+    rows = [[st['id'], st['display'], st['kind'], st['n_records'], _fmt(sum(r['hours'] or 0 for r in st['records'])),
+             (f"{st['lat']}, {st['lon']}" if st['lat'] is not None else '-'), st['datum'],
+             (f"{st['band_hz'][0]:g}-{st['band_hz'][1]:g}" if st.get('band_hz') else '-'),
+             st['unit'] or '-', st['refreshed_utc'] or 'never',
+             ', '.join(sorted(k for k, v in st['ran'].items() if v == 'current')) or '-',
+             ', '.join(sorted(k for k, v in st['ran'].items() if v == 'stale')) or '-'] for st in inv['stations']]
+    holdings = Section('2', 'The holdings', [
+        'One row per station: what it is, how much of it there is, where it is and on which datum, the band the leg uses for it, whether the '
+        'instrument response has been removed, when it was last run, and which outputs are current with the record against which are older than it.'],
+        [Table(['Station', 'Name', 'Kind', 'Records', 'Hours', 'Position', 'Datum', 'Band (Hz)', 'Unit', 'Last run (UTC)', 'Current', 'Stale'], rows)] if rows else [])
+    rec_rows = []
+    for st in inv['stations']:
+        for r in st['records']:
+            rec_rows.append([st['id'], r['file'], r['id'] or '-', r['start_utc'] or '-', r['end_utc'] or '-', _fmt(r['sample_rate_hz']),
+                             _fmt(r['hours']), r['gaps'] if r['gaps'] is not None else '-', r['encoding'] or '-',
+                             _fmt(r['bytes']), (r['sha256'] or '-')[:16]])
+    records = Section('3', 'Every record', [
+        'Every file this workspace holds, with the span it actually covers, its sample rate, the number of gaps in it, and the first sixteen '
+        'characters of the checksum taken when it was brought in. A record covers the hours it covers and no others; the gaps are counted, not '
+        'interpolated over.'],
+        [Table(['Station', 'File', 'Channel', 'Start (UTC)', 'End (UTC)', 'Rate (Hz)', 'Hours', 'Gaps', 'Encoding', 'Bytes', 'sha256'], rec_rows)] if rec_rows else [])
+    extra = []
+    if inv['tracks']:
+        extra.append(Section('4', 'Tracks', ['A track crosses the bearing histories of two or more array stations window by window.'],
+                             [Table(['Track', 'Name', 'Stations', 'Band (Hz)', 'Ground truth', 'Added (UTC)'],
+                                    [[t['id'], t['display'], ', '.join(t['stations'] or []),
+                                      (f"{t['band_hz'][0]:g}-{t['band_hz'][1]:g}" if t.get('band_hz') else '-'),
+                                      'yes' if t['truth'] else 'no', t['added_utc']] for t in inv['tracks']])]))
+    nxt = str(4 + len(extra))
+    notes = Section(nxt, 'What needs attention', [w for w in inv['warnings']] or ['Nothing: every station has been run and every result is current with its source.'])
+    limits = Section(str(int(nxt) + 1), 'What this report does not call a measurement',
+                     [c.rstrip('.') + '.' for c in dict.fromkeys(inv.get('not_a_measurement') or [])] or ['-'])
+    front = [['Report ID', report_id], ['Generated (UTC)', now.strftime('%Y-%m-%dT%H:%M:%SZ')],
+             ['Program', f'{PROGRAM_NAME}' + (f' build {program_version}' if program_version else '')],
+             ['Result', f"{inv['n_stations']} STATIONS, {inv['n_records']} RECORDS, {inv['total_hours']:.1f} HOURS"]]
+    return Document(title=f'{PROGRAM_NAME} - Seismic Dataset Report', report_id=report_id, front=front,
+                    sections=[summary, holdings, records] + extra + [notes, limits],
+                    footer='This report describes what is held, not what was concluded from it; every span, rate and gap count is read from the record itself at generation time.',
+                    data={'inventory': inv, 'report_id': report_id, 'evaluated_at_utc': now.strftime('%Y-%m-%dT%H:%M:%SZ'), '_records': [], '_catalogue_obj': None})
+
+
+def seismic_field_report(field: dict, evaluated_at: Optional[datetime] = None, program_version: str = '') -> Document:
+    """The whole site in one document: every station and what it can hear, every listed rig and where it was
+    heard from, every track, and everything found that nobody listed. Nothing is recomputed here - each
+    number is the station's own last run."""
+    now = evaluated_at or _utc_now()
+    report_id = f"SEIS-FIELD-{now.strftime('%Y%m%dT%H%M%SZ')}"
+    heard = [s for s in field['sources'] if s['heard_at']]
+    parts = [f"{len(field['stations'])} station(s) over {field['inventory']['total_hours']:.1f} hours; "
+             f"{len(heard)} of {len(field['sources'])} listed source(s) heard by at least one station."]
+    if field['tracks']:
+        parts.append(f"{len(field['tracks'])} track(s), {sum(t['n_tracked'] or 0 for t in field['tracks'])} source(s) tracked.")
+    if field['unlisted']:
+        parts.append(f"{len(field['unlisted'])} source(s) not on the list were given a direction of their own.")
+    bad_qc = [s for s in field['stations'] if s['qc_status'] and s['qc_status'] != 'USABLE']
+    if bad_qc:
+        parts.append(f"{len(bad_qc)} array(s) are not clean: " + ', '.join(f"{s['id']} ({s['qc_status']})" for s in bad_qc) + '.')
+    summary = Section('1', 'Summary', [' '.join(parts)])
+    stations = Section('2', 'The stations', ['What each station is, what it last ran, how far it can hear and whether its own sensors agree.'],
+                       [Table(['Station', 'Name', 'Kind', 'Hours', 'Last run (UTC)', 'Detectability', 'Radius', 'Array quality', 'Datum', 'Unlisted found'],
+                              [[s['id'], s['display'], s['kind'], _fmt(s['hours']), s['refreshed_utc'] or 'never', s['detect_status'] or '-',
+                                s['radius'] or '-', (f"{s['qc_status']} ({s['qc_usable']}/{s['qc_sensors']})" if s['qc_status'] else '-'),
+                                s['datum_status'] or '-', s['unlisted'] if s['unlisted'] is not None else '-'] for s in field['stations']])])
+    src_rows = []
+    for s in field['sources']:
+        act = s['activity'] or {}
+        src_rows.append([s['source_id'], ', '.join(s['heard_at']) or 'nowhere', ', '.join(s['not_heard_at']) or '-',
+                         _fmt(min([v for v in s['distance_km'].values() if v is not None] or [None])),
+                         _fmt(s['rate_per_min']) if s['rate_per_min'] else '-',
+                         act.get('verdict', '-'), act.get('spells', '-')])
+    sources = Section('3', 'The listed sources', [
+        'One row per rig on the list: which stations heard it and which did not, how far the nearest station is, the rate its own lines say it runs '
+        'at, and whether the hours it was heard agree with the hours the list declares. A source nobody heard is not a source that was not working - '
+        'it may be outside the radius of every station here.'],
+        [Table(['Source', 'Heard at', 'Not heard at', 'Nearest station (km)', 'Rate per minute', 'Declared vs heard', 'Spells'], src_rows)] if src_rows else [])
+    extra = []
+    if field['tracks']:
+        extra.append(Section('4', 'Tracks', ['Each track and what it resolved, per source.'],
+                             [Table(['Track', 'Name', 'Stations', 'Sources tracked', 'Per source'],
+                                    [[t['id'], t['display'], ', '.join(t['stations'] or []), t['n_tracked'] if t['n_tracked'] is not None else '-',
+                                      '; '.join(f'{k}: {v}' for k, v in (t['per_source'] or {}).items()) or '-'] for t in field['tracks']])]))
+    if field['unlisted']:
+        extra.append(Section(str(4 + len(extra)), 'Sources nobody listed', [
+            'Each of these is a comb of lines no listed source claims, beamed on its own lines. It is a direction with a rate on it and nothing '
+            'more: a compressor, a pump jack, a water pump, a passing train and a drilling rig all put lines in this band.'],
+            [Table(['Station', 'Candidate', 'Back-azimuth (deg)', 'Tolerance (deg)', 'Rate (Hz)', 'Per minute'],
+                   [[u['station'], u['source_id'], _fmt(u['back_azimuth_deg']), _fmt(u['tolerance_deg']), _fmt(u['fundamental_hz']),
+                     _fmt(u['line_rate_per_min'])] for u in field['unlisted']])]))
+    nxt = str(4 + len(extra))
+    notes = Section(nxt, 'What needs attention', [w for w in field['inventory']['warnings']] or ['Nothing: every station has been run and every result is current with its source.'])
+    limits = Section(str(int(nxt) + 1), 'What this report does not call a measurement',
+                     [c.rstrip('.') + '.' for c in dict.fromkeys(field.get('not_a_measurement') or [])] or ['-'])
+    front = [['Report ID', report_id], ['Generated (UTC)', now.strftime('%Y-%m-%dT%H:%M:%SZ')],
+             ['Program', f'{PROGRAM_NAME}' + (f' build {program_version}' if program_version else '')],
+             ['Result', f"{len(heard)} OF {len(field['sources'])} LISTED SOURCES HEARD"
+                        + (f"; {len(field['unlisted'])} NOT ON THE LIST" if field['unlisted'] else '')]]
+    return Document(title=f'{PROGRAM_NAME} - Seismic Field Report', report_id=report_id, front=front,
+                    sections=[summary, stations, sources] + extra + [notes, limits],
+                    footer='Every number here is a station\'s own last run, collected; nothing is recomputed in this report.',
+                    data={'field': field, 'report_id': report_id, 'evaluated_at_utc': now.strftime('%Y-%m-%dT%H:%M:%SZ'), '_records': [], '_catalogue_obj': None})
 
 
 def seismic_track_report(track: dict, histories: List[dict], positions: dict, verdict: Optional[dict] = None,
-                         evaluated_at: Optional[datetime] = None, program_version: str = '') -> Document:
+                         evaluated_at: Optional[datetime] = None, program_version: str = '', multi: Optional[dict] = None,
+                         signatures: Optional[dict] = None) -> Document:
     """A track: two or more arrays' bearings over time, crossed window by window into positions with their
     ellipses, the fit through the longest continuous segment, and the verdict against the user's ground truth.
     Every number is seismic_track's own output; nothing is recomputed here."""
@@ -1134,6 +1488,8 @@ def seismic_track_report(track: dict, histories: List[dict], positions: dict, ve
     if tr.get('heading_deg') is not None:
         parts.append(f"The longest continuous segment runs {tr['length_km']} km on a heading of {tr['heading_deg']} deg over {tr['n_positions']} positions "
                      f"({tr['rate_km_per_h']} km/h), {tr['rms_off_line_km']} km rms off the line, with a median 1-sigma ellipse of {tr['ellipse_major_km']['median']} km.")
+    if tr.get('motion_note'):
+        parts.append('Motion ' + tr['motion'] + ': ' + tr['motion_note'] + '.')
     elif tr.get('note'):
         parts.append(tr['note'][0].upper() + tr['note'][1:] + '.')
     if tr.get('segment_note'):
@@ -1182,13 +1538,36 @@ def seismic_track_report(track: dict, histories: List[dict], positions: dict, ve
         if verdict.get('outside_note'):
             paras.append(verdict['outside_note'][0].upper() + verdict['outside_note'][1:] + '.')
         secs.append(Section(str(len(secs) + 1), 'Against the ground truth', paras, [Table(['Window (UTC)', 'Miss (km)', 'Allowed (km)', 'Hit'], rows[:200])]))
+    if multi and multi.get('tracks'):
+        rows = []
+        for sid, r in multi['tracks'].items():
+            tr2 = r.get('track') or {}
+            v2 = r.get('verdict') or {}
+            rows.append([sid, r.get('status', '-'), r.get('arrays', '-'), r.get('positions', 0), r.get('windows', 0),
+                         tr2.get('motion', '-'), _fmt(tr2.get('heading_deg')), _fmt(tr2.get('length_km')), _fmt((tr2.get('ellipse_major_km') or {}).get('median')),
+                         v2.get('verdict', '-'), (f"{v2['n_hit']} of {v2['n_compared']}" if v2 else '-'), r.get('detail', '')])
+        sig_rows = []
+        for sg in (signatures or {}).get('signatures', []):
+            sig_rows.append([sg['source_id'], sg['status'], sg['exclusive_windows'], ', '.join(f'{x:g}' for x in sg['freqs_hz'][:8]) or '-', sg.get('detail', '')])
+        paras = [f"{multi.get('n_tracked', 0)} of {len(multi.get('source_ids', []))} listed source(s) were positioned while more than one was working. "
+                 'A single bearing is one direction for every machine in the band, so when several rigs work at once the crossing of whole-band bearings '
+                 'means nothing. Each source here was learned while it worked alone - the bins that stand above the floor in its exclusive windows and not '
+                 'in the quiet ones - and then beamed on those bins alone, which gives one bearing per source in the same window.']
+        if signatures:
+            paras.append(f"{signatures.get('n_with_signature', 0)} of {len(signatures.get('signatures', []))} source(s) have a signature, learned over "
+                         f"{signatures.get('windows', 0)} windows ({signatures.get('quiet_windows', 0)} quiet, {signatures.get('together_windows', 0)} with "
+                         'two or more working). A source that never worked alone has none, and is given no bearing of its own.')
+        tables = [Table(['Source', 'Status', 'Arrays', 'Positions', 'Windows', 'Motion', 'Heading (deg)', 'Length (km)', 'Ellipse major (km)', 'Verdict', 'Hits', 'Detail'], rows)]
+        if sig_rows:
+            tables.append(Table(['Source', 'Signature', 'Exclusive windows', 'Its lines (Hz)', 'Detail'], sig_rows))
+        secs.append(Section(str(len(secs) + 1), 'Several sources at once - each from its own signature', paras, tables))
     method = Section(str(len(secs) + 1), 'Method', [
         'Bearings are frequency-domain beamforming over a slowness grid on each window, with the array response function\'s half-power width as each bearing\'s tolerance. '
         'Positions are the weighted least-squares crossing of the coherent arrays\' bearing lines, with the covariance of the crossing as the ellipse. '
         'The track is the principal line through the longest continuous segment of positions, headed in the direction of time. '
         'The verdict compares every position with the ground truth interpolated to its time.'])
     nam = []
-    for src in list(histories) + [positions] + ([verdict] if verdict else []):
+    for src in list(histories) + [positions] + ([verdict] if verdict else []) + ([multi] if multi else []) + ([signatures] if signatures else []):
         v = src.get('not_a_measurement') or []
         nam += (v if isinstance(v, list) else [v])
     limits = Section(str(len(secs) + 2), 'What this report does not call a measurement', [c.rstrip('.') + '.' for c in dict.fromkeys(nam)] or ['-'])
@@ -1198,7 +1577,9 @@ def seismic_track_report(track: dict, histories: List[dict], positions: dict, ve
              ['Result', (verdict['verdict'] if verdict else (f"{positions['n_positions']} POSITIONS, NO GROUND TRUTH" if positions['n_positions'] else 'NO POSITIONS'))]]
     return Document(title=f'{PROGRAM_NAME} - Seismic Track Report', report_id=report_id, front=front, sections=secs + [method, limits],
                     footer='Every number is the tracker\'s own output at generation time; every position carries the ellipse it earned, and a gap is printed as a gap.',
-                    data={'track': track, 'histories': [{k: v for k, v in h.items() if k != 'windows'} for h in histories], 'positions': {k: v for k, v in positions.items() if k != 'windows'},
+                    data={'track': track, 'multi': (multi and {'n_tracked': multi.get('n_tracked'), 'source_ids': multi.get('source_ids'),
+                                                               'tracks': {k: {kk: vv for kk, vv in v.items() if kk != 'position_history'} for k, v in (multi.get('tracks') or {}).items()}}),
+                          'signatures': signatures, 'histories': [{k: v for k, v in h.items() if k != 'windows'} for h in histories], 'positions': {k: v for k, v in positions.items() if k != 'windows'},
                           'verdict': ({k: v for k, v in verdict.items() if k != 'rows'} if verdict else None), 'report_id': report_id,
                           'evaluated_at_utc': now.strftime('%Y-%m-%dT%H:%M:%SZ'), '_records': [], '_catalogue_obj': None})
 

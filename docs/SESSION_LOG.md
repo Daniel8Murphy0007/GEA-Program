@@ -632,3 +632,331 @@ summary; `docs/HISTORY.md` the record by layer.
   the runner was replacing job.json. jobs.py retries both sides; the tag
   moved to the fix before it was pushed.
 
+## 2026-10-04 (night) - several rigs at once
+
+- The next SAR item, and the one the leg exists for: a field. Until now the
+  whole second leg answers for one source at a time - the beam gives one
+  direction for every machine in the band, so two rigs working together make
+  the crossing meaningless. `seismic_signature.py`: learn each rig's lines
+  from its exclusive windows (the detectability test's own rule), slice the
+  cross-spectral matrix to those bins and beam them. Three rigs round one
+  array: two separated to under a degree against a 7-degree tolerance while
+  all three worked.
+- The third rig taught the band's best check. Its lines (4.3 and 12.9 Hz)
+  all sit above the array's spatial Nyquist, and it pointed 155 degrees
+  wrong. A geometry-only test refused everything, including the two that
+  were right. The test that works is measured: the strongest peak farther
+  than the array response width from the maximum, as a fraction of it - 0.58
+  and 0.85 for the two that were right, 0.97 for the one that was wrong.
+  Over 0.9 the verdict is ALIASED and the peaks it cannot separate are
+  listed. Two rigs given the same pump rate are NOT_SEPARABLE, both of them.
+- The field: two arrays, three rigs, each learned in its own spell alone,
+  then all working. Two tracked TRACKED, every position inside its ellipse;
+  the third positioned in 3 windows of 23 because it aliases at the second
+  array. The whole-band track over the same records says NOT_TRACKED, which
+  is the right answer and the clearest statement of why the signature path
+  exists.
+- The fixed rigs also showed that a line fitted through a scatter always has
+  a heading: `track_summary` now says NOT_RESOLVED when the span is inside
+  twice the median ellipse.
+- A real defect found by the page, not by a test: the service was sending
+  Infinity in JSON (a beam at zero slowness, a crossing with no finite
+  ellipse). Python reads it back; every browser rejects the whole body, so
+  the station page showed "Could not load this page". Non-finite numbers are
+  null at the source now and the service refuses to emit one.
+- Section AT (3): 269 checks. The live-port fix from this afternoon is still
+  local and rides into the next tag, as he asked: nothing ships untagged.
+
+
+## 2026-10-05 - the machine behind the lines
+
+- He asked what SAR still needs, then picked the harmonic band. The ranked
+  answer stands for the record: SAR has a station report and a track report
+  but no dataset or field report; array QC, unlisted-source discovery and an
+  array design tool are the other gaps, in that order.
+- `gea/seismic_harmonic.py`. A comb search over every line divided by every
+  order gives the fundamental and the orders it was found at, normalised to
+  the largest spacing those orders allow, with the rate printed per minute.
+  The strength of the claim is printed beside it: `by_chance` is how often
+  this record's line density puts that many lines on a comb by accident, and
+  a family over the ceiling is set aside, not reported. Two lines are never a
+  family. A fundamental whose half falls below the band is flagged.
+- `track_lines` follows every line window to window, each peak refined inside
+  its bin by a parabola, with STEADY / DRIFTING / INTERMITTENT and the drift
+  in Hz per hour; a drift no larger than the bin width is not a drift.
+  `tracked_signature` is the same thing in the shape the signature band
+  reads, and `rate_history` reads the rate over the record.
+- `attribute_tracks` gives each track to the source whose learned line it
+  passes, or - the part that matters - to the source whose already-claimed
+  line it stands in a small whole-number ratio to in a window they share. A
+  track two sources could claim goes to neither; a track nobody claims is
+  listed as such.
+- `activity_from_signature` measures each source's working spells off the
+  record and sets them beside the declared ones. This is the first thing in
+  the leg that can contradict the rigs CSV, which every verdict until now had
+  to believe.
+- The labelled scene makes the case in one run: a pump ramping 1.40 to 1.85
+  Hz with a stop in it. A signature of fixed bins over that record holds two
+  lines (TOO_FEW_LINES) - the machine walked out of its own bins. The tracker
+  holds all eight (every line once per working spell), the harmonics walking
+  1x, 2x and 3.01x the first, which is the physics. The family in the tracked
+  lines returns the fundamental 0.005 Hz from the rate the scene was actually
+  running at in that window. Activity in the learned bins DIFFERS; allowing
+  for the walk it AGREES, two spells, matching the scene.
+- On the three-rig scene every pump rate came back within 0.01 Hz of the
+  scene's (1.697 / 2.905 / 4.297 against 1.7 / 2.9 / 4.3), the comb with its
+  fourth tooth missing reported as orders 1,2,3,5 at 80 % filled rather than
+  inventing it, and the lines near 8.5 Hz - where three rigs' harmonics fall
+  within the spectral resolution - given to no rig at all.
+- Wired through: `harmonics.json` at every station refresh (a single sensor
+  too, using its own detectability lines per source), the report section, the
+  page card with the tracks drawn against time, `gea seismic --action
+  harmonics | harmonic-selftest`.
+- Section AU (3): 272 checks. Everything from v0.7.0's tail - the live-port
+  fix, the signature band, the Infinity fix - plus all of this goes into one
+  tagged commit. Nothing ships untagged.
+
+## 2026-10-05 (evening) - which datum a position is on
+
+- He set the order: datum and CRS, then array QC, then unlisted-source
+  discovery, then the dataset and field reports. This is the first of those.
+- One correction to the record: I told him the NAD27 shift in West Texas was
+  "roughly 200 m". It is 46 m at 31 N, 102 W. The point stands - it is still
+  the size of a position ellipse and larger than anything else in the error
+  budget - but the number was wrong, and the program now computes it at the
+  site instead of anyone quoting one. 85 m in Bakersfield, 18 m in Ohio.
+- `gea/geodesy.py`: ellipsoids, geodetic/geocentric, Vincenty's inverse,
+  three-parameter datum shifts, transverse Mercator and Lambert conformal
+  conic both ways, Texas state plane zones, and the US survey foot kept
+  distinct from the international foot.
+- The selftest is against values this program did not produce: the WGS84
+  meridian arc to 45 N (4 984 944.378 m), a degree of latitude at the equator
+  (110 574.389 m) and a degree of longitude (111 319.491 m) - all three match
+  to the millimetre - plus the identities every projection must satisfy at
+  its own origin. Round trips close to 6 mm.
+- Carried through: Source and Sensor have a datum and convert on load; the
+  permits importer reads a datum column or takes one, and can read state
+  plane / UTM easting and northing in metres or either foot; the station has
+  a datum; the refresh runs check_set and writes datum.json; the report and
+  the page say what is on what.
+- What it refuses: a NAD83 state plane zone handed NAD27 coordinates, an
+  array on two datums, an unknown unit, and any suggestion that a
+  three-parameter shift is survey grade.
+- Section AV (3): 275 checks.
+
+## 2026-10-05 (late) - is this array any good?
+
+- Second of the four he ordered. `gea/seismic_qc.py`.
+- The timing test is the whole point and it needs no reference clock: for a
+  plane wave the arrival delays must lie on a plane, so fit the plane to the
+  array's own measured delays and each residual is the part of that sensor's
+  arrival the wavefront does not explain. The fit returns the velocity and
+  the direction as a by-product, which is what makes it self-referencing. On
+  a clean array it gives 2.498 km/s against the scene's 2.5 and agrees with
+  the beam to 0.4 deg, residuals under 1 ms.
+- Three things had to be got right and each was found by the scene, not by
+  reasoning: (1) a free lag search cycle-skips on narrow-band machinery, so
+  the search is anchored on the beam's prediction and capped at a quarter of
+  the delay the array spans; (2) choosing the delay sign by residual size is
+  degenerate - negating every delay turns the plane 180 deg and fits exactly
+  as well - so the discriminator is that the fitted plane must point where
+  the beam points; (3) the scatter floor cannot be one sample, because the
+  peak is interpolated inside its bin, so it is a tenth of a sample and the
+  scatter itself is a median absolute deviation, which one bad clock cannot
+  inflate.
+- The scene puts four faults into a clean array and QC names exactly those
+  four: dead S02, clock S04 (asked 30 ms, quantised by the sample grid to
+  40 ms, measured 40.04 ms), reversed S06, 8 % gain S07. The clean array
+  comes back USABLE with nothing named - the half of the test that matters
+  most, because a check that finds a fault in a good array is worse than no
+  check.
+- `beam_cost` says what the faults were doing: 173 deg of bearing and +0.26
+  of best-bin coherence. That is the number that makes QC worth running.
+- Wired: array_qc.json at every array refresh, the report section with the
+  two beams side by side, the page card, `gea seismic --action array-qc |
+  qc-selftest` (non-zero exit on an array that is not clean).
+- Section AW (3): 278 checks.
+
+## 2026-10-05 (late) - what else is out there
+
+- Third of the four. `gea/seismic_unlisted.py`. He was right that it was
+  nearly free: attribution already listed the tracks nobody claims, so the
+  work was grouping them into combs and beaming each one like any other
+  source.
+- The labelled scene leaves one of three rigs off the list the program is
+  given. It comes back as UNLISTED-1 at 249.5 deg against a true 250.02, at
+  2.2001 Hz against a true 2.2. With every rig on the list: ONLY_ELECTRICAL,
+  no candidate at all.
+- The scene taught one thing I would not have thought to put in. A 60 Hz
+  mains line was added to every sensor; the tracker found 60 Hz and also a
+  line at 30 Hz. That is the second mains harmonic, 120 Hz, folding back
+  under a 150 Hz sample rate. It looks exactly like a machine at 1800 a
+  minute. `mains_lines` now names both the direct multiples and the folded
+  ones, with the arithmetic printed.
+- The other refusals: a candidate that beams to zero slowness is common-mode
+  (cabling or supply, not ground); a candidate at a whole-number ratio of a
+  listed rate is that rig's harmonic; one line is not a machine and neither
+  are two. And a candidate is a direction with a rate, never an
+  identification.
+- A high-rate source is still turned down rather than given a false bearing:
+  the first version of the scene had the hidden rig at 4.3 Hz, whose lines
+  alias on a 1.2 km aperture, and the signature band's own aliasing test
+  called it ALIASED with the peaks it could not separate listed. That is the
+  right answer, so the scene was changed to a rate the array can resolve and
+  the refusal left in place.
+- Section AX (3): 281 checks.
+
+## 2026-10-05 (late) - the site, not the station
+
+- Fourth and last of the order he set. Two reports about all of it.
+- The Dataset Report is the holdings: every record opened and its span, rate
+  and gap count read from the record itself, the checksum from when it was
+  brought in, the datum, the band, and which outputs are current against
+  which are stale. The stale test is the one that earns its place - touch a
+  source file and every result for that station is marked older than the
+  record it came from, which is what it is.
+- The Field Report is what the site heard: each station's reach and whether
+  its own sensors agree, each listed rig and which stations heard it, the
+  rate its lines say it runs at, whether its heard hours agree with its
+  declared ones, each track, and everything found that nobody listed.
+- Both say what they will not say. The dataset one: this is what is held, not
+  whether it is any good. The field one: a source nobody heard is not a
+  source that was not working.
+- `gea workspace --action seismic-dataset | seismic-field`, both audited, and
+  a card on the Seismic page for the site as a whole.
+- Section AY (3): 284 checks. That closes the four he ordered - datum and
+  CRS, array QC, unlisted-source discovery, and the dataset and field
+  reports - and all of it rides into one tagged commit.
+
+## 2026-10-06 - what a bearing is worth, and whose ground it is
+
+- Items 5 and 6 of the seven. Item 7 - the real records - is his to supply.
+- `gea/seismic_uncertainty.py`. Three estimators were tried and the first two
+  are in the record because they are instructive.
+- One: a bearing per coherent frequency bin, scatter of those. Wrong on a
+  small array and badly: one frequency has no diversity to break the spatial
+  aliasing, so the bins scatter by 43 degrees whatever the signal-to-noise.
+  That is the geometry, not the data. It is kept as a printed diagnostic.
+- Two: the same, weighted by each bin's contribution to the beam with an
+  effective sample size. Better statistics, same defect - 22 degrees against
+  a real error of 0.4.
+- Three, which is right: cut the window into sub-windows and beam each. Same
+  source, independent noise, so the scatter is what the noise does. Floor at
+  the beamformer's own grid step, with the sub-windows searched on a grid
+  narrowed to the slowness already found so the floor does not hide the
+  measurement.
+- Then the part that makes it a measurement: coverage against a bearing known
+  from outside the record. CALIBRATED - 75 % inside one sigma, 100 % inside
+  two, median error 0.37 deg against sigma 0.54, recommended scale 0.69.
+- An honest limit found by the test and left in: resampling sees the random
+  part and not a bias steady through a window. So the module returns the
+  factor that would centre the claim rather than publishing a sigma nobody
+  has counted.
+- Measuring costs about four times the beams (53 s -> 243 s on the field
+  scene), so it is opt-in: `measure_sigma` on bearings and track, and the
+  ellipse records which of its bearings carried a measured sigma.
+- `sites` in the workspace: a site holds the wells, stations and tracks of
+  one engagement. It refuses a member the workspace does not hold and refuses
+  to be empty. The Site Report is the one deliverable for a client, and it
+  names every member that has not been run since its source changed.
+- Sections AZ (3) and BA (3): 290 checks.
+
+## 2026-10-06 - v0.8.0 prepared
+
+- Version 0.8.0 in pyproject.toml and gea/__init__.py; CHANGELOG and HISTORY
+  headed `v0.8.0 - 2026-10-06 - the machine behind the lines, the ground
+  under the positions, and the site that owns them`; SHIP_MESSAGE.txt written
+  with that tag on its first line, which is what attach-kit.sh matches on.
+- The report samples re-rendered from this build: 22 now, three of them new -
+  the Seismic Dataset Report, the Seismic Field Report and the Site Report -
+  each carrying `build 0.8.0` and each labelled SYNTHETIC in its text. The
+  sample set in section AM was widened to match, because a client report with
+  no rendered example in the shop window is a report nobody has seen.
+- Gate 290 green at 0.8.0, standalone guard clean (271 tracked files).
+- SHIP_LOG.md untouched: ship.ps1 writes its line after the remote tag is
+  seen, and it is committed with the next ship, as history.
+- Everything from this leg of work rides into the one tagged commit, as he
+  asked: the live-port fix, the signature band, the harmonic band, datum and
+  CRS, array quality control, unlisted-source discovery, the dataset and
+  field reports, measured uncertainty, and the site.
+
+## 2026-10-06 - the supervisor: the panel owns its stopping, and a power cut is recoverable
+
+He reported two things in one message. The first was the ship: no tag, no
+push. He was right - HEAD was one commit ahead of origin/main and `git
+ls-remote --tags` had nothing for v0.8.0, so `ship.ps1` had never been run.
+Everything from this leg was staged and gated in his clone and none of it was
+tagged. That is his step and only his; I cannot push.
+
+The second was the defect, and it was mine. `start-dashboard.cmd` ended with
+the serve command and nothing after it. When the control panel stopped, the
+window fell back to whatever shell was underneath - and his console was
+opened from a Windows Terminal Python profile, so what he got was a bare
+`>>>`. A working program replaced by an interpreter that is not the program.
+
+- `gea/supervisor.py`. The contract is three things: the service decides how
+  it ends and says so in its exit code (0 stop, 86 start me again); the
+  launcher reads that code and on anything else hands the window to a
+  PowerShell prompt naming the program; every start, stop, restart and
+  recovery is one appended line in `records/runlog.jsonl`, flushed to the
+  disk before the thing it describes is attempted. A log written after the
+  event is no use to a machine that lost power during it.
+- `previous_run()` reports UNCLEAN when a start has no stop after it. The
+  running process excludes only its own last start, and by position in the
+  log rather than by matching the number - process ids come round again, and
+  matching on the number alone would throw away an older run that happens to
+  share it.
+- `resume()` is the recovery, in an order that is not negotiable: the live
+  patches come up first and return straight away, and the catch-up runs
+  behind them on its own thread. A stream that is not running is losing
+  records nothing can recover later; a report behind its source can be
+  rebuilt at any time from records already on the disk. BB9 proves it rather
+  than asserting it - the fake rebuild is held open on an event, and the test
+  checks that `resume` had already returned while it was still blocked.
+- `catch_up()` rebuilds exactly what the workspace's own staleness table
+  says is behind its source, names it, and leaves the rest alone. A catch-up
+  that refreshed everything would tell him nothing about what had actually
+  fallen behind. It does not call a gap in the stream recovered.
+- The launcher: `:gea_run`, exit 86 goes round again, and the file ends in
+  `powershell.exe -NoLogo -NoExit` with the program's name and how to start
+  it. `start-dashboard.sh` does the same with a while loop.
+- The auto-restart switch he asked for is real, not recorded-only. A batch
+  file cannot read the workspace manifest, so the one setting the launcher
+  needs is one character in `records/auto_restart.flag`: the manifest stays
+  the record of the choice and the flag is how it reaches the thing that acts
+  on it. Missing or unreadable reads as off. Five unexpected stops in a row
+  and the launcher stops asking - a panel that crashes while starting would
+  otherwise flicker all night instead of handing over the error. The flag is
+  read outside an if-block on purpose: a redirect inside parentheses is
+  parsed before the block runs, and that is a classic way to get a batch file
+  that works everywhere except on the one machine that matters.
+- Operations control on the Administration page: Stop, Restart behind a popup
+  whose link is the authorisation, the switch, the previous run's status, and
+  the run-log tail. The restart is authorised every time; a control that
+  reboots the program on a stray click is not a control.
+- `gea doctor` now reads the installed launcher off the disk and says whether
+  it honours the contract. A kit built before this existed comes back as
+  three warnings with fixes - including that its window returns to a Python
+  prompt. The defect he met should have been found by reading a file.
+- `catch_up` read `r['errors']` straight out of the refresh. Changed to read
+  what the refresh reported rather than requiring it: a recovery that threw a
+  KeyError over a counter nobody reads is a worse failure than the one it was
+  reporting.
+- Section BB (11 checks): 301.
+
+- The launcher opened the browser before the server was listening, so the
+  first thing the operator saw was a connection failure from the second
+  before. The browser now opens four seconds after the serve command starts.
+- The site came up as `trident01` because the launchers initialise the
+  workspace under the machine name, and because I typed the machine name into
+  the init command I gave him. Every document names the site `Pad 3`. The
+  launchers now create it as `Pad 3`, and `--action rename` sets the name a
+  site actually has, idempotent and silent when unchanged so a launcher can
+  say it on every start. BA4; the gate is 302.
+- The ship hung on Windows for three and a half hours. `gate_by_section.py`
+  in `_transport/` printed where: section E, check E8, `launch_operator_app()`
+  - with PyQt6 installed on his desktop it opened the operator's window and
+  entered the Qt event loop, waiting for a person to close it. Here there is
+  no display, so it failed fast and the check passed. The view now takes
+  `run=False`, which constructs the window and returns; E8 uses it. A gate
+  that waits for a person is a gate that never finishes.

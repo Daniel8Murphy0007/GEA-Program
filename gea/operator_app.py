@@ -233,9 +233,14 @@ class OperatorSession:
 # --------------------------------------------------------------------------
 # The Qt6 view. Thin: every button calls one OperatorSession method.
 # --------------------------------------------------------------------------
-def launch_operator_app() -> int:
+def launch_operator_app(run: bool = True) -> int:
     """One operator window over OperatorSession. Refuses without PyQt6
-    (pip hint), same pattern as the live-protocol port."""
+    (pip hint), same pattern as the live-protocol port.
+
+    `run=False` builds the window and returns without entering the event loop - for a check that the
+    view constructs on this host. The acceptance gate uses it: with PyQt6 installed on a desktop, the
+    loop would open the operator's window and wait for a person to close it, and a gate that waits for a
+    person is a gate that never finishes. That is exactly what it did on a Windows ship."""
     try:
         from PyQt6.QtCore import QTimer
         from PyQt6.QtWidgets import (QApplication, QComboBox, QFileDialog,
@@ -410,5 +415,9 @@ def launch_operator_app() -> int:
             self._refresh_citations()
 
     app = QApplication.instance() or QApplication(_sys.argv)
-    win = OperatorWindow(); win.resize(1100, 700); win.show()
+    win = OperatorWindow(); win.resize(1100, 700)
+    if not run:
+        win.close()
+        return 0
+    win.show()
     return app.exec()

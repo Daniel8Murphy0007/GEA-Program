@@ -74,6 +74,14 @@ class WorkspaceError(Exception):
     pass
 
 
+def _group_truth(points) -> dict:
+    """Truth points grouped by their point_id: when the ids are the rigs' ids, every rig has its own truth."""
+    out: dict = {}
+    for p in points or []:
+        out.setdefault(p.point_id, []).append(p)
+    return {k: v for k, v in out.items() if v}
+
+
 class Workspace:
     """One client site folder."""
 
@@ -101,6 +109,20 @@ class Workspace:
         ws = cls(path)
         ws.audit(actor, 'workspace.init', {'name': name})
         return ws
+
+    def rename(self, name: str, actor: str = 'system') -> dict:
+        """The site's name, as every report prints it. A name that is already this one is left alone and
+        writes no audit line, so a launcher may say it on every start without filling the log."""
+        name = (name or '').strip()
+        if not name:
+            raise WorkspaceError('a site needs a name')
+        old = self.manifest.get('name')
+        if old == name:
+            return {'name': name, 'changed': False}
+        self.manifest['name'] = name
+        self._save()
+        self.audit(actor, 'workspace.rename', {'from': old, 'to': name})
+        return {'name': name, 'changed': True, 'from': old}
 
     def _save(self) -> None:
         tmp = self.manifest_path + '.tmp'
@@ -339,10 +361,16 @@ class Workspace:
     def add_seismic_station(self, display: str, files: List[str], lat: Optional[float] = None, lon: Optional[float] = None, actor: str = 'system',
                             stationxml: Optional[str] = None, sensors_csv: Optional[str] = None, sources_csv: Optional[str] = None,
                             band: Optional[List[float]] = None, filenames: Optional[List[str]] = None, note: str = '',
-                            permits_csv: Optional[str] = None) -> dict:
+                            permits_csv: Optional[str] = None, datum: Optional[str] = None, permits_zone: Optional[str] = None,
+                            permits_unit: str = 'm') -> dict:
         """A seismic station (one record) or an array (one record per sensor plus a sensors CSV), copied in verbatim
         and hashed, with the station file, the rigs list and the band the leg will use. A permit export may stand in
-        for the rigs list: it is copied in as given and converted beside it, with the import note."""
+        for the rigs list: it is copied in as given and converted beside it, with the import note.
+
+        `datum` is the datum the station's own position - and any sensor or rig row that does not say - is on. It is
+        recorded rather than assumed: a station whose datum nobody states is marked UNKNOWN, and the refresh prints
+        what that assumption is worth in metres at that site."""
+        from . import geodesy as GD
         if not files:
             raise WorkspaceError('a seismic station needs at least one record file')
         if permits_csv and sources_csv:
@@ -384,7 +412,9 @@ class Workspace:
             shutil.copyfile(permits_csv, os.path.join(d, raw))
             hashes[raw] = sha256_file(os.path.join(d, raw))
             try:
-                permit_note = PM.import_permits(os.path.join(d, raw), os.path.join(d, 'rigs_from_permits.csv'), within=((lat, lon, 160.0) if lat is not None and lon is not None else None))
+                permit_note = PM.import_permits(os.path.join(d, raw), os.path.join(d, 'rigs_from_permits.csv'),
+                                                within=((lat, lon, 160.0) if lat is not None and lon is not None else None),
+                                                datum=datum, zone=permits_zone, unit=permits_unit)
             except ValueError as e:
                 raise WorkspaceError(f'permits: {e}')
             if permit_note['rows_out'] == 0:
@@ -394,12 +424,13 @@ class Workspace:
             hashes['rigs_from_permits.csv'] = sha256_file(os.path.join(d, 'rigs_from_permits.csv'))
         if sensors_csv:
             from .seismic_array import load_sensors_csv
-            n_sens = len(load_sensors_csv(os.path.join(d, extras['sensors'])))
+            n_sens = len(load_sensors_csv(os.path.join(d, extras['sensors']), datum))
             if n_sens != len(names):
                 raise WorkspaceError(f'the sensors CSV lists {n_sens} sensors but {len(names)} records were given (one per sensor, in order)')
         station = {'id': sid, 'display': display, 'kind': 'array' if sensors_csv else 'single', 'files': names, 'lat': lat, 'lon': lon,
+                   'datum': GD.datum_name(datum),
                    'stationxml': extras.get('stationxml'), 'sensors': extras.get('sensors'), 'sources': extras.get('sources'), 'permits': extras.get('permits'),
-                   'permits_import': ({k: permit_note[k] for k in ('rows_in', 'rows_out', 'dropped', 'columns_used', 'end_assumed_rows', 'default_days', 'within')} if permit_note else None),
+                   'permits_import': ({k: permit_note[k] for k in ('rows_in', 'rows_out', 'dropped', 'columns_used', 'end_assumed_rows', 'default_days', 'within', 'datum')} if permit_note else None),
                    'band_hz': list(band) if band else [1.0, 50.0], 'note': note, 'sha256': hashes,
                    'added_utc': utc_now_iso(), 'added_by': actor}
         with open(os.path.join(self.path, 'seismic', sid, 'station.json'), 'w', encoding='utf-8') as f:
@@ -462,6 +493,8 @@ class Workspace:
         info = [t.info() for t in traces]
         tr0 = traces[0]
         spectrum = lines = detect = beam_res = array_detect = None
+        spec_h = None
+        w_h = min(win_s, max(60.0, tr0.duration_s / 4))
         try:
             f, p = S.welch_psd(tr0.data, tr0.sample_rate)
             m = (f >= band[0]) & (f <= band[1])
@@ -474,7 +507,9 @@ class Workspace:
                         'unit': ('counts^2/Hz (response not removed)' if tr0.unit == 'counts' else f'({tr0.unit})^2/Hz (response removed)')}
             with open(os.path.join(out, 'spectrum.json'), 'w', encoding='utf-8') as fh:
                 json.dump(spectrum, fh)
-            spec = S.spectrogram(tr0, min(win_s, max(60.0, tr0.duration_s / 4)))
+            w_h = min(win_s, max(60.0, tr0.duration_s / 4))
+            spec = S.spectrogram(tr0, w_h)
+            spec_h = spec
             lines = S.persistent_lines(spec, band)
             with open(os.path.join(out, 'lines.json'), 'w', encoding='utf-8') as fh:
                 json.dump(lines, fh, indent=1)
@@ -482,14 +517,15 @@ class Workspace:
             spectrum = None
             lines = {'lines': [], 'band_hz': list(band), 'windows': 0, 'win_s': win_s, 'snr_db': 6.0, 'min_fraction': 0.5, 'note': str(e),
                      'not_a_measurement': 'the source of any line'}
-        sources = D.load_sources_csv(os.path.join(src, st['sources'])) if st.get('sources') else []
+        st_datum = st.get('datum') or 'UNKNOWN'
+        sources = D.load_sources_csv(os.path.join(src, st['sources']), st_datum) if st.get('sources') else []
         if sources and st.get('lat') is not None and st.get('lon') is not None:
             detect = D.detectability_test(tr0, float(st['lat']), float(st['lon']), sources, band, win_s=min(win_s, max(60.0, tr0.duration_s / 4)))
             with open(os.path.join(out, 'detect.json'), 'w', encoding='utf-8') as fh:
                 json.dump(detect, fh, indent=1, default=str)
         if st.get('kind') == 'array' and st.get('sensors'):
             from . import seismic_array as AR
-            sensors = AR.load_sensors_csv(os.path.join(src, st['sensors']))
+            sensors = AR.load_sensors_csv(os.path.join(src, st['sensors']), st_datum)
             b = AR.beam(traces, sensors, (band[0], min(band[1], 0.4 * tr0.sample_rate)), 10.0, 3.0, 61, 'bartlett')
             beam_res = {k: v for k, v in b.items() if not k.startswith('_')}
             with open(os.path.join(out, 'beam.json'), 'w', encoding='utf-8') as fh:
@@ -498,8 +534,131 @@ class Workspace:
                 array_detect = AR.array_detectability(traces, sensors, sources, (band[0], min(band[1], 0.4 * tr0.sample_rate)), min(win_s, max(60.0, tr0.duration_s / 4)))
                 with open(os.path.join(out, 'array_detect.json'), 'w', encoding='utf-8') as fh:
                     json.dump(array_detect, fh, indent=1, default=str)
+        # is this array any good? One bad sensor and every bearing it ever gave was wrong, so this runs
+        # before anything that uses the array, and what it costs is measured rather than asserted.
+        qc = qc_cost = None
+        if st.get('kind') == 'array' and st.get('sensors') and len(traces) >= 3:
+            from . import seismic_qc as QC
+            try:
+                sensors = AR.load_sensors_csv(os.path.join(src, st['sensors']), st_datum)
+                qband = (band[0], min(band[1], 0.4 * tr0.sample_rate))
+                qc = QC.array_qc(traces, sensors, qband)
+                if qc.get('status') == 'DEGRADED':
+                    qc_cost = QC.beam_cost(traces, sensors, qc, qband)
+                with open(os.path.join(out, 'array_qc.json'), 'w', encoding='utf-8') as fh:
+                    json.dump({'qc': qc, 'cost': qc_cost}, fh, indent=1, default=str)
+            except ValueError:
+                qc = qc_cost = None
+        signatures = multi_beam = None
+        if st.get('kind') == 'array' and st.get('sensors') and sources and len(traces) >= 3:
+            from . import seismic_signature as SG
+            import numpy as _np
+            sensors = AR.load_sensors_csv(os.path.join(src, st['sensors']), st_datum)
+            w = min(win_s, max(60.0, tr0.duration_s / 4))
+            signatures = SG.learn_signatures(tr0, sources, (band[0], min(band[1], 0.4 * tr0.sample_rate)), w)
+            with open(os.path.join(out, 'signatures.json'), 'w', encoding='utf-8') as fh:
+                json.dump(signatures, fh, indent=1)
+            # a window where two or more listed rigs were working: the case a single bearing cannot answer
+            together = [i for i, n in enumerate(signatures['sources_working']) if n >= 2]
+            if signatures['n_with_signature'] >= 2 and together:
+                c = signatures['window_centres'][together[len(together) // 2]]
+                win = [t.slice(c - w / 2, c + w / 2) for t in traces]
+                try:
+                    multi_beam = SG.beam_by_signature(win, sensors, signatures['signatures'], (band[0], min(band[1], 0.4 * tr0.sample_rate)))
+                    with open(os.path.join(out, 'multi_beam.json'), 'w', encoding='utf-8') as fh:
+                        json.dump(multi_beam, fh, indent=1)
+                except ValueError:
+                    multi_beam = None
+        # which datum is everything on, and what does it cost if the answer is an assumption
+        datum_check = None
+        try:
+            from . import geodesy as GD
+            pts = []
+            if st.get('lat') is not None and st.get('lon') is not None:
+                pts.append(GD.Position(float(st['lat']), float(st['lon']), st_datum, 0.0, 'station'))
+            for sn in (sensors if (st.get('kind') == 'array' and st.get('sensors')) else []):
+                pts.append(GD.Position(sn.lat, sn.lon, sn.datum, sn.elevation_m, f'sensor {sn.sensor_id}'))
+            for so in sources:
+                pts.append(GD.Position(so.lat, so.lon, so.datum, 0.0, f'source {so.source_id}'))
+            if pts:
+                datum_check = GD.check_set(pts)
+                datum_check['station_datum'] = st_datum
+                datum_check['labels'] = {'station': 1 if st.get('lat') is not None else 0,
+                                         'sensors': sum(1 for p_ in pts if p_.label.startswith('sensor')),
+                                         'sources': sum(1 for p_ in pts if p_.label.startswith('source'))}
+                # a row converted on the way in is WGS84 now; say where it came from, or the conversion is invisible
+                as_given: dict = {}
+                for obj in list(sources) + list(sensors if (st.get('kind') == 'array' and st.get('sensors')) else []):
+                    g = getattr(obj, 'datum_as_given', '') or ''
+                    if g and g != 'WGS84':
+                        as_given[g] = as_given.get(g, 0) + 1
+                datum_check['converted_on_load'] = as_given
+                if as_given:
+                    moved = max((GD.datum_separation_m(float(st.get('lat') or 0.0), float(st.get('lon') or 0.0), g, 'WGS84')['separation_m'] or 0.0)
+                                for g in as_given if g != 'UNKNOWN') if any(g != 'UNKNOWN' for g in as_given) else 0.0
+                    datum_check['converted_moved_m'] = round(moved, 2)
+                with open(os.path.join(out, 'datum.json'), 'w', encoding='utf-8') as fh:
+                    json.dump(datum_check, fh, indent=1)
+        except (ValueError, KeyError):
+            datum_check = None
+        harmonics = None
+        if spec_h is not None:
+            from . import seismic_harmonic as HM
+            hband = (band[0], min(band[1], 0.4 * tr0.sample_rate))
+            try:
+                tl = HM.track_lines(tr0, hband, w_h, spec=spec_h)
+                rate = HM.rate_history(tr0, hband, w_h, spec=spec_h)
+                ts = HM.tracked_signature(tl, source_id=station_id)
+                fam = HM.harmonic_families(ts['freqs_hz'], ts['excess_db'], hband) if ts['status'] == 'OK' else None
+                # the signature band learns a source's lines from an array; a single station has the same lines
+                # from its own detectability test, so one geophone can still say when each source was working
+                if signatures:
+                    sigs, sig_from = signatures['signatures'], 'the signature band (an array working several sources at once)'
+                elif detect and detect.get('sources'):
+                    by_id: dict = {}
+                    for r in detect['sources']:          # one machine may hold several rows (it worked, stopped, worked again)
+                        g = by_id.setdefault(r['source_id'], {'source_id': r['source_id'], 'freqs_hz': [], 'excess_db': [], 'exclusive_windows': 0})
+                        for x in (r.get('lines_hz') or []):
+                            if not any(abs(x - y) <= 0.05 for y in g['freqs_hz']):
+                                g['freqs_hz'].append(float(x))
+                        g['exclusive_windows'] += int(r.get('exclusive_windows') or 0)
+                    sigs = []
+                    for g in by_id.values():
+                        g['freqs_hz'].sort()
+                        g['status'] = 'OK' if g['freqs_hz'] else 'NO_LINES'
+                        g['detail'] = ("the lines the detectability test found in this source's exclusive windows" if g['freqs_hz']
+                                       else "no line stood above its floor in this source's exclusive windows")
+                        sigs.append(g)
+                    sig_from = "the detectability test's own lines per source"
+                else:
+                    sigs, sig_from = [], 'nothing: no source list'
+                sigfam = HM.signature_families(sigs, hband, tracks=tl) if sigs else None
+                # the width a line is looked for in: the largest walk this record's tracker measured, capped
+                tol = min(max(float(ts.get('drift_tol_frac') or 0.0), 0.0), 0.5)
+                act = [HM.activity_from_signature(tr0, sg, hband, w_h, sources=sources, drift_tol_frac=tol, spec=spec_h)
+                       for sg in (sigs if sources else [])]
+                harmonics = {'protocol': 'workspace.harmonics/1', 'band_hz': list(hband), 'win_s': w_h, 'drift_tol_frac': round(tol, 4),
+                             'signatures_from': sig_from, 'line_tracks': tl, 'rate': rate, 'tracked_signature': ts, 'families': fam,
+                             'signature_families': sigfam, 'activity': act}
+                with open(os.path.join(out, 'harmonics.json'), 'w', encoding='utf-8') as fh:
+                    json.dump(harmonics, fh, indent=1, default=str)
+            except ValueError:
+                harmonics = None
+        unlisted = None
+        if harmonics and st.get('kind') == 'array' and st.get('sensors') and len(traces) >= 3:
+            from . import seismic_unlisted as UL
+            try:
+                sens_u = AR.load_sensors_csv(os.path.join(src, st['sensors']), st_datum)
+                uband = (band[0], min(band[1], 0.4 * tr0.sample_rate))
+                unlisted = UL.find_unlisted(traces, sens_u, (signatures['signatures'] if signatures else []), uband, w_h,
+                                            tracks=harmonics['line_tracks'], name=st.get('display') or station_id)
+                with open(os.path.join(out, 'unlisted.json'), 'w', encoding='utf-8') as fh:
+                    json.dump(unlisted, fh, indent=1, default=str)
+            except (ValueError, KeyError):
+                unlisted = None
         doc = seismic_station_report(st, info, spectrum and {k: v for k, v in spectrum.items() if k not in ('freqs_hz', 'psd_db')}, lines, detect, beam_res, array_detect,
-                                     response_note, program_version=__version__)
+                                     response_note, program_version=__version__, harmonics=harmonics, datum_check=datum_check,
+                                     array_qc=({'qc': qc, 'cost': qc_cost} if qc else None), unlisted=unlisted)
         paths = _write(doc, out, basename='seismic_station_report')
         summary = {'station_id': station_id, 'report_id': doc.report_id, 'generated_utc': doc.data['evaluated_at_utc'], 'unit': (response_note or {}).get('unit', 'counts'),
                    'records': len(info), 'hours': round(sum(i['duration_s'] for i in info) / 3600.0 / max(len(info), 1), 2), 'lines': len(lines['lines']) if lines else 0,
@@ -508,6 +667,23 @@ class Workspace:
                    'radius': detect.get('radius') if detect else None,
                    'beam_back_azimuth_deg': beam_res['back_azimuth_deg'] if beam_res else None,
                    'pointed': sum(1 for r in array_detect['sources'] if r['verdict'] == 'POINTED') if array_detect else None,
+                   'signatures': (signatures['n_with_signature'] if signatures else None),
+                   'multi_pointed': (multi_beam['n_pointed'] if multi_beam else None),
+                   'line_tracks': (harmonics['line_tracks']['n_tracks'] if harmonics else None),
+                   'fundamental_hz': ((harmonics.get('families') or {}).get('fundamental_hz') if harmonics else None),
+                   'rate_status': (harmonics['rate']['status'] if harmonics else None),
+                   'sources_with_rate': ((harmonics.get('signature_families') or {}).get('n_with_fundamental') if harmonics else None),
+                   'unattributed_lines': (len((((harmonics.get('signature_families') or {}).get('attribution') or {}).get('unattributed') or []))
+                                          if harmonics and harmonics.get('signature_families') else None),
+                   'activity_differs': (sum(1 for a in harmonics['activity'] if a.get('verdict') == 'DIFFERS') if harmonics else None),
+                   'unlisted_status': (unlisted['status'] if unlisted else None),
+                   'unlisted_found': (unlisted.get('n_found') if unlisted else None),
+                   'qc_status': (qc['status'] if qc else None), 'qc_usable': (qc['n_usable'] if qc else None),
+                   'qc_faults': (sum(len(v) for v in (qc.get('faults') or {}).values()) if qc else None),
+                   'qc_bearing_change_deg': ((qc_cost or {}).get('bearing_change_deg') if qc_cost else None),
+                   'datum': st_datum, 'datum_status': (datum_check['status'] if datum_check else None),
+                   'datum_worst_m': (datum_check['worst_separation_m'] if datum_check else None),
+                   'datum_if_wrong_m': ((datum_check.get('if_wrong') or {}).get('separation_m') if datum_check else None),
                    'response_removed': bool(response_note and response_note.get('unit', 'counts') != 'counts'),
                    'response_note': (response_note or {}).get('not_removed'), 'report': paths['html']}
         with open(os.path.join(out, 'summary.json'), 'w', encoding='utf-8') as fh:
@@ -601,6 +777,7 @@ class Workspace:
         band = tuple(tk.get('band_hz') or (1.0, 20.0))
         hists = []
         inputs = []
+        traces_by_station: Dict[str, list] = {}
         for sid in tk['stations']:
             st = self.seismic_station(sid)
             src = os.path.join(self.path, 'seismic', sid, 'source')
@@ -625,29 +802,61 @@ class Workspace:
                         done.append(tr)
                 traces = done
             sensors = AR.load_sensors_csv(os.path.join(src, st['sensors']))
+            traces_by_station[sid] = traces
             h = T.bearing_history(traces, sensors, band, float(tk.get('win_s') or 600.0))
             h['array']['name'] = st['display']
             h['array']['station_id'] = sid
             hists.append(h)
             with open(os.path.join(out, f'bearings_{sid}.json'), 'w', encoding='utf-8') as fh:
                 json.dump(h, fh, indent=1)
+        truth = T.load_truth_csv(os.path.join(self.path, 'tracks', track_id, tk['truth'])) if tk.get('truth') else []
         pos = T.position_history(hists)
         with open(os.path.join(out, 'positions.json'), 'w', encoding='utf-8') as fh:
             json.dump(pos, fh, indent=1)
+        # several rigs at once: when the arrays carry a rigs list, each rig is learned while it worked alone
+        # and then beamed on its own lines, so every rig that two arrays point at gets its own track
+        multi = None
+        learned = None
+        first_sources = next((self.seismic_station(sid).get('sources') for sid in tk['stations'] if self.seismic_station(sid).get('sources')), None)
+        if first_sources:
+            from . import seismic_signature as SG
+            from . import seismic_detect as D
+            sid0 = next(sid for sid in tk['stations'] if self.seismic_station(sid).get('sources'))
+            srcs = D.load_sources_csv(os.path.join(self.path, 'seismic', sid0, 'source', first_sources))
+            learned = SG.learn_signatures(traces_by_station[sid0][0], srcs, band, float(tk.get('win_s') or 600.0))
+            with open(os.path.join(out, 'signatures.json'), 'w', encoding='utf-8') as fh:
+                json.dump(learned, fh, indent=1)
+            if learned['n_with_signature'] >= 1:
+                per = []
+                for sid in tk['stations']:
+                    st2 = self.seismic_station(sid)
+                    sens2 = AR.load_sensors_csv(os.path.join(self.path, 'seismic', sid, 'source', st2['sensors']))
+                    try:
+                        per.append(SG.multi_bearing_history(traces_by_station[sid], sens2, learned['signatures'], band,
+                                                            float(tk.get('win_s') or 600.0), name=st2['display']))
+                    except ValueError:
+                        pass
+                if len(per) >= 2:
+                    by_src = {}
+                    for ptid, pts in _group_truth(truth).items():
+                        by_src[ptid] = pts
+                    multi = SG.multi_track(per, by_src or None)
+                    with open(os.path.join(out, 'multi_track.json'), 'w', encoding='utf-8') as fh:
+                        json.dump(multi, fh, indent=1, default=str)
         ver = None
-        truth = []
-        if tk.get('truth'):
-            truth = T.load_truth_csv(os.path.join(self.path, 'tracks', track_id, tk['truth']))
+        if truth:
             ver = T.track_verdict(pos, truth)
             with open(os.path.join(out, 'verdict.json'), 'w', encoding='utf-8') as fh:
                 json.dump(ver, fh, indent=1)
-        doc = seismic_track_report(tk, hists, pos, ver, program_version=__version__)
+        doc = seismic_track_report(tk, hists, pos, ver, program_version=__version__, multi=multi, signatures=(learned if first_sources else None))
         paths = _write(doc, out, basename='seismic_track_report')
         tr = pos.get('track') or {}
         summary = {'track_id': track_id, 'report_id': doc.report_id, 'generated_utc': doc.data['evaluated_at_utc'], 'arrays': len(hists),
                    'windows': pos['n_windows'], 'positions': pos['n_positions'], 'segments': tr.get('n_segments'), 'heading_deg': tr.get('heading_deg'),
                    'length_km': tr.get('length_km'), 'ellipse_major_median_km': (tr.get('ellipse_major_km') or {}).get('median'),
-                   'verdict': ver['verdict'] if ver else None, 'hit_fraction': ver['hit_fraction'] if ver else None, 'n_truth': len(truth), 'report': paths['html']}
+                   'verdict': ver['verdict'] if ver else None, 'hit_fraction': ver['hit_fraction'] if ver else None, 'n_truth': len(truth), 'report': paths['html'],
+                   'sources_learned': (multi and len([x for x in (multi.get('source_ids') or [])])) or None,
+                   'sources_tracked': (multi['n_tracked'] if multi else None)}
         with open(os.path.join(out, 'summary.json'), 'w', encoding='utf-8') as fh:
             json.dump(summary, fh, indent=1)
         self.audit(actor, 'track.refresh', {'id': track_id, 'positions': summary['positions'], 'verdict': summary['verdict'], 'heading_deg': summary['heading_deg']}, inputs=inputs)
@@ -656,7 +865,7 @@ class Workspace:
     def track_results(self, track_id: str) -> dict:
         out = os.path.join(self.path, 'reports', 'seismic', 'tracks', track_id)
         res = {}
-        for name in ('summary', 'positions', 'verdict'):
+        for name in ('summary', 'positions', 'verdict', 'multi_track'):
             p = os.path.join(out, name + '.json')
             if os.path.isfile(p):
                 with open(p, encoding='utf-8') as fh:
@@ -750,12 +959,272 @@ class Workspace:
     def seismic_results(self, station_id: str) -> dict:
         out = os.path.join(self.path, 'reports', 'seismic', station_id)
         res = {}
-        for name in ('summary', 'spectrum', 'lines', 'detect', 'beam', 'array_detect'):
+        for name in ('summary', 'spectrum', 'lines', 'detect', 'beam', 'array_detect', 'signatures', 'multi_beam', 'harmonics', 'datum', 'array_qc', 'unlisted'):
             p = os.path.join(out, name + '.json')
             if os.path.isfile(p):
                 with open(p, encoding='utf-8') as fh:
                     res[name] = json.load(fh)
         return res
+
+    # -- a site: the engagement, not the leg --------------------------------------------------
+    def sites(self) -> List[dict]:
+        out = []
+        for sid in self.manifest.get('sites', []):
+            p = os.path.join(self.path, 'sites', sid, 'site.json')
+            if os.path.isfile(p):
+                with open(p, encoding='utf-8') as f:
+                    out.append(json.load(f))
+        return out
+
+    def site(self, site_id: str) -> dict:
+        p = os.path.join(self.path, 'sites', site_id, 'site.json')
+        if not os.path.isfile(p):
+            raise WorkspaceError(f'no such site: {site_id}')
+        with open(p, encoding='utf-8') as f:
+            return json.load(f)
+
+    def add_site(self, display: str, wells: Optional[List[str]] = None, seismic: Optional[List[str]] = None,
+                 tracks: Optional[List[str]] = None, client: str = '', note: str = '', actor: str = 'system') -> dict:
+        """A site is the engagement: the wells, the seismic stations and the tracks that belong to one client's
+        ground, held together so there is one thing to refresh and one thing to hand over.
+
+        Until now the workspace held wells, stations and tracks as peers with nothing owning them. That made
+        GEA three tools in one package rather than one program: nobody could ask what a client has, or what
+        every leg of it says, without knowing the ids by heart."""
+        sid = slug(display)
+        if sid in self.manifest.setdefault('sites', []):
+            raise WorkspaceError(f'site already exists: {sid}')
+        have_w = {w['id'] for w in self.wells()}
+        have_s = set(self.manifest.get('seismic', []))
+        have_t = set(self.manifest.get('tracks', []))
+        miss = ([f'well {x}' for x in (wells or []) if x not in have_w]
+                + [f'seismic station {x}' for x in (seismic or []) if x not in have_s]
+                + [f'track {x}' for x in (tracks or []) if x not in have_t])
+        if miss:
+            raise WorkspaceError('a site can only hold what this workspace holds; not here: ' + ', '.join(miss))
+        if not (wells or seismic or tracks):
+            raise WorkspaceError('a site with nothing in it is not a site: give --wells, --seismic or --tracks')
+        site = {'id': sid, 'display': display, 'client': client, 'note': note,
+                'wells': list(wells or []), 'seismic': list(seismic or []), 'tracks': list(tracks or []),
+                'added_utc': utc_now_iso(), 'added_by': actor}
+        os.makedirs(os.path.join(self.path, 'sites', sid), exist_ok=True)
+        with open(os.path.join(self.path, 'sites', sid, 'site.json'), 'w', encoding='utf-8') as f:
+            json.dump(site, f, indent=1)
+        self.manifest['sites'].append(sid)
+        self._save()
+        self.audit(actor, 'site.add', {'id': sid, 'wells': len(site['wells']), 'seismic': len(site['seismic']), 'tracks': len(site['tracks'])})
+        return site
+
+    def remove_site(self, site_id: str, actor: str = 'system') -> None:
+        if site_id not in self.manifest.get('sites', []):
+            raise WorkspaceError(f'no such site: {site_id}')
+        self.manifest['sites'].remove(site_id)
+        self._save()
+        d = os.path.join(self.path, 'sites', site_id)
+        if os.path.isdir(d):
+            os.rename(d, d + '.removed-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+        self.audit(actor, 'site.remove', {'id': site_id})
+
+    def site_summary(self, site_id: str) -> dict:
+        """What every leg of one site says, and whether any of it is older than what it was made from."""
+        st = self.site(site_id)
+        wells, seis, trks, warn = [], [], [], []
+        for wid in st['wells']:
+            try:
+                w = self.well(wid)
+            except WorkspaceError as e:
+                warn.append(str(e)); continue
+            rep = os.path.join(self.path, 'reports', 'wells', wid)
+            idx = os.path.join(rep, 'index.html')
+            wells.append({'id': wid, 'display': w.get('display'), 'kind': w.get('kind'),
+                          'report': idx if os.path.isfile(idx) else None,
+                          'refreshed_utc': (datetime.fromtimestamp(os.path.getmtime(idx), timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+                                            if os.path.isfile(idx) else None)})
+            if not os.path.isfile(idx):
+                warn.append(f'well {wid}: never refreshed')
+        inv = {s['id']: s for s in self.seismic_inventory()['stations']}
+        for sid2 in st['seismic']:
+            row = inv.get(sid2)
+            if row is None:
+                warn.append(f'seismic station {sid2}: not in this workspace any more'); continue
+            seis.append({'id': sid2, 'display': row['display'], 'kind': row['kind'], 'refreshed_utc': row['refreshed_utc'],
+                         'detect_status': row['detect_status'], 'qc_status': row['qc_status'], 'datum_status': row['datum_status'],
+                         'hours': sum(r['hours'] or 0.0 for r in row['records']), 'stale': [k for k, v in row['ran'].items() if v == 'stale']})
+            if not row['ran']:
+                warn.append(f'seismic station {sid2}: never refreshed')
+            elif any(v == 'stale' for v in row['ran'].values()):
+                warn.append(f'seismic station {sid2}: results older than the record they came from')
+        for tid in st['tracks']:
+            try:
+                tk = self.track(tid)
+            except (WorkspaceError, KeyError) as e:
+                warn.append(f'track {tid}: {e}'); continue
+            tres = self.track_results(tid)
+            mt = tres.get('multi_track') or {}
+            trks.append({'id': tid, 'display': tk.get('display'), 'stations': tk.get('stations'),
+                         'n_tracked': mt.get('n_tracked'), 'verdict': (tres.get('verdict') or {}).get('verdict')})
+        return {'protocol': 'workspace.site_summary/1', 'site': st, 'generated_utc': utc_now_iso(),
+                'wells': wells, 'seismic': seis, 'tracks': trks, 'warnings': warn,
+                'counts': {'wells': len(wells), 'seismic': len(seis), 'tracks': len(trks)},
+                'basis': "each member's own last run, collected; nothing is recomputed here",
+                'not_a_measurement': ['a site as a boundary on the ground: it is a list of what belongs to one engagement',
+                                      "a leg's verdict that has not been refreshed since its source changed"]}
+
+    def write_site_report(self, site_id: str, actor: str = 'system') -> dict:
+        from . import __version__
+        from .client_reports import site_report, write as _write
+        summ = self.site_summary(site_id)
+        out = self.dir('reports', 'sites', site_id)
+        paths = _write(site_report(summ, program_version=__version__), out, basename='site_report')
+        with open(os.path.join(out, 'summary.json'), 'w', encoding='utf-8') as fh:
+            json.dump(summ, fh, indent=1, default=str)
+        self.audit(actor, 'site.report', {'id': site_id, **summ['counts']})
+        return {'report': paths['html'], 'paths': paths, 'summary': summ}
+
+    # -- what we hold, and what it says over a period ----------------------------------------
+    def seismic_inventory(self) -> dict:
+        """What seismic this workspace holds. Not what it concluded - what it HAS: every station, every
+        record, the span and the rate and the gaps, the checksum of each file, the datum the positions are
+        on, which steps have been run and whether their output is older than the record it came from.
+
+        Nothing in the leg answered this. A client asks it first and an auditor asks it last."""
+        import os as _os
+        rows, warn = [], []
+        total_s = 0.0
+        for st in self.seismic_stations():
+            sid = st['id']
+            src = _os.path.join(self.path, 'seismic', sid, 'source')
+            out = _os.path.join(self.path, 'reports', 'seismic', sid)
+            recs = []
+            for name in st.get('files', []):
+                path = _os.path.join(src, name)
+                info = None
+                try:
+                    from . import seismic as S
+                    trs = S.read_any(path)
+                    if trs:
+                        info = trs[0].info()
+                except (ValueError, OSError) as e:
+                    warn.append(f'{sid}/{name}: {e}')
+                size = _os.path.getsize(path) if _os.path.isfile(path) else None
+                mtime = _os.path.getmtime(path) if _os.path.isfile(path) else None
+                recs.append({'file': name, 'bytes': size, 'sha256': (st.get('sha256') or {}).get(name),
+                             'id': (info or {}).get('id'), 'start_utc': (info or {}).get('start'), 'end_utc': (info or {}).get('end'),
+                             'sample_rate_hz': (info or {}).get('sample_rate_hz'), 'hours': (round((info or {}).get('duration_s', 0.0) / 3600.0, 3) if info else None),
+                             'gaps': (info or {}).get('gaps'), 'encoding': (info or {}).get('encoding'), 'unit': (info or {}).get('unit'),
+                             'source_mtime': mtime, 'unreadable': info is None})
+                total_s += ((info or {}).get('duration_s') or 0.0)
+            ran = {}
+            newest_src = max([r['source_mtime'] for r in recs if r['source_mtime']] or [0.0])
+            for name in ('summary', 'spectrum', 'lines', 'detect', 'beam', 'array_detect', 'signatures', 'multi_beam', 'harmonics', 'datum', 'array_qc', 'unlisted'):
+                f = _os.path.join(out, name + '.json')
+                if _os.path.isfile(f):
+                    ran[name] = 'stale' if _os.path.getmtime(f) < newest_src else 'current'
+            summ = {}
+            fsum = _os.path.join(out, 'summary.json')
+            if _os.path.isfile(fsum):
+                with open(fsum, encoding='utf-8') as fh:
+                    summ = json.load(fh)
+            rows.append({'id': sid, 'display': st.get('display'), 'kind': st.get('kind'), 'lat': st.get('lat'), 'lon': st.get('lon'),
+                         'datum': st.get('datum') or 'UNKNOWN', 'band_hz': st.get('band_hz'), 'added_utc': st.get('added_utc'), 'added_by': st.get('added_by'),
+                         'stationxml': st.get('stationxml'), 'sensors': st.get('sensors'), 'sources': st.get('sources'), 'permits': st.get('permits'),
+                         'n_records': len(recs), 'records': recs, 'ran': ran, 'refreshed_utc': summ.get('generated_utc'),
+                         'unit': summ.get('unit'), 'response_removed': summ.get('response_removed'),
+                         'n_sources': summ.get('n_sources'), 'detect_status': summ.get('detect_status'),
+                         'qc_status': summ.get('qc_status'), 'datum_status': summ.get('datum_status')})
+            if not ran:
+                warn.append(f'{sid}: never refreshed, so nothing is known about this record beyond what it is')
+            elif any(v == 'stale' for v in ran.values()):
+                warn.append(f'{sid}: the source changed after the last run; what is reported for it is older than the record')
+        tracks = []
+        for tk in self.tracks():
+            tracks.append({'id': tk.get('id'), 'display': tk.get('display'), 'stations': tk.get('stations'),
+                           'band_hz': tk.get('band_hz'), 'added_utc': tk.get('added_utc'), 'truth': bool(tk.get('truth'))})
+        return {'protocol': 'workspace.seismic_inventory/1', 'workspace': self.path, 'generated_utc': utc_now_iso(),
+                'n_stations': len(rows), 'n_records': sum(r['n_records'] for r in rows), 'total_hours': round(total_s / 3600.0, 2),
+                'stations': rows, 'tracks': tracks, 'warnings': warn,
+                'basis': 'the workspace manifest and the files it holds, read now; every record opened and its span, rate and gaps taken from it',
+                'not_a_measurement': ['the quality of a record: this says what is held, not whether it is any good - the array quality section of each '
+                                      'station report says that',
+                                      'coverage: a record exists for the hours it covers and for no others, and the gaps are counted above']}
+
+    def seismic_field(self, since: Optional[str] = None, until: Optional[str] = None) -> dict:
+        """Every station, every rig and every track over a period: who was heard, who was pointed at, who was
+        tracked, what the array would not separate, and what was found that nobody listed. The wells have a
+        monthly report; this is the seismic one."""
+        inv = self.seismic_inventory()
+        srcs: Dict[str, dict] = {}
+        rows = []
+        unlisted_all = []
+        for st in inv['stations']:
+            res = self.seismic_results(st['id'])
+            det = res.get('detect') or {}
+            qc = (res.get('array_qc') or {}).get('qc') or {}
+            ul = res.get('unlisted') or {}
+            har = res.get('harmonics') or {}
+            sf = (har.get('signature_families') or {})
+            rates = {r['source_id']: r.get('line_rate_per_min') for r in (sf.get('sources') or []) if r.get('line_rate_per_min')}
+            acts = {a['source_id']: a for a in (har.get('activity') or [])}
+            for r in (det.get('sources') or []):
+                g = srcs.setdefault(r['source_id'], {'source_id': r['source_id'], 'heard_at': [], 'not_heard_at': [], 'distance_km': {},
+                                                     'rate_per_min': None, 'activity': None})
+                (g['heard_at'] if r.get('verdict') == 'DETECTED' else g['not_heard_at']).append(st['id'])
+                g['distance_km'][st['id']] = r.get('distance_km')
+                if r['source_id'] in rates and not g['rate_per_min']:
+                    g['rate_per_min'] = rates[r['source_id']]
+                a = acts.get(r['source_id'])
+                if a and a.get('verdict') in ('AGREES', 'DIFFERS') and not g['activity']:
+                    g['activity'] = {'verdict': a['verdict'], 'spells': a.get('n_spells'), 'station': st['id'],
+                                     'agreement': a.get('agreement')}
+            for u in (ul.get('sources') or []):
+                if u.get('verdict') == 'POINTED':
+                    unlisted_all.append({'station': st['id'], 'source_id': u['source_id'], 'back_azimuth_deg': u.get('back_azimuth_deg'),
+                                         'tolerance_deg': u.get('tolerance_deg'), 'line_rate_per_min': u.get('line_rate_per_min'),
+                                         'fundamental_hz': u.get('fundamental_hz')})
+            rows.append({'id': st['id'], 'display': st['display'], 'kind': st['kind'], 'refreshed_utc': st['refreshed_utc'],
+                         'detect_status': st['detect_status'], 'qc_status': qc.get('status') or st['qc_status'],
+                         'qc_usable': qc.get('n_usable'), 'qc_sensors': qc.get('n_sensors'),
+                         'radius': det.get('radius'), 'datum_status': st['datum_status'],
+                         'unlisted': ul.get('n_found'), 'hours': sum(r['hours'] or 0.0 for r in st['records'])})
+        tracks = []
+        for tk in inv['tracks']:
+            tres = self.track_results(tk['id']) if tk.get('id') else {}
+            mt = (tres.get('multi_track') or {})
+            per = {sid: (v.get('verdict') or {}).get('verdict') or v.get('status') for sid, v in (mt.get('tracks') or {}).items()}
+            tracks.append({'id': tk['id'], 'display': tk['display'], 'stations': tk['stations'], 'n_tracked': mt.get('n_tracked'),
+                           'per_source': per})
+        return {'protocol': 'workspace.seismic_field/1', 'workspace': self.path, 'generated_utc': utc_now_iso(),
+                'period': {'since': since, 'until': until}, 'stations': rows, 'sources': list(srcs.values()), 'tracks': tracks,
+                'unlisted': unlisted_all, 'inventory': {k: inv[k] for k in ('n_stations', 'n_records', 'total_hours', 'warnings')},
+                'basis': 'every station\'s own last run, collected; nothing is recomputed here',
+                'not_a_measurement': ['a source not heard as a source not working: it may be outside the radius of every station here',
+                                      'a period: this reports what each station\'s last run holds, whatever hours that run covered',
+                                      'an unlisted candidate as a machine of any particular kind']}
+
+    def write_seismic_dataset_report(self, actor: str = 'system') -> dict:
+        """The Seismic Dataset Report: what this workspace holds."""
+        from . import __version__
+        from .client_reports import seismic_dataset_report, write as _write
+        inv = self.seismic_inventory()
+        out = self.dir('reports', 'seismic')
+        paths = _write(seismic_dataset_report(inv, program_version=__version__), out, basename='seismic_dataset_report')
+        with open(os.path.join(out, 'inventory.json'), 'w', encoding='utf-8') as fh:
+            json.dump(inv, fh, indent=1, default=str)
+        self.audit(actor, 'seismic.dataset-report', {'stations': inv['n_stations'], 'records': inv['n_records'], 'hours': inv['total_hours']})
+        return {'report': paths['html'], 'paths': paths, 'inventory': inv}
+
+    def write_seismic_field_report(self, actor: str = 'system', since: Optional[str] = None, until: Optional[str] = None) -> dict:
+        """The Seismic Field Report: the whole site in one document."""
+        from . import __version__
+        from .client_reports import seismic_field_report, write as _write
+        fld = self.seismic_field(since, until)
+        out = self.dir('reports', 'seismic')
+        paths = _write(seismic_field_report(fld, program_version=__version__), out, basename='seismic_field_report')
+        with open(os.path.join(out, 'field.json'), 'w', encoding='utf-8') as fh:
+            json.dump(fld, fh, indent=1, default=str)
+        self.audit(actor, 'seismic.field-report', {'stations': len(fld['stations']), 'sources': len(fld['sources']),
+                                                   'unlisted': len(fld['unlisted'])})
+        return {'report': paths['html'], 'paths': paths, 'field': fld}
 
     # -- migration of an existing --out folder ----------------------------------------------
     def migrate_out_dir(self, out_dir: str, actor: str = 'system') -> dict:
@@ -796,5 +1265,7 @@ class Workspace:
         return {'name': self.manifest['name'], 'path': self.path, 'created_utc': self.manifest['created_utc'],
                 'program_version': self.manifest['program_version'], 'schema': self.manifest['schema'],
                 'wells': [{'id': w['id'], 'display': w['display'], 'kind': w['kind']} for w in wells],
-                'n_wells': len(wells), 'n_seismic': len(self.manifest.get('seismic', [])), 'n_tracks': len(self.manifest.get('tracks', [])), 'audit_entries': len(self.audit_log()),
+                'n_wells': len(wells), 'n_seismic': len(self.manifest.get('seismic', [])), 'n_tracks': len(self.manifest.get('tracks', [])),
+                'n_sites': len(self.manifest.get('sites', [])), 'sites': [{'id': x['id'], 'display': x['display'], 'client': x.get('client', '')} for x in self.sites()],
+                'audit_entries': len(self.audit_log()),
                 'dashboard': os.path.join(self.reports_dir, 'index.html') if os.path.isfile(os.path.join(self.reports_dir, 'index.html')) else None}

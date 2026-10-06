@@ -1,0 +1,13 @@
+# Sites - the engagement, not the leg
+
+> A workspace holds wells, seismic stations and tracks. Until a site holds them together they are peers with nothing owning them, and nobody can ask what one client has, or what every leg of it says, without knowing the ids by heart. A site is that list, and the Site Report is the one document for it.
+
+**The command**: `gea workspace --path C:\site --action add-site --name "Retama block" --client "Acme Operating" --wells <id> <id> --seismic <id> --tracks <id> [--note "a line about this engagement"]` makes a site out of what the workspace already holds - a member it does not hold is named and the site is turned down, and a site with nothing in it is turned down. `--action sites` lists them with their client and what each holds. `--action site-report --site <id>` writes the Site Report for one of them. `--action remove-site --site <id>` takes a site out of the workspace and keeps its folder. The Sites page is the same list with a link to each report.
+
+**What it writes**: `sites/<id>/site.json` - the display name, the client, the note, and the ids of the wells, seismic stations and tracks that belong to it, with who added it and when. `site-report` writes the Site Report (html, md, json) and `summary.json` under `reports/sites/<id>/`: the wells with when each dashboard was last written, the seismic stations with the hours they hold, what their detectability test last said, whether their own sensors agree with each other, which datum their positions are on and which of their outputs are older than the record they came from, and the tracks with what each resolved. Every one of add, report and remove is in the audit log with what it covered.
+
+**The number to check**: the "What needs attention" section. It is empty only when every member has been run and every result is current with the thing it was made from. A member that has never been run is named there; so is one whose source file changed after its last run, because a result older than the record it came from is not a result about that record. The counts in the front matter - wells, seismic stations, tracks - are what the site holds, not what was found.
+
+**What this page will not call a measurement**: a site as a boundary on the ground - it is a list of what belongs to one engagement, and nothing in it is surveyed; a leg's verdict that has not been refreshed since its source changed (the report names it rather than repeating it as current); any number of its own - the Site Report recomputes nothing, it collects each member's own last run, and every figure in it is the figure that member's own report carries, with the same refusals attached there.
+
+Related: `gea help start`, `gea help seismic`, `gea help site`.

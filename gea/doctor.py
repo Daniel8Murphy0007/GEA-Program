@@ -27,6 +27,8 @@ import sys
 import sysconfig
 from typing import List, Optional
 
+from . import supervisor as _SV
+
 MIN_PY = (3, 10)
 
 
@@ -212,6 +214,17 @@ def check_workspace(path: str, host: str = '127.0.0.1', port: int = 8765) -> Lis
     else:
         f.append(_finding('block', f'port {port} on {host} is already in use (another gea serve, or another program)',
                           f'stop the other service, or start with --port {port + 1}'))
+    prev = _SV.previous_run(ws.path)
+    if prev['status'] == 'UNCLEAN':
+        f.append(_finding('warn', 'the last run of the control panel was killed rather than stopped: ' + prev['detail'],
+                          'nothing to fix by hand - the next start brings the live patches up first and then rebuilds '
+                          'every recorded dataset whose source has grown since. `gea serve` logs both.'))
+    elif prev['status'] == 'FIRST_RUN':
+        f.append(_finding('info', 'no run log yet: this workspace has not served before'))
+    else:
+        f.append(_finding('ok', 'the last run of the control panel stopped cleanly: ' + prev['detail']))
+    f.append(_finding('info', 'auto-restart is ' + ('on' if _SV.auto_restart(ws.path) else 'off')
+                      + ' for this workspace (' + _SV.auto_flag_path(ws.path) + ')'))
     try:
         test = os.path.join(ws.path, 'jobs', '.write_test')
         with open(test, 'w') as t:
@@ -233,11 +246,87 @@ def code_matches_launch() -> Optional[str]:
     return None
 
 
+def kit_dir() -> Optional[str]:
+    """The installed kit this interpreter belongs to, or None when the program is being run from a checkout
+    or a system Python. The kit is the folder holding the launcher, and the interpreter it starts lives two
+    or three levels under it (python\\python.exe on Windows, python/bin/python3 or venv/bin/python here)."""
+    d = os.path.dirname(os.path.abspath(sys.executable))
+    for _ in range(4):
+        if any(os.path.isfile(os.path.join(d, n)) for n in ('start-dashboard.cmd', 'start-dashboard.sh')):
+            return d
+        nd = os.path.dirname(d)
+        if nd == d:
+            break
+        d = nd
+    return None
+
+
+def check_launcher(kit: Optional[str] = None) -> List[dict]:
+    """Does the installed launcher honour the restart contract?
+
+    This is the check that would have caught the defect it was written for. A kit built before the contract
+    existed ends its batch file with the serve command and nothing after it, so when the control panel stops
+    the window falls back to whatever shell was underneath - on a box whose console is a Python profile, a
+    bare `>>>` where a program used to be. The launcher text is on disk and can simply be read, so there is
+    no reason to find this out from an operator looking at an interpreter prompt.
+    """
+    f: List[dict] = []
+    kit = kit or kit_dir()
+    if not kit:
+        f.append(_finding('info', 'not running from an installed kit, so there is no launcher to check '
+                                  '(a checkout starts the panel with `python -m gea serve`, and the shell it '
+                                  'returns to is the one you started it from)'))
+        return f
+    win = os.path.join(kit, 'start-dashboard.cmd')
+    nix = os.path.join(kit, 'start-dashboard.sh')
+    for path, is_win in ((win, True), (nix, False)):
+        if not os.path.isfile(path):
+            continue
+        name = os.path.basename(path)
+        try:
+            txt = open(path, 'r', encoding='utf-8', errors='replace').read()
+        except OSError as e:
+            f.append(_finding('warn', f'{name} could not be read: {e}'))
+            continue
+        low = txt.lower()
+        restart = ('86' in txt) and ('goto gea_run' in low if is_win else 'continue' in low)
+        if restart:
+            f.append(_finding('ok', f'{name} starts the panel again when it exits with {_SV.EXIT_RESTART} '
+                                    '(the Restart button in the control panel)'))
+        else:
+            f.append(_finding('warn', f'{name} does not act on exit code {_SV.EXIT_RESTART}: the Restart button will stop '
+                                      'the panel and nothing will start it again',
+                              'reinstall the kit built from this version - install.cmd/install.sh rewrites the launcher'))
+        if is_win:
+            tail = [ln for ln in txt.strip().splitlines() if ln.strip() and not ln.strip().startswith('rem ')]
+            ends_ps = bool(tail) and tail[-1].lower().startswith('powershell')
+            if ends_ps:
+                f.append(_finding('ok', f'{name} hands the window to a PowerShell prompt when the panel stops, '
+                                        'so the window never falls back to a Python prompt'))
+            else:
+                f.append(_finding('warn', f'{name} does not end with a PowerShell prompt: when the panel stops this window '
+                                          'returns to whatever shell started it, which on a console opened from a Python '
+                                          'profile leaves the operator at a Python prompt - a bare `>>>` where a program '
+                                          'used to be, and an interpreter that is not this program',
+                                  'reinstall the kit built from this version'))
+        if 'auto_restart.flag' in low:
+            f.append(_finding('ok', f'{name} reads records/auto_restart.flag, so the auto-restart switch in the control panel '
+                                    f'is acted on (at most {_SV.AUTO_MAX} unexpected stops in a row)'))
+        else:
+            f.append(_finding('warn', f'{name} does not read records/auto_restart.flag: the auto-restart switch in the control '
+                                      'panel will be recorded and will not be acted on',
+                              'reinstall the kit built from this version'))
+    if not os.path.isfile(win) and not os.path.isfile(nix):
+        f.append(_finding('warn', f'no start-dashboard launcher in {kit}'))
+    return f
+
+
 def run(workspace: Optional[str] = None, host: str = '127.0.0.1', port: int = 8765, as_json: bool = False) -> int:
     findings = check_environment()
     m = code_matches_launch()
     if m:
         findings.append(_finding('warn', m, 'python -m pip install -e .   (in the checkout) or cd elsewhere'))
+    findings += check_launcher()
     if workspace:
         findings += check_workspace(workspace, host, port)
     blocks = [x for x in findings if x['level'] == 'block']

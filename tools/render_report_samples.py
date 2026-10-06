@@ -61,6 +61,12 @@ SAMPLES = [
      'gea workspace --path seis_site --action add-seismic --name "SYNTHETIC node" --files scene.mseed --lat 31 --lon -102 --sources rigs.csv --band 1 20; gea workspace --path seis_site --action refresh-seismic (the record and the rigs are the labelled synthetic scene of gea seismic --action selftest)'),
     ('seismic_track_report_SYNTHETIC.html', 'seis_site/reports/seismic/tracks/SYNTHETIC-lateral/seismic_track_report.html',
      'gea workspace --path seis_site --action add-seismic --name "SYNTHETIC array 1" --files A1S00.mseed ... --sensors sensors1.csv --band 1 20 (and array 2); gea workspace --path seis_site --action add-track --name "SYNTHETIC lateral" --stations SYNTHETIC-array-1 SYNTHETIC-array-2 --truth truth.csv; gea workspace --path seis_site --action refresh-track (the records and the truth are the labelled lateral scene of gea seismic --action track-selftest)'),
+    ('seismic_dataset_report_SYNTHETIC.html', 'seis_site/reports/seismic/seismic_dataset_report.html',
+     'gea workspace --path seis_site --action seismic-dataset (what the workspace holds: every record with its span, rate, gaps, checksum and datum, and which outputs are older than the record they came from)'),
+    ('seismic_field_report_SYNTHETIC.html', 'seis_site/reports/seismic/seismic_field_report.html',
+     'gea workspace --path seis_site --action seismic-field (what the site heard: every station\'s reach, every listed rig and where it was heard, every track, and anything found that nobody listed)'),
+    ('site_report_SYNTHETIC.html', 'seis_site/reports/sites/SYNTHETIC-site/site_report.html',
+     'gea workspace --path seis_site --action add-site --name "SYNTHETIC site" --seismic SYNTHETIC-node SYNTHETIC-array-1 SYNTHETIC-array-2 --tracks SYNTHETIC-lateral --client "SYNTHETIC operator"; gea workspace --path seis_site --action site-report --site SYNTHETIC-site'),
 ]
 
 
@@ -118,6 +124,13 @@ def main(argv=None) -> int:
                 + ['--lat', '31', '--lon', '-102', '--sensors', f'sensors{i}.csv', '--band', '1', '20'], work)
         run(g + ['workspace', '--path', 'seis_site', '--action', 'add-track', '--name', 'SYNTHETIC lateral', '--stations', 'SYNTHETIC-array-1', 'SYNTHETIC-array-2', '--truth', 'truth.csv'], work)
         run(g + ['workspace', '--path', 'seis_site', '--action', 'refresh-track'], work)
+        # the two reports about the holdings and the field, and the site that owns all of it
+        run(g + ['workspace', '--path', 'seis_site', '--action', 'seismic-dataset'], work)
+        run(g + ['workspace', '--path', 'seis_site', '--action', 'seismic-field'], work)
+        run(g + ['workspace', '--path', 'seis_site', '--action', 'add-site', '--name', 'SYNTHETIC site', '--client', 'SYNTHETIC operator',
+                 '--seismic', 'SYNTHETIC-node', 'SYNTHETIC-array-1', 'SYNTHETIC-array-2', '--tracks', 'SYNTHETIC-lateral',
+                 '--note', 'the labelled synthetic scenes, held together as one engagement'], work)
+        run(g + ['workspace', '--path', 'seis_site', '--action', 'site-report', '--site', 'SYNTHETIC-site'], work)
         if out.exists():
             for p in out.glob('*.html'):
                 p.unlink()

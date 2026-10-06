@@ -4,20 +4,28 @@
 <style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
 <h1>Downhole Gauge Monitoring - Seismic Station Report</h1>
 <table class="front">
-<tr><td>Report ID</td><td>SEIS-SYNTHETIC_node-20261004T155522Z</td></tr>
+<tr><td>Report ID</td><td>SEIS-SYNTHETIC_node-20261006T130250Z</td></tr>
 <tr><td>Station</td><td>SYNTHETIC node</td></tr>
-<tr><td>Generated (UTC)</td><td>2026-10-04T15:55:22Z</td></tr>
-<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.7.0</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-06T13:02:50Z</td></tr>
+<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.8.0</td></tr>
 <tr><td>Unit</td><td>counts</td></tr>
 <tr><td>Result</td><td class="result-bad">3 OF 5 LISTED SOURCES DETECTED</td></tr>
 </table>
 <h2>1. Summary</h2>
-<p>1 record; XX.SYN..HHZ from 2025-06-01T00:00:00.0000Z to 2025-06-01T05:59:59.9800Z at 50 Hz (6.0 h, 0 gaps), in counts with the instrument response left as recorded. 0 persistent lines in 1-20 Hz over 36 windows of 600 s. Detectability: 3 of 5 listed sources detected; radius every judged source detected out to 20.0 km; the radius is at least that and is not bounded above by this list.</p>
+<p>1 record; XX.SYN..HHZ from 2025-06-01T00:00:00.0000Z to 2025-06-01T05:59:59.9800Z at 50 Hz (6.0 h, 0 gaps), in counts with the instrument response left as recorded. 0 persistent lines in 1-20 Hz over 36 windows of 600 s. Detectability: 3 of 5 listed sources detected; radius every judged source detected out to 20.0 km; the radius is at least that and is not bounded above by this list. 16 lines followed through the record, a family on 1.400 Hz (84 per minute); the rate moved +0.121 Hz/h. Positions on UNKNOWN, WGS84: up to 0 m apart here until they are on one datum.</p>
 <h2>2. The record</h2>
-<p>Station position: 31.0, -102.0.</p>
+<p>Station position: 31.0, -102.0 on UNKNOWN.</p>
+<p>A position is a pair of numbers on a datum, and the same ground has different numbers on different ones. A regulator&#x27;s permit export may be on NAD27, a network&#x27;s station metadata on WGS84, a modern survey on NAD83. The separation between them is tens of metres and varies by where you are, so it is computed here rather than quoted - and it is the same size as a position ellipse, which means a datum error does not look like an error.</p>
+<p>Status MIXED_UNKNOWN. 1 of 6 position(s) say no datum while 1 say WGS84. If the unstated ones are not on the same datum they are out by up to 46 m here, which is the size of a position ellipse</p>
+<p>If the positions that state no datum are on NAD27 rather than WGS84, the ground they name is 46.2 m away on a bearing of 118 degrees, at this site.</p>
 <table>
 <tr><th>Channel</th><th>Start (UTC)</th><th>End (UTC)</th><th>Rate (Hz)</th><th>Samples</th><th>Hours</th><th>Encoding</th><th>Gaps</th><th>Unit</th></tr>
 <tr><td>XX.SYN..HHZ</td><td>2025-06-01T00:00:00.0000Z</td><td>2025-06-01T05:59:59.9800Z</td><td>50</td><td>1080000</td><td>6</td><td>STEIM2</td><td>0</td><td>counts (instrument response not removed)</td></tr>
+</table>
+<table>
+<tr><th>Positions checked</th><th>Count</th></tr>
+<tr><td>Station</td><td>1</td></tr>
+<tr><td>Sources</td><td>5</td></tr>
 </table>
 <h2>3. Spectrum and persistent lines</h2>
 <p>Welch PSD over the whole record in counts^2/Hz (response not removed); 1557 bins at 0.0122 Hz in 1-20 Hz; the strongest bin at 1.404 Hz (71.6 dB).</p>
@@ -37,14 +45,85 @@
 <tr><td>RIG-4</td><td>45.02</td><td>INSUFFICIENT_WINDOWS</td><td>-</td><td>0</td><td>-</td><td>the source was not active inside this record</td></tr>
 <tr><td>RIG-5</td><td>90.01</td><td>INSUFFICIENT_WINDOWS</td><td>-</td><td>0</td><td>-</td><td>the source was not active inside this record</td></tr>
 </table>
-<h2>5. Method</h2>
-<p>Records are read from miniSEED or SAC by content; the station response, when its StationXML is given, is built from the file&#x27;s stages as evalresp builds it and removed in the frequency domain with a water level and a pre-filter. Spectra are Welch estimates (Hann window, half overlap); persistent lines are bins above a running-median floor in a fraction of the windows. Detectability compares band power in each listed source&#x27;s exclusive windows with the quiet baseline. An array&#x27;s direction is frequency-domain beamforming over a slowness grid with the array response function&#x27;s half-power width as its resolution.</p>
-<h2>6. What this report does not call a measurement</h2>
+<h2>5. The machine behind the lines - families, rates and when each source was working</h2>
+<p>A machine is not a list of frequencies: a pump at a given rate puts energy at that rate and at its multiples, so lines spaced by a common fundamental are one machine at one rate. A rate follows the load, so each line is also followed from window to window - a line that walks further than a spectral bin is DRIFTING, and a signature of fixed bins loses it.</p>
+<p>16 lines followed across 36 windows of 600 s in 1-20 Hz; the spectral bin is 0.01221 Hz, and no drift smaller than that is called a drift.</p>
+<p>The families in this record&#x27;s own lines. `By chance` is how often this record&#x27;s line density puts this many lines on a comb by accident; a family above that ceiling is set aside instead of reported. The rate is the rate of the line, not of the machine: a pump that puts out two lines per stroke runs at half the figure printed.</p>
+<p>In no family: 1.001, 18 Hz - lines that stand on their own here.</p>
+<p>Rate history: RATE_VARIES. the rate moved over 0.500 Hz (84 to 114 per minute, +0.121 Hz/h) across 18 window(s) - the machine&#x27;s load changing, not a different machine</p>
+<p>Each listed source&#x27;s own rate, from the lines learned while it worked alone: 3 of 5 have one. Two sources at the same rate are marked, because nothing here tells two machines running at the same rate apart.</p>
+<p>The line at 1.400 Hz sits close to a learned line of RIG-1 and RIG-2 and RIG-3: it separates nothing and is given to neither.</p>
+<p>The line at 5.600 Hz sits close to a learned line of RIG-1 and RIG-3: it separates nothing and is given to neither.</p>
+<p>The line at 1.300 Hz sits close to a learned line of RIG-1 and RIG-2: it separates nothing and is given to neither.</p>
+<p>The line at 1.650 Hz sits close to a learned line of RIG-1 and RIG-2 and RIG-3: it separates nothing and is given to neither.</p>
+<p>The line at 1.600 Hz sits close to a learned line of RIG-1 and RIG-2 and RIG-3: it separates nothing and is given to neither.</p>
+<p>The line at 5.700 Hz sits close to a learned line of RIG-1 and RIG-3: it separates nothing and is given to neither.</p>
+<p>When was each source working? Measured from its own lines - looked for within 0.0% of each line&#x27;s own frequency of where it was learned, because a rate that follows its load walks out of its own bins and a harmonic walks as far as its order - and set beside the window the rigs list declares. A permit date is a permission, not a drilling log, so a disagreement is a finding and not an error.</p>
+<table>
+<tr><th>Frequency (Hz)</th><th>Status</th><th>Windows</th><th>First (Hz)</th><th>Last (Hz)</th><th>Drift (Hz/h)</th><th>Over the floor (dB)</th><th>From</th><th>To</th></tr>
+<tr><td>1.001</td><td>STEADY</td><td>6 of 6</td><td>1.001</td><td>1.001</td><td>0.000</td><td>57.89</td><td>2025-06-01T01:00:00Z</td><td>2025-06-01T02:00:00Z</td></tr>
+<tr><td>1.400</td><td>STEADY</td><td>6 of 6</td><td>1.400</td><td>1.400</td><td>-0.000</td><td>63.50</td><td>2025-06-01T01:00:00Z</td><td>2025-06-01T02:00:00Z</td></tr>
+<tr><td>2.800</td><td>STEADY</td><td>6 of 6</td><td>2.800</td><td>2.800</td><td>0.000</td><td>58.59</td><td>2025-06-01T01:00:00Z</td><td>2025-06-01T02:00:00Z</td></tr>
+<tr><td>4.200</td><td>STEADY</td><td>6 of 6</td><td>4.200</td><td>4.200</td><td>0.000</td><td>55.57</td><td>2025-06-01T01:00:00Z</td><td>2025-06-01T02:00:00Z</td></tr>
+<tr><td>5.600</td><td>STEADY</td><td>6 of 6</td><td>5.600</td><td>5.600</td><td>-0.000</td><td>50.52</td><td>2025-06-01T01:00:00Z</td><td>2025-06-01T02:00:00Z</td></tr>
+<tr><td>18.000</td><td>STEADY</td><td>6 of 6</td><td>18.000</td><td>18.000</td><td>0.000</td><td>55.89</td><td>2025-06-01T01:00:00Z</td><td>2025-06-01T02:00:00Z</td></tr>
+<tr><td>1.300</td><td>STEADY</td><td>6 of 6</td><td>1.300</td><td>1.300</td><td>0.000</td><td>47.37</td><td>2025-06-01T03:00:00Z</td><td>2025-06-01T04:00:00Z</td></tr>
+<tr><td>1.650</td><td>STEADY</td><td>6 of 6</td><td>1.650</td><td>1.650</td><td>-0.000</td><td>54.47</td><td>2025-06-01T03:00:00Z</td><td>2025-06-01T04:00:00Z</td></tr>
+<tr><td>3.300</td><td>STEADY</td><td>6 of 6</td><td>3.300</td><td>3.300</td><td>0.000</td><td>48.32</td><td>2025-06-01T03:00:00Z</td><td>2025-06-01T04:00:00Z</td></tr>
+<tr><td>4.950</td><td>STEADY</td><td>6 of 6</td><td>4.950</td><td>4.950</td><td>0.000</td><td>42.75</td><td>2025-06-01T03:00:00Z</td><td>2025-06-01T04:00:00Z</td></tr>
+<tr><td>6.600</td><td>STEADY</td><td>6 of 6</td><td>6.600</td><td>6.600</td><td>0.000</td><td>37.92</td><td>2025-06-01T03:00:00Z</td><td>2025-06-01T04:00:00Z</td></tr>
+<tr><td>1.600</td><td>STEADY</td><td>6 of 6</td><td>1.600</td><td>1.600</td><td>-0.000</td><td>38.56</td><td>2025-06-01T05:00:00Z</td><td>2025-06-01T06:00:00Z</td></tr>
+<tr><td>1.900</td><td>STEADY</td><td>6 of 6</td><td>1.900</td><td>1.900</td><td>0.000</td><td>43.24</td><td>2025-06-01T05:00:00Z</td><td>2025-06-01T06:00:00Z</td></tr>
+<tr><td>3.800</td><td>STEADY</td><td>6 of 6</td><td>3.800</td><td>3.800</td><td>0.000</td><td>35.28</td><td>2025-06-01T05:00:00Z</td><td>2025-06-01T06:00:00Z</td></tr>
+<tr><td>5.700</td><td>STEADY</td><td>6 of 6</td><td>5.700</td><td>5.700</td><td>0.000</td><td>28.04</td><td>2025-06-01T05:00:00Z</td><td>2025-06-01T06:00:00Z</td></tr>
+<tr><td>7.600</td><td>STEADY</td><td>6 of 6</td><td>7.600</td><td>7.600</td><td>-0.000</td><td>19.02</td><td>2025-06-01T05:00:00Z</td><td>2025-06-01T06:00:00Z</td></tr>
+</table>
+<table>
+<tr><th>Fundamental (Hz)</th><th>Per minute</th><th>Orders</th><th>Lines (Hz)</th><th>Comb filled</th><th>By chance</th><th>Fundamental seen</th></tr>
+<tr><td>1.400</td><td>83.99</td><td>1,2,3,4</td><td>1.4, 2.8, 4.2, 5.6</td><td>100%</td><td>0.1%</td><td>yes</td></tr>
+</table>
+<table>
+<tr><th>Source</th><th>Status</th><th>Fundamental (Hz)</th><th>Per minute</th><th>Orders</th><th>Lines taken from</th><th>In no family (Hz)</th></tr>
+<tr><td>RIG-1</td><td>OK</td><td>1.404</td><td>84.24</td><td>1,2,3,4</td><td>the bins it was learned on</td><td>1.001, 18.005</td></tr>
+<tr><td>RIG-2</td><td>OK</td><td>1.648</td><td>98.88</td><td>1,2,3,4</td><td>the bins it was learned on</td><td>1.294</td></tr>
+<tr><td>RIG-3</td><td>OK</td><td>1.904</td><td>114.24</td><td>1,2,3,4</td><td>the bins it was learned on</td><td>1.599</td></tr>
+<tr><td>RIG-4</td><td>NO_SIGNATURE</td><td>-</td><td>-</td><td>-</td><td>the bins it was learned on</td><td>-</td></tr>
+<tr><td>RIG-5</td><td>NO_SIGNATURE</td><td>-</td><td>-</td><td>-</td><td>the bins it was learned on</td><td>-</td></tr>
+</table>
+<table>
+<tr><th>Source</th><th>Verdict</th><th>Spells heard</th><th>Heard windows</th><th>Declared windows</th><th>Declared and heard</th><th>Declared but silent</th><th>Heard, not declared</th></tr>
+<tr><td>RIG-1</td><td>AGREES</td><td>1</td><td>6</td><td>6</td><td>6</td><td>0</td><td>0</td></tr>
+<tr><td>RIG-2</td><td>AGREES</td><td>1</td><td>6</td><td>6</td><td>6</td><td>0</td><td>0</td></tr>
+<tr><td>RIG-3</td><td>AGREES</td><td>1</td><td>6</td><td>6</td><td>6</td><td>0</td><td>0</td></tr>
+</table>
+<h2>6. Method</h2>
+<p>Records are read from miniSEED or SAC by content; the station response, when its StationXML is given, is built from the file&#x27;s stages as evalresp builds it and removed in the frequency domain with a water level and a pre-filter. Spectra are Welch estimates (Hann window, half overlap); persistent lines are bins above a running-median floor in a fraction of the windows. Detectability compares band power in each listed source&#x27;s exclusive windows with the quiet baseline. An array&#x27;s direction is frequency-domain beamforming over a slowness grid with the array response function&#x27;s half-power width as its resolution. A harmonic family is a comb search over every line divided by every order, normalised to the largest spacing the orders found allow, and kept only when this record&#x27;s line density would not produce it by accident; lines are followed between windows by nearest neighbour within a drift ceiling, each peak refined inside its bin by a parabola through its three values. Datum shifts are the published three-parameter geocentric shifts applied through geocentric coordinates, good to several metres and not to centimetres; the separation between two datums is computed at the site rather than quoted, because it varies.</p>
+<h2>7. What this report does not call a measurement</h2>
 <p>the source of any line: a persistent line is consistent with machinery, it does not name the machine or place it.</p>
 <p>a well position or track - one station detects, it does not locate; locating needs an array.</p>
 <p>a radius beyond the farthest source on the ground-truth list.</p>
 <p>any source that is absent from the list, or that never worked alone.</p>
 <p>anything outside the band 1-20 Hz.</p>
+<p>a position whose datum was not stated as being on any particular datum.</p>
+<p>the separation between two datums anywhere but here.</p>
+<p>a drift no larger than the bin width.</p>
+<p>a line present in fewer than 3 windows.</p>
+<p>the continuity of a line across a gap: two lines that stop and start are linked here by proximity, not by proof they are the same machine.</p>
+<p>a fundamental from fewer than 3 lines: any two lines define a comb.</p>
+<p>a family this record&#x27;s line density would make by accident more often than 5%.</p>
+<p>a fundamental when two different spacings explain the same lines equally well.</p>
+<p>the fundamental as a stroke rate: it is the rate of the line, and a pump that puts out two lines per stroke runs at half the figure printed.</p>
+<p>a family as an identification: another machine of the same make at the same rate wears the same one.</p>
+<p>a rate in a window whose lines made no family.</p>
+<p>a change of rate smaller than the bin width.</p>
+<p>one machine: if two machines with families work at once, the strongest family is whichever is louder in that window.</p>
+<p>a fundamental for a source with no signature.</p>
+<p>a fundamental as a machine: two rigs at the same rate share it.</p>
+<p>a track as a source&#x27;s: it is attributed by proximity to a learned line, not by proof.</p>
+<p>activity for a source with no signature.</p>
+<p>a declared window as a working window: a permit date is a permission, not a drilling log.</p>
+<p>a silent window as a stopped machine: it may be working below this station&#x27;s detection radius, or have walked out of the bins it was learned in (drift_tol_hz is how far it was allowed to walk).</p>
+<p>a heard window as this machine: another machine with the same lines sounds the same.</p>
 <p>any quantity in physical units: the instrument response was not removed (no station file was given).</p>
 <footer>Every number is the leg&#x27;s own output at generation time; the band, the windows and the thresholds that produced each verdict are printed beside it.</footer>
 </body></html>

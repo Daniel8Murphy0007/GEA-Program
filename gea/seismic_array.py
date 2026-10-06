@@ -57,10 +57,15 @@ class Sensor:
     lat: float
     lon: float
     elevation_m: float = 0.0
+    datum: str = 'WGS84'        # after loading; a sensor on another datum is converted on the way in
+    datum_as_given: str = ''
 
 
-def load_sensors_csv(path: str) -> List[Sensor]:
-    """Columns: sensor_id, lat, lon[, elevation_m]."""
+def load_sensors_csv(path: str, datum: Optional[str] = None) -> List[Sensor]:
+    """Columns: sensor_id, lat, lon[, elevation_m, datum]. A datum column (or the argument, for the whole
+    file) converts the array to WGS84 on the way in. An array whose sensors are on two different datums is
+    not an array - the geometry is wrong by the separation between them - so that is refused here."""
+    from . import geodesy as GD
     out = []
     with open(path, newline='', encoding='utf-8') as f:
         rd = csv.DictReader(f)
@@ -71,7 +76,17 @@ def load_sensors_csv(path: str) -> List[Sensor]:
         for row in rd:
             row = {k.strip(): (v or '').strip() for k, v in row.items() if k}
             if row.get('sensor_id'):
-                out.append(Sensor(row['sensor_id'], float(row['lat']), float(row['lon']), float(row.get('elevation_m') or 0.0)))
+                d_in = GD.datum_name(row.get('datum') or datum or '')
+                la, lo = float(row['lat']), float(row['lon'])
+                if d_in not in ('WGS84', 'UNKNOWN'):
+                    c = GD.to_wgs84(la, lo, 0.0, d_in)
+                    la, lo = c['lat'], c['lon']
+                out.append(Sensor(row['sensor_id'], la, lo, float(row.get('elevation_m') or 0.0),
+                                  'WGS84' if d_in != 'UNKNOWN' else 'UNKNOWN', d_in))
+    mixed = sorted({s_.datum_as_given for s_ in out if s_.datum_as_given})
+    if len(mixed) > 1:
+        raise ValueError(f"the sensors in {path} are on more than one datum ({', '.join(mixed)}): an array's geometry is the differences between "
+                         'its sensors, so a mixed-datum sensor list is not an array. Put them all on one datum first')
     return out
 
 
@@ -202,7 +217,7 @@ def beam_power(csm: dict, xy_km: np.ndarray, s_max: float = 3.0, n_grid: int = 6
     return {'power': P, 'sx': sx, 'sy': sy, 'max_power': float(P.max()), 'coherence': coh, 'coherence_by_bin': per_bin,
             'coherence_max_bin': float(per_bin.max()), 'coherent_bins': int((per_bin >= 0.5).sum()),
             'coherent_frequencies_hz': [round(float(x), 3) for x in coherent[:40]], 'slowness_s_km': slow,
-            'apparent_velocity_km_s': (1.0 / slow if slow > 0 else float('inf')), 'back_azimuth_deg': baz, 'method': method,
+            'apparent_velocity_km_s': (1.0 / slow if slow > 0 else None), 'back_azimuth_deg': baz, 'method': method,
             'band_hz': [float(csm['freqs'].min()), float(csm['freqs'].max())], 'n_freqs': int(len(csm['freqs'])), 'fine_step_s_km': float(fx[1] - fx[0])}
 
 
@@ -321,11 +336,11 @@ def intersect_backazimuths(arrays: Sequence[dict]) -> dict:
     in_front = [bool(((x - pos[i]) @ u[i]) > 0) for i in range(len(arrays))]
     resid_deg = [round(float(_angle_diff(math.degrees(math.atan2(*(x - pos[i]))), math.degrees(th[i]))), 3) for i in range(len(arrays))]
     lat, lon = xy_to_latlon(float(x[0]), float(x[1]), lat0, lon0)
-    major, minor = (math.sqrt(max(evals[1], 0)), math.sqrt(max(evals[0], 0))) if np.all(np.isfinite(evals)) else (float('inf'), float('inf'))
+    major, minor = (math.sqrt(max(evals[1], 0)), math.sqrt(max(evals[0], 0))) if np.all(np.isfinite(evals)) else (None, None)
     return {'protocol': 'seismic_array.intersect_backazimuths', 'lat': lat, 'lon': lon, 'x_km': float(x[0]), 'y_km': float(x[1]),
             'reference': {'lat': lat0, 'lon': lon0}, 'ranges_km': [round(float(v), 3) for v in d], 'in_front_of_every_array': all(in_front), 'in_front': in_front,
             'residual_deg': resid_deg,
-            'ellipse_1sigma': {'major_km': round(major, 3), 'minor_km': round(minor, 3),
+            'ellipse_1sigma': {'major_km': (round(major, 3) if major is not None else None), 'minor_km': (round(minor, 3) if minor is not None else None),
                                'major_azimuth_deg': round((math.degrees(math.atan2(evecs[0, 1], evecs[1, 1])) + 360.0) % 360.0, 1) if np.all(np.isfinite(evals)) else None},
             'crossing_angle_deg': round(float(min(abs(_angle_diff(math.degrees(th[i]), math.degrees(th[j]))) % 180.0 for i in range(len(arrays)) for j in range(i + 1, len(arrays)))), 1),
             'basis': 'weighted least squares on the perpendicular distances to each bearing line, weights 1/(sigma x range)^2; the covariance is the inverse normal matrix',
@@ -466,7 +481,8 @@ def array_detectability(traces: Sequence[Trace], sensors: Sequence[Sensor], sour
             # the circular mean of the window azimuths
             ang = np.radians(bazs)
             mean_baz = (math.degrees(math.atan2(np.sin(ang).mean(), np.cos(ang).mean())) + 360.0) % 360.0
-            spread = float(np.degrees(np.sqrt(-2 * np.log(max(np.hypot(np.sin(ang).mean(), np.cos(ang).mean()), 1e-12)))))
+            R = float(min(max(np.hypot(np.sin(ang).mean(), np.cos(ang).mean()), 1e-12), 1.0))   # one window gives R == 1 exactly; float error can exceed it
+            spread = float(np.degrees(np.sqrt(max(-2 * np.log(R), 0.0))))
             diff = abs(_angle_diff(mean_baz, true_baz))
             half = float(np.median(res))
             tol = half + 1.0                                                       # the fine grid's step is well under a degree at any slowness of interest

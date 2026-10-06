@@ -280,8 +280,15 @@ def main(argv=None) -> int:
     p_ws.add_argument("--path", type=str, required=True, help="the workspace folder")
     p_ws.add_argument("--action", type=str, default="list",
                       choices=["init", "add-file", "add-catalog", "add-live", "remove", "list", "migrate", "refresh", "audit",
-                               "add-seismic", "refresh-seismic", "remove-seismic", "sar-film", "refresh-all", "add-track", "refresh-track", "remove-track"])
+                               "add-seismic", "refresh-seismic", "remove-seismic", "sar-film", "refresh-all", "add-track", "refresh-track", "remove-track",
+                               "seismic-dataset", "seismic-field", "add-site", "sites", "site-report", "remove-site", "rename"])
     p_ws.add_argument("--stations", type=str, nargs="+", default=None, help="add-track: two or more array station ids of this workspace")
+    p_ws.add_argument("--site", type=str, default=None, help="site-report/remove-site: the site id")
+    p_ws.add_argument("--wells", type=str, nargs="+", default=None, help="add-site: well ids of this workspace")
+    p_ws.add_argument("--seismic", type=str, nargs="+", default=None, help="add-site: seismic station ids of this workspace")
+    p_ws.add_argument("--tracks", type=str, nargs="+", default=None, help="add-site: track ids of this workspace")
+    p_ws.add_argument("--client", type=str, default="", help="add-site: whose engagement this is")
+    p_ws.add_argument("--note", type=str, default="", help="add-site: a line about this engagement")
     p_ws.add_argument("--truth", type=str, default=None, help="add-track: ground truth CSV (point_id, lat, lon, utc[, note])")
     p_ws.add_argument("--track", type=str, default=None, help="refresh-track / remove-track: the track id")
     p_ws.add_argument("--win", type=float, default=600.0, help="add-track: the window length, s (default 600)")
@@ -295,7 +302,10 @@ def main(argv=None) -> int:
     p_ws.add_argument("--lon", type=float, default=None, help="add-seismic: the station's longitude")
     p_ws.add_argument("--stationxml", type=str, default=None, help="add-seismic: the station's FDSN StationXML (the response is removed at every refresh)")
     p_ws.add_argument("--sensors", type=str, default=None, help="add-seismic: sensors CSV (sensor_id, lat, lon) - makes the station an array")
-    p_ws.add_argument("--sources", type=str, default=None, help="add-seismic: the rigs CSV (source_id, lat, lon, start_utc, end_utc[, kind, note])")
+    p_ws.add_argument("--sources", type=str, default=None, help="add-seismic: the rigs CSV (source_id, lat, lon, start_utc, end_utc[, kind, note, datum])")
+    p_ws.add_argument("--datum", type=str, default=None, help="add-seismic: the datum the station's own position - and any sensor or rig row that does not say - is on (WGS84, NAD83, NAD27). Unstated is recorded as UNKNOWN, not assumed")
+    p_ws.add_argument("--zone", type=str, default=None, help="add-seismic with --permits: the export's grid zone, when it gives easting/northing")
+    p_ws.add_argument("--unit", type=str, default="m", help="add-seismic with --permits and --zone: the grid unit (m, usft, ft)")
     p_ws.add_argument("--band", type=float, nargs=2, default=None, metavar=("LO", "HI"), help="add-seismic: the band, Hz (default 1 50)")
     p_ws.add_argument("--permits", type=str, default=None, help="add-seismic: a permit export to turn into the rigs CSV (instead of --sources)")
     p_ws.add_argument("--station", type=str, default=None, help="refresh-seismic / remove-seismic: the station id")
@@ -364,6 +374,9 @@ def main(argv=None) -> int:
     p_pm.add_argument("--mapping", type=str, default=None, help='JSON {"lat": "<column>", "lon": ..., "start": ..., "end": ..., "id": ..., "name": ...} when the guesses are wrong')
     p_pm.add_argument("--default-days", type=float, default=30.0, help="a row without an end date works this many days from its start (default 30)")
     p_pm.add_argument("--within", type=float, nargs=3, default=None, metavar=("LAT", "LON", "KM"), help="keep only rigs within KM of LAT, LON")
+    p_pm.add_argument("--datum", type=str, default=None, help="the datum the export's positions are on (WGS84, NAD83, NAD27) when no column says; every row is converted to WGS84 and the note records the shift")
+    p_pm.add_argument("--zone", type=str, default=None, help="read the position columns as grid easting/northing in this zone (TX_NORTH, TX_NORTH_CENTRAL, TX_CENTRAL, TX_SOUTH_CENTRAL, TX_SOUTH, UTM13N, ...) instead of latitude/longitude")
+    p_pm.add_argument("--unit", type=str, default="m", help="with --zone: the grid unit - m, usft (US survey foot) or ft (international foot). They are different units and a state plane northing read in the wrong one is metres out")
     p_pm.add_argument("--json", action="store_true")
 
     p_up = sub.add_parser("update", help="the program update: compare the running version with PyPI and, unless --check, run pip --upgrade for it from this Python")
@@ -380,7 +393,10 @@ def main(argv=None) -> int:
 
     p_se = sub.add_parser("seismic", help="the second leg's ingest: miniSEED/SAC in, spectra and persistent lines out, an FDSN fetch, and the detectability test against known rigs")
     p_se.add_argument("--action", choices=["info", "spectrum", "lines", "fetch", "stations", "detect", "selftest", "convert", "response", "remove-response",
-                                           "beam", "array-detect", "locate", "array-selftest", "sar-film", "bearings", "track", "track-selftest"], default="info")
+                                           "beam", "array-detect", "locate", "array-selftest", "sar-film", "bearings", "track", "track-selftest",
+                                           "signatures", "multi-beam", "multi-bearings", "multi-track", "signature-selftest", "field-selftest",
+                                           "harmonics", "harmonic-selftest", "datum", "geodesy-selftest", "array-qc", "qc-selftest", "unlisted", "unlisted-selftest", "bearing-sigma", "coverage", "uncertainty-selftest"], default="info")
+    p_se.add_argument("--signatures", type=str, default=None, help="multi-beam/multi-bearings: the signatures JSON from --action signatures")
     p_se.add_argument("--histories", type=str, nargs="+", default=None, help="track: two or more bearing-history JSONs (from --action bearings), one per array")
     p_se.add_argument("--truth", type=str, default=None, help="track: ground truth CSV (point_id, lat, lon, utc[, note]) - the lateral's points in time")
     p_se.add_argument("--name", type=str, default=None, help="bearings: a name for the array in the history")
@@ -414,7 +430,11 @@ def main(argv=None) -> int:
     p_se.add_argument("--end", type=str, default=None, help="ISO UTC")
     p_se.add_argument("--station-lat", type=float, default=None, help="detect: the station's latitude")
     p_se.add_argument("--station-lon", type=float, default=None)
-    p_se.add_argument("--sources", type=str, default=None, help="detect: CSV of known sources (source_id, lat, lon, start_utc, end_utc[, kind, note])")
+    p_se.add_argument("--sources", type=str, default=None, help="detect: CSV of known sources (source_id, lat, lon, start_utc, end_utc[, kind, note, datum])")
+    p_se.add_argument("--datum", type=str, default=None, help="datum: the datum the positions are on (WGS84, NAD83, NAD27) when the files do not say")
+    p_se.add_argument("--measure-sigma", action="store_true", help="bearings/track: measure each window's bearing uncertainty from its own sub-windows instead of taking the array's resolution, and draw the ellipses from it (several times slower)")
+    p_se.add_argument("--true-bearing", type=float, default=None, help="coverage: the bearing known independently of this record, in degrees")
+    p_se.add_argument("--parts", type=int, default=5, help="bearing-sigma/coverage: how many sub-windows each window is cut into (default 5)")
     p_se.add_argument("--encoding", type=str, default="STEIM2", choices=["STEIM1", "STEIM2", "INT32", "FLOAT32", "FLOAT64"], help="convert: output encoding")
     p_se.add_argument("--out", type=str, default=None, help="fetch: the .mseed to write; spectrum: a CSV; detect/lines: a JSON")
     p_se.add_argument("--json", action="store_true")
@@ -814,6 +834,351 @@ def main(argv=None) -> int:
                 print(f"  three arrays' bearings cross {c['miss_km']:.2f} km from the rig; 1-sigma ellipse {c['ellipse_1sigma']['major_km']} x {c['ellipse_1sigma']['minor_km']} km; "
                       f"crossing angle {c['crossing_angle_deg']} deg; in front of every array: {c['in_front_of_every_array']}")
             return 0 if r["ok"] else 1
+        if a.action in ("signature-selftest", "field-selftest"):
+            from . import seismic_signature as SG
+            r = SG.selftest() if a.action == "signature-selftest" else SG.field_selftest()
+            if a.json:
+                print(_json.dumps({k: v for k, v in r.items() if k not in ("learned", "beam", "multi_track")}, indent=1, default=str))
+            elif a.action == "signature-selftest":
+                print(f"seismic signature-selftest: {r['status']} ok={r['ok']}")
+                print(SG.report_text(r["beam"]))
+                print(f"  the colliding pair (two rigs given the same pump rate): {', '.join(r['collide']['verdicts'])}")
+            else:
+                print(f"seismic field-selftest: {r['status']} ok={r['ok']}; {len(r['tracked'])} of {len(r['multi_track']['source_ids'])} rigs tracked while all worked at once")
+                for sid, row in r["multi_track"]["tracks"].items():
+                    v = r["verdicts"].get(sid, {})
+                    print(f"  {sid}: {row['status']}, {row.get('positions', 0)} position(s) of {row.get('windows', 0)}"
+                          + (f"; verdict {v['verdict']} ({v['hit']} of {v['of']} inside their ellipse)" if v else "")
+                          + (f" - {row.get('detail', '')}" if row.get("detail") else ""))
+            return 0 if r["ok"] else 1
+        if a.action == "uncertainty-selftest":
+            from . import seismic_uncertainty as UQ
+            r = UQ.selftest()
+            if a.json:
+                print(_json.dumps({k: v for k, v in r.items() if k not in ("coverage", "one_window")}, indent=1, default=str))
+            else:
+                c, o = r["coverage"], r["one_window"]
+                print(f"seismic uncertainty-selftest: {r['status']} ok={r['ok']}")
+                print(UQ.report_text(c).split("\n  not a measurement")[0])
+                print(f"  one window: {o['sigma_deg']:g} deg, measured from {o['n_parts']} sub-windows; the beamformer's own grid is "
+                      f"{o['grid_step_deg']:g} deg and the array could only separate two sources {o['resolution_half_width_deg']:g} deg apart, "
+                      "which is a different question")
+                print(f"  the estimator tried first and turned down - one bearing per frequency bin - scatters by {r['per_bin_scatter_deg']:g} deg on "
+                      "this array, because one frequency cannot break its spatial aliasing: that is the geometry, not the data")
+            return 0 if r["ok"] else 1
+        if a.action in ("bearing-sigma", "coverage"):
+            from . import seismic_uncertainty as UQ
+            from . import seismic_array as AR
+            if not (a.files and a.sensors):
+                raise SystemExit(f"seismic {a.action} needs --files (one per sensor, in order) and --sensors CSV")
+            if a.action == "coverage" and a.true_bearing is None:
+                raise SystemExit("seismic coverage needs --true-bearing: a bearing known independently of this record")
+            sensors = AR.load_sensors_csv(a.sensors, a.datum)
+            if len(a.files) != len(sensors):
+                raise SystemExit(f"seismic {a.action}: {len(a.files)} files for {len(sensors)} sensors")
+            trs = []
+            for f in a.files:
+                t = S.read_any(f)
+                if not t:
+                    raise SystemExit(f"seismic: {f} holds no samples")
+                trs.append(t[a.trace])
+            if a.action == "bearing-sigma":
+                r = UQ.bearing_sigma(trs, sensors, band, parts=a.parts, diagnose_bins=True)
+            else:
+                r = UQ.coverage(trs, sensors, a.true_bearing, band, a.win or 300.0, parts=a.parts)
+            if a.out:
+                with open(a.out, "w", encoding="utf-8") as fh:
+                    _json.dump(r, fh, indent=1, default=str)
+            print(_json.dumps(r, indent=1, default=str) if a.json else UQ.report_text(r))
+            return 0 if r.get("status") in ("OK", "CALIBRATED", "CONSERVATIVE") else 1
+        if a.action == "unlisted-selftest":
+            from . import seismic_unlisted as UL
+            r = UL.selftest()
+            if a.json:
+                print(_json.dumps({k: v for k, v in r.items() if k != "result"}, indent=1, default=str))
+            else:
+                print(f"seismic unlisted-selftest: {r['status']} ok={r['ok']}")
+                print(f"  the rig left off the list was found at {r['bearing_error_deg']:+.2f} deg of its true bearing (tolerance "
+                      f"{r['tolerance_deg']:.1f}) running at {r['rate_found_hz']:g} Hz against the scene's {r['rate_true_hz']:g}")
+                print(UL.report_text(r["result"]).split("\n  not a measurement")[0])
+                print(UL.report_text(r["result"]["candidates"]).split("\n  not a measurement")[0])
+                print(f"  with every rig on the list there is nothing to find: {r['with_every_rig_listed']['status']}")
+            return 0 if r["ok"] else 1
+        if a.action == "unlisted":
+            from . import seismic_unlisted as UL
+            from . import seismic_array as AR
+            if not (a.files and a.sensors and a.signatures):
+                raise SystemExit("seismic unlisted needs --files (one per sensor), --sensors CSV and --signatures JSON (from --action signatures)")
+            sensors = AR.load_sensors_csv(a.sensors, a.datum)
+            if len(a.files) != len(sensors):
+                raise SystemExit(f"seismic unlisted: {len(a.files)} files for {len(sensors)} sensors")
+            with open(a.signatures, encoding="utf-8") as fh:
+                sg = _json.load(fh)
+            sigs = sg["signatures"] if isinstance(sg, dict) else sg
+            trs = []
+            for f in a.files:
+                t = S.read_any(f)
+                if not t:
+                    raise SystemExit(f"seismic: {f} holds no samples")
+                trs.append(t[a.trace])
+            r = UL.find_unlisted(trs, sensors, sigs, band, a.win or 600.0)
+            if a.out:
+                with open(a.out, "w", encoding="utf-8") as fh:
+                    _json.dump(r, fh, indent=1, default=str)
+            if a.json:
+                print(_json.dumps(r, indent=1, default=str))
+            else:
+                print(UL.report_text(r))
+                if r.get("candidates"):
+                    print(UL.report_text(r["candidates"]))
+                if a.out:
+                    print(f"  -> {a.out}")
+            return 0
+        if a.action == "qc-selftest":
+            from . import seismic_qc as QC
+            r = QC.selftest()
+            if a.json:
+                print(_json.dumps({k: v for k, v in r.items() if k != "qc"}, indent=1, default=str))
+            else:
+                print(f"seismic qc-selftest: {r['status']} ok={r['ok']}")
+                print(QC.report_text(r["qc"]).split("\n  not a measurement")[0])
+                print(f"  the clock error put into the scene was {r['timing_injected_ms']:g} ms and the plane fit measured "
+                      f"{r['timing_recovered_ms']:g} ms")
+                print(QC.report_text(r["beam_cost"]).split("\n  not a measurement")[0])
+                print(f"  the same array with no faults in it: {r['clean_array']['status']}, {r['clean_array']['n_usable']} sensors, nothing named")
+            return 0 if r["ok"] else 1
+        if a.action == "array-qc":
+            from . import seismic_qc as QC
+            from . import seismic_array as AR
+            if not (a.files and a.sensors):
+                raise SystemExit("seismic array-qc needs --files (one record per sensor, in order) and --sensors CSV")
+            sensors = AR.load_sensors_csv(a.sensors, a.datum)
+            if len(a.files) != len(sensors):
+                raise SystemExit(f"seismic array-qc: {len(a.files)} files for {len(sensors)} sensors")
+            trs = []
+            for f in a.files:
+                t = S.read_any(f)
+                if not t:
+                    raise SystemExit(f"seismic: {f} holds no samples")
+                trs.append(t[a.trace])
+            r = QC.array_qc(trs, sensors, band)
+            cost = QC.beam_cost(trs, sensors, r, band) if r["status"] == "DEGRADED" else None
+            if a.out:
+                with open(a.out, "w", encoding="utf-8") as fh:
+                    _json.dump({"qc": r, "cost": cost}, fh, indent=1, default=str)
+            if a.json:
+                print(_json.dumps({"qc": r, "cost": cost}, indent=1, default=str))
+            else:
+                print(QC.report_text(r))
+                if cost:
+                    print(QC.report_text(cost))
+                if a.out:
+                    print(f"  -> {a.out}")
+            return 0 if r["status"] == "USABLE" else 1
+        if a.action == "geodesy-selftest":
+            from . import geodesy as GD
+            r = GD.selftest()
+            if a.json:
+                print(_json.dumps(r, indent=1, default=str))
+            else:
+                ap = r["against_published"]
+                print(f"seismic geodesy-selftest: {r['status']} ok={r['ok']}")
+                print(f"  meridian arc to 45 deg N {ap['meridian_arc_to_45N_m']:.3f} m against the published {ap['published_m']:.3f}")
+                print(f"  a degree of latitude at the equator {ap['degree_of_latitude_at_equator_m']:.3f} m against {ap['published_lat_m']:.3f}; "
+                      f"a degree of longitude {ap['degree_of_longitude_at_equator_m']:.3f} against {ap['published_lon_m']:.3f}")
+                gi = r["grid_identities"]
+                print(f"  at a transverse Mercator central meridian the easting is {gi['tm_central_meridian_easting_m']:.6f} and the scale "
+                      f"{gi['tm_scale_at_cm']}; at a Lambert zone's origin {gi['lcc_origin_easting_m']:.6f}, {gi['lcc_origin_northing_m']:.6f}; "
+                      f"at its standard parallel the scale is {gi['lcc_scale_at_standard_parallel']}")
+                print(f"  projection round trips close to {r['round_trip_worst_m'] * 1000:.3f} mm (worst at {r['round_trip_worst_at']['zone']} "
+                      f"{r['round_trip_worst_at']['lat']}, {r['round_trip_worst_at']['lon']}); the datum round trip to {r['datum_round_trip_m'] * 1000:.3f} mm")
+                sp = r["nad27_to_wgs84_at_31N_102W"]
+                print(f"  NAD27 against WGS84 at 31 N, 102 W: {sp['separation_m']:.1f} m on a bearing of {sp['bearing_deg']:.0f} deg - computed here, "
+                      "not quoted, because it varies across the country")
+                print(f"  the same state plane northing read in international rather than US survey feet: {r['us_survey_vs_international_foot_m_at_this_northing']:.1f} m out")
+            return 0 if r["ok"] else 1
+        if a.action == "datum":
+            from . import geodesy as GD
+            from . import seismic_detect as D
+            from . import seismic_array as AR
+            pts = []
+            if a.station_lat is not None and a.station_lon is not None:
+                pts.append(GD.Position(a.station_lat, a.station_lon, a.datum or "", 0.0, "station"))
+            if a.sensors:
+                for sn in AR.load_sensors_csv(a.sensors, a.datum):
+                    pts.append(GD.Position(sn.lat, sn.lon, sn.datum_as_given or sn.datum, sn.elevation_m, f"sensor {sn.sensor_id}"))
+            if a.sources:
+                for so in D.load_sources_csv(a.sources, a.datum):
+                    pts.append(GD.Position(so.lat, so.lon, so.datum_as_given or so.datum, 0.0, f"source {so.source_id}"))
+            if not pts:
+                raise SystemExit("seismic datum needs --station-lat/--station-lon, --sensors or --sources (and --datum when the files do not say)")
+            r = GD.check_set(pts)
+            if a.json:
+                print(_json.dumps(r, indent=1, default=str))
+            else:
+                print(GD.report_text(r))
+            return 0 if r["status"] in ("OK",) else 1
+        if a.action == "harmonic-selftest":
+            from . import seismic_harmonic as HM
+            r = HM.selftest()
+            if a.json:
+                print(_json.dumps({k: v for k, v in r.items() if k not in ("tracks", "rate_history", "activity_fixed_bins", "activity_with_drift")}, indent=1, default=str))
+            else:
+                print(f"seismic harmonic-selftest: {r['status']} ok={r['ok']}")
+                fb = r["fixed_bins"]
+                print(f"  a signature of fixed bins over this record holds {len(fb['lines_hz'])} line(s) [{fb['status']}]: the machine's rate walked out "
+                      "of its own bins, which is what this band is for")
+                print(HM.report_text(r["tracks"]).split("\n  not a measurement")[0])
+                print("  the harmonics walk together: " + ", ".join(f"order {k} at {v:g}x the first" for k, v in r["drift_ratios"].items()))
+                print(HM.report_text(r["families"]).split("\n  not a measurement")[0])
+                print(f"  the fundamental in that window {r['fundamental_hz']:g} Hz against the scene's {r['scene_rate_in_that_window_hz']:g} Hz "
+                      f"({r['fundamental_error_hz']:+g} Hz)")
+                print(HM.report_text(r["rate_history"]).split("\n  not a measurement")[0])
+                print(f"  when it was working, from the bins it was learned on: {r['activity_fixed_bins']['verdict']}; allowing for the walk: "
+                      f"{r['activity_with_drift']['verdict']} ({r['activity_with_drift']['n_spells']} spell(s))")
+                print(f"  {r['dense_lines']['n']} lines with no machine behind them: {r['dense_lines']['status']}")
+            return 0 if r["ok"] else 1
+        if a.action == "harmonics":
+            from . import seismic_harmonic as HM
+            from . import seismic_detect as D
+            if not a.file:
+                raise SystemExit("seismic harmonics needs --file (one record); --signatures adds each source's own rate, --sources the declared windows")
+            trs = S.read_any(a.file)
+            if not trs:
+                raise SystemExit(f"seismic: {a.file} holds no samples")
+            tr = trs[a.trace]
+            w = a.win or 600.0
+            hband = (band[0], min(band[1], 0.4 * tr.sample_rate))
+            tl = HM.track_lines(tr, hband, w)
+            rate = HM.rate_history(tr, hband, w)
+            ts = HM.tracked_signature(tl, source_id=tr.id)
+            fam = HM.harmonic_families(ts["freqs_hz"], ts["excess_db"], hband) if ts["status"] == "OK" else None
+            sigs = []
+            if a.signatures:
+                with open(a.signatures, encoding="utf-8") as fh:
+                    sg = _json.load(fh)
+                sigs = sg["signatures"] if isinstance(sg, dict) else sg
+            sources = D.load_sources_csv(a.sources) if a.sources else []
+            sf = HM.signature_families(sigs, hband, tracks=tl) if sigs else None
+            tol = min(max(float(ts.get("drift_tol_frac") or 0.0), 0.0), 0.5)
+            act = [HM.activity_from_signature(tr, x, hband, w, sources=sources, drift_tol_frac=tol) for x in sigs] if (sigs and sources) else []
+            res = {"protocol": "seismic_harmonic.cli/1", "record": tr.id, "band_hz": list(hband), "win_s": w, "drift_tol_frac": round(tol, 4),
+                   "line_tracks": tl, "rate": rate, "tracked_signature": ts, "families": fam, "signature_families": sf, "activity": act}
+            if a.out:
+                with open(a.out, "w", encoding="utf-8") as fh:
+                    _json.dump(res, fh, indent=1, default=str)
+            if a.json:
+                print(_json.dumps(res, indent=1, default=str))
+            else:
+                print(HM.report_text(tl).split("\n  not a measurement")[0])
+                if fam:
+                    print(HM.report_text(fam).split("\n  not a measurement")[0])
+                print(HM.report_text(rate).split("\n  not a measurement")[0])
+                if sf:
+                    print(HM.report_text(sf).split("\n  not a measurement")[0])
+                    at = sf.get("attribution") or {}
+                    for u in (at.get("unattributed") or []):
+                        print(f"  no listed source was learned on the line at {u['freq_median_hz']:g} Hz [{u['status']}]: something is making it and this "
+                              "program was not told what")
+                    for c in (at.get("contested") or []):
+                        print(f"  the line at {c['freq_median_hz']:g} Hz is as close to {' as to '.join(c['sources'])}: it separates nothing")
+                for x in act:
+                    print(HM.report_text(x).split("\n  not a measurement")[0])
+                if a.out:
+                    print(f"  -> {a.out}")
+            return 0
+        if a.action == "signatures":
+            from . import seismic_signature as SG
+            from . import seismic_detect as D
+            if not (a.file and a.sources):
+                raise SystemExit("seismic signatures needs --file (one record) and --sources (the rigs CSV)")
+            trs = S.read_any(a.file)
+            if not trs:
+                raise SystemExit(f"seismic: {a.file} holds no samples")
+            r = SG.learn_signatures(trs[a.trace], D.load_sources_csv(a.sources), band, a.win or 600.0)
+            if a.out:
+                with open(a.out, "w", encoding="utf-8") as fh:
+                    _json.dump(r, fh, indent=1)
+            if a.json:
+                print(_json.dumps(r, indent=1))
+            else:
+                print(f"seismic signatures: {r['n_with_signature']} of {len(r['signatures'])} source(s) learned from {r['windows']} windows "
+                      f"({r['quiet_windows']} quiet), band {r['band_hz'][0]:g}-{r['band_hz'][1]:g} Hz")
+                for sig in r["signatures"]:
+                    print(f"  {sig['source_id']}: " + (", ".join(f"{x:g}" for x in sig["freqs_hz"]) + f" Hz  ({sig['detail']})" if sig["status"] == "OK"
+                                                       else f"{sig['status']} - {sig['detail']}"))
+            return 0
+        if a.action in ("multi-beam", "multi-bearings"):
+            from . import seismic_signature as SG
+            from . import seismic_array as AR
+            if not (a.files and a.sensors and a.signatures):
+                raise SystemExit(f"seismic {a.action} needs --files (one per sensor), --sensors CSV and --signatures JSON")
+            sensors = AR.load_sensors_csv(a.sensors)
+            if len(a.files) != len(sensors):
+                raise SystemExit(f"seismic {a.action}: {len(a.files)} files for {len(sensors)} sensors")
+            with open(a.signatures, encoding="utf-8") as fh:
+                sigs = _json.load(fh)
+            sigs = sigs["signatures"] if isinstance(sigs, dict) else sigs
+            trs = []
+            for f in a.files:
+                t = S.read_any(f)
+                if not t:
+                    raise SystemExit(f"seismic: {f} holds no samples")
+                tr = t[0]
+                if a.start or a.end:
+                    tr = tr.slice(S.parse_time(a.start) if a.start else tr.starttime, S.parse_time(a.end) if a.end else tr.endtime)
+                trs.append(tr)
+            if a.action == "multi-beam":
+                r = SG.beam_by_signature(trs, sensors, sigs, band, a.seg, a.smax, 41, a.method)
+                if a.out:
+                    with open(a.out, "w", encoding="utf-8") as fh:
+                        _json.dump(r, fh, indent=1)
+                print(_json.dumps(r, indent=1) if a.json else SG.report_text(r))
+                return 0
+            r = SG.multi_bearing_history(trs, sensors, sigs, band, a.win or 600.0, None, a.seg, a.smax, 41, a.method, name=a.name or sensors[0].sensor_id)
+            if a.out:
+                with open(a.out, "w", encoding="utf-8") as fh:
+                    _json.dump(r, fh, indent=1)
+            if a.json:
+                print(_json.dumps(r, indent=1))
+            else:
+                print(f"seismic multi-bearings: {r['n_windows']} windows of {r['win_s']:g} s, {len(r['source_ids'])} source(s)")
+                for sid in r["source_ids"]:
+                    h = r["histories"][sid]
+                    print(f"  {sid}: {h['n_coherent']} of {h['n_windows']} window(s) pointed, tolerance {h['tolerance_deg']} deg")
+            return 0
+        if a.action == "multi-track":
+            from . import seismic_signature as SG
+            from . import seismic_track as T
+            if not a.histories or len(a.histories) < 2:
+                raise SystemExit("seismic multi-track needs --histories (two or more multi-bearing JSONs, one per array)")
+            per = []
+            for hp in a.histories:
+                with open(hp, encoding="utf-8") as fh:
+                    per.append(_json.load(fh))
+            truth = None
+            if a.truth:
+                pts = T.load_truth_csv(a.truth)
+                truth = {}
+                for pt in pts:
+                    truth.setdefault(pt.point_id, []).append(pt)
+            r = SG.multi_track(per, truth)
+            if a.out:
+                with open(a.out, "w", encoding="utf-8") as fh:
+                    _json.dump(r, fh, indent=1, default=str)
+            if a.json:
+                print(_json.dumps({k: v for k, v in r.items() if k != "tracks"}, indent=1, default=str))
+            else:
+                print(f"seismic multi-track: {r['n_tracked']} of {len(r['source_ids'])} source(s) positioned from {len(per)} arrays")
+                for sid, row in r["tracks"].items():
+                    if row["status"] != "OK":
+                        print(f"  {sid}: {row['status']} - {row.get('detail', '')}")
+                        continue
+                    tr_ = row.get("track") or {}
+                    print(f"  {sid}: {row['positions']} position(s) of {row['windows']}"
+                          + (f", heading {tr_['heading_deg']} deg over {tr_['length_km']} km" if tr_.get("heading_deg") is not None else "")
+                          + (f"; verdict {row['verdict']['verdict']} ({row['verdict']['n_hit']} of {row['verdict']['n_compared']})" if row.get("verdict") else ""))
+            return 0
         if a.action == "track-selftest":
             from . import seismic_track as T
             r = T.selftest()
@@ -862,7 +1227,7 @@ def main(argv=None) -> int:
                 trs.append(tr)
             if a.action == "bearings":
                 from . import seismic_track as T
-                h = T.bearing_history(trs, sensors, band, a.win or 600.0, None, a.seg, a.smax, 41, a.method)
+                h = T.bearing_history(trs, sensors, band, a.win or 600.0, None, a.seg, a.smax, 41, a.method, measure_sigma=a.measure_sigma)
                 h["array"]["name"] = a.name or sensors[0].sensor_id
                 if a.out:
                     with open(a.out, "w", encoding="utf-8") as fh:
@@ -1089,7 +1454,8 @@ def main(argv=None) -> int:
             with open(a.mapping, encoding="utf-8") as fh:
                 mapping = _json.load(fh)
         try:
-            note = PM.import_permits(a.file, a.out, mapping=mapping, default_days=a.default_days, within=tuple(a.within) if a.within else None)
+            note = PM.import_permits(a.file, a.out, mapping=mapping, default_days=a.default_days, within=tuple(a.within) if a.within else None,
+                                     datum=a.datum, zone=a.zone, unit=a.unit)
         except ValueError as e:
             raise SystemExit(f"permits: {e}")
         print(_json.dumps(note, indent=1) if a.json else PM.report_text(note))
@@ -1121,9 +1487,10 @@ def main(argv=None) -> int:
             print("   no accounts yet: the page will ask for the first administrator's name and password (one time), or run: gea users --workspace ... --action add --role admin --name ...")
         if a.host not in ("127.0.0.1", "localhost", "::1") and not a.behind_proxy:
             print("   NOTE: bound to a network address without --behind-proxy: traffic is plain HTTP. Put TLS in front (deploy/README.md) for anything beyond a trusted LAN.")
-        print("   Ctrl+C stops it; every action is in records/audit.jsonl")
-        svc.serve_forever()
-        return 0
+        print("   Ctrl+C stops it; every action is in records/audit.jsonl, every start and stop in records/runlog.jsonl")
+        print("   the control panel's Stop and Restart end this run with a stated code: 0 stop, 86 start me again -")
+        print("   the launcher reads it, and on anything but 86 it hands the window to a PowerShell prompt, never a Python one")
+        return svc.serve_forever()
     elif a.cmd == "users":
         import getpass
         from .workspace import Workspace, WorkspaceError
@@ -1163,6 +1530,11 @@ def main(argv=None) -> int:
                 ws = Workspace.create(a.path, a.name or os.path.basename(os.path.abspath(a.path)), actor=a.actor)
                 print("workspace:", ws.path); return 0
             ws = Workspace(a.path)
+            if a.action == "rename":
+                if not a.name:
+                    raise SystemExit("rename needs --name")
+                r = ws.rename(a.name, actor=a.actor)
+                print(f"site: {r['name']}" + (f"  (was {r['from']})" if r['changed'] else "  (unchanged)")); return 0
             if a.action == "add-file":
                 if not a.file:
                     raise SystemExit("add-file needs --file")
@@ -1194,7 +1566,8 @@ def main(argv=None) -> int:
                 if not (a.name and a.files):
                     raise SystemExit("add-seismic needs --name and --files (one record, or one per sensor with --sensors)")
                 st = ws.add_seismic_station(a.name, a.files, a.lat, a.lon, actor=a.actor, stationxml=a.stationxml, sensors_csv=a.sensors,
-                                            sources_csv=a.sources, band=a.band, permits_csv=a.permits)
+                                            sources_csv=a.sources, band=a.band, permits_csv=a.permits,
+                                            datum=a.datum, permits_zone=a.zone, permits_unit=a.unit)
                 print("seismic station:", st["id"], f"({st['kind']}, {len(st['files'])} record(s))"); return 0
             elif a.action == "refresh-seismic":
                 ids = [a.station] if a.station else [x["id"] for x in ws.seismic_stations()]
@@ -1229,6 +1602,53 @@ def main(argv=None) -> int:
             elif a.action == "sar-film":
                 r = ws.sar_film(actor=a.actor, seed=a.seed, hours=a.hours, step_s=a.step, band=tuple(a.band) if a.band else (1.0, 20.0), method=a.method, scene=a.scene)
                 print(f"sar-film: {r['label']}, {r['frames']} frames over {r['hours']} h; verdicts {r['verdicts']}\n  film: {r['path']}"); return 0
+            elif a.action == "add-site":
+                if not a.name:
+                    raise SystemExit("add-site needs --name")
+                st = ws.add_site(a.name, wells=a.wells, seismic=a.seismic, tracks=a.tracks, client=a.client, note=a.note or "", actor=a.actor)
+                print(f"site: {st['id']} ({len(st['wells'])} well(s), {len(st['seismic'])} seismic station(s), {len(st['tracks'])} track(s))")
+                return 0
+            elif a.action == "sites":
+                rows = ws.sites()
+                if not rows:
+                    print("no sites yet; `--action add-site --name <name> --wells ... --seismic ... --tracks ...`")
+                for st in rows:
+                    print(f"  {st['id']:<24} {st.get('client') or '-':<20} {len(st['wells'])} well(s), {len(st['seismic'])} station(s), "
+                          f"{len(st['tracks'])} track(s)")
+                return 0
+            elif a.action == "site-report":
+                if not a.site:
+                    raise SystemExit("site-report needs --site <id>")
+                r = ws.write_site_report(a.site, actor=a.actor)
+                c = r["summary"]["counts"]
+                print(f"site-report: {a.site} - {c['wells']} well(s), {c['seismic']} seismic station(s), {c['tracks']} track(s)")
+                for w in r["summary"]["warnings"]:
+                    print("  needs attention:", w)
+                print("  report:", r["report"])
+                return 0
+            elif a.action == "remove-site":
+                if not a.site:
+                    raise SystemExit("remove-site needs --site <id>")
+                ws.remove_site(a.site, actor=a.actor); print("removed (folder kept):", a.site); return 0
+            elif a.action == "seismic-dataset":
+                r = ws.write_seismic_dataset_report(actor=a.actor)
+                inv = r["inventory"]
+                print(f"seismic-dataset: {inv['n_stations']} station(s), {inv['n_records']} record(s), {inv['total_hours']:.1f} h")
+                for w in inv["warnings"]:
+                    print("  needs attention:", w)
+                print("  report:", r["report"])
+                return 0
+            elif a.action == "seismic-field":
+                r = ws.write_seismic_field_report(actor=a.actor)
+                f = r["field"]
+                heard = [x for x in f["sources"] if x["heard_at"]]
+                print(f"seismic-field: {len(f['stations'])} station(s), {len(heard)} of {len(f['sources'])} listed source(s) heard, "
+                      f"{len(f['tracks'])} track(s), {len(f['unlisted'])} not on the list")
+                for u in f["unlisted"]:
+                    print(f"  not on the list: {u['source_id']} at {u['station']}, {u['back_azimuth_deg']:.0f} deg, "
+                          f"{u['line_rate_per_min']:.0f} a minute")
+                print("  report:", r["report"])
+                return 0
             elif a.action == "refresh-all":
                 r = ws.refresh_all(actor=a.actor)
                 print(f"refresh-all: {r['wells']} well(s) refreshed, {r['seismic']} seismic station(s) refreshed, {len(r['errors'])} error(s)")

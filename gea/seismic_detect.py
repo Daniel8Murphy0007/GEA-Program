@@ -64,6 +64,8 @@ class Source:
     end: float
     kind: str = 'rig'
     note: str = ''        # where the ground truth came from (a permit number, an operator schedule)
+    datum: str = 'WGS84'  # the datum lat/lon are on AFTER loading: a row on another datum is converted and its note says so
+    datum_as_given: str = ''   # what the file said, before the conversion
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -78,8 +80,13 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return 2 * EARTH_RADIUS_KM * math.asin(math.sqrt(a))
 
 
-def load_sources_csv(path: str) -> List[Source]:
-    """Columns: source_id, lat, lon, start_utc, end_utc [, kind, note]. One row per rig per working window."""
+def load_sources_csv(path: str, datum: Optional[str] = None) -> List[Source]:
+    """Columns: source_id, lat, lon, start_utc, end_utc [, kind, note, datum]. One row per rig per working window.
+
+    A `datum` column (or the `datum` argument for the whole file) says which datum the positions are on; the
+    row is converted to WGS84 on the way in and its note records the shift. A row that says nothing is taken
+    as given and marked UNKNOWN - which is a statement that nobody said, not a claim that it is WGS84."""
+    from . import geodesy as GD
     out = []
     with open(path, newline='', encoding='utf-8') as f:
         rd = csv.DictReader(f)
@@ -91,17 +98,24 @@ def load_sources_csv(path: str) -> List[Source]:
             row = {k.strip(): (v or '').strip() for k, v in row.items() if k}
             if not row.get('source_id'):
                 continue
-            out.append(Source(row['source_id'], float(row['lat']), float(row['lon']), parse_time(row['start_utc']), parse_time(row['end_utc']),
-                              row.get('kind') or 'rig', row.get('note') or ''))
+            d_in = GD.datum_name(row.get('datum') or datum or '')
+            la, lo, note = float(row['lat']), float(row['lon']), row.get('note') or ''
+            if d_in not in ('WGS84', 'UNKNOWN'):
+                c = GD.to_wgs84(la, lo, 0.0, d_in)
+                la, lo = c['lat'], c['lon']
+                note = '; '.join([x for x in (note, f"converted from {d_in} to WGS84, moved {c['shift_m']:.1f} m "
+                                                    f"(this conversion is good to about {c['accuracy_m']:.0f} m)") if x])
+            out.append(Source(row['source_id'], la, lo, parse_time(row['start_utc']), parse_time(row['end_utc']),
+                              row.get('kind') or 'rig', note, 'WGS84' if d_in != 'UNKNOWN' else 'UNKNOWN', d_in))
     return out
 
 
 def write_sources_csv(sources: Sequence[Source], path: str) -> str:
     with open(path, 'w', newline='', encoding='utf-8') as f:
         w = csv.writer(f)
-        w.writerow(['source_id', 'lat', 'lon', 'start_utc', 'end_utc', 'kind', 'note'])
+        w.writerow(['source_id', 'lat', 'lon', 'start_utc', 'end_utc', 'kind', 'note', 'datum'])
         for s in sources:
-            w.writerow([s.source_id, f'{s.lat:.6f}', f'{s.lon:.6f}', iso(s.start, 0), iso(s.end, 0), s.kind, s.note])
+            w.writerow([s.source_id, f'{s.lat:.6f}', f'{s.lon:.6f}', iso(s.start, 0), iso(s.end, 0), s.kind, s.note, s.datum])
     return path
 
 

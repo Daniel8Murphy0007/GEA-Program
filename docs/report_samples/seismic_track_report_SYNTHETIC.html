@@ -4,15 +4,15 @@
 <style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
 <h1>Downhole Gauge Monitoring - Seismic Track Report</h1>
 <table class="front">
-<tr><td>Report ID</td><td>TRACK-SYNTHETIC_lateral-20261004T155654Z</td></tr>
+<tr><td>Report ID</td><td>TRACK-SYNTHETIC_lateral-20261006T130526Z</td></tr>
 <tr><td>Track</td><td>SYNTHETIC lateral</td></tr>
-<tr><td>Generated (UTC)</td><td>2026-10-04T15:56:54Z</td></tr>
-<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.7.0</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-06T13:05:26Z</td></tr>
+<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.8.0</td></tr>
 <tr><td>Arrays</td><td>SYNTHETIC array 1, SYNTHETIC array 2</td></tr>
 <tr><td>Result</td><td class="result-ok">TRACKED</td></tr>
 </table>
 <h2>1. Summary</h2>
-<p>2 arrays over 17 windows; 13 positions, 4 gaps. The longest continuous segment runs 2.459 km on a heading of 78.0 deg over 11 positions (1.475 km/h), 0.062 km rms off the line, with a median 1-sigma ellipse of 1.118 km. 2 segments: the positions jump farther than their ellipses allow between them; the heading and length given are the longest segment&#x27;s, the others are listed, not joined. Against the ground truth: TRACKED - 11 of 11 positions within their own ellipse of where the truth was at that time; heading 78.0 deg against the truth&#x27;s 80.0 deg. 2 position(s) fall outside the truth&#x27;s time span: something coherent crossed the arrays when the truth says the source was not working - they are not judged here and not joined to the track.</p>
+<p>2 arrays over 17 windows; 13 positions, 4 gaps. The longest continuous segment runs 2.459 km on a heading of 78.0 deg over 11 positions (1.475 km/h), 0.062 km rms off the line, with a median 1-sigma ellipse of 1.118 km. Motion RESOLVED: the positions span 2.46 km against a median 1-sigma ellipse of 1.12 km: the source moved, and the heading is the direction it moved in. 2 segments: the positions jump farther than their ellipses allow between them; the heading and length given are the longest segment&#x27;s, the others are listed, not joined. Against the ground truth: TRACKED - 11 of 11 positions within their own ellipse of where the truth was at that time; heading 78.0 deg against the truth&#x27;s 80.0 deg. 2 position(s) fall outside the truth&#x27;s time span: something coherent crossed the arrays when the truth says the source was not working - they are not judged here and not joined to the track.</p>
 <h2>2. The arrays and their bearings over time</h2>
 <p>Each array&#x27;s beam on every window of 600 s; a window is a bearing only when the beam was coherent (best bin &gt;= 0.5, two or more coherent bins), otherwise a gap. The tolerance is the array response function&#x27;s half-width plus one degree; a change point is a coherent bearing more than the tolerance from the running mean of those before it.</p>
 <table>
@@ -76,6 +76,7 @@
 <p>a position in any window listed as a gap.</p>
 <p>a position finer than its ellipse.</p>
 <p>anything at all when fewer than two arrays exist.</p>
+<p>motion smaller than the ellipses the positions carry: a line fitted through a scatter always has a heading, and it means nothing until the extent beats the ellipse.</p>
 <p>a verdict without ground truth.</p>
 <p>a hit finer than the ellipse that allowed it.</p>
 <p>the truth itself: it is the user&#x27;s file, taken as given.</p>

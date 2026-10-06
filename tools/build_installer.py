@@ -175,19 +175,67 @@ endlocal
 "%~dp0python\python.exe" -m gea %*
 ''',
 'start-dashboard.cmd': r'''@echo off
-setlocal
+title GEA - Operations Control Panel
+setlocal enabledelayedexpansion
 cd /d "%~dp0"
 if "%GEA_WORKSPACE%"=="" set GEA_WORKSPACE=%LOCALAPPDATA%\GEA-Program\site
 if "%GEA_PORT%"=="" set GEA_PORT=8765
 if not exist "%GEA_WORKSPACE%\workspace.json" (
   echo == creating the site workspace at %GEA_WORKSPACE%
-  python\python.exe -m gea workspace --path "%GEA_WORKSPACE%" --action init --name "%COMPUTERNAME%" --actor installer
+  python\python.exe -m gea workspace --path "%GEA_WORKSPACE%" --action init --name "Pad 3" --actor installer
 )
 echo == starting the dashboard at http://127.0.0.1:%GEA_PORT%/  (workspace %GEA_WORKSPACE%)
 echo    close this window or run stop-dashboard.cmd to stop it
-if not "%1"=="--no-browser" start "" "http://127.0.0.1:%GEA_PORT%/"
+rem the browser opens only once the server answers: opened first, it shows a failure page from the second before
+if not "%1"=="--no-browser" start "" /b cmd /c "timeout /t 4 /nobreak >nul & start """" http://127.0.0.1:%GEA_PORT%/"
+
+rem The control panel decides how it ends and says so in its exit code: 86 means start me again,
+rem anything else means stop. This window never falls back to whatever shell is underneath it -
+rem on any other code it becomes a PowerShell prompt that names the program and how to start it.
+rem
+rem A code that is neither 0 nor 86 is a death, not a decision. The operator says in the control panel
+rem whether the panel may be started again by itself after one of those, and that answer is written to
+rem one file this script can read. Five deaths in a row and it stops asking: a program that crashes while
+rem starting would otherwise flicker all night, and the operator needs the error, not the loop.
+set GEA_FAILS=0
+:gea_run
 python\python.exe -m gea serve --workspace "%GEA_WORKSPACE%" --port %GEA_PORT%
-endlocal
+set GEA_RC=%ERRORLEVEL%
+if "%GEA_RC%"=="86" (
+  set GEA_FAILS=0
+  echo.
+  echo == restart authorised from the control panel - starting it again
+  echo.
+  goto gea_run
+)
+if "%GEA_RC%"=="0" goto gea_stopped
+rem reading the flag outside an if-block on purpose: a redirect inside parentheses is parsed before the
+rem block runs and is a classic way to get a batch file that works everywhere except the one machine.
+set GEA_AUTO=0
+if exist "%GEA_WORKSPACE%\records\auto_restart.flag" goto gea_read_flag
+goto gea_auto_done
+:gea_read_flag
+set /p GEA_AUTO=<"%GEA_WORKSPACE%\records\auto_restart.flag"
+:gea_auto_done
+if not "%GEA_AUTO%"=="1" goto gea_stopped
+set /a GEA_FAILS=%GEA_FAILS%+1
+if %GEA_FAILS% GTR 5 (
+  echo.
+  echo == the control panel has stopped unexpectedly 5 times in a row. Not starting it again by itself.
+  goto gea_stopped
+)
+echo.
+echo == the control panel stopped unexpectedly ^(exit %GEA_RC%^) - auto-restart is on, attempt %GEA_FAILS% of 5
+echo.
+timeout /t 5 /nobreak >nul 2>&1
+goto gea_run
+
+:gea_stopped
+echo.
+echo == the GEA Operations Control Panel has stopped ^(exit %GEA_RC%^)
+echo    this window is a PowerShell prompt now; start-dashboard.cmd starts the panel again
+endlocal & set GEA_RC=%GEA_RC%
+powershell.exe -NoLogo -NoExit -Command "Set-Location -LiteralPath '%~dp0'; Write-Host ''; Write-Host 'GEA - Operations Control Panel: stopped (exit %GEA_RC%).' -ForegroundColor Cyan; Write-Host 'Start it again:  .\start-dashboard.cmd' -ForegroundColor Cyan; Write-Host 'Run log:         %GEA_WORKSPACE%\records\runlog.jsonl' -ForegroundColor DarkGray; Write-Host ''"
 ''',
 'stop-dashboard.cmd': r'''@echo off
 echo == stopping any GEA-Program service started from this kit
@@ -257,12 +305,49 @@ echo "done. Next: ./start-dashboard.sh  (or ./verify.sh)"
 exec "$(dirname "$0")/venv/bin/python" -m gea "$@"
 ''',
 'start-dashboard.sh': r'''#!/bin/sh
+# The control panel decides how it ends and says so in its exit code: 86 means start it again, anything
+# else means stop. This script never leaves the operator in a shell the program did not choose.
+set -u
 cd "$(dirname "$0")"
-WS=${{GEA_WORKSPACE:-$HOME/.local/share/gea-program/site}}
-PORT=${{GEA_PORT:-8765}}
-[ -f "$WS/workspace.json" ] || ./venv/bin/python -m gea workspace --path "$WS" --action init --name "$(hostname)" --actor installer
-echo "starting the dashboard at http://127.0.0.1:$PORT/ (workspace $WS); Ctrl+C stops it"
-exec ./venv/bin/python -m gea serve --workspace "$WS" --port "$PORT"
+: "${GEA_WORKSPACE:=$HOME/.local/share/GEA-Program/site}"
+: "${GEA_PORT:=8765}"
+if [ ! -f "$GEA_WORKSPACE/workspace.json" ]; then
+  echo "== creating the site workspace at $GEA_WORKSPACE"
+  ./python/bin/python3 -m gea workspace --path "$GEA_WORKSPACE" --action init --name "Pad 3" --actor installer
+fi
+echo "== starting the dashboard at http://127.0.0.1:$GEA_PORT/  (workspace $GEA_WORKSPACE)"
+echo "   Ctrl+C stops it, or run ./stop-dashboard.sh"
+fails=0
+while :; do
+  ./python/bin/python3 -m gea serve --workspace "$GEA_WORKSPACE" --port "$GEA_PORT"
+  rc=$?
+  if [ "$rc" = "86" ]; then
+    fails=0
+    echo
+    echo "== restart authorised from the control panel - starting it again"
+    echo
+    continue
+  fi
+  # a code that is neither 0 nor 86 is a death. The operator's answer to "may it start itself again" is
+  # one character in one file; five deaths in a row and this stops asking and hands over the error.
+  if [ "$rc" != "0" ] && [ "$(cat "$GEA_WORKSPACE/records/auto_restart.flag" 2>/dev/null | tr -d '[:space:]')" = "1" ]; then
+    fails=$((fails + 1))
+    if [ "$fails" -le 5 ]; then
+      echo
+      echo "== the control panel stopped unexpectedly (exit $rc) - auto-restart is on, attempt $fails of 5"
+      echo
+      sleep 5
+      continue
+    fi
+    echo
+    echo "== the control panel has stopped unexpectedly 5 times in a row. Not starting it again by itself."
+  fi
+  echo
+  echo "== the GEA Operations Control Panel has stopped (exit $rc)"
+  echo "   start it again:  ./start-dashboard.sh"
+  echo "   run log:         $GEA_WORKSPACE/records/runlog.jsonl"
+  exit "$rc"
+done
 ''',
 'verify.sh': r'''#!/bin/sh
 cd "$(dirname "$0")" && exec ./venv/bin/python -m gea accept
@@ -298,7 +383,7 @@ workspace) that this kit creates on first start and never deletes.
 3. Wells -> add a well from a file (historian CSV, LAS) or the catalogue.
    Patch panel -> add a patch to read the drill floor (WITS0), a WITSML
    store, OPC UA, MQTT or Modbus. Home -> Refresh every report.
-4. {verify}  runs the acceptance gate (266 checks) from this installation and
+4. {verify}  runs the acceptance gate (302 checks) from this installation and
    is your own acceptance evidence (also on the Verification page).
 5. report-samples\  holds one rendered example of every report the program
    writes, from the build in this kit; SAMPLES.md names the command behind each.

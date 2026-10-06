@@ -286,8 +286,8 @@ def section_e_operator(tmp: str) -> None:
        "E7 operator: citations pane content - the aging rate named as the datasheet's with nothing added, the datasheet's source, "
        "well provenance and tool sources present")
     try:
-        launch_operator_app()
-        ok(True, "E8 operator GUI: launched (PyQt6 present)")
+        launch_operator_app(run=False)       # build the window, never enter the event loop: a gate must not wait for a person
+        ok(True, "E8 operator GUI: the window constructs (PyQt6 present); the gate does not enter its event loop")
     except NotImplementedError as e:
         ok("pip install PyQt6" in str(e),
            "E8 operator GUI: refuses with the pip hint where PyQt6 is absent")
@@ -2913,7 +2913,8 @@ def section_am_report_samples(tmp: str) -> None:
             "well_test_validation_volve_F14.html", "accuracy_statement_library.html", "model_card_gauge_aging_rate.html", "model_card_quality_rules.html",
             "model_card_well_baseline.html", "model_card_well_test_detector.html", "model_card_rock_density_inventory.html",
             "model_card_strata_property_estimator.html", "gauge_drift_report_monitored_SYNTHETIC.html", "alarm_event_report_SYNTHETIC.html",
-            "data_resilience_report_SYNTHETIC.html", "sla_report_SYNTHETIC.html", "sat_protocol.html", "seismic_station_report_SYNTHETIC.html", "seismic_track_report_SYNTHETIC.html"}
+            "data_resilience_report_SYNTHETIC.html", "sla_report_SYNTHETIC.html", "sat_protocol.html", "seismic_station_report_SYNTHETIC.html", "seismic_track_report_SYNTHETIC.html",
+            "seismic_dataset_report_SYNTHETIC.html", "seismic_field_report_SYNTHETIC.html", "site_report_SYNTHETIC.html"}
     have = {p.name for p in d.glob("*.html")}
     md = (d / "SAMPLES.md").read_text(encoding="utf-8") if (d / "SAMPLES.md").exists() else ""
     texts = {n: (d / n).read_text(encoding="utf-8", errors="replace") for n in sorted(have & want)}
@@ -3611,6 +3612,964 @@ def section_as_tracks_page(tmp: str) -> None:
        "`add-seismic --permits` (not with --sources) do the same, keeping the export beside the converted list")
 
 
+def section_at_signatures(tmp: str) -> None:
+    """Section AT - several rigs at once: each source's lines learned while it worked
+    alone, a bearing per source in the windows they work together, the refusals
+    (no signature, lines another source claims, lines that alias on this geometry),
+    a track per source from two arrays, and the whole of it on a site."""
+    import csv as _csv
+    import subprocess as _sp
+    from . import seismic as S
+    from . import seismic_signature as SG
+    from . import seismic_track as T
+    from . import seismic_array as AR
+    from .seismic_array import _angle_diff
+    from .seismic_detect import write_sources_csv
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "at"); d.mkdir()
+    # AT1 - the signatures, the separation and every refusal, on the labelled scene
+    traces, sensors, srcs, meta = SG.synthetic_multi_scene(hours=6.0)
+    learned = SG.learn_signatures(traces[0], srcs, (1.0, 20.0), 600.0)
+    together = S.parse_time(meta["together_utc"])
+    win = [tr.slice(together + 600.0, together + 1200.0) for tr in traces]
+    r = SG.beam_by_signature(win, sensors, learned["signatures"], (1.0, 20.0))
+    rows = {x["source_id"]: x for x in r["sources"]}
+    errs = {sid: float(_angle_diff(x["back_azimuth_deg"], meta["true_bearings_deg"][sid])) for sid, x in rows.items() if x["verdict"] == "POINTED"}
+    whole = float(_angle_diff(r["whole_band"]["back_azimuth_deg"], meta["true_bearings_deg"]["RIG-2"]))
+    # a source that never worked alone has no signature
+    solo_only = [x for x in srcs if "alone" in x.note]
+    lone = SG.learn_signatures(traces[0], [x for x in srcs if x.source_id != "RIG-1"] + [solo_only[0].__class__("RIG-NEW", 31.5, -102.5, together, together + 3600.0, "rig", "never alone")],
+                               (1.0, 20.0), 600.0)
+    newsig = next(x for x in lone["signatures"] if x["source_id"] == "RIG-NEW")
+    # two rigs given the same pump rate must not be handed a bearing each
+    tr2, sen2, src2, meta2 = SG.synthetic_multi_scene(hours=6.0, collide=True)
+    l2 = SG.learn_signatures(tr2[0], src2, (1.0, 20.0), 600.0)
+    tog2 = S.parse_time(meta2["together_utc"])
+    r2 = SG.beam_by_signature([x.slice(tog2 + 600.0, tog2 + 1200.0) for x in tr2], sen2, l2["signatures"], (1.0, 20.0))
+    coll = {x["source_id"]: x["verdict"] for x in r2["sources"]}
+    aliased = [x for x in r["sources"] if x["verdict"] == "ALIASED"]
+    ok(learned["n_with_signature"] == 3 and all(len(x["freqs_hz"]) >= 2 for x in learned["signatures"] if x["status"] == "OK")
+       and learned["together_windows"] >= 3 and learned["quiet_windows"] >= 3
+       and len(errs) >= 2 and all(abs(e) <= rows[sid]["tolerance_deg"] for sid, e in errs.items())
+       and abs(whole) > 30.0                                                  # the whole band is nobody's direction when three work at once
+       and newsig["status"] == "NO_EXCLUSIVE_WINDOWS" and "no signature" in newsig["detail"]
+       and bool(r2["shared_lines"]) and coll["RIG-1"] == "NOT_SEPARABLE" and coll["RIG-2"] == "NOT_SEPARABLE"
+       and all(x.get("alternatives_deg") and x["rival_peak_ratio"] >= r["max_rival"] for x in aliased)
+       and any("another peak of the same height" in x for x in r["not_a_measurement"]),
+       f"AT1 each rig's lines are learned from the windows it worked alone ({learned['n_with_signature']} of 3); in a window where all three work the array "
+       f"gives a bearing per rig from that rig's own bins, each inside its own tolerance ({', '.join(f'{k} {v:+.1f}' for k, v in errs.items())} deg), while the "
+       f"whole-band beam is {whole:+.0f} deg from any of them; a rig that never worked alone gets no signature, two rigs with the same pump rate are "
+       f"NOT_SEPARABLE rather than given a bearing each, and a rig whose own lines alias on the geometry is ALIASED with the peaks it cannot separate listed")
+    # AT2 - the field: a bearing history per source from each array, a track per source, and motion judged
+    all_tr, all_sen, fsrcs, fmeta = SG.synthetic_multi_field(hours=4.0)
+    fl = SG.learn_signatures(all_tr[0][0], fsrcs, (1.0, 20.0), 600.0)
+    tog = S.parse_time(fmeta["together_utc"])
+    per = [SG.multi_bearing_history([x.slice(tog, x.endtime) for x in all_tr[i]], all_sen[i], fl["signatures"], (1.0, 20.0), 600.0, name=f"array-{i + 1}")
+           for i in range(2)]
+    truth = {sid: [T.TruthPoint(sid, ll[0], ll[1], tog + 1.0, "field"), T.TruthPoint(sid, ll[0], ll[1], tog + 4 * 3600.0, "field")]
+             for sid, ll in fmeta["rigs_latlon"].items()}
+    mt = SG.multi_track(per, truth)
+    tracked = {sid: r_ for sid, r_ in mt["tracks"].items() if r_.get("positions")}
+    verdicts = {sid: r_["verdict"]["verdict"] for sid, r_ in tracked.items() if r_.get("verdict")}
+    motions = {sid: (r_.get("track") or {}).get("motion") for sid, r_ in tracked.items()}
+    short = None
+    try:
+        SG.multi_track(per[:1])
+    except ValueError as e:
+        short = str(e)
+    ok(fl["n_with_signature"] == 3 and len(tracked) >= 2
+       and all(v in ("TRACKED", "PARTIAL") for sid, v in verdicts.items() if tracked[sid]["positions"] >= 3)
+       and all(m == "NOT_RESOLVED" for sid, m in motions.items() if tracked[sid]["positions"] >= 3)
+       and all(r_["arrays"] == 2 for r_ in tracked.values()) and short and "two or more" in short
+       and any("ellipse" in x for x in mt["not_a_measurement"]),
+       f"AT2 a field of three rigs working at once, two arrays: every rig with a signature gets its own bearing history from each array and its own "
+       f"positions where two arrays pointed at it in the same window ({len(tracked)} of 3 positioned, verdicts {verdicts}); the rigs do not move and the "
+       f"track says so (motion NOT_RESOLVED - the scatter is inside the ellipses), which is the claim a line fitted through any scatter would otherwise make")
+    # AT3 - the site: the station learns signatures and beams each source, the track carries a track per source,
+    #       the report and the page show them, and the service never sends a number a browser cannot parse
+    for i, (trs, sens) in enumerate(zip(all_tr, all_sen)):
+        for t in trs:
+            S.write_mseed([t], str(d / f"{t.station}.mseed"), "STEIM2")
+        with open(d / f"sensors{i + 1}.csv", "w", newline="", encoding="utf-8") as fh:
+            w = _csv.writer(fh); w.writerow(["sensor_id", "lat", "lon"]); [w.writerow([x.sensor_id, x.lat, x.lon]) for x in sens]
+    write_sources_csv(fsrcs, str(d / "rigs.csv"))
+    T.write_truth_csv([p for sid, pts in truth.items() for p in pts], str(d / "truth.csv"))
+    wsp = str(d / "site"); ws = Workspace.create(wsp, "Field site", actor="tester")
+    ids = []
+    for i in (1, 2):
+        ids.append(ws.add_seismic_station(f"Field array {i}", [str(d / f"F{i}S{k:02d}.mseed") for k in range(9)], 31.0, -102.0, "tester",
+                                          sensors_csv=str(d / f"sensors{i}.csv"), sources_csv=str(d / "rigs.csv"), band=[1.0, 20.0])["id"])
+    sm = ws.refresh_seismic(ids[0], "tester")
+    sres = ws.seismic_results(ids[0])
+    tk = ws.add_track("Field", ids, "tester", truth_csv=str(d / "truth.csv"), band=[1.0, 20.0])
+    smt = ws.refresh_track(tk["id"], "tester")
+    tres = ws.track_results(tk["id"])
+    html = Path(ws.track_reports_dir(tk["id"]), "seismic_track_report.html").read_text(encoding="utf-8")
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    r3 = _sp.run([sys.executable, "-m", "gea", "seismic", "--action", "signature-selftest"], capture_output=True, timeout=900)
+    o3 = r3.stdout.decode("utf-8", "replace")
+    import json as _j
+    from .service import _finite
+    bad = _j.dumps(_finite({"a": float("inf"), "b": [float("nan"), 1.5], "c": {"d": float("-inf")}}), allow_nan=False)
+    ok(sm["signatures"] == 3 and sm["multi_pointed"] >= 2 and "signatures" in sres and "multi_beam" in sres
+       and sres["signatures"]["n_with_signature"] == 3 and len(sres["multi_beam"]["sources"]) == 3
+       and smt["sources_learned"] == 3 and smt["sources_tracked"] >= 2 and "multi_track" in tres
+       and len(tres["multi_track"]["tracks"]) == 3
+       and "Several sources at once" in html and "its own signature" in html and "Signature" in html
+       and "if (R.signatures)" in page_src and "Several sources at once" in page_src and "multi_track" in page_src
+       and r3.returncode == 0 and "signature-selftest: SIMULATION_SELF_TEST ok=True" in o3 and "NOT_SEPARABLE" in o3
+       and bad == '{"a": null, "b": [null, 1.5], "c": {"d": null}}',
+       "AT3 on a site: an array station with a rigs list learns every rig's signature at its refresh and beams each of them in a window where several work, "
+       "and a track carries a track per rig beside the whole-band one; the Seismic Track Report has the per-source section with its signatures table and "
+       "the page shows both cards; `gea seismic --action signature-selftest` runs it from the command line; and the service turns every non-finite number "
+       "into null, because NaN and Infinity are valid to Python's json and a syntax error to every browser")
+
+
+def section_au_harmonics(tmp: str) -> None:
+    """Section AU - the machine behind the lines: harmonic families and the fundamental,
+    every line followed through the record so a signature survives the rate moving, the
+    rate read as strokes per minute over time, each tracked line attributed to a source
+    (or to nobody), when each source was working measured from the record instead of
+    taken from the rigs list, and every refusal (too few lines, a comb the line density
+    alone explains, a rate two spacings explain as well)."""
+    import subprocess as _sp
+    from . import seismic as S
+    from . import seismic_harmonic as HM
+    from . import seismic_signature as SG
+    from .seismic_detect import write_sources_csv, _lines_in_windows, _peaks
+    from .workspace import Workspace
+    import numpy as _np
+    pkg = Path(__file__).parent
+    d = Path(tmp, "au"); d.mkdir()
+    # AU1 - the labelled scene: one machine whose pump rate walks, with stops in it
+    r = HM.selftest()
+    m, fb, tl = r["scene"], r["fixed_bins"], r["tracks"]
+    top = (r["families"]["families"] or [{}])[0]
+    # the drift ratios are the physics: the k-th harmonic walks k times as fast as the first
+    ratios = r["drift_ratios"]
+    # an honest refusal: two lines are not a family, however well they fit
+    two = HM.harmonic_families([1.7, 3.4], None, (1.0, 20.0))
+    # and a comb that only the line density explains is not reported as one
+    dense = HM.harmonic_families(sorted(round(float(v), 3) for v in _np.random.default_rng(5).uniform(1.0, 20.0, 60)), None, (1.0, 20.0))
+    sb = HM.sideband_pairs([1.7, 3.4, 10.3, 12.0, 13.7], 12.0)
+    sb_asym = HM.sideband_pairs([10.3, 12.0, 14.2], 12.0)
+    ok(r["ok"] and len(fb["lines_hz"]) < len(m["orders"]) and fb["status"] == "TOO_FEW_LINES"
+       and tl["n_tracks"] == (len(m["orders"]) + 1) * len(m["spells_utc"])
+       and len(ratios) == len(m["orders"]) and all(abs(ratios[k] - k) <= 0.35 for k in ratios)
+       and r["fundamental_error_hz"] <= 0.05 and set(top.get("orders", [])) == set(int(k) for k in m["orders"])
+       and top.get("by_chance", 1.0) <= r["families"]["max_by_chance"] and top.get("fill") == 1.0
+       and any(abs(x - m["engine_hz"]) <= 0.3 for x in r["families"]["orphan_hz"])
+       and r["rate_history"]["status"] == "RATE_VARIES" and r["rate_history"]["range_hz"] >= 0.5 * (m["pump_end_hz"] - m["pump_start_hz"])
+       and r["activity_fixed_bins"]["verdict"] == "DIFFERS" and r["activity_with_drift"]["verdict"] == "AGREES"
+       and r["activity_with_drift"]["n_spells"] == len(m["spells_utc"])
+       and two["status"] == "TOO_FEW_LINES" and "any two lines define a comb" in two["detail"]
+       and (dense["status"] != "OK" or all(f["by_chance"] <= dense["max_by_chance"] for f in dense["families"]))
+       and len(sb) == 1 and sb[0]["spacing_hz"] == 1.7 and not sb_asym,
+       f"AU1 on a labelled scene whose pump rate ramps {m['pump_start_hz']:g} -> {m['pump_end_hz']:g} Hz with a stop in it: a signature of fixed bins holds "
+       f"only {len(fb['lines_hz'])} line(s) ({fb['status']}) because the machine walks out of its own bins, while the tracker follows all "
+       f"{tl['n_tracks']} lines (one per line per working spell) with the harmonics walking "
+       f"{', '.join(f'{v:g}x' for v in ratios.values())} as fast as the first; the family in the tracked lines gives the fundamental to "
+       f"{r['fundamental_error_hz']:+g} Hz of the rate the scene was running at in that window, with the engine line left out of it; the rate history "
+       f"reads the walk ({r['rate_history']['range_hz']:g} Hz, {r['rate_history']['drift_hz_per_hour']:+g} Hz/h); the working spells come out of the "
+       "record (DIFFERS in the bins it was learned on, AGREES allowing for the walk); and two lines, a comb the line density alone explains, and an "
+       "asymmetric sideband pair are each turned down")
+    # AU2 - three rigs at once: each one's own rate, the collisions, and what nobody claims
+    traces, sensors, srcs, meta = SG.synthetic_multi_scene(hours=6.0)
+    learned = SG.learn_signatures(traces[0], srcs, (1.0, 20.0), 600.0)
+    tracks = HM.track_lines(traces[0], (1.0, 20.0), 600.0)
+    sf = HM.signature_families(learned["signatures"], (1.0, 20.0), tracks=tracks)
+    rows = {x["source_id"]: x for x in sf["sources"]}
+    truth = {sid: min(v) for sid, v in meta["lines_hz"].items()}          # the scene's own pump rate per rig
+    errs = {sid: abs(rows[sid]["fundamental_hz"] - truth[sid]) for sid in truth if rows[sid]["fundamental_hz"]}
+    gappy = [x for x in sf["sources"] if x["families"] and x["families"][0]["fill"] < 1.0]
+    at = sf["attribution"]
+    # two rigs given the same pump rate must be marked, not told apart
+    tr2, sen2, src2, meta2 = SG.synthetic_multi_scene(hours=6.0, collide=True)
+    l2 = SG.learn_signatures(tr2[0], src2, (1.0, 20.0), 600.0)
+    sf2 = HM.signature_families(l2["signatures"], (1.0, 20.0))
+    _au2_rates = ', '.join('{} {:g} Hz vs {:g}'.format(sid, rows[sid]['fundamental_hz'] or 0.0, truth[sid]) for sid in sorted(truth))
+    ok(len(errs) == 3 and all(v <= 0.05 for v in errs.values())
+       and all(set(rows[sid]["families"][0]["orders"]) <= set(range(1, 13)) for sid in truth)
+       and gappy and any(x["families"][0]["orders"] == [1, 2, 3, 5] for x in sf["sources"] if x["families"])
+       and bool(at["contested"]) and all(len(c["sources"]) >= 2 for c in at["contested"])
+       and sum(len(v["track_ids"]) for v in at["sources"].values()) >= 6
+       and bool(sf2["shared_fundamentals"]) and sf2["shared_fundamentals"][0]["separation_hz"] <= 0.05
+       and any("two rigs at the same rate share it" in x for x in sf["not_a_measurement"]),
+       f"AU2 three rigs working together, each learned from its own hour alone: the comb search recovers every one's pump rate from its harmonics "
+       f"({_au2_rates}), reports a comb with a tooth missing as "
+       f"orders 1,2,3,5 at {gappy[0]['families'][0]['fill']:.0%} filled rather than inventing the fourth, attributes {sum(len(v['track_ids']) for v in at['sources'].values())} "
+       f"tracked line(s) to the rigs that claim them while {len(at['contested'])} line(s) as close to one rig as to another are given to neither, and marks "
+       "two rigs given the same pump rate as sharing a rate instead of telling them apart")
+    # AU3 - on a site: the station refresh, the report, the page and the command line
+    tr, hsrcs, hmeta = HM.synthetic_harmonic_scene(hours=3.0)
+    S.write_mseed([tr], str(d / "HRM.mseed"))
+    write_sources_csv(hsrcs, str(d / "rigs.csv"))
+    ws = Workspace.create(str(d / "ws"), "tester")
+    st = ws.add_seismic_station("Harmonic station", [str(d / "HRM.mseed")], hmeta["rig_latlon"]["lat"] - 0.02, hmeta["rig_latlon"]["lon"] - 0.02,
+                                "tester", sources_csv=str(d / "rigs.csv"), band=[1.0, 20.0])
+    sm = ws.refresh_seismic(st["id"], "tester")
+    res = ws.seismic_results(st["id"])
+    hq = res.get("harmonics") or {}
+    html = Path(ws.seismic_reports_dir(st["id"]), "seismic_station_report.html").read_text(encoding="utf-8")
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    r1 = _sp.run([sys.executable, "-m", "gea", "seismic", "--action", "harmonic-selftest"], capture_output=True, timeout=900)
+    o1 = r1.stdout.decode("utf-8", "replace")
+    r2 = _sp.run([sys.executable, "-m", "gea", "seismic", "--action", "harmonics", "--file", str(d / "HRM.mseed"), "--sources", str(d / "rigs.csv"),
+                  "--band", "1", "20", "--out", str(d / "harm.json")], capture_output=True, timeout=900)
+    o2 = r2.stdout.decode("utf-8", "replace")
+    acts = {a["source_id"]: a.get("verdict") for a in (hq.get("activity") or [])}
+    sfam = hq.get("signature_families") or {}
+    ok("harmonics" in res and sm["line_tracks"] and sm["rate_status"] == "RATE_VARIES" and sm["fundamental_hz"]
+       and abs(sm["fundamental_hz"] - hmeta["pump_start_hz"]) <= 0.25 and sm["sources_with_rate"] == 1 and len(acts) == 1
+       and list(acts.values())[0] == "AGREES" and sm["unattributed_lines"] == 1
+       and any(abs(u["freq_median_hz"] - hmeta["engine_hz"]) <= 0.2 for u in (sfam.get("attribution") or {}).get("unattributed", []))
+       and bool((sfam.get("attribution") or {}).get("by_harmonic_order"))
+       and "The machine behind the lines" in html and "one machine at one rate" in html and "When was each source working" in html
+       and "R.harmonics" in page_src and "The machine behind the lines" in page_src and "htr" in page_src
+       and r1.returncode == 0 and "harmonic-selftest: SIMULATION_SELF_TEST ok=True" in o1 and "walked out of its own bins" in o1
+       and r2.returncode == 0 and "line tracks:" in o2 and "DRIFTING" in o2 and (d / "harm.json").exists(),
+       f"AU3 on a site: a station refresh follows {sm['line_tracks']} line(s) through the record, finds the family on {sm['fundamental_hz']:g} Hz, reads "
+       f"the rate as {sm['rate_status']}, gives the one listed rig its own rate and measures its working spells from the record (AGREES with the rigs "
+       f"list), while the engine line that no listed rig was learned on stays unattributed and a harmonic the fixed bins missed is attributed by its "
+       "whole-number ratio to a line already claimed; the Seismic Station Report carries the section with its tables, the station page carries the card "
+       "with the tracks drawn against time, and `gea seismic --action harmonics` and `--action harmonic-selftest` do the same from the command line")
+
+
+def section_av_datum(tmp: str) -> None:
+    """Section AV - which datum a position is on. The geodesy checked against values
+    this program did not produce, the identities every projection must satisfy at its
+    own origin, the two feet that are not the same foot, a permit export converted on
+    the way in with the shift recorded, an array refused when its sensors are on two
+    datums, and a station that states no datum saying what that assumption is worth
+    in metres at that site rather than quoting a number."""
+    import subprocess as _sp
+    from . import geodesy as GD
+    from . import seismic as S
+    from . import seismic_harmonic as HM
+    from . import permits as PM
+    from .seismic_detect import load_sources_csv, write_sources_csv
+    from .seismic_array import load_sensors_csv
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "av"); d.mkdir()
+    # AV1 - the geodesy itself, against published values and against its own identities
+    g = GD.selftest()
+    ap, gi = g["against_published"], g["grid_identities"]
+    sep = g["nad27_to_wgs84_at_31N_102W"]
+    # the separation is not a constant: it must differ between two places
+    far = GD.datum_separation_m(35.37, -119.02, "NAD27", "WGS84")
+    # a NAD83 state plane zone must refuse NAD27 coordinates rather than quietly misreading them
+    refused = None
+    try:
+        GD.grid_to_wgs84(700000.0, 3000000.0, "TX_CENTRAL", "NAD27")
+    except ValueError as e:
+        refused = str(e)
+    bad_unit = None
+    try:
+        GD.length_unit("cubits")
+    except ValueError as e:
+        bad_unit = str(e)
+    ok(g["ok"] and abs(ap["meridian_arc_to_45N_m"] - ap["published_m"]) < 1.0
+       and abs(ap["degree_of_latitude_at_equator_m"] - ap["published_lat_m"]) < 0.5
+       and abs(ap["degree_of_longitude_at_equator_m"] - ap["published_lon_m"]) < 0.5
+       and gi["tm_central_meridian_easting_m"] == 500000.0 and gi["tm_scale_at_cm"] == 0.9996
+       and gi["lcc_origin_easting_m"] == 700000.0 and gi["lcc_origin_northing_m"] == 3000000.0
+       and abs(gi["lcc_scale_at_standard_parallel"] - 1.0) < 1e-9
+       and g["round_trip_worst_m"] < g["round_trip_tolerance_m"] and g["datum_round_trip_m"] < 0.001
+       and 5.0 < sep["separation_m"] < 200.0 and abs(far["separation_m"] - sep["separation_m"]) > 10.0
+       and g["us_survey_vs_international_foot_m_at_this_northing"] > 5.0
+       and GD.datum_name("EPSG:4267") == "NAD27" and GD.datum_name("nad 83") == "NAD83" and GD.datum_name("something else") == "UNKNOWN"
+       and refused and "different grid" in refused and bad_unit and "unknown length unit" in bad_unit,
+       f"AV1 the geodesy agrees with values this program did not produce - the WGS84 meridian arc to 45 deg N ({ap['meridian_arc_to_45N_m']:.3f} m "
+       f"against {ap['published_m']:.3f}), a degree of latitude ({ap['degree_of_latitude_at_equator_m']:.3f} against {ap['published_lat_m']:.3f}) and "
+       f"a degree of longitude ({ap['degree_of_longitude_at_equator_m']:.3f} against {ap['published_lon_m']:.3f}) at the equator - and satisfies the "
+       "identities every projection must: the easting at a transverse Mercator central meridian is the false easting exactly and the scale is k0, a "
+       f"Lambert zone's origin lands on its false origin and its standard parallel has a scale of one. Round trips close to "
+       f"{g['round_trip_worst_m'] * 1000:.1f} mm. NAD27 against WGS84 is {sep['separation_m']:.0f} m at 31 N 102 W and {far['separation_m']:.0f} m in "
+       "California, so it is computed at the site and never quoted; a NAD83 state plane zone turns down NAD27 coordinates instead of misreading them "
+       "by thousands of metres; and the US survey foot is not the international foot")
+    # AV2 - the permits importer and the CSV loaders carry the datum through
+    exp = d / "permits.csv"
+    exp.write_text("API No.,Lease Name,Surface Latitude,Surface Longitude,Spud Date,Datum\n"
+                   "42-000-00001,ALPHA 1H,31.000000,-102.000000,03/01/2025,NAD27\n"
+                   "42-000-00002,BETA 2H,31.100000,-102.100000,03/05/2025,NAD83\n"
+                   "42-000-00003,GAMMA 3H,31.200000,-102.200000,03/09/2025,\n", encoding="utf-8")
+    n1 = PM.import_permits(str(exp), str(d / "rigs.csv"))
+    rows = load_sources_csv(str(d / "rigs.csv"))
+    moved = GD.geodesic_m(31.0, -102.0, rows[0].lat, rows[0].lon)["distance_m"]
+    # the same ground as a state plane grid in US survey feet, and the cost of reading it as international feet
+    pr = GD.project(31.0, -102.0, GD.ZONES["TX_CENTRAL"])
+    gexp = d / "grid.csv"
+    gexp.write_text("Permit No,Well Name,X,Y,Approved Date\n"
+                    f"112233,DELTA 4H,{pr['easting_m'] / GD.US_SURVEY_FOOT:.2f},{pr['northing_m'] / GD.US_SURVEY_FOOT:.2f},04/02/2025\n", encoding="utf-8")
+    n2 = PM.import_permits(str(gexp), str(d / "rigs_grid.csv"), mapping={"lat": "Y", "lon": "X"}, zone="TX_CENTRAL", unit="usft", datum="NAD83")
+    r2 = load_sources_csv(str(d / "rigs_grid.csv"))[0]
+    back = GD.geodesic_m(31.0, -102.0, r2.lat, r2.lon)["distance_m"]
+    PM.import_permits(str(gexp), str(d / "rigs_ft.csv"), mapping={"lat": "Y", "lon": "X"}, zone="TX_CENTRAL", unit="ft", datum="NAD83")
+    r3 = load_sources_csv(str(d / "rigs_ft.csv"))[0]
+    wrong_foot = GD.geodesic_m(31.0, -102.0, r3.lat, r3.lon)["distance_m"]
+    # an array whose sensors are on two datums is not an array
+    sx = d / "sensors_mixed.csv"
+    sx.write_text("sensor_id,lat,lon,datum\nS1,31.0,-102.0,WGS84\nS2,31.001,-102.001,NAD27\n", encoding="utf-8")
+    mixed = None
+    try:
+        load_sensors_csv(str(sx))
+    except ValueError as e:
+        mixed = str(e)
+    txt = PM.report_text(n1)
+    ok(n1["datum"]["column"] == "Datum" and n1["datum"]["converted_rows"] == 1 and n1["datum"]["taken_as_wgs84_rows"] == 1
+       and n1["datum"]["unknown_rows"] == 1 and 5.0 < n1["datum"]["shift_m"]["max"] < 200.0
+       and rows[0].datum == "WGS84" and "converted from NAD27" in rows[0].note        # the rigs CSV is WGS84 now; the note carries where it came from
+       and rows[2].datum == "UNKNOWN" and 5.0 < moved < 200.0
+       and n2["datum"]["zone"] == "TX_CENTRAL" and n2["datum"]["unit"] == "usft" and back < 0.05 and wrong_foot > 3.0
+       and mixed and "not an array" in mixed
+       and "converted 1 row(s) to WGS84" in txt and "state no datum" in txt
+       and any("did not state one" in x for x in n1["not_a_measurement"]),
+       f"AV2 a permit export's datum is read from its own column and every row converted to WGS84 on the way in - the NAD27 row moved {moved:.0f} m, "
+       "the NAD83 row was used as WGS84 with the metre or two that costs carried rather than hidden, and the row that stated nothing came out marked "
+       f"UNKNOWN; an export of state plane easting and northing in US survey feet comes back to the same ground within {back * 100:.0f} cm, while the "
+       f"same file read as international feet lands {wrong_foot:.0f} m away; and an array whose sensors are on two different datums is turned down, "
+       "because an array's geometry is the differences between its sensors")
+    # AV3 - on a site: the check, the report, the page and the command line
+    tr, srcs, meta = HM.synthetic_harmonic_scene(hours=2.0)
+    S.write_mseed([tr], str(d / "S.mseed"))
+    write_sources_csv(srcs, str(d / "rigs_site.csv"))
+    lines = (d / "rigs_site.csv").read_text(encoding="utf-8").splitlines()
+    (d / "rigs_site.csv").write_text("\n".join([lines[0]] + [r.rsplit(",", 1)[0] + "," for r in lines[1:]]) + "\n", encoding="utf-8")
+    ws = Workspace.create(str(d / "ws"), "tester")
+    st = ws.add_seismic_station("Unstated", [str(d / "S.mseed")], meta["rig_latlon"]["lat"] - 0.02, meta["rig_latlon"]["lon"] - 0.02,
+                                "tester", sources_csv=str(d / "rigs_site.csv"), band=[1.0, 20.0])
+    sm = ws.refresh_seismic(st["id"], "tester")
+    dc = ws.seismic_results(st["id"]).get("datum") or {}
+    html = Path(ws.seismic_reports_dir(st["id"]), "seismic_station_report.html").read_text(encoding="utf-8")
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    r1 = _sp.run([sys.executable, "-m", "gea", "seismic", "--action", "geodesy-selftest"], capture_output=True, timeout=900)
+    o1 = r1.stdout.decode("utf-8", "replace")
+    r2c = _sp.run([sys.executable, "-m", "gea", "seismic", "--action", "datum", "--sources", str(d / "rigs.csv"),
+                   "--station-lat", "31.0", "--station-lon", "-102.0", "--datum", "WGS84"], capture_output=True, timeout=900)
+    o2 = r2c.stdout.decode("utf-8", "replace")
+    ok(st["datum"] == "UNKNOWN" and sm["datum_status"] == "ALL_UNKNOWN" and sm["datum_if_wrong_m"] and 5.0 < sm["datum_if_wrong_m"] < 200.0
+       and dc.get("status") == "ALL_UNKNOWN" and "nothing has been assumed" in dc.get("detail", "")
+       and "A position is a pair of numbers on a datum" in html and "ALL_UNKNOWN" in html
+       and "R.datum" in page_src and "Datums in use together" in page_src
+       and r1.returncode == 0 and "geodesy-selftest: SELF_TEST ok=True" in o1 and "not quoted" in o1
+       and r2c.returncode == 1 and "datum check [MIXED" in o2,
+       f"AV3 a station that states no datum is recorded as UNKNOWN rather than assumed to be WGS84, and its refresh prints what that assumption is "
+       f"worth here - {sm['datum_if_wrong_m']:.0f} m if the positions are NAD27 - in the Seismic Station Report and on the station page; "
+       "`gea seismic --action geodesy-selftest` checks the geodesy against published values from the command line, and `--action datum` turns a "
+       "non-zero exit when a set of files is on more than one datum")
+
+
+def section_aw_array_qc(tmp: str) -> None:
+    """Section AW - is this array any good? Four known faults put into a clean array
+    (a dead channel, a clock out by a stated number of milliseconds, a sensor wired
+    backwards and one at a fraction of the gain); QC must name exactly those four and
+    no others, recover the clock error, say what excluding them does to the bearing,
+    and return the same array with no faults in it as USABLE with nothing named."""
+    import subprocess as _sp
+    from . import seismic as S
+    from . import seismic_qc as QC
+    from . import seismic_array as AR
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "aw"); d.mkdir()
+    # AW1 - the faults, found and measured
+    r = QC.selftest()
+    qc, meta, cost = r["qc"], r["scene"], r["beam_cost"]
+    found, want = qc.get("faults") or {}, meta["faults"]
+    tid = list(want["timing"])[0]
+    clean = r["clean_array"]
+    ok(r["ok"] and qc["status"] == "DEGRADED"
+       and found.get("DEAD") == want["dead"] and found.get("POLARITY") == want["polarity"]
+       and found.get("TIMING") == [tid] and found.get("LOW_GAIN") == list(want["gain"])
+       and abs(abs(r["timing_recovered_ms"]) - want["timing"][tid]) <= 5.0
+       and cost["status"] == "CHANGED" and cost["bearing_change_deg"] > 10.0 and cost["coherence_change"] > 0
+       and clean["status"] == "USABLE" and clean["n_usable"] == qc["n_sensors"] and not clean["faults"]
+       and any("orientation" in x for x in qc["not_a_measurement"])
+       and any("whole cycle" in x for x in qc["not_a_measurement"]),
+       f"AW1 four faults put into a clean array are each named and no others: the dead channel {want['dead'][0]}, the clock on {tid} out by "
+       f"{want['timing'][tid]:g} ms and measured at {r['timing_recovered_ms']:+.1f} ms by a plane fitted to the array's own delays, the sensor wired "
+       f"backwards {want['polarity'][0]} caught by the sign of its correlation, and {list(want['gain'])[0]} at a fraction of the gain; excluding them "
+       f"moves the bearing {cost['bearing_change_deg']:.0f} deg - more than this array can resolve - and raises the best-bin coherence by "
+       f"{cost['coherence_change']:+.2f}; and the same array with no faults in it comes back USABLE with nothing named, which is the half of the test "
+       "that matters most, because a check that finds a fault in a good array is worse than no check")
+    # AW2 - the pieces, each refusing what it cannot judge
+    traces, sensors, _m = QC.synthetic_qc_scene()
+    short = None
+    try:
+        QC.array_qc(traces[:2], sensors[:2])
+    except ValueError as e:
+        short = str(e)
+    # a window with nothing coherent in it is not a failing array: it is a window with nothing in it
+    quiet = [t.slice(t.starttime, t.starttime + 300.0) for t in AR.synthetic_array_scene(hours=1.0, distances_km=(6.0,))[0]]
+    qsens = AR.synthetic_array_scene(hours=1.0, distances_km=(6.0,))[1]
+    qq = QC.array_qc(quiet, qsens, (1.0, 20.0))
+    # the plane fit on a clean array recovers the velocity and bearing the scene used
+    clean_tr, clean_sn, cmeta = QC.synthetic_qc_scene(dead=(), clock_ms={}, reversed_=(), gain={})
+    cq = QC.array_qc(clean_tr, clean_sn, (1.0, 20.0))
+    b = AR.beam(clean_tr, clean_sn, (1.0, 20.0))
+    pf = cq["plane_fit"]
+    v_err = abs(pf["apparent_velocity_km_s"] - cmeta["v_km_s"])
+    b_err = abs(float(AR._angle_diff(pf["back_azimuth_deg"], b["back_azimuth_deg"])))
+    ok(short and "3 or more sensors" in short
+       and qq["status"] in ("NOT_USABLE", "DEGRADED") and any(x["verdict"] == "INSUFFICIENT" for x in qq["sensors"])
+       and cq["status"] == "USABLE" and v_err < 0.2 and b_err < 3.0
+       and all(abs(x["timing_residual_s"]) < 0.005 for x in cq["sensors"] if x["timing_residual_s"] is not None),
+       f"AW2 the plane fitted to a clean array's own delays recovers the scene's velocity to {v_err:.3f} km/s and agrees with the beam to {b_err:.1f} "
+       "deg, with every timing residual under 5 ms - so the test is its own reference and needs no clock; fewer than three sensors is turned down "
+       "rather than judged, and a window with nothing coherent crossing the array returns INSUFFICIENT instead of calling a good array faulty")
+    # AW3 - on a site, in the report, on the page and from the command line
+    tr2, sn2, m2 = QC.synthetic_qc_scene()
+    names = []
+    for i, t in enumerate(tr2):
+        S.write_mseed([t], str(d / f"Q{i:02d}.mseed"))
+        names.append(str(d / f"Q{i:02d}.mseed"))
+    with open(d / "sensors.csv", "w", encoding="utf-8") as fh:
+        fh.write("sensor_id,lat,lon\n")
+        for sn in sn2:
+            fh.write(f"{sn.sensor_id},{sn.lat:.6f},{sn.lon:.6f}\n")
+    ws = Workspace.create(str(d / "ws"), "tester")
+    st = ws.add_seismic_station("QC array", names, 31.0, -102.0, "tester", sensors_csv=str(d / "sensors.csv"),
+                                band=[1.0, 20.0], datum="WGS84")
+    sm = ws.refresh_seismic(st["id"], "tester")
+    res = ws.seismic_results(st["id"])
+    html = Path(ws.seismic_reports_dir(st["id"]), "seismic_station_report.html").read_text(encoding="utf-8")
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    r1 = _sp.run([sys.executable, "-m", "gea", "seismic", "--action", "qc-selftest"], capture_output=True, timeout=900)
+    o1 = r1.stdout.decode("utf-8", "replace")
+    r2 = _sp.run([sys.executable, "-m", "gea", "seismic", "--action", "array-qc", "--files"] + names
+                 + ["--sensors", str(d / "sensors.csv"), "--band", "1", "20"], capture_output=True, timeout=900)
+    o2 = r2.stdout.decode("utf-8", "replace")
+    ok("array_qc" in res and res["array_qc"]["qc"]["status"] == "DEGRADED" and sm["qc_status"] == "DEGRADED"
+       and sm["qc_usable"] == res["array_qc"]["qc"]["n_sensors"] - 4 and sm["qc_faults"] == 4
+       and sm["qc_bearing_change_deg"] and sm["qc_bearing_change_deg"] > 10.0
+       and "Array quality" in html and "it is the differences between them" in html and "the delays must lie on a plane" in html.replace("arrival ", "")
+       and "R.array_qc" in page_src and "Array quality" in page_src
+       and r1.returncode == 0 and "qc-selftest: SIMULATION_SELF_TEST ok=True" in o1
+       and r2.returncode == 1 and "array QC [DEGRADED]" in o2 and "TIMING" in o2,
+       f"AW3 on a site: an array station's refresh runs QC before anything that uses the array, writes array_qc.json, and the summary carries the "
+       f"verdict ({sm['qc_status']}, {sm['qc_usable']} of {res['array_qc']['qc']['n_sensors']} sensors, {sm['qc_faults']} faults, "
+       f"{sm['qc_bearing_change_deg']:.0f} deg of bearing at stake); the Seismic Station Report carries the section with the per-sensor table and the "
+       "two beams side by side, the station page carries the card, and `gea seismic --action array-qc` turns a non-zero exit on an array that is not "
+       "clean, which is what a check is for")
+
+
+def section_ax_unlisted(tmp: str) -> None:
+    """Section AX - what else is out there. A rig deliberately left off the list the
+    program is given, and a mains line in every sensor: the program must find the rig
+    nobody listed at its true bearing and its true rate, name the mains and the mains
+    harmonic that folds back under Nyquist as electrical rather than as machines, and
+    find nothing at all once every rig is on the list."""
+    import subprocess as _sp
+    from . import seismic as S
+    from . import seismic_harmonic as HM
+    from . import seismic_signature as SG
+    from . import seismic_unlisted as UL
+    from . import seismic_array as AR
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ax"); d.mkdir()
+    # AX1 - the rig nobody listed, found; the mains, left alone
+    r = UL.selftest()
+    meta, res = r["scene"], r["result"]
+    cand = res["candidates"]
+    mains = cand.get("mains") or {}
+    folded = [h for v in mains.values() for h in v if h["folded"]]
+    direct = [h for v in mains.values() for h in v if not h["folded"]]
+    ok(r["ok"] and res["status"] == "FOUND" and res["n_found"] == 1
+       and r["bearing_error_deg"] <= r["tolerance_deg"] and abs(r["rate_found_hz"] - r["rate_true_hz"]) <= 0.1
+       and direct and folded and not r["mains_claimed_as_machine"]
+       and r["with_every_rig_listed"]["n_candidates"] == 0
+       and any("compressor" in x for x in cand["not_a_measurement"]),
+       f"AX1 one of three rigs is left off the list the program is given and a mains line is put in every sensor. The program finds the rig nobody "
+       f"listed: a comb of its own at {r['rate_found_hz']:g} Hz against the scene's {r['rate_true_hz']:g}, beamed on its own lines to "
+       f"{r['bearing_error_deg']:+.2f} deg of its true bearing against a tolerance of {r['tolerance_deg']:.1f}. The {direct[0]['freq_hz']:g} Hz mains "
+       f"is named as electrical, and so is the {folded[0]['freq_hz']:g} Hz line, which is a mains harmonic above half the sample rate folded back into "
+       "the band - the one that looks exactly like a machine. Neither is claimed as a source. With every rig on the list there is nothing left to find, "
+       "and a candidate is never called a rig: a compressor, a pump jack and a passing train all put lines in this band"
+       )
+    # AX2 - the pieces: electrical-only, nothing unlisted, lines that form no comb
+    traces, sensors, listed, allsrc, meta2 = UL.synthetic_unlisted_scene()
+    band = (1.0, 70.0)
+    tl = HM.track_lines(traces[0], band, 300.0, max_drift_hz=0.3)
+    learned_all = SG.learn_signatures(traces[0], allsrc, band, 300.0)
+    none = UL.unlisted_candidates(tl, learned_all["signatures"], band, sample_rate_hz=traces[0].sample_rate)
+    # two lines are never a machine
+    two = UL.unlisted_candidates({"tracks": [{"id": 1, "freq_median_hz": 3.1, "excess_db_median": 20.0, "freqs_hz": [3.1], "windows": [0], "status": "STEADY"},
+                                             {"id": 2, "freq_median_hz": 6.2, "excess_db_median": 15.0, "freqs_hz": [6.2], "windows": [0], "status": "STEADY"}],
+                                  "bin_width_hz": 0.01, "window_starts_utc": ["2025-06-01T00:00:00Z"]}, [], band)
+    # 2 x 60 Hz is above half a 150 Hz sample rate, so it cannot be observed at 120: it folds back to 30
+    ml = UL.mains_lines([59.98, 29.9, 17.3], [60.0], 0.3, sample_rate_hz=150.0)
+    ok(none["status"] == "ONLY_ELECTRICAL" and not none["candidates"]
+       and two["status"] == "UNEXPLAINED_LINES" and not two["candidates"] and len(two["leftover_hz"]) == 2
+       and "60" in ml and len(ml["60"]) == 2 and any(h["folded"] for h in ml["60"])
+       and all(abs(x - 17.3) > 0.1 for x in [h["freq_hz"] for h in ml["60"]]),
+       "AX2 with every rig on the list, the only lines nobody claims are the mains and its folded harmonic, so the answer is ONLY_ELECTRICAL and no "
+       "candidate at all; two lines that happen to sit at a ratio of two are UNEXPLAINED_LINES and not a machine, because any two lines define a comb; "
+       "and the mains test catches a line at the mains frequency and one where a harmonic above half the sample rate folds back, while leaving an "
+       "unrelated line alone")
+    # AX3 - on a site, in the report, on the page and from the command line
+    names = []
+    for i, t in enumerate(traces):
+        S.write_mseed([t], str(d / f"U{i:02d}.mseed"))
+        names.append(str(d / f"U{i:02d}.mseed"))
+    with open(d / "sensors.csv", "w", encoding="utf-8") as fh:
+        fh.write("sensor_id,lat,lon\n")
+        for sn in sensors:
+            fh.write(f"{sn.sensor_id},{sn.lat:.6f},{sn.lon:.6f}\n")
+    from .seismic_detect import write_sources_csv
+    write_sources_csv(listed, str(d / "rigs.csv"))
+    ws = Workspace.create(str(d / "ws"), "tester")
+    st = ws.add_seismic_station("Unlisted array", names, 31.0, -102.0, "tester", sensors_csv=str(d / "sensors.csv"),
+                                sources_csv=str(d / "rigs.csv"), band=[1.0, 70.0], datum="WGS84")
+    sm = ws.refresh_seismic(st["id"], "tester")
+    res2 = ws.seismic_results(st["id"])
+    html = Path(ws.seismic_reports_dir(st["id"]), "seismic_station_report.html").read_text(encoding="utf-8")
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    r1 = _sp.run([sys.executable, "-m", "gea", "seismic", "--action", "unlisted-selftest"], capture_output=True, timeout=1800)
+    o1 = r1.stdout.decode("utf-8", "replace")
+    ok("unlisted" in res2 and sm["unlisted_status"] in ("FOUND", "NO_BEARING", "CANDIDATES")
+       and (res2["unlisted"].get("candidates") or {}).get("mains")
+       and "What else is out there" in html and "nobody is watching" in html
+       and "R.unlisted" in page_src and "What else is out there" in page_src
+       and r1.returncode == 0 and "unlisted-selftest: SIMULATION_SELF_TEST ok=True" in o1 and "folded back" in o1,
+       f"AX3 on a site the station refresh runs the search at every refresh and writes unlisted.json (status {sm['unlisted_status']}, "
+       f"{sm['unlisted_found']} found); the Seismic Station Report carries the section naming each candidate's rate and direction and each electrical "
+       "line for what it is, the station page carries the card, and `gea seismic --action unlisted | unlisted-selftest` does the same from the command "
+       "line")
+
+
+def section_ay_site_reports(tmp: str) -> None:
+    """Section AY - the two reports about the site rather than about one station.
+    The Dataset Report says what is held - every record, its span, its checksum, its
+    datum, and whether a result is older than the record it came from. The Field
+    Report says what the site heard - every station's reach, every listed rig and
+    where it was heard, every track, and everything found that nobody listed."""
+    import subprocess as _sp
+    import time as _time
+    from . import seismic as S
+    from . import seismic_harmonic as HM
+    from .seismic_detect import write_sources_csv
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ay"); d.mkdir()
+    tr, srcs, meta = HM.synthetic_harmonic_scene(hours=2.0)
+    S.write_mseed([tr], str(d / "A.mseed"))
+    write_sources_csv(srcs, str(d / "rigs.csv"))
+    ws = Workspace.create(str(d / "ws"), "tester")
+    st = ws.add_seismic_station("Alpha", [str(d / "A.mseed")], meta["rig_latlon"]["lat"] - 0.02, meta["rig_latlon"]["lon"] - 0.02,
+                                "tester", sources_csv=str(d / "rigs.csv"), band=[1.0, 20.0], datum="NAD27")
+    # AY1 - the holdings, before anything has been run against them
+    before = ws.seismic_inventory()
+    never = [w for w in before["warnings"] if "never refreshed" in w]
+    rec = before["stations"][0]["records"][0]
+    ws.refresh_seismic(st["id"], "tester")
+    after = ws.seismic_inventory()
+    # touching the source makes every result older than the record, and the inventory must say so
+    _time.sleep(1.1)
+    Path(ws.path, "seismic", st["id"], "source", "A.mseed").touch()
+    stale = ws.seismic_inventory()
+    stale_w = [w for w in stale["warnings"] if "older than the record" in w]
+    ok(before["n_stations"] == 1 and before["n_records"] == 1 and abs(before["total_hours"] - 2.0) < 0.05
+       and never and rec["sha256"] and rec["sample_rate_hz"] == 50.0 and rec["gaps"] == 0 and rec["hours"] and rec["bytes"]
+       and before["stations"][0]["datum"] == "NAD27" and not before["stations"][0]["ran"]
+       and after["stations"][0]["ran"].get("summary") == "current" and not after["warnings"]
+       and stale_w and all(v == "stale" for v in stale["stations"][0]["ran"].values()),
+       f"AY1 the inventory reads every record it holds rather than what was concluded from it: {before['n_records']} record of "
+       f"{before['total_hours']:.1f} h at {rec['sample_rate_hz']:g} Hz with {rec['gaps']} gaps, its checksum, and the datum its positions are on "
+       "(NAD27 here). A station that has never been run is named as such; after a run every output is current; and when the source file is touched "
+       "every output is marked stale, because a result older than the record it came from is not a result about that record")
+    # AY2 - the two reports, and what they will not say
+    r1 = ws.write_seismic_dataset_report("tester")
+    r2 = ws.write_seismic_field_report("tester")
+    dmd = Path(r1["paths"]["markdown"]).read_text(encoding="utf-8")
+    fmd = Path(r2["paths"]["markdown"]).read_text(encoding="utf-8")
+    fld = r2["field"]
+    heard = [x for x in fld["sources"] if x["heard_at"]]
+    ok(Path(r1["paths"]["html"]).is_file() and Path(r2["paths"]["html"]).is_file()
+       and Path(ws.dir("reports", "seismic"), "inventory.json").is_file() and Path(ws.dir("reports", "seismic"), "field.json").is_file()
+       and "Seismic Dataset Report" in dmd and "The holdings" in dmd and "Every record" in dmd and "sha256" in dmd
+       and "What needs attention" in dmd and "older than the record" in dmd
+       and "Seismic Field Report" in fmd and "The listed sources" in fmd and len(heard) == 1
+       and "may be outside the radius of every station here" in fmd
+       and "says what is held, not whether it is any good" in dmd,
+       f"AY2 the Dataset Report carries the holdings and every record with its span, rate, gaps and checksum, names what needs attention, and says "
+       f"plainly that it describes what is held and not whether it is any good; the Field Report carries every station's reach and every listed "
+       f"source with where it was heard ({len(heard)} of {len(fld['sources'])}), and states that a source nobody heard is not a source that was not "
+       "working - it may be outside the radius of every station there")
+    # AY3 - from the command line and on the page
+    r3 = _sp.run([sys.executable, "-m", "gea", "workspace", "--path", str(d / "ws"), "--action", "seismic-dataset", "--actor", "tester"],
+                 capture_output=True, timeout=900)
+    o3 = r3.stdout.decode("utf-8", "replace")
+    r4 = _sp.run([sys.executable, "-m", "gea", "workspace", "--path", str(d / "ws"), "--action", "seismic-field", "--actor", "tester"],
+                 capture_output=True, timeout=900)
+    o4 = r4.stdout.decode("utf-8", "replace")
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    svc_src = (pkg / "service.py").read_text(encoding="utf-8")
+    audit = Path(ws.path, "records", "audit.jsonl").read_text(encoding="utf-8")
+    ok(r3.returncode == 0 and "seismic-dataset:" in o3 and "1 station(s)" in o3 and "report:" in o3
+       and r4.returncode == 0 and "seismic-field:" in o4 and "listed source(s) heard" in o4
+       and "The site as a whole" in page_src and "site_reports" in page_src and "site_reports" in svc_src
+       and "seismic.dataset-report" in audit and "seismic.field-report" in audit,
+       "AY3 `gea workspace --action seismic-dataset` and `--action seismic-field` write the two reports and print what is in them, each run is in the "
+       "audit log with what it covered, and the Seismic page carries a card for the site as a whole with a link to each report and a plain statement "
+       "of which question each one answers")
+
+
+def section_az_uncertainty(tmp: str) -> None:
+    """Section AZ - how well a bearing is known, measured and then checked. Every
+    ellipse this leg drew came from the array's geometry, which is what it could do at
+    perfect signal-to-noise, not an error bar. The sigma is now measured by cutting the
+    window up and beaming each piece, the coverage test counts how often the truth
+    actually falls inside it, and the positions are crossed with what the data is worth
+    instead of with what the geometry allows."""
+    import subprocess as _sp
+    from . import seismic_uncertainty as UQ
+    from . import seismic_track as T
+    d = Path(tmp, "az"); d.mkdir()
+    # AZ1 - measured, the right size, and checked against a bearing known from outside the record
+    r = UQ.selftest()
+    c, o = r["coverage"], r["one_window"]
+    ok(r["ok"] and c["status"] in ("CALIBRATED", "CONSERVATIVE") and c["n"] >= 6
+       and 0.4 <= c["recommended_scale"] <= 2.5 and c["fraction_2sigma"] >= 0.8
+       and o["status"] == "OK" and o["n_parts"] >= UQ.MIN_PARTS
+       and o["sigma_deg"] >= o["floor_deg"] - 1e-6 and o["sigma_deg"] <= o["resolution_half_width_deg"]
+       and r["too_few_parts"]["status"] == "INSUFFICIENT_PARTS"
+       and r["per_bin_scatter_deg"] > 10.0 * o["sigma_deg"]
+       and any("half-power width as an error bar" in x for x in o["not_a_measurement"]),
+       f"AZ1 the uncertainty of a bearing is measured from the record rather than taken from the geometry: the window is cut into {o['n_parts']} "
+       f"sub-windows, each beamed on its own, and their scatter gives {o['sigma_deg']:g} deg against a median error of "
+       f"{c['median_abs_error_deg']:g} deg - the factor that would centre the claim exactly is {c['recommended_scale']:g}, so the sigma is the right "
+       f"size and not merely a number. Counted over {c['n']} windows against a bearing known from outside the record, the truth falls inside one "
+       f"sigma in {c['fraction_1sigma']:.0%} and inside two in {c['fraction_2sigma']:.0%}. Nothing is claimed finer than the beamformer's own grid "
+       f"({o['grid_step_deg']:g} deg), the array response half-power width ({o['resolution_half_width_deg']:g} deg) is reported beside it as the "
+       "different question it is - how far apart two sources must be to be seen as two - and a window too short to cut up says so instead of guessing"
+       )
+    # AZ2 - the estimator that was tried first, kept as a number: one bearing per frequency bin
+    ok(r["per_bin_scatter_deg"] > 20.0 and (o.get("per_bin") or {}).get("n_bins", 0) >= 3
+       and "aliasing" in (o.get("per_bin") or {}).get("note", "")
+       and any("sub-windows" in x for x in o["not_a_measurement"]),
+       f"AZ2 the first estimator tried here - a bearing from each coherent frequency bin, and the scatter of those - is wrong on a small array and is "
+       f"kept as a number rather than a story: it scatters by {r['per_bin_scatter_deg']:.0f} deg whatever the signal-to-noise, because one frequency "
+       "has no diversity to break the array's spatial aliasing. That is the geometry and not the data, and it is reported beside the real figure so "
+       "the difference is visible")
+    # AZ3 - the ellipse is drawn from what the data is worth (no beamforming needed to prove the wiring)
+    def hist(name, lat, lon, baz, sigma):
+        w = {"start_utc": "2025-06-01T00:00:00Z", "start": 0.0, "coherent": True, "back_azimuth_deg": baz,
+             "tolerance_deg": 8.0, "coherence_max_bin": 0.9, "coherent_bins": 5}
+        if sigma is not None:
+            w["sigma_deg"] = sigma
+        return {"array": {"name": name, "lat": lat, "lon": lon, "n_sensors": 9, "aperture_km": 1.2},
+                "band_hz": [1.0, 20.0], "win_s": 600.0, "step_s": 600.0, "tolerance_deg": 8.0, "windows": [w],
+                "n_windows": 1, "n_coherent": 1}
+    geom = T.position_history([hist("a1", 31.0, -102.05, 45.0, None), hist("a2", 31.0, -101.95, 315.0, None)])
+    meas = T.position_history([hist("a1", 31.0, -102.05, 45.0, 1.0), hist("a2", 31.0, -101.95, 315.0, 1.0)])
+    gw = [w for w in geom["windows"] if w.get("position")][0]
+    mw = [w for w in meas["windows"] if w.get("position")][0]
+    gmaj = gw["position"]["ellipse_1sigma"]["major_km"]
+    mmaj = mw["position"]["ellipse_1sigma"]["major_km"]
+    # the command line is checked for its inputs and its refusals rather than by running the whole selftest
+    # again: it is the same code, and a second run of it would double this section for nothing
+    r1 = _sp.run([sys.executable, "-m", "gea", "seismic", "--action", "bearing-sigma"], capture_output=True, timeout=900)
+    o1 = (r1.stdout + r1.stderr).decode("utf-8", "replace")
+    r2 = _sp.run([sys.executable, "-m", "gea", "seismic", "--action", "coverage", "--files", "x", "--sensors", "y"], capture_output=True, timeout=900)
+    o2 = (r2.stdout + r2.stderr).decode("utf-8", "replace")
+    r3 = _sp.run([sys.executable, "-m", "gea", "seismic", "--help"], capture_output=True, timeout=900)
+    o3 = r3.stdout.decode("utf-8", "replace")
+    ok(gmaj and mmaj and mmaj < gmaj and abs(mmaj / gmaj - 1.0 / 8.0) < 0.05
+       and mw["sigma_measured"] == [True, True] and gw["sigma_measured"] == [False, False]
+       and mw["sigma_deg"] == [1.0, 1.0] and gw["sigma_deg"] == [8.0, 8.0]
+       and r1.returncode != 0 and "one per sensor" in o1
+       and r2.returncode != 0 and "known independently of this record" in o2
+       and "bearing-sigma" in o3 and "uncertainty-selftest" in o3 and "measure-sigma" in o3,
+       f"AZ3 the position crossed from two bearings is drawn with what each bearing is worth: with the array's resolution standing in for an error "
+       f"bar the 1-sigma ellipse is {gmaj:.2f} km across, and with a measured sigma eight times smaller it is {mmaj:.2f} km - the ellipse follows the "
+       "data, and each position records which of its bearings carried a measured sigma and which fell back to the geometry. `gea seismic --action "
+       "bearing-sigma | coverage | uncertainty-selftest` do the same from the command line")
+
+
+def section_ba_sites(tmp: str) -> None:
+    """Section BA - the site: the engagement rather than the leg. The workspace held
+    wells, seismic stations and tracks as peers with nothing owning them, which made
+    this three tools in one package. A site holds what belongs to one client's ground,
+    the Site Report pulls every leg of it into one document, and anything not run since
+    its source changed is named."""
+    import subprocess as _sp
+    import time as _time
+    from . import seismic as S
+    from . import seismic_harmonic as HM
+    from .seismic_detect import write_sources_csv
+    from .workspace import Workspace, WorkspaceError
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ba"); d.mkdir()
+    tr, srcs, meta = HM.synthetic_harmonic_scene(hours=2.0)
+    S.write_mseed([tr], str(d / "A.mseed"))
+    write_sources_csv(srcs, str(d / "rigs.csv"))
+    ws = Workspace.create(str(d / "ws"), "tester")
+    st = ws.add_seismic_station("Alpha", [str(d / "A.mseed")], meta["rig_latlon"]["lat"] - 0.02, meta["rig_latlon"]["lon"] - 0.02,
+                                "tester", sources_csv=str(d / "rigs.csv"), band=[1.0, 20.0], datum="WGS84")
+    # BA1 - what a site will not accept
+    bad = empty = dup = None
+    try:
+        ws.add_site("Nowhere", seismic=["not-here"], actor="tester")
+    except WorkspaceError as e:
+        bad = str(e)
+    try:
+        ws.add_site("Empty", actor="tester")
+    except WorkspaceError as e:
+        empty = str(e)
+    site = ws.add_site("Retama block", seismic=[st["id"]], client="Acme Operating", note="a two-leg engagement", actor="tester")
+    try:
+        ws.add_site("Retama block", seismic=[st["id"]], actor="tester")
+    except WorkspaceError as e:
+        dup = str(e)
+    ok(bad and "can only hold what this workspace holds" in bad and "not-here" in bad
+       and empty and "a site with nothing in it is not a site" in empty
+       and dup and "already exists" in dup
+       and site["id"] == "Retama-block" and site["client"] == "Acme Operating" and site["seismic"] == [st["id"]]
+       and [x["id"] for x in ws.sites()] == [site["id"]] and ws.summary()["n_sites"] == 1,
+       "BA1 a site holds the wells, the seismic stations and the tracks of one engagement, and only what the workspace actually holds: a member that "
+       "is not here is named and turned down, a site with nothing in it is turned down, and a second site of the same name is turned down")
+    # BA2 - the report, and what it says has not been run
+    r0 = ws.write_site_report(site["id"], "tester")
+    never = [w for w in r0["summary"]["warnings"] if "never refreshed" in w]
+    ws.refresh_seismic(st["id"], "tester")
+    r1 = ws.write_site_report(site["id"], "tester")
+    _time.sleep(1.1)
+    Path(ws.path, "seismic", st["id"], "source", "A.mseed").touch()
+    r2 = ws.write_site_report(site["id"], "tester")
+    stale = [w for w in r2["summary"]["warnings"] if "older than" in w]
+    md = Path(r1["paths"]["markdown"]).read_text(encoding="utf-8")
+    ok(never and not r1["summary"]["warnings"] and stale
+       and "Site Report" in md and "Retama block" in md and "Acme Operating" in md and "a two-leg engagement" in md
+       and "The seismic stations" in md and "What needs attention" in md
+       and "a boundary on the ground" in md
+       and Path(ws.dir("reports", "sites", site["id"]), "summary.json").is_file(),
+       "BA2 the Site Report pulls every leg of one engagement into one document, carries the client and the note, says plainly that a site is a list "
+       "of what belongs to an engagement and not a boundary on the ground, and names what needs attention: a member never run before the first "
+       "refresh, nothing after it, and every result marked older than its source once that source is touched")
+    # BA3 - the command line, the service and the page
+    r3 = _sp.run([sys.executable, "-m", "gea", "workspace", "--path", str(d / "ws"), "--action", "sites"], capture_output=True, timeout=900)
+    o3 = r3.stdout.decode("utf-8", "replace")
+    r4 = _sp.run([sys.executable, "-m", "gea", "workspace", "--path", str(d / "ws"), "--action", "site-report", "--site", site["id"],
+                  "--actor", "tester"], capture_output=True, timeout=900)
+    o4 = r4.stdout.decode("utf-8", "replace")
+    r5 = _sp.run([sys.executable, "-m", "gea", "workspace", "--path", str(d / "ws"), "--action", "site-report"], capture_output=True, timeout=900)
+    o5 = (r5.stdout + r5.stderr).decode("utf-8", "replace")
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    svc_src = (pkg / "service.py").read_text(encoding="utf-8")
+    ws.remove_site(site["id"], "tester")
+    audit = Path(ws.path, "records", "audit.jsonl").read_text(encoding="utf-8")
+    ok(r3.returncode == 0 and "Retama-block" in o3 and "Acme Operating" in o3
+       and r4.returncode == 0 and "site-report:" in o4 and "report:" in o4
+       and r5.returncode != 0 and "needs --site" in o5
+       and "'/api/sites'" in svc_src and "VIEWS.sites" in page_src and "'#/sites', 'Sites'" in page_src
+       and "site.add" in audit and "site.report" in audit and "site.remove" in audit
+       and not ws.sites() and ws.summary()["n_sites"] == 0,
+       "BA3 `gea workspace --action add-site | sites | site-report | remove-site` do the same from the command line and turn a non-zero exit when the "
+       "site is not named; every one of them is in the audit log; the service offers the sites and the page carries a Sites view with a link to each "
+       "site's report; and removing a site takes it out of the workspace while keeping its folder")
+    r1 = ws.rename("Pad 3", "tester"); r2 = ws.rename("Pad 3", "tester")
+    r6 = _sp.run([sys.executable, "-m", "gea", "workspace", "--path", ws.path, "--action", "rename", "--name", "Pad 3", "--actor", "tester"], capture_output=True, text=True)
+    try:
+        ws.rename("   ", "tester"); blank = False
+    except WorkspaceError:
+        blank = True
+    audit2 = Path(ws.path, "records", "audit.jsonl").read_text(encoding="utf-8")
+    ok(r1["changed"] and r1["from"] != "Pad 3" and not r2["changed"] and ws.summary()["name"] == "Pad 3"
+       and r6.returncode == 0 and "unchanged" in r6.stdout and audit2.count("workspace.rename") == 1 and blank,
+       "BA4 `--action rename` sets the site's name as every report prints it; the same name again changes nothing and writes no audit line, "
+       "so a launcher may state it on every start; a blank name is refused")
+
+
+def section_bb_supervisor(tmp: str) -> None:
+    """Section BB - the control panel owns its own stopping and starting. It ended by
+    having its window closed, which left the operator looking at whatever shell was
+    underneath - on a console opened from a Python profile, a bare `>>>` where a
+    program used to be. Now the service states how it ended in its exit code, the
+    launcher reads that code and never falls through to another shell, every start and
+    stop is on the disk before it is attempted, and a run that was killed is recovered
+    from in the order that matters: the live stream first, the records behind it."""
+    import http.cookiejar
+    import importlib.util
+    import re as _re
+    import threading as _th
+    import urllib.error
+    import urllib.request
+    from . import supervisor as SV
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bb"); d.mkdir()
+
+    # -- the run log: appended, flushed, and readable after a kill -------------------------
+    wsp = str(d / "ws")
+    ws = Workspace.create(wsp, "Supervisor Site", actor="tester")
+    first = SV.previous_run(wsp)
+    SV.log(wsp, "start", version="test")
+    SV.log(wsp, "stop", code=SV.EXIT_CLEAN, reason="asked to")
+    clean = SV.previous_run(wsp)
+    SV.log(wsp, "start", version="test")
+    killed = SV.previous_run(wsp)
+    raw = Path(wsp, "records", "runlog.jsonl").read_text(encoding="utf-8")
+    lines = [json.loads(x) for x in raw.strip().splitlines()]
+    ok(SV.EXIT_CLEAN == 0 and SV.EXIT_RESTART == 86 and SV.EXIT_CLEAN != SV.EXIT_RESTART
+       and raw.endswith("\n") and [x["event"] for x in lines] == ["start", "stop", "start"]
+       and all("utc" in x and "pid" in x and "event" in x for x in lines) and lines[0]["pid"] == os.getpid()
+       and first["status"] == "FIRST_RUN" and clean["status"] == "CLEAN" and killed["status"] == "UNCLEAN"
+       and "never logged a stop" in killed["detail"] and "killed" in killed["detail"] and len(SV.tail(wsp, 2)) == 2 and SV.tail(wsp, 99)[0]["event"] == "start",
+       "BB1 the run log is one appended JSON line per event with the time, the process and the event, written and flushed before the thing it "
+       "describes is attempted; a start with no stop after it reads back as UNCLEAN and not as a clean stop, a workspace that has never served "
+       "reads as FIRST_RUN, and the exit codes are two distinct numbers (0 stop, 86 restart)")
+
+    # a process id comes round again; an older run that happens to share this process's id is still a run
+    ok(SV.previous_run(wsp, exclude_pid=os.getpid())["status"] == "CLEAN" and SV.previous_run(wsp)["status"] == "UNCLEAN"
+       and SV.previous_run(wsp, exclude_pid=os.getpid() + 1)["status"] == "UNCLEAN",
+       "BB2 the running process excludes only its own last start, by position in the log and not by matching the number - so an older run that "
+       "happens to share a recycled process id is still reported, and a process id that is not the last start's excludes nothing")
+
+    # -- the exit code reaches the launcher, and the launcher acts on it -------------------
+    spec = importlib.util.spec_from_file_location("bb_installer", str(pkg.parent / "tools" / "build_installer.py"))
+    bi = importlib.util.module_from_spec(spec); spec.loader.exec_module(bi)
+    cmd = bi.WIN_SCRIPTS["start-dashboard.cmd"]; sh = bi.LINUX_SCRIPTS["start-dashboard.sh"]
+    body = [ln for ln in cmd.strip().splitlines() if ln.strip() and not ln.strip().lower().startswith("rem ")]
+    labels = set(_re.findall(r"^:(\w+)", cmd, _re.M)); gotos = set(_re.findall(r"goto\s+(\w+)", cmd))
+    ok("title GEA - Operations Control Panel" in cmd
+       and '"%GEA_RC%"=="86"' in cmd and "goto gea_run" in cmd and not gotos - labels
+       and body[-1].lower().startswith("powershell") and "-NoExit" in body[-1] and "start-dashboard.cmd" in body[-1]
+       and "python" not in body[-1].lower().split("write-host")[0]
+       and 'rc" = "86"' in sh and "continue" in sh and sh.count("exit \"$rc\"") == 1,
+       "BB3 the Windows launcher names the window, runs the panel again when it exits with 86, resolves every label it jumps to, and ends by handing "
+       "the window to a PowerShell prompt that says how to start the panel again - it never falls back to the shell underneath, which is how an "
+       "operator was left at a Python prompt; the shell launcher does the same with a loop")
+    ok("auto_restart.flag" in cmd and "auto_restart.flag" in sh
+       and "GEA_FAILS" in cmd and "GTR 5" in cmd and "fails" in sh and "-le 5" in sh
+       and SV.AUTO_MAX == 5
+       and cmd.splitlines()[cmd.splitlines().index(":gea_read_flag") + 1].strip().startswith("set /p GEA_AUTO=<")
+       and cmd.count("set /p GEA_AUTO=<") == 1,
+       "BB4 a code that is neither 0 nor 86 is a death, not a decision: the launcher reads the operator's answer from records/auto_restart.flag, "
+       "tries at most five times in a row so a panel that crashes while starting hands over the error instead of flickering all night, and reads "
+       "that file outside an if-block because a redirect inside parentheses is parsed before the block runs")
+
+    # -- the flag file: what the launcher will read, not what the manifest says ------------
+    ok(SV.auto_restart(wsp) is False and SV.set_auto_restart(wsp, True) is True and SV.auto_restart(wsp) is True
+       and Path(SV.auto_flag_path(wsp)).read_text(encoding="utf-8").strip() == "1"
+       and SV.set_auto_restart(wsp, False) is False and SV.auto_restart(wsp) is False
+       and SV.auto_restart(str(d / "nothing-here")) is False,
+       "BB5 the auto-restart switch is one character in one file because the launcher is a batch script and cannot read the manifest; a missing or "
+       "unreadable flag reads as off, since a program does not start itself again on the strength of a file nobody can be sure about")
+
+    # -- doctor reads the installed launcher ----------------------------------------------
+    from .doctor import check_launcher, check_workspace, kit_dir
+    good = d / "kit_good"; (good / "python").mkdir(parents=True)
+    (good / "start-dashboard.cmd").write_text(cmd, encoding="utf-8")
+    bad = d / "kit_bad"; (bad / "python").mkdir(parents=True)
+    (bad / "start-dashboard.cmd").write_text("@echo off\ncd /d \"%~dp0\"\npython\\python.exe -m gea serve\n", encoding="utf-8")
+    fg = check_launcher(str(good)); fb = check_launcher(str(bad))
+    ok(not [x for x in fg if x["level"] in ("warn", "block")] and len(fg) == 3
+       and len([x for x in fb if x["level"] == "warn"]) == 3
+       and any("Python prompt" in x["what"] and ">>>" in x["what"] for x in fb) and all(x["fix"] for x in fb if x["level"] == "warn")
+       and (kit_dir() is None) == any("not running from an installed kit" in x["what"] for x in check_launcher(None)),
+       "BB6 `gea doctor` reads the installed launcher off the disk and says whether it honours the contract: a kit built before this existed is "
+       "named as three warnings with fixes, including that its window returns to a Python prompt - the defect is found by reading a file rather "
+       "than by an operator meeting an interpreter")
+    wf = check_workspace(wsp, "127.0.0.1", 0)
+    ok(any("was killed rather than stopped" in x["what"] for x in wf) and any("auto-restart is off" in x["what"] for x in wf),
+       "BB7 doctor on a workspace whose last run was killed says so, and says whether that workspace will start itself again")
+
+    # -- the recovery order: the stream first, the records behind it -----------------------
+    order: list = []
+    held = _th.Event()
+    class _P:
+        def start_enabled(self, actor="supervisor"):
+            order.append("patches"); return ["patch-a", "patch-b"]
+        def states(self):
+            return [{"name": "patch-a", "status": "RUNNING"}, {"name": "patch-b", "status": "RUNNING"}, {"name": "patch-c", "status": "STOPPED"}]
+    class _WS:
+        path = wsp
+        def report_ages(self):
+            order.append("ages")
+            return [{"what": "well A", "status": "stale", "detail": "source grew"}, {"what": "well B", "status": "current", "detail": ""}]
+        def refresh_all(self, actor="supervisor"):
+            order.append("refresh")
+            held.wait(30)                            # the rebuild is held open, so the test can prove resume did not wait on it
+            order.append("refresh-done")
+            return {"wells": 1, "seismic": 0, "tracks": 0, "errors": []}
+        def audit(self, *a, **k): pass
+    fake = _WS()
+    held.set()                                       # BB8 calls the catch-up directly and wants it to run through
+    bh = SV.behind(fake)
+    cu = SV.catch_up(fake, "tester")
+    ok([x["what"] for x in bh] == ["well A"] and cu["status"] == "CAUGHT_UP" and cu["behind"] == ["well A"]
+       and SV.catch_up(type("E", (_WS,), {"report_ages": lambda s: [{"what": "w", "status": "current", "detail": ""}]})(), "tester")["status"] == "NOTHING_BEHIND",
+       "BB8 the catch-up rebuilds what is behind its source and names it, and leaves everything else alone - a catch-up that refreshed everything "
+       "would tell the operator nothing about what had actually fallen behind")
+    order.clear()
+    held.clear()                                     # hold the rebuild open for BB9
+    res = SV.resume(fake, _P(), "tester")
+    returned = list(order)                           # what had happened by the time resume handed back control
+    held.set()                                       # now let the rebuild finish
+    res["_thread"].join(timeout=30)
+    ok(returned[0] == "patches" and "refresh-done" not in returned and res["catch_up"]["status"] == "RUNNING"
+       and order[0] == "patches" and order[-1] == "refresh-done"
+       and res["patches_started"] == ["patch-a", "patch-b"] and res["patches_running"] == ["patch-a", "patch-b"]
+       and res["patch_error"] is None and res["previous_run"]["status"] in ("CLEAN", "UNCLEAN", "FIRST_RUN")
+       and res["_result"]["status"] == "CAUGHT_UP" and res["_result"]["behind"] == ["well A"]
+       and "catch_up.done" in [x["event"] for x in SV.tail(wsp, 6)],
+       "BB9 on a start the live patches come up first and the rebuilding of the records runs behind them, because a stream that is not running is "
+       "losing records that nothing can recover later, while a report that is behind its source can be rebuilt at any time")
+
+    # -- through the service, as an operator would --------------------------------------
+    users = Users(str(Path(wsp, "users.json")))
+    users.add("adm", "admin-pass-123", "admin"); users.add("op", "operator-pass-1", "operator")
+    svc = Service(wsp, host="127.0.0.1", port=0, scheduler=False)
+    base = svc.url.rstrip("/")
+    th = _th.Thread(target=svc.serve_forever, daemon=True); th.start()
+    time.sleep(0.6)
+    cj = http.cookiejar.CookieJar(); opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json")
+        if method == "POST":
+            req.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(req, timeout=60) as r:
+                return r.status, json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+
+    call("POST", "/api/login", {"name": "op", "password": "operator-pass-1"})
+    s_op, _ = call("POST", "/api/control/shutdown", {})
+    sa_op, _ = call("POST", "/api/control/auto-restart", {"enabled": True})
+    call("POST", "/api/logout", {})
+    call("POST", "/api/login", {"name": "adm", "password": "admin-pass-123"})
+    s_ctl, ctl = call("GET", "/api/control")
+    s_no, no = call("POST", "/api/control/restart", {})
+    s_auto, auto = call("POST", "/api/control/auto-restart", {"enabled": True})
+    ok(s_op == 403 and sa_op == 403 and s_ctl == 200
+       and ctl["pid"] == os.getpid() and ctl["exit_codes"] == {"clean": 0, "restart": 86}
+       and ctl["previous_run"]["status"] in ("CLEAN", "UNCLEAN") and isinstance(ctl["runlog_tail"], list)
+       and "start" in [x["event"] for x in ctl["runlog_tail"]] and "86" in ctl["launcher_contract"]
+       and s_no == 400 and "authorize" in no["error"]
+       and s_auto == 200 and auto["auto_restart"] is True and auto["launcher_reads"] is True and SV.auto_restart(wsp) is True,
+       "BB10 stopping and starting the panel is an administrator's action and an operator is refused it; a restart is refused without an explicit "
+       "authorisation in the request, every time, because a control that reboots the program on a stray click is not a control; and turning the "
+       "auto-restart switch on writes the flag the launcher actually reads and says so in the answer")
+    s_re, re_ = call("POST", "/api/control/restart", {"authorize": True})
+    th.join(timeout=30)
+    tail = [x["event"] for x in SV.tail(wsp, 8)]
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    ok(s_re == 200 and re_["code"] == 86 and re_["event"] == "restart" and "launcher" in re_["detail"]
+       and not th.is_alive() and svc.exit_code == 86 and "restart" in tail
+       and [x for x in SV.tail(wsp, 8) if x["event"] == "restart"][-1]["code"] == 86
+       and "ctlAuthorize" in page_src and "/api/control/restart" in page_src and "authorize: true" in page_src
+       and "ctlAuto" in page_src and "/api/control/auto-restart" in page_src and "Operations control" in page_src,
+       "BB11 an authorised restart is logged before the server is touched, stops the run and leaves 86 as the code the launcher reads; the control "
+       "panel's own page carries the Stop and Restart controls, the authorisation step behind a popup, and the auto-restart switch")
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     with tempfile.TemporaryDirectory() as tmp:
@@ -3657,6 +4616,15 @@ def main() -> int:
         section_aq_sar_and_audit(tmp)
         section_ar_tracker(tmp)
         section_as_tracks_page(tmp)
+        section_at_signatures(tmp)
+        section_au_harmonics(tmp)
+        section_av_datum(tmp)
+        section_aw_array_qc(tmp)
+        section_ax_unlisted(tmp)
+        section_ay_site_reports(tmp)
+        section_az_uncertainty(tmp)
+        section_ba_sites(tmp)
+        section_bb_supervisor(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:
