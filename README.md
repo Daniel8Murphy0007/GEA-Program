@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (308 checks)
+gea accept                     # the product gate (314 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")

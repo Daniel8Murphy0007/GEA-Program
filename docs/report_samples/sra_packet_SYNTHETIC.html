@@ -4,19 +4,19 @@
 <style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
 <h1>Downhole Gauge Monitoring - Seismicity Response Area Packet</h1>
 <table class="front">
-<tr><td>Report ID</td><td>SRA-SYNTHETIC-SRA-block-20261007T022506Z</td></tr>
+<tr><td>Report ID</td><td>SRA-SYNTHETIC-SRA-block-20261007T183822Z</td></tr>
 <tr><td>Area</td><td>SYNTHETIC SRA</td></tr>
 <tr><td>Site</td><td>SYNTHETIC SRA block</td></tr>
 <tr><td>Client</td><td>SYNTHETIC operator</td></tr>
-<tr><td>Generated (UTC)</td><td>2026-10-07T02:25:06Z</td></tr>
-<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.9.0</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-07T18:38:22Z</td></tr>
+<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.10.0</td></tr>
 <tr><td>Result</td><td class="result-ok">COMPLETE: 1 WELL(S) INSIDE, RESPONSE TRIGGERED, GOAL RUNNING</td></tr>
 </table>
 <h2>1. The area and the plan</h2>
 <p>SYNTHETIC SRA: a circle of 9.08 km (259.0 km²) around 31.95000, -102.25000 on WGS84. Plan date 2026-02-25. The plan is written against earthquakes of magnitude 3.5 and above inside the area: the goal is 18 months without one; the response to one is a meeting of the operator-led response group within 48 hours; the checkpoints with Commission staff fall every 3 months. Disposal wells are placed in two tiers by the base of the Wolfcamp. Triggering event: SYNTHETIC-0001.</p>
 <p>Every number in this paragraph is a declaration copied from the plan, not a measurement.</p>
 <h2>2. What is inside the area</h2>
-<p>1 well(s) and 0 seismic station(s) of the site fall inside the area by geodesic distance from the centre, with every position carried to WGS84 first; 0 could not be placed.</p>
+<p>1 well(s) and 5 seismic station(s) of the site fall inside the area by geodesic distance from the centre, with every position carried to WGS84 first; 0 could not be placed.</p>
 <table>
 <caption>Wells</caption>
 <tr><th>Well</th><th>Name</th><th>API</th><th>UIC</th><th>Membership</th><th>Distance (km)</th><th>Depth tier</th><th>BHP method</th><th>Daily record</th></tr>
@@ -25,6 +25,11 @@
 <table>
 <caption>Seismic stations</caption>
 <tr><th>Station</th><th>Name</th><th>Kind</th><th>Membership</th><th>Distance (km)</th></tr>
+<tr><td>SYNTHETIC-STA1</td><td>SYNTHETIC STA1</td><td>single</td><td>inside</td><td>6.48</td></tr>
+<tr><td>SYNTHETIC-STA2</td><td>SYNTHETIC STA2</td><td>single</td><td>inside</td><td>7.18</td></tr>
+<tr><td>SYNTHETIC-STA3</td><td>SYNTHETIC STA3</td><td>single</td><td>inside</td><td>7.29</td></tr>
+<tr><td>SYNTHETIC-STA4</td><td>SYNTHETIC STA4</td><td>single</td><td>inside</td><td>7.93</td></tr>
+<tr><td>SYNTHETIC-STA5</td><td>SYNTHETIC STA5</td><td>single</td><td>inside</td><td>0</td></tr>
 </table>
 <h2>3. Daily record, rolled up by month: SYNTHETIC SWD 1</h2>
 <p>SYNTHETIC SWD 1 (deep): 31 of 31 day(s) carry a record; max surface injection pressure psi: RECORDED, avg surface injection pressure psi: RECORDED, injection volume bbl: RECORDED, max injection rate bbl min: RECORDED; bottomhole pressure: RECORDED (Permanent BHP probe method)</p>
@@ -37,7 +42,7 @@
 <h2>4. Seismicity against the plan</h2>
 <p>Catalogue export of 2026-10-07: 4 event(s) inside the area, 3 at or above M 3.5, 1 of those declared aftershocks and exempt. Largest inside the area: M 4.4, 2026-02-20, 0 km from the centre (SYNTHETIC-0001).</p>
 <p>Response: TRIGGERED. M 3.7 on 2026-03-05 inside the area, after the plan date and not declared an aftershock: the response group meets within 48 hours.</p>
-<p>Goal: RUNNING. 215 day(s) without an earthquake at or above M 3.5 since 2026-03-05; the 18-month goal falls on 2027-09-05.</p>
+<p>Goal: RUNNING. 216 day(s) without an earthquake at or above M 3.5 since 2026-03-05; the 18-month goal falls on 2027-09-05.</p>
 <table>
 <caption>Events at or above the threshold inside the area (and the latest event)</caption>
 <tr><th>Event</th><th>Origin (UTC)</th><th>M</th><th>Distance (km)</th><th>Depth (km)</th><th>After plan date</th><th>Standing</th></tr>
@@ -46,7 +51,27 @@
 <tr><td>SYNTHETIC-0003</td><td>2026-03-06 01:00</td><td>3.6</td><td>0.73</td><td>6.50</td><td>yes</td><td>exempt</td></tr>
 <tr><td>SYNTHETIC-0004</td><td>2026-03-19 21:40</td><td>2.0</td><td>1.46</td><td>6.10</td><td>yes</td><td>-</td></tr>
 </table>
-<h2>5. The schedule</h2>
+<h2>5. Events located by the site&#x27;s own stations</h2>
+<p>The site&#x27;s own stations: 13 arrival(s) picked at 5 station(s), associated into 2 event(s) under a straight-ray model at 5.8 km/s with the hypocentre at a declared 6.0 km; 2 inside the area. An event needs 3 or more stations within 0.15 s; a depth is declared, not located; no magnitude is estimated here.</p>
+<p>Against the catalogue: 1 agree, 0 differ, 1 not in the catalogue; 4 catalogue event(s) the stations did not associate. Where they differ, both positions are printed and neither is chosen.</p>
+<p>3 candidate arrival(s) not associated: 2026-03-05T11:07:00 at SYNTHETIC-STA3 - 1 station(s) within 3.2 s: fewer than 3; 2026-03-05T11:15:01 at SYNTHETIC-STA2 - 2 station(s) within 3.2 s: fewer than 3; 2026-03-05T11:15:01 at SYNTHETIC-STA5 - 1 station(s) within 3.2 s: fewer than 3.</p>
+<table>
+<caption>Events the stations located</caption>
+<tr><th>Event</th><th>Origin (UTC)</th><th>Epicentre (WGS84)</th><th>Stations</th><th>RMS (s)</th><th>Misfit region E x N (km)</th><th>From centre (km)</th><th>Area</th></tr>
+<tr><td>assoc-20260305T110300</td><td>2026-03-05 11:03:00</td><td>31.9532, -102.2374</td><td>5</td><td>0.01</td><td>0.5 x 1.0</td><td>1.25</td><td>inside</td></tr>
+<tr><td>assoc-20260305T111000</td><td>2026-03-05 11:10:00</td><td>31.9258, -102.2745</td><td>5</td><td>0.01</td><td>1.0 x 1.0</td><td>3.54</td><td>inside</td></tr>
+</table>
+<table>
+<caption>Against the catalogue</caption>
+<tr><th>Event</th><th>Catalogue event</th><th>Catalogue M</th><th>dt (s)</th><th>Separation (km)</th><th>Allowed (km)</th><th>Standing</th></tr>
+<tr><td>assoc-20260305T110300</td><td>SYNTHETIC-0002</td><td>3.70</td><td>27</td><td>0.79</td><td>2.50</td><td>AGREES</td></tr>
+<tr><td>assoc-20260305T111000</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>NOT IN CATALOGUE</td></tr>
+<tr><td>-</td><td>SYNTHETIC-0001</td><td>4.40</td><td>-</td><td>-</td><td>-</td><td>NOT ASSOCIATED BY THE STATIONS</td></tr>
+<tr><td>-</td><td>SYNTHETIC-0003</td><td>3.60</td><td>-</td><td>-</td><td>-</td><td>NOT ASSOCIATED BY THE STATIONS</td></tr>
+<tr><td>-</td><td>SYNTHETIC-0004</td><td>2</td><td>-</td><td>-</td><td>-</td><td>NOT ASSOCIATED BY THE STATIONS</td></tr>
+<tr><td>-</td><td>SYNTHETIC-0005</td><td>3.90</td><td>-</td><td>-</td><td>-</td><td>NOT ASSOCIATED BY THE STATIONS</td></tr>
+</table>
+<h2>6. The schedule</h2>
 <p>Checkpoints with Commission staff from the plan date, and the goal date.</p>
 <table>
 <tr><th>#</th><th>Date</th><th>What</th></tr>
@@ -58,9 +83,9 @@
 <tr><td>6</td><td>2027-08-25</td><td>checkpoint with Commission staff: seismicity level and trend, pressure monitoring, effectiveness of the plan</td></tr>
 <tr><td>goal</td><td>2027-08-25</td><td>18 months from the plan date: if no earthquake at or above M 3.5 has occurred inside the area, the response group meets to decide next steps</td></tr>
 </table>
-<h2>6. What this packet is missing</h2>
+<h2>7. What this packet is missing</h2>
 <p>Nothing: every declaration is present and every parameter is recorded.</p>
-<h2>7. What this packet does not call a measurement</h2>
+<h2>8. What this packet does not call a measurement</h2>
 <p>an aftershock: the operator&#x27;s declaration, shown as exempt.</p>
 <p>a volume read off a pressure gauge: a well with no rate channel has no volume.</p>
 <p>a depth tier from depth alone: the tier is stratigraphic and is declared.</p>

@@ -1154,7 +1154,7 @@ class Workspace:
         seis = None
         if catalog_csv:
             seis = SR.seismicity(sra, SR.read_catalog(catalog_csv), as_of=as_of, aftershocks=aftershocks or [])
-        return SR.packet(sra, mem, daily, seis, as_of=as_of, site=st)
+        return SR.packet(sra, mem, daily, seis, as_of=as_of, site=st, association=self.association(site_id))
 
     def write_sra_packet(self, site_id: str, catalog_csv: Optional[str] = None, aftershocks: Optional[List[str]] = None,
                          start: Optional[str] = None, end: Optional[str] = None, actor: str = 'system') -> dict:
@@ -1184,6 +1184,70 @@ class Workspace:
         self.audit(actor, 'site.sra_packet', {'id': site_id, 'status': pk['status'], 'gaps': len(pk['gaps']), 'rows': exp['rows'],
                                                'catalog': catalog_csv or None})
         return {'site': site_id, 'status': pk['status'], 'paths': paths, 'packet': pk, 'export_rows': exp['rows']}
+
+    # -- association: the site's stations heard the same thing, or they did not ---------------------------------
+    def associate_site(self, site_id: str, vp_km_s: float = 5.8, depth_km: float = 6.0, band: Optional[List[float]] = None,
+                       start: Optional[str] = None, end: Optional[str] = None, catalog_csv: Optional[str] = None,
+                       rms_tol_s: float = 0.15, actor: str = 'system') -> dict:
+        """Picks on every station of the site, associated into events under a declared model, located, and set
+        against the catalogue if one is handed in. An array is one station: its sensors' picks are reduced to one
+        by the median, at the station's own position. Written to reports/sites/<id>/association.json."""
+        from . import seismic as S
+        from . import seismic_assoc as SA
+        from . import sra as SR
+        st = self.site(site_id)
+        sids = [x for x in st['seismic'] if x in self.manifest.get('seismic', [])]
+        if len(sids) < 3:
+            raise WorkspaceError(f'site {site_id} has {len(sids)} seismic station(s): association needs three or more')
+        t_start = SR._parse_dt(start).timestamp() if start else None
+        t_end = SR._parse_dt(end).timestamp() if end else None
+        stations: Dict[str, SA.Station] = {}
+        all_picks: List[SA.Pick] = []
+        per_station = {}
+        for sid in sids:
+            srec = self.seismic_station(sid)
+            if srec.get('lat') is None or srec.get('lon') is None:
+                per_station[sid] = {'status': 'NO POSITION', 'picks': 0}
+                continue
+            stations[sid] = SA.Station(sid, float(srec['lat']), float(srec['lon']), srec.get('datum') or 'WGS84', srec.get('kind') or 'single')
+            src = os.path.join(self.path, 'seismic', sid, 'source')
+            b = tuple(band or srec.get('band_hz') or (2.0, 20.0))
+            raw: List[SA.Pick] = []
+            for name in srec['files']:
+                for tr in S.read_any(os.path.join(src, name)):
+                    if t_start is not None or t_end is not None:
+                        tr = tr.slice(t_start if t_start is not None else tr.starttime, t_end if t_end is not None else tr.endtime)
+                    if tr.npts > 0:
+                        for pk in SA.picks(tr, band=(float(b[0]), float(b[1]))):
+                            pk.station = sid
+                            raw.append(pk)
+            if srec.get('kind') == 'array' and len(srec['files']) > 1:
+                raw = SA.collapse_array_picks(raw, sid)
+            per_station[sid] = {'status': 'PICKED', 'picks': len(raw), 'kind': srec.get('kind'), 'files': len(srec['files']), 'band_hz': list(b)}
+            all_picks += raw
+        if len(stations) < 3:
+            raise WorkspaceError(f'only {len(stations)} station(s) of site {site_id} have a position: association needs three or more')
+        res = SA.associate(all_picks, stations, vp_km_s, depth_km, rms_tol_s=rms_tol_s)
+        cmp = None
+        if catalog_csv:
+            cat = SR.read_catalog(catalog_csv)
+            cmp = SA.compare_catalog(res, cat['events'])
+            cmp['catalog'] = {k: cat[k] for k in ('path', 'export_mtime_utc', 'n_events')}
+        out = {'protocol': 'workspace.association/1', 'site': site_id, 'generated_utc': utc_now_iso(), 'stations': per_station,
+               'period': {'start': start, 'end': end}, 'association': res, 'catalogue': cmp, 'label': None}
+        d = self.dir('reports', 'sites', site_id)
+        with open(os.path.join(d, 'association.json'), 'w', encoding='utf-8') as f:
+            json.dump(out, f, indent=1)
+        self.audit(actor, 'site.associate', {'id': site_id, 'stations': len(stations), 'picks': res['n_picks'], 'events': res['n_events'],
+                                              'vp_km_s': vp_km_s, 'depth_km': depth_km, 'catalog': catalog_csv or None})
+        return out
+
+    def association(self, site_id: str) -> Optional[dict]:
+        p = os.path.join(self.path, 'reports', 'sites', site_id, 'association.json')
+        if not os.path.isfile(p):
+            return None
+        with open(p, encoding='utf-8') as f:
+            return json.load(f)
 
     def write_site_report(self, site_id: str, actor: str = 'system') -> dict:
         from . import __version__

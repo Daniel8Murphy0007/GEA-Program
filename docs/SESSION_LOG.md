@@ -1010,3 +1010,30 @@ since v0.1.0.
   job unreadable at that instant is left out of a listing. The gate's temp
   folder cleans up with errors ignored so a job's open log handle cannot
   fail a finished gate.
+
+## 2026-10-07 - association (v0.10.0)
+
+He took the recommendation. `gea/seismic_assoc.py`: picks by STA/LTA with
+the onset refined to the first energy; association by a grid search for
+the origin with the origin time solved at every node; three or more
+stations within the RMS tolerance or NOT ASSOCIATED; the worst pick dropped
+while more than three remain; the location's misfit region as an extent,
+never a confidence interval; an array collapsed to one station; the result
+against the catalogue - AGREES, DIFFERS with both positions printed, NOT IN
+CATALOGUE, and the catalogue events the stations did not associate.
+
+Two defects the scene caught before any record did. The onset refinement
+walked back past the arrival into the noise, because twice the background
+is crossed by noise often enough, and every pick came out ~150 ms early -
+uniformly, so the location absorbed it into the origin time and the RMS
+looked fine; the threshold is now the larger of six times the background
+and a twentieth of the arrival's own peak, and the picks sit within 30 ms.
+The fine grid was centred on the stations' centroid, not the coarse best
+node, so the second event - 3.7 km from the centre - was located off the
+edge of a 1 km box with two stations dropped as outliers; it is centred on
+the coarse best now and the error is 40 m.
+
+- `--action associate` on a site; the SRA packet carries the stations' own
+  events; `gea seismic --action assoc-selftest`; the vocabulary gate caught
+  the word "refused" in the packet's own prose and it was reworded.
+- Section BD (6 checks): 314.

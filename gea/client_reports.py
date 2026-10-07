@@ -1644,6 +1644,30 @@ def sra_packet_report(pk: dict, evaluated_at: Optional[datetime] = None, program
     else:
         secs.append(Section(str(n), 'Seismicity against the plan', ['No catalogue export was handed in. This section is empty and the goal clock is not stated.']))
         n += 1
+    ao = pk.get('association')
+    if ao:
+        mo = ao.get('model') or {}
+        paras = [f"The site's own stations: {ao['n_picks']} arrival(s) picked at {ao['n_stations']} station(s), associated into {ao['n_events']} event(s) "
+                 f"under a straight-ray model at {mo.get('vp_km_s', '-')} km/s with the hypocentre at a declared {mo.get('depth_km', '-')} km; {ao['n_inside']} inside the area. "
+                 f"An event needs {mo.get('min_stations', 3)} or more stations within {mo.get('rms_tol_s', '-')} s; a depth is declared, not located; no magnitude is estimated here."]
+        rows = [[e['id'], e['origin_utc'][:19].replace('T', ' '), f"{e['lat']:.4f}, {e['lon']:.4f}", e['n_stations'], _fmt(e['rms_s']),
+                 f"{e['region_km']['extent_east_km']} x {e['region_km']['extent_north_km']}", _fmt(e['distance_km']), 'inside' if e['inside'] else 'outside']
+                for e in ao['events']]
+        tabs = [Table(['Event', 'Origin (UTC)', 'Epicentre (WGS84)', 'Stations', 'RMS (s)', 'Misfit region E x N (km)', 'From centre (km)', 'Area'], rows,
+                      'Events the stations located')]
+        cq = ao.get('catalogue')
+        if cq:
+            paras.append(f"Against the catalogue: {cq['n_agree']} agree, {cq['n_differ']} differ, {cq['n_not_in_catalogue']} not in the catalogue; "
+                         f"{len(cq['missed'])} catalogue event(s) the stations did not associate. Where they differ, both positions are printed and neither is chosen.")
+            tabs.append(Table(['Event', 'Catalogue event', 'Catalogue M', 'dt (s)', 'Separation (km)', 'Allowed (km)', 'Standing'],
+                              [[r['event'], r.get('catalog_event') or '-', _fmt(r.get('catalog_magnitude')), _fmt(r.get('dt_s')), _fmt(r.get('separation_km')),
+                                _fmt(r.get('allowed_km')), r['standing']] for r in cq['rows']]
+                              + [['-', m['catalog_event'], _fmt(m['magnitude']), '-', '-', '-', m['standing']] for m in cq['missed']], 'Against the catalogue'))
+        if ao['refused']:
+            paras.append(f"{len(ao['refused'])} candidate arrival(s) not associated: " + '; '.join(f"{r['first_pick'][:19]} at {r['station']} - {r['why']}" for r in ao['refused'][:5])
+                         + ('; ...' if len(ao['refused']) > 5 else '') + '.')
+        secs.append(Section(str(n), 'Events located by the site\'s own stations', paras, tabs))
+        n += 1
     secs.append(Section(str(n), 'The schedule', ['Checkpoints with Commission staff from the plan date, and the goal date.'],
                         [Table(['#', 'Date', 'What'], [[c['n'], c['date'], c['what']] for c in pk['checkpoints']])]))
     n += 1

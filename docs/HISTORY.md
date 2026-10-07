@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.10.0 - 2026-10-07 - association
+
+- **The stations heard the same thing, or they did not.** A picker, an
+  associator with a grid search for the origin under a declared model, a
+  location with its misfit region, an array as one station, and the result
+  set against the catalogue with both positions printed where they differ.
+  Three or more stations or NOT ASSOCIATED; a depth declared, a magnitude
+  not estimated. Feeds the SRA packet. Section BD; gate 314.
+
 ## v0.9.0 - 2026-10-07 - the Seismicity Response Area packet
 
 - **The SRA packet.** The first deliverable shaped to a regulator rather

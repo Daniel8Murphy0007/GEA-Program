@@ -5,6 +5,48 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.10.0] - 2026-10-07 - association: the stations heard the same thing, or they did not
+
+### Added
+- **Association** (`gea/seismic_assoc.py`): the piece every monitoring
+  pipeline is built around and this program had none of. Until now the leg
+  could say what one station heard, what direction an array heard it from,
+  and where two arrays' bearings cross; it could not say that the arrivals
+  at three or more stations belong to one event, or where and when that
+  event was. Three honest pieces: a **pick** - the onset of an impulsive
+  arrival by the short-term over long-term average, refined back to the
+  first energy, carrying its time and signal-to-noise ratio and nothing
+  else; an **association** - one pick per station consistent with a single
+  origin under a declared velocity, found by a grid search over the ground
+  with the origin time solved at every node, accepted at three or more
+  stations inside a declared RMS tolerance, the worst pick dropped while
+  more than three remain, and NOT ASSOCIATED below three; a **location** -
+  the best node with the misfit region (the nodes within one pick
+  uncertainty of it), reported as its east-west and north-south extent and
+  never called a confidence interval. An array is one station: its sensors'
+  picks reduce to one by the median, because sensors a few hundred metres
+  apart do not constrain an epicentre tens of kilometres away.
+- What it refuses, on every result: a depth (declared; every plan on file
+  works from a regional value, and the model is a straight ray at one
+  velocity on a flat earth, named); a magnitude (needs the instrument
+  response and an attenuation relation, neither in this band); an event
+  from fewer than three stations; a verdict on which of two positions is
+  right when the stations and the catalogue differ - both are printed.
+- `gea workspace --action associate --site <id> [--vp --depth-km --catalog]`
+  picks every station of a site, associates, locates, sets the events
+  against a catalogue export (AGREES, DIFFERS, NOT IN CATALOGUE, and the
+  catalogue events the stations did not associate), writes
+  `association.json` and audits it. The **SRA packet** now carries the
+  events the site's own stations located beside the catalogue's, each
+  inside or outside the area. `gea seismic --action assoc-selftest` runs
+  the labelled scene. Section BD (6 checks); the gate is 314.
+- Two defects found by the scene before they reached a record: the onset
+  refinement walked back into the noise and every pick came out 150 ms
+  early, which the location absorbed into the origin time and nobody would
+  have seen; and the fine grid was centred on the stations' centroid
+  instead of the coarse best node, so every event more than a kilometre
+  from the centre was lost. Both are in the gate now.
+
 ## [v0.9.0] - 2026-10-07 - the Seismicity Response Area packet
 
 ### Added

@@ -458,7 +458,7 @@ def export_daily_csv(rows: List[dict], out_path: str) -> dict:
 # the packet
 # --------------------------------------------------------------------------------------------------------------
 def packet(sra: dict, member: dict, wells_daily: Dict[str, dict], seis: Optional[dict], as_of: Optional[datetime] = None,
-           site: Optional[dict] = None) -> dict:
+           site: Optional[dict] = None, association: Optional[dict] = None) -> dict:
     """Everything the packet says, in one record: the area, who is inside it, the daily record per well rolled
     up by month, the seismicity against the plan, the schedule, and every gap by name."""
     now = as_of or datetime.now(timezone.utc)
@@ -486,11 +486,21 @@ def packet(sra: dict, member: dict, wells_daily: Dict[str, dict], seis: Optional
                           'parameters': d.get('parameters', {}), 'bhp': d.get('bhp', {}), 'months': monthly_summary(d)})
     if seis is None:
         gaps.append('no catalogue export handed in: the seismicity section is empty and the goal clock is not stated')
+    assoc_out = None
+    if association:
+        a = association.get('association') or {}
+        inside_ev = []
+        for e in a.get('events', []):
+            m = inside(sra, e['lat'], e['lon'], e.get('datum', 'WGS84'))
+            inside_ev.append({**e, 'distance_km': m['distance_km'], 'inside': m['inside']})
+        assoc_out = {'generated_utc': association.get('generated_utc'), 'n_stations': len([k for k, v in (association.get('stations') or {}).items() if v.get('status') == 'PICKED']),
+                     'n_picks': a.get('n_picks', 0), 'n_events': a.get('n_events', 0), 'n_inside': sum(1 for e in inside_ev if e['inside']),
+                     'events': inside_ev, 'refused': a.get('refused', []), 'model': a.get('model'), 'catalogue': association.get('catalogue')}
     status = 'COMPLETE' if not gaps else 'INCOMPLETE'
     return {'protocol': 'sra.packet/1', 'generated_utc': _utc(now), 'status': status, 'sra': sra,
             'site': ({'id': site['id'], 'display': site.get('display'), 'client': site.get('client')} if site else None),
             'membership': {k: member[k] for k in ('n_wells_inside', 'n_stations_inside', 'n_undecided')},
-            'wells': wells_out, 'stations': member['stations'], 'seismicity': seis, 'checkpoints': checkpoints(sra),
+            'wells': wells_out, 'stations': member['stations'], 'seismicity': seis, 'association': assoc_out, 'checkpoints': checkpoints(sra),
             'gaps': gaps,
             'basis': ('membership by geodesic distance on WGS84; daily parameters from each well\'s own channels, named as the Notice names them; '
                       'seismicity from the catalogue export handed in; the schedule from the plan date'),

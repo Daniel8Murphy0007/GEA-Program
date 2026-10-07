@@ -4722,6 +4722,115 @@ def section_bc_sra(tmp: str) -> None:
        "labels it SIMULATION_SELF_TEST; the help page exists")
 
 
+def section_bd_association(tmp: str) -> None:
+    """Section BD - association: several stations heard the same thing, or they did not. The onset picker,
+    the associator with its grid search and its refusals, the location with its misfit region, the array as
+    one station, the catalogue comparison, and the workspace run that feeds the SRA packet."""
+    import csv as _csv
+    import subprocess as _sp
+    import numpy as _np
+    from . import seismic as S
+    from . import seismic_assoc as SA
+    from .workspace import Workspace, WorkspaceError
+    d = Path(tmp, "bd"); d.mkdir()
+
+    # -- the self-test -----------------------------------------------------------------------
+    r = SA.selftest()
+    ok(r["status"] == "OK" and all(r["checks"].values()) and r["label"] == "SIMULATION_SELF_TEST"
+       and r["errors_km"]["ev-A"] < 1.0 and r["errors_km"]["ev-B"] < 1.0,
+       "BD1 the self-test on a labelled scene: picks at every station, two events located to within a kilometre and a third of a second with all "
+       "five stations and RMS under 0.05 s, a two-station event refused rather than located, a spurious burst left unused, finite misfit "
+       "regions, no magnitude, and against the catalogue one AGREES, one DIFFERS by its separation and one catalogue event the stations did "
+       "not associate")
+
+    # -- the picker: the onset is the first energy, not half a window early ------------------
+    sc = SA.synthetic_scene()
+    fr = sc["frame"]
+    from .seismic_array import local_xy
+    devs = []
+    for sid, s in sc["stations"].items():
+        ex, ey = local_xy(sc["truth"][0]["lat"], sc["truth"][0]["lon"], fr["lat0"], fr["lon0"])
+        tt = SA.travel_time(ex, ey, s, sc["vp"], sc["depth_km"])
+        pk = [p for p in SA.picks(sc["traces"][sid], band=(2.0, 20.0)) if abs(p.time - (sc["truth"][0]["t0"] + tt)) < 2.0]
+        devs.append(pk[0].time - sc["truth"][0]["t0"] - tt if pk else 9.0)
+    quiet = S.Trace("XX", "Q", "", "HHZ", 0.0, 100.0, _np.random.default_rng(1).normal(0, 1, 60000).astype(_np.float32), "synthetic", "FLOAT32")
+    ok(all(abs(x) < 0.08 for x in devs) and not SA.picks(quiet, band=(2.0, 20.0)) and all(p.snr > 10 for p in SA.picks(sc["traces"]["STA5"], band=(2.0, 20.0))),
+       "BD2 the picker puts every onset within 80 ms of the true arrival (the first refinement walked back into the noise and every pick came "
+       "out 150 ms early, which the location absorbed into the origin time and nobody would have seen), picks nothing on a minute of plain "
+       "noise, and carries a signal-to-noise ratio on every pick")
+
+    # -- the locator: refuses two stations, refines about the coarse best, names the model ----
+    two = SA.locate({"STA1": 10.0, "STA2": 10.5}, sc["stations"], sc["vp"], sc["depth_km"])
+    ex, ey = local_xy(sc["truth"][1]["lat"], sc["truth"][1]["lon"], fr["lat0"], fr["lon0"])
+    pset = {sid: sc["truth"][1]["t0"] + SA.travel_time(ex, ey, s, sc["vp"], sc["depth_km"]) for sid, s in sc["stations"].items()}
+    exact = SA.locate(pset, sc["stations"], sc["vp"], sc["depth_km"])
+    off = SA.locate({**pset, "STA2": pset["STA2"] + 0.6}, sc["stations"], sc["vp"], sc["depth_km"])
+    ok(two["status"] == "NOT ASSOCIATED" and "three" in two["detail"]
+       and exact["status"] == "LOCATED" and abs(exact["best"]["x_km"] - ex) < 0.1 and abs(exact["best"]["y_km"] - ey) < 0.1 and exact["best"]["rms_s"] < 0.01
+       and abs(exact["best"]["t0"] - sc["truth"][1]["t0"]) < 0.02 and not exact["region_km"]["reaches_grid_edge"]
+       and "flat earth" in exact["model"]["basis"] and exact["model"]["depth_km"] == sc["depth_km"]
+       and off["best"]["rms_s"] > 0.15 and abs(off["residuals_s"]["STA2"]) == max(abs(v) for v in off["residuals_s"].values()),
+       "BD3 the locator refuses two stations, finds exact picks to within 100 m of the true epicentre and 20 ms of the origin time (the first "
+       "version refined about the stations' centroid instead of the coarse best node and lost every event more than a kilometre from the "
+       "centre), names the straight-ray flat-earth model and the declared depth on the result, and a pick 0.6 s off shows as the largest residual")
+
+    # -- the associator: the outlier is dropped, the event stands on the rest ----------------
+    picks_all = []
+    for sid, tr in sc["traces"].items():
+        picks_all += SA.picks(tr, band=(2.0, 20.0))
+    bad = [SA.Pick("STA4", sc["truth"][0]["t0"] + 3.2, 50.0, 1.0)]       # a wrong pick at STA4 near event A
+    picks_mix = [p for p in picks_all if not (p.station == "STA4" and abs(p.time - sc["truth"][0]["t0"]) < 3.0)] + bad
+    res = SA.associate(picks_mix, sc["stations"], sc["vp"], sc["depth_km"], frame_info=fr)
+    evA = sorted(res["events"], key=lambda e: e["origin_utc"])[0]
+    ok(res["n_events"] == 2 and evA["n_stations"] == 4 and evA["dropped"] == ["STA4"] and evA["rms_s"] < 0.05
+       and evA["magnitude"] is None and "not estimated" in evA["magnitude_basis"],
+       "BD4 a wrong pick at one station is dropped as the largest residual and the event stands on the other four; an event carries no "
+       "magnitude and says why")
+
+    # -- an array is one station ----------------------------------------------------------------
+    raw = [SA.Pick("ARR", 100.0 + k * 0.03, 20.0 + k, 1.0, channel=f"S{k}") for k in range(6)] + [SA.Pick("ARR", 130.0, 9.0, 0.5, channel="S3")]
+    col = SA.collapse_array_picks(raw, "ARR")
+    ok(len(col) == 1 and abs(col[0].time - 100.075) < 0.02 and "6 sensor" in col[0].channel,
+       "BD5 an array's sensors' picks within half a second become one pick at the median time at the array's position, and a burst one sensor "
+       "alone saw is not an arrival at the array")
+
+    # -- through the workspace and the command line, into the packet ---------------------------
+    for sid, tr in sc["traces"].items():
+        S.write_mseed([tr], str(d / f"{sid}.mseed"))
+    cat = d / "cat.csv"
+    with open(cat, "w", newline="") as f:
+        w = _csv.writer(f); w.writerow(["EventID", "Origin Time", "Local Magnitude", "Latitude", "Longitude", "Depth"])
+        for c in sc["catalog"]:
+            w.writerow([c["event_id"], c["time"], c["magnitude"], c["lat"], c["lon"], 6.0])
+    ws = Workspace.create(str(d / "ws"), "Pad 3", actor="tester")
+    ids = [ws.add_seismic_station(sid, [str(d / f"{sid}.mseed")], st.lat, st.lon, "tester", datum=st.datum, band=[2.0, 20.0])["id"]
+           for sid, st in sc["stations"].items()]
+    ws.add_site("Assoc block", seismic=ids[:2], client="Acme", actor="tester")
+    try:
+        ws.associate_site("Assoc-block"); few = False
+    except WorkspaceError as e:
+        few = "three" in str(e)
+    ws.add_site("Assoc block 5", seismic=ids, client="Acme", actor="tester")
+    run = lambda *a: _sp.run([sys.executable, "-m", "gea", "workspace", "--path", ws.path, "--actor", "tester", *a], capture_output=True, text=True)
+    r1 = run("--action", "associate", "--site", "Assoc-block-5", "--catalog", str(cat))
+    r2 = run("--action", "sra-define", "--site", "Assoc-block-5", "--name", "Test SRA", "--lat", "31.95", "--lon", "-102.25", "--radius-km", "9.08", "--plan-date", "2026-02-25")
+    r3 = run("--action", "sra-report", "--site", "Assoc-block-5", "--catalog", str(cat))
+    aj = json.loads(Path(ws.path, "reports", "sites", "Assoc-block-5", "association.json").read_text(encoding="utf-8"))
+    md = Path(ws.path, "reports", "sites", "Assoc-block-5", "sra_packet.md").read_text(encoding="utf-8")
+    pk = json.loads(Path(ws.path, "reports", "sites", "Assoc-block-5", "sra_packet.json").read_text(encoding="utf-8"))["packet"]
+    audit = Path(ws.path, "records", "audit.jsonl").read_text(encoding="utf-8")
+    r4 = _sp.run([sys.executable, "-m", "gea", "seismic", "--action", "assoc-selftest"], capture_output=True, text=True)
+    ok(few and r1.returncode == 0 and "2 event(s)" in r1.stdout and "AGREES" in r1.stdout and "DIFFERS" in r1.stdout and "NOT ASSOCIATED BY THE STATIONS" in r1.stdout
+       and aj["association"]["n_events"] == 2 and all(v["status"] == "PICKED" for v in aj["stations"].values())
+       and r2.returncode == 0 and r3.returncode == 0 and pk["association"]["n_inside"] == 2
+       and "Events located by the site's own stations" in md and "AGREES" in md and "no magnitude is estimated here" in md
+       and "site.associate" in audit and r4.returncode == 0 and "SIMULATION_SELF_TEST" in r4.stdout,
+       "BD6 `--action associate` refuses a site with fewer than three stations, picks five miniSEED stations, associates and locates two events, "
+       "sets them against the catalogue, writes association.json and audits it; the SRA packet then carries the events the site's own stations "
+       "located beside the catalogue's, inside or outside the area, with the model named and no magnitude; `gea seismic --action assoc-selftest` "
+       "runs the labelled scene from the command line")
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -4780,6 +4889,7 @@ def main() -> int:
         section_ba_sites(tmp)
         section_bb_supervisor(tmp)
         section_bc_sra(tmp)
+        section_bd_association(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

@@ -28,6 +28,7 @@ of any site.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -159,8 +160,20 @@ def main(argv=None) -> int:
         run(g + ['workspace', '--path', 'seis_site', '--action', 'set-well', '--well', 'SYNTHETIC-SWD-1', '--lat', '31.96', '--lon', '-102.24', '--datum', 'NAD27',
                  '--api', '42-000-00000', '--uic', '000000', '--depth-tier', 'deep', '--formation', 'completed below the base of the Wolfcamp (SYNTHETIC)',
                  '--channel-pressure', 'P_surf_psi', '--channel-rate', 'Q_bpm', '--rate-unit', 'bbl/min', '--bhp-method', 'probe', '--channel-bhp', 'P_bh_psi'], work)
+        # five synthetic stations round the area, each hearing two labelled events, so the packet carries what the site's own stations located
+        # written by the program itself, the way every other scene here is
+        run([PY, '-c', 'from gea import seismic as S, seismic_assoc as A; import json, sys; sc = A.synthetic_scene(); '
+                       '[S.write_mseed([tr], f"SYNTHETIC_{sid}.mseed") for sid, tr in sc["traces"].items()]; '
+                       'json.dump({k: [v.lat, v.lon, v.datum] for k, v in sc["stations"].items()}, open("SYNTHETIC_stations.json", "w"))'], work)
+        _stations = json.load(open(work / 'SYNTHETIC_stations.json'))
+        for _sid, (_lat, _lon, _datum) in _stations.items():
+            _st = type('S', (), {'lat': _lat, 'lon': _lon, 'datum': _datum})()
+            run(g + ['workspace', '--path', 'seis_site', '--action', 'add-seismic', '--name', f'SYNTHETIC {_sid}', '--files', f'SYNTHETIC_{_sid}.mseed',
+                     '--lat', str(_st.lat), '--lon', str(_st.lon), '--datum', _st.datum, '--band', '2', '20'], work)
         run(g + ['workspace', '--path', 'seis_site', '--action', 'add-site', '--name', 'SYNTHETIC SRA block', '--client', 'SYNTHETIC operator',
-                 '--wells', 'SYNTHETIC-SWD-1', '--note', 'a synthetic disposal well inside a synthetic area'], work)
+                 '--wells', 'SYNTHETIC-SWD-1', '--seismic'] + [f'SYNTHETIC-{_sid}' for _sid in _stations]
+                 + ['--note', 'a synthetic disposal well and five synthetic stations inside a synthetic area'], work)
+        run(g + ['workspace', '--path', 'seis_site', '--action', 'associate', '--site', 'SYNTHETIC-SRA-block', '--catalog', 'SYNTHETIC_texnet.csv'], work)
         run(g + ['workspace', '--path', 'seis_site', '--action', 'sra-define', '--site', 'SYNTHETIC-SRA-block', '--name', 'SYNTHETIC SRA', '--lat', '31.95', '--lon', '-102.25',
                  '--datum', 'WGS84', '--radius-km', '9.08', '--plan-date', '2026-02-25', '--triggering-event', 'SYNTHETIC-0001'], work)
         run(g + ['workspace', '--path', 'seis_site', '--action', 'sra-report', '--site', 'SYNTHETIC-SRA-block', '--catalog', 'SYNTHETIC_texnet.csv',

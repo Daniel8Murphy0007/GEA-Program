@@ -282,7 +282,7 @@ def main(argv=None) -> int:
                       choices=["init", "add-file", "add-catalog", "add-live", "remove", "list", "migrate", "refresh", "audit",
                                "add-seismic", "refresh-seismic", "remove-seismic", "sar-film", "refresh-all", "add-track", "refresh-track", "remove-track",
                                "seismic-dataset", "seismic-field", "add-site", "sites", "site-report", "remove-site", "rename",
-                               "set-well", "sra-define", "sra-report"])
+                               "set-well", "sra-define", "sra-report", "associate"])
     p_ws.add_argument("--stations", type=str, nargs="+", default=None, help="add-track: two or more array station ids of this workspace")
     p_ws.add_argument("--site", type=str, default=None, help="site-report/remove-site: the site id")
     p_ws.add_argument("--api", type=str, default=None, help="set-well: the API number")
@@ -308,6 +308,9 @@ def main(argv=None) -> int:
     p_ws.add_argument("--aftershocks", type=str, nargs="*", default=None, help="sra-report: catalogue ids the operator declares as aftershocks (exempt)")
     p_ws.add_argument("--start", type=str, default=None, help="sra-report: first day of the record, YYYY-MM-DD")
     p_ws.add_argument("--end", type=str, default=None, help="sra-report: last day of the record, YYYY-MM-DD")
+    p_ws.add_argument("--vp", type=float, default=5.8, help="associate: the P velocity of the model, km/s (declared)")
+    p_ws.add_argument("--depth-km", type=float, default=6.0, help="associate: the hypocentral depth the location is made under, km (declared)")
+    p_ws.add_argument("--rms-tol", type=float, default=0.15, help="associate: the RMS residual an event must fit within, s")
     p_ws.add_argument("--wells", type=str, nargs="+", default=None, help="add-site: well ids of this workspace")
     p_ws.add_argument("--seismic", type=str, nargs="+", default=None, help="add-site: seismic station ids of this workspace")
     p_ws.add_argument("--tracks", type=str, nargs="+", default=None, help="add-site: track ids of this workspace")
@@ -422,7 +425,8 @@ def main(argv=None) -> int:
     p_se.add_argument("--action", choices=["info", "spectrum", "lines", "fetch", "stations", "detect", "selftest", "convert", "response", "remove-response",
                                            "beam", "array-detect", "locate", "array-selftest", "sar-film", "bearings", "track", "track-selftest",
                                            "signatures", "multi-beam", "multi-bearings", "multi-track", "signature-selftest", "field-selftest",
-                                           "harmonics", "harmonic-selftest", "datum", "geodesy-selftest", "array-qc", "qc-selftest", "unlisted", "unlisted-selftest", "bearing-sigma", "coverage", "uncertainty-selftest"], default="info")
+                                           "harmonics", "harmonic-selftest", "datum", "geodesy-selftest", "array-qc", "qc-selftest", "unlisted", "unlisted-selftest", "bearing-sigma", "coverage", "uncertainty-selftest",
+                                           "assoc-selftest"], default="info")
     p_se.add_argument("--signatures", type=str, default=None, help="multi-beam/multi-bearings: the signatures JSON from --action signatures")
     p_se.add_argument("--histories", type=str, nargs="+", default=None, help="track: two or more bearing-history JSONs (from --action bearings), one per array")
     p_se.add_argument("--truth", type=str, default=None, help="track: ground truth CSV (point_id, lat, lon, utc[, note]) - the lateral's points in time")
@@ -878,6 +882,18 @@ def main(argv=None) -> int:
                           + (f"; verdict {v['verdict']} ({v['hit']} of {v['of']} inside their ellipse)" if v else "")
                           + (f" - {row.get('detail', '')}" if row.get("detail") else ""))
             return 0 if r["ok"] else 1
+        if a.action == "assoc-selftest":
+            from . import seismic_assoc as _SA
+            r = _SA.selftest()
+            print(f"association selftest [{r['label']}]: {r['status']} - {r['n_picks']} picks, {len(r['events'])} events, errors {r['errors_km']} km")
+            for k, v in r["checks"].items():
+                print(f"  {'ok ' if v else 'BAD'} {k}")
+            for e in r["events"]:
+                print(f"  {e['id']}: {e['origin_utc']}  {e['lat']:.4f}, {e['lon']:.4f}  {e['n_stations']} stations  RMS {e['rms_s']} s  "
+                      f"misfit region {e['region_km']['extent_east_km']} x {e['region_km']['extent_north_km']} km  magnitude: not estimated")
+            for x in r["catalogue"]["rows"]:
+                print(f"  vs catalogue: {x['event']} {x['standing']}")
+            return 0 if r["status"] == "OK" else 1
         if a.action == "uncertainty-selftest":
             from . import seismic_uncertainty as UQ
             r = UQ.selftest()
@@ -1697,6 +1713,16 @@ def main(argv=None) -> int:
                 r = ws.write_sra_packet(a.site, catalog_csv=a.catalog, aftershocks=a.aftershocks, start=a.start, end=a.end, actor=a.actor)
                 print(_sra_text(r["packet"]))
                 print("  report:", r["paths"]["html"]); print("  daily export:", r["paths"]["daily_csv"], f"({r['export_rows']} rows)"); return 0
+            elif a.action == "associate":
+                from .seismic_assoc import report_text as _assoc_text
+                if not a.site:
+                    raise SystemExit("associate needs --site <id>")
+                r = ws.associate_site(a.site, vp_km_s=a.vp, depth_km=a.depth_km, band=a.band, start=a.start, end=a.end, catalog_csv=a.catalog,
+                                      rms_tol_s=a.rms_tol, actor=a.actor)
+                for sid, x in r["stations"].items():
+                    print(f"  {sid}: {x['status']}, {x['picks']} pick(s)")
+                print(_assoc_text(r["association"], r["catalogue"]))
+                print("  written:", os.path.join(ws.path, "reports", "sites", a.site, "association.json")); return 0
             elif a.action == "seismic-dataset":
                 r = ws.write_seismic_dataset_report(actor=a.actor)
                 inv = r["inventory"]
