@@ -4,6 +4,13 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.8.1 - 2026-10-06 - the kit's gate reads the kit
+
+- **The kit's gate failed at v0.8.0.** Section BB read the launcher templates
+  from `tools/`, which a kit does not carry. In a kit it now reads the
+  launcher the kit installed - the one the client double-clicks - found the
+  way `gea doctor` finds it. Gate 302, proven from an installed layout.
+
 ## v0.8.0 - 2026-10-06 - the machine behind the lines, the ground under the positions, the site that owns them, and a panel that survives the power going out
 
 - **The control panel owns its own stopping and starting.** It had one way to

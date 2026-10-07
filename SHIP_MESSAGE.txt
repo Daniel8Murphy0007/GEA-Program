@@ -1,154 +1,21 @@
-v0.8.0 — THE MACHINE, THE GROUND, THE SITE, AND A PANEL THAT RESTARTS ITSELF
+v0.8.1 — THE KIT'S GATE READS THE KIT
 
-The machine behind the lines. gea/seismic_harmonic.py stops treating a
-signature as a flat list of frequencies. A pump at 1.7 strokes a second is
-one fact about a machine, not four about bins: a comb search over every line
-divided by every order recovers the fundamental, normalised to the largest
-spacing the orders found allow, and prints it as a rate per minute - the
-number a driller reads. It says how strong the claim is and turns down the
-weak ones: fewer than three lines is not a family, because any two lines
-define a comb; a comb this record's line density would make by accident more
-often than 5 % is set aside; two spacings that fit equally well are
-AMBIGUOUS; a fundamental whose half falls below the band is flagged, because
-the machine may be running at half that rate with only its even harmonics in
-view. And the other half is time: a pump's rate follows its load, so a line
-at 1.40 Hz walks to 1.85 Hz over a tour and a signature of fixed bins loses
-it. Every line is now followed window to window, each peak refined inside its
-bin, with STEADY, DRIFTING or INTERMITTENT and the drift in Hz per hour; a
-drift no larger than the bin width is not called a drift. A tracked line is
-attributed back to its source by proximity to a line that source was learned
-on, or by a whole-number ratio to one it already claims; a line two sources
-could both claim is given to neither. And the ground truth every verdict in
-the leg rested on became measurable: each source's working spells are read
-off the record and set beside the ones the rigs list declares, agreeing or
-disagreeing, because a permit date is a permission and not a drilling log.
-On the labelled scene - a pump ramping 1.40 to 1.85 Hz with a stop in it -
-fixed bins hold two lines of it, the tracker holds every one with the
-harmonics walking 1x, 2x and 3.01x the first, and the fundamental comes back
-0.005 Hz from the rate the scene was running at in that window.
+v0.8.0 shipped whole - the commit, the tag, CI and the PyPI release all
+green - and both kit builds went red at the same point: the kit's own gate,
+twenty minutes in. Section BB, written that morning, read the launcher
+templates out of tools/build_installer.py. A checkout has that file. An
+installed kit has the package in site-packages and no tools/ at all, so the
+section fell over before its first check.
 
-Which datum a position is on. gea/geodesy.py ends the program's oldest silent
-assumption: that a latitude and a longitude mean the same ground whoever
-wrote them. A Texas permit export is often NAD27 and a network's metadata
-WGS84, and at 31 N, 102 W those name ground 46 m apart - the size of a
-position ellipse, which is why a datum error never looked like an error.
-Positions carry their datum, conversions carry their accuracy, a position
-whose datum nobody stated is UNKNOWN and prints what assuming costs in metres
-at that site, and the separation between two datums is computed there rather
-than quoted, because it varies: 46 m in the Permian, 85 m in Bakersfield,
-18 m in Ohio. Under it: Vincenty's inverse on the ellipsoid, the published
-three-parameter shifts, transverse Mercator and Lambert conformal conic both
-ways with the Texas state plane zones, and the US survey foot kept distinct
-from the international foot, because over a state plane northing they differ
-by metres. It is checked against values this program did not produce - the
-WGS84 meridian arc to 45 N, a degree of latitude and a degree of longitude at
-the equator, all three to the millimetre - and against the identities every
-projection must satisfy at its own origin. It turns down a NAD83 state plane
-zone handed NAD27 coordinates, an array whose sensors are on two datums, and
-any suggestion that a three-parameter shift is survey grade.
+The gate already had a way of telling the two apart - pyproject.toml beside
+the package means a checkout - and the section did not use it. It does now,
+and in a kit it does something better than reading a template: it reads the
+launcher the kit actually installed beside its python/, found the way gea
+doctor finds it. The kit's gate therefore checks the file the client will
+double-click, which is the test that should have been there in the first
+place.
 
-Is this array any good? gea/seismic_qc.py checks what every bearing rested on:
-that the sensors record the same ground motion at the same time, scaled the
-same way, with the same polarity. An array is not a set of records, it is the
-differences between them, so a fault invisible in one record is fatal across
-several. The timing test needs no reference clock: for a plane wave the
-arrival delays must lie on a plane, so the plane is fitted to the array's own
-measured delays and each sensor's residual is the part of its arrival the
-wavefront does not explain - the fit returns the velocity and direction as a
-by-product, which is what makes it its own reference. Four faults put into a
-clean array are each named and no others: a dead channel, a clock 40 ms out
-and measured at 40.04, a sensor wired backwards, one at 8 % of the gain. What
-they were doing to the answer is measured rather than asserted: excluding
-them moves the bearing 173 degrees. The same array with no faults comes back
-USABLE with nothing named, which is the half of the test that matters most.
-
-What else is out there. gea/seismic_unlisted.py is the first part of this leg
-that finds instead of confirming. Every test before it answered a question
-somebody had already asked; this one asks what else is in the ground, because
-the source nobody listed is the one nobody is watching. The tracked lines no
-listed source claims are grouped into combs, and a comb with a fundamental is
-a machine running at a rate, beamed on its own lines by exactly the code that
-beams a listed rig. With one of three rigs left off the list it comes back at
-half a degree of its true bearing and its true pump rate; with every rig
-listed there is nothing to find. What it refuses matters more here than
-anywhere else, because this is the one test whose output is a claim nobody
-asked for: a line on the mains frequency or one of its multiples is
-electrical and is named so, and so is a mains harmonic above half the sample
-rate, which does not disappear but folds back into the band at an
-arbitrary-looking frequency and looks exactly like a machine; a candidate
-that beams to zero slowness arrived everywhere at once and is in the cabling,
-not the ground; a candidate at a whole-number ratio of a listed rate is that
-rig's harmonic; one line is not a machine and neither are two. And a
-candidate is a direction with a rate on it, never an identification.
-
-How well a bearing is known. Every ellipse this leg drew came from the array
-response half-power width - what the array could resolve at perfect
-signal-to-noise, which is a floor and not an error bar, identical for a clean
-record and a marginal one. gea/seismic_uncertainty.py measures it: the window
-is cut into sub-windows, each beamed on its own, and the scatter of their
-bearings is what the noise does to the answer, with the floor at the
-beamformer's own grid step. Then the part that makes it a measurement rather
-than a number - coverage takes a record whose bearing is known from outside
-it, runs every window, and counts how often the truth really falls inside one
-sigma and two. On the labelled scene: CALIBRATED, 75 % inside one and 100 %
-inside two, a median error of 0.37 degrees against a sigma of 0.54, and the
-factor that would centre the claim exactly returned beside it, so a record
-where the sigma is wrong says by how much. Resampling sees the random part
-and not a bias steady through a window, and the module says so rather than
-letting it through. The positions are crossed with what the data is worth,
-and each one records which of its bearings carried a measured sigma and which
-fell back to the geometry.
-
-The site, and the two reports about all of it. The workspace held wells,
-seismic stations and tracks as peers with nothing owning them, which made
-this three tools in one package rather than one program. A site holds what
-belongs to one client's ground, and the Site Report pulls every leg of it
-into one document. Beside it, the Seismic Dataset Report says what is held -
-every record with the span it actually covers, its rate, its gaps, the
-checksum taken when it came in, the datum its positions are on, and which
-outputs are older than the record they came from - and the Seismic Field
-Report says what the site heard, rig by rig and station by station, with what
-nobody listed beside it. All three name what needs attention, and all three
-say plainly what they are not: what is held is not whether it is any good, a
-source nobody heard is not a source that was not working, and a site is a
-list of what belongs to an engagement and not a boundary on the ground.
-
-Also in this ship: the live-port commands say who they are and what must run
-beside them; the service turns every non-finite number into null, because NaN
-and Infinity are valid to Python's json and a syntax error to every browser;
-the permits importer reads a datum column or takes one and can read state
-plane or UTM easting and northing in metres or either foot; the rigs CSV and
-the sensors CSV take a datum column; and three new client reports joined the
-sample set, re-rendered from this build.
-
-And the control panel now owns its own stopping and starting. It had one way
-to end - the window closed - and the operator was left looking at whatever
-shell was underneath; on a console opened from a Python profile that is a
-bare >>> prompt where a program used to be. The service decides how it ends
-and says so in its exit code: 0 stopped on purpose, 86 start me again. The
-launcher reads that code, runs the panel again on 86, and on anything else
-hands the window to a PowerShell prompt that names the program and how to
-start it. It never falls through to the shell underneath. Stop, Restart
-behind an explicit authorisation, and a switch for letting the launcher start
-it again by itself live on the Administration page; the switch is one
-character in records/auto_restart.flag, because a batch file cannot read the
-manifest, and it is capped at five stops in a row so a panel that crashes
-while starting hands over the error instead of flickering all night.
-
-Every start, stop, restart and recovery is one appended line in
-records/runlog.jsonl, flushed to the disk before the thing it describes is
-attempted - a log written afterwards is no use to a machine that lost power
-during it. A run that logged a start and never logged a stop reads back as
-killed, not as a clean stop. And the recovery runs in an order that is not
-negotiable: the live patches come up first and the rebuilding of the records
-runs behind them, because what the stream did not record is not recoverable
-later and a report that is behind its source always is. The catch-up rebuilds
-exactly what the staleness table says is behind and leaves the rest alone; it
-does not call a gap in the stream recovered. gea doctor reads the installed
-launcher off the disk and says whether it honours the contract, so a kit
-built before this existed is three warnings with fixes rather than an
-operator meeting an interpreter prompt.
-
-The gate is 302 checks (sections AU, AV, AW, AX, AY, AZ, BA and BB are new).
-The standalone guard is clean: no import, no text and no metadata outside
-this package.
+Proven from an installed layout - the package in a venv's site-packages with
+no checkout beside it and the launcher two levels up - with the full gate
+run from there: 302 checks. The report samples are re-rendered from this
+build. Nothing else changes.

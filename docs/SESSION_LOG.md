@@ -960,3 +960,20 @@ opened from a Windows Terminal Python profile, so what he got was a bare
   no display, so it failed fast and the check passed. The view now takes
   `run=False`, which constructs the window and returns; E8 uses it. A gate
   that waits for a person is a gate that never finishes.
+
+## 2026-10-06 - v0.8.0 shipped; v0.8.1 for the kit's gate
+
+- v0.8.0 shipped: commit 7630205, annotated tag v0.8.0 on it, main and tag
+  both on origin, 56 files. CI green on main and on the tag; the PyPI release
+  green; SHIP_LOG.md has its v0.8.0 line.
+- Both kit builds red, at 20 m 53 s each - the length of the kit's own gate.
+  Section BB read `tools/build_installer.py` from beside the package; in an
+  installed kit the package sits in site-packages and there is no `tools/`.
+  Written this morning without following the one pattern the gate already
+  had for this (`pyproject.toml` beside the package means a checkout). In a
+  kit BB now reads the launcher the kit installed, found by `kit_dir()` - a
+  better test than the template, since it is the file the client runs.
+- Proven the way the workflow runs it, minus the wheel (this host's
+  setuptools cannot build one): the package copied into a venv's
+  site-packages, the launcher two levels up, the gate run from there.
+- Version 0.8.1; samples re-rendered; CHANGELOG, HISTORY, SHIP_MESSAGE.

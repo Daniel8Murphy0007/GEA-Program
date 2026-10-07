@@ -4430,27 +4430,51 @@ def section_bb_supervisor(tmp: str) -> None:
        "happens to share a recycled process id is still reported, and a process id that is not the last start's excludes nothing")
 
     # -- the exit code reaches the launcher, and the launcher acts on it -------------------
-    spec = importlib.util.spec_from_file_location("bb_installer", str(pkg.parent / "tools" / "build_installer.py"))
-    bi = importlib.util.module_from_spec(spec); spec.loader.exec_module(bi)
-    cmd = bi.WIN_SCRIPTS["start-dashboard.cmd"]; sh = bi.LINUX_SCRIPTS["start-dashboard.sh"]
-    body = [ln for ln in cmd.strip().splitlines() if ln.strip() and not ln.strip().lower().startswith("rem ")]
-    labels = set(_re.findall(r"^:(\w+)", cmd, _re.M)); gotos = set(_re.findall(r"goto\s+(\w+)", cmd))
-    ok("title GEA - Operations Control Panel" in cmd
-       and '"%GEA_RC%"=="86"' in cmd and "goto gea_run" in cmd and not gotos - labels
-       and body[-1].lower().startswith("powershell") and "-NoExit" in body[-1] and "start-dashboard.cmd" in body[-1]
-       and "python" not in body[-1].lower().split("write-host")[0]
-       and 'rc" = "86"' in sh and "continue" in sh and sh.count("exit \"$rc\"") == 1,
-       "BB3 the Windows launcher names the window, runs the panel again when it exits with 86, resolves every label it jumps to, and ends by handing "
-       "the window to a PowerShell prompt that says how to start the panel again - it never falls back to the shell underneath, which is how an "
-       "operator was left at a Python prompt; the shell launcher does the same with a loop")
-    ok("auto_restart.flag" in cmd and "auto_restart.flag" in sh
-       and "GEA_FAILS" in cmd and "GTR 5" in cmd and "fails" in sh and "-le 5" in sh
-       and SV.AUTO_MAX == 5
-       and cmd.splitlines()[cmd.splitlines().index(":gea_read_flag") + 1].strip().startswith("set /p GEA_AUTO=<")
-       and cmd.count("set /p GEA_AUTO=<") == 1,
+    # In a checkout the launchers are the templates in tools/build_installer.py. In an installed kit there
+    # is no tools/ - the launcher under test is the one the kit installed beside its python/, found the way
+    # doctor finds it. (The v0.8.0 kit gate failed on GitHub reading tools/ from site-packages.)
+    from .doctor import check_launcher, check_workspace, kit_dir
+    cmd = sh = None
+    tools_py = pkg.parent / "tools" / "build_installer.py"
+    if (pkg.parent / "pyproject.toml").exists() and tools_py.exists():
+        spec = importlib.util.spec_from_file_location("bb_installer", str(tools_py))
+        bi = importlib.util.module_from_spec(spec); spec.loader.exec_module(bi)
+        cmd = bi.WIN_SCRIPTS["start-dashboard.cmd"]; sh = bi.LINUX_SCRIPTS["start-dashboard.sh"]; where = "the checkout's templates"
+    else:
+        kd = kit_dir(); where = f"the installed kit at {kd}"
+        if kd and os.path.isfile(os.path.join(kd, "start-dashboard.cmd")):
+            cmd = open(os.path.join(kd, "start-dashboard.cmd"), encoding="utf-8", errors="replace").read()
+        if kd and os.path.isfile(os.path.join(kd, "start-dashboard.sh")):
+            sh = open(os.path.join(kd, "start-dashboard.sh"), encoding="utf-8", errors="replace").read()
+    cmd_ok = sh_ok = True
+    if cmd is not None:
+        body = [ln for ln in cmd.strip().splitlines() if ln.strip() and not ln.strip().lower().startswith("rem ")]
+        labels = set(_re.findall(r"^:(\w+)", cmd, _re.M)); gotos = set(_re.findall(r"goto\s+(\w+)", cmd))
+        cmd_ok = ("title GEA - Operations Control Panel" in cmd
+                  and '"%GEA_RC%"=="86"' in cmd and "goto gea_run" in cmd and not gotos - labels
+                  and body[-1].lower().startswith("powershell") and "-NoExit" in body[-1] and "start-dashboard.cmd" in body[-1]
+                  and "python" not in body[-1].lower().split("write-host")[0])
+    if sh is not None:
+        sh_ok = 'rc" = "86"' in sh and "continue" in sh and sh.count("exit \"$rc\"") == 1
+    ok((cmd is not None or sh is not None) and cmd_ok and sh_ok,
+       f"BB3 the launcher ({where}): the Windows one names the window, runs the panel again when it exits with 86, resolves every label it jumps "
+       "to, and ends by handing the window to a PowerShell prompt that says how to start the panel again - it never falls back to the shell "
+       "underneath, which is how an operator was left at a Python prompt; the shell one does the same with a loop")
+    cmd_ok = sh_ok = True
+    if cmd is not None:
+        lines = cmd.splitlines()
+        cmd_ok = ("auto_restart.flag" in cmd and "GEA_FAILS" in cmd and "GTR 5" in cmd and ":gea_read_flag" in lines
+                  and lines[lines.index(":gea_read_flag") + 1].strip().startswith("set /p GEA_AUTO=<") and cmd.count("set /p GEA_AUTO=<") == 1)
+    if sh is not None:
+        sh_ok = "auto_restart.flag" in sh and "fails" in sh and "-le 5" in sh
+    ok(SV.AUTO_MAX == 5 and cmd_ok and sh_ok,
        "BB4 a code that is neither 0 nor 86 is a death, not a decision: the launcher reads the operator's answer from records/auto_restart.flag, "
        "tries at most five times in a row so a panel that crashes while starting hands over the error instead of flickering all night, and reads "
        "that file outside an if-block because a redirect inside parentheses is parsed before the block runs")
+    if cmd is None:                                  # a Linux kit: BB6 needs a Windows launcher text to build its good and bad kits from
+        cmd = ("@echo off\ntitle GEA - Operations Control Panel\n:gea_run\npython\\python.exe -m gea serve\nset GEA_RC=%ERRORLEVEL%\n"
+               "if \"%GEA_RC%\"==\"86\" goto gea_run\n:gea_read_flag\nset /p GEA_AUTO=<\"%GEA_WORKSPACE%\\records\\auto_restart.flag\"\n"
+               "powershell.exe -NoLogo -NoExit -Command \"Write-Host 'start-dashboard.cmd'\"\n")
 
     # -- the flag file: what the launcher will read, not what the manifest says ------------
     ok(SV.auto_restart(wsp) is False and SV.set_auto_restart(wsp, True) is True and SV.auto_restart(wsp) is True
@@ -4461,7 +4485,6 @@ def section_bb_supervisor(tmp: str) -> None:
        "unreadable flag reads as off, since a program does not start itself again on the strength of a file nobody can be sure about")
 
     # -- doctor reads the installed launcher ----------------------------------------------
-    from .doctor import check_launcher, check_workspace, kit_dir
     good = d / "kit_good"; (good / "python").mkdir(parents=True)
     (good / "start-dashboard.cmd").write_text(cmd, encoding="utf-8")
     bad = d / "kit_bad"; (bad / "python").mkdir(parents=True)

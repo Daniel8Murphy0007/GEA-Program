@@ -5,6 +5,21 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.8.1] - 2026-10-06 - the kit's gate reads the kit
+
+### Fixed
+- The installed kit's own gate (`verify.cmd` / `verify.sh`, the client's SAT
+  evidence) failed at v0.8.0 on both GitHub kit builds. Section BB read the
+  launcher templates from `tools/build_installer.py`, which exists in a
+  checkout and not in a kit - the kit has no `tools/`. The section now does
+  what the rest of the gate does: in a checkout it reads the templates, and
+  in a kit it reads the launcher the kit actually installed beside its
+  `python/`, found the way `gea doctor` finds it. The kit's gate therefore
+  checks the launcher the client will double-click, which is the better
+  test. Proven by installing the package as a kit does (no checkout beside
+  it) and running the full gate from there: 302.
+- The report samples re-rendered from this build.
+
 ## [v0.8.0] - 2026-10-06 - the machine behind the lines, the ground under the positions, the site that owns them, and a panel that survives the power going out
 
 ### Added
