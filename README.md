@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (302 checks)
+gea accept                     # the product gate (308 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -488,6 +488,29 @@ detectability test's lines per source when there is no array to learn from,
 so one geophone can still say when each rig was working - and the Seismic
 Station Report and the station page carry the section, with the tracks drawn
 against time.
+
+### The Seismicity Response Area packet
+
+The Railroad Commission of Texas declares a Seismicity Response Area around a
+cluster of felt earthquakes and expects the operators inside it to run a
+response plan. The plans on file have one shape - a circle of about 9 km, a
+plan written against M 3.5, an 18-month goal, a response group meeting
+within 48 hours of a threshold event, quarterly checkpoints with Commission
+staff, disposal wells in two tiers by the base of the Wolfcamp - and the
+Commission's December 2023 Notice to Operators names the data: four daily
+parameters (maximum and average surface injection pressure, injection
+volume, maximum injection rate) and three bottomhole-pressure methods, one
+of which is a permanent downhole probe. `gea/sra.py` builds the packet to
+that shape from what the site holds. The operator declares what the program
+cannot measure (`set-well`: surface position and datum, API and UIC, depth
+tier, which channels are the pressure, the rate and the downhole gauge, the
+BHP method); `sra-define` puts the area on the site; `sra-report --catalog
+texnet.csv` writes the packet - membership by geodesic distance, the daily
+record per well rolled up by month, the catalogue's events against the plan
+with the trigger and the goal clock, the schedule, and every gap by name -
+and a daily export under the Notice's own parameter names. It will not
+invent a volume for a well with no rate channel, a tier from depth alone, or
+an aftershock: those are declarations, and the packet says so.
 
 ### Audit / Update
 

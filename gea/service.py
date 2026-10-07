@@ -1424,9 +1424,21 @@ def make_handler(app: App):
                     rows = []
                     for st in app.ws.sites():
                         f = _os.path.join(app.ws.dir('reports', 'sites', st['id']), 'site_report.html')
+                        g = _os.path.join(app.ws.dir('reports', 'sites', st['id']), 'sra_packet.html')
+                        sra_status = None
+                        if _os.path.isfile(g):
+                            try:
+                                with open(g[:-5] + '.json', encoding='utf-8') as fh:
+                                    sra_status = (json.load(fh).get('packet') or {}).get('status')
+                            except Exception:
+                                sra_status = None
                         rows.append({**st, 'report': (_os.path.relpath(f, app.ws.reports_dir).replace('\\', '/') if _os.path.isfile(f) else None),
                                      'report_utc': (datetime.fromtimestamp(_os.path.getmtime(f), timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-                                                    if _os.path.isfile(f) else None)})
+                                                    if _os.path.isfile(f) else None),
+                                     'sra_report': (_os.path.relpath(g, app.ws.reports_dir).replace('\\', '/') if _os.path.isfile(g) else None),
+                                     'sra_status': sra_status,
+                                     'sra_utc': (datetime.fromtimestamp(_os.path.getmtime(g), timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+                                                 if _os.path.isfile(g) else None)})
                     return self._json(200, {'sites': rows})
                 if path == '/api/seismic':
                     import os as _os

@@ -5,6 +5,54 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.9.0] - 2026-10-07 - the Seismicity Response Area packet
+
+### Added
+- **The Seismicity Response Area packet** (`gea/sra.py`): what an operator
+  inside a Railroad Commission SRA puts in front of the Commission, built
+  from what the site holds. The shape is the Commission's, not invented
+  here - the operator-led response plans on file (Gardendale, Northern
+  Culberson-Reeves, Stanton: a circle of about 9 km, a plan written against
+  M 3.5, an 18-month goal, a response group meeting within 48 hours of a
+  threshold event, quarterly checkpoints with Commission staff, disposal
+  wells in two tiers by the base of the Wolfcamp) and the December 2023
+  Notice to Operators on disposal-well monitoring in the Permian Basin,
+  which names the four daily parameters (maximum and average surface
+  injection pressure, injection volume, maximum injection rate) and the
+  three bottomhole-pressure methods. A downhole gauge this program monitors
+  is the Notice's permanent probe.
+- `gea workspace --action set-well`: what the operator declares about a
+  well and the program cannot measure - surface position and datum, API and
+  UIC numbers, depth tier by the named formation, which channels are the
+  surface injection pressure, the rate and the downhole gauge, and how the
+  bottomhole pressure is known. Audited as a declaration.
+- `--action sra-define`: the area on the site - centre on a stated datum
+  (carried to WGS84 with its shift named), radius, plan date, and the plan's
+  numbers as declarations. `--action sra-report --catalog texnet.csv
+  [--aftershocks ...]`: the packet - membership by geodesic distance; the
+  daily record per well from its own channels, rolled up by month; the
+  catalogue's events against the plan with the response trigger, its
+  deadline and the goal clock; the checkpoint schedule; and every gap by
+  name. `sra_daily_export.csv` carries the Notice's parameter names with the
+  API and UIC on every line. The Sites page shows the area and the packet.
+- What it refuses, and says so: a daily record from a stream with no
+  calendar; a volume from a well with no rate channel (NOT RECORDED, not a
+  blank); a depth tier from depth alone; an aftershock it decided itself
+  (the operator declares them; they are shown as exempt); a catalogue it
+  fetched (the catalogue is a file with an export date). `gea sra` runs the
+  self-test on a labelled scene. Section BC (6 checks); the gate is 308.
+- Report sample `sra_packet_SYNTHETIC.html`; help page `gea help sra`.
+
+### Fixed
+- The job runner's `list()` opened `job.json` directly, with none of the
+  retry `_read()` had carried since the v0.7.0 kit run: on Windows a read
+  during `os.replace` is refused, and the v0.9.0 ship fell over on exactly
+  that in section AH. Every read of a job file now goes through one
+  tolerant reader, and a job whose file cannot be read at that instant is
+  left out of the listing rather than crashing it. The gate's temp folder is
+  cleaned up with errors ignored, so a handle a job subprocess still holds
+  cannot turn a finished gate into a traceback.
+
 ## [v0.8.1] - 2026-10-06 - the kit's gate reads the kit
 
 ### Fixed

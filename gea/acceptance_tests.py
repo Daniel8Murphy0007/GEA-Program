@@ -2914,7 +2914,8 @@ def section_am_report_samples(tmp: str) -> None:
             "model_card_well_baseline.html", "model_card_well_test_detector.html", "model_card_rock_density_inventory.html",
             "model_card_strata_property_estimator.html", "gauge_drift_report_monitored_SYNTHETIC.html", "alarm_event_report_SYNTHETIC.html",
             "data_resilience_report_SYNTHETIC.html", "sla_report_SYNTHETIC.html", "sat_protocol.html", "seismic_station_report_SYNTHETIC.html", "seismic_track_report_SYNTHETIC.html",
-            "seismic_dataset_report_SYNTHETIC.html", "seismic_field_report_SYNTHETIC.html", "site_report_SYNTHETIC.html"}
+            "seismic_dataset_report_SYNTHETIC.html", "seismic_field_report_SYNTHETIC.html", "site_report_SYNTHETIC.html",
+            "sra_packet_SYNTHETIC.html"}
     have = {p.name for p in d.glob("*.html")}
     md = (d / "SAMPLES.md").read_text(encoding="utf-8") if (d / "SAMPLES.md").exists() else ""
     texts = {n: (d / n).read_text(encoding="utf-8", errors="replace") for n in sorted(have & want)}
@@ -4593,9 +4594,139 @@ def section_bb_supervisor(tmp: str) -> None:
        "panel's own page carries the Stop and Restart controls, the authorisation step behind a popup, and the auto-restart switch")
 
 
+def section_bc_sra(tmp: str) -> None:
+    """Section BC - the Seismicity Response Area packet. The Railroad Commission's operator-led response plans
+    and its Notice to Operators on disposal-well monitoring name a shape; the packet is built to it from what
+    the site holds, and names what it is missing rather than leaving a column blank."""
+    import csv as _csv
+    import subprocess as _sp
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+    from . import sra as SR
+    from .client_reports import forbidden_terms, sra_packet_report, write
+    from .workspace import Workspace, WorkspaceError
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bc"); d.mkdir()
+
+    # -- the self-test: the labelled scene ----------------------------------------------
+    r = SR.selftest()
+    ok(r["status"] == "OK" and all(r["checks"].values()) and r["label"] == "SIMULATION_SELF_TEST"
+       and abs(r["deep_mean_volume_bbl_day"] - 8640.0) / 8640.0 < 0.03 and abs(r["probe_offset_psi"] - 0.465 * 9800) < 15,
+       "BC1 the self-test on a labelled scene: membership by geodesic distance with a NAD27 well's shift named, the four daily parameters from "
+       "the well's own channels with the volume integrated from the rate to within 3 %, two shut-in days at zero, the probe's offset from "
+       "surface pressure recovered, the shallow well refusing a volume it has no rate channel for, the catalogue's trigger and exempt "
+       "aftershock and goal clock, the gaps named, the checkpoints from the plan date")
+
+    # -- the area: declarations, refused when not an area --------------------------------
+    sra = SR.define("Test SRA", 31.95, -102.25, 9.08, "2026-02-25", "NAD27", triggering_event="x")
+    bad = 0
+    for kw in ({"datum": "UNKNOWN"}, {"radius_km": 0}, {"plan_date": "not a date"}, {"name": "  "}):
+        try:
+            SR.define(**{**{"name": "T", "lat": 31.95, "lon": -102.25, "radius_km": 9.08, "plan_date": "2026-02-25", "datum": "WGS84"}, **kw}); 
+        except ValueError:
+            bad += 1
+    cps = SR.checkpoints(sra)
+    ok(sra["centre"]["datum"] == "NAD27" and sra["centre_wgs84"]["shift_m"] > 10 and sra["area_km2"] == 259.0 and sra["threshold_m"] == 3.5
+       and sra["goal_months"] == 18 and sra["response_hours"] == 48 and sra["checkpoint_months"] == 3 and bad == 4
+       and [c["date"] for c in cps][:2] == ["2026-05-25", "2026-08-25"] and cps[-1]["n"] == "goal" and cps[-1]["date"] == "2027-08-25"
+       and "not a measurement" in " ".join(sra["not_a_measurement"]).lower().replace("never derived here", "not a measurement"),
+       "BC2 an area is a centre on a stated datum (carried to WGS84 with its shift named), a radius, a plan date and the plan's numbers - "
+       "M 3.5, 18 months, 48 hours, quarterly - recorded as declarations; an unknown datum, a zero radius, a non-date or a blank name is refused; "
+       "the checkpoints fall every three months from the plan date and the goal date closes the list")
+
+    # -- the catalogue reader: a TexNet-shaped export ------------------------------------
+    cat = d / "texnet.csv"
+    with open(cat, "w", newline="") as f:
+        w = _csv.writer(f); w.writerow(["EventID", "Origin Date", "Origin Time", "Local Magnitude", "Latitude", "Longitude", "Depth of Hypocenter (Km)"])
+        w.writerow(["texnet2026aaaa", "2026-02-20", "04:15:10", "4.4", "31.950", "-102.250", "7.2"])      # before the plan date
+        w.writerow(["texnet2026aaab", "2026-03-05", "11:02:33", "3.7", "31.960", "-102.240", "6.8"])      # counts
+        w.writerow(["texnet2026aaac", "2026-03-06", "01:00:00", "3.6", "31.955", "-102.245", "6.5"])      # declared aftershock
+        w.writerow(["texnet2026aaad", "2026-03-09", "21:40:00", "2.0", "31.940", "-102.260", "6.1"])
+        w.writerow(["texnet2026aaae", "2026-03-12", "03:00:00", "3.9", "32.500", "-102.700", "8.0"])      # outside
+        w.writerow(["", "", "", "", "", "", ""])                                                           # a blank line is skipped, not an event
+    c = SR.read_catalog(str(cat))
+    se = SR.seismicity(sra, c, as_of=_dt(2026, 4, 1, tzinfo=_tz.utc), aftershocks=["texnet2026aaac"])
+    ok(c["n_events"] == 5 and c["n_skipped"] == 1 and c["columns"]["origin_date"] == "Origin Date" and c["columns"]["origin_time"] == "Origin Time"
+       and c["events"][0]["time"] == "2026-02-20T04:15:10Z" and c["events"][0]["depth_km"] == 7.2
+       and se["n_inside"] == 4 and se["n_at_or_above"] == 3 and se["n_counted"] == 1 and se["n_exempt"] == 1
+       and se["largest"]["event_id"] == "texnet2026aaaa" and se["trigger"]["status"] == "TRIGGERED" and se["trigger"]["event_id"] == "texnet2026aaab"
+       and se["trigger"]["respond_by"] == "2026-03-07T11:02:33Z" and se["goal"]["clock_started"] == "2026-03-05" and se["goal"]["status"] == "RUNNING"
+       and se["goal"]["goal_date"] == "2027-09-05",
+       "BC3 a TexNet-shaped export is read by its column names (date and time in separate columns, the depth under its long name), a blank line "
+       "is skipped and counted; against the plan: the M 4.4 before the plan date is the largest but does not count, the declared aftershock is "
+       "exempt, the M 3.9 outside the circle is outside, the M 3.7 triggers the 48-hour response with its deadline, and the 18-month clock "
+       "starts from it")
+
+    # -- the daily record from a stream: refused without a calendar --------------------------------
+    from .ports import LiveStream, StreamChannel
+    import numpy as _np
+    st = LiveStream(name="x", source_format="synthetic", index_kind="time_s", index=_np.arange(100) * 600.0,
+                    channels={"P": StreamChannel("P", "psi", _np.full(100, 1500.0))}, meta={})
+    rr = SR.daily_records(st, {"channel_pressure": "P"})
+    sc = SR.synthetic_scene(days=3)
+    dr = SR.daily_records(sc["streams"]["deep-1"], {**sc["wells"][0]["disposal"], "rate_unit": "furlongs"})
+    ok(rr["status"] == "REFUSED" and "calendar" in rr["detail"]
+       and dr["parameters"]["injection_volume_bbl"]["status"] == "NOT RECORDED" and "furlongs" in dr["parameters"]["injection_volume_bbl"]["why"]
+       and dr["parameters"]["max_surface_injection_pressure_psi"]["status"] == "RECORDED",
+       "BC4 a daily record needs a calendar: a stream with no start time is refused, not dated from zero; a rate in a unit the program does not "
+       "convert leaves the volume NOT RECORDED with the unit named, while the pressures are still recorded")
+
+    # -- through the workspace and the command line ----------------------------------------
+    t0 = _dt(2026, 3, 1, tzinfo=_tz.utc); n = 6 * 144
+    hist = d / "swd.csv"
+    with open(hist, "w", newline="") as f:
+        w = _csv.writer(f); w.writerow(["timestamp", "P_surf_psi", "Q_bpm", "P_bh_psi"])
+        for i in range(n):
+            w.writerow([(t0 + _td(seconds=600 * i)).strftime("%Y-%m-%dT%H:%M:%SZ"), "1500.0", "5.0", f"{1500.0 + 0.465 * 9000:.1f}"])
+    ws = Workspace.create(str(d / "ws"), "Pad 3", actor="tester")
+    w1 = ws.add_well_file(str(hist), display="SWD 1", actor="tester")
+    try:
+        ws.set_well(w1["id"], disposal={"depth_tier": "middle"}, actor="tester"); tier_bad = False
+    except WorkspaceError:
+        tier_bad = True
+    run = lambda *a: _sp.run([sys.executable, "-m", "gea", "workspace", "--path", ws.path, "--actor", "tester", *a], capture_output=True, text=True)
+    r1 = run("--action", "set-well", "--well", w1["id"], "--lat", "31.96", "--lon", "-102.24", "--datum", "NAD27", "--api", "42-329-12345", "--uic", "123456",
+             "--depth-tier", "deep", "--formation", "completed below the base of the Wolfcamp", "--channel-pressure", "P_surf_psi", "--channel-rate", "Q_bpm",
+             "--rate-unit", "bbl/min", "--bhp-method", "probe", "--channel-bhp", "P_bh_psi")
+    r2 = run("--action", "add-site", "--name", "SRA block", "--wells", w1["id"], "--client", "Acme Operating")
+    r3 = run("--action", "sra-report", "--site", "SRA-block")                                        # no area yet: refused
+    r4 = run("--action", "sra-define", "--site", "SRA-block", "--name", "Test SRA", "--lat", "31.95", "--lon", "-102.25", "--datum", "WGS84",
+             "--radius-km", "9.08", "--plan-date", "2026-02-25")
+    r5 = run("--action", "sra-report", "--site", "SRA-block", "--catalog", str(cat), "--aftershocks", "texnet2026aaac")
+    ws2 = Workspace(ws.path)
+    out = Path(ws.path, "reports", "sites", "SRA-block")
+    rows = list(_csv.DictReader(open(out / "sra_daily_export.csv", encoding="utf-8")))
+    md = (out / "sra_packet.md").read_text(encoding="utf-8")
+    audit = Path(ws.path, "records", "audit.jsonl").read_text(encoding="utf-8")
+    pkj = json.loads((out / "sra_packet.json").read_text(encoding="utf-8"))["packet"]
+    ok(tier_bad and r1.returncode == 0 and r2.returncode == 0 and r3.returncode != 0 and "sra-define" in (r3.stderr + r3.stdout)
+       and r4.returncode == 0 and r5.returncode == 0 and "COMPLETE" in r5.stdout and "TRIGGERED" in r5.stdout
+       and ws2.site("SRA-block")["sra"]["name"] == "Test SRA" and pkj["status"] == "COMPLETE" and pkj["wells"][0]["inside"] and pkj["wells"][0]["depth_tier"] == "deep"
+       and len(rows) == 6 and rows[0]["API number"] == "42-329-12345" and rows[0]["UIC permit number"] == "123456"
+       and abs(float(rows[1]["Injection volume (barrels per day)"]) - 7200.0) < 10 and rows[1]["Maximum surface injection pressure (pounds per square inch)"] == "1500.0"
+       and abs(float(rows[1]["Bottomhole pressure (pounds per square inch)"]) - (1500 + 0.465 * 9000)) < 1 and rows[1]["BHP method"] == "probe"
+       and "Maximum surface injection pressure (pounds per square inch)" in rows[0]
+       and not forbidden_terms(md) and "well.declare" in audit and "site.sra_define" in audit and "site.sra_packet" in audit,
+       "BC5 `set-well` records what the operator declares - surface position and datum, API and UIC, depth tier by the named formation, which "
+       "channels are the surface pressure, the rate and the downhole gauge, the BHP method - and refuses a tier that is not shallow or deep; "
+       "`sra-define` puts the area on the site; `sra-report` is refused until it does; then the packet is COMPLETE for a well with everything "
+       "declared, the daily export carries the Notice's parameter names with the API and UIC on every line, the volume integrates to 7,200 bbl "
+       "a day from 5 bbl/min, the probe is the bottomhole pressure, the report passes the vocabulary gate, and every step is audited")
+
+    # -- the service offers it and the page carries it ------------------------------------------
+    svc_src = (pkg / "service.py").read_text(encoding="utf-8"); page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    r6 = _sp.run([sys.executable, "-m", "gea", "sra"], capture_output=True, text=True)
+    ok("'sra_report'" in svc_src and "sra_packet.html" in svc_src and "Seismicity Response Area</th>" in page_src and "sra-define" in page_src
+       and r6.returncode == 0 and "SIMULATION_SELF_TEST" in r6.stdout and "OK" in r6.stdout
+       and (pkg / "help" / "sra.md").is_file(),
+       "BC6 the Sites page carries the area and the packet's status beside each site; `gea sra` runs the self-test from the command line and "
+       "labels it SIMULATION_SELF_TEST; the help page exists")
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
-    with tempfile.TemporaryDirectory() as tmp:
+    # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
+    # the checks have already passed or failed on their own, and the folder is the temp folder
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
         section_a_cli(tmp)
         section_b_las(tmp)
         section_c_reconciler(tmp)
@@ -4648,6 +4779,7 @@ def main() -> int:
         section_az_uncertainty(tmp)
         section_ba_sites(tmp)
         section_bb_supervisor(tmp)
+        section_bc_sra(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

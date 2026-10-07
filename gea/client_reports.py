@@ -1584,6 +1584,84 @@ def seismic_track_report(track: dict, histories: List[dict], positions: dict, ve
                           'evaluated_at_utc': now.strftime('%Y-%m-%dT%H:%M:%SZ'), '_records': [], '_catalogue_obj': None})
 
 
+def sra_packet_report(pk: dict, evaluated_at: Optional[datetime] = None, program_version: str = '') -> Document:
+    """The Seismicity Response Area packet: what an operator inside an SRA puts in front of the Railroad
+    Commission, built from what the site holds. The area and the plan as declared; which wells and stations
+    are inside it and each well's depth tier; the four daily parameters the Commission's Notice names, per
+    well, rolled up by month, with the bottomhole-pressure method; the catalogue's events against the plan -
+    the response trigger and the goal clock; the checkpoint schedule; and every gap by name."""
+    now = evaluated_at or _utc_now()
+    s = pk['sra']; site = pk.get('site') or {}; m = pk['membership']; se = pk.get('seismicity')
+    report_id = f"SRA-{str(site.get('id') or s['name']).replace('/', '-')[:24]}-{now.strftime('%Y%m%dT%H%M%SZ')}"
+    secs = []
+    secs.append(Section('1', 'The area and the plan', [
+        f"{s['name']}: a circle of {s['radius_km']:g} km ({s['area_km2']:,} km\u00b2) around {s['centre']['lat']:.5f}, {s['centre']['lon']:.5f} "
+        f"on {s['centre']['datum']}. Plan date {s['plan_date']}. The plan is written against earthquakes of magnitude {s['threshold_m']:.1f} and "
+        f"above inside the area: the goal is {s['goal_months']} months without one; the response to one is a meeting of the operator-led "
+        f"response group within {s['response_hours']} hours; the checkpoints with Commission staff fall every {s['checkpoint_months']} months. "
+        f"Disposal wells are placed in two tiers by the {s['formation_boundary']}."
+        + (f" Triggering event: {s['triggering_event']}." if s.get('triggering_event') else '')
+        + (f" {s['note']}" if s.get('note') else ''),
+        'Every number in this paragraph is a declaration copied from the plan, not a measurement.']))
+    wrows = [[w['id'], w['display'] or '-', w['api_number'] or '-', w['uic_number'] or '-',
+              ('inside' if w['inside'] else ('outside' if w['inside'] is False else 'undecided')),
+              _fmt(w['distance_km']), w['depth_tier'], (w['bhp_method'] or '-'), w.get('daily_status') or '-'] for w in pk['wells']]
+    srows = [[x['id'], x.get('display') or '-', x.get('kind') or '-', ('inside' if x['inside'] else ('outside' if x['inside'] is False else 'undecided')),
+              _fmt(x.get('distance_km'))] for x in pk['stations']]
+    secs.append(Section('2', 'What is inside the area', [
+        f"{m['n_wells_inside']} well(s) and {m['n_stations_inside']} seismic station(s) of the site fall inside the area by geodesic distance "
+        f"from the centre, with every position carried to WGS84 first; {m['n_undecided']} could not be placed."],
+        [Table(['Well', 'Name', 'API', 'UIC', 'Membership', 'Distance (km)', 'Depth tier', 'BHP method', 'Daily record'], wrows, 'Wells'),
+         Table(['Station', 'Name', 'Kind', 'Membership', 'Distance (km)'], srows, 'Seismic stations')]))
+    n = 3
+    inside_wells = [w for w in pk['wells'] if w['inside'] and w.get('months')]
+    for w in inside_wells:
+        pr = w.get('parameters', {}); bh = w.get('bhp', {})
+        paras = [f"{w['display'] or w['id']} ({w['depth_tier']}): {w.get('daily_detail') or ''}",
+                 ' '.join(f"{v['label']}: {v['status']}" + (f" from channel {v['channel']}" if v.get('channel') else '') + '.' for v in pr.values()),
+                 f"Bottomhole pressure: {bh.get('label', '-')}, reported {bh.get('reported', '-')}" + (f"; {bh['how']}" if bh.get('how') else '') + '.']
+        secs.append(Section(str(n), f"Daily record, rolled up by month: {w['display'] or w['id']}", paras,
+                            [Table(['Month', 'Days', 'Recorded', 'Missing', 'Max surface inj. pressure (psi)', 'Avg surface inj. pressure (psi)',
+                                    'Injection volume (bbl)', 'Max injection rate (bbl/min)', 'BHP (psi)'],
+                                   [[r['month'], r['days'], r['recorded'], r['missing'], _fmt(r['max_surface_injection_pressure_psi']),
+                                     _fmt(r['avg_surface_injection_pressure_psi']), _fmt(r['injection_volume_bbl']),
+                                     _fmt(r['max_injection_rate_bbl_min']), _fmt(r['bhp_psi'])] for r in w['months']])]))
+        n += 1
+    if se:
+        lg = se.get('largest')
+        paras = [f"Catalogue export of {se['catalog'].get('export_mtime_utc', '-')[:10]}: {se['n_inside']} event(s) inside the area, "
+                 f"{se['n_at_or_above']} at or above M {s['threshold_m']:.1f}, {se['n_exempt']} of those declared aftershocks and exempt."
+                 + (f" Largest inside the area: M {lg['magnitude']:.1f}, {lg['time'][:10]}, {lg['distance_km']:g} km from the centre ({lg['event_id']})." if lg else ''),
+                 f"Response: {se['trigger']['status']}. {se['trigger']['detail']}.",
+                 f"Goal: {se['goal']['status']}. {se['goal']['detail']}."]
+        ev = [[e['event_id'], e['time'][:16].replace('T', ' '), f"{e['magnitude']:.1f}", _fmt(e['distance_km']), _fmt(e.get('depth_km')),
+               ('yes' if e['after_plan'] else 'no'), ('exempt' if e['exempt'] else ('counts' if (e['at_or_above'] and e['after_plan']) else '-'))]
+              for e in se['events'] if e['at_or_above'] or e is se['events'][-1]]
+        secs.append(Section(str(n), 'Seismicity against the plan', paras,
+                            [Table(['Event', 'Origin (UTC)', 'M', 'Distance (km)', 'Depth (km)', 'After plan date', 'Standing'], ev,
+                                   'Events at or above the threshold inside the area (and the latest event)')]))
+        n += 1
+    else:
+        secs.append(Section(str(n), 'Seismicity against the plan', ['No catalogue export was handed in. This section is empty and the goal clock is not stated.']))
+        n += 1
+    secs.append(Section(str(n), 'The schedule', ['Checkpoints with Commission staff from the plan date, and the goal date.'],
+                        [Table(['#', 'Date', 'What'], [[c['n'], c['date'], c['what']] for c in pk['checkpoints']])]))
+    n += 1
+    secs.append(Section(str(n), 'What this packet is missing', pk['gaps'] or ['Nothing: every declaration is present and every parameter is recorded.']))
+    secs.append(Section(str(n + 1), 'What this packet does not call a measurement',
+                        [x.rstrip('.') + '.' for x in dict.fromkeys(pk.get('not_a_measurement') or [])]))
+    front = [['Report ID', report_id], ['Area', s['name']], ['Site', site.get('display') or '-'], ['Client', site.get('client') or '-'],
+             ['Generated (UTC)', now.strftime('%Y-%m-%dT%H:%M:%SZ')],
+             ['Program', f'{PROGRAM_NAME}' + (f' build {program_version}' if program_version else '')],
+             ['Result', f"{pk['status']}: {m['n_wells_inside']} WELL(S) INSIDE, " + (f"RESPONSE {se['trigger']['status']}, GOAL {se['goal']['status']}" if se else 'NO CATALOGUE')
+              + (f", {len(pk['gaps'])} GAP(S)" if pk['gaps'] else '')]]
+    return Document(title=f'{PROGRAM_NAME} - Seismicity Response Area Packet', report_id=report_id, front=front, sections=secs,
+                    footer=('Built to the operator-led response plans the Railroad Commission of Texas has on file and its December 2023 Notice to '
+                            'Operators on disposal-well monitoring in the Permian Basin. The daily export carries the Notice\'s parameter names; '
+                            'the mapping onto the TexNet reporting tool\'s template is the operator\'s step.'),
+                    data={'packet': pk, 'report_id': report_id, 'evaluated_at_utc': now.strftime('%Y-%m-%dT%H:%M:%SZ'), '_records': [], '_catalogue_obj': None})
+
+
 def forbidden_terms(text: str) -> List[str]:
     low = text.lower()
     return [t for t in FORBIDDEN_TERMS if t in low]

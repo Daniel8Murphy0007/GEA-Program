@@ -1,21 +1,38 @@
-v0.8.1 — THE KIT'S GATE READS THE KIT
+v0.9.0 — THE SEISMICITY RESPONSE AREA PACKET
 
-v0.8.0 shipped whole - the commit, the tag, CI and the PyPI release all
-green - and both kit builds went red at the same point: the kit's own gate,
-twenty minutes in. Section BB, written that morning, read the launcher
-templates out of tools/build_installer.py. A checkout has that file. An
-installed kit has the package in site-packages and no tools/ at all, so the
-section fell over before its first check.
+The first deliverable in this program shaped to a regulator rather than to
+a client engineer. The Railroad Commission of Texas declares a Seismicity
+Response Area around a cluster of felt earthquakes and expects the operators
+inside it to run a response plan; the plans on file - Gardendale, Northern
+Culberson-Reeves, Stanton - have one shape, and the Commission's December
+2023 Notice to Operators on disposal-well monitoring in the Permian Basin
+names the data. gea/sra.py builds to that shape and to nothing invented
+here: a circle of about 9 km, a plan written against M 3.5, an 18-month
+goal, a response group meeting within 48 hours of a threshold event,
+quarterly checkpoints with Commission staff, disposal wells in two tiers by
+the base of the Wolfcamp; the four daily parameters in the Notice's own
+words - maximum and average surface injection pressure, injection volume,
+maximum injection rate - and the three bottomhole-pressure methods, of which
+the permanent downhole probe is what this program has monitored since its
+first ship.
 
-The gate already had a way of telling the two apart - pyproject.toml beside
-the package means a checkout - and the section did not use it. It does now,
-and in a kit it does something better than reading a template: it reads the
-launcher the kit actually installed beside its python/, found the way gea
-doctor finds it. The kit's gate therefore checks the file the client will
-double-click, which is the test that should have been there in the first
-place.
+The operator declares what the program cannot measure - set-well: the
+surface position and its datum, the API and UIC numbers, the depth tier by
+the named formation, which channels are the pressure, the rate and the
+downhole gauge, how the bottomhole pressure is known - and sra-define puts
+the area on the site. sra-report then writes the packet: membership by
+geodesic distance with every position carried to WGS84 first; the daily
+record per well from its own channels, rolled up by month; the catalogue's
+events against the plan with the trigger, its deadline and the goal clock;
+the schedule; and every gap by name. The daily export carries the Notice's
+parameter names with the API and UIC on every line.
 
-Proven from an installed layout - the package in a venv's site-packages with
-no checkout beside it and the launcher two levels up - with the full gate
-run from there: 302 checks. The report samples are re-rendered from this
-build. Nothing else changes.
+What it refuses, and says so on the packet: a daily record from a stream
+with no calendar; a volume from a well with no rate channel - NOT RECORDED,
+never a blank; a depth tier from depth alone; an aftershock it decided for
+itself - the operator declares them and they are shown as exempt; a
+catalogue it fetched - the catalogue is a file with an export date. The
+volume integrates the way a totalizer counts, each sample holding for its
+own interval, because the trapezoid lost ten minutes at every midnight.
+
+The gate is 308 checks (section BC is new). The standalone guard is clean.

@@ -977,3 +977,36 @@ opened from a Windows Terminal Python profile, so what he got was a bare
   setuptools cannot build one): the package copied into a venv's
   site-packages, the launcher two levels up, the gate run from there.
 - Version 0.8.1; samples re-rendered; CHANGELOG, HISTORY, SHIP_MESSAGE.
+
+## 2026-10-07 - the Seismicity Response Area packet (v0.9.0)
+
+He chose the SRA first. Research before a line of code: the Commission's
+Seismicity Response page, the Gardendale operator-led response plan, and the
+December 2023 Notice to Operators on Permian disposal-well monitoring. The
+shape is theirs: a ~9 km circle, M 3.5, 18 months, 48 hours, quarterly
+checkpoints, two depth tiers by the base of the Wolfcamp; four daily
+parameters named in the Notice's words; three BHP methods, one of which is
+a permanent downhole probe - which is what this program has been monitoring
+since v0.1.0.
+
+- `gea/sra.py`: define, membership (geodesic on WGS84, datum shift named),
+  daily_records (the four parameters from the well's own channels; a volume
+  only from a rate channel; a daily record only from a stream with a
+  calendar), monthly_summary, read_catalog (a TexNet-shaped export by column
+  name, date and time in separate columns), seismicity (trigger with its
+  deadline, exempt aftershocks by declaration, the goal clock), checkpoints,
+  export_daily_csv (the Notice's names as headers), packet, a labelled scene
+  and a self-test.
+- Volume integrates the way a totalizer counts: each sample holds for its
+  interval. The trapezoid lost ten minutes at every midnight.
+- `set-well`, `sra-define`, `sra-report` on the workspace; the Sites page
+  carries the area and the packet; `gea help sra`; sample
+  `sra_packet_SYNTHETIC.html`.
+- Section BC (6 checks): 308.
+- The v0.9.0 ship went red in section AH on Windows: `JobRunner.list()`
+  read `job.json` with a plain open() while the runner was replacing it.
+  `_read()` had carried the Windows retry since the v0.7.0 kit run #8;
+  `list()` never got it. One tolerant reader for every job file now, and a
+  job unreadable at that instant is left out of a listing. The gate's temp
+  folder cleans up with errors ignored so a job's open log handle cannot
+  fail a finished gate.

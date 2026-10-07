@@ -1070,6 +1070,121 @@ class Workspace:
                 'not_a_measurement': ['a site as a boundary on the ground: it is a list of what belongs to one engagement',
                                       "a leg's verdict that has not been refreshed since its source changed"]}
 
+    # -- the Seismicity Response Area --------------------------------------------------------------------
+    def well_stream(self, well_id: str):
+        """The well's measured stream, read from its source, whatever kind of well it is."""
+        from . import production_live_stream
+        from .files import read_any
+        w = self.well(well_id)
+        if w['kind'] == 'catalog':
+            stream, _ = production_live_stream(w['source']['entry'], w['source']['well'], w.get('station_md_ft') or 10000.0)
+            return stream
+        src = (os.path.join(self.path, 'wells', well_id, 'source', w['files'][0]) if w['kind'] == 'file'
+               else self.latest_live_stream_csv(well_id))
+        if not src:
+            raise WorkspaceError(f'well {well_id}: no recorded stream yet')
+        return read_any(src)
+
+    def set_well(self, well_id: str, surface: Optional[dict] = None, disposal: Optional[dict] = None, actor: str = 'system') -> dict:
+        """What the operator declares about a well and this program cannot measure: where its surface location
+        is and on which datum; that it is a disposal well, its API and UIC numbers, its depth tier by the named
+        formation, which of its channels are the surface injection pressure and the injection rate, and how its
+        bottomhole pressure is known. Every one of these is recorded as a declaration and audited."""
+        from . import geodesy as GD
+        from .sra import BHP_METHODS, DEPTH_TIERS, RATE_UNITS
+        w = self.well(well_id)
+        if surface:
+            lat, lon = surface.get('lat'), surface.get('lon')
+            if lat is None or lon is None:
+                raise WorkspaceError('a surface position needs --lat and --lon')
+            d = GD.datum_name(surface.get('datum'))
+            w['surface'] = {'lat': float(lat), 'lon': float(lon), 'datum': d}
+        if disposal:
+            cur = dict(w.get('disposal') or {})
+            for k, v in disposal.items():
+                if v is None:
+                    continue
+                if k == 'depth_tier' and v not in DEPTH_TIERS:
+                    raise WorkspaceError(f"depth tier must be one of {DEPTH_TIERS}, got {v!r}")
+                if k == 'bhp_method' and v not in BHP_METHODS:
+                    raise WorkspaceError(f"bottomhole pressure method must be one of {tuple(BHP_METHODS)}, got {v!r}")
+                if k == 'rate_unit' and str(v).lower() not in RATE_UNITS:
+                    raise WorkspaceError(f"rate unit must be one of {tuple(RATE_UNITS)}, got {v!r}")
+                cur[k] = v
+            cur.setdefault('role', 'disposal')
+            w['disposal'] = cur
+        with open(os.path.join(self.well_dir(well_id), 'well.json'), 'w', encoding='utf-8') as f:
+            json.dump(w, f, indent=1)
+        self.audit(actor, 'well.declare', {'id': well_id, 'surface': w.get('surface'), 'disposal': w.get('disposal')})
+        return w
+
+    def sra_define(self, site_id: str, actor: str = 'system', **kw) -> dict:
+        """The area a site answers to, recorded on the site."""
+        from .sra import define
+        st = self.site(site_id)
+        st['sra'] = define(**kw)
+        with open(os.path.join(self.path, 'sites', site_id, 'site.json'), 'w', encoding='utf-8') as f:
+            json.dump(st, f, indent=1)
+        self.audit(actor, 'site.sra_define', {'id': site_id, 'name': st['sra']['name'], 'radius_km': st['sra']['radius_km'],
+                                               'plan_date': st['sra']['plan_date']})
+        return st['sra']
+
+    def sra_packet(self, site_id: str, catalog_csv: Optional[str] = None, aftershocks: Optional[List[str]] = None,
+                   start: Optional[str] = None, end: Optional[str] = None, as_of: Optional[datetime] = None) -> dict:
+        """The packet for one site: membership, the daily record per well, the seismicity if a catalogue was
+        handed in, the schedule and the gaps. Nothing here fetches anything."""
+        from . import sra as SR
+        st = self.site(site_id)
+        if not st.get('sra'):
+            raise WorkspaceError(f'site {site_id} has no Seismicity Response Area defined: gea workspace --action sra-define')
+        sra = st['sra']
+        wells = [self.well(wid) for wid in st['wells']]
+        stations = [self.seismic_station(sid) for sid in st['seismic'] if sid in self.manifest.get('seismic', [])]
+        mem = SR.membership(sra, wells, stations)
+        t_start = SR._parse_dt(start) if start else None
+        t_end = SR._parse_dt(end) if end else None
+        daily = {}
+        for w in wells:
+            if not (w.get('disposal') or {}).get('channel_pressure') and not (w.get('disposal') or {}).get('channel_rate'):
+                continue                                   # nothing declared: nothing to record, and the membership names it
+            try:
+                daily[w['id']] = SR.daily_records(self.well_stream(w['id']), w['disposal'], t_start, t_end)
+            except WorkspaceError as e:
+                daily[w['id']] = {'status': 'REFUSED', 'detail': str(e), 'days': [], 'parameters': {}}
+        seis = None
+        if catalog_csv:
+            seis = SR.seismicity(sra, SR.read_catalog(catalog_csv), as_of=as_of, aftershocks=aftershocks or [])
+        return SR.packet(sra, mem, daily, seis, as_of=as_of, site=st)
+
+    def write_sra_packet(self, site_id: str, catalog_csv: Optional[str] = None, aftershocks: Optional[List[str]] = None,
+                         start: Optional[str] = None, end: Optional[str] = None, actor: str = 'system') -> dict:
+        """The deliverable: the packet report, its machine record, and the daily export the tool is fed."""
+        from . import __version__
+        from . import sra as SR
+        from .client_reports import sra_packet_report, write
+        pk = self.sra_packet(site_id, catalog_csv, aftershocks, start, end)
+        out = self.dir('reports', 'sites', site_id)
+        doc = sra_packet_report(pk, program_version=__version__)
+        paths = write(doc, out, 'sra_packet')
+        rows = []
+        # the daily export: every inside well's days, one line each
+        daily = {}
+        for w in pk['wells']:
+            if w['inside'] and w.get('daily_status') not in (None, 'NOT RUN', 'REFUSED'):
+                try:
+                    daily[w['id']] = SR.daily_records(self.well_stream(w['id']), self.well(w['id'])['disposal'],
+                                                      SR._parse_dt(start) if start else None, SR._parse_dt(end) if end else None)
+                except WorkspaceError:
+                    continue
+        for w in pk['wells']:
+            for day in daily.get(w['id'], {}).get('days', []):
+                rows.append({**day, 'well': w['id'], 'api_number': w['api_number'], 'uic_number': w['uic_number'], 'bhp_method': w['bhp_method']})
+        exp = SR.export_daily_csv(rows, os.path.join(out, 'sra_daily_export.csv'))
+        paths['daily_csv'] = exp['path']
+        self.audit(actor, 'site.sra_packet', {'id': site_id, 'status': pk['status'], 'gaps': len(pk['gaps']), 'rows': exp['rows'],
+                                               'catalog': catalog_csv or None})
+        return {'site': site_id, 'status': pk['status'], 'paths': paths, 'packet': pk, 'export_rows': exp['rows']}
+
     def write_site_report(self, site_id: str, actor: str = 'system') -> dict:
         from . import __version__
         from .client_reports import site_report, write as _write

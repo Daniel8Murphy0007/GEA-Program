@@ -62,16 +62,23 @@ class JobRunner:
     def _dir(self, job_id: str) -> str:
         return os.path.join(self.ws.jobs_dir, job_id)
 
-    def _read(self, job_id: str) -> dict:
-        p = os.path.join(self._dir(job_id), 'job.json')
-        for attempt in range(40):                        # a writer may be mid-replace; the file is never half-written (see _write)
+    @staticmethod
+    def _read_json(p: str, attempts: int = 40) -> dict:
+        """Read a job file that a writer may be mid-replace on. The file is never half-written (see _write), but
+        on Windows a read during os.replace is refused with PermissionError, and the v0.7.0 kit run #8 and the
+        v0.9.0 ship both fell over on exactly that - the first in _read, the second in list(), which had its own
+        open() and none of this. Every read of a job file goes through here now."""
+        for attempt in range(attempts):
             try:
                 with open(p, encoding='utf-8') as f:
                     return json.load(f)
             except (json.JSONDecodeError, FileNotFoundError, PermissionError):
-                time.sleep(0.05)                          # PermissionError: Windows refuses a read during os.replace (the v0.7.0 kit run #8)
+                time.sleep(0.05)
         with open(p, encoding='utf-8') as f:
             return json.load(f)
+
+    def _read(self, job_id: str) -> dict:
+        return self._read_json(os.path.join(self._dir(job_id), 'job.json'))
 
     def _write(self, job: dict) -> None:
         p = os.path.join(self._dir(job['id']), 'job.json')
@@ -119,8 +126,10 @@ class JobRunner:
         for name in sorted(os.listdir(self.ws.jobs_dir), reverse=True):
             p = os.path.join(self.ws.jobs_dir, name, 'job.json')
             if os.path.isfile(p):
-                with open(p, encoding='utf-8') as f:
-                    j = json.load(f)
+                try:
+                    j = self._read_json(p)
+                except (OSError, json.JSONDecodeError):
+                    continue                              # a job whose file cannot be read right now is left out of this listing, not a crash
                 if status is None or j['status'] == status:
                     out.append(j)
             if len(out) >= limit:

@@ -281,9 +281,33 @@ def main(argv=None) -> int:
     p_ws.add_argument("--action", type=str, default="list",
                       choices=["init", "add-file", "add-catalog", "add-live", "remove", "list", "migrate", "refresh", "audit",
                                "add-seismic", "refresh-seismic", "remove-seismic", "sar-film", "refresh-all", "add-track", "refresh-track", "remove-track",
-                               "seismic-dataset", "seismic-field", "add-site", "sites", "site-report", "remove-site", "rename"])
+                               "seismic-dataset", "seismic-field", "add-site", "sites", "site-report", "remove-site", "rename",
+                               "set-well", "sra-define", "sra-report"])
     p_ws.add_argument("--stations", type=str, nargs="+", default=None, help="add-track: two or more array station ids of this workspace")
     p_ws.add_argument("--site", type=str, default=None, help="site-report/remove-site: the site id")
+    p_ws.add_argument("--api", type=str, default=None, help="set-well: the API number")
+    p_ws.add_argument("--uic", type=str, default=None, help="set-well: the UIC permit number")
+    p_ws.add_argument("--depth-tier", type=str, choices=["shallow", "deep"], default=None, help="set-well: above or below the named formation base")
+    p_ws.add_argument("--formation", type=str, default=None, help="set-well: the basis of the tier, e.g. 'completed below the base of the Wolfcamp'")
+    p_ws.add_argument("--channel-pressure", type=str, default=None, help="set-well: the channel that is the surface injection pressure (psi)")
+    p_ws.add_argument("--channel-rate", type=str, default=None, help="set-well: the channel that is the injection rate")
+    p_ws.add_argument("--rate-unit", type=str, default=None, help="set-well: the rate channel's unit: bbl/min or bbl/d")
+    p_ws.add_argument("--bhp-method", type=str, choices=["calculated", "dip_in", "probe"], default=None, help="set-well: how bottomhole pressure is known")
+    p_ws.add_argument("--channel-bhp", type=str, default=None, help="set-well: the downhole gauge channel (probe method)")
+    p_ws.add_argument("--top-interval-ft", type=float, default=None, help="set-well: top of the disposal interval, ft (calculated method)")
+    p_ws.add_argument("--gradient-psi-ft", type=float, default=None, help="set-well: fluid gradient, psi/ft (calculated method)")
+    p_ws.add_argument("--radius-km", type=float, default=None, help="sra-define: the area's radius in km (Gardendale: 9.08)")
+    p_ws.add_argument("--plan-date", type=str, default=None, help="sra-define: the plan date, YYYY-MM-DD")
+    p_ws.add_argument("--threshold-m", type=float, default=3.5, help="sra-define: the magnitude the plan is written against (3.5)")
+    p_ws.add_argument("--goal-months", type=int, default=18, help="sra-define: months without a threshold event that meet the goal (18)")
+    p_ws.add_argument("--response-hours", type=int, default=48, help="sra-define: hours within which the response group meets (48)")
+    p_ws.add_argument("--checkpoint-months", type=int, default=3, help="sra-define: months between checkpoints with Commission staff (3)")
+    p_ws.add_argument("--formation-boundary", type=str, default="base of the Wolfcamp", help="sra-define: the stratigraphic boundary between the two tiers")
+    p_ws.add_argument("--triggering-event", type=str, default="", help="sra-define: the catalogue id of the event the plan answers")
+    p_ws.add_argument("--catalog", type=str, default=None, help="sra-report: a TexNet earthquake-catalogue export (CSV)")
+    p_ws.add_argument("--aftershocks", type=str, nargs="*", default=None, help="sra-report: catalogue ids the operator declares as aftershocks (exempt)")
+    p_ws.add_argument("--start", type=str, default=None, help="sra-report: first day of the record, YYYY-MM-DD")
+    p_ws.add_argument("--end", type=str, default=None, help="sra-report: last day of the record, YYYY-MM-DD")
     p_ws.add_argument("--wells", type=str, nargs="+", default=None, help="add-site: well ids of this workspace")
     p_ws.add_argument("--seismic", type=str, nargs="+", default=None, help="add-site: seismic station ids of this workspace")
     p_ws.add_argument("--tracks", type=str, nargs="+", default=None, help="add-site: track ids of this workspace")
@@ -362,6 +386,9 @@ def main(argv=None) -> int:
     p_w0.add_argument("--seed", type=int, default=1)
     p_w0.add_argument("--connect", type=str, default=None, help="host:port - instead of listening, connect to a listening tap and push frames")
 
+    p_sra = sub.add_parser("sra", help="the Seismicity Response Area packet: the self-test on a labelled scene")
+    p_sra.add_argument("--action", choices=["selftest"], default="selftest")
+    p_sra.add_argument("--json", action="store_true")
     p_dr = sub.add_parser("doctor", help="which code is running and can it serve: Python, the package, duplicates, the page, PyPI; with --workspace also the site folder and the port")
     p_dr.add_argument("--workspace", type=str, default=None)
     p_dr.add_argument("--host", type=str, default="127.0.0.1")
@@ -1443,6 +1470,18 @@ def main(argv=None) -> int:
             return 0
         print(f"notifications: {'configured' if n.cfg else 'not configured'}" + (f" - {len(n.cfg['channels'])} channel(s), {len(n.cfg['rules'])} rule(s), quiet {n.cfg['quiet_s']} s" if n.cfg else " (gea notify --example)"))
         return 0
+    elif a.cmd == "sra":
+        from . import sra as _SRA
+        r = _SRA.selftest()
+        if a.json:
+            print(json.dumps({k: v for k, v in r.items() if k != "packet"}, indent=1))
+        else:
+            print(f"sra selftest [{r['label']}]: {r['status']}")
+            for k, v in r["checks"].items():
+                print(f"  {'ok ' if v else 'BAD'} {k}")
+            print(f"  deep well volume {r['deep_mean_volume_bbl_day']} bbl/day; probe offset {r['probe_offset_psi']} psi")
+            print(_SRA.report_text(r["packet"]))
+        return 0 if r["status"] == "OK" else 1
     elif a.cmd == "doctor":
         from .doctor import run as _doctor
         return _doctor(a.workspace, a.host, a.port, a.json)
@@ -1630,6 +1669,34 @@ def main(argv=None) -> int:
                 if not a.site:
                     raise SystemExit("remove-site needs --site <id>")
                 ws.remove_site(a.site, actor=a.actor); print("removed (folder kept):", a.site); return 0
+            elif a.action == "set-well":
+                if not a.well:
+                    raise SystemExit("set-well needs --well <id>")
+                surface = {"lat": a.lat, "lon": a.lon, "datum": a.datum} if (a.lat is not None or a.lon is not None) else None
+                disposal = {k: v for k, v in {"api_number": a.api, "uic_number": a.uic, "depth_tier": a.depth_tier, "formation_basis": a.formation,
+                                              "channel_pressure": a.channel_pressure, "channel_rate": a.channel_rate, "rate_unit": a.rate_unit,
+                                              "bhp_method": a.bhp_method, "channel_bhp": a.channel_bhp, "top_interval_ft": a.top_interval_ft,
+                                              "gradient_psi_ft": a.gradient_psi_ft}.items() if v is not None}
+                if not surface and not disposal:
+                    raise SystemExit("set-well: nothing to declare (give --lat/--lon, or any of --api --uic --depth-tier --channel-pressure ...)")
+                w = ws.set_well(a.well, surface=surface, disposal=disposal or None, actor=a.actor)
+                print(f"well {a.well}: surface {w.get('surface')}; disposal {w.get('disposal')}"); return 0
+            elif a.action == "sra-define":
+                if not a.site or not a.name or a.lat is None or a.lon is None or a.radius_km is None or not a.plan_date:
+                    raise SystemExit("sra-define needs --site, --name, --lat, --lon, --radius-km and --plan-date")
+                sra = ws.sra_define(a.site, actor=a.actor, name=a.name, lat=a.lat, lon=a.lon, radius_km=a.radius_km, plan_date=a.plan_date,
+                                    datum=a.datum or "WGS84", threshold_m=a.threshold_m, goal_months=a.goal_months, response_hours=a.response_hours,
+                                    checkpoint_months=a.checkpoint_months, formation_boundary=a.formation_boundary,
+                                    triggering_event=a.triggering_event, note=a.note or "")
+                print(f"sra: {sra['name']} on site {a.site} - {sra['radius_km']} km around {sra['centre']['lat']}, {sra['centre']['lon']} "
+                      f"({sra['centre']['datum']}); plan {sra['plan_date']}; M {sra['threshold_m']}; goal {sra['goal_months']} months"); return 0
+            elif a.action == "sra-report":
+                from .sra import report_text as _sra_text
+                if not a.site:
+                    raise SystemExit("sra-report needs --site <id>")
+                r = ws.write_sra_packet(a.site, catalog_csv=a.catalog, aftershocks=a.aftershocks, start=a.start, end=a.end, actor=a.actor)
+                print(_sra_text(r["packet"]))
+                print("  report:", r["paths"]["html"]); print("  daily export:", r["paths"]["daily_csv"], f"({r['export_rows']} rows)"); return 0
             elif a.action == "seismic-dataset":
                 r = ws.write_seismic_dataset_report(actor=a.actor)
                 inv = r["inventory"]

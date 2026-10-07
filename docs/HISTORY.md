@@ -4,6 +4,18 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.9.0 - 2026-10-07 - the Seismicity Response Area packet
+
+- **The SRA packet.** The first deliverable shaped to a regulator rather
+  than to a client engineer: the Railroad Commission's operator-led response
+  plans and its Notice to Operators name a shape - the area, the plan's
+  numbers, the four daily parameters, the three bottomhole-pressure methods -
+  and the packet is built to it from the site's own wells and stations and
+  a catalogue export the operator hands in. It names every gap and every
+  declaration, refuses to invent a volume, a tier or an aftershock, and the
+  daily export carries the Notice's own parameter names. Section BC; gate
+  308.
+
 ## v0.8.1 - 2026-10-06 - the kit's gate reads the kit
 
 - **The kit's gate failed at v0.8.0.** Section BB read the launcher templates

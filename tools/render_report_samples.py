@@ -67,6 +67,11 @@ SAMPLES = [
      'gea workspace --path seis_site --action seismic-field (what the site heard: every station\'s reach, every listed rig and where it was heard, every track, and anything found that nobody listed)'),
     ('site_report_SYNTHETIC.html', 'seis_site/reports/sites/SYNTHETIC-site/site_report.html',
      'gea workspace --path seis_site --action add-site --name "SYNTHETIC site" --seismic SYNTHETIC-node SYNTHETIC-array-1 SYNTHETIC-array-2 --tracks SYNTHETIC-lateral --client "SYNTHETIC operator"; gea workspace --path seis_site --action site-report --site SYNTHETIC-site'),
+    ('sra_packet_SYNTHETIC.html', 'seis_site/reports/sites/SYNTHETIC-SRA-block/sra_packet.html',
+     'gea workspace --path seis_site --action set-well --well SYNTHETIC-SWD-1 --lat 31.96 --lon -102.24 --datum NAD27 --api 42-000-00000 --uic 000000 --depth-tier deep '
+     '--channel-pressure P_surf_psi --channel-rate Q_bpm --rate-unit bbl/min --bhp-method probe --channel-bhp P_bh_psi; gea workspace --path seis_site --action sra-define '
+     '--site SYNTHETIC-SRA-block --name "SYNTHETIC SRA" --lat 31.95 --lon -102.25 --radius-km 9.08 --plan-date 2026-02-25; gea workspace --path seis_site --action sra-report '
+     '--site SYNTHETIC-SRA-block --catalog SYNTHETIC_texnet.csv --aftershocks SYNTHETIC-0003'),
 ]
 
 
@@ -131,6 +136,35 @@ def main(argv=None) -> int:
                  '--seismic', 'SYNTHETIC-node', 'SYNTHETIC-array-1', 'SYNTHETIC-array-2', '--tracks', 'SYNTHETIC-lateral',
                  '--note', 'the labelled synthetic scenes, held together as one engagement'], work)
         run(g + ['workspace', '--path', 'seis_site', '--action', 'site-report', '--site', 'SYNTHETIC-site'], work)
+        # the SRA packet: a synthetic disposal well with a surface pressure, a rate and a downhole probe, inside a
+        # declared area, with a synthetic catalogue handed in - every frame of it labelled SYNTHETIC
+        import csv as _csv
+        from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+        t0 = _dt(2026, 3, 1, tzinfo=_tz.utc)
+        with open(work / 'SYNTHETIC_swd.csv', 'w', newline='') as f:
+            w = _csv.writer(f); w.writerow(['timestamp', 'P_surf_psi', 'Q_bpm', 'P_bh_psi'])
+            import math as _m
+            for i in range(31 * 144):
+                day = i / 144.0
+                pr = 1500.0 + 40.0 * _m.sin(day); q = max(0.0, 5.0 + 0.5 * _m.sin(2 * day)) if not (12 <= day < 14) else 0.0
+                w.writerow([(t0 + _td(seconds=600 * i)).strftime('%Y-%m-%dT%H:%M:%SZ'), f'{pr:.1f}', f'{q:.3f}', f'{pr + 0.465 * 9000:.1f}'])
+        with open(work / 'SYNTHETIC_texnet.csv', 'w', newline='') as f:
+            w = _csv.writer(f); w.writerow(['EventID', 'Origin Date', 'Origin Time', 'Local Magnitude', 'Latitude', 'Longitude', 'Depth of Hypocenter (Km)'])
+            w.writerow(['SYNTHETIC-0001', '2026-02-20', '04:15:10', '4.4', '31.950', '-102.250', '7.2'])
+            w.writerow(['SYNTHETIC-0002', '2026-03-05', '11:02:33', '3.7', '31.960', '-102.240', '6.8'])
+            w.writerow(['SYNTHETIC-0003', '2026-03-06', '01:00:00', '3.6', '31.955', '-102.245', '6.5'])
+            w.writerow(['SYNTHETIC-0004', '2026-03-19', '21:40:00', '2.0', '31.940', '-102.260', '6.1'])
+            w.writerow(['SYNTHETIC-0005', '2026-03-22', '03:00:00', '3.9', '32.500', '-102.700', '8.0'])
+        run(g + ['workspace', '--path', 'seis_site', '--action', 'add-file', '--file', 'SYNTHETIC_swd.csv', '--name', 'SYNTHETIC SWD 1'], work)
+        run(g + ['workspace', '--path', 'seis_site', '--action', 'set-well', '--well', 'SYNTHETIC-SWD-1', '--lat', '31.96', '--lon', '-102.24', '--datum', 'NAD27',
+                 '--api', '42-000-00000', '--uic', '000000', '--depth-tier', 'deep', '--formation', 'completed below the base of the Wolfcamp (SYNTHETIC)',
+                 '--channel-pressure', 'P_surf_psi', '--channel-rate', 'Q_bpm', '--rate-unit', 'bbl/min', '--bhp-method', 'probe', '--channel-bhp', 'P_bh_psi'], work)
+        run(g + ['workspace', '--path', 'seis_site', '--action', 'add-site', '--name', 'SYNTHETIC SRA block', '--client', 'SYNTHETIC operator',
+                 '--wells', 'SYNTHETIC-SWD-1', '--note', 'a synthetic disposal well inside a synthetic area'], work)
+        run(g + ['workspace', '--path', 'seis_site', '--action', 'sra-define', '--site', 'SYNTHETIC-SRA-block', '--name', 'SYNTHETIC SRA', '--lat', '31.95', '--lon', '-102.25',
+                 '--datum', 'WGS84', '--radius-km', '9.08', '--plan-date', '2026-02-25', '--triggering-event', 'SYNTHETIC-0001'], work)
+        run(g + ['workspace', '--path', 'seis_site', '--action', 'sra-report', '--site', 'SYNTHETIC-SRA-block', '--catalog', 'SYNTHETIC_texnet.csv',
+                 '--aftershocks', 'SYNTHETIC-0003'], work)
         if out.exists():
             for p in out.glob('*.html'):
                 p.unlink()
