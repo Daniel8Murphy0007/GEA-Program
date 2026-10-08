@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (327 checks)
+gea accept                     # the product gate (330 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -562,6 +562,23 @@ SRA packet (section 2a) and in the OSDU export's Well and Wellbore records.
 It will not assume a sidetrack, invent an injection interval or a
 completion, or name a county. `gea ppdm --action parse --number ...` takes a
 number apart from the command line; `gea help ppdm`.
+
+### Machine vibration
+
+The pump's record read the way an operations engineer expects. `gea
+workspace --action vibration-report --well <id> --record pump.csv --vib-unit
+g --rpm 1780 --group 2 --support rigid --bearing 9,7.94,39.04` writes the
+broadband r.m.s. vibration velocity over 10-1000 Hz (2-1000 Hz below 600
+r/min), the quantity ISO 20816-1 defines, and the ISO 20816-3 zone for the
+declared machine group and support class with the boundaries printed; then
+the envelope spectrum of the most impulsive band (chosen by kurtosis, or
+declared) against the bearing's defect frequencies - BPFO, BPFI, BSF, FTF
+from its geometry and the shaft speed - each MATCHED at its fundamental or
+NOT MATCHED, the inner race with its sidebands. A record in counts needs a
+sensitivity; a rate that cannot carry 1000 Hz is PARTIAL BAND, never
+promoted; the group and the support are declarations; a matched frequency
+is not a fault size. CSV or miniSEED/SAC; `gea vibration` runs the labelled
+pump; `gea help vibration`.
 
 ### Audit / Update
 

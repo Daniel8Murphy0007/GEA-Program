@@ -1,23 +1,28 @@
-v0.13.0 — THE WELL AS MASTER DATA NAMES IT
+v0.14.0 — MACHINE VIBRATION: THE ZONE, AND WHAT THE BEARINGS ARE DOING
 
-Every report named a well by the operator's display name and, since v0.9.0,
-by the API and UIC numbers declared on it. A buyer's data team, a
-regulator's well file and the operator's own master data name it more
-carefully. gea/ppdm.py takes the US Well Number apart to the standard the
-API handed to PPDM - state and offshore code, county code, unique well in
-its range, sidetrack, event - and says which component the number
-identifies: ten digits the Well Origin, twelve a Wellbore, fourteen an
-event. Then it names the components of PPDM's "What is a Well" the site can
-name: the Well and its one Origin at the declared position on its datum, the
-Wellbore only when the sidetrack code was given, the gauge station as a
-measured depth along the wellbore, the Wellhead Stream as the channels
-recorded at the wellhead, the Well Set as the site, every alias typed.
+The one condition-monitoring deliverable an operations engineer expects by
+name. gea/vibration.py reads the pump's record and answers the first
+question ISO 20816 answers - which zone is this machine in - from the
+broadband r.m.s. vibration velocity over 10 to 1000 Hz as ISO 20816-1
+defines it, evaluated by ISO 20816-3's boundaries for the declared machine
+group and support class, with the boundaries printed and the margin to the
+next. Then the second question, by envelope analysis: the most impulsive
+band chosen by kurtosis, the analytic signal's envelope, and its spectrum
+searched for the bearing's own defect frequencies - BPFO, BPFI, BSF, FTF
+from its geometry and the shaft speed - each MATCHED at its fundamental or
+NOT MATCHED, the inner race with its sidebands at the shaft speed.
 
-The identity rides on every well row of the SRA packet, in a table of its
-own, and in the OSDU export's Well and Wellbore records. What it will not
-do: assume "00" for a sidetrack that was not given; invent an injection
-interval or a completion, which are the permit's and the completion
-report's facts; name a county, which the standard's booklet carries and
-this program does not.
+What it will not call a measurement: a group or a support class, which are
+declared; a zone from a record that cannot carry the band, marked PARTIAL
+BAND; a fault size; a defect frequency without the bearing's geometry; an
+mm/s value from counts without a sensitivity. The fundamental is required
+for a match because the harmonics of one defect frequency fall near
+multiples of another - the first draft named three faults where the
+labelled scene had one.
 
-Section BG is new. The gate is 327 checks. The standalone guard is clean.
+And a defect found on the way: the miniSEED writer rounded every record's
+start to the header's 0.1 ms, so a 20 kHz record read back as fifteen
+traces. Blockette 1001 carries the microseconds now and the round-trip is
+exact.
+
+Section BH is new. The gate is 330 checks. The standalone guard is clean.

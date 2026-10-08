@@ -392,7 +392,7 @@ workspace) that this kit creates on first start and never deletes.
 3. Wells -> add a well from a file (historian CSV, LAS) or the catalogue.
    Patch panel -> add a patch to read the drill floor (WITS0), a WITSML
    store, OPC UA, MQTT or Modbus. Home -> Refresh every report.
-4. {verify}  runs the acceptance gate (327 checks) from this installation and
+4. {verify}  runs the acceptance gate (330 checks) from this installation and
    is your own acceptance evidence (also on the Verification page).
 5. report-samples\  holds one rendered example of every report the program
    writes, from the build in this kit; SAMPLES.md names the command behind each.

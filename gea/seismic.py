@@ -80,6 +80,14 @@ def _btime_to_epoch(year: int, doy: int, hour: int, minute: int, sec: int, frac0
     return d.timestamp() + frac0001 / 10000.0
 
 
+def _epoch_to_btime_usec(t: float) -> Tuple[int, int, int, int, int, int, int]:
+    """The header's 0.1 ms field and the microseconds left over for blockette 1001 (0 to 99)."""
+    d = _dt.datetime.fromtimestamp(t, tz=_dt.timezone.utc)
+    us = int(round(d.microsecond))
+    frac = us // 100
+    return d.year, d.timetuple().tm_yday, d.hour, d.minute, d.second, frac, us - frac * 100
+
+
 def _epoch_to_btime(t: float) -> Tuple[int, int, int, int, int, int]:
     d = _EPOCH + _dt.timedelta(seconds=float(t))
     frac = int(round((d.microsecond / 1e6) * 10000.0))
@@ -597,15 +605,19 @@ def write_mseed(traces: Sequence[Trace], path: str, encoding: str = 'STEIM1', re
                     body = np.asarray(data[i:i + n], dtype='>f8').tobytes().ljust(payload_room, b'\x00')
                 if n == 0:
                     raise ValueError("no sample fits in a record")
-                year, doy, hh, mm, ss, frac = _epoch_to_btime(t0)
+                # the header's time has 0.1 ms resolution; above 5 kHz that is coarser than a sample, and a record whose start
+                # is rounded to it reads back as a gap or an overlap against the one before. Blockette 1001 carries the
+                # microseconds the header cannot, so the record's start is written exactly and the reader joins the records.
+                year, doy, hh, mm, ss, frac, usec = _epoch_to_btime_usec(t0)
                 hdr = (f"{seq % 1000000:06d}".encode() + b'D' + b' '
                        + tr.station[:5].ljust(5).encode() + tr.location[:2].ljust(2).encode() + tr.channel[:3].ljust(3).encode() + tr.network[:2].ljust(2).encode()
                        + struct.pack('>HHBBBBH', year, doy, hh, mm, ss, 0, frac)
                        + struct.pack('>Hhh', n, fac, mult)
-                       + struct.pack('BBBB', 0, 0, 0, 1)
+                       + struct.pack('BBBB', 0, 0, 0, 2)
                        + struct.pack('>iHH', 0, 64, 48))
-                b1000 = struct.pack('>HHBBBB', 1000, 0, enc_code, 1, rl_log, 0)
-                rec = (hdr + b1000).ljust(64, b'\x00') + body
+                b1000 = struct.pack('>HHBBBB', 1000, 56, enc_code, 1, rl_log, 0)
+                b1001 = struct.pack('>HHBbBB', 1001, 0, 0, usec, 0, 0)
+                rec = (hdr + b1000 + b1001).ljust(64, b'\x00') + body
                 assert len(rec) == reclen
                 f.write(rec)
                 prev = int(data[i + n - 1]) if encoding in ('STEIM1', 'STEIM2') else None

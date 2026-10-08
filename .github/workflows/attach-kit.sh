@@ -39,8 +39,23 @@ if ! gh release view "$tag" >/dev/null 2>&1; then
     echo "no release $tag exists and no tag $tag in the repository - not attached (a ship creates the tag)"; exit 0
   fi
 fi
-if [ "$replace" = 0 ] && gh release view "$tag" --json assets -q '.assets[].name' | grep -q -- "$mark"; then
-  echo "release $tag already has a kit matching '$mark' - left as it is"; exit 0
+has_kit() { gh release view "$tag" --json assets -q '.assets[].name' | grep -q -- "$mark"; }
+if [ "$replace" = 0 ]; then
+  if has_kit; then
+    echo "release $tag already has a kit matching '$mark' - left as it is"; exit 0
+  fi
+  # A push to main on a shipped commit runs beside the tag's own run of the same commit, and the two reach this
+  # step within seconds of each other (v0.13.0: the main run's upload collided with the tag run's and the main
+  # run went red with the kit already on the release). A main run attaches without --clobber, and an upload
+  # that fails because the asset appeared meanwhile is the tag run's work, not a failure.
+  if gh release upload "$tag" "$kit"; then
+    echo "attached $(basename "$kit") to $tag"; exit 0
+  fi
+  sleep 30
+  if has_kit; then
+    echo "release $tag received a kit matching '$mark' from the tag's own run meanwhile - left as it is"; exit 0
+  fi
+  echo "upload failed and no kit matching '$mark' is on release $tag"; exit 1
 fi
 gh release upload "$tag" "$kit" --clobber
 echo "attached $(basename "$kit") to $tag"

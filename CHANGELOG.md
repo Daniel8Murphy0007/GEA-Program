@@ -5,6 +5,59 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.14.0] - 2026-10-08 - machine vibration: the zone, and what the bearings are doing
+
+### Added
+- **Machine vibration** (`gea/vibration.py`): the one condition-monitoring
+  deliverable an operations engineer expects by name. The broadband r.m.s.
+  vibration velocity over 10 Hz to 1000 Hz (2 Hz to 1000 Hz below 600
+  r/min), the quantity ISO 20816-1 defines - from an acceleration channel
+  by integration in the frequency domain inside the band, from a velocity
+  channel by band-limiting - and the ISO 20816-3 zone for the declared
+  machine group (Group 1 above 300 kW; Group 2 from 15 kW to 300 kW) and
+  support class (rigid or flexible by the 1.25× rule), with the boundaries
+  printed (2.3/4.5/7.1, 3.5/7.1/11.0, 1.4/2.8/4.5, 2.3/4.5/7.1 mm/s) and
+  the margin to the next.
+- **Envelope analysis**: the demodulation band chosen as the candidate band
+  with the highest kurtosis (a bearing fault's impacts are impulsive and
+  kurtosis is their measure) or declared; the analytic signal's envelope
+  and its spectrum; the bearing's defect frequencies - BPFO, BPFI, BSF, FTF
+  from its geometry and the shaft speed - each MATCHED or NOT MATCHED at
+  its fundamental within 2% or one resolution bin and four times the
+  spectrum's median, harmonics at the same tolerance, the inner race with
+  its sidebands at the shaft speed. The fundamental is required because the
+  harmonics of one defect frequency fall near multiples of another; the
+  first draft matched on harmonics alone and named three faults where the
+  labelled scene had one.
+- What it will not call a measurement: a group or a support class (declared);
+  a zone from a record that cannot carry the band (PARTIAL BAND, to the
+  record's own Nyquist frequency) or from a record under a second; a fault
+  size; a defect frequency without the bearing's geometry; an mm/s value
+  from counts without a sensitivity.
+- `gea workspace --action vibration-report --well <id> --record <file>
+  [--channel] --vib-unit --rpm --group --support --bearing [--demod-band]
+  [--sensitivity]`: the record copied beside the well under `machine/` with
+  its hash, the report in three forms with the zone as its result, the
+  declarations in their own table, audited. `gea vibration --action assess`
+  without a workspace; `gea vibration` self-test on a labelled pump; `gea
+  help vibration`. CSV with a time column, or miniSEED/SAC.
+
+### Fixed
+- The miniSEED writer wrote the record start time to the header's 0.1 ms
+  field only. Above 5 kHz that is coarser than a sample, and a 20 kHz
+  record written by this program read back as fifteen traces with fourteen
+  gaps. Blockette 1001 now carries the microseconds the header cannot, the
+  reader (which already applied it) joins the records, and the round-trip
+  is exact. Section BH (3 checks); the gate is 330.
+- The v0.13.0 ship went four green and one red: the Windows kit job of
+  the main-branch run failed at "Attach the kit to the release" while the
+  tag run of the same commit attached the same kit at the same second; the
+  gate had passed and the release carries both kits. A push to main on a
+  shipped commit runs beside the tag's own run, and the two reached the
+  upload within seconds. The attach script now uploads without replacing
+  on a main run, and treats an upload that fails because the asset appeared
+  meanwhile as the tag run's work, not a failure.
+
 ## [v0.13.0] - 2026-10-08 - the well as master data names it
 
 ### Added

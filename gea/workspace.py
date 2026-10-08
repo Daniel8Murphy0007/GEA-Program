@@ -1208,6 +1208,37 @@ class Workspace:
         return {'site': site_id, 'status': pk['status'], 'paths': paths, 'packet': pk, 'export_rows': exp['rows']}
 
     # -- association: the site's stations heard the same thing, or they did not ---------------------------------
+    # -- machine vibration: the pump's record through ISO 20816-3 and the envelope -------------------------------
+    def vibration_report(self, well_id: str, path: str, channel: Optional[str] = None, unit: str = 'g', rpm: Optional[float] = None,
+                         group: Optional[int] = None, support: Optional[str] = None, bearing: Optional[dict] = None,
+                         band_hz: Optional[List[float]] = None, sensitivity: Optional[float] = None, label: str = '', actor: str = 'system') -> dict:
+        """A vibration record of the well's pump (or any machine the well is served by), copied in beside the well
+        under machine/ with its hash, assessed, and written as reports/wells/<id>/vibration_report.*. Every
+        declaration goes into the record and the audit."""
+        from . import vibration as V
+        from . import __version__
+        from .client_reports import vibration_report as _doc, write as _write
+        w = self.well(well_id)
+        if not os.path.isfile(path):
+            raise WorkspaceError(f'no such record: {path}')
+        rec = V.read_record(path, channel)
+        mdir = self.dir('wells', well_id, 'machine')
+        dst = os.path.join(mdir, os.path.basename(path))
+        if os.path.abspath(dst) != os.path.abspath(path):
+            shutil.copy2(path, dst)
+        r = V.assess(rec['x'], rec['fs'], unit, rpm, group=group, support=support, bearing=bearing,
+                     band_hz=tuple(band_hz) if band_hz else None, label=label or f"{w.get('display') or well_id} machine", sensitivity=sensitivity)
+        r['record'] = {'name': rec['name'], 'channel': rec['channel'], 'kind': rec['kind'], 'fs_hz': rec['fs'], 'seconds': rec['seconds'],
+                       'unit_in_file': rec['unit_in_file'], 'sha256': sha256_file(dst), 'path': dst, 'notes': rec['notes']}
+        r['gaps'] = list(r['gaps']) + list(rec['notes'])
+        out = self.dir('reports', 'wells', well_id)
+        paths = _write(_doc(r, program_version=__version__), out, basename='vibration_report')
+        self.audit(actor, 'well.vibration', {'id': well_id, 'record': rec['name'], 'channel': rec['channel'], 'status': r['status'],
+                                              'zone': (r.get('zone') or {}).get('zone'), 'rms_mm_s': (r.get('broadband') or {}).get('rms_mm_s'),
+                                              'matched': ((r.get('envelope') or {}).get('match') or {}).get('matched'),
+                                              'declared': r['declared']}, inputs=[dst])
+        return {**r, 'paths': paths}
+
     def associate_site(self, site_id: str, vp_km_s: float = 5.8, depth_km: float = 6.0, band: Optional[List[float]] = None,
                        start: Optional[str] = None, end: Optional[str] = None, catalog_csv: Optional[str] = None,
                        rms_tol_s: float = 0.15, actor: str = 'system') -> dict:

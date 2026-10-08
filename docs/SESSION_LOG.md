@@ -1169,3 +1169,42 @@ the life cycle).
   wrong names and named no stream - caught by the self-test.
 - `--action well-identity`; `gea ppdm`; `gea help ppdm`; README.
 - Section BG (3 checks): 327.
+
+## 2026-10-08 - machine vibration (v0.14.0)
+
+Built in the cloud while v0.13.0 shipped. Research first: ISO 20816-1's
+quantity (broadband r.m.s. velocity, 10-1000 Hz, 2-1000 Hz below 600 r/min),
+ISO 20816-3's groups, support classes and zone boundaries (two independent
+readings agree on 2.3/4.5/7.1, 3.5/7.1/11.0, 1.4/2.8/4.5, 2.3/4.5/7.1 mm/s
+and that 20816-3 kept 10816-3's casing values), the zone meanings, the
+bearing kinematics (BPFO, BPFI, BSF, FTF with the contact angle), and the
+envelope method (band by kurtosis, analytic signal, envelope spectrum).
+
+- `gea/vibration.py`: `broadband_velocity` (frequency-domain integration
+  inside the band, tapered ends excluded from the r.m.s.), `zone`,
+  `bearing_frequencies`, `choose_band`, `envelope_spectrum`, `peaks`,
+  `match`, `read_record` (CSV via the historian reader, miniSEED/SAC via
+  the seismic reader), `assess`, `synthetic_scene` (1780 r/min, an unbalance
+  line of known r.m.s., a 3 kHz resonance rung at BPFO or BPFI, noise),
+  `selftest`, `report_text`.
+- Two defects the scene caught. The first matching rule accepted a
+  harmonic without the fundamental and named BPFI and BSF from BPFO's
+  train; the fundamental is required now and the tolerance is the
+  fundamental's for every harmonic. The velocity-input check first built
+  velocity by a cumulative sum, which carried the impulse train's ramp and
+  leaked it across the band; it is built in the frequency domain.
+- The miniSEED writer: a 20 kHz record read back as fifteen traces, because
+  the header's time field is 0.1 ms and the records' starts were rounded to
+  it; blockette 1001 now carries the microseconds and the round-trip is one
+  trace, exact.
+- `Workspace.vibration_report` (record copied under wells/<id>/machine/
+  with its hash; `client_reports.vibration_report`; audit `well.vibration`);
+  `--action vibration-report` (`--vib-unit`, because `--unit` is the
+  permit-grid unit); `gea vibration`; `gea help vibration`; README.
+- Section BH (3 checks): 330.
+- v0.13.0 shipped four green, one red: the main-branch kit run's Windows job
+  failed at the attach step at 16:12:06Z, the second the tag run attached
+  the same kit (release v0.13.0 carries both kits; the gate had passed).
+  The attach script on a main run no longer replaces, and an upload that
+  fails because the asset appeared meanwhile is read as the tag run's
+  work. Folded into v0.14.0.

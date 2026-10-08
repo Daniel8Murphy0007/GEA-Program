@@ -1703,6 +1703,64 @@ def sra_packet_report(pk: dict, evaluated_at: Optional[datetime] = None, program
                     data={'packet': pk, 'report_id': report_id, 'evaluated_at_utc': now.strftime('%Y-%m-%dT%H:%M:%SZ'), '_records': [], '_catalogue_obj': None})
 
 
+def vibration_report(r: dict, evaluated_at: Optional[datetime] = None, program_version: str = '') -> Document:
+    """One machine record through ISO 20816-3 and the envelope: the broadband value and its zone for the
+    declared machine, the demodulation band, the bearing's defect frequencies each matched or not, and every
+    declaration and gap by name. Built from `vibration.assess`; nothing is recomputed here."""
+    now = evaluated_at or _utc_now()
+    label = str(r.get('label') or r.get('record', {}).get('name') or 'machine')
+    report_id = f"VIB-{label.replace('/', '-').replace(' ', '-')[:24]}-{now.strftime('%Y%m%dT%H%M%SZ')}"
+    bb = r.get('broadband') or {}; z = r.get('zone'); env = r.get('envelope') or {}; d = r.get('declared') or {}
+    rec = r.get('record') or {}
+    result = (f"ZONE {z['zone']}" + (f" ({z['zone_qualified']})" if z.get('zone_qualified') else '')) if z else r.get('status', '-')
+    paras = []
+    if bb.get('status') == 'EVALUATED':
+        paras.append(f"The broadband r.m.s. vibration velocity is {bb['rms_mm_s']} mm/s over {bb['band_hz'][0]:g} Hz to {bb['band_hz'][1]:g} Hz"
+                     + (' - a partial band: the record cannot carry the standard\'s 1000 Hz' if bb.get('band_partial') else '')
+                     + f", from {'an' if bb['from'] == 'acceleration' else 'a'} {bb['from']} channel in {bb['unit_in']}, {bb['seconds']} s at {bb['fs_hz']:g} Hz.")
+    else:
+        paras.append(f"The broadband value was not evaluated: {bb.get('detail') or 'see the gaps'}.")
+    if z:
+        paras.append(f"For a {z['group_basis'].split(':')[0]} machine on a {z['support']} support that is ISO 20816-3 zone {z['zone']}: {z['meaning']}. "
+                     f"The boundaries for this group and support are A/B {z['boundaries_mm_s']['A/B']}, B/C {z['boundaries_mm_s']['B/C']} and C/D "
+                     f"{z['boundaries_mm_s']['C/D']} mm/s" + (f"; {z['margin_to_next_mm_s']} mm/s remain to the next boundary." if z['margin_to_next_mm_s'] is not None else '.'))
+    secs = [Section('1', 'Summary', paras)]
+    secs.append(Section('2', 'What was declared', ['The group, the support class, the shaft speed and the bearing are the operator\'s declarations; the record carries none of them.'],
+                        [Table(['Declaration', 'Value'],
+                               [['Machine group', (GROUPS_TEXT.get(d.get('group')) if d.get('group') else 'not declared')],
+                                ['Support class', d.get('support') or 'not declared'], ['Shaft speed (r/min)', d.get('rpm') if d.get('rpm') is not None else 'not declared'],
+                                ['Bearing', (f"{d['bearing']['n_elements']} elements, d {d['bearing']['d_mm']} mm, D {d['bearing']['D_mm']} mm, contact {d['bearing'].get('contact_deg', 0)}°" if d.get('bearing') else 'not declared')],
+                                ['Demodulation band', (f"{d['band_hz'][0]:g}-{d['band_hz'][1]:g} Hz, declared" if d.get('band_hz') else 'chosen by kurtosis')],
+                                ['Channel unit', d.get('unit') or '-']])]))
+    n = 3
+    if env.get('band') and env['band'].get('band_hz'):
+        b = env['band']; m = env.get('match')
+        ep = [f"The envelope was taken in {b['band_hz'][0]:g}-{b['band_hz'][1]:g} Hz ({b['status'].lower()}" + (f", kurtosis {b['kurtosis']}" if b.get('kurtosis') is not None else '')
+              + f"); the envelope spectrum's resolution is {env.get('resolution_hz')} Hz."]
+        tables = []
+        if m:
+            bf = env['bearing']
+            ep.append(f"Shaft speed {bf['fr']} Hz. {m['status']}. Basis: {m['basis']}.")
+            tables.append(Table(['Defect frequency', 'Hz', 'Standing', 'Found at (Hz)', 'Sidebands at fr'],
+                                [[k, v['frequency_hz'], v['standing'], ', '.join(f"{h['found_hz']} ({h['harmonic']}x)" for h in v['harmonics_found']) or '-',
+                                  (', '.join(str(x) for x in v['sidebands']['found']) or 'none') if v.get('sidebands') else '-'] for k, v in m['rows'].items()], 'Bearing defect frequencies'))
+        elif env.get('peaks'):
+            ep.append('No bearing geometry was declared: the envelope spectrum\'s largest peaks are listed and nothing is matched.')
+            tables.append(Table(['Peak (Hz)', 'Amplitude', 'Over median'], [[p['f_hz'], _fmt(p['amplitude']), p.get('over_median')] for p in env['peaks'][:10]], 'Envelope spectrum peaks'))
+        secs.append(Section(str(n), 'The envelope spectrum', ep, tables)); n += 1
+    secs.append(Section(str(n), 'What needs attention', list(r.get('gaps') or []) or ['Nothing: every declaration was made and the record carries the band.'])); n += 1
+    secs.append(Section(str(n), 'What this report does not call a measurement', [x.rstrip('.') + '.' for x in (r.get('not_a_measurement') or [])]))
+    front = [['Report ID', report_id], ['Record', rec.get('name') or label], ['Channel', rec.get('channel') or '-'],
+             ['Generated (UTC)', now.strftime('%Y-%m-%dT%H:%M:%SZ')],
+             ['Program', f'{PROGRAM_NAME}' + (f' build {program_version}' if program_version else '')], ['Result', result]]
+    return Document(title=f'{PROGRAM_NAME} - Machine Vibration Report', report_id=report_id, front=front, sections=secs,
+                    footer='ISO 20816-1 quantity, ISO 20816-3 zones for the declared machine; the envelope against the declared bearing. Nothing here is a fault size.',
+                    data={'assessment': r, 'report_id': report_id, 'evaluated_at_utc': now.strftime('%Y-%m-%dT%H:%M:%SZ'), '_records': [], '_catalogue_obj': None})
+
+
+GROUPS_TEXT = {1: 'Group 1 (above 300 kW)', 2: 'Group 2 (15 kW to 300 kW)'}
+
+
 def forbidden_terms(text: str) -> List[str]:
     low = text.lower()
     return [t for t in FORBIDDEN_TERMS if t in low]

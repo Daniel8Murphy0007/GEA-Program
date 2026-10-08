@@ -5208,6 +5208,117 @@ def section_bg_ppdm(tmp: str) -> None:
        "a number from the command line with the exit code saying whether it is valid, and runs the self-test; the help page names the sidetrack "
        "it will not assume")
 
+
+def section_bh_vibration(tmp: str) -> None:
+    """Section BH - machine vibration: the ISO 20816-3 zone of the declared machine from the broadband r.m.s.
+    velocity, and the bearing's defect frequencies found or not found in the envelope spectrum of the most
+    impulsive band; the declarations named as declarations, the band's limits named, no fault size claimed."""
+    import csv as _csv
+    import subprocess as _sp
+    import numpy as _np
+    from . import vibration as V
+    from . import seismic as S
+    from . import helplib as H
+    from .client_reports import forbidden_terms
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bh"); d.mkdir()
+
+    # -- the self-test on the labelled pump ----------------------------------------------------------
+    r = V.selftest()
+    a = r["assessment"]
+    ok(r["status"] == "OK" and all(r["checks"].values()) and r["label"] == "SIMULATION_SELF_TEST"
+       and a["zone"]["zone"] == "C" and abs(a["broadband"]["rms_mm_s"] - r["truth"]["unbalance_rms_mm_s"] * (1 + 0.09) ** 0.5) < 0.3
+       and a["envelope"]["match"]["matched"] == ["BPFO"] and len(a["envelope"]["match"]["rows"]["BPFO"]["harmonics_found"]) == 3
+       and r["inner"]["envelope"]["match"]["matched"] == ["BPFI"] and len(r["inner"]["envelope"]["match"]["rows"]["BPFI"]["sidebands"]["found"]) == 2
+       and V.ZONE_BOUNDARIES == {(1, "rigid"): (2.3, 4.5, 7.1), (1, "flexible"): (3.5, 7.1, 11.0), (2, "rigid"): (1.4, 2.8, 4.5), (2, "flexible"): (2.3, 4.5, 7.1)}
+       and V.BAND_HZ == (10.0, 1000.0) and V.BAND_LOW_SPEED_HZ == (2.0, 1000.0) and V.LOW_SPEED_RPM == 600.0
+       and abs(V.bearing_frequencies(1780, 9, 7.94, 39.04)["BPFI"] - 0.5 * 9 * (1780 / 60) * (1 + 7.94 / 39.04)) < 1e-3
+       and abs(V.bearing_frequencies(1780, 9, 7.94, 39.04)["BSF"] - (39.04 / (2 * 7.94)) * (1780 / 60) * (1 - (7.94 / 39.04) ** 2)) < 1e-3
+       and abs(V.bearing_frequencies(1780, 9, 7.94, 39.04)["FTF"] - 0.5 * (1780 / 60) * (1 - 7.94 / 39.04)) < 1e-3
+       and abs(V.bearing_frequencies(1780, 9, 7.94, 39.04, 30.0)["BPFO"] - 0.5 * 9 * (1780 / 60) * (1 - 7.94 / 39.04 * _np.cos(_np.radians(30)))) < 1e-3,
+       "BH1 the self-test on a labelled pump at 1780 r/min: the broadband r.m.s. velocity recovers the unbalance line put into the record to within "
+       "8% and places a Group 2 rigid machine in zone C as the truth says; the most impulsive band is chosen and the outer-race fault is matched at "
+       "its fundamental and two harmonics with the inner race, the ball and the cage not matched; an inner-race scene is matched at BPFI with both "
+       "sidebands at the shaft speed and the outer race not matched; the zone boundaries are ISO 20816-3's for both groups and both supports, the "
+       "band is ISO 20816-1's, and the four defect frequencies are the kinematic formulas including the contact angle")
+
+    # -- what it will not call a measurement ----------------------------------------------------------
+    sc = V.synthetic_scene(seconds=2.0)
+    slow = V.assess(sc["acc_m_s2"][::10], sc["fs"] / 10.0, "m/s2", sc["rpm"], group=2, support="rigid", bearing=sc["bearing"])
+    short = V.assess(sc["acc_m_s2"][:int(0.5 * sc["fs"])], sc["fs"], "m/s2", sc["rpm"], group=2, support="rigid", bearing=sc["bearing"])
+    nod = V.assess(sc["acc_m_s2"], sc["fs"], "m/s2", None)
+    cnt = V.assess(_np.round(sc["acc_m_s2"] / 9.80665 / 1e-4), sc["fs"], "counts", sc["rpm"], group=2, support="rigid", bearing=sc["bearing"])
+    sens = V.assess(_np.round(sc["acc_m_s2"] / 9.80665 / 1e-4), sc["fs"], "g", sc["rpm"], group=2, support="rigid", bearing=sc["bearing"], sensitivity=1e-4)
+    low = V.assess(sc["acc_m_s2"], sc["fs"], "m/s2", 450.0, group=1, support="flexible")
+    declared_band = V.assess(sc["acc_m_s2"], sc["fs"], "m/s2", sc["rpm"], group=2, support="rigid", bearing=sc["bearing"], band_hz=(2000.0, 4000.0))
+    ok(slow["broadband"]["band_partial"] and slow["broadband"]["band_hz"][1] < 1000 and slow["zone"]["zone_qualified"] == "PARTIAL BAND"
+       and any("PARTIAL BAND" in g for g in slow["gaps"])
+       and any("shorter than one second" in g for g in short["gaps"])
+       and nod["zone"] is None and nod["status"] == "PARTIAL" and any("no shaft speed" in g for g in nod["gaps"]) and any("group" in g for g in nod["gaps"])
+       and any("bearing" in g for g in nod["gaps"]) and nod["envelope"]["match"] is None and len(nod["envelope"]["peaks"]) > 0
+       and cnt["status"] == "NOT ASSESSED" and cnt["broadband"]["status"] == "NOT EVALUATED" and cnt["envelope"]["match"]["matched"] == ["BPFO"]
+       and sens["status"] == "ASSESSED" and abs(sens["broadband"]["rms_mm_s"] - a["broadband"]["rms_mm_s"]) < 0.3 and sens["declared"]["sensitivity"] == 1e-4
+       and low["broadband"]["band_hz"][0] == 2.0 and low["zone"]["boundaries_mm_s"] == {"A/B": 3.5, "B/C": 7.1, "C/D": 11.0}
+       and declared_band["envelope"]["band"]["status"] == "DECLARED" and declared_band["envelope"]["band"]["band_hz"] == [2000.0, 4000.0]
+       and declared_band["envelope"]["match"]["matched"] == ["BPFO"]
+       and "fault size" in " ".join(a["not_a_measurement"]) and "declared" in " ".join(a["not_a_measurement"]),
+       "BH2 a record whose rate cannot carry 1000 Hz is evaluated to its own Nyquist frequency and marked PARTIAL BAND, never promoted; a record "
+       "under a second is named; without a shaft speed, a group or a bearing the broadband value is stated, the zone is not, the envelope peaks "
+       "are listed and nothing is matched; a record in counts gets no mm/s and no zone but its envelope is still read, and with a declared "
+       "sensitivity it agrees with the same record in g; below 600 r/min the band starts at 2 Hz and Group 1 flexible has its own boundaries; a "
+       "declared demodulation band is used as declared; the assessment says it is not a fault size and that the machine is a declaration")
+
+    # -- through the workspace and the command line, from a CSV and from a miniSEED record ------------
+    csvp = d / "pump.csv"
+    with open(csvp, "w", newline="") as f:
+        w = _csv.writer(f); w.writerow(["elapsed_s", "acc_g", "temp_C"])
+        for i, x in enumerate(sc["acc_m_s2"]):
+            w.writerow([f"{i / sc['fs']:.6f}", f"{x / 9.80665:.6f}", "41.0"])
+    counts = _np.round(sc["acc_m_s2"] / 9.80665 / 1e-4).astype(_np.int32)
+    S.write_mseed([S.Trace("XX", "PUMP", "", "ACC", 1700000000.1234567, sc["fs"], counts, "synthetic", "INT32")], str(d / "pump.mseed"))
+    back = S.read_any(str(d / "pump.mseed"))
+    hist = d / "swd.csv"
+    with open(hist, "w", newline="") as f:
+        w = _csv.writer(f); w.writerow(["timestamp", "P_surf_psi"])
+        for h in range(24):
+            w.writerow([f"2026-03-01T{h:02d}:00:00Z", "1500"])
+    ws = Workspace.create(str(d / "ws"), "Pad 3", actor="tester")
+    w1 = ws.add_well_file(str(hist), display="SWD 1", actor="tester", station_md_ft=9800.0)
+    run = lambda *a: _sp.run([sys.executable, "-m", "gea", "workspace", "--path", ws.path, "--actor", "tester", *a], capture_output=True, text=True)
+    r1 = run("--action", "vibration-report", "--well", w1["id"], "--record", str(csvp), "--channel", "acc_g", "--vib-unit", "g", "--rpm", "1780",
+             "--group", "2", "--support", "rigid", "--bearing", "9,7.94,39.04")
+    r0 = run("--action", "vibration-report", "--well", w1["id"], "--record", str(csvp), "--channel", "nope")
+    out = Path(ws.path, "reports", "wells", w1["id"])
+    md = (out / "vibration_report.md").read_text(encoding="utf-8"); html = (out / "vibration_report.html").read_text(encoding="utf-8")
+    js = json.loads((out / "vibration_report.json").read_text(encoding="utf-8"))
+    audit = Path(ws.path, "records", "audit.jsonl").read_text(encoding="utf-8")
+    r2 = _sp.run([sys.executable, "-m", "gea", "vibration", "--action", "assess", "--record", str(d / "pump.mseed"), "--unit", "g", "--sensitivity", "1e-4",
+                  "--rpm", "1780", "--group", "2", "--support", "rigid", "--bearing", "9,7.94,39.04"], capture_output=True, text=True)
+    r3 = _sp.run([sys.executable, "-m", "gea", "vibration", "--action", "assess", "--record", str(d / "pump.mseed"), "--unit", "counts", "--rpm", "1780",
+                  "--group", "2", "--support", "rigid"], capture_output=True, text=True)
+    r4 = _sp.run([sys.executable, "-m", "gea", "vibration"], capture_output=True, text=True)
+    help_md = (pkg / "help" / "vibration.md").read_text(encoding="utf-8")
+    ok(len(back) == 1 and back[0].npts == counts.size and not back[0].gaps and abs(back[0].starttime - 1700000000.1234567) < 2e-6
+       and r1.returncode == 0 and "ISO 20816-3 zone C" in r1.stdout and "BPFO 106.3486 Hz: MATCHED" in r1.stdout and "written:" in r1.stdout
+       and r0.returncode != 0 and "no channel" in (r0.stderr + r0.stdout)
+       and Path(ws.path, "wells", w1["id"], "machine", "pump.csv").is_file()
+       and "| **Result** | ZONE C |" in md and "Bearing defect frequencies" in md and "Group 2 (15 kW to 300 kW)" in md and "fault size" in md
+       and not forbidden_terms(md) and not forbidden_terms(html)
+       and js["assessment"]["record"]["sha256"] and js["assessment"]["zone"]["zone"] == "C" and js["assessment"]["declared"]["bearing"]["n_elements"] == 9
+       and "well.vibration" in audit and '"zone": "C"' in audit
+       and r2.returncode == 0 and "from acceleration (g), 2.0 s at 20000 Hz" in r2.stdout and "zone C" in r2.stdout and "MATCHED" in r2.stdout
+       and r3.returncode == 1 and "NOT ASSESSED" in r3.stdout and "without a sensitivity" in r3.stdout
+       and r4.returncode == 0 and "vibration selftest [SIMULATION_SELF_TEST]: OK" in r4.stdout
+       and any(t["topic"] == "vibration" for t in H.topics()) and not H.check("vibration")
+       and "fault size" in help_md.split("will not call a measurement")[1] and "2.3 / 4.5 / 7.1" in help_md,
+       "BH3 a 20 kHz record round-trips through this program's own miniSEED writer as one trace with no gap (the header's 0.1 ms time field "
+       "is coarser than a sample above 5 kHz and every record read back as a gap until blockette 1001 carried the microseconds); "
+       "`--action vibration-report` copies the record beside the well, writes the report in three forms with the zone as its result, the "
+       "declarations in their own table and the defect frequencies each matched or not, audits it with the zone and the declarations, and names "
+       "a channel that is not there; `gea vibration --action assess` reads a miniSEED record in counts with a declared sensitivity and says "
+       "NOT ASSESSED without one; the self-test runs from the command line; the help page carries the boundaries and names the fault size it will not claim")
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -5270,6 +5381,7 @@ def main() -> int:
         section_be_osdu(tmp)
         section_bf_quakeml(tmp)
         section_bg_ppdm(tmp)
+        section_bh_vibration(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

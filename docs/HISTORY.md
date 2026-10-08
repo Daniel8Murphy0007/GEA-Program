@@ -4,6 +4,16 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.14.0 - 2026-10-08 - machine vibration
+
+- **The zone, and what the bearings are doing.** ISO 20816-1's broadband
+  r.m.s. velocity, ISO 20816-3's zones for the declared machine, and
+  envelope analysis in the most impulsive band against the bearing's own
+  defect frequencies, the fundamental required. Declarations named, PARTIAL
+  BAND named, no fault size. The miniSEED writer carries microseconds
+  (blockette 1001) so a 20 kHz record round-trips whole. Section BH; gate
+  330.
+
 ## v0.13.0 - 2026-10-08 - the well as master data names it
 
 - **PPDM well identity.** The US Well Number taken apart to the standard and

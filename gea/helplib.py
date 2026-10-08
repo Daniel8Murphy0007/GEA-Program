@@ -42,6 +42,7 @@ INDEX: List[tuple] = [
     ('osdu', 'The OSDU-shaped export', 'the site as the manifest an operator\'s data platform loads'),
     ('quakeml', 'The QuakeML catalogue export', 'the site\'s own events in the format the regulator\'s catalogue tools read'),
     ('ppdm', 'The well as master data names it', 'the US Well Number taken apart and the PPDM "What is a Well" components the site can name'),
+    ('vibration', 'Machine vibration', 'the pump\'s record through the ISO 20816-3 zones and bearing envelope analysis'),
     ('doctor', 'Which code is running', 'gea doctor and the serve start-up gate'),
     ('audit-update', 'Audit / Update', 'the whole audit log with filters, the program against PyPI, every report against its source'),
     ('upkeep', 'Upkeep', 'housekeeping, sessions, the TLS proxy, the load test'),
