@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (324 checks)
+gea accept                     # the product gate (327 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -544,6 +544,24 @@ written and a comment says why. The shape is checked the way a reader checks
 it first - identifiers, allowed children, required children, enumerations,
 references - and the file validates against the published XSD. `gea help
 quakeml`; `gea quakeml` runs the labelled scene.
+
+### The well as master data names it
+
+`gea workspace --action well-identity --well <id>` names a well the way the
+operator's master data and a regulator's well file name it: the US Well
+Number (the API number, whose standard PPDM has held since 2010) taken apart
+- state and offshore code, county code, unique well and its range, sidetrack
+and event when given, and which component the number identifies (ten digits
+the Well Origin, twelve a Wellbore, fourteen an event) - and the components
+of PPDM's "What is a Well" the site can name: the Well and its one Origin at
+the declared position on its datum, the Wellbore only when the sidetrack
+code was given, the gauge station as a measured depth along the wellbore,
+the Wellhead Stream as the channels recorded at the wellhead, the Well Set
+as the site, every alias typed. The identity rides on every well row of the
+SRA packet (section 2a) and in the OSDU export's Well and Wellbore records.
+It will not assume a sidetrack, invent an injection interval or a
+completion, or name a county. `gea ppdm --action parse --number ...` takes a
+number apart from the command line; `gea help ppdm`.
 
 ### Audit / Update
 

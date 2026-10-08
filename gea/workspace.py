@@ -1127,6 +1127,19 @@ class Workspace:
         self.audit(actor, 'well.declare', {'id': well_id, 'surface': w.get('surface'), 'disposal': w.get('disposal')})
         return w
 
+    def well_identity(self, well_id: str) -> dict:
+        """The well as PPDM's "What is a Well" names it, from its declarations and the site it belongs to."""
+        from . import ppdm as P
+        w = self.well(well_id)
+        site = next((self.site(sid) for sid in self.manifest.get('sites', []) if well_id in (self.site(sid).get('wells') or [])), None)
+        chans: List[str] = []
+        try:
+            st = self.well_stream(well_id)
+            chans = list(getattr(st, 'channels', None) or [])
+        except Exception:
+            chans = []
+        return P.well_identity(w, site, channels=chans)
+
     def sra_define(self, site_id: str, actor: str = 'system', **kw) -> dict:
         """The area a site answers to, recorded on the site."""
         from .sra import define
@@ -1163,7 +1176,7 @@ class Workspace:
         seis = None
         if catalog_csv:
             seis = SR.seismicity(sra, SR.read_catalog(catalog_csv), as_of=as_of, aftershocks=aftershocks or [])
-        return SR.packet(sra, mem, daily, seis, as_of=as_of, site=st, association=self.association(site_id))
+        return SR.packet(sra, mem, daily, seis, as_of=as_of, site=st, association=self.association(site_id), wells=wells)
 
     def write_sra_packet(self, site_id: str, catalog_csv: Optional[str] = None, aftershocks: Optional[List[str]] = None,
                          start: Optional[str] = None, end: Optional[str] = None, actor: str = 'system') -> dict:

@@ -458,7 +458,7 @@ def export_daily_csv(rows: List[dict], out_path: str) -> dict:
 # the packet
 # --------------------------------------------------------------------------------------------------------------
 def packet(sra: dict, member: dict, wells_daily: Dict[str, dict], seis: Optional[dict], as_of: Optional[datetime] = None,
-           site: Optional[dict] = None, association: Optional[dict] = None) -> dict:
+           site: Optional[dict] = None, association: Optional[dict] = None, wells: Optional[List[dict]] = None) -> dict:
     """Everything the packet says, in one record: the area, who is inside it, the daily record per well rolled
     up by month, the seismicity against the plan, the schedule, and every gap by name."""
     now = as_of or datetime.now(timezone.utc)
@@ -469,9 +469,26 @@ def packet(sra: dict, member: dict, wells_daily: Dict[str, dict], seis: Optional
     for s in member['stations']:
         for g in s.get('gaps', []):
             gaps.append(f"station {s['id']}: {g}")
+    # the well named the way the operator's master data names it (v0.13.0): the US Well Number taken apart and
+    # the "What is a Well" components the site can name; the identity rides on the well row and its gaps are the
+    # identity's own, named in that table and not counted against the packet
+    from . import ppdm as _P
+    full = {w['id']: w for w in (wells or [])}
+    identities = {}
+    for w in member['wells']:
+        rec = full.get(w['id'])
+        if rec is not None:
+            ident = _P.well_identity(rec, site)
+            identities[w['id']] = {'status': ident['status'], 'us_well_number': ident['components']['well']['identifier'],
+                                   'identifies': (ident['us_well_number'] or {}).get('identifies'),
+                                   'state': ((ident['us_well_number'] or {}).get('state') or {}).get('name'),
+                                   'wellbore': ident['components']['wellbore'].get('identifier'),
+                                   'origin_datum': ((ident['components']['well_origin'] or {}).get('position') or {}).get('datum'),
+                                   'aliases': [f"{a['name']} [{a['type']}]" for a in ident['aliases']], 'gaps': ident['gaps']}
     wells_out = []
     for w in member['wells']:
         d = wells_daily.get(w['id'])
+        w = {**w, 'identity': identities.get(w['id'])}
         if d is None:
             wells_out.append({**w, 'daily_status': 'NOT RUN', 'months': []}); continue
         if d['status'] == 'REFUSED':
@@ -573,7 +590,7 @@ def selftest() -> dict:
     ins = sorted(w['id'] for w in mem['wells'] if w['inside']); outs = sorted(w['id'] for w in mem['wells'] if w['inside'] is False)
     daily = {wid: daily_records(st, next(w for w in sc['wells'] if w['id'] == wid)['disposal']) for wid, st in sc['streams'].items()}
     seis = seismicity(sra, sc['catalog'], as_of=sc['as_of'], aftershocks=sc['aftershocks'])
-    pk = packet(sra, mem, daily, seis, as_of=sc['as_of'])
+    pk = packet(sra, mem, daily, seis, as_of=sc['as_of'], wells=sc['wells'])
     deep = daily['deep-1']; shallow = daily['shallow-1']
     full = [d for d in deep['days'] if d['status'] == 'RECORDED' and d['date'] not in truth['shut_in_days'] and d['samples'] == 144]
     vols = [d['injection_volume_bbl'] for d in full]

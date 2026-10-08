@@ -140,14 +140,25 @@ def spatial_location(lat: float, lon: float, datum: Optional[str], ctx: Context,
 def well_record(well: dict, ctx: Context) -> dict:
     disp = well.get('disposal') or {}
     surf = well.get('surface') or {}
+    from . import ppdm as P
+    ident = P.well_identity(well)
+    wn = ident.get('us_well_number') or {}
     data: Dict[str, Any] = {**_common(ctx), 'FacilityName': well.get('display') or well['id'],
-                            'FacilityID': disp.get('api_number') or well['id'],
+                            'FacilityID': wn.get('api10') if wn.get('status') == 'VALID' else (disp.get('api_number') or well['id']),
                             'FacilityTypeID': ctx.ref('reference-data--FacilityType', 'Well'),
                             'OperatingEnvironmentID': ctx.ref('reference-data--OperatingEnvironment', 'Onshore'),
                             'NameAliases': [{'AliasName': well['id'], 'AliasNameTypeID': ctx.ref('reference-data--AliasNameType', 'UniqueIdentifier')}],
                             'ExtensionProperties': {'gea': {'well_id': well['id'], 'kind': well.get('kind'), 'role': disp.get('role')}}}
     if disp.get('api_number'):
         data['NameAliases'].append({'AliasName': disp['api_number'], 'AliasNameTypeID': ctx.ref('reference-data--AliasNameType', 'RegulatoryIdentifier')})
+    if wn.get('status') == 'VALID':
+        # the US Well Number as the standard writes it: the ten-digit well origin, typed; the state named in the extension
+        data['NameAliases'].append({'AliasName': wn['api10'], 'AliasNameTypeID': ctx.ref('reference-data--AliasNameType', 'USWellNumber')})
+        data['ExtensionProperties']['gea']['us_well_number'] = {'api10': wn['api10'], 'api12': wn.get('api12'), 'api14': wn.get('api14'),
+                                                               'state': wn['state'], 'county_code': wn['county']['code'],
+                                                               'unique_well': wn['unique_well'], 'identifies': wn['identifies']}
+    elif disp.get('api_number'):
+        data['ExtensionProperties']['gea']['us_well_number'] = {'declared': disp['api_number'], 'status': 'INVALID', 'problems': wn.get('problems')}
     if disp.get('uic_number'):
         data['NameAliases'].append({'AliasName': disp['uic_number'], 'AliasNameTypeID': ctx.ref('reference-data--AliasNameType', 'PermitNumber')})
     if ctx.operator_org_id:
@@ -171,12 +182,16 @@ def well_record(well: dict, ctx: Context) -> dict:
 
 
 def wellbore_record(well: dict, ctx: Context) -> dict:
+    from . import ppdm as P
+    wn = P.well_identity(well).get('us_well_number') or {}
     data: Dict[str, Any] = {**_common(ctx), 'FacilityName': (well.get('display') or well['id']) + ' wellbore',
-                            'FacilityID': (well.get('disposal') or {}).get('api_number') or well['id'],
+                            # twelve digits name a wellbore; ten name the origin only, so the wellbore keeps the program's id and says so
+                            'FacilityID': wn.get('api12') or well['id'],
                             'FacilityTypeID': ctx.ref('reference-data--FacilityType', 'Wellbore'),
                             'WellID': _sk('well', well['id']),
                             'TrajectoryTypeID': ctx.ref('reference-data--WellboreTrajectoryType', 'Unknown'),
-                            'ExtensionProperties': {'gea': {'well_id': well['id']}}}
+                            'ExtensionProperties': {'gea': {'well_id': well['id'],
+                                                            'wellbore_identifier': wn.get('api12') or 'not identified: the sidetrack code was not given'}}}
     surf = well.get('surface') or {}
     if surf.get('lat') is not None and surf.get('lon') is not None:
         sl = spatial_location(surf['lat'], surf['lon'], surf.get('datum'), ctx, well.get('added_utc')); sl.pop('_gap', None)

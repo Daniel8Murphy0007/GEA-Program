@@ -4,10 +4,10 @@
 <style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
 <h1>Downhole Gauge Monitoring - Gauge Drift and Reconciliation Report</h1>
 <table class="front">
-<tr><td>Report ID</td><td>GDR-15-9-F-14-20261008T134818Z</td></tr>
+<tr><td>Report ID</td><td>GDR-15-9-F-14-20261008T144448Z</td></tr>
 <tr><td>Well</td><td>15/9-F-14</td></tr>
-<tr><td>Generated (UTC)</td><td>2026-10-08T13:48:18Z</td></tr>
-<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.12.0</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-08T14:44:48Z</td></tr>
+<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.13.0</td></tr>
 <tr><td>Data window</td><td>2008-07-13T00:00:00Z to 2008-07-21T00:00:00Z</td></tr>
 <tr><td>Stations</td><td>1</td></tr>
 <tr><td>Result</td><td class="result-bad">MODEL DRIFT DETECTED</td></tr>
@@ -50,9 +50,9 @@
 <p>Model Drift: the live residual at a station moves outside the band the well model and the instrument&#x27;s datasheet aging rate account for. Model Staleness: the evaluation is older than the cadence. Clocks below start at the evaluation timestamp when drift is detected.</p>
 <table>
 <tr><th>Item</th><th>Value</th></tr>
-<tr><td>Evaluation timestamp (UTC)</td><td>2026-10-08T13:48:18Z</td></tr>
+<tr><td>Evaluation timestamp (UTC)</td><td>2026-10-08T14:44:48Z</td></tr>
 <tr><td>Evaluation cadence</td><td>every 24 h</td></tr>
-<tr><td>Next evaluation due (UTC)</td><td>2026-10-09T13:48:18Z</td></tr>
+<tr><td>Next evaluation due (UTC)</td><td>2026-10-09T14:44:48Z</td></tr>
 <tr><td>Model staleness</td><td>CURRENT - evaluated within the cadence</td></tr>
 <tr><td>Model drift</td><td>DETECTED</td></tr>
 <tr><td>Stations requiring action</td><td>P_raw_psi_S1</td></tr>
@@ -81,7 +81,7 @@
 <p>No configuration or model coefficient was changed by generating this report. Entries below are proposals for the approval workflow; an approved entry is applied and logged with the approver, timestamp and before/after values.</p>
 <table>
 <tr><th>Timestamp (UTC)</th><th>Tag</th><th>Change</th><th>Value</th><th>Status</th></tr>
-<tr><td>2026-10-08T13:48:18Z</td><td>P_raw_psi_S1</td><td>PROPOSED fallback</td><td>hold model output for this station</td><td>awaiting approval</td></tr>
+<tr><td>2026-10-08T14:44:48Z</td><td>P_raw_psi_S1</td><td>PROPOSED fallback</td><td>hold model output for this station</td><td>awaiting approval</td></tr>
 </table>
 <h2>8. Data provenance and limitations</h2>
 <p>Live data: volve_f12_f14_production_excerpt[15/9-F-14] measured downhole P (bar-&gt;psi x14.503773773). source channel: AVG_DOWNHOLE_PRESSURE[15/9-F-14]. source unit: bar. conversion: psi = bar x 14.503773773 (exact). station md ft: 10000 (CALLER-SUPPLIED - not in the archived excerpt). start date: 2008-02-12. end date: 2008-07-21. cadence s: 86400. Well model: total depth 10,500 ft; profile &#x27;linear gradients&#x27;; deviation &#x27;vertical&#x27;; gauge datasheet &#x27;geoq177_30k (default datasheet)&#x27;. Limitations: a trend is only classified when the window meets the minimum in section 6; the datasheet aging rate is the instrument&#x27;s published specification, not a measurement of this gauge; station depths supplied by the caller are marked as such above and should be confirmed from completion records.</p>

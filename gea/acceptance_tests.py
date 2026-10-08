@@ -5104,6 +5104,110 @@ def section_bf_quakeml(tmp: str) -> None:
        "a station with no position gets a pick but an arrival without azimuth or distance and is named as a gap; neither is invented; the misfit "
        "region of 1 km by 2 km becomes a 1000 m horizontal uncertainty and a latitude uncertainty of one kilometre in degrees")
 
+
+def section_bg_ppdm(tmp: str) -> None:
+    """Section BG - the well named the way the operator's master data names it: the US Well Number taken
+    apart and checked, the PPDM "What is a Well" components the site can name, and the identity carried into
+    the SRA packet and the OSDU export without a sidetrack, an interval or a county name being invented."""
+    import csv as _csv
+    import subprocess as _sp
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+    from . import ppdm as P
+    from . import helplib as H
+    from .client_reports import forbidden_terms
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bg"); d.mkdir()
+
+    # -- the number ----------------------------------------------------------------------------------
+    r = P.selftest()
+    a = P.parse_well_number("42 329 39123 01 00")
+    b = P.parse_well_number("4232939123")
+    ok(r["status"] == "OK" and all(r["checks"].values())
+       and a["status"] == "VALID" and a["api14"] == "42-329-39123-01-00" and a["identifies"] == "event" and a["event"]["meaning"].startswith("the original")
+       and b["status"] == "VALID" and b["api10"] == "42-329-39123" and b["api12"] is None and b["identifies"] == "well_origin"
+       and len(P.STATE_CODES) == 55 and P.STATE_CODES["42"] == "Texas" and P.STATE_CODES["60"] == "Northern Gulf of Mexico" and "52" not in P.STATE_CODES
+       and P.parse_well_number("42-329-61000")["unique_well"]["range"] == "reserved" and P.parse_well_number("42-329-00500")["unique_well"]["range"] == "historical"
+       and P.parse_well_number("42-329-96000")["unique_well"]["range"] == "exempt"
+       and "booklet" in P.parse_well_number("42-329-39123")["county"]["basis"],
+       "BG1 a US Well Number in any written form is taken apart to the standard - state and offshore codes named (51 states and territories, four "
+       "offshore areas, 52-54 reserved), the county code kept as a code because the county booklet is not held, the unique well placed in the "
+       "standard's historical, current, reserved or exempt range - and ten, twelve and fourteen digits name the Well Origin, a Wellbore and an "
+       "event; a reserved or unknown state, a wrong length, a stray letter and a zero unique well are each named as a problem, never repaired")
+
+    # -- the identity, and what it will not name ---------------------------------------------------
+    ident = r["identity"]; c = ident["components"]
+    ok(c["well"]["identifier"] == "42-329-39123" and c["wellbore"]["identifier"] is None and "sidetrack code" in c["wellbore"]["detail"]
+       and c["well_origin"]["position"]["datum"] == "NAD27" and c["wellhead_stream"]["direction"] == "into the ground"
+       and c["wellbore_contact_interval"]["identifier"] is None and c["wellbore_completion"]["identifier"] is None
+       and all(k in P.COMPONENTS for k in ("well", "well_origin", "wellbore", "wellbore_segment", "wellbore_contact_interval", "wellbore_completion", "wellhead_stream", "well_set"))
+       and "one and only one" in P.COMPONENTS["wellbore_segment"] and "not an activity" in P.COMPONENTS["wellbore_completion"]
+       and sum("not given" in g for g in ident["gaps"]) == 1 and sum("not held here" in g for g in ident["gaps"]) == 1,
+       "BG2 the identity names the Well and its Origin at the declared position on its datum, the Wellhead Stream with its direction, the Well Set "
+       "as the site and every alias typed, and names as not named - with the reason - the Wellbore when the sidetrack code was not given, and the "
+       "Contact Interval and the Completion that are the permit's and the completion report's facts; the component definitions are PPDM's")
+
+    # -- through the workspace: the packet and the OSDU export carry it ----------------------------
+    t0 = _dt(2026, 3, 1, tzinfo=_tz.utc)
+    hist = d / "swd.csv"
+    with open(hist, "w", newline="") as f:
+        w = _csv.writer(f); w.writerow(["timestamp", "P_surf_psi", "Q_bpm"])
+        for i in range(2 * 144):
+            w.writerow([(t0 + _td(seconds=600 * i)).strftime("%Y-%m-%dT%H:%M:%SZ"), "1500.0", "5.0"])
+    ws = Workspace.create(str(d / "ws"), "Pad 3", actor="tester")
+    w1 = ws.add_well_file(str(hist), display="SWD 1", actor="tester", station_md_ft=9800.0)
+    run = lambda *a: _sp.run([sys.executable, "-m", "gea", "workspace", "--path", ws.path, "--actor", "tester", *a], capture_output=True, text=True)
+    r0 = run("--action", "well-identity", "--well", w1["id"])                                       # nothing declared yet
+    r1 = run("--action", "set-well", "--well", w1["id"], "--lat", "31.96", "--lon", "-102.24", "--datum", "NAD27", "--api", "42-329-39123", "--uic", "123456",
+             "--depth-tier", "deep", "--formation", "completed below the base of the Wolfcamp", "--channel-pressure", "P_surf_psi", "--channel-rate", "Q_bpm",
+             "--rate-unit", "bbl/min", "--bhp-method", "calculated")
+    r2 = run("--action", "add-site", "--name", "PPDM block", "--wells", w1["id"], "--client", "Acme Operating")
+    r3 = run("--action", "well-identity", "--well", w1["id"])
+    r4 = run("--action", "sra-define", "--site", "PPDM-block", "--name", "Test SRA", "--lat", "31.95", "--lon", "-102.25", "--datum", "WGS84",
+             "--radius-km", "9.08", "--plan-date", "2026-02-25")
+    r5 = run("--action", "sra-report", "--site", "PPDM-block")
+    out = Path(ws.path, "reports", "sites", "PPDM-block")
+    md = (out / "sra_packet.md").read_text(encoding="utf-8"); html = (out / "sra_packet.html").read_text(encoding="utf-8")
+    pkj = json.loads((out / "sra_packet.json").read_text(encoding="utf-8"))["packet"]
+    ws2 = Workspace(ws.path)
+    o1 = ws2.osdu_export("PPDM-block", partition="opendes", acl_owners=["o"], acl_viewers=["v"], legal_tags=["t"], actor="tester")
+    man1 = json.loads(Path(o1["manifest"]).read_text(encoding="utf-8"))
+    wells1 = [x for x in man1["MasterData"] if x["kind"].endswith(":master-data--Well:1.0.0")]
+    bores1 = [x for x in man1["MasterData"] if x["kind"].endswith(":master-data--Wellbore:1.0.0")]
+    ws2.set_well(w1["id"], disposal={"api_number": "42-329-39123-01"}, actor="tester")
+    o2 = ws2.osdu_export("PPDM-block", partition="opendes", acl_owners=["o"], acl_viewers=["v"], legal_tags=["t"], actor="tester")
+    man2 = json.loads(Path(o2["manifest"]).read_text(encoding="utf-8"))
+    bores2 = [x for x in man2["MasterData"] if x["kind"].endswith(":master-data--Wellbore:1.0.0")]
+    r6 = _sp.run([sys.executable, "-m", "gea", "ppdm", "--action", "parse", "--number", "42-329-39123-01"], capture_output=True, text=True)
+    r7 = _sp.run([sys.executable, "-m", "gea", "ppdm", "--action", "parse", "--number", "53-329-39123"], capture_output=True, text=True)
+    r8 = _sp.run([sys.executable, "-m", "gea", "ppdm"], capture_output=True, text=True)
+    ident_w = pkj["wells"][0]["identity"]
+    ok(r0.returncode == 0 and "no US Well Number declared" in r0.stdout and r1.returncode == 0 and r2.returncode == 0
+       and r3.returncode == 0 and "US Well Number 42-329-39123" in r3.stdout and "state 42 (Texas)" in r3.stdout and "Wellbore: not identified" in r3.stdout
+       and "Well Set: PPDM block" in r3.stdout and "Wellhead Stream: 2 channel(s)" in r3.stdout and "into the ground" in r3.stdout
+       and "9800 ft MD" in r3.stdout and "123456 [UIC permit number]" in r3.stdout
+       and r4.returncode == 0 and r5.returncode == 0 and ident_w["us_well_number"] == "42-329-39123" and ident_w["state"] == "Texas"
+       and ident_w["wellbore"] is None and ident_w["origin_datum"] == "NAD27" and not any("sidetrack" in g or "Completion" in g for g in pkj["gaps"])
+       and "Well identity" in md and "42-329-39123" in md and "not identified" in md and "US Well Number and PPDM" in html
+       and not forbidden_terms(md) and not forbidden_terms(html)
+       and len(wells1) == 1 and wells1[0]["data"]["FacilityID"] == "42-329-39123"
+       and any(al["AliasName"] == "42-329-39123" and al["AliasNameTypeID"].endswith("AliasNameType:USWellNumber:") for al in wells1[0]["data"]["NameAliases"])
+       and wells1[0]["data"]["ExtensionProperties"]["gea"]["us_well_number"]["state"]["name"] == "Texas"
+       and len(bores1) == 1 and bores1[0]["data"]["FacilityID"] == w1["id"] and "not identified" in bores1[0]["data"]["ExtensionProperties"]["gea"]["wellbore_identifier"]
+       and bores2[0]["data"]["FacilityID"] == "42-329-39123-01" and bores2[0]["data"]["ExtensionProperties"]["gea"]["wellbore_identifier"] == "42-329-39123-01"
+       and o2["validate"]["ok"]
+       and r6.returncode == 0 and "identifies the wellbore" in r6.stdout and r7.returncode == 1 and "reserved" in r7.stdout
+       and r8.returncode == 0 and "ppdm selftest" in r8.stdout
+       and any(t["topic"] == "ppdm" for t in H.topics()) and not H.check("ppdm")
+       and "sidetrack code" in (pkg / "help" / "ppdm.md").read_text(encoding="utf-8").split("will not call a measurement")[1],
+       "BG3 `--action well-identity` names a bare well as unidentified and a declared one by its US Well Number, state, origin datum, wellbore "
+       "standing, gauge depth, wellhead stream, well set and typed aliases; the SRA packet carries the identity on every well row and in its own "
+       "table (section 2a) without counting its gaps against the packet, and the packet's prose passes the vocabulary gate; the OSDU export's Well "
+       "record carries the ten-digit number as FacilityID and a typed alias with the state in the extension, and its Wellbore record keeps the "
+       "program's id and says the sidetrack code was not given until a twelve-digit number is declared, when it carries that; `gea ppdm` parses "
+       "a number from the command line with the exit code saying whether it is valid, and runs the self-test; the help page names the sidetrack "
+       "it will not assume")
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -5165,6 +5269,7 @@ def main() -> int:
         section_bd_association(tmp)
         section_be_osdu(tmp)
         section_bf_quakeml(tmp)
+        section_bg_ppdm(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

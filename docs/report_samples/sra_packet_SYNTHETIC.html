@@ -4,12 +4,12 @@
 <style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
 <h1>Downhole Gauge Monitoring - Seismicity Response Area Packet</h1>
 <table class="front">
-<tr><td>Report ID</td><td>SRA-SYNTHETIC-SRA-block-20261008T135459Z</td></tr>
+<tr><td>Report ID</td><td>SRA-SYNTHETIC-SRA-block-20261008T145212Z</td></tr>
 <tr><td>Area</td><td>SYNTHETIC SRA</td></tr>
 <tr><td>Site</td><td>SYNTHETIC SRA block</td></tr>
 <tr><td>Client</td><td>SYNTHETIC operator</td></tr>
-<tr><td>Generated (UTC)</td><td>2026-10-08T13:54:59Z</td></tr>
-<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.12.0</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-08T14:52:12Z</td></tr>
+<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.13.0</td></tr>
 <tr><td>Result</td><td class="result-ok">COMPLETE: 1 WELL(S) INSIDE, RESPONSE TRIGGERED, GOAL RUNNING</td></tr>
 </table>
 <h2>1. The area and the plan</h2>
@@ -30,6 +30,13 @@
 <tr><td>SYNTHETIC-STA3</td><td>SYNTHETIC STA3</td><td>single</td><td>inside</td><td>7.29</td></tr>
 <tr><td>SYNTHETIC-STA4</td><td>SYNTHETIC STA4</td><td>single</td><td>inside</td><td>7.93</td></tr>
 <tr><td>SYNTHETIC-STA5</td><td>SYNTHETIC STA5</td><td>single</td><td>inside</td><td>0</td></tr>
+</table>
+<h2>2a. The wells as the US Well Number and PPDM name them</h2>
+<p>Each well by its US Well Number taken apart - the state, the county, the unique well - and by the components of PPDM&#x27;s &quot;What is a Well&quot; the site can name: the Well and its one Origin at the declared surface position, the Wellbore when the sidetrack code was given, the Well Set as the site, and every alias typed. Ten digits name the Well Origin and nothing below it; a Wellbore is named only when the regulator&#x27;s sidetrack code was declared. The injection interval and the completion are the permit&#x27;s and the completion report&#x27;s facts and are named here as not held.</p>
+<table>
+<caption>Well identity</caption>
+<tr><th>Well</th><th>US Well Number</th><th>Identifies</th><th>State</th><th>Wellbore</th><th>Origin datum</th><th>Aliases</th><th>Not named</th></tr>
+<tr><td>SYNTHETIC-SWD-1</td><td>-</td><td>well origin</td><td>Texas</td><td>not identified</td><td>NAD27</td><td>SYNTHETIC SWD 1 [operator name]; SYNTHETIC-SWD-1 [program identifier]; 000000 [UIC permit number]</td><td>the declared number &#x27;42-000-00000&#x27; is not a valid US Well Number: unique well number 00000 identifies no well; the Contact Interval and the Completion are the permit&#x27;s and the completion report&#x27;s facts; not held here</td></tr>
 </table>
 <h2>3. Daily record, rolled up by month: SYNTHETIC SWD 1</h2>
 <p>SYNTHETIC SWD 1 (deep): 31 of 31 day(s) carry a record; max surface injection pressure psi: RECORDED, avg surface injection pressure psi: RECORDED, injection volume bbl: RECORDED, max injection rate bbl min: RECORDED; bottomhole pressure: RECORDED (Permanent BHP probe method)</p>

@@ -41,6 +41,7 @@ INDEX: List[tuple] = [
     ('sra', 'The Seismicity Response Area', 'the packet an operator inside an SRA puts in front of the Commission'),
     ('osdu', 'The OSDU-shaped export', 'the site as the manifest an operator\'s data platform loads'),
     ('quakeml', 'The QuakeML catalogue export', 'the site\'s own events in the format the regulator\'s catalogue tools read'),
+    ('ppdm', 'The well as master data names it', 'the US Well Number taken apart and the PPDM "What is a Well" components the site can name'),
     ('doctor', 'Which code is running', 'gea doctor and the serve start-up gate'),
     ('audit-update', 'Audit / Update', 'the whole audit log with filters, the program against PyPI, every report against its source'),
     ('upkeep', 'Upkeep', 'housekeeping, sessions, the TLS proxy, the load test'),

@@ -1144,3 +1144,28 @@ free (an unbounded choice), the identifiers are not.
   awkward site name); the gate's own check is the structural one.
 - `--action quakeml-export`; `gea quakeml`; `gea help quakeml`; README.
 - Section BF (4 checks): 324.
+
+## 2026-10-08 - the well as master data names it (v0.13.0)
+
+Built while v0.12.0 shipped, in the cloud only - nothing enters the clone
+while ship.ps1 runs, because its `git add -A` would sweep it in. Research
+first: the US Well Number's structure and ranges (SS-CCC-UUUUU-SS-EE; the
+state and offshore codes, which are not FIPS; the unique-well ranges; the
+custody history from API Bulletin D12A to PPDM's 2013 standard) and PPDM's
+"What is a Well" component definitions and principles (one Origin per Well;
+a Wellbore by its terminating point; segments that do not overlap; a
+contact interval owned by one completion at a time; the Well Set across
+the life cycle).
+
+- `gea/ppdm.py`: STATE_CODES (55 entries), UNIQUE_RANGES, COMPONENTS,
+  `parse_well_number`, `well_identity`, `identity_lines`, `report_text`,
+  `selftest`.
+- `Workspace.well_identity`; the SRA packet carries an identity on every
+  well row (`packet(..., wells=)`) and the report prints section 2a; the
+  OSDU Well record's FacilityID and a typed USWellNumber alias, the
+  Wellbore record's FacilityID the twelve-digit number only when given.
+- The disposal declaration's channel keys are `channel_pressure`,
+  `channel_rate`, `channel_bhp`; the first draft of the identity read the
+  wrong names and named no stream - caught by the self-test.
+- `--action well-identity`; `gea ppdm`; `gea help ppdm`; README.
+- Section BG (3 checks): 327.

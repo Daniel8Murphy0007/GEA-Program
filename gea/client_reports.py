@@ -1613,6 +1613,23 @@ def sra_packet_report(pk: dict, evaluated_at: Optional[datetime] = None, program
         f"from the centre, with every position carried to WGS84 first; {m['n_undecided']} could not be placed."],
         [Table(['Well', 'Name', 'API', 'UIC', 'Membership', 'Distance (km)', 'Depth tier', 'BHP method', 'Daily record'], wrows, 'Wells'),
          Table(['Station', 'Name', 'Kind', 'Membership', 'Distance (km)'], srows, 'Seismic stations')]))
+    # the wells named the way the operator's master data names them (v0.13.0)
+    irows = []
+    for w in pk['wells']:
+        i = w.get('identity')
+        if not i:
+            continue
+        irows.append([w['id'], i.get('us_well_number') or '-', (i.get('identifies') or '-').replace('_', ' '), i.get('state') or '-',
+                      i.get('wellbore') or 'not identified', i.get('origin_datum') or '-', '; '.join(i.get('aliases') or []),
+                      '; '.join(g.split(': ', 1)[1] if ': ' in g else g for g in (i.get('gaps') or [])) or '-'])
+    if irows:
+        secs.append(Section('2a', 'The wells as the US Well Number and PPDM name them', [
+            'Each well by its US Well Number taken apart - the state, the county, the unique well - and by the components of PPDM\'s "What is a '
+            'Well" the site can name: the Well and its one Origin at the declared surface position, the Wellbore when the sidetrack code was '
+            'given, the Well Set as the site, and every alias typed. Ten digits name the Well Origin and nothing below it; a Wellbore is named '
+            'only when the regulator\'s sidetrack code was declared. The injection interval and the completion are the permit\'s and the '
+            'completion report\'s facts and are named here as not held.'],
+            [Table(['Well', 'US Well Number', 'Identifies', 'State', 'Wellbore', 'Origin datum', 'Aliases', 'Not named'], irows, 'Well identity')]))
     n = 3
     inside_wells = [w for w in pk['wells'] if w['inside'] and w.get('months')]
     for w in inside_wells:

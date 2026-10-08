@@ -5,6 +5,46 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.13.0] - 2026-10-08 - the well as master data names it
+
+### Added
+- **PPDM well identity** (`gea/ppdm.py`): every report named a well by the
+  operator's display name and, since v0.9.0, by the API and UIC numbers
+  declared on it. A buyer's data team, a regulator's well file and the
+  operator's master data name it more carefully: by the US Well Number
+  (the API number; custody passed from the API to the PPDM Association in
+  2010, and PPDM's 2013 standard is its successor) taken apart - state and
+  offshore code (51 states and territories, four offshore areas, 52-54
+  reserved), county code, unique well in its historical, current, reserved
+  or exempt range, directional sidetrack, event sequence - and by the
+  components of PPDM's "What is a Well": the Well, its one Well Origin, each
+  Wellbore, the Wellbore Segments, the Contact Intervals and Completions,
+  the Wellhead Streams, the Well Set.
+- The number: read in any written form (10, 12 or 14 digits, dashes
+  optional), each part named, and which component it identifies - ten
+  digits the Well Origin, twelve a Wellbore, fourteen an event. A reserved
+  or unknown state, a wrong length, a stray letter, a zero unique well are
+  named as problems, never repaired.
+- The identity: the Well and its Origin at the declared surface position on
+  its datum; the Wellbore only when the sidetrack code was given; the gauge
+  station as a measured depth along the wellbore; the Wellhead Stream as
+  the channels recorded at the wellhead with the declared pressure, rate and
+  bottomhole channels and the direction; the Well Set as the site; the
+  aliases - operator name, program id, US Well Number, UIC permit - each
+  typed. Every component the site cannot name is named as not named with
+  the reason.
+- Carried into the SRA packet (section 2a, a table per well, its gaps not
+  counted against the packet) and the OSDU export (the Well record's
+  FacilityID and a typed USWellNumber alias with the state and the parts in
+  the extension; the Wellbore record's FacilityID is the twelve-digit number
+  when given, otherwise the program's id with the reason).
+- What it will not do: assume "00" for a sidetrack that was not given;
+  invent a Contact Interval or a Completion (the permit's and the completion
+  report's facts); name a county (the standard's booklet carries it).
+- `gea workspace --action well-identity --well <id>`; `gea ppdm --action
+  parse --number ...`; `gea ppdm` self-test; `gea help ppdm`. Section BG
+  (3 checks); the gate is 327.
+
 ## [v0.12.0] - 2026-10-08 - the QuakeML catalogue export
 
 ### Added

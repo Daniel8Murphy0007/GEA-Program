@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.13.0 - 2026-10-08 - the well as master data names it
+
+- **PPDM well identity.** The US Well Number taken apart to the standard and
+  the "What is a Well" components the site can name - the Well and its
+  Origin, the Wellbore only with a sidetrack code, the Wellhead Stream, the
+  Well Set, typed aliases - carried into the SRA packet and the OSDU export;
+  no sidetrack assumed, no interval or completion invented, no county named.
+  Section BG; gate 327.
+
 ## v0.12.0 - 2026-10-08 - the QuakeML catalogue export
 
 - **The site's events in the regulator's format.** The association leg's
