@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (330 checks)
+gea accept                     # the product gate (333 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -579,6 +579,27 @@ sensitivity; a rate that cannot carry 1000 Hz is PARTIAL BAND, never
 promoted; the group and the support are declarations; a matched frequency
 is not a fault size. CSV or miniSEED/SAC; `gea vibration` runs the labelled
 pump; `gea help vibration`.
+
+### Conformity, in the standards' words
+
+The drift report's "bias inside the instrument's class" is a statement of
+conformity, and ISO/IEC 17025:2017 7.8.6 says what one carries: the result it
+applies to, the specification, and the decision rule - which has to take
+the uncertainty into account. The report now states it that way: the tag's
+bias over the window with its sample count, the certificate's accuracy
+class as the tolerance limit, the bias's expanded uncertainty (k = 2) as the
+guard band, and the ILAC-G8:09/2019 non-binary rule - PASS, CONDITIONAL
+PASS, CONDITIONAL FAIL or FAIL, with the acceptance limit printed; without
+an uncertainty it falls back to simple acceptance and says so. The
+certificate register takes what 7.8.4 asks the paper to carry (the expanded
+uncertainty with k and probability, the traceability statement as worded,
+the conditions, the calibration date, the method, who authorised it) and
+`gea certificates --action conformance` prints each certificate against
+the fourteen items of 7.8.2.1 and 7.8.4.1 - CARRIED, NOT CARRIED, NOT
+RECORDED - with COMPLETE or INCOMPLETE and the missing clauses named. The
+well page's filing form takes the items and its table shows U (k) and the
+standing. `gea conformance --action decide` states one decision. `gea help
+conformance`.
 
 ### Audit / Update
 

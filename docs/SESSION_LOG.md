@@ -1208,3 +1208,32 @@ envelope method (band by kurtosis, analytic signal, envelope spectrum).
   The attach script on a main run no longer replaces, and an upload that
   fails because the asset appeared meanwhile is read as the tag run's
   work. Folded into v0.14.0.
+
+## 2026-10-08 - conformity, in the standards' words (v0.15.0)
+
+v0.14.0 shipped five green, the main-branch kit run included (the attach
+race fix held). The list said "API RP 19 / ISO 17025 conformance naming";
+no API RP 19 applies to pressure gauges (the 19-series are perforating,
+proppant and sand control), so the leg is built on what does govern a
+calibration certificate and a statement of conformity: ISO/IEC 17025:2017
+7.8.2.1, 7.8.4.1 and 7.8.6, and ILAC-G8:09/2019's decision rules (two
+independent readings of the rules agree on the four outcomes and the 2.5 %
+false-accept bound at the acceptance limit).
+
+- `gea/conformance.py`: `decide` (simple acceptance, binary and non-binary
+  guard band; the statement carries what 7.8.6.2 asks), `expanded_uncertainty`
+  (k·sigma/sqrt(n)), `CERTIFICATE_CLAUSES` (fourteen items),
+  `certificate_conformance`, `register_conformance`, `report_lines`,
+  `selftest`.
+- `CertificateRegister.add(**clauses)` with CLAUSE_FIELDS; `conformance()`;
+  status rows carry `iso17025`; the API passes the fields through and the
+  instruments answer carries the standing per certificate; the CLI takes
+  the flags and has `--action conformance`.
+- The drift report's section 9: the "Bias vs accuracy" column is
+  "Conformity" with the outcome, a "ISO/IEC 17025 7.8" column with the
+  standing, and one statement paragraph per certificate; AH7 follows.
+- The well page: the filing form takes U, k, probability, traceability,
+  conditions, calibration date, method and authorisation; the table shows
+  U (k) and the standing with the missing clauses.
+- `gea help conformance`; README.
+- Section BI (3 checks): 333.

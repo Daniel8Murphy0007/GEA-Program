@@ -1,28 +1,29 @@
-v0.14.0 — MACHINE VIBRATION: THE ZONE, AND WHAT THE BEARINGS ARE DOING
+v0.15.0 — CONFORMITY, IN THE STANDARDS' WORDS
 
-The one condition-monitoring deliverable an operations engineer expects by
-name. gea/vibration.py reads the pump's record and answers the first
-question ISO 20816 answers - which zone is this machine in - from the
-broadband r.m.s. vibration velocity over 10 to 1000 Hz as ISO 20816-1
-defines it, evaluated by ISO 20816-3's boundaries for the declared machine
-group and support class, with the boundaries printed and the margin to the
-next. Then the second question, by envelope analysis: the most impulsive
-band chosen by kurtosis, the analytic signal's envelope, and its spectrum
-searched for the bearing's own defect frequencies - BPFO, BPFI, BSF, FTF
-from its geometry and the shaft speed - each MATCHED at its fundamental or
-NOT MATCHED, the inner race with its sidebands at the shaft speed.
+The drift report printed a certificate's accuracy beside the measured bias
+and said "inside" or "OUTSIDE". That is a statement of conformity, and
+ISO/IEC 17025:2017 7.8.6 says what one has to carry: the results it applies
+to, the specification, and the decision rule - which takes the measurement
+uncertainty into account. "Inside" with no uncertainty and no rule is simple
+acceptance applied silently. gea/conformance.py names the rule and applies
+it in the open: the tag's bias over the window with its sample count, the
+certificate's accuracy class as the tolerance limit, the bias's expanded
+uncertainty at k = 2 as the guard band, and ILAC-G8:09/2019's non-binary
+rule - PASS, CONDITIONAL PASS, CONDITIONAL FAIL or FAIL - with the
+acceptance limit printed. Without an uncertainty it is simple acceptance,
+and the statement says so.
 
-What it will not call a measurement: a group or a support class, which are
-declared; a zone from a record that cannot carry the band, marked PARTIAL
-BAND; a fault size; a defect frequency without the bearing's geometry; an
-mm/s value from counts without a sensitivity. The fundamental is required
-for a match because the harmonics of one defect frequency fall near
-multiples of another - the first draft named three faults where the
-labelled scene had one.
+The certificate register now takes what 7.8.4 asks the paper to carry - the
+expanded uncertainty with its coverage factor and probability, the
+traceability statement as worded, the conditions, the calibration date, the
+method, who authorised it, the adjustment results, the certificate's own
+decision rule - and judges each certificate against the fourteen items of
+7.8.2.1 and 7.8.4.1: CARRIED, NOT CARRIED, NOT RECORDED; COMPLETE or
+INCOMPLETE with the missing clauses named. On the status rows, in the API,
+on the well page, in the drift report.
 
-And a defect found on the way: the miniSEED writer rounded every record's
-start to the header's 0.1 ms, so a 20 kHz record read back as fifteen
-traces. Blockette 1001 carries the microseconds now and the round-trip is
-exact.
+What it will not do: take into account an uncertainty that was not
+available; assume k = 2 for a certificate that did not state it; read the
+PDF - the register holds what a person transcribed.
 
-Section BH is new. The gate is 330 checks. The standalone guard is clean.
+Section BI is new. The gate is 333 checks. The standalone guard is clean.

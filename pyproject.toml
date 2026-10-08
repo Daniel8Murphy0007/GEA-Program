@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gea-program"
-version = "0.14.0"
+version = "0.15.0"
 description = "GEA-Program: downhole gauge monitoring - canonical measurement records, quality rules, drift evaluation with a re-fit change log, well-test validation, alarm management, model cards, store-and-forward, monthly SLA measurement, FAT/SAT protocols and a dashboard, generated from live objects in the client's reporting outline."
 readme = "README.md"
 requires-python = ">=3.10"

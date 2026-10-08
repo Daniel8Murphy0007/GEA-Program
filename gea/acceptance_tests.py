@@ -2420,7 +2420,7 @@ def section_ah_band2(tmp: str) -> None:
            and Path(wsp, "wells", w1["id"], "records", "certificates", "CERT-1_cert1.txt").exists()
            and st2["P_raw_psi_S2"] == 48 and st2["P_raw_psi_S1"] == 240 and gd["instruments"]["swap_notes"][0]["samples_excluded"] == 192
            and [c["status"] for c in inst["certificate_status"]] == ["VALID", "VALID"] and not [c for c in inst["candidates"] if c["tag_id"] == "P_raw_psi_S2"]
-           and "Instruments: sensor swaps" in drift_html and "CERT-77" in drift_html and "Bias vs accuracy" in drift_html
+           and "Instruments: sensor swaps" in drift_html and "CERT-77" in drift_html and "Conformity" in drift_html and "ISO/IEC 17025 7.8" in drift_html
            and ptr and ptr["analyses"][0]["status"] == "OK" and abs(ptr["analyses"][0]["derived"]["k_md"] - k) / k < 0.05
            and ov["wells"][0]["instruments"]["swaps"] == 1 and ov["wells"][0]["transient"]["analysed"] == 1 and ov["site"]["certificates"]["counts"]["VALID"] == 2
            and "swap.add" in audit and "certificate.add" in audit and "transient.params" in audit,
@@ -5319,6 +5319,140 @@ def section_bh_vibration(tmp: str) -> None:
        "a channel that is not there; `gea vibration --action assess` reads a miniSEED record in counts with a declared sensitivity and says "
        "NOT ASSESSED without one; the self-test runs from the command line; the help page carries the boundaries and names the fault size it will not claim")
 
+
+def section_bi_conformance(tmp: str) -> None:
+    """Section BI - conformity in the standards' words: each certificate against the items ISO/IEC 17025:2017
+    7.8.2.1 and 7.8.4.1 ask it to carry, and the drift report's bias-against-class line as a statement of
+    conformity with its ILAC-G8 decision rule named, the uncertainty as the guard band, nothing assumed."""
+    import csv
+    import datetime as D
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    import numpy as _np
+    from . import conformance as C
+    from . import helplib as H
+    from .certificates import CertificateRegister
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bi"); d.mkdir()
+
+    # -- the self-test and the rules --------------------------------------------------------------------
+    r = C.selftest()
+    ok(r["status"] == "OK" and all(r["checks"].values())
+       and [x["outcome"] for x in r["decisions"]] == ["PASS", "CONDITIONAL PASS", "CONDITIONAL FAIL", "FAIL", "PASS"]
+       and r["decisions"][4]["rule"] == "simple-acceptance"
+       and C.decide(8.0, 10.0, 2.0)["outcome"] == "PASS" and C.decide(8.0001, 10.0, 2.0)["outcome"] == "CONDITIONAL PASS"
+       and C.decide(10.0, 10.0, 2.0)["outcome"] == "CONDITIONAL PASS" and C.decide(10.0001, 10.0, 2.0)["outcome"] == "CONDITIONAL FAIL"
+       and C.decide(12.0, 10.0, 2.0)["outcome"] == "CONDITIONAL FAIL" and C.decide(12.0001, 10.0, 2.0)["outcome"] == "FAIL"
+       and C.decide(10.0, 10.0, 2.0, rule="simple-acceptance")["outcome"] == "PASS" and C.decide(8.5, 10.0, 2.0, rule="binary-guard-band")["outcome"] == "FAIL"
+       and len(C.CERTIFICATE_CLAUSES) == 14 and {c[0].split(" ")[0] for c in C.CERTIFICATE_CLAUSES} == {"7.8.2.1", "7.8.4.1"}
+       and all(k in " ".join(x[1] for x in C.CERTIFICATE_CLAUSES) for k in ("uncertainty", "traceability", "conditions", "adjustment", "decision_rule", "authorised_by", "method", "calibrated_utc")),
+       "BI1 the ILAC-G8:09/2019 rules give the four outcomes at their boundaries (PASS to TL - U, CONDITIONAL PASS to TL, CONDITIONAL FAIL to TL + U, "
+       "FAIL above), simple acceptance ignores U and says so, the binary rule fails inside the guard band; the certificate items are the fourteen of "
+       "ISO/IEC 17025:2017 7.8.2.1 and 7.8.4.1 - identification, laboratory, item, dates, result, method, authorisation, uncertainty with its "
+       "coverage factor, conditions, traceability, adjustment, decision rule - and a full certificate is COMPLETE, a thin one INCOMPLETE with the "
+       "missing clauses named, an entry filed before the fields existed NOT RECORDED rather than NOT CARRIED")
+
+    # -- the register: the fields recorded from the paper, nothing invented ------------------------------
+    reg = CertificateRegister(str(d / "certs.jsonl"))
+    e1 = reg.add("P1", "S1", "C-1", "2026-01-10", "2027-01-10", "tester", "Acme Cal", 0.1, 10000.0, "psi",
+                 uncertainty=2.5, uncertainty_k=2.0, uncertainty_probability=0.95, traceability="NIST via DWT 1234", conditions="23 ± 1 °C",
+                 calibrated_utc="2026-01-09", method="comparison", authorised_by="J. Doe", adjustment="as found / as left", decision_rule="simple acceptance")
+    e2 = reg.add("P2", "S2", "C-2", "2026-01-10", "2027-01-10", "tester", "Acme Cal", 0.1, 10000.0, "psi")
+    bad = []
+    for kw in ({"uncertainty_k": 0}, {"uncertainty_probability": 1.5}, {"uncertainty": -1}, {"nonsense": "x"}):
+        try:
+            reg.add("P3", "S3", "C-3", "2026-01-10", "2027-01-10", "tester", **kw); bad.append(False)
+        except ValueError:
+            bad.append(True)
+    st = {x["tag_id"]: x for x in reg.status(["P1", "P2"], now=D.datetime(2026, 6, 1, tzinfo=D.timezone.utc))}
+    conf = reg.conformance()
+    r1 = _sp.run([sys.executable, "-m", "gea", "certificates", "--register", str(d / "certs.jsonl"), "--action", "conformance"], capture_output=True, text=True)
+    r2 = _sp.run([sys.executable, "-m", "gea", "certificates", "--register", str(d / "cli.jsonl"), "--action", "add", "--tag", "P9", "--serial", "S9", "--certificate", "C-9",
+                  "--issued", "2026-01-10", "--valid-until", "2027-01-10", "--lab", "Cal Lab GmbH", "--accuracy-pct-fs", "0.05", "--full-scale", "5000", "--unit", "psi", "--uncertainty", "1.2",
+                  "--k", "2", "--probability", "0.95", "--traceability", "PTB via transfer standard 7", "--conditions", "21 °C", "--calibrated", "2026-01-08",
+                  "--method", "comparison", "--authorised-by", "A. B."], capture_output=True, text=True)
+    r3 = _sp.run([sys.executable, "-m", "gea", "certificates", "--register", str(d / "cli.jsonl"), "--action", "conformance"], capture_output=True, text=True)
+    r4 = _sp.run([sys.executable, "-m", "gea", "conformance", "--action", "decide", "--value", "11", "--tolerance", "10", "--uncertainty", "2", "--unit", "psi"], capture_output=True, text=True)
+    r5 = _sp.run([sys.executable, "-m", "gea", "conformance"], capture_output=True, text=True)
+    ok(e1["uncertainty"] == 2.5 and e1["uncertainty_k"] == 2.0 and e1["traceability"] == "NIST via DWT 1234" and e2["uncertainty"] is None and e2["traceability"] == ""
+       and all(bad) and st["P1"]["iso17025"]["status"] == "COMPLETE" and st["P1"]["iso17025"]["carried"] == 14
+       and st["P2"]["iso17025"]["status"] == "INCOMPLETE" and any("7.8.4.1 c" in m for m in st["P2"]["iso17025"]["missing"]) and st["P2"]["uncertainty"] is None
+       and conf["n"] == 2 and conf["complete"] == 1 and conf["incomplete"] == ["C-2"]
+       and r1.returncode == 1 and "C-1 (serial S1, tag P1): COMPLETE - 14 of 14" in r1.stdout and "NOT CARRIED  a statement identifying how the measurements are metrologically traceable" in r1.stdout
+       and r2.returncode == 0 and r3.returncode == 0 and "1 COMPLETE" in r3.stdout
+       and r4.returncode == 1 and "CONDITIONAL FAIL" in r4.stdout and "acceptance limit 8 psi" in r4.stdout
+       and r5.returncode == 0 and "conformance selftest [SELF_TEST]: OK" in r5.stdout,
+       "BI2 the register takes what 7.8.4 asks the paper to carry - the expanded uncertainty with its coverage factor and probability, the "
+       "traceability statement as worded, the conditions, the calibration date, the method, who authorised it, the adjustment results, the "
+       "decision rule - rejects a k of zero, a probability above one, a negative uncertainty and a field it does not know, leaves empty what was "
+       "not filed, and every status row carries the certificate's 7.8 standing; `gea certificates --action conformance` prints it item by item "
+       "and exits 1 while any certificate is incomplete; `gea conformance --action decide` states one decision from the command line")
+
+    # -- the drift report: the statement of conformity with its rule named ----------------------------------
+    rng = _np.random.default_rng(5)
+    n = 240
+    t0 = D.datetime(2026, 3, 1, tzinfo=D.timezone.utc)
+    hist = d / "hist.csv"
+    base = 3000.0 + 0.2 * _np.sin(_np.arange(n) / 24.0)
+    with open(hist, "w", newline="") as f:
+        w = csv.writer(f); w.writerow(["timestamp_utc", "P_raw_psi_S1", "P_raw_psi_S2", "T_raw_F_S1"])
+        for i in range(n):
+            w.writerow([(t0 + D.timedelta(hours=i)).strftime("%Y-%m-%dT%H:%M:%SZ"), round(base[i] + rng.normal(0, 0.8), 2), round(base[i] + 1.5 + rng.normal(0, 0.8), 2), round(80 + 0.1 * rng.normal(), 2)])
+    wsp = str(d / "ws")
+    ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    w1 = ws.add_well_file(str(hist), display="Well BI", actor="tester")
+    users = Users(str(Path(wsp, "users.json"))); users.add("op1", "operator-pass-1", "operator")
+    svc = Service(wsp, host="127.0.0.1", port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json")
+        if method == "POST":
+            req.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(req, timeout=600) as rr:
+                return rr.status, json.loads(rr.read())
+        except urllib.error.HTTPError as ex:
+            return ex.code, json.loads(ex.read())
+    try:
+        call("POST", "/api/login", {"name": "op1", "password": "operator-pass-1"})
+        s_c1, _ = call("POST", f"/api/wells/{w1['id']}/certificates", {"tag_id": "P_raw_psi_S1", "serial": "SN-1", "certificate_id": "CERT-A", "issued_utc": "2026-01-01",
+                                                                       "valid_until_utc": "2027-01-01", "lab": "LabX", "accuracy_pct_fs": 0.02, "full_scale": 10000, "unit": "psi",
+                                                                       "uncertainty": "0.5", "uncertainty_k": "2", "uncertainty_probability": "0.95", "traceability": "NIST via DWT",
+                                                                       "conditions": "23 °C", "calibrated_utc": "2025-12-30", "method": "comparison", "authorised_by": "Q. A."})
+        s_c2, _ = call("POST", f"/api/wells/{w1['id']}/certificates", {"tag_id": "P_raw_psi_S2", "serial": "SN-2", "certificate_id": "CERT-B", "issued_utc": "2026-01-01",
+                                                                       "valid_until_utc": "2027-01-01", "lab": "LabX", "accuracy_pct_fs": 0.02, "full_scale": 10000, "unit": "psi"})
+        call("POST", "/api/refresh", {})
+        svc.app.runner.wait(svc.app.runner.list(1)[0]["id"], 600)
+        inst = call("GET", f"/api/wells/{w1['id']}/instruments")[1]
+        drift_md = Path(wsp, "reports", "wells", w1["id"], "gauge_drift_report.md").read_text(encoding="utf-8")
+        drift_html = Path(wsp, "reports", "wells", w1["id"], "gauge_drift_report.html").read_text(encoding="utf-8")
+        page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+        by = inst["iso17025"]["by_certificate"]
+        ok(s_c1 == 200 and s_c2 == 200 and inst["iso17025"]["n"] == 2 and inst["iso17025"]["complete"] == 1 and inst["iso17025"]["incomplete"] == ["CERT-B"]
+           and by["CERT-A"]["status"] == "COMPLETE" and by["CERT-B"]["status"] == "INCOMPLETE"
+           and "Conformity" in drift_md and "ISO/IEC 17025 7.8" in drift_md and "decision rule: non-binary-guard-band (ILAC-G8:09/2019)" in drift_md
+           and "bias of P_raw_psi_S1 over the evaluation window" in drift_md and "with expanded uncertainty U = " in drift_md and "(k = 2, 95%)" in drift_md
+           and "tolerance limit 2 psi" in drift_md and "acceptance limit" in drift_md and "COMPLETE (12/14)" in drift_md and "INCOMPLETE (5/14)" in drift_md and by["CERT-A"]["carried"] == 12
+           and ("CONDITIONAL" in drift_md or "PASS" in drift_md or "FAIL" in drift_md) and "ISO/IEC 17025:2017 7.8.6" in drift_html
+           and "ctUnc" in page_src and "ctTrace" in page_src and "uncertainty_k" in page_src and "ISO/IEC 17025 7.8" in page_src
+           and any(t["topic"] == "conformance" for t in H.topics()) and not H.check("conformance")
+           and "simple acceptance" in (pkg / "help" / "conformance.md").read_text(encoding="utf-8").split("will not call a measurement")[1],
+           "BI3 through the API: a certificate filed with its uncertainty, coverage factor and traceability is COMPLETE and one filed without them is "
+           "INCOMPLETE; the instruments answer carries every certificate's 7.8 standing; the drift report's bias line is a statement of conformity "
+           "in 7.8.6's words - the result it applies to with its sample count, the certificate's class as the tolerance limit, the bias's expanded "
+           "uncertainty at k = 2, the ILAC-G8 non-binary guard-band rule and the acceptance limit - beside the certificate's own 7.8 standing; the "
+           "page's filing form takes the 7.8.4 items and its table shows U (k) and the standing; the help page names simple acceptance as the "
+           "fallback it will not dress up")
+    finally:
+        svc.stop()
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -5382,6 +5516,7 @@ def main() -> int:
         section_bf_quakeml(tmp)
         section_bg_ppdm(tmp)
         section_bh_vibration(tmp)
+        section_bi_conformance(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

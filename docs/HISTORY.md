@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.15.0 - 2026-10-08 - conformity, in the standards' words
+
+- **The decision rule, named.** The bias-against-class line is a statement
+  of conformity in ISO/IEC 17025:2017 7.8.6's terms, under the ILAC-G8
+  non-binary guard-band rule with the bias's expanded uncertainty, falling
+  back to simple acceptance by name when no uncertainty exists. The
+  certificate register carries 7.8.4's items and judges each certificate
+  against the fourteen of 7.8.2.1 and 7.8.4.1. Section BI; gate 333.
+
 ## v0.14.0 - 2026-10-08 - machine vibration
 
 - **The zone, and what the bearings are doing.** ISO 20816-1's broadband

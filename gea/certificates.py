@@ -64,9 +64,14 @@ class CertificateRegister:
                     continue
         return out
 
+    # what ISO/IEC 17025:2017 7.8 asks a calibration certificate to carry beyond the fields above (v0.15.0):
+    # recorded from the paper by the operator, empty when the paper does not carry it. None of it is invented.
+    CLAUSE_FIELDS = ('calibrated_utc', 'method', 'authorised_by', 'uncertainty', 'uncertainty_unit', 'uncertainty_k', 'uncertainty_probability',
+                     'conditions', 'traceability', 'adjustment', 'decision_rule')
+
     def add(self, tag_id: str, serial: str, certificate_id: str, issued_utc: str, valid_until_utc: str, actor: str,
             lab: str = '', accuracy_pct_fs: Optional[float] = None, full_scale: Optional[float] = None, unit: str = '',
-            file_path: Optional[str] = None, note: str = '') -> dict:
+            file_path: Optional[str] = None, note: str = '', **clauses) -> dict:
         if not (tag_id and serial and certificate_id):
             raise ValueError('a certificate needs the tag id, the instrument serial and the certificate id')
         issued, until = _parse(issued_utc), _parse(valid_until_utc)
@@ -79,6 +84,20 @@ class CertificateRegister:
              'full_scale': (float(full_scale) if full_scale is not None else None), 'unit': unit,
              'file': os.path.basename(file_path) if file_path else '', 'file_sha256': _sha(file_path) if file_path and os.path.isfile(file_path) else '',
              'filed_by': actor, 'filed_utc': _iso(datetime.now(timezone.utc)), 'note': note}
+        unknown = sorted(set(clauses) - set(self.CLAUSE_FIELDS))
+        if unknown:
+            raise ValueError(f'unknown certificate field(s): {", ".join(unknown)}')
+        for k in self.CLAUSE_FIELDS:
+            v = clauses.get(k)
+            if k in ('uncertainty', 'uncertainty_k', 'uncertainty_probability') and v not in (None, ''):
+                v = float(v)
+                if k == 'uncertainty_k' and not (0 < v <= 10):
+                    raise ValueError('the coverage factor k is between 0 and 10')
+                if k == 'uncertainty_probability' and not (0 < v < 1):
+                    raise ValueError('the coverage probability is a fraction between 0 and 1')
+                if k == 'uncertainty' and v <= 0:
+                    raise ValueError('the expanded uncertainty is a positive value')
+            e[k] = (v if v not in (None,) else None) if k in ('uncertainty', 'uncertainty_k', 'uncertainty_probability') else (str(v) if v is not None else '')
         if any(x['certificate_id'] == certificate_id and x['serial'] == serial for x in self.list()):
             raise ValueError(f'certificate already filed: {certificate_id} for serial {serial}')
         os.makedirs(os.path.dirname(self.path) or '.', exist_ok=True)
@@ -110,10 +129,20 @@ class CertificateRegister:
                 continue
             days = (_parse(e['valid_until_utc']) - now).total_seconds() / 86400.0
             st = 'EXPIRED' if days < 0 else ('EXPIRING' if days <= self.warn_days else 'VALID')
+            from .conformance import certificate_conformance
+            cf = certificate_conformance(e)
             rows.append({'tag_id': tag, 'status': st, 'days_left': int(days), 'certificate_id': e['certificate_id'], 'serial': e['serial'],
                          'accuracy_pct_fs': e.get('accuracy_pct_fs'), 'full_scale': e.get('full_scale'), 'unit': e.get('unit'),
-                         'valid_until_utc': e['valid_until_utc'], 'lab': e.get('lab', '')})
+                         'valid_until_utc': e['valid_until_utc'], 'lab': e.get('lab', ''),
+                         'uncertainty': e.get('uncertainty'), 'uncertainty_k': e.get('uncertainty_k'), 'uncertainty_probability': e.get('uncertainty_probability'),
+                         'traceability': e.get('traceability', ''),
+                         'iso17025': {'status': cf['status'], 'carried': cf['carried'], 'n_items': cf['n_items'], 'missing': cf['missing']}})
         return rows
+
+    def conformance(self) -> dict:
+        """Every filed certificate against ISO/IEC 17025:2017 7.8, item by item."""
+        from .conformance import register_conformance
+        return register_conformance(self.list())
 
     @staticmethod
     def summary(rows: List[dict]) -> dict:

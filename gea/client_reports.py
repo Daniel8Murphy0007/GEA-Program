@@ -349,15 +349,28 @@ def gauge_drift_report(evaluation: dict, stream, catalogue: Optional[TagCatalogu
     if inst.get('swaps') or inst.get('certificates') or inst.get('swap_notes'):
         by_station = {st['channel']: st for st in stations}
         cert_rows = []
+        statements = []
+        from .conformance import decide as _decide, expanded_uncertainty as _eu
         for c in inst.get('certificates', []):
             st = by_station.get(c['tag_id'])
             band = None
             if c.get('accuracy_pct_fs') is not None and c.get('full_scale'):
                 band = float(c['accuracy_pct_fs']) / 100.0 * float(c['full_scale'])
-            inside = (abs(st.get('bias_psi') or 0) <= band) if (st and band is not None and st.get('bias_psi') is not None) else None
+            # the statement of conformity, with its decision rule named (ISO/IEC 17025:2017 7.8.6; ILAC-G8:09/2019):
+            # the bias over the window against the certificate's accuracy class, the bias's expanded uncertainty as the guard band
+            outcome = '-'
+            if st and band is not None and st.get('bias_psi') is not None:
+                eu = _eu(st.get('noise_sigma_psi'), st.get('n'))
+                dec = _decide(float(st['bias_psi']), band, eu['U'] if eu else None, k=(eu['k'] if eu else None), probability=(eu['probability'] if eu else None),
+                              unit='psi', what=f"bias of {c['tag_id']} over the evaluation window ({st.get('n') or '?'} samples)",
+                              spec=f"certificate {c.get('certificate_id') or '-'}: ±{_fmt(c['accuracy_pct_fs'])} % FS = ±{_fmt(band)} psi")
+                outcome = dec['outcome']
+                statements.append(dec['statement'] + '.')
+            iso = c.get('iso17025') or {}
             cert_rows.append([c['tag_id'], c.get('serial') or '-', c.get('certificate_id') or '-', c['status'],
                               c.get('valid_until_utc') or '-', (f"±{_fmt(c['accuracy_pct_fs'])} % FS" + (f" = ±{_fmt(band)}" if band is not None else '')) if c.get('accuracy_pct_fs') is not None else '-',
-                              _fmt(st.get('bias_psi')) if st else '-', ('inside' if inside else 'OUTSIDE') if inside is not None else '-'])
+                              _fmt(st.get('bias_psi')) if st else '-', outcome,
+                              (f"{iso.get('status')} ({iso.get('carried')}/{iso.get('n_items')})" if iso else '-')])
         swap_rows = [[e['swap_utc'], e['tag_id'], e.get('old_serial') or '-', e['new_serial'], e.get('certificate_id') or '-', e.get('recorded_by'), e.get('note', '')]
                      for e in inst.get('swaps', [])]
         note_rows = [[n['tag_id'], n.get('swap_utc') or '-', _fmt(n.get('samples_excluded')), _fmt(n.get('samples_kept')), 'applied' if n.get('applied') else n.get('reason', '')]
@@ -368,10 +381,15 @@ def gauge_drift_report(evaluation: dict, stream, catalogue: Optional[TagCatalogu
         if note_rows:
             tables.append(Table(['Tag', 'Fit starts at', 'Samples before (excluded)', 'Samples used', 'Applied'], note_rows, caption='Effect on this evaluation'))
         if cert_rows:
-            tables.append(Table(['Tag', 'Serial', 'Certificate', 'Status', 'Valid until', 'Stated accuracy', 'Measured bias (psi)', 'Bias vs accuracy'], cert_rows, caption='Calibration certificates'))
+            tables.append(Table(['Tag', 'Serial', 'Certificate', 'Status', 'Valid until', 'Stated accuracy', 'Measured bias (psi)', 'Conformity', 'ISO/IEC 17025 7.8'], cert_rows, caption='Calibration certificates'))
         cand = inst.get('candidates', [])
         par = ['A swapped gauge is a new instrument: the evaluation above fits only the samples after each tag\'s latest recorded swap. '
-               'A certificate\'s stated accuracy is printed beside the measured bias so a reader sees whether the bias is inside the instrument\'s own class.']
+               'A certificate\'s stated accuracy is printed beside the measured bias, and the conformity column is a statement of conformity in the '
+               'words of ISO/IEC 17025:2017 7.8.6: the result it applies to, the specification, and the decision rule, which is ILAC-G8:09/2019 '
+               'non-binary with a guard band equal to the bias\'s expanded uncertainty (k = 2, from the noise and the sample count) - PASS, '
+               'CONDITIONAL PASS, CONDITIONAL FAIL or FAIL. Without an uncertainty the rule falls back to simple acceptance and the statement says so. '
+               'The last column is the certificate itself against the items 7.8.2.1 and 7.8.4.1 ask it to carry, as the operator recorded them.']
+        par += statements
         if cand:
             par.append(f"{len(cand)} unconfirmed swap candidate(s) proposed by the step detector (not applied): "
                        + '; '.join(f"{c['tag_id']} at {c.get('swap_utc') or c['elapsed_s']} ({c['step']:+g} {c['unit']}, {c['confidence']})" for c in cand[:6]) + '.')

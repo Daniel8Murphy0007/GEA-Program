@@ -5,6 +5,48 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.15.0] - 2026-10-08 - conformity, in the standards' words
+
+### Added
+- **The decision rule, named** (`gea/conformance.py`): the drift report
+  printed a certificate's accuracy beside the measured bias and said
+  "inside" or "OUTSIDE" - a statement of conformity made under the
+  simple-acceptance rule applied silently, which ISO/IEC 17025:2017 7.8.6
+  does not allow: a statement of conformity carries the results it applies
+  to, the specification, and the decision rule, and the rule takes the
+  measurement uncertainty into account. The report now states it that way,
+  per certificate: the tag's bias over the evaluation window with its sample
+  count, the certificate's accuracy class as the tolerance limit, the bias's
+  expanded uncertainty (k = 2, from the noise and the sample count) as the
+  guard band, and the ILAC-G8:09/2019 non-binary rule - PASS below TL - U,
+  CONDITIONAL PASS to TL, CONDITIONAL FAIL to TL + U, FAIL above - with the
+  acceptance limit printed. Without an uncertainty the rule is simple
+  acceptance and the statement says so and says the uncertainty was not
+  taken into account. The binary guard-band rule and simple acceptance are
+  available by name.
+- **The certificate against 7.8**: the register takes what 7.8.4.1 asks a
+  calibration certificate to carry - the expanded uncertainty with its
+  coverage factor and probability (a), the conditions (b), the traceability
+  statement as the certificate words it (c), the results before and after
+  adjustment (d), the decision rule its own conformity statement names
+  (e / 7.8.6) - and 7.8.2.1's calibration date, method and authorisation;
+  rejects a coverage factor of zero, a probability above one, a negative
+  uncertainty and a field it does not know; leaves empty what was not
+  filed. Each certificate is judged item by item - CARRIED, NOT CARRIED
+  (the field is empty), NOT RECORDED (filed before the field existed) -
+  and is COMPLETE when the identification, laboratory, serial, dates,
+  result, uncertainty with k and traceability are all carried. The standing
+  rides on every status row, in the instruments API, on the well page
+  (which also takes the items in its filing form) and in the drift report
+  beside the conformity column.
+- What it will not do: take an uncertainty into account that was not
+  available; assume k = 2 for a certificate that did not state it; read the
+  PDF - the register holds what a person transcribed.
+- `gea certificates --action add` with the 7.8 flags, `--action
+  conformance`; `gea conformance` self-test and `--action decide`; `gea
+  help conformance`. Section BI (3 checks); AH7 follows the new column
+  names; the gate is 333.
+
 ## [v0.14.0] - 2026-10-08 - machine vibration: the zone, and what the bearings are doing
 
 ### Added

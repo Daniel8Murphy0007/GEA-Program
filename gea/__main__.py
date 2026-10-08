@@ -409,6 +409,14 @@ def main(argv=None) -> int:
 
     p_osdu = sub.add_parser("osdu", help="the OSDU-shaped export: the self-test on a labelled site")
     p_osdu.add_argument("--action", choices=["selftest"], default="selftest")
+    p_cf = sub.add_parser("conformance", help="ISO/IEC 17025 7.8 certificate items and the ILAC-G8 decision rules: the self-test, or one decision")
+    p_cf.add_argument("--action", choices=["selftest", "decide"], default="selftest")
+    p_cf.add_argument("--value", type=float, default=None, help="decide: the measured value (a deviation; the tolerance is symmetric)")
+    p_cf.add_argument("--tolerance", type=float, default=None, help="decide: the tolerance limit TL")
+    p_cf.add_argument("--uncertainty", type=float, default=None, help="decide: the expanded uncertainty U of the value (omit: simple acceptance)")
+    p_cf.add_argument("--k", type=float, default=2.0)
+    p_cf.add_argument("--rule", choices=["simple-acceptance", "binary-guard-band", "non-binary-guard-band"], default="non-binary-guard-band")
+    p_cf.add_argument("--unit", type=str, default="")
     p_vib = sub.add_parser("vibration", help="machine vibration: ISO 20816-3 zone and bearing envelope analysis on a record, or the self-test")
     p_vib.add_argument("--action", choices=["selftest", "assess"], default="selftest")
     p_vib.add_argument("--record", type=str, default=None, help="assess: the record (CSV with a time column, or miniSEED/SAC)")
@@ -522,7 +530,7 @@ def main(argv=None) -> int:
 
     p_ce = sub.add_parser("certificates", help="calibration certificates per instrument: list, file one, status against today")
     p_ce.add_argument("--register", type=str, required=True, help="the well's certificates.jsonl")
-    p_ce.add_argument("--action", choices=["list", "add", "status"], default="list")
+    p_ce.add_argument("--action", choices=["list", "add", "status", "conformance"], default="list")
     p_ce.add_argument("--tag", type=str, default=None)
     p_ce.add_argument("--tags", type=str, default=None, help="comma-separated tags for --action status")
     p_ce.add_argument("--serial", type=str, default="")
@@ -536,6 +544,17 @@ def main(argv=None) -> int:
     p_ce.add_argument("--doc", type=str, default=None, help="the certificate file (hashed, not copied)")
     p_ce.add_argument("--note", type=str, default="")
     p_ce.add_argument("--actor", type=str, default="cli")
+    p_ce.add_argument("--calibrated", type=str, default="", help="ISO/IEC 17025 7.8.2.1 i: the date the calibration was performed")
+    p_ce.add_argument("--method", type=str, default="", help="7.8.2.1 f: the method used")
+    p_ce.add_argument("--authorised-by", type=str, default="", help="7.8.2.1 o: who authorised the certificate")
+    p_ce.add_argument("--uncertainty", type=float, default=None, help="7.8.4.1 a: the expanded uncertainty U, in --uncertainty-unit (default the result's unit)")
+    p_ce.add_argument("--uncertainty-unit", type=str, default="")
+    p_ce.add_argument("--k", type=float, default=None, help="7.8.4.1 a: the coverage factor U is stated at")
+    p_ce.add_argument("--probability", type=float, default=None, help="7.8.4.1 a: the coverage probability as a fraction (0.95)")
+    p_ce.add_argument("--conditions", type=str, default="", help="7.8.4.1 b: the conditions the calibration was made under")
+    p_ce.add_argument("--traceability", type=str, default="", help="7.8.4.1 c: the statement of metrological traceability, as the certificate words it")
+    p_ce.add_argument("--adjustment", type=str, default="", help="7.8.4.1 d: results before and after adjustment, if the certificate carries them")
+    p_ce.add_argument("--decision-rule", type=str, default="", help="7.8.6: the decision rule the certificate's conformity statement names, if any")
 
     p_tr = sub.add_parser("transient", help="shut-in detection and build-up analysis (Horner + Bourdet derivative with a bootstrap band)")
     p_tr.add_argument("--file", type=str, required=True, help="historian file")
@@ -773,7 +792,10 @@ def main(argv=None) -> int:
         if a.action == "add":
             try:
                 print(_json.dumps(reg.add(a.tag or "", a.serial, a.certificate, a.issued or "", a.valid_until or "", a.actor, a.lab,
-                                          a.accuracy_pct_fs, a.full_scale, a.unit, a.doc, a.note), indent=1))
+                                          a.accuracy_pct_fs, a.full_scale, a.unit, a.doc, a.note,
+                                          calibrated_utc=a.calibrated, method=a.method, authorised_by=a.authorised_by, uncertainty=a.uncertainty,
+                                          uncertainty_unit=a.uncertainty_unit, uncertainty_k=a.k, uncertainty_probability=a.probability,
+                                          conditions=a.conditions, traceability=a.traceability, adjustment=a.adjustment, decision_rule=a.decision_rule), indent=1))
             except (ValueError, TypeError) as e:
                 raise SystemExit(f"certificates: {e}")
             return 0
@@ -784,6 +806,13 @@ def main(argv=None) -> int:
                 print(f"{r['tag_id']:24s} {r['status']:9s} {r.get('certificate_id') or '-':16s} until {r.get('valid_until_utc') or '-'}  {('' if r['days_left'] is None else str(r['days_left']) + ' d')}")
             print(_json.dumps(CertificateRegister.summary(rows)))
             return 0 if CertificateRegister.summary(rows)['all_valid'] else 1
+        if a.action == "conformance":
+            from .conformance import report_lines
+            c = reg.conformance()
+            for r in c["rows"]:
+                print("\n".join(report_lines(r)))
+            print(f"certificates: {c['n']} filed, {c['complete']} COMPLETE against ISO/IEC 17025:2017 7.8" + (f"; incomplete: {', '.join(c['incomplete'])}" if c['incomplete'] else ''))
+            return 0 if not c["incomplete"] else 1
         for e in reg.list():
             print(f"{e['tag_id']:24s} {e['serial']:12s} {e['certificate_id']:16s} {e['issued_utc'][:10]} to {e['valid_until_utc'][:10]}  ±{e.get('accuracy_pct_fs') or '-'} % FS  {e.get('lab', '')}")
         print(f"certificates: {len(reg.list())} filed")
@@ -1524,6 +1553,23 @@ def main(argv=None) -> int:
             return 0
         print(f"notifications: {'configured' if n.cfg else 'not configured'}" + (f" - {len(n.cfg['channels'])} channel(s), {len(n.cfg['rules'])} rule(s), quiet {n.cfg['quiet_s']} s" if n.cfg else " (gea notify --example)"))
         return 0
+    elif a.cmd == "conformance":
+        from . import conformance as _C
+        if a.action == "decide":
+            if a.value is None or a.tolerance is None:
+                raise SystemExit("conformance --action decide needs --value and --tolerance")
+            d = _C.decide(a.value, a.tolerance, a.uncertainty, rule=a.rule, k=a.k if a.uncertainty is not None else None,
+                          probability=(0.95 if abs(a.k - 2.0) < 1e-9 else None) if a.uncertainty is not None else None, unit=a.unit)
+            print(d["statement"]); print(f"  {d['rule_text']}")
+            return 0 if d["outcome"] in ("PASS", "CONDITIONAL PASS") else 1
+        r = _C.selftest()
+        print(f"conformance selftest [{r['label']}]: {r['status']}")
+        for k, v in r["checks"].items():
+            print(f"  {'ok ' if v else 'BAD'} {k}")
+        print("\n".join(_C.report_lines(r["full"])))
+        for d in r["decisions"]:
+            print("  " + d["statement"])
+        return 0 if r["status"] == "OK" else 1
     elif a.cmd == "vibration":
         from . import vibration as _V
         if a.action == "assess":

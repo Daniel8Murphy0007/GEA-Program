@@ -1004,8 +1004,12 @@ class App:
                     prm = json.load(f)
             except (OSError, json.JSONDecodeError):
                 prm = None
+        from .conformance import register_conformance
+        conf = register_conformance(certs)
         return {'swaps': swaps, 'certificates': certs, 'certificate_status': inst.get('certificates', []), 'candidates': inst.get('candidates', []),
-                'swap_notes': inst.get('swap_notes', []), 'transient_params': prm, 'evaluated': bool(inst)}
+                'swap_notes': inst.get('swap_notes', []), 'transient_params': prm, 'evaluated': bool(inst),
+                'iso17025': {'complete': conf['complete'], 'n': conf['n'], 'incomplete': conf['incomplete'],
+                             'by_certificate': {r['certificate_id']: {'status': r['status'], 'carried': r['carried'], 'n_items': r['n_items'], 'missing': r['missing']} for r in conf['rows']}}}
 
     def swap_add(self, user: dict, well_id: str, body: dict) -> dict:
         from .sensor_swap import SwapRegister
@@ -1040,7 +1044,9 @@ class App:
                 str(body.get('tag_id', '')), str(body.get('serial', '')), str(body.get('certificate_id', '')), str(body.get('issued_utc', '')),
                 str(body.get('valid_until_utc', '')), user['name'], str(body.get('lab', '')),
                 (float(body['accuracy_pct_fs']) if body.get('accuracy_pct_fs') not in (None, '') else None),
-                (float(body['full_scale']) if body.get('full_scale') not in (None, '') else None), str(body.get('unit', '')), fpath, str(body.get('note', '')))
+                (float(body['full_scale']) if body.get('full_scale') not in (None, '') else None), str(body.get('unit', '')), fpath, str(body.get('note', '')),
+                **{k: (body.get(k) if body.get(k) not in ('',) else None) if k in ('uncertainty', 'uncertainty_k', 'uncertainty_probability') else str(body.get(k) or '')
+                   for k in CertificateRegister.CLAUSE_FIELDS})
         except (ValueError, TypeError) as ex:
             raise ApiError(400, str(ex))
         self.ws.audit(user['name'], 'certificate.add', {'well_id': well_id, **{k: e[k] for k in ('certificate_id', 'tag_id', 'serial', 'valid_until_utc')}})
