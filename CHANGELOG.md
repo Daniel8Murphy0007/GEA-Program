@@ -5,6 +5,45 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.12.0] - 2026-10-08 - the QuakeML catalogue export
+
+### Added
+- **The QuakeML catalogue export** (`gea/quakeml.py`): the site's own
+  events - what its stations located together under the association leg -
+  in QuakeML 1.2, the exchange format a regulator's catalogue tool, a
+  university network's review desk and every seismological package read.
+  Built to the published Basic Event Description schema
+  (QuakeML-BED-1.2.xsd), record by record: one `event` per associated event
+  with its `origin` (time; latitude and longitude with the misfit region's
+  half-extent as their uncertainty in degrees; depth in metres with
+  `depthType` "operator assigned", because it was declared; `methodID` and
+  `earthModelID` naming the grid search and the one-velocity flat-earth
+  model; `quality` with the station and phase counts, the RMS, the azimuthal
+  gap and the epicentral distances in degrees; `originUncertainty` with the
+  misfit region in metres), one `pick` per station with the record's own
+  FDSN codes in `waveformID` (the association now keeps them), one `arrival`
+  per pick with its residual and unit weight. Every identifier to the
+  schema's ResourceIdentifier pattern.
+- Every origin and pick `evaluationMode` automatic and `evaluationStatus`
+  preliminary: a person has not reviewed these and the file says so in the
+  schema's own words. The catalogue's standing - AGREES, DIFFERS with both
+  positions, NOT IN CATALOGUE - is a comment on the event with the
+  catalogue's own event id. No `magnitude` is written and a comment on every
+  event says why.
+- The shape checked the way a reader checks it first: namespaces, every
+  publicID to the pattern and used once, every child an element the schema
+  allows for its parent, the required children, the enumerations, every
+  arrival's pick in its own event, every event's preferred origin. The
+  output validates against the published XSD (checked in the writing of this
+  leg, on the labelled scene and on the gap cases).
+- What it will not write: the catalogue's events as this site's; a reviewed
+  or final status; a located depth; a station code it did not read (a record
+  without one goes out under the test network XX with the station id and is
+  named as a gap); an azimuth for a station with no position.
+- `gea workspace --action quakeml-export --site <id> [--agency] [--out]`;
+  `gea quakeml` self-test; `gea help quakeml`. Section BF (4 checks); the
+  gate is 324.
+
 ## [v0.11.1] - 2026-10-08 - the Linux kit's gate judges the Linux kit
 
 ### Fixed

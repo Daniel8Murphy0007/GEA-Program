@@ -1,15 +1,27 @@
-v0.11.1 — THE LINUX KIT'S GATE JUDGES THE LINUX KIT
+v0.12.0 — THE QUAKEML CATALOGUE EXPORT
 
-The Linux kit's own gate failed at v0.11.0 on both GitHub kit builds; the
-Windows kit's passed, and so did the gate from the checkout. BB13, new at
-v0.11.0, checked the Windows launcher text for the browser hand-off - but a
-Linux kit carries no Windows launcher, and section BB had already put a bare
-stand-in text in its place so that BB6 could build its good and bad kits
-from something. BB13 judged the stand-in as if it were the launcher.
+The site's own events - what its stations located together under the
+association leg - in QuakeML 1.2, the exchange format a regulator's
+catalogue tool, a university network's review desk and every seismological
+package read. gea/quakeml.py builds it to the published Basic Event
+Description schema, record by record: one event per associated event with
+its origin (the misfit region as the latitude and longitude uncertainties in
+degrees and the horizontal uncertainty in metres; depth in metres and
+"operator assigned" because it was declared; the method and the earth model
+named; the quality block with the counts, the RMS, the azimuthal gap and the
+distances), one pick per station with the record's own FDSN codes, one
+arrival per pick with its residual. Every identifier to the schema's
+pattern.
 
-It keeps the launcher as shipped apart from the stand-in now, and judges a
-Linux kit on its shell launcher alone. Proven both ways from an installed
-layout with only start-dashboard.sh beside the interpreter: the shipped
-BB13 fails there exactly as the kit build did; the corrected one passes.
+Every origin and pick is automatic and preliminary in the schema's own
+words: a person has not reviewed these and the file does not say one has.
+The catalogue's AGREES or DIFFERS is a comment with the catalogue's event
+id. No magnitude is written, and a comment on every event says why. The
+shape is checked the way a reader checks it first, and the file validates
+against the published XSD.
 
-Nothing else changes. The gate is 320 checks. The standalone guard is clean.
+What it will not write: the catalogue's events as this site's; a reviewed or
+final status; a located depth; a station code it did not read - a record
+without one goes out under the test network XX and is named as a gap.
+
+Section BF is new. The gate is 324 checks. The standalone guard is clean.

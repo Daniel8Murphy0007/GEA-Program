@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (320 checks)
+gea accept                     # the product gate (324 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -526,6 +526,24 @@ given on its own datum with that datum's EPSG code, and on WGS 84 with the
 operation between them written out; a point on an unknown datum gets no WGS
 84 coordinates and is named. Without the operator's partition, ACL and legal
 tag the manifest is NOT LOADABLE and says so. `gea help osdu`.
+
+### The QuakeML catalogue export
+
+The site's own events in the format the regulator's catalogue tools read.
+After `associate`, `gea workspace --action quakeml-export --site <id>
+[--agency "<name>"]` writes `reports/sites/<site>/quakeml/<site>_events.xml`
+as QuakeML 1.2 to the Basic Event Description schema: one event per
+associated event with its origin (the misfit region as the uncertainties,
+depth in metres and "operator assigned" because it was declared, the method
+and the earth model named, the quality block with the counts, the RMS, the
+azimuthal gap and the distances), one pick per station with the record's own
+FDSN codes, one arrival per pick with its residual. Every origin and pick is
+automatic and preliminary in the schema's own words; the catalogue's AGREES
+or DIFFERS is a comment with the catalogue's event id; no magnitude is
+written and a comment says why. The shape is checked the way a reader checks
+it first - identifiers, allowed children, required children, enumerations,
+references - and the file validates against the published XSD. `gea help
+quakeml`; `gea quakeml` runs the labelled scene.
 
 ### Audit / Update
 

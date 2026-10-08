@@ -282,7 +282,7 @@ def main(argv=None) -> int:
                       choices=["init", "add-file", "add-catalog", "add-live", "remove", "list", "migrate", "refresh", "audit",
                                "add-seismic", "refresh-seismic", "remove-seismic", "sar-film", "refresh-all", "add-track", "refresh-track", "remove-track",
                                "seismic-dataset", "seismic-field", "add-site", "sites", "site-report", "remove-site", "rename",
-                               "set-well", "sra-define", "sra-report", "associate", "osdu-export"])
+                               "set-well", "sra-define", "sra-report", "associate", "osdu-export", "quakeml-export"])
     p_ws.add_argument("--stations", type=str, nargs="+", default=None, help="add-track: two or more array station ids of this workspace")
     p_ws.add_argument("--site", type=str, default=None, help="site-report/remove-site: the site id")
     p_ws.add_argument("--api", type=str, default=None, help="set-well: the API number")
@@ -315,7 +315,8 @@ def main(argv=None) -> int:
     p_ws.add_argument("--legal-tag", type=str, nargs="*", default=None, help="osdu-export: legal tag(s)")
     p_ws.add_argument("--country", type=str, nargs="*", default=None, help="osdu-export: otherRelevantDataCountries (default US)")
     p_ws.add_argument("--operator-org", type=str, default="", help="osdu-export: the operator's Organisation record id on the platform")
-    p_ws.add_argument("--out", type=str, default=None, help="osdu-export: the folder to write the manifest and files into")
+    p_ws.add_argument("--out", type=str, default=None, help="osdu-export: the folder to write the manifest and files into; quakeml-export: the file to write")
+    p_ws.add_argument("--agency", type=str, default="", help="quakeml-export: the agencyID written in creationInfo (default: the site's name)")
     p_ws.add_argument("--depth-km", type=float, default=6.0, help="associate: the hypocentral depth the location is made under, km (declared)")
     p_ws.add_argument("--rms-tol", type=float, default=0.15, help="associate: the RMS residual an event must fit within, s")
     p_ws.add_argument("--wells", type=str, nargs="+", default=None, help="add-site: well ids of this workspace")
@@ -399,6 +400,9 @@ def main(argv=None) -> int:
 
     p_osdu = sub.add_parser("osdu", help="the OSDU-shaped export: the self-test on a labelled site")
     p_osdu.add_argument("--action", choices=["selftest"], default="selftest")
+    p_qml = sub.add_parser("quakeml", help="the QuakeML 1.2 catalogue export: the self-test on the association leg's labelled scene")
+    p_qml.add_argument("--action", choices=["selftest"], default="selftest")
+    p_qml.add_argument("--out", type=str, default=None, help="where to leave the self-test's file (default: a temporary folder)")
     p_sra = sub.add_parser("sra", help="the Seismicity Response Area packet: the self-test on a labelled scene")
     p_sra.add_argument("--action", choices=["selftest"], default="selftest")
     p_sra.add_argument("--json", action="store_true")
@@ -1496,6 +1500,14 @@ def main(argv=None) -> int:
             return 0
         print(f"notifications: {'configured' if n.cfg else 'not configured'}" + (f" - {len(n.cfg['channels'])} channel(s), {len(n.cfg['rules'])} rule(s), quiet {n.cfg['quiet_s']} s" if n.cfg else " (gea notify --example)"))
         return 0
+    elif a.cmd == "quakeml":
+        from . import quakeml as _Q
+        r = _Q.selftest(a.out)
+        print(f"quakeml selftest [{r['label']}]: {r['status']}")
+        for k, v in r["checks"].items():
+            print(f"  {'ok ' if v else 'BAD'} {k}")
+        print(_Q.report_text({**r, 'status': 'WRITTEN' if r['status'] == 'OK' else 'FAILED', 'agency': 'SIMULATION_SELF_TEST site', 'refused': 2}))
+        return 0 if r["status"] == "OK" else 1
     elif a.cmd == "osdu":
         from . import osdu as _O
         r = _O.selftest()
@@ -1753,6 +1765,12 @@ def main(argv=None) -> int:
                                    countries=a.country, operator_org_id=a.operator_org, out_dir=a.out, actor=a.actor)
                 print(_osdu_text(r)); v = r["validate"]
                 print(f"  structure: {'ok' if v['ok'] else 'PROBLEMS'} ({v['records']} record(s))" + ('' if v['ok'] else '; ' + '; '.join(v['problems'][:5]))); return 0
+            elif a.action == "quakeml-export":
+                from .quakeml import report_text as _qml_text
+                if not a.site:
+                    raise SystemExit("quakeml-export needs --site <id>")
+                r = ws.quakeml_export(a.site, agency=a.agency, out=a.out, actor=a.actor)
+                print(_qml_text(r)); return 0 if r["status"] == "WRITTEN" else 1
             elif a.action == "seismic-dataset":
                 r = ws.write_seismic_dataset_report(actor=a.actor)
                 inv = r["inventory"]

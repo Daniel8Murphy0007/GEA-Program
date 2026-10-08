@@ -4,6 +4,16 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.12.0 - 2026-10-08 - the QuakeML catalogue export
+
+- **The site's events in the regulator's format.** The association leg's
+  events written as QuakeML 1.2 to the Basic Event Description schema:
+  origins with the misfit region as their uncertainties, declared depth
+  named as such, the quality block, picks with the record's FDSN codes,
+  arrivals with residuals; automatic and preliminary throughout; the
+  catalogue's standing as comments; no magnitude. The shape checked as a
+  reader checks it, and the file XSD-valid. Section BF; gate 324.
+
 ## v0.11.1 - 2026-10-08 - the Linux kit's gate judges the Linux kit
 
 - **The Linux kit's gate failed at v0.11.0.** BB13 judged the Windows

@@ -4967,6 +4967,143 @@ def section_be_osdu(tmp: str) -> None:
        "file is a named gap; the structure validates; every export is audited; `gea osdu` runs the self-test from the command line")
 
 
+
+def section_bf_quakeml(tmp: str) -> None:
+    """Section BF - the QuakeML catalogue export: the site's own events in the exchange format a regulator's
+    catalogue tool reads, built to the Basic Event Description schema, automatic and preliminary in the
+    schema's own words, with no magnitude and with the catalogue's standing as a comment."""
+    import csv as _csv
+    import subprocess as _sp
+    import xml.etree.ElementTree as _ET
+    from . import quakeml as Q
+    from . import seismic as S
+    from . import seismic_assoc as SA
+    from .workspace import Workspace, WorkspaceError
+    from . import helplib as H
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bf"); d.mkdir()
+    B = lambda t: "{%s}%s" % (Q.NS_BED, t)
+
+    # -- the self-test on the labelled scene, read back ------------------------------------------
+    r = Q.selftest(str(d / "self"))
+    root = _ET.parse(r["path"]).getroot()
+    origins = root.findall(".//" + B("origin"))
+    o = origins[0]
+    lat_u = float(o.find(B("latitude")).find(B("uncertainty")).text); lon_u = float(o.find(B("longitude")).find(B("uncertainty")).text)
+    hu = float(o.find(B("originUncertainty")).find(B("horizontalUncertainty")).text)
+    q = o.find(B("quality"))
+    ok(r["status"] == "OK" and all(r["checks"].values()) and r["label"] == "SIMULATION_SELF_TEST"
+       and root.tag == "{%s}quakeml" % Q.NS_Q and len(origins) == 2
+       and 0 < lat_u < 0.1 and 0 < lon_u < 0.1 and 0 < hu < 10000 and abs(hu - max(lat_u * Q.KM_PER_DEG, 0) * 1000) < 1.0 + hu * 0.5
+       and q.find(B("usedStationCount")).text == "5" and q.find(B("usedPhaseCount")).text == "5"
+       and float(q.find(B("standardError")).text) < 0.05 and 0 < float(q.find(B("azimuthalGap")).text) < 180
+       and 0 < float(q.find(B("minimumDistance")).text) < float(q.find(B("maximumDistance")).text) < 0.2
+       and o.find(B("methodID")).text.startswith("smi:local/gea/method/") and "vp-" in o.find(B("earthModelID")).text
+       and all(float(a.find(B("timeWeight")).text) == 1.0 and abs(float(a.find(B("timeResidual")).text)) < 0.15 and 0 < float(a.find(B("distance")).text) < 0.2
+               for a in o.findall(B("arrival"))),
+       "BF1 the self-test on the association leg's labelled scene: two events written and read back under the QuakeML 1.2 namespaces, five picks "
+       "and five arrivals each, depth in metres with depthType 'operator assigned' because it was declared, the misfit region as the latitude and "
+       "longitude uncertainties in degrees and the horizontal uncertainty in metres, the quality block with the counts, the RMS, the azimuthal gap "
+       "and the epicentral distances in degrees, every arrival with its residual and unit weight, the method and the earth model named, every "
+       "origin and pick automatic and preliminary, the catalogue's AGREES and DIFFERS as comments, the record's own FDSN codes in every waveformID, "
+       "and no magnitude anywhere")
+
+    # -- the shape check catches what a reader would refuse ------------------------------------------
+    text = Path(r["path"]).read_text(encoding="utf-8")
+    broken = []
+    bad1 = text.replace('publicID="smi:local/gea/SYNTHETIC/event/', 'publicID="bad id ', 1); broken.append(Q.validate(_ET.ElementTree(_ET.fromstring(bad1))))
+    bad2 = text.replace("<pickID>smi:local/gea/SYNTHETIC/pick/", "<pickID>smi:local/gea/SYNTHETIC/nopick/", 1); broken.append(Q.validate(_ET.ElementTree(_ET.fromstring(bad2))))
+    bad3 = text.replace("<evaluationStatus>preliminary</evaluationStatus>", "<evaluationStatus>reported</evaluationStatus>", 1); broken.append(Q.validate(_ET.ElementTree(_ET.fromstring(bad3))))
+    bad4 = text.replace("<depthType>", "<depthKind>").replace("</depthType>", "</depthKind>"); broken.append(Q.validate(_ET.ElementTree(_ET.fromstring(bad4))))
+    first_origin_end = text.index("</origin>")
+    bad5 = text[:first_origin_end] + '<magnitude publicID="smi:local/gea/x/mag/1"><mag><value>2.0</value></mag></magnitude>' + text[first_origin_end:]
+    broken.append(Q.validate(_ET.ElementTree(_ET.fromstring(bad5))))
+    bad6 = text.replace("<value>2026-03-05T11:03:", "<value>2026-03-05 11:03:", 1); broken.append(Q.validate(_ET.ElementTree(_ET.fromstring(bad6))))
+    ok(Q.validate(r["path"])["status"] == "VALID_SHAPE" and all(b["status"] == "INVALID" for b in broken)
+       and any("ResourceIdentifier" in p for p in broken[0]["problems"]) and any("pickID" in p for p in broken[1]["problems"])
+       and any("enumeration" in p for p in broken[2]["problems"]) and any("not in the schema" in p for p in broken[3]["problems"])
+       and any("magnitude" in p for p in broken[4]["problems"]) and any("dateTime" in p for p in broken[5]["problems"])
+       and all(Q.RID_PATTERN.match(x) for x in (Q.rid("Pad 3", "event", "assoc 1"), Q.rid("a", "x", authority="ab"), Q.rid("s", "comment", "a/b")))
+       and not Q.RID_PATTERN.match("smi:ab/x") and not Q.RID_PATTERN.match("urn:local/x"),
+       "BF2 the shape check is the first thing a QuakeML reader does, done here: an identifier off the schema's pattern, an arrival whose pick is "
+       "not in its event, an evaluation status outside the enumeration, a child element the schema does not know, a magnitude this program did "
+       "not estimate, and a time that is not an xs:dateTime are each named as a problem; and the identifier builder cleans a site name with a "
+       "space and a short authority to the pattern")
+
+    # -- through the workspace and the command line ---------------------------------------------------
+    sc = SA.synthetic_scene()
+    for sid, tr in sc["traces"].items():
+        S.write_mseed([tr], str(d / f"{sid}.mseed"))
+    cat = d / "cat.csv"
+    with open(cat, "w", newline="") as f:
+        w = _csv.writer(f); w.writerow(["EventID", "Origin Time", "Local Magnitude", "Latitude", "Longitude", "Depth"])
+        for c in sc["catalog"]:
+            w.writerow([c["event_id"], c["time"], c["magnitude"], c["lat"], c["lon"], 6.0])
+    ws = Workspace.create(str(d / "ws"), "Pad 3", actor="tester")
+    ids = [ws.add_seismic_station(sid, [str(d / f"{sid}.mseed")], st.lat, st.lon, "tester", datum=st.datum, band=[2.0, 20.0])["id"]
+           for sid, st in sc["stations"].items()]
+    ws.add_site("QML block", seismic=ids, client="Acme", actor="tester")
+    try:
+        ws.quakeml_export("QML-block"); early = False
+    except WorkspaceError as e:
+        early = "associate" in str(e)
+    run = lambda *a: _sp.run([sys.executable, "-m", "gea", "workspace", "--path", ws.path, "--actor", "tester", *a], capture_output=True, text=True)
+    r1 = run("--action", "associate", "--site", "QML-block", "--catalog", str(cat))
+    aj = json.loads(Path(ws.path, "reports", "sites", "QML-block", "association.json").read_text(encoding="utf-8"))
+    r2 = run("--action", "quakeml-export", "--site", "QML-block", "--agency", "Acme Operating")
+    xml_path = Path(ws.path, "reports", "sites", "QML-block", "quakeml", "QML-block_events.xml")
+    summ = json.loads(Path(ws.path, "reports", "sites", "QML-block", "quakeml", "export_summary.json").read_text(encoding="utf-8"))
+    root2 = _ET.parse(str(xml_path)).getroot()
+    agencies = {c.find(B("agencyID")).text for c in root2.iter(B("creationInfo"))}
+    wids = root2.findall(".//" + B("waveformID"))
+    audit = Path(ws.path, "records", "audit.jsonl").read_text(encoding="utf-8")
+    r3 = _sp.run([sys.executable, "-m", "gea", "quakeml", "--out", str(d / "cli")], capture_output=True, text=True)
+    help_md = (pkg / "help" / "quakeml.md").read_text(encoding="utf-8")
+    ok(early and r1.returncode == 0 and all((v.get("stream") or {}).get("station") == sid for sid, v in aj["stations"].items())
+       and r2.returncode == 0 and "WRITTEN - 2 event(s), 10 pick(s), 10 arrival(s)" in r2.stdout and "VALID_SHAPE" in r2.stdout and "gap:" not in r2.stdout
+       and xml_path.is_file() and summ["status"] == "WRITTEN" and summ["schema"] == "QuakeML-BED-1.2" and summ["n_events"] == 2 and not summ["gaps"]
+       and summ["validate"]["status"] == "VALID_SHAPE" and summ["association_generated_utc"] == aj["generated_utc"]
+       and agencies == {"Acme Operating"} and len(wids) == 10 and all(w.get("networkCode") == "XX" and w.get("channelCode") == "HHZ" for w in wids)
+       and "site.quakeml_export" in audit and r3.returncode == 0 and "SIMULATION_SELF_TEST" in r3.stdout and (d / "cli" / "SYNTHETIC_events.xml").is_file()
+       and H.VIEW_TOPIC.get("quakeml", "seismic") == "seismic" and any(t["topic"] == "quakeml" for t in H.topics()) and not H.check("quakeml")
+       and "operator assigned" in help_md and "preliminary" in help_md and "magnitude" in help_md.split("will not call a measurement")[1],
+       "BF3 `--action quakeml-export` refuses a site that has not been associated, and after `--action associate` (which now keeps each record's "
+       "FDSN codes) writes reports/sites/<site>/quakeml/<site>_events.xml with the agency the operator named in every creationInfo, the record's "
+       "codes in every waveformID, a summary beside it that carries the association's own timestamp, and audits it; `gea quakeml` runs the "
+       "labelled scene from the command line; the help page names the declared depth, the preliminary status and the magnitude it does not write")
+
+    # -- a station without codes or position is named as a gap, never invented ------------------------
+    doc = {"association": {"events": [{"id": "e1", "origin_utc": "2026-03-05T11:03:00.000Z", "lat": 31.95, "lon": -102.25, "depth_km": 6.0,
+                                        "depth_basis": "declared", "rms_s": 0.02, "n_stations": 3, "stations": ["A", "B", "C"], "dropped": [],
+                                        "picks": {"A": {"time": "2026-03-05T11:03:01.000Z", "snr": 10.0, "residual_s": 0.01},
+                                                  "B": {"time": "2026-03-05T11:03:01.200Z", "snr": 9.0, "residual_s": -0.01},
+                                                  "C": {"time": "2026-03-05T11:03:01.400Z", "snr": 8.0, "residual_s": 0.0}},
+                                        "region_km": {"extent_east_km": 1.0, "extent_north_km": 2.0, "nodes": 8, "reaches_grid_edge": False},
+                                        "magnitude": None, "magnitude_basis": "not estimated",
+                                        "model": {"vp_km_s": 5.8, "depth_km": 6.0, "pick_sigma_s": 0.05, "basis": "flat earth"}}],
+                           "refused": [], "n_unused_picks": 0, "model": {}, "basis": "b", "not_a_measurement": []}, "catalogue": None}
+    stations = {"A": {"id": "A", "lat": 31.99, "lon": -102.30, "stream": {"network": "TX", "station": "PB01", "location": "00", "channel": "HHZ"}},
+                "B": {"id": "B", "lat": 31.90, "lon": -102.20},                       # no codes
+                "C": {"id": "C"}}                                                       # no codes, no position
+    b = Q.build(doc, {"id": "s", "name": "Gap site"}, stations, version="0.0")
+    out = Path(d, "gaps.xml"); Q.write(b["tree"], str(out))
+    v = Q.validate(str(out))
+    rootg = _ET.parse(str(out)).getroot()
+    ws_ids = {w.get("stationCode"): w for w in rootg.findall(".//" + B("waveformID"))}
+    arrs = {a.find(B("pickID")).text.rsplit("/", 1)[1]: a for a in rootg.findall(".//" + B("arrival"))}
+    og = rootg.find(".//" + B("origin"))
+    ok(v["status"] == "VALID_SHAPE" and len(b["gaps"]) == 3 and sum("no network and station code" in g for g in b["gaps"]) == 2
+       and sum("no position" in g for g in b["gaps"]) == 1
+       and ws_ids["PB01"].get("networkCode") == "TX" and ws_ids["PB01"].get("locationCode") == "00"
+       and ws_ids["B"].get("networkCode") == "XX" and ws_ids["C"].get("networkCode") == "XX"
+       and arrs["A"].find(B("azimuth")) is not None and arrs["C"].find(B("azimuth")) is None and arrs["C"].find(B("distance")) is None
+       and abs(float(og.find(B("originUncertainty")).find(B("horizontalUncertainty")).text) - 1000.0) < 1e-6
+       and abs(float(og.find(B("latitude")).find(B("uncertainty")).text) - 1.0 / Q.KM_PER_DEG) < 1e-6
+       and og.find(B("quality")).find(B("azimuthalGap")) is not None,
+       "BF4 a station whose record carried no network and station code goes out under the test network XX with its own id and is named as a gap; "
+       "a station with no position gets a pick but an arrival without azimuth or distance and is named as a gap; neither is invented; the misfit "
+       "region of 1 km by 2 km becomes a 1000 m horizontal uncertainty and a latitude uncertainty of one kilometre in degrees")
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -5027,6 +5164,7 @@ def main() -> int:
         section_bc_sra(tmp)
         section_bd_association(tmp)
         section_be_osdu(tmp)
+        section_bf_quakeml(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

@@ -1222,8 +1222,11 @@ class Workspace:
             src = os.path.join(self.path, 'seismic', sid, 'source')
             b = tuple(band or srec.get('band_hz') or (2.0, 20.0))
             raw: List[SA.Pick] = []
+            codes = None
             for name in srec['files']:
                 for tr in S.read_any(os.path.join(src, name)):
+                    if codes is None:                   # the record's own FDSN codes, kept for the QuakeML export's waveformID
+                        codes = {'network': tr.network, 'station': tr.station, 'location': tr.location, 'channel': tr.channel}
                     if t_start is not None or t_end is not None:
                         tr = tr.slice(t_start if t_start is not None else tr.starttime, t_end if t_end is not None else tr.endtime)
                     if tr.npts > 0:
@@ -1232,7 +1235,8 @@ class Workspace:
                             raw.append(pk)
             if srec.get('kind') == 'array' and len(srec['files']) > 1:
                 raw = SA.collapse_array_picks(raw, sid)
-            per_station[sid] = {'status': 'PICKED', 'picks': len(raw), 'kind': srec.get('kind'), 'files': len(srec['files']), 'band_hz': list(b)}
+            per_station[sid] = {'status': 'PICKED', 'picks': len(raw), 'kind': srec.get('kind'), 'files': len(srec['files']), 'band_hz': list(b),
+                                'stream': codes}
             all_picks += raw
         if len(stations) < 3:
             raise WorkspaceError(f'only {len(stations)} station(s) of site {site_id} have a position: association needs three or more')
@@ -1257,6 +1261,40 @@ class Workspace:
             return None
         with open(p, encoding='utf-8') as f:
             return json.load(f)
+
+    # -- QuakeML: the site's events in the catalogue format ----------------------------------------------------
+    def quakeml_export(self, site_id: str, agency: str = '', out: Optional[str] = None, actor: str = 'system') -> dict:
+        """The site's association, written as a QuakeML 1.2 catalogue under reports/sites/<id>/quakeml/ unless
+        told otherwise, with the shape checked the way a reader checks it. Needs an association first."""
+        from . import quakeml as Q
+        from . import __version__
+        st = self.site(site_id)
+        doc = self.association(site_id)
+        if doc is None:
+            raise WorkspaceError(f'site {site_id} has no association yet: run --action associate first')
+        stations = {}
+        for sid in st['seismic']:
+            if sid not in self.manifest.get('seismic', []):
+                continue
+            rec = dict(self.seismic_station(sid))
+            per = (doc.get('stations') or {}).get(sid) or {}
+            if per.get('stream'):
+                rec['stream'] = per['stream']
+            stations[sid] = rec
+        b = Q.build(doc, st, stations, agency=agency, version=__version__)
+        path = out or os.path.join(self.dir('reports', 'sites', site_id, 'quakeml'), f'{site_id}_events.xml')
+        Q.write(b['tree'], path)
+        v = Q.validate(path)
+        summary = {'protocol': 'workspace.quakeml_export/1', 'site': site_id, 'path': path, 'schema': Q.SCHEMA,
+                   'status': 'WRITTEN' if v['status'] == 'VALID_SHAPE' else 'WRITTEN_WITH_PROBLEMS',
+                   'n_events': b['n_events'], 'n_picks': b['n_picks'], 'n_arrivals': b['n_arrivals'], 'gaps': b['gaps'],
+                   'refused': b['refused'], 'agency': b['agency'], 'generated_utc': b['generated_utc'], 'validate': v,
+                   'association_generated_utc': doc.get('generated_utc')}
+        with open(os.path.join(os.path.dirname(path), 'export_summary.json'), 'w', encoding='utf-8') as f:
+            json.dump(summary, f, indent=1)
+        self.audit(actor, 'site.quakeml_export', {'id': site_id, 'status': summary['status'], 'events': b['n_events'], 'picks': b['n_picks'],
+                                                   'gaps': len(b['gaps']), 'out': path})
+        return summary
 
     # -- the OSDU-shaped export ----------------------------------------------------------------------------------
     def osdu_export(self, site_id: str, partition: str = '', acl_owners: Optional[List[str]] = None, acl_viewers: Optional[List[str]] = None,

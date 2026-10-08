@@ -1117,3 +1117,30 @@ the Windows kit has the real launcher, which is why both of those passed.
 - The first ship attempt stopped at AM1: the 23 report samples still
   carried build 0.11.0. Re-rendered at 0.11.1 and transferred; the samples
   are re-rendered before every ship and this one had skipped that step.
+
+## 2026-10-08 - the QuakeML catalogue export (v0.12.0)
+
+v0.11.1 shipped green on all five jobs; the operator reported the program
+approved by the client on its deadline. Next on the list: QuakeML out, the
+smallest remaining piece with the largest external audience. Research
+first: the QuakeML-BED-1.2 schema read type by type (Origin, Pick, Arrival,
+Event, EventParameters, OriginQuality, OriginUncertainty, CreationInfo,
+WaveformStreamID; the enumerations; the ResourceIdentifier pattern) and the
+units as the specification states them (depth and horizontal uncertainty in
+metres, lat/lon and their uncertainties in degrees, epicentral distance and
+azimuth in degrees, times and residuals in seconds). The element order is
+free (an unbounded choice), the identifiers are not.
+
+- `gea/quakeml.py`: `rid` (identifiers to the pattern from any site name),
+  `stream_codes`, `build` (the association document to a tree: event,
+  origin with quality and originUncertainty, picks, arrivals, comments for
+  the catalogue standing, the magnitude basis, the dropped picks, the misfit
+  region and the model), `write`, `validate` (the reader's first checks),
+  `selftest` on the association leg's scene, `report_text`.
+- `Workspace.quakeml_export`; `associate_site` now keeps each record's FDSN
+  codes in `stations[<id>].stream` for the waveformID.
+- The output validated against the published XSD with lxml in the cloud,
+  on the labelled scene and on the gap cases (no codes, no position, an
+  awkward site name); the gate's own check is the structural one.
+- `--action quakeml-export`; `gea quakeml`; `gea help quakeml`; README.
+- Section BF (4 checks): 324.

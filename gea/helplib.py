@@ -40,6 +40,7 @@ INDEX: List[tuple] = [
     ('notifications', 'Notifications', 'rules, channels, the delivery log'),
     ('sra', 'The Seismicity Response Area', 'the packet an operator inside an SRA puts in front of the Commission'),
     ('osdu', 'The OSDU-shaped export', 'the site as the manifest an operator\'s data platform loads'),
+    ('quakeml', 'The QuakeML catalogue export', 'the site\'s own events in the format the regulator\'s catalogue tools read'),
     ('doctor', 'Which code is running', 'gea doctor and the serve start-up gate'),
     ('audit-update', 'Audit / Update', 'the whole audit log with filters, the program against PyPI, every report against its source'),
     ('upkeep', 'Upkeep', 'housekeeping, sessions, the TLS proxy, the load test'),
