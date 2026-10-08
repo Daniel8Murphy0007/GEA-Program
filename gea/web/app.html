@@ -302,6 +302,15 @@ VIEWS.seismic = async () => {
 
 // ---- SAR: the control panel and the simulator screen (the labelled synthetic scene played forward in time) ----
 const SAR = {film: null, frame: 0, timer: null, speed: 1};
+// the SAR panel has its own page as well as its place at the foot of the Seismic page: at the foot of a page that
+// starts with a station table and two cards, it was reported as nowhere to be found
+VIEWS.sar = async () => {
+  const sar = await get('/api/seismic/sar');
+  let h = `<h2>SAR panel</h2><p class="muted small">The same panel the Seismic page carries at its foot. Run renders the film as a job; Play plays the last one. Every frame is stamped SIMULATION_SELF_TEST.</p>`;
+  h += sarPanelHtml(sar);
+  $('#main').innerHTML = h;
+  sarPanelBind(sar);
+};
 function sarPanelHtml(sar) {
   const f = sar.film;
   let h = `<div class="card" id="sarPanel"><h3>SAR panel <span class="small muted">the second leg's arithmetic, played forward in time on a labelled synthetic scene</span></h3>
@@ -937,7 +946,7 @@ function authScreen(first) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/seismic', 'Seismic'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/seismic', 'Seismic'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, '']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }

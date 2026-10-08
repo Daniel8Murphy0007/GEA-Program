@@ -264,6 +264,11 @@ class App:
         self._lock = threading.Lock()
         self.started_utc = utc_now_iso()
         self.taps: Dict[str, str] = {}          # well_id -> job id of a running bounded tap
+        # the serving process sets this to a printer; the console then shows the page being opened, people
+        # signing in, jobs starting and finishing, stops and restarts - a server that answers in silence looks,
+        # from the window it was started in, exactly like one that is still loading
+        self.console: Optional[Callable[[str], None]] = None
+        self._seen_pages: set = set()
         self.patches = PatchSupervisor(workspace)
         if scheduler:                            # a serving process keeps the enabled patches up; the gate does not
             self.patches.start_enabled()
@@ -276,6 +281,25 @@ class App:
         if scheduler:
             self._poll_thread = threading.Thread(target=self._poll_loop, name='gea-notify', daemon=True)
             self._poll_thread.start()
+
+    def say(self, msg: str) -> None:
+        """One line on the serving console, if there is one. Never raises: the console is not the record."""
+        c = self.console
+        if c is None:
+            return
+        try:
+            c(msg)
+        except Exception:
+            pass
+
+    def page_opened(self, client: str) -> None:
+        """The first time a browser fetches the page from an address, the console says so - that is the moment
+        the operator stops waiting for a window that is not going to appear by itself."""
+        with self._lock:
+            first = client not in self._seen_pages
+            self._seen_pages.add(client)
+        if first:
+            self.say(f'control panel opened in a browser from {client or "a browser"} - it asks for a sign-in there')
 
     def _poll_loop(self, every_s: float = 10.0) -> None:
         while not self._poll_stop.is_set():
@@ -1356,6 +1380,7 @@ def make_handler(app: App):
                 if path == '/' or path == '/index.html':
                     page = os.path.join(WEB_DIR, 'app.html')
                     if os.path.isfile(page):
+                        app.page_opened(self._client())
                         return self._file(page)
                     return self._json(200, {'service': 'gea', 'note': 'the page is not installed; the API is at /api/'})
                 if path.startswith('/reports/'):
@@ -1842,6 +1867,49 @@ class Service:
         self.httpd.gea_started_utc = self.started_utc
         self.resume: Optional[dict] = None
         self._exit_reason = ''
+        self.console = False                   # `gea serve` turns these on; the gate, which runs the service in-process, leaves them off
+        self.open_browser = False
+
+    # what the serving console says as things happen. The audit file is the record and is written first; these
+    # are the few entries an operator watching the window wants to see without opening anything.
+    CONSOLE_ACTIONS = {
+        'login': lambda d: f"signed in: {d['actor']} ({d['detail'].get('role', '?')}) from {d['detail'].get('client') or 'the browser'}",
+        'login.failed': lambda d: f"sign-in refused for '{d['actor']}' from {d['detail'].get('client') or 'the browser'}",
+        'logout': lambda d: f"signed out: {d['actor']}",
+        'user.add': lambda d: (f"first administrator created: {d['detail'].get('name')}" if d['detail'].get('first')
+                               else f"user added: {d['detail'].get('name')} ({d['detail'].get('role')}) by {d['actor']}"),
+        'job.submit': lambda d: f"job started: {d['detail'].get('label') or d['detail'].get('kind')} [{d['detail'].get('id')}] by {d['actor']}",
+        'job.finish': lambda d: f"job {str(d['detail'].get('status', '')).lower() or 'finished'}: [{d['detail'].get('id')}] exit {d['detail'].get('returncode')}",
+        'service.stop': lambda d: (f"stop requested by {d['actor']}: {d['detail'].get('reason') or 'no reason given'}"
+                                   if d['actor'] != 'system' else 'service stopped'),
+        'service.restart': lambda d: f"restart requested by {d['actor']}: {d['detail'].get('reason') or 'no reason given'}",
+        'session.revoke': lambda d: f"session(s) revoked by {d['actor']}: {d['detail'].get('revoked')}",
+    }
+
+    def _console_line(self, msg: str) -> None:
+        print(f"   {datetime.now().strftime('%H:%M:%S')}  {msg}", flush=True)
+
+    def _on_audit(self, entry: dict) -> None:
+        f = self.CONSOLE_ACTIONS.get(entry.get('action') or '')
+        if f is not None:
+            self._console_line(f(entry))
+
+    def _open_browser_later(self, delay_s: float = 1.0) -> None:
+        """Open the operator's browser on the page once the socket is listening (it is: the server bound its
+        port when it was built, and a request that lands before serve_forever runs waits in the backlog). A
+        browser that cannot be opened is reported, never fatal - the address is on the console."""
+        def _go():
+            time.sleep(delay_s)
+            try:
+                import webbrowser
+                ok = webbrowser.open(self.url, new=2)
+            except Exception as e:
+                ok = False
+                self._console_line(f'could not open a browser ({e}); open {self.url} yourself')
+                return
+            if not ok:
+                self._console_line(f'no browser could be opened from here; open {self.url} yourself')
+        threading.Thread(target=_go, name='gea-open-browser', daemon=True).start()
 
     def request_exit(self, code: int, actor: str = 'system', reason: str = '') -> dict:
         """Stop this run with a stated code and a stated reason, both written to the run log before the
@@ -1877,6 +1945,14 @@ class Service:
         _SV.set_auto_restart(self.ws.path, bool((self.ws.manifest.get('control') or {}).get('auto_restart', False)))
         self.ws.audit('system', 'service.start', {'url': self.url})
         self.resume = _SV.resume(self.ws, self.app.patches, 'supervisor')
+        if self.console:
+            self.app.console = self._console_line
+            self.ws.on_audit = self._on_audit
+            self._console_line(f'listening at {self.url} - waiting for a browser to open the page')
+        if self.open_browser:
+            self._console_line('opening the control panel in your browser; if no page appears within a few seconds, open '
+                               f'{self.url} yourself')
+            self._open_browser_later()
         try:
             self.httpd.serve_forever()
         except KeyboardInterrupt:

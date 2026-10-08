@@ -1037,3 +1037,61 @@ the coarse best now and the error is 40 m.
   events; `gea seismic --action assoc-selftest`; the vocabulary gate caught
   the word "refused" in the packet's own prose and it was reworded.
 - Section BD (6 checks): 314.
+
+## 2026-10-07 - the OSDU-shaped export (v0.11.0)
+
+Next on the list after association. Research first: the OSDU data-definitions
+examples for Manifest 1.0.0, master-data Well 1.0.0, dataset File.Generic
+1.0.0 and work-product-component WellLog 1.1.0, read record by record, so
+the export is OSDU-shaped by their schema. The seismic trace component's
+schema was not read, so stations go out as generic components with their
+records as datasets, and the export says so.
+
+- `gea/osdu.py`: Context (the operator's declarations: partition, ACL,
+  legal tag, countries, operator organisation), spatial_location (both
+  coordinate sets, the operation written out, no WGS 84 on an unknown
+  datum), well_record, wellbore_record, welllog_record (time domain,
+  ZeroTime, curve per channel), dataset_record (size, SHA-256), station
+  record, build_manifest, validate, a labelled self-test.
+- The datum discipline from v0.8.0 is what makes this export worth
+  anything to a platform: AsIngestedCoordinates on EPSG::4267 beside
+  Wgs84Coordinates with "shift 45.4 m" in AppliedOperations.
+- `--action osdu-export`; NOT LOADABLE until the operator declares; `gea
+  osdu`; `gea help osdu`.
+- Section BE (4 checks): 318.
+
+## 2026-10-08 - the console answers (v0.11.0, before the ship)
+
+The operator reported the control panel "in the same loading pattern for
+three hours" against `gea 0.11.0` serving `C:\site` ('Pad 3'). The
+workspace's own records said what the program had done in that time: a
+start and a resume at 01:50Z, nothing behind to catch up, no page fetch
+audited (a GET is not), no sign-in. The dashboard had worked on that machine
+on every earlier version - sign-ins and jobs from the page on the 2nd, 4th,
+5th and 6th - and the same code served the page in 4 ms in the cloud. The
+server was up and answering; the window it was started in gave no sign of
+it, and a console that prints a banner and then nothing is, to the person
+watching it, a program that is still loading.
+
+- `gea serve` opens the control panel in the browser itself once its port
+  is listening (`--no-browser` to suppress), and says so; the banner says
+  in words that this window is the server and has nothing more to load.
+- The serving console prints what happens as it happens, from the audit
+  entries after they are written: the page opened (once per address), a
+  sign-in or a refused one, jobs starting and finishing, stops and restarts
+  requested, sessions revoked. `Workspace.on_audit` is the hook; the gate's
+  in-process service leaves it unset.
+- The kit launchers no longer open a browser on a four-second timer - that
+  raced the server and showed a failure page from the second before it was
+  up; `--no-browser` passes through from a scheduled start, and a restart
+  from the panel does not open a second page.
+- Section BB: BB12 (the console lines) and BB13 (the flag, the launchers,
+  the gate's own service opens nothing). The gate is 320.
+
+The SAR panel, run from the Seismic page's foot at 02:49Z (48 frames, four
+rigs POINTED), was then reported as nowhere to be found: below a station
+table and two cards it is off the screen. It has a page and a navigation
+entry of its own now ("SAR panel", after Seismic), the same panel bound the
+same way; the Seismic page keeps its copy. Played end to end in a headless
+browser - sign-in, Run the scene, the job, Play, frame 4/48 - with no
+script error. AQ4 extended.

@@ -1,40 +1,38 @@
-v0.10.0 — ASSOCIATION: THE STATIONS HEARD THE SAME THING, OR THEY DID NOT
+v0.11.0 — THE OSDU-SHAPED EXPORT
 
-The piece every monitoring pipeline is built around, and this program had
-none of it. The leg could say what one station heard, what direction an
-array heard it from, and where two arrays' bearings cross. It could not say
-that the arrivals at three or more stations belong to one event, or where
-and when that event was - so an earthquake inside a Seismicity Response Area
-was known only from the catalogue somebody else published.
+What a buyer's data team asks for on the first call: the site as the
+Manifest an OSDU data platform loads. gea/osdu.py builds it to the published
+well-known schemas - Manifest 1.0.0; each well as master-data Well and
+Wellbore 1.0.0 with its API and UIC numbers as name aliases and the gauge
+station as a vertical measurement; each well's record as a WellLog 1.1.0 in
+the time domain, ZeroTime and the sampling interval and a curve per channel
+with its unit, over a File.Generic dataset that is the historian file itself
+with its size and SHA-256; each seismic station as a generic component with
+its records as datasets; the site as the work product. The files are copied
+beside the manifest.
 
-gea/seismic_assoc.py is three honest pieces. A pick: the onset of an
-impulsive arrival by the short-term over long-term average, refined back to
-the first energy, carrying its time and its signal-to-noise ratio and
-nothing else. An association: one pick per station consistent with a single
-origin under a declared velocity, found by a grid search over the ground
-with the origin time solved at every node, accepted at three or more
-stations inside a declared RMS tolerance, the worst pick dropped while more
-than three remain, and NOT ASSOCIATED below three - never a located event
-with a wide error. A location: the best node with the misfit region, the
-nodes within one pick uncertainty of it, reported as an east-west and a
-north-south extent and never called a confidence interval. An array is one
-station, its sensors' picks reduced to one by the median.
+Every position goes out twice, as the schema has it: AsIngestedCoordinates,
+the point as the operator gave it with that datum's EPSG code, and
+Wgs84Coordinates, with the operation between them written into
+AppliedOperations - a NAD27 well says "shift 45.4 m". A point on an unknown
+datum gets no WGS 84 coordinates at all and is named as a gap, because a
+platform that indexed it would place the well tens of metres wrong. The
+datum discipline of v0.8.0 reaches the platform intact.
 
-What it refuses, on every result: a depth - declared, as every plan on file
-works from a regional value, under a straight ray at one velocity on a flat
-earth, named; a magnitude - it needs the instrument response and an
-attenuation relation, and neither is in this band; an event from fewer than
-three stations; a verdict on which position is right when the stations and
-the catalogue differ - both are printed.
+What the operator declares and the export never fills in: the data
+partition, the ACL groups, the legal tag. Without them the manifest is
+written and marked NOT LOADABLE with the missing names. A structural
+validation makes the platform loader's first checks here first. And what it
+will not write: a seismic trace component under a schema not read in the
+writing of this export - a kind not read here is not a kind written here.
 
-The scene caught two defects before any record did. The onset refinement
-walked back into the noise and every pick came out 150 ms early - uniformly,
-so the location absorbed it into the origin time and the RMS looked fine.
-The fine grid was centred on the stations' centroid rather than the coarse
-best node, so every event more than a kilometre from the centre was lost.
-Both are in the gate now.
+And the console answers. gea serve opens the control panel in the browser
+itself once its port is listening, and the window it was started in says
+what happens as it happens - the page being opened, a sign-in, a job, a stop
+or a restart. A server that answers in silence looks, from that window,
+exactly like one that is still loading; the banner now says in words that
+this window is the server and has nothing more to load. The launchers no
+longer race the server with a browser of their own.
 
-gea workspace --action associate runs it on a site and sets the events
-against a catalogue export; the SRA packet carries the events the site's
-own stations located beside the catalogue's. The gate is 314 checks
-(section BD is new). The standalone guard is clean.
+The gate is 320 checks (section BE is new; BB12-BB13 are new). The
+standalone guard is clean.

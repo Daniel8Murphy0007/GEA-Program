@@ -86,12 +86,12 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (314 checks)
+gea accept                     # the product gate (320 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
 gea workspace --path C:\site --action init --name "Pad 3"     # a site folder
-gea serve --workspace C:\site                                 # the dashboard as the door: http://127.0.0.1:8765/
+gea serve --workspace C:\site                                 # the dashboard as the door: opens http://127.0.0.1:8765/ in your browser
 gea doctor --workspace C:\site                                # which code runs, can it serve, with every fix
 gea files --workspace C:\site --action list --root historian  # the import roots, detection by content, import, export, packs
 gea transient --file historian.csv --params params.json --out pta   # shut-ins and build-up analysis with a band
@@ -511,6 +511,21 @@ with the trigger and the goal clock, the schedule, and every gap by name -
 and a daily export under the Notice's own parameter names. It will not
 invent a volume for a well with no rate channel, a tier from depth alone, or
 an aftershock: those are declarations, and the packet says so.
+
+### The OSDU-shaped export
+
+What a buyer's data team asks for on the first call. `gea workspace --action
+osdu-export --site <id> --partition ... --acl-owner ... --acl-viewer ...
+--legal-tag ...` writes the site as an `osdu:wks:Manifest:1.0.0` to the
+published well-known schemas: each well as Well and Wellbore 1.0.0 with its
+API and UIC as name aliases, its record as a WellLog 1.1.0 in the time
+domain over a File.Generic dataset with the file's SHA-256, each seismic
+station as a generic component with its records as datasets, the site as the
+work product, the files copied beside it. Every position goes out twice - as
+given on its own datum with that datum's EPSG code, and on WGS 84 with the
+operation between them written out; a point on an unknown datum gets no WGS
+84 coordinates and is named. Without the operator's partition, ACL and legal
+tag the manifest is NOT LOADABLE and says so. `gea help osdu`.
 
 ### Audit / Update
 

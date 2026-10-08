@@ -2,7 +2,7 @@
 
 > Install, the first run, and what the program will not claim.
 
-**The command**: `python -m pip install "gea-program[live]"` then `gea quickstart` (a real catalogue well through every report, then the strata survey on a public hole). A site: `gea workspace --path C:\site --action init --name "Pad 3"` and `gea serve --workspace C:\site`, then open http://127.0.0.1:8765/.
+**The command**: `python -m pip install "gea-program[live]"` then `gea quickstart` (a real catalogue well through every report, then the strata survey on a public hole). A site: `gea workspace --path C:\site --action init --name "Pad 3"` and `gea serve --workspace C:\site`, which opens http://127.0.0.1:8765/ in your browser (the serve window is the server, not the panel: it stays open and prints what happens on the page).
 
 **What it writes**: `gea_quickstart/index.html` with every report beside it; a site writes under its workspace folder (`reports/`, `records/`, `jobs/`).
 

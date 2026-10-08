@@ -39,6 +39,7 @@ INDEX: List[tuple] = [
     ('files', 'Files', 'import and export roots, detection by content, the evidence pack'),
     ('notifications', 'Notifications', 'rules, channels, the delivery log'),
     ('sra', 'The Seismicity Response Area', 'the packet an operator inside an SRA puts in front of the Commission'),
+    ('osdu', 'The OSDU-shaped export', 'the site as the manifest an operator\'s data platform loads'),
     ('doctor', 'Which code is running', 'gea doctor and the serve start-up gate'),
     ('audit-update', 'Audit / Update', 'the whole audit log with filters, the program against PyPI, every report against its source'),
     ('upkeep', 'Upkeep', 'housekeeping, sessions, the TLS proxy, the load test'),
@@ -49,7 +50,7 @@ REQUIRED_LINES = ('**The command**', '**What it writes**', '**The number to chec
 VIEW_TOPIC: Dict[str, str] = {
     'home': 'start', 'wells': 'data-in', 'well': 'drift', 'live': 'patches', 'patch': 'patches', 'files': 'files', 'alarms': 'alarms',
     'approvals': 'well-tests', 'config': 'site', 'reports': 'drift', 'verify': 'start', 'survey': 'data-in', 'jobs': 'site',
-    'admin': 'site', 'prefs': 'site', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'sites': 'sites', 'audit': 'audit-update',
+    'admin': 'site', 'prefs': 'site', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'sar': 'seismic', 'sites': 'sites', 'audit': 'audit-update',
 }
 
 

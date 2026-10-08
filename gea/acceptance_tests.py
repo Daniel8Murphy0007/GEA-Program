@@ -3390,12 +3390,13 @@ def section_aq_sar_and_audit(tmp: str) -> None:
     # AQ4 - the page and the help
     page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
     ok("function sarPanelHtml" in page_src and "function sarDraw" in page_src and "id=\"sarScreen\"" in page_src and "/api/seismic/sar/run" in page_src
+       and "VIEWS.sar = " in page_src and "['#/sar', 'SAR panel']" in page_src and H.VIEW_TOPIC.get("sar") == "seismic"
        and "SIMULATION_SELF_TEST" in page_src and "film.label" in page_src and "not a measurement of any ground" in page_src
        and "VIEWS.audit = " in page_src and "['#/audit', 'Audit / Update']" in page_src and "/api/update/program" in page_src and "/api/update/data" in page_src
        and "Download CSV" in page_src and 'href="#/audit"' in page_src.split("VIEWS.admin = ")[1].split("VIEWS.")[0]
        and H.VIEW_TOPIC.get("audit") == "audit-update" and any(t["topic"] == "audit-update" for t in H.topics()) and not H.check("audit-update")
        and "sar-film" in (pkg / "help" / "seismic.md").read_text(encoding="utf-8") and "never a film" in (pkg / "help" / "seismic.md").read_text(encoding="utf-8"),
-       "AQ4 the Seismic page carries the SAR panel (the controls, Run the scene as a job, Play/Pause/Stop/speed/scrub, the four-pane screen with the stamp on every frame); "
+       "AQ4 the Seismic page carries the SAR panel (the controls, Run the scene as a job, Play/Pause/Stop/speed/scrub, the four-pane screen with the stamp on every frame) and the panel has a page and a navigation entry of its own, because at the foot of the Seismic page it was reported as nowhere to be found; "
        "the Audit / Update view has the program card, the data card with its two jobs, the audit log with filters and a CSV; Administration points at it; the help index "
        "has the audit-update page, the view maps to it, and the seismic page names the film and what it is not")
 
@@ -4593,6 +4594,55 @@ def section_bb_supervisor(tmp: str) -> None:
        "BB11 an authorised restart is logged before the server is touched, stops the run and leaves 86 as the code the launcher reads; the control "
        "panel's own page carries the Stop and Restart controls, the authorisation step behind a popup, and the auto-restart switch")
 
+    # -- the console answers (0.11.0) -------------------------------------------------------
+    # a server that answers in silence looks, from the window it was started in, exactly like one that is
+    # still loading. An operator waited hours at a console that had been serving the page all along.
+    svc2 = Service(wsp, host="127.0.0.1", port=0, scheduler=False)
+    lines: list = []
+    svc2._console_line = lambda m: lines.append(m)
+    svc2.console = True
+    svc2.open_browser = False
+    base2 = svc2.url.rstrip("/")
+    th2 = _th.Thread(target=svc2.serve_forever, daemon=True); th2.start()
+    time.sleep(0.6)
+    cj2 = http.cookiejar.CookieJar(); opener2 = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj2))
+
+    def call2(method, path, body=None):
+        req = urllib.request.Request(base2 + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json")
+        if method == "POST":
+            req.add_header("X-GEA-Action", "1")
+        try:
+            with opener2.open(req, timeout=60) as r:
+                return r.status, (json.loads(r.read()) if path.startswith("/api/") else r.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+
+    call2("GET", "/"); call2("GET", "/")                   # the second fetch from the same address is not a second line
+    call2("POST", "/api/login", {"name": "adm", "password": "wrong-pass-999"})
+    call2("POST", "/api/login", {"name": "adm", "password": "admin-pass-123"})
+    call2("POST", "/api/control/restart", {"authorize": True})
+    th2.join(timeout=30)
+    joined = "\n".join(lines)
+    ok(svc2.ws.on_audit is not None and svc2.app.console is not None
+       and sum(1 for m in lines if m.startswith("listening at")) == 1
+       and sum(1 for m in lines if m.startswith("control panel opened in a browser")) == 1
+       and "sign-in refused for 'adm'" in joined and "signed in: adm (admin)" in joined
+       and "restart requested by adm" in joined and not th2.is_alive(),
+       "BB12 the serving console says what happens as it happens - the page being opened (once per address), a sign-in refused, a sign-in, a "
+       "stop or restart requested - because a server that answers in silence looks, from the window it was started in, like one that is still "
+       "loading; the audit file is written first and the console line is only a courtesy to whoever is watching")
+    main_src = (pkg / "__main__.py").read_text(encoding="utf-8")
+    ok('"--no-browser", action="store_true"' in main_src
+       and "svc.open_browser = not a.no_browser" in main_src and "svc.console = True" in main_src
+       and hasattr(Service, "_open_browser_later") and Service(wsp, host="127.0.0.1", port=0, scheduler=False).open_browser is False
+       and (cmd is None or ("%GEA_BROWSER%" in cmd and "timeout /t 4" not in cmd and 'if "%1"=="--no-browser" set GEA_BROWSER=--no-browser' in cmd
+                            and "set GEA_BROWSER=--no-browser" in cmd))
+       and (sh is None or ("$browser" in sh and 'browser="--no-browser"' in sh)),
+       "BB13 `gea serve` opens the control panel in the browser itself once its port is listening, and the launchers no longer race it with a "
+       "browser of their own - opened first, it showed a failure page from the second before the server was up; a scheduled start passes "
+       "--no-browser through, a restart from the panel does not open a second page, and the service run in-process by this gate opens nothing")
+
 
 def section_bc_sra(tmp: str) -> None:
     """Section BC - the Seismicity Response Area packet. The Railroad Commission's operator-led response plans
@@ -4831,6 +4881,90 @@ def section_bd_association(tmp: str) -> None:
        "runs the labelled scene from the command line")
 
 
+def section_be_osdu(tmp: str) -> None:
+    """Section BE - the OSDU-shaped export: the manifest a large operator's data platform loads, built to the
+    published well-known schemas from what the site holds, with both coordinate sets on every position,
+    the operator's declarations required rather than filled in, and every gap named."""
+    import csv as _csv
+    import subprocess as _sp
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+    from . import osdu as O
+    from .workspace import Workspace
+    d = Path(tmp, "be"); d.mkdir()
+
+    r = O.selftest(str(d / "self"))
+    ok(r["status"] == "OK" and all(r["checks"].values()) and r["label"] == "SIMULATION_SELF_TEST" and r["validate"]["ok"],
+       "BE1 the self-test: a Manifest 1.0.0 with Well and Wellbore 1.0.0, WellLog 1.1.0 in the time domain with a curve per channel over a "
+       "File.Generic dataset carrying the file's size and SHA-256, a seismic station as a generic component with its records as datasets; a NAD27 "
+       "position carries both coordinate sets with the 45 m shift written out; a position on an unknown datum gets no WGS 84 coordinates and is "
+       "named; a catalogue well with no file is named; the manifest validates; and without the operator's partition, ACL and legal tag it is "
+       "NOT LOADABLE with the four names listed")
+
+    # -- the position discipline, record by record ------------------------------------------
+    ctx = O.Context("opendes", ["o@x"], ["v@x"], ["tag"])
+    sl = O.spatial_location(31.96, -102.24, "NAD83", ctx)
+    sl27 = O.spatial_location(31.96, -102.24, "NAD27", ctx)
+    slu = O.spatial_location(31.96, -102.24, None, ctx)
+    w84 = sl["Wgs84Coordinates"]["features"][0]["geometry"]["coordinates"]
+    w27 = sl27["Wgs84Coordinates"]["features"][0]["geometry"]["coordinates"]
+    ok(sl["AsIngestedCoordinates"]["CoordinateReferenceSystemID"] == "opendes:reference-data--CoordinateReferenceSystem:Geographic2D:EPSG::4269:"
+       and w84 == [-102.24, 31.96] and w27 != [-102.24, 31.96] and abs(w27[0] + 102.24) < 0.001 and abs(w27[1] - 31.96) < 0.001
+       and "shift 45" in sl27["AppliedOperations"][0] and "Wgs84Coordinates" not in slu and slu["_gap"] and "unknown" in slu["AppliedOperations"][0]
+       and slu["QualitativeSpatialAccuracyTypeID"].endswith(":Unverifiable:"),
+       "BE2 every position goes out twice, as given on its own datum with the EPSG code of that datum, and on WGS 84 with the operation between "
+       "them written into AppliedOperations - NAD83 passes through unchanged, NAD27 moves 45 m and says so, and an unknown datum gets no WGS 84 "
+       "point at all, marked Unverifiable, because a platform that indexed it would place the well tens of metres wrong")
+
+    # -- the structural validation catches a broken manifest ---------------------------------
+    man = json.load(open(Path(d, "self", "osdu_full", "manifest.json"), encoding="utf-8"))
+    broken = json.loads(json.dumps(man))
+    broken["Data"]["WorkProductComponents"][0]["data"]["Datasets"] = ["surrogate-key:file-nowhere"]
+    del broken["MasterData"][0]["legal"]
+    broken["MasterData"][1]["kind"] = "Wellbore"
+    v = O.validate(broken)
+    ok(not v["ok"] and len(v["problems"]) >= 3 and any("not in this manifest" in p for p in v["problems"]) and any("no legal" in p for p in v["problems"])
+       and any("osdu:wks:" in p for p in v["problems"]),
+       "BE3 the validation makes the platform loader's first checks before the platform does: a component naming a dataset the manifest does not "
+       "carry, a record with no legal block, and a kind not in the osdu:wks:<group>--<Type>:<version> form are each named")
+
+    # -- through the workspace and the command line ------------------------------------------
+    t0 = _dt(2026, 3, 1, tzinfo=_tz.utc)
+    hist = d / "swd.csv"
+    with open(hist, "w", newline="") as f:
+        w = _csv.writer(f); w.writerow(["timestamp", "P_surf_psi", "Q_bpm"])
+        for i in range(2 * 144):
+            w.writerow([(t0 + _td(seconds=600 * i)).strftime("%Y-%m-%dT%H:%M:%SZ"), "1500.0", "5.0"])
+    ws = Workspace.create(str(d / "ws"), "Pad 3", actor="tester")
+    w1 = ws.add_well_file(str(hist), display="SWD 1", actor="tester", station_md_ft=9800.0)
+    ws.set_well(w1["id"], surface={"lat": 31.96, "lon": -102.24, "datum": "NAD27"}, disposal={"api_number": "42-329-12345", "uic_number": "123456"}, actor="tester")
+    w2 = ws.add_well_catalog("volve_f12_f14_production_excerpt", "15/9-F-12", 10000.0, actor="tester")
+    ws.add_site("OSDU block", wells=[w1["id"], w2["id"]], client="Acme", actor="tester")
+    run = lambda *a: _sp.run([sys.executable, "-m", "gea", "workspace", "--path", ws.path, "--actor", "tester", *a], capture_output=True, text=True)
+    r1 = run("--action", "osdu-export", "--site", "OSDU-block")
+    r2 = run("--action", "osdu-export", "--site", "OSDU-block", "--partition", "opendes", "--acl-owner", "data.default.owners@opendes.example.com",
+             "--acl-viewer", "data.default.viewers@opendes.example.com", "--legal-tag", "opendes-public-usa", "--operator-org", "opendes:master-data--Organisation:Acme:")
+    out = Path(ws.path, "reports", "sites", "OSDU-block", "osdu")
+    man2 = json.load(open(out / "manifest.json", encoding="utf-8"))
+    summ = json.load(open(out / "export_summary.json", encoding="utf-8"))
+    well = next(m for m in man2["MasterData"] if m["kind"] == O.KINDS["well"] and m["data"]["FacilityID"] == "42-329-12345")
+    log = next(c for c in man2["Data"]["WorkProductComponents"] if c["kind"] == O.KINDS["welllog"])
+    audit = Path(ws.path, "records", "audit.jsonl").read_text(encoding="utf-8")
+    r3 = _sp.run([sys.executable, "-m", "gea", "osdu"], capture_output=True, text=True)
+    ok(r1.returncode == 0 and "NOT LOADABLE" in r1.stdout and "--partition" in r1.stdout
+       and r2.returncode == 0 and "[LOADABLE]" in r2.stdout and "structure: ok" in r2.stdout and summ["status"] == "LOADABLE"
+       and well["legal"]["legaltags"] == ["opendes-public-usa"] and well["data"]["CurrentOperatorID"] == "opendes:master-data--Organisation:Acme:"
+       and well["data"]["VerticalMeasurements"][0]["VerticalMeasurement"] == 9800.0 and "Wgs84Coordinates" in well["data"]["SpatialLocation"]
+       and log["data"]["ZeroTime"] == "2026-03-01T00:00:00Z" and log["data"]["SamplingInterval"] == 600.0
+       and [c["Mnemonic"] for c in log["data"]["Curves"]] == ["TIME", "P_surf_psi", "Q_bpm"]
+       and (out / "files" / "wells" / w1["id"] / "swd.csv").is_file()
+       and any(w2["id"] in g and "no file" in g for g in summ["gaps"]) and "site.osdu_export" in audit
+       and r3.returncode == 0 and "SIMULATION_SELF_TEST" in r3.stdout,
+       "BE4 `--action osdu-export` writes the site's manifest and copies its files beside it: without the operator's declarations it says NOT "
+       "LOADABLE and which flags are missing; with them the well goes out as Well and Wellbore with its API and UIC, its gauge station as a "
+       "vertical measurement, its position on both datums; its record as a WellLog in the time domain over the file; a catalogue well with no "
+       "file is a named gap; the structure validates; every export is audited; `gea osdu` runs the self-test from the command line")
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -4890,6 +5024,7 @@ def main() -> int:
         section_bb_supervisor(tmp)
         section_bc_sra(tmp)
         section_bd_association(tmp)
+        section_be_osdu(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

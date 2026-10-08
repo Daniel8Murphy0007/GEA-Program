@@ -4,6 +4,21 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.11.0 - 2026-10-07 - the OSDU-shaped export
+
+- **The manifest a buyer's platform loads.** Well, Wellbore, WellLog and
+  File.Generic to the published schemas, the site as the work product,
+  every position on its own datum and on WGS 84 with the operation between
+  them written out, the operator's partition, ACL and legal tag required
+  rather than invented, and the loader's first checks made here first.
+  Section BE.
+- **The console answers.** `gea serve` opens the browser itself once it is
+  listening and prints what happens - the page opened, sign-ins, jobs,
+  stops and restarts - because a server that answers in silence looks, from
+  its own window, like one still loading; the launchers no longer race it.
+  BB12-BB13; gate 320. The SAR panel gets a page and a navigation entry of
+  its own.
+
 ## v0.10.0 - 2026-10-07 - association
 
 - **The stations heard the same thing, or they did not.** A picker, an

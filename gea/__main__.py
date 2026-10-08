@@ -282,7 +282,7 @@ def main(argv=None) -> int:
                       choices=["init", "add-file", "add-catalog", "add-live", "remove", "list", "migrate", "refresh", "audit",
                                "add-seismic", "refresh-seismic", "remove-seismic", "sar-film", "refresh-all", "add-track", "refresh-track", "remove-track",
                                "seismic-dataset", "seismic-field", "add-site", "sites", "site-report", "remove-site", "rename",
-                               "set-well", "sra-define", "sra-report", "associate"])
+                               "set-well", "sra-define", "sra-report", "associate", "osdu-export"])
     p_ws.add_argument("--stations", type=str, nargs="+", default=None, help="add-track: two or more array station ids of this workspace")
     p_ws.add_argument("--site", type=str, default=None, help="site-report/remove-site: the site id")
     p_ws.add_argument("--api", type=str, default=None, help="set-well: the API number")
@@ -309,6 +309,13 @@ def main(argv=None) -> int:
     p_ws.add_argument("--start", type=str, default=None, help="sra-report: first day of the record, YYYY-MM-DD")
     p_ws.add_argument("--end", type=str, default=None, help="sra-report: last day of the record, YYYY-MM-DD")
     p_ws.add_argument("--vp", type=float, default=5.8, help="associate: the P velocity of the model, km/s (declared)")
+    p_ws.add_argument("--partition", type=str, default="", help="osdu-export: the platform's data partition id (declared)")
+    p_ws.add_argument("--acl-owner", type=str, nargs="*", default=None, help="osdu-export: ACL owners group(s)")
+    p_ws.add_argument("--acl-viewer", type=str, nargs="*", default=None, help="osdu-export: ACL viewers group(s)")
+    p_ws.add_argument("--legal-tag", type=str, nargs="*", default=None, help="osdu-export: legal tag(s)")
+    p_ws.add_argument("--country", type=str, nargs="*", default=None, help="osdu-export: otherRelevantDataCountries (default US)")
+    p_ws.add_argument("--operator-org", type=str, default="", help="osdu-export: the operator's Organisation record id on the platform")
+    p_ws.add_argument("--out", type=str, default=None, help="osdu-export: the folder to write the manifest and files into")
     p_ws.add_argument("--depth-km", type=float, default=6.0, help="associate: the hypocentral depth the location is made under, km (declared)")
     p_ws.add_argument("--rms-tol", type=float, default=0.15, help="associate: the RMS residual an event must fit within, s")
     p_ws.add_argument("--wells", type=str, nargs="+", default=None, help="add-site: well ids of this workspace")
@@ -355,6 +362,7 @@ def main(argv=None) -> int:
     p_sv.add_argument("--workers", type=int, default=1, help="jobs run at once")
     p_sv.add_argument("--no-scheduler", action="store_true", help="do not run scheduled jobs from this process")
     p_sv.add_argument("--behind-proxy", action="store_true", help="a reverse proxy terminates TLS in front: trust X-Forwarded-For/-Proto, mark the cookie Secure (deploy/ has nginx and Caddy examples)")
+    p_sv.add_argument("--no-browser", action="store_true", help="do not open the control panel in a browser once the service is listening (a scheduled start, a restart, a server with no desktop)")
 
     p_hk = sub.add_parser("housekeeping", help="rotate the append-only logs, prune finished job folders and old live recordings (dry run unless --apply)")
     p_hk.add_argument("--workspace", type=str, required=True)
@@ -389,6 +397,8 @@ def main(argv=None) -> int:
     p_w0.add_argument("--seed", type=int, default=1)
     p_w0.add_argument("--connect", type=str, default=None, help="host:port - instead of listening, connect to a listening tap and push frames")
 
+    p_osdu = sub.add_parser("osdu", help="the OSDU-shaped export: the self-test on a labelled site")
+    p_osdu.add_argument("--action", choices=["selftest"], default="selftest")
     p_sra = sub.add_parser("sra", help="the Seismicity Response Area packet: the self-test on a labelled scene")
     p_sra.add_argument("--action", choices=["selftest"], default="selftest")
     p_sra.add_argument("--json", action="store_true")
@@ -1486,6 +1496,14 @@ def main(argv=None) -> int:
             return 0
         print(f"notifications: {'configured' if n.cfg else 'not configured'}" + (f" - {len(n.cfg['channels'])} channel(s), {len(n.cfg['rules'])} rule(s), quiet {n.cfg['quiet_s']} s" if n.cfg else " (gea notify --example)"))
         return 0
+    elif a.cmd == "osdu":
+        from . import osdu as _O
+        r = _O.selftest()
+        print(f"osdu selftest [{r['label']}]: {r['status']}")
+        for k, v in r["checks"].items():
+            print(f"  {'ok ' if v else 'BAD'} {k}")
+        print(_O.report_text(r["summary"]))
+        return 0 if r["status"] == "OK" else 1
     elif a.cmd == "sra":
         from . import sra as _SRA
         r = _SRA.selftest()
@@ -1545,6 +1563,10 @@ def main(argv=None) -> int:
         print("   Ctrl+C stops it; every action is in records/audit.jsonl, every start and stop in records/runlog.jsonl")
         print("   the control panel's Stop and Restart end this run with a stated code: 0 stop, 86 start me again -")
         print("   the launcher reads it, and on anything but 86 it hands the window to a PowerShell prompt, never a Python one")
+        print("   this window is the server and has nothing more to load: the control panel is the page in the browser,")
+        print("   and what happens there (the page opening, sign-ins, jobs, stops and restarts) is printed below as it happens")
+        svc.console = True
+        svc.open_browser = not a.no_browser
         return svc.serve_forever()
     elif a.cmd == "users":
         import getpass
@@ -1723,6 +1745,14 @@ def main(argv=None) -> int:
                     print(f"  {sid}: {x['status']}, {x['picks']} pick(s)")
                 print(_assoc_text(r["association"], r["catalogue"]))
                 print("  written:", os.path.join(ws.path, "reports", "sites", a.site, "association.json")); return 0
+            elif a.action == "osdu-export":
+                from .osdu import report_text as _osdu_text
+                if not a.site:
+                    raise SystemExit("osdu-export needs --site <id>")
+                r = ws.osdu_export(a.site, partition=a.partition, acl_owners=a.acl_owner, acl_viewers=a.acl_viewer, legal_tags=a.legal_tag,
+                                   countries=a.country, operator_org_id=a.operator_org, out_dir=a.out, actor=a.actor)
+                print(_osdu_text(r)); v = r["validate"]
+                print(f"  structure: {'ok' if v['ok'] else 'PROBLEMS'} ({v['records']} record(s))" + ('' if v['ok'] else '; ' + '; '.join(v['problems'][:5]))); return 0
             elif a.action == "seismic-dataset":
                 r = ws.write_seismic_dataset_report(actor=a.actor)
                 inv = r["inventory"]

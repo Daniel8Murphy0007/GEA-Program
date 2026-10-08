@@ -186,8 +186,11 @@ if not exist "%GEA_WORKSPACE%\workspace.json" (
 )
 echo == starting the dashboard at http://127.0.0.1:%GEA_PORT%/  (workspace %GEA_WORKSPACE%)
 echo    close this window or run stop-dashboard.cmd to stop it
-rem the browser opens only once the server answers: opened first, it shows a failure page from the second before
-if not "%1"=="--no-browser" start "" /b cmd /c "timeout /t 4 /nobreak >nul & start """" http://127.0.0.1:%GEA_PORT%/"
+rem the service opens the browser itself, once its port is listening - a browser opened from here raced the
+rem server and showed a failure page from the second before. A scheduled start (--no-browser) and a restart
+rem from the control panel (the page is already open) do not open another one.
+set GEA_BROWSER=
+if "%1"=="--no-browser" set GEA_BROWSER=--no-browser
 
 rem The control panel decides how it ends and says so in its exit code: 86 means start me again,
 rem anything else means stop. This window never falls back to whatever shell is underneath it -
@@ -199,8 +202,9 @@ rem one file this script can read. Five deaths in a row and it stops asking: a p
 rem starting would otherwise flicker all night, and the operator needs the error, not the loop.
 set GEA_FAILS=0
 :gea_run
-python\python.exe -m gea serve --workspace "%GEA_WORKSPACE%" --port %GEA_PORT%
+python\python.exe -m gea serve --workspace "%GEA_WORKSPACE%" --port %GEA_PORT% %GEA_BROWSER%
 set GEA_RC=%ERRORLEVEL%
+set GEA_BROWSER=--no-browser
 if "%GEA_RC%"=="86" (
   set GEA_FAILS=0
   echo.
@@ -318,9 +322,14 @@ fi
 echo "== starting the dashboard at http://127.0.0.1:$GEA_PORT/  (workspace $GEA_WORKSPACE)"
 echo "   Ctrl+C stops it, or run ./stop-dashboard.sh"
 fails=0
+# the service opens the browser itself once its port is listening; a restart (the page is already open) and
+# a start with --no-browser (a server with no desktop) do not open another one
+browser=""
+[ "${1:-}" = "--no-browser" ] && browser="--no-browser"
 while :; do
-  ./python/bin/python3 -m gea serve --workspace "$GEA_WORKSPACE" --port "$GEA_PORT"
+  ./python/bin/python3 -m gea serve --workspace "$GEA_WORKSPACE" --port "$GEA_PORT" $browser
   rc=$?
+  browser="--no-browser"
   if [ "$rc" = "86" ]; then
     fails=0
     echo
@@ -383,7 +392,7 @@ workspace) that this kit creates on first start and never deletes.
 3. Wells -> add a well from a file (historian CSV, LAS) or the catalogue.
    Patch panel -> add a patch to read the drill floor (WITS0), a WITSML
    store, OPC UA, MQTT or Modbus. Home -> Refresh every report.
-4. {verify}  runs the acceptance gate (314 checks) from this installation and
+4. {verify}  runs the acceptance gate (320 checks) from this installation and
    is your own acceptance evidence (also on the Verification page).
 5. report-samples\  holds one rendered example of every report the program
    writes, from the build in this kit; SAMPLES.md names the command behind each.

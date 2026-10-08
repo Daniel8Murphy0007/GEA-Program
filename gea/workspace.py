@@ -92,6 +92,9 @@ class Workspace:
             raise WorkspaceError(f'not a workspace (no workspace.json): {self.path} - create one with `gea workspace --path ... --action init`')
         with open(self.manifest_path, encoding='utf-8') as f:
             self.manifest = json.load(f)
+        # a serving process sets this to put selected audit entries on its console as they happen; the record
+        # on the disk is written first and is the record - the console line is a courtesy to whoever is watching
+        self.on_audit = None
 
     # -- creation -------------------------------------------------------------------
     @classmethod
@@ -168,6 +171,12 @@ class Workspace:
             with open(self.audit_path, 'a', encoding='utf-8') as f:
                 f.write(line)
                 f.flush()
+        hook = getattr(self, 'on_audit', None)
+        if hook is not None:
+            try:
+                hook(entry)
+            except Exception:                               # a console that cannot be written to never fails an action
+                pass
         return entry
 
     def audit_log(self, limit: Optional[int] = None) -> List[dict]:
@@ -1248,6 +1257,40 @@ class Workspace:
             return None
         with open(p, encoding='utf-8') as f:
             return json.load(f)
+
+    # -- the OSDU-shaped export ----------------------------------------------------------------------------------
+    def osdu_export(self, site_id: str, partition: str = '', acl_owners: Optional[List[str]] = None, acl_viewers: Optional[List[str]] = None,
+                    legal_tags: Optional[List[str]] = None, countries: Optional[List[str]] = None, operator_org_id: str = '',
+                    out_dir: Optional[str] = None, actor: str = 'system') -> dict:
+        """The site as an OSDU Manifest with its files beside it, under reports/sites/<id>/osdu/ unless told
+        otherwise. The partition, the ACL groups and the legal tag are the operator's declarations; without them
+        the manifest is written and marked NOT LOADABLE, never filled in."""
+        from . import osdu as O
+        st = self.site(site_id)
+        ctx = O.Context(partition=partition or '', acl_owners=list(acl_owners or []), acl_viewers=list(acl_viewers or []),
+                        legal_tags=list(legal_tags or []), countries=list(countries or ['US']), operator_org_id=operator_org_id or '')
+        wells = [self.well(w) for w in st['wells']]
+        streams, files = {}, {}
+        for w in wells:
+            if w['kind'] == 'file' and w.get('files'):
+                files[w['id']] = os.path.join(self.path, 'wells', w['id'], 'source', w['files'][0])
+            elif w['kind'] == 'live':
+                p = self.latest_live_stream_csv(w['id'])
+                if p:
+                    files[w['id']] = p
+            if w['id'] in files:
+                try:
+                    streams[w['id']] = self.well_stream(w['id'])
+                except Exception:
+                    pass
+        stations = [self.seismic_station(x) for x in st['seismic'] if x in self.manifest.get('seismic', [])]
+        sfiles = {x['id']: [os.path.join(self.path, 'seismic', x['id'], 'source', n) for n in x['files']] for x in stations}
+        out = out_dir or os.path.join(self.dir('reports', 'sites', site_id), 'osdu')
+        summary = O.build_manifest(st, wells, streams, files, stations, sfiles, ctx, out)
+        summary['validate'] = O.validate(json.load(open(summary['manifest'], encoding='utf-8')))
+        self.audit(actor, 'site.osdu_export', {'id': site_id, 'status': summary['status'], 'records': summary['validate']['records'],
+                                                'gaps': len(summary['gaps']), 'partition': partition or None, 'out': out})
+        return summary
 
     def write_site_report(self, site_id: str, actor: str = 'system') -> dict:
         from . import __version__

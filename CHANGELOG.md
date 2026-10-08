@@ -5,6 +5,55 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.11.0] - 2026-10-07 - the OSDU-shaped export
+
+### Added
+- **The OSDU-shaped export** (`gea/osdu.py`): the site as the Manifest a
+  large operator's data platform loads - what a buyer's data team asks for
+  on the first call. Built to the published well-known schemas, not to a
+  guess: `osdu:wks:Manifest:1.0.0` with each well as `master-data--Well`
+  and `master-data--Wellbore` 1.0.0 (API and UIC as name aliases, the gauge
+  station as a vertical measurement), each well's record as
+  `work-product-component--WellLog:1.1.0` in the time domain (ZeroTime, the
+  sampling interval, a curve per channel with its unit) over a
+  `dataset--File.Generic:1.0.0` carrying the file's size and SHA-256, each
+  seismic station as a generic component with its records as datasets, and
+  the site as the WorkProduct. The files are copied beside the manifest.
+- **Every position goes out twice.** The schema's SpatialLocation carries
+  `AsIngestedCoordinates` - the point as the operator gave it, with that
+  datum's EPSG code - and `Wgs84Coordinates`, with the operation between
+  them written into `AppliedOperations` (a NAD27 well says "shift 45.4 m").
+  A point on an unknown datum gets no WGS 84 coordinates at all and is
+  named as a gap, because a platform that indexed it would place the well
+  tens of metres wrong. The datum discipline of v0.8.0 reaches the
+  platform intact.
+- What the operator declares and the export never fills in: the data
+  partition, the ACL groups, the legal tag. Without them the manifest is
+  written and marked **NOT LOADABLE** with the missing names. A structural
+  validation makes the platform loader's first checks here first: every
+  record's id, kind, ACL, legal and data; every dataset a component names;
+  every wellbore's well; every component the work product lists.
+- What it will not write: a seismic trace component under a schema not
+  read in the writing of this export. `gea workspace --action osdu-export`;
+  `gea osdu` self-test; `gea help osdu`. Section BE (4 checks).
+- **The console answers.** `gea serve` opens the control panel in the
+  browser itself once its port is listening (`--no-browser` for a scheduled
+  start or a box with no desktop), and the window it was started in says
+  what happens as it happens: the page being opened, a sign-in or a refused
+  one, a job starting and finishing, a stop or restart requested. An
+  operator waited hours at a console that had been serving the page all
+  along, because a server that answers in silence looks, from that window,
+  exactly like one that is still loading. The banner now says so in words:
+  this window is the server and has nothing more to load. The kit launchers
+  no longer open a browser of their own on a timer - opened first, it
+  showed a failure page from the second before the server was up - and a
+  restart from the panel does not open a second page. BB12-BB13; the gate
+  is 320.
+- **The SAR panel has a page of its own** - "SAR panel" in the navigation,
+  after Seismic - as well as its place at the foot of the Seismic page,
+  where, below the station table and two cards, it was reported as nowhere
+  to be found. The same panel, the same film. AQ4 extended.
+
 ## [v0.10.0] - 2026-10-07 - association: the stations heard the same thing, or they did not
 
 ### Added

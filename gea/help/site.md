@@ -2,7 +2,7 @@
 
 > The workspace folder, the four roles and what each cannot do, the audit log.
 
-**The command**: `gea workspace --path C:\site --action init --name "Pad 3"`; `gea serve --workspace C:\site` (loopback by default; `--behind-proxy` with a TLS proxy in front, see `deploy/README.md`); `gea users --workspace C:\site --action add --name ... --role admin` (the password from `GEA_PASSWORD`, never the command line). `gea workspace --path C:\site --action rename --name "Pad 3"` sets the site's name as every report prints it.
+**The command**: `gea workspace --path C:\site --action init --name "Pad 3"`; `gea serve --workspace C:\site` (loopback by default; it opens the control panel in your browser once it is listening, `--no-browser` for a scheduled start, and the window it runs in prints what happens on the page - sign-ins, jobs, stops - as it happens; `--behind-proxy` with a TLS proxy in front, see `deploy/README.md`); `gea users --workspace C:\site --action add --name ... --role admin` (the password from `GEA_PASSWORD`, never the command line). `gea workspace --path C:\site --action rename --name "Pad 3"` sets the site's name as every report prints it.
 
 **What it writes**: `workspace.json`, `wells/<id>/{source,records}`, `config/` (every configuration versioned, diffed, reversible), `monitor/`, `reports/`, `jobs/<id>/{job.json,log.txt}`, `records/audit.jsonl` (append-only, every action with the actor and the SHA-256 of its inputs), `users.json` (salted PBKDF2-SHA256, never a password).
 
