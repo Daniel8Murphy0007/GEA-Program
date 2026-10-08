@@ -1095,3 +1095,25 @@ entry of its own now ("SAR panel", after Seismic), the same panel bound the
 same way; the Seismic page keeps its copy. Played end to end in a headless
 browser - sign-in, Run the scene, the job, Play, frame 4/48 - with no
 script error. AQ4 extended.
+
+## 2026-10-08 - the Linux kit's gate judges the Linux kit (v0.11.1)
+
+v0.11.0 shipped (bc5e185): ci green, PyPI green, the Windows kit green, the
+Linux kit red at "Install it offline and run its gate" after 13.5 minutes -
+the gate ran to its last sections. The job log is behind an admin login
+this session does not have; the runs and steps are public and were read.
+The cause was found by reading section BB: on a Linux kit `cmd` is None,
+and the section substitutes a bare stand-in launcher text so that BB6 can
+build its good and bad kits; BB13, new at v0.11.0, then judged that
+stand-in for `%GEA_BROWSER%` and failed. The checkout has the template and
+the Windows kit has the real launcher, which is why both of those passed.
+
+- BB keeps `cmd_real` - the launcher as shipped, or None - before the
+  stand-in; BB13 judges that, and a Linux kit on its shell launcher alone.
+- Proven from an installed layout (the package installed into a venv with
+  no checkout beside it, `start-dashboard.sh` alone above the interpreter,
+  `kit_dir()` finding it): the shipped BB13 fails there exactly as the kit
+  build did, the corrected one passes 13/13. The gate is 320.
+- The first ship attempt stopped at AM1: the 23 report samples still
+  carried build 0.11.0. Re-rendered at 0.11.1 and transferred; the samples
+  are re-rendered before every ship and this one had skipped that step.

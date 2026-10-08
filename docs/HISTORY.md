@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.11.1 - 2026-10-08 - the Linux kit's gate judges the Linux kit
+
+- **The Linux kit's gate failed at v0.11.0.** BB13 judged the Windows
+  launcher text on a kit that has none - section BB substitutes a stand-in
+  there for BB6's sake, and the new check read the stand-in. It keeps the
+  shipped launcher apart from the stand-in now and judges a Linux kit on
+  its shell launcher alone. Proven failing and then passing from an
+  installed Linux layout. Gate 320.
+
 ## v0.11.0 - 2026-10-07 - the OSDU-shaped export
 
 - **The manifest a buyer's platform loads.** Well, Wellbore, WellLog and

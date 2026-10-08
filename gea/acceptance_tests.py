@@ -4473,6 +4473,7 @@ def section_bb_supervisor(tmp: str) -> None:
        "BB4 a code that is neither 0 nor 86 is a death, not a decision: the launcher reads the operator's answer from records/auto_restart.flag, "
        "tries at most five times in a row so a panel that crashes while starting hands over the error instead of flickering all night, and reads "
        "that file outside an if-block because a redirect inside parentheses is parsed before the block runs")
+    cmd_real = cmd                                   # the launcher as shipped (template or installed file), before the stand-in below
     if cmd is None:                                  # a Linux kit: BB6 needs a Windows launcher text to build its good and bad kits from
         cmd = ("@echo off\ntitle GEA - Operations Control Panel\n:gea_run\npython\\python.exe -m gea serve\nset GEA_RC=%ERRORLEVEL%\n"
                "if \"%GEA_RC%\"==\"86\" goto gea_run\n:gea_read_flag\nset /p GEA_AUTO=<\"%GEA_WORKSPACE%\\records\\auto_restart.flag\"\n"
@@ -4636,12 +4637,13 @@ def section_bb_supervisor(tmp: str) -> None:
     ok('"--no-browser", action="store_true"' in main_src
        and "svc.open_browser = not a.no_browser" in main_src and "svc.console = True" in main_src
        and hasattr(Service, "_open_browser_later") and Service(wsp, host="127.0.0.1", port=0, scheduler=False).open_browser is False
-       and (cmd is None or ("%GEA_BROWSER%" in cmd and "timeout /t 4" not in cmd and 'if "%1"=="--no-browser" set GEA_BROWSER=--no-browser' in cmd
-                            and "set GEA_BROWSER=--no-browser" in cmd))
+       and (cmd_real is None or ("%GEA_BROWSER%" in cmd_real and "timeout /t 4" not in cmd_real
+                                 and 'if "%1"=="--no-browser" set GEA_BROWSER=--no-browser' in cmd_real and "set GEA_BROWSER=--no-browser" in cmd_real))
        and (sh is None or ("$browser" in sh and 'browser="--no-browser"' in sh)),
        "BB13 `gea serve` opens the control panel in the browser itself once its port is listening, and the launchers no longer race it with a "
        "browser of their own - opened first, it showed a failure page from the second before the server was up; a scheduled start passes "
-       "--no-browser through, a restart from the panel does not open a second page, and the service run in-process by this gate opens nothing")
+       "--no-browser through, a restart from the panel does not open a second page, and the service run in-process by this gate opens nothing; a Linux "
+       "kit, which carries no Windows launcher, is judged on its shell launcher alone")
 
 
 def section_bc_sra(tmp: str) -> None:

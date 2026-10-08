@@ -5,6 +5,22 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.11.1] - 2026-10-08 - the Linux kit's gate judges the Linux kit
+
+### Fixed
+- The Linux kit's own gate (`verify.sh`) failed at v0.11.0 on both GitHub
+  kit builds; the Windows kit's passed, and so did the gate from the
+  checkout. BB13, new at v0.11.0, checked the Windows launcher text for the
+  browser hand-off - but on a Linux kit, which carries no Windows launcher,
+  section BB had already substituted a bare stand-in text so that BB6 could
+  build its good and bad kits from something, and BB13 judged the stand-in
+  as if it were the launcher. It now keeps the launcher as shipped apart
+  from the stand-in and judges a Linux kit on its shell launcher alone.
+  Proven both ways from an installed layout with only `start-dashboard.sh`
+  beside the interpreter: the shipped BB13 fails there exactly as the kit
+  build did, the corrected one passes. The gate is still 320.
+- The report samples re-rendered from this build.
+
 ## [v0.11.0] - 2026-10-07 - the OSDU-shaped export
 
 ### Added
