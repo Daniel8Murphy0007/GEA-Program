@@ -5719,6 +5719,159 @@ def section_bk_seedlink(tmp: str) -> None:
        "names the simulator to start; the help page says a gap is counted, never bridged"
        + (f" [failed: {', '.join(failed)}; row={json.dumps({k: row.get(k) for k in ('status', 'protocol', 'records', 'latency_p95_s', 'last_error')})}]" if failed else ""))
 
+
+def section_bl_backup(tmp: str) -> None:
+    """Section BL - the site copied off the machine: the archive and its manifest, verify, a tampered archive named,
+    restore onto an empty folder and the workspace that comes back, the refusals, the doctor's line, the page's
+    card, the job and the daily schedule."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    import zipfile
+    from . import backup as B
+    from . import doctor as D
+    from . import helplib as H
+    from .telemetry import TelemetryRecorder, TelemetryConfig
+    from .downhole_engine import DownholeEngine, SimulatorConfig
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bl"); d.mkdir()
+    hist = str(d / "hist.csv")
+    TelemetryRecorder(engine=DownholeEngine(SimulatorConfig()), config=TelemetryConfig(duration_hours=0.5, seed=5)).run().export_csv(hist)
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    w = ws.add_well_file(hist, display="SWD 1", actor="tester")
+    users = Users(str(Path(wsp, "users.json"))); users.add("op", "operator-pass-1", "operator"); users.add("adm", "admin-pass-1", "admin")
+    (Path(wsp) / "jobs" / "run-0001").mkdir(parents=True); (Path(wsp) / "jobs" / "run-0001" / "log.txt").write_text("a finished run")
+    (Path(wsp) / "jobs" / "_uploads").mkdir(); (Path(wsp) / "jobs" / "_uploads" / "x.bin").write_bytes(b"scratch")
+    (Path(wsp) / "jobs" / "schedule.json").write_text(json.dumps({"entries": []}))
+
+    # -- make, verify, status, restore; the refusals; the pruning ---------------------------------------------------
+    never = B.status(wsp)
+    out = str(d / "off-disk")
+    r1 = B.make(wsp, out, "tester", keep=2, label="first")
+    v1 = B.verify(r1["path"])
+    side1 = os.path.isfile(r1["path"] + ".sha256")           # before the later --keep prunes this first archive and its hash file
+    st1 = B.status(wsp)
+    with zipfile.ZipFile(r1["path"]) as z:
+        names = z.namelist(); man = json.loads(z.read("MANIFEST.json"))
+    inside_refused = None
+    try:
+        B.make(wsp, os.path.join(wsp, "records", "bk"), "tester")
+    except ValueError as e:
+        inside_refused = str(e)
+    rr = B.restore(r1["path"], str(d / "restored"), "tester")
+    ws2 = Workspace(str(d / "restored"))
+    nonempty_refused = None
+    try:
+        B.restore(r1["path"], str(d / "restored"), "tester")
+    except ValueError as e:
+        nonempty_refused = str(e)
+    # tamper: rewrite one member in a copy; verify names it and restore refuses it
+    bad = str(d / "tampered.zip")
+    with zipfile.ZipFile(r1["path"]) as zin, zipfile.ZipFile(bad, "w") as zout:
+        for info in zin.infolist():
+            data = zin.read(info.filename)
+            if info.filename == "workspace.json":
+                data = data.replace(b"Pad 3", b"Pad 4")
+            zout.writestr(info, data)
+    vbad = B.verify(bad)
+    tampered_refused = None
+    try:
+        B.restore(bad, str(d / "restored2"), "tester")
+    except ValueError as e:
+        tampered_refused = str(e)
+    r2 = B.make(wsp, out, "tester", keep=2); r3 = B.make(wsp, out, "tester", keep=2)
+    left = sorted(n for n in os.listdir(out) if n.endswith(".zip"))
+    rec_files = [n for n in names if n.startswith(f"wells/{w['id']}/")]
+    c1 = {
+        "never_then_current": never["never"] and never["stale"] and st1["never"] is False and st1["stale"] is False and st1["present"] is True and st1["count"] == 1,
+        "manifest": r1["n_files"] == man["n_files"] and man["protocol"] == "gea.backup/1" and man["site"] == "Pad 3" and man["wells"] == [w["id"]] and man["users_json"] is True,
+        "members": "users.json" in names and "records/audit.jsonl" in names and "workspace.json" in names and "jobs/schedule.json" in names and bool(rec_files)
+                   and not any(n.startswith("jobs/run-") or "_uploads" in n for n in names),
+        "verify_ok": v1["status"] == "OK" and v1["n_files"] == r1["n_files"] and v1["archive_sha256_matches"] is True and side1,
+        "inside_refused": bool(inside_refused) and "inside the workspace" in inside_refused,
+        "restored_site": rr["site"] == "Pad 3" and rr["wells"] == [w["id"]] and rr["users_json"] is True and ws2.manifest["name"] == "Pad 3" and ws2.wells()[0]["id"] == w["id"],
+        "restored_note_audit": os.path.isfile(d / "restored" / "restored_from.json") and any(a["action"] == "backup.restore" for a in ws2.audit_log()),
+        "restored_accounts": Users(str(d / "restored" / "users.json")).check("op", "operator-pass-1") is not None,
+        "nonempty_refused": bool(nonempty_refused) and "empty folder" in nonempty_refused,
+        "tampered": vbad["status"] == "FAIL" and vbad["mismatched"] == ["workspace.json"] and bool(tampered_refused) and "does not verify" in tampered_refused,
+        "pruned": len(left) == 2 and os.path.basename(r3["path"]) in left and os.path.basename(r1["path"]) not in left and r3["pruned"] == [os.path.basename(r1["path"])],
+        "audited": any(a["action"] == "backup.make" for a in ws.audit_log()),
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "BL1 the site copied off the machine: one dated archive carrying every well's source and records, users.json, the audit log, the manifest "
+       "and the schedule - never the job run folders or the upload scratch - with MANIFEST.json (site, version, every file's SHA-256) inside and the "
+       "archive's own hash beside it; verify reads OK; status turns from NEVER to current; a folder inside the workspace is refused; the archive "
+       "restored onto an empty folder opens as the same site with the same well, the same accounts and a restored_from note, and a second restore "
+       "onto it is refused; a tampered archive fails verify naming the file and is refused by restore; --keep prunes the oldest; both in the audit"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- the doctor, the service, the page, the CLI ------------------------------------------------------------------
+    wsp2 = str(d / "ws2"); ws3 = Workspace.create(wsp2, "Pad 3", actor="tester")
+    users3 = Users(str(Path(wsp2, "users.json"))); users3.add("adm", "admin-pass-1", "admin"); users3.add("op", "operator-pass-1", "operator")
+    f_never = [x for x in D.check_workspace(wsp2, port=0) if "backup" in x["what"]]
+    svc = Service(wsp2, port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json"); req.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(req, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        call("POST", "/api/login", {"name": "op", "password": "operator-pass-1"})
+        st_op = call("GET", "/api/backup")[0]
+        call("POST", "/api/login", {"name": "adm", "password": "admin-pass-1"})
+        st_v0, v0 = call("GET", "/api/backup")
+        st_run0 = call("POST", "/api/backup/run", {})[0]
+        st_in = call("POST", "/api/backup/config", {"out_dir": os.path.join(wsp2, "records", "bk")})[0]
+        st_bad_t = call("POST", "/api/backup/config", {"out_dir": str(d / "off2"), "daily_at": "2:30"})[0]
+        st_cfg, cfg = call("POST", "/api/backup/config", {"out_dir": str(d / "off2"), "keep": 7, "daily_at": "02:30"})
+        st_run, job = call("POST", "/api/backup/run", {})
+        done = svc.app.runner.wait(job["id"], 120)
+        st_v1, v1s = call("GET", "/api/backup")
+        st_sch, sch = call("POST", "/api/backup/schedule", {})
+        st_v2, v2s = call("GET", "/api/backup")
+    finally:
+        svc.stop()
+    f_after = [x for x in D.check_workspace(wsp2, port=0) if "backup" in x["what"]]
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    help_md = (pkg / "help" / "backup.md").read_text(encoding="utf-8")
+    r_st0 = _sp.run([sys.executable, "-m", "gea", "backup", "--workspace", str(d / "ws3-none"), "--status"], capture_output=True, text=True)
+    r_st = _sp.run([sys.executable, "-m", "gea", "backup", "--workspace", wsp2, "--status"], capture_output=True, text=True)
+    r_v = _sp.run([sys.executable, "-m", "gea", "backup", "--verify", v1s["status"]["last"]["path"]], capture_output=True, text=True)
+    r_vbad = _sp.run([sys.executable, "-m", "gea", "backup", "--verify", bad], capture_output=True, text=True)
+    r_rs = _sp.run([sys.executable, "-m", "gea", "backup", "--restore", v1s["status"]["last"]["path"], "--to", str(d / "restored3")], capture_output=True, text=True)
+    c2 = {
+        "doctor_never": len(f_never) == 1 and f_never[0]["level"] == "warn" and "no backup has ever been taken" in f_never[0]["what"] and "gea backup" in f_never[0]["fix"],
+        "api_admin_only_and_empty": st_op == 403 and st_v0 == 200 and v0["status"]["never"] is True and v0["schedule"] is None and v0["config"]["out_dir"] == "",
+        "config_refusals": st_run0 == 400 and st_in == 400 and st_bad_t == 400 and st_cfg == 200 and cfg["keep"] == 7,
+        "job_ran": st_run == 200 and done["status"] == "DONE" and st_v1 == 200 and v1s["status"]["never"] is False and v1s["status"]["present"] is True
+                   and os.path.isfile(v1s["status"]["last"]["path"]) and v1s["status"]["last"]["actor"] == "adm",
+        "scheduled": st_sch == 200 and sch["name"] == "backup-daily" and sch["daily_at"] == "02:30" and sch["args"][0] == "backup" and "--keep" in sch["args"]
+                     and v2s["schedule"] is not None and v2s["schedule"]["name"] == "backup-daily",
+        "doctor_after": len(f_after) == 1 and f_after[0]["level"] == "ok" and "last backup" in f_after[0]["what"],
+        "page": "The backup" in page_src and "/api/backup/run" in page_src and "/api/backup/schedule" in page_src,
+        "cli_status": r_st0.returncode == 1 and "NEVER" in r_st0.stdout and r_st.returncode == 0 and "current" in r_st.stdout,
+        "cli_verify": r_v.returncode == 0 and "OK" in r_v.stdout and r_vbad.returncode == 1 and "workspace.json" in r_vbad.stdout,
+        "cli_restore": r_rs.returncode == 0 and "users.json present" in r_rs.stdout,
+        "help": any(t["topic"] == "backup" for t in H.topics()) and not H.check("backup") and "never restored" in help_md.split("will not call a measurement")[1],
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "BL2 the doctor warns NEVER until a backup exists and says when the last one was afterwards; the Audit / Update page's backup card (admin only) "
+       "refuses a folder inside the workspace and a malformed hour, saves the folder and the keep count, runs the backup as a job that the status then "
+       "shows with its actor, and schedules it daily as the `backup-daily` entry; `gea backup --status` exits 1 on NEVER and 0 when current, "
+       "`--verify` says OK or names the tampered file, `--restore` brings the accounts back; the help page says a backup never restored is a hope"
+       + (f" [failed: {', '.join(failed2)}; r_st0={r_st0.stdout[-120:]!r} {r_st0.stderr[-120:]!r}]" if failed2 else ""))
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -5785,6 +5938,7 @@ def main() -> int:
         section_bi_conformance(tmp)
         section_bj_etp(tmp)
         section_bk_seedlink(tmp)
+        section_bl_backup(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

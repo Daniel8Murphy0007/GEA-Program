@@ -1355,3 +1355,33 @@ ship that carries the fix.
   place; the tolerances stay as a second line.
 - Version 0.17.1; samples re-rendered; gate 340 (the workflow is not gated
   code, so the count does not move).
+
+## 2026-10-09 - the backup (v0.18.0)
+
+v0.17.1 shipped four green - one kit run, as designed. He brought an
+independent evaluator's production list: run the gate and the doctor on the
+machine that will serve; declare Pad 3's wells with API, datum and the three
+channel tags; point one real feed at it; the go-live list (loopback, proxy,
+four accounts, daily housekeeping, the load test); a backup, which the
+package did not write; three public files through the commands that exist
+(TexNet catalogue, one TexNet day with its StationXML and a permit export,
+TexNet injection rows for the neighbouring wells); the week-one rehearsal
+signed on a filled fat-sat protocol. Of those, the backup is code and is
+this leg. The injection reader waits for one real export from the TexNet
+tool (not reachable from here); the rest is his to run on the site machine.
+
+- `gea/backup.py`: `site_files` (the walk, minus job run folders and
+  `_uploads`), `make` (the archive, MANIFEST.json, the .sha256, --keep,
+  records/backups.jsonl, audit), `verify`, `restore` (empty folder only,
+  verified twice, restored_from.json, audit), `status`, `report_text`.
+- The doctor's backup line; `/api/backup*`; the Audit / Update card; the
+  `backup-daily` schedule entry; `gea backup`; `gea help backup`;
+  deploy/README.md and the README's go-live section.
+- First-draft lessons: two backups in one second overwrote each other (the
+  second is numbered now), and a lexical sort put `-2.zip` before `.zip`
+  (ordered by stamp and number); the test read the first archive's hash
+  file after --keep had pruned it.
+- The attach-kit tolerance for a tag run whose upload loses to the main
+  run (written before v0.17.1 removed the second run) goes out in this
+  version as a second line, as the SESSION_LOG above says.
+- Section BL (2 checks): 342.

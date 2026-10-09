@@ -5,6 +5,41 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.18.0] - 2026-10-09 - the backup: the site copied off the machine
+
+### Added
+- **`gea backup`** (`gea/backup.py`): the one thing the go-live list named
+  that no command wrote. `--workspace C:\site --out D:\gea-backups --keep
+  14` writes one dated archive, `gea-site-<name>-<UTC>.zip`, carrying the
+  whole site - every well's source files and records, every station's
+  source and live day files, `config/`, `monitor/`, `reports/`,
+  `users.json`, the audit log, the notifications, the patches, the
+  certificates and swaps, `workspace.json`, `jobs/schedule.json` - with
+  `MANIFEST.json` inside (program version, site name, time, every file's
+  SHA-256 and size, the wells and stations by id) and the archive's own
+  SHA-256 beside it; the job run folders and the upload scratch are left
+  out (reproducible, and what grows). A folder inside the workspace is
+  refused. `--keep` prunes the older archives of that site. Every backup
+  is logged in `records/backups.jsonl` and in the audit (`backup.make`).
+- **`--verify`** reads an archive against its manifest and its `.sha256`,
+  names any mismatched, missing or extra file; **`--restore <archive> --to
+  <folder>`** extracts onto an empty folder only, verifies every file
+  again, opens the result as a workspace, writes `restored_from.json` and
+  `backup.restore` in its audit, and says what came back (the wells, the
+  stations, whether `users.json` is there) - a backup nobody has restored
+  is a hope; a tampered archive is refused. **`--status`** says when the
+  last backup was taken and whether it is still where the log says.
+- **The doctor** warns when no backup has ever been taken from the
+  workspace or the last is more than 26 hours old, and says when the last
+  one was otherwise; its users.json line now names the restore command.
+- **The page**: Audit / Update carries "The backup" card (administrator):
+  the folder (another disk or a share; the workspace itself is refused),
+  the keep count, the daily hour; Back up now as a job; Schedule daily as
+  the `backup-daily` schedule entry. `/api/backup`, `/api/backup/config`,
+  `/api/backup/run`, `/api/backup/schedule`; `backup` is a runnable job.
+  `gea help backup`; `deploy/README.md` and the go-live section carry it.
+  Section BL (2 checks); the gate is 342.
+
 ## [v0.17.1] - 2026-10-09 - one kit run per ship
 
 ### Fixed

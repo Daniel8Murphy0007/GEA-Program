@@ -225,8 +225,23 @@ def check_workspace(path: str, host: str = '127.0.0.1', port: int = 8765) -> Lis
         try:
             n_users = len(json.load(open(users, encoding='utf-8')).get('users', []))
         except (OSError, json.JSONDecodeError):
-            f.append(_finding('block', 'users.json is not valid JSON', 'restore it from a backup, or move it aside to start with a fresh administrator'))
+            f.append(_finding('block', 'users.json is not valid JSON', 'restore it from a backup (gea backup --restore <archive> --to <empty folder>), or move it aside to start with a fresh administrator'))
     f.append(_finding('info', f'{n_users} account(s)' + ('' if n_users else ' - the first visit to the page creates the administrator')))
+    try:
+        from . import backup as BK
+        bs = BK.status(ws.path)
+        if bs['never']:
+            f.append(_finding('warn', 'no backup has ever been taken from this workspace - a lost disk is a lost month, and the records are the product',
+                              'gea backup --workspace <this> --out <a folder on another disk or a share>; then schedule it daily on the Audit / Update page'))
+        elif bs['stale']:
+            f.append(_finding('warn', f"the last backup is {bs['age_h']:.0f} h old ({bs['last']['utc']}); daily means under {bs['stale_after_h']:g} h",
+                              'run the backup, and check the daily schedule entry is enabled'))
+        elif bs['present'] is False:
+            f.append(_finding('warn', f"the last backup ({bs['last']['utc']}) is not where the log says: {bs['last']['path']}", 'the backup disk or share is not mounted, or the file was moved'))
+        else:
+            f.append(_finding('ok', f"last backup {bs['last']['utc']} ({bs['age_h']:.1f} h ago), present at {bs['last']['path']}"))
+    except Exception as e:
+        f.append(_finding('warn', f'backup status could not be read: {e}'))
     try:
         from .patches import PatchStore
         ps = PatchStore(ws).list()

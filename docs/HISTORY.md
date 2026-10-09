@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.18.0 - 2026-10-09 - the backup
+
+- **The site copied off the machine.** One dated archive of the whole
+  site with a manifest of every file's hash, onto another disk or a share;
+  verified; restored once onto an empty folder and opened before it is
+  trusted; scheduled daily from the page; the doctor warns when it is
+  missing or stale. Section BL; gate 342.
+
 ## v0.17.1 - 2026-10-09 - one kit run per ship
 
 - **The kit workflow no longer races itself.** It ran on the tag and on

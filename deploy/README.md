@@ -34,7 +34,15 @@ What the service does on its own, proxy or not:
 * an administrator sees every live session (who, from where, since when) and
   can revoke one or all of a user's sessions; any user can sign out everywhere;
 * the audit log is append-only and `gea housekeeping` segments it rather than
-  truncating it.
+  truncating it;
+* `gea backup --workspace C:\site --out D:\gea-backups --keep 14` copies the
+  whole site - records, configuration, users.json, the audit log, the
+  stations' live files - into one dated archive with a manifest, onto another
+  disk or a share (a folder inside the workspace is refused); schedule it
+  daily from Audit / Update, and restore it once onto an empty folder
+  (`gea backup --restore <archive> --to C:\site-restored`) and open the page
+  before the first well is live. The doctor warns when there has never been
+  one or the last is more than 26 hours old.
 
 What it does not do: the service has no TLS of its own, no certificate
 handling, and no single sign-on; those belong to the proxy and the site's

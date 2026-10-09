@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (340 checks)
+gea accept                     # the product gate (342 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -683,6 +683,14 @@ headers on every response, and `gea housekeeping --workspace C:\site --apply`
 than truncating them and prunes finished job folders and old recordings. `gea
 loadtest --patches 16 --seconds 60 --with-service` tells you whether the site
 machine carries the patches it will be given, with the page still answering.
+`gea backup --workspace C:\site --out D:\gea-backups --keep 14` copies the
+whole site into one dated archive with a manifest of every file's hash, onto
+another disk or a share; schedule it daily from Audit / Update, verify an
+archive with `--verify`, and restore one onto an empty folder with
+`--restore ... --to` and open it once before the first well is live - the
+records are the product, and a backup nobody has restored is a hope. The
+doctor warns when there has never been a backup or the last is more than a
+day old. `gea help backup`.
 
 ## The standalone install kit
 

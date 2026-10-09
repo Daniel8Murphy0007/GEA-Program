@@ -411,6 +411,16 @@ def main(argv=None) -> int:
     p_es.add_argument("--frames", type=int, default=600)
     p_es.add_argument("--interval", type=float, default=1.0, help="seconds between samples")
     p_es.add_argument("--seed", type=int, default=1)
+    p_bk = sub.add_parser("backup", help="the site copied off the machine: one dated archive with a manifest; --verify an archive; --restore one onto an empty folder; --status")
+    p_bk.add_argument("--workspace", type=str, default=None, help="the site folder (for a backup, or --status)")
+    p_bk.add_argument("--out", type=str, default=None, help="the folder the archive goes to - another disk or a share, never inside the workspace")
+    p_bk.add_argument("--keep", type=int, default=None, help="keep only the newest N archives of this site in --out")
+    p_bk.add_argument("--label", type=str, default="", help="a note carried in the manifest (e.g. 'before the gauge swap')")
+    p_bk.add_argument("--verify", type=str, default=None, help="check this archive against its manifest and its .sha256")
+    p_bk.add_argument("--restore", type=str, default=None, help="restore this archive ...")
+    p_bk.add_argument("--to", type=str, default=None, help="... onto this empty folder")
+    p_bk.add_argument("--status", action="store_true", help="when the last backup of --workspace was taken, and whether that is too long ago")
+    p_bk.add_argument("--actor", type=str, default="cli")
     p_sl = sub.add_parser("seedlink", help="the seismic leg's live port: a SeedLink (3 / 4.0) station's records as it writes them, byte for byte into day files; --selftest against the simulator")
     p_sl.add_argument("--config", type=str, default=None, help="the SeedLink config JSON (host, port, streams)")
     p_sl.add_argument("--write-example-config", type=str, default=None, help="write an example config here and exit")
@@ -2017,6 +2027,24 @@ def main(argv=None) -> int:
             stop.set()
             print("wits0-sim: stopped")
         return 0
+    elif a.cmd == "backup":
+        from . import backup as _B
+        try:
+            if a.verify:
+                r = _B.verify(a.verify); print(_B.report_text(r, "verify")); return 0 if r["status"] == "OK" else 1
+            if a.restore:
+                if not a.to:
+                    raise SystemExit("backup --restore needs --to <empty folder>")
+                print(_B.report_text(_B.restore(a.restore, a.to, a.actor), "restore")); return 0
+            if not a.workspace:
+                raise SystemExit("backup needs --workspace <site folder> (with --out <another disk>), or --verify / --restore an archive")
+            if a.status:
+                r = _B.status(a.workspace); print(_B.report_text(r, "status")); return 0 if not (r["never"] or r["stale"]) else 1
+            if not a.out:
+                raise SystemExit("backup needs --out <a folder on another disk or a share>")
+            print(_B.report_text(_B.make(a.workspace, a.out, a.actor, keep=a.keep, label=a.label), "make")); return 0
+        except (ValueError, OSError) as e:
+            raise SystemExit(f"backup: {e}")
     elif a.cmd == "seedlink":
         import json as _json
         from . import seedlink as _L

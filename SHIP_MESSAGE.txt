@@ -1,14 +1,21 @@
-v0.17.1 — ONE KIT RUN PER SHIP
+v0.18.0 — THE BACKUP: THE SITE COPIED OFF THE MACHINE
 
-The kit workflow raced itself. Every ship pushes main and the tag together
-and the workflow ran on both: two runs building the same commit and
-attaching the same kits to the same release within seconds of each other.
-Three ships went red at the attach step with the kits already on the
-release - v0.13.0, v0.16.0, v0.17.0 - and each was patched where it hit.
-The cause was two writers. The workflow now runs once per ship, on the
-tag, and by hand; a concurrency group on the commit queues a manual run
-behind a tag run instead of beside it. One writer per release. The attach
-script keeps its tolerances as a second line.
+The records are the product, and nothing in the package copied the site
+anywhere. The doctor told a person to restore users.json "from a backup"
+that no command wrote. gea backup writes it: one dated archive of the whole
+site - every well's source and records, every station's source and live day
+files, the configuration, the monitor, the reports, users.json, the audit
+log, the patches, the schedule - with a manifest of every file's SHA-256
+inside and the archive's own hash beside it, onto another disk or a share
+(a folder inside the workspace is refused). --verify reads an archive
+against its manifest and names what differs. --restore brings one back onto
+an empty folder, verifies every file again, opens it as a workspace and
+says what came back - because a backup nobody has restored is a hope.
+--keep prunes the old ones. The doctor warns when there has never been a
+backup or the last is more than a day old. On the dashboard, Audit / Update
+carries the card: the folder, Back up now, Schedule daily.
 
-No program code changes. The gate is 340 checks. The standalone guard is
-clean.
+Also in this ship: the attach step's tolerance for a tag run whose upload
+loses to a run beside it (a second line; v0.17.1 removed the second run).
+
+Section BL is new. The gate is 342 checks. The standalone guard is clean.

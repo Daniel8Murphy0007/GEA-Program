@@ -46,6 +46,7 @@ INDEX: List[tuple] = [
     ('conformance', 'Conformity, in the standards\' words', 'certificates against ISO/IEC 17025 7.8 and the bias against its class under a named ILAC-G8 decision rule'),
     ('etp', 'WITSML 2.x over ETP', 'the live port on Energistics ETP v1.2: subscribe to the store\'s channels and it pushes'),
     ('seedlink', 'Live stations (SeedLink)', 'the seismic leg\'s live port: a station\'s records as it writes them, resumed by sequence number, folded into its record list'),
+    ('backup', 'The backup', 'the site copied off the machine, verified, and restored once before it is trusted'),
     ('doctor', 'Which code is running', 'gea doctor and the serve start-up gate'),
     ('audit-update', 'Audit / Update', 'the whole audit log with filters, the program against PyPI, every report against its source'),
     ('upkeep', 'Upkeep', 'housekeeping, sessions, the TLS proxy, the load test'),

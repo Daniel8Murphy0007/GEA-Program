@@ -75,7 +75,7 @@ PBKDF2_ROUNDS = 200_000
 # Commands the page may run as jobs. Anything else is refused (never `serve`, never a shell).
 RUNNABLE = ('accept', 'fat-sat', 'sbom', 'permits', 'sla-report', 'model-cards', 'client-report', 'dashboard', 'workspace', 'drift-monitor',
             'well-test', 'alarms', 'notify', 'swaps', 'certificates', 'transient', 'housekeeping', 'store-forward', 'config', 'reconcile', 'ingest', 'opcua', 'mqtt', 'report', 'gamma', 'bench',
-            'service-life', 'telemetry', 'run', 'wells', 'survey', 'wits0', 'witsml', 'wits0-sim', 'etp', 'etp-sim', 'files', 'doctor', 'update')
+            'service-life', 'telemetry', 'run', 'wells', 'survey', 'wits0', 'witsml', 'wits0-sim', 'etp', 'etp-sim', 'files', 'doctor', 'update', 'backup')
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web')
 
 
@@ -746,6 +746,51 @@ class App:
         with open(os.path.join(self.ws.well_dir(w['id']), 'well.json'), 'w', encoding='utf-8') as f:
             json.dump(w, f, indent=1)
         return w
+
+    # -- backup: the site copied off the machine -------------------------------------------------------------
+    def backup_config(self) -> dict:
+        p = os.path.join(self.ws.path, 'records', 'backup_config.json')
+        cfg = {'out_dir': '', 'keep': 14, 'daily_at': '02:30'}
+        if os.path.isfile(p):
+            try:
+                with open(p, encoding='utf-8') as f:
+                    cfg.update({k: v for k, v in json.load(f).items() if k in cfg})
+            except (OSError, ValueError):
+                pass
+        return cfg
+
+    def backup_view(self) -> dict:
+        from . import backup as BK
+        cfg = self.backup_config()
+        st = BK.status(self.ws.path)
+        sched = next((e for e in self.scheduler.entries() if e['name'] == 'backup-daily'), None)
+        return {'config': cfg, 'status': st, 'schedule': sched, 'stale_after_h': BK.STALE_AFTER_H}
+
+    def backup_set_config(self, user: dict, body: dict) -> dict:
+        from . import backup as BK
+        cfg = self.backup_config()
+        out_dir = str(body.get('out_dir', cfg['out_dir'])).strip()
+        if out_dir and BK._inside(out_dir, self.ws.path):
+            raise ApiError(400, 'the backup folder must be outside the workspace - another disk or a share')
+        try:
+            keep = int(body.get('keep', cfg['keep']))
+        except (TypeError, ValueError):
+            raise ApiError(400, 'keep must be a whole number')
+        daily_at = str(body.get('daily_at', cfg['daily_at'])).strip() or '02:30'
+        if len(daily_at) != 5 or daily_at[2] != ':' or not (daily_at[:2] + daily_at[3:]).isdigit():
+            raise ApiError(400, 'daily_at is HH:MM')
+        cfg.update({'out_dir': out_dir, 'keep': max(1, keep), 'daily_at': daily_at})
+        p = os.path.join(self.ws.dir('records'), 'backup_config.json')
+        with open(p, 'w', encoding='utf-8') as f:
+            json.dump(cfg, f, indent=1)
+        self.ws.audit(user['name'], 'backup.config', cfg)
+        return cfg
+
+    def backup_args(self) -> List[str]:
+        cfg = self.backup_config()
+        if not cfg['out_dir']:
+            raise ApiError(400, 'set the backup folder first (another disk or a share)')
+        return ['backup', '--workspace', self.ws.path, '--out', cfg['out_dir'], '--keep', str(cfg['keep'])]
 
     def update_view(self, check_pypi: bool = True) -> dict:
         """The Audit/Update page's Update panel: what runs here, what is newest, where the kit is, what is stale."""
@@ -1580,6 +1625,9 @@ def make_handler(app: App):
                     return self._json(200, {'entries': rows[-limit:] if limit else rows, 'total': total, 'actors': actors, 'actions': actions})
                 if path == '/api/update':
                     return self._json(200, app.update_view(qs.get('check', ['1'])[0] != '0'))
+                if path == '/api/backup':
+                    App.require(user, 'admin')
+                    return self._json(200, app.backup_view())
                 if path == '/api/config':
                     return self._json(200, {'configs': app.config_index()})
                 if path.startswith('/api/config/defaults/'):
@@ -1751,6 +1799,17 @@ def make_handler(app: App):
                                             'detail': ('the launcher will start the control panel again by itself if it stops unexpectedly'
                                                        if on else
                                                        'the launcher will hand the window to a PowerShell prompt when the control panel stops')})
+                if path == '/api/backup/config':
+                    App.require(user, 'admin')
+                    return self._json(200, app.backup_set_config(user, body))
+                if path == '/api/backup/run':
+                    App.require(user, 'admin')
+                    return self._json(200, app._job(app.backup_args() + ['--actor', user['name']], user, 'backup: the site copied off the machine'))
+                if path == '/api/backup/schedule':
+                    App.require(user, 'admin')
+                    cfg = app.backup_config()
+                    args = app.backup_args() + ['--actor', 'schedule']
+                    return self._json(200, app.scheduler.add('backup-daily', args, user['name'], daily_at=cfg['daily_at']))
                 if path == '/api/update/program':
                     App.require(user, 'admin')
                     extras = body.get('extras') or 'live,plotting,xls,desktop'
