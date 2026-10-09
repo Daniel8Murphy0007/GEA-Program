@@ -270,8 +270,11 @@ class App:
         self.console: Optional[Callable[[str], None]] = None
         self._seen_pages: set = set()
         self.patches = PatchSupervisor(workspace)
+        from .seedlink import LiveStations
+        self.live = LiveStations(workspace)      # the seismic leg's live stations (SeedLink), one tap thread each
         if scheduler:                            # a serving process keeps the enabled patches up; the gate does not
             self.patches.start_enabled()
+            self.live.start_enabled()
         from .notify import Notifier, Watcher
         self.notifier = Notifier(workspace.path)
         self.notifier.reload()
@@ -787,6 +790,39 @@ class App:
             try:
                 return self.ws.add_track(str(body.get('display') or 'track'), [str(x) for x in stations], actor=user['name'], truth_csv=truth_path,
                                          band=[float(band[0]), float(band[1])] if band else None, win_s=float(body.get('win_s') or 600.0), note=str(body.get('note', '')))
+            except (WorkspaceError, ValueError) as e:
+                raise ApiError(409, str(e))
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    def add_live_station(self, user: dict, body: dict) -> dict:
+        """A SeedLink station: the display name and the config (host, port, streams) from the page; the optional
+        station file and rigs CSV arrive base64-encoded like the file station's do."""
+        cfg = body.get('config')
+        if not isinstance(cfg, dict):
+            raise ApiError(400, 'a seedlink config object is needed')
+        tmp_dir = os.path.join(self.ws.path, 'jobs', '_uploads', secrets.token_hex(4))
+        os.makedirs(tmp_dir, exist_ok=True)
+        try:
+            extras = {}
+            for key in ('stationxml', 'sources'):
+                f = body.get(key)
+                if f and f.get('filename'):
+                    name = str(f['filename'])
+                    if '/' in name or '\\' in name:
+                        raise ApiError(400, 'a plain file name is required')
+                    p = os.path.join(tmp_dir, name)
+                    with open(p, 'wb') as fh:
+                        fh.write(base64.b64decode(f.get('content_b64') or ''))
+                    extras[key] = p
+            band = body.get('band')
+            try:
+                return self.ws.add_live_station(str(body.get('display') or ''), cfg,
+                                                float(body['lat']) if body.get('lat') not in (None, '') else None,
+                                                float(body['lon']) if body.get('lon') not in (None, '') else None,
+                                                actor=user['name'], band=[float(band[0]), float(band[1])] if band else None,
+                                                datum=body.get('datum') or None, note=str(body.get('note', '')),
+                                                stationxml=extras.get('stationxml'), sources_csv=extras.get('sources'))
             except (WorkspaceError, ValueError) as e:
                 raise ApiError(409, str(e))
         finally:
@@ -1488,8 +1524,12 @@ def make_handler(app: App):
                         f = _os.path.join(sdir, nm + '.html')
                         if _os.path.isfile(f):
                             site[nm] = {'generated_utc': datetime.fromtimestamp(_os.path.getmtime(f), timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}
-                    return self._json(200, {'stations': [{**st, 'summary': app.ws.seismic_results(st['id']).get('summary')} for st in app.ws.seismic_stations()],
+                    return self._json(200, {'stations': [{**st, 'summary': app.ws.seismic_results(st['id']).get('summary'),
+                                                          **({'live_state': app.live.state(st['id'])} if st.get('live') else {})} for st in app.ws.seismic_stations()],
                                             'site_reports': site})
+                if path == '/api/seismic/live':
+                    from .seedlink import EXAMPLE_CONFIG as _SLX
+                    return self._json(200, {'stations': app.live.states(), 'example_config': _SLX})
                 if path == '/api/tracks':
                     return self._json(200, {'tracks': [{**tk, 'summary': app.ws.track_results(tk['id']).get('summary')} for tk in app.ws.tracks()]})
                 if path.startswith('/api/tracks/'):
@@ -1630,6 +1670,25 @@ def make_handler(app: App):
                 if path == '/api/seismic/add':
                     App.require(user, 'operator')
                     return self._json(200, app.add_seismic(user, body))
+                if path == '/api/seismic/live/add':
+                    App.require(user, 'operator')
+                    return self._json(200, app.add_live_station(user, body))
+                if path.startswith('/api/seismic/live/') and path.count('/') == 5:
+                    App.require(user, 'operator')
+                    _, _, _, _, sid, action = path.split('/')
+                    try:
+                        app.ws.seismic_station(sid)
+                        if action == 'start':
+                            return self._json(200, app.live.start(sid, user['name']))
+                        if action == 'stop':
+                            return self._json(200, app.live.stop(sid, user['name']))
+                        if action == 'fold':
+                            return self._json(200, app.ws.fold_live_station(sid, actor=user['name'], include_open=bool((body or {}).get('include_open'))))
+                    except WorkspaceError as e:
+                        raise ApiError(404, str(e))
+                    except (ValueError, OSError) as e:
+                        raise ApiError(409, str(e))
+                    raise ApiError(404, f'no such live-station action: {action}')
                 if path == '/api/tracks/add':
                     App.require(user, 'operator')
                     return self._json(200, app.add_track(user, body))
@@ -1981,6 +2040,7 @@ class Service:
         self.app.stop_background()
         self.app.scheduler.stop()
         self.app.patches.stop_all()
+        self.app.live.stop_all()
         self.app.runner.shutdown()
         self.httpd.shutdown()
         self.httpd.server_close()

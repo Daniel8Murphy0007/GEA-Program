@@ -274,7 +274,7 @@ VIEWS.sites = async () => {
 
 VIEWS.seismic = async () => {
   const _sl = await get('/api/seismic'); const stations = _sl.stations, siteReports = _sl.site_reports || {};
-  const sar = await get('/api/seismic/sar'); const {tracks} = await get('/api/tracks');
+  const sar = await get('/api/seismic/sar'); const {tracks} = await get('/api/tracks'); const live = await get('/api/seismic/live');
   let h = `<h2>Seismic - the second leg</h2><p class="muted small">A station's record in, its spectrum and persistent lines out, and the detectability test against the rigs on its list; an array adds the direction. Every refresh is a job; the report is under Reports.</p>`;
   h += `<table><thead><tr><th>Station</th><th>Kind</th><th>Records</th><th>Unit</th><th>Lines</th><th>Detectability</th><th>Array</th><th>Last refresh</th><th></th></tr></thead><tbody>`;
   for (const s of stations) { const m = s.summary || {};
@@ -285,9 +285,11 @@ VIEWS.seismic = async () => {
       <div class="row"><label>Display name<input id="sName"></label><label>Record file(s)<input type="file" id="sFiles" multiple></label><label>Latitude<input id="sLat" type="number" step="0.000001"></label><label>Longitude<input id="sLon" type="number" step="0.000001"></label></div>
       <div class="row"><label>Rigs CSV (optional)<input type="file" id="sSources"></label><label>or a permit export (converted to the rigs CSV)<input type="file" id="sPermits"></label><label>StationXML (optional)<input type="file" id="sXml"></label><label>Sensors CSV (array only)<input type="file" id="sSensors"></label><label>Band, Hz<input id="sLo" type="number" value="1" step="0.1" style="width:5em"> – <input id="sHi" type="number" value="50" step="0.1" style="width:5em"></label><button id="sAdd" type="button">Add station</button></div></div>`;
   } else h += need('operator');
+  h += liveCardHtml(live);
   h += tracksCardHtml(tracks, stations);
   h += sarPanelHtml(sar);
   $('#main').innerHTML = h;
+  liveCardBind(live);
   tracksCardBind(stations);
   sarPanelBind(sar);
   document.querySelectorAll('[data-sref]').forEach(b => b.onclick = async () => { b.disabled = true; try { const j = await post(`/api/seismic/${b.dataset.sref}/refresh`); toast('Refresh started: job ' + j.id, 'ok'); watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); } b.disabled = false; });
@@ -450,6 +452,37 @@ VIEWS.audit = async () => {
 };
 
 // ---- tracks: two or more arrays crossed over time ----
+// ---- live stations: SeedLink, the station's records as the station writes them ----
+function liveCardHtml(live) {
+  const rows = live.stations || [];
+  let h = `<div class="card"><h3>Live stations (SeedLink)</h3><p class="small muted">A station the data centre or the digitiser serves over SeedLink (port 18000; version 3 or 4.0, whichever the server offers). Each record is appended, byte for byte, to a day file per channel under the station's <code>live/</code> folder; a reconnection resumes from the last sequence number. <b>Fold</b> moves the finished day files into the station's record list, hashed, so a Refresh runs the leg on them. <code>gea seedlink-sim</code> is a station to rehearse against.</p>`;
+  if (rows.length) {
+    h += `<table><thead><tr><th>Station</th><th>Server</th><th>Protocol</th><th>Status</th><th>Last record</th><th>Latency p95</th><th>Records</th><th>Gaps</th><th>Reconnects</th><th>Folded files</th><th></th></tr></thead><tbody>`;
+    for (const s of rows) { const kind = s.status === 'CONNECTED' ? 'good' : (s.status === 'RECONNECTING' || s.status === 'REFUSED' || s.status === 'ENDED') ? 'bad' : 'warn';
+      const gaps = Object.values(s.channels || {}).reduce((a, c) => a + (c.gaps || 0), 0);
+      h += `<tr><td><a href="#/seismic/${esc(s.id)}">${esc(s.display)}</a><div class="small muted">${esc((s.stations && Object.keys(s.stations).join(', ')) || '')}</div></td><td class="small">${esc(s.host)}:${esc(s.port)}<div class="muted">${esc(s.server || '')}</div></td><td>${esc(s.protocol || '—')}</td><td>${statusPill(kind, s.status)}${s.last_error ? `<div class="small muted">${esc(s.last_error)}</div>` : ''}</td><td class="small">${s.last_packet_utc ? tz(s.last_packet_utc) : '—'}</td><td>${s.latency_p95_s === null || s.latency_p95_s === undefined ? '—' : fmt(s.latency_p95_s, 2) + ' s'}</td><td>${s.records ?? 0}</td><td>${gaps}</td><td>${s.reconnects ?? 0}</td><td>${s.files_folded ?? 0}</td><td>${can('operator') ? (s.running ? `<button class="secondary" data-lstop="${esc(s.id)}" type="button">Stop</button>` : `<button data-lstart="${esc(s.id)}" type="button">Start</button>`) + ` <button class="secondary" data-lfold="${esc(s.id)}" type="button">Fold</button>` : ''}</td></tr>`; }
+    h += `</tbody></table>`;
+  } else h += `<p class="muted small">No live station yet.</p>`;
+  if (can('operator')) {
+    const x = live.example_config || {};
+    h += `<h4>Add a live station</h4><div class="row"><label>Display name<input id="lvName" placeholder="TexNet PB09"></label><label>Host<input id="lvHost" value="${esc(x.host || '127.0.0.1')}"></label><label>Port<input id="lvPort" type="number" value="${esc(x.port || 18000)}" style="width:6em"></label><label>Network<input id="lvNet" value="XX" style="width:4em"></label><label>Station code<input id="lvSta" value="PAD3" style="width:6em"></label><label>Selectors (LLCCC.T, comma-separated)<input id="lvSel" value="HHZ.D,HHN.D,HHE.D"></label></div>
+      <div class="row"><label>Latitude<input id="lvLat" type="number" step="0.000001"></label><label>Longitude<input id="lvLon" type="number" step="0.000001"></label><label>Band, Hz<input id="lvLo" type="number" value="1" step="0.1" style="width:5em"> – <input id="lvHi" type="number" value="50" step="0.1" style="width:5em"></label><label>Rigs CSV (optional)<input type="file" id="lvSources"></label><label>StationXML (optional)<input type="file" id="lvXml"></label><button id="lvAdd" type="button">Add live station</button></div>
+      <p class="small muted">A TexNet station is served by EarthScope at <code>rtserve.iris.washington.edu:18000</code>, network <code>TX</code>; the station code is the one on the TexNet map. The port is read-only: it asks, the server sends.</p>`;
+  }
+  return h + `</div>`;
+}
+function liveCardBind(live) {
+  const act = (sel, action, msg) => document.querySelectorAll(sel).forEach(b => b.onclick = async () => { b.disabled = true; try { const r = await post(`/api/seismic/live/${b.dataset[action]}/${action.slice(1)}`); toast(msg(r), 'ok'); route(); } catch (e) { toast(e.message, 'err'); } b.disabled = false; });
+  act('[data-lstart]', 'lstart', r => `Started: ${r.status}`);
+  act('[data-lstop]', 'lstop', r => `Stopped: ${r.status}`);
+  act('[data-lfold]', 'lfold', r => r.folded.length ? `Folded ${r.folded.length} file(s)` : `Nothing to fold yet (${r.kept_open.length} day file(s) still open)`);
+  const add = $('#lvAdd'); if (!add) return;
+  const one = async (id) => { const f = $(id).files[0]; return f ? {filename: f.name, content_b64: await readFile(f)} : null; };
+  add.onclick = async () => { add.disabled = true;
+    try { const config = {host: $('#lvHost').value.trim(), port: +$('#lvPort').value, protocol: 'auto', streams: [{network: $('#lvNet').value.trim(), station: $('#lvSta').value.trim(), selectors: $('#lvSel').value.split(',').map(s => s.trim()).filter(Boolean)}]};
+      const st = await post('/api/seismic/live/add', {display: $('#lvName').value || `${config.streams[0].network}_${config.streams[0].station}`, config, lat: $('#lvLat').value || null, lon: $('#lvLon').value || null, band: [+$('#lvLo').value || 1, +$('#lvHi').value || 50], sources: await one('#lvSources'), stationxml: await one('#lvXml')});
+      toast(`Added ${st.id} - press Start`, 'ok'); route(); } catch (e) { toast(e.message, 'err'); } add.disabled = false; };
+}
 function tracksCardHtml(tracks, stations) {
   const arrays = stations.filter(s => s.kind === 'array');
   let h = `<div class="card" id="tracksCard"><h3>Tracks <span class="small muted">two or more arrays' bearings crossed window by window: positions with their ellipses, a heading and a length, a verdict against ground truth</span></h3>`;

@@ -284,7 +284,8 @@ def main(argv=None) -> int:
                       choices=["init", "add-file", "add-catalog", "add-live", "remove", "list", "migrate", "refresh", "audit",
                                "add-seismic", "refresh-seismic", "remove-seismic", "sar-film", "refresh-all", "add-track", "refresh-track", "remove-track",
                                "seismic-dataset", "seismic-field", "add-site", "sites", "site-report", "remove-site", "rename",
-                               "set-well", "sra-define", "sra-report", "associate", "osdu-export", "quakeml-export", "well-identity", "vibration-report"])
+                               "set-well", "sra-define", "sra-report", "associate", "osdu-export", "quakeml-export", "well-identity", "vibration-report",
+                               "add-live-station", "live-fold", "live-run"])
     p_ws.add_argument("--stations", type=str, nargs="+", default=None, help="add-track: two or more array station ids of this workspace")
     p_ws.add_argument("--site", type=str, default=None, help="site-report/remove-site: the site id")
     p_ws.add_argument("--api", type=str, default=None, help="set-well: the API number")
@@ -354,7 +355,10 @@ def main(argv=None) -> int:
     p_ws.add_argument("--unit", type=str, default="m", help="add-seismic with --permits and --zone: the grid unit (m, usft, ft)")
     p_ws.add_argument("--band", type=float, nargs=2, default=None, metavar=("LO", "HI"), help="add-seismic: the band, Hz (default 1 50)")
     p_ws.add_argument("--permits", type=str, default=None, help="add-seismic: a permit export to turn into the rigs CSV (instead of --sources)")
-    p_ws.add_argument("--station", type=str, default=None, help="refresh-seismic / remove-seismic: the station id")
+    p_ws.add_argument("--station", type=str, default=None, help="refresh-seismic / remove-seismic / live-fold / live-run: the station id")
+    p_ws.add_argument("--seedlink-config", type=str, default=None, help="add-live-station: the SeedLink config JSON (gea seedlink --write-example-config)")
+    p_ws.add_argument("--include-open", action="store_true", help="live-fold: fold the current day's files too (they are still being written)")
+    p_ws.add_argument("--seconds", type=float, default=None, help="live-run: how long to run (default: until Ctrl+C)")
     p_ws.add_argument("--name", type=str, default=None, help="init: site name; add-*: display name")
     p_ws.add_argument("--file", type=str, default=None, help="add-file: the client's data file; add-live: the port configuration JSON")
     p_ws.add_argument("--entry", type=str, default=None, help="add-catalog: catalogue entry")
@@ -407,6 +411,21 @@ def main(argv=None) -> int:
     p_es.add_argument("--frames", type=int, default=600)
     p_es.add_argument("--interval", type=float, default=1.0, help="seconds between samples")
     p_es.add_argument("--seed", type=int, default=1)
+    p_sl = sub.add_parser("seedlink", help="the seismic leg's live port: a SeedLink (3 / 4.0) station's records as it writes them, byte for byte into day files; --selftest against the simulator")
+    p_sl.add_argument("--config", type=str, default=None, help="the SeedLink config JSON (host, port, streams)")
+    p_sl.add_argument("--write-example-config", type=str, default=None, help="write an example config here and exit")
+    p_sl.add_argument("--out", type=str, default="seedlink", help="the folder for the day files and the state (default ./seedlink)")
+    p_sl.add_argument("--seconds", type=float, default=60.0, help="how long to run (the state resumes the next run from the last sequence number)")
+    p_sl.add_argument("--max-records", type=int, default=None, help="stop after this many records")
+    p_sl.add_argument("--selftest", action="store_true", help="both protocols against the simulator on the loopback")
+    p_sl.add_argument("--hello", action="store_true", help="connect, print what the server says of itself (HELLO) and its INFO ID, and exit")
+    p_ss = sub.add_parser("seedlink-sim", help="a SeedLink server (3 and 4.0) for rehearsing the live station without a data centre: one synthetic three-component station")
+    p_ss.add_argument("--port", type=int, default=18000)
+    p_ss.add_argument("--network", type=str, default="XX")
+    p_ss.add_argument("--station", type=str, default="PAD3")
+    p_ss.add_argument("--channels", type=str, default="HHZ,HHN,HHE")
+    p_ss.add_argument("--rate", type=float, default=100.0, help="samples per second")
+    p_ss.add_argument("--seed", type=int, default=7)
     p_w0 = sub.add_parser("wits0-sim", help="a WITS0 sender for testing a patch without a rig: listens once, then streams a deterministic drilling sequence")
     p_w0.add_argument("--port", type=int, default=5001)
     p_w0.add_argument("--frames", type=int, default=600)
@@ -1915,6 +1934,31 @@ def main(argv=None) -> int:
                     raise SystemExit("well-identity needs --well <id>")
                 r = ws.well_identity(a.well)
                 print(_ppdm_text(r)); return 0
+            elif a.action == "add-live-station":
+                if not a.seedlink_config or not a.name:
+                    raise SystemExit("add-live-station needs --name <display> and --seedlink-config <json>")
+                st = ws.add_live_station(a.name, a.seedlink_config, a.lat, a.lon, actor=a.actor, band=a.band, stationxml=a.stationxml, sources_csv=a.sources)
+                print(f"live station {st['id']}: {st['live']['host']}:{st['live']['port']} {st['live']['stations']} - run `gea workspace --path ... --action live-run --station {st['id']}` or Start it on the page")
+                return 0
+            elif a.action == "live-fold":
+                if not a.station:
+                    raise SystemExit("live-fold needs --station <id>")
+                r = ws.fold_live_station(a.station, actor=a.actor, include_open=a.include_open)
+                print(f"folded {len(r['folded'])} file(s) into {a.station}: {r['folded']}; still open: {r['kept_open']}")
+                return 0
+            elif a.action == "live-run":
+                from . import seedlink as _L
+                if not a.station:
+                    raise SystemExit("live-run needs --station <id>")
+                cfg = ws.live_station_config(a.station)
+                d = ws.live_dir(a.station)
+                tap = _L.SeedLinkTap(cfg, d, os.path.join(d, "seedlink_state.json"))
+                try:
+                    st = tap.run(a.seconds if a.seconds else None)
+                except KeyboardInterrupt:
+                    tap.stop(); st = tap.state
+                print(_L.report_text(st))
+                return 0 if st["records"] else 1
             elif a.action == "quakeml-export":
                 from .quakeml import report_text as _qml_text
                 if not a.site:
@@ -1972,6 +2016,60 @@ def main(argv=None) -> int:
         except KeyboardInterrupt:
             stop.set()
             print("wits0-sim: stopped")
+        return 0
+    elif a.cmd == "seedlink":
+        import json as _json
+        from . import seedlink as _L
+        if a.selftest:
+            r = _L.selftest()
+            print(_json.dumps({k: r[k] for k in ("label", "status", "checks")}, indent=1))
+            print(_json.dumps(r["detail"], indent=1, default=str))
+            return 0 if r["status"] == "OK" else 1
+        if a.write_example_config:
+            print("config:", _L.write_example_config(a.write_example_config))
+            return 0
+        if not a.config:
+            raise SystemExit("seedlink needs --config (or --write-example-config to start one, or --selftest)")
+        try:
+            cfg = _L.load_config(a.config)
+        except (ValueError, OSError) as e:
+            raise SystemExit(f"seedlink: {e}")
+        if a.hello:
+            try:
+                cl = _L.SeedLinkClient(cfg["host"], cfg["port"], cfg["timeout_s"]).connect()
+                h = cl.say_hello()
+                print(f"seedlink: {cfg['host']}:{cfg['port']} says {h['software']!r}; organization {cl.organization!r}; protocols {h['protocols']}; capabilities {h['capabilities']}")
+                cl.info("ID")
+                cl.sock.settimeout(cfg["timeout_s"])
+                pkt = cl.read_packet()
+                print(f"  INFO ID: {pkt['kind']} packet, SeedLink {pkt.get('protocol')}, {len(pkt.get('payload') or b'')} bytes")
+                cl.close()
+            except (OSError, ValueError, _L.SeedLinkError) as e:
+                raise SystemExit(f"seedlink: {e}\n  no SeedLink server answers at that host:port - start `gea seedlink-sim --port {cfg['port']}` in a SECOND window first, or point the config at the data centre (rtserve.iris.washington.edu:18000 for TexNet)")
+            return 0
+        tap = _L.SeedLinkTap(cfg, a.out)
+        try:
+            st = tap.run(a.seconds, max_records=a.max_records)
+        except KeyboardInterrupt:
+            tap.stop(); st = tap.state
+        print(_L.report_text(st))
+        if st["status"] == "REFUSED" or (st["records"] == 0 and st.get("last_error")):
+            print(f"  no records: start `gea seedlink-sim --port {cfg['port']}` in a SECOND window first, or point the config at the data centre (rtserve.iris.washington.edu:18000, network TX for TexNet)")
+            return 1
+        return 0
+    elif a.cmd == "seedlink-sim":
+        from . import seedlink as _L
+        srv = _L.simulate_server(port=a.port, network=a.network, station=a.station, channels=[c.strip().upper() for c in a.channels.split(",") if c.strip()], rate=a.rate, seed=a.seed)
+        print(f"seedlink-sim: a SeedLink server (3.1 and 4.0) listening on 127.0.0.1:{srv.port} - this window is the STATION and stays here; it writes {a.network}.{a.station} "
+              f"({a.channels}) at {a.rate:g} Hz in 512-byte records and serves them as customers ask.\n"
+              f"  Open a SECOND window and run:  gea seedlink --write-example-config seedlink.json; gea seedlink --config seedlink.json --seconds 60 --out live\n"
+              f"  or on the dashboard: Seismic -> Live stations -> Add (host 127.0.0.1, port {srv.port}, network {a.network}, station {a.station}) -> Start. Ctrl+C stops it.", flush=True)
+        try:
+            while srv.is_alive():
+                srv.join(0.5)
+        except KeyboardInterrupt:
+            srv.stop()
+            print("seedlink-sim: stopped")
         return 0
     elif a.cmd == "etp-sim":
         from . import etp as _E

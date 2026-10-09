@@ -33,7 +33,7 @@ reaches a client document. Nothing unmeasured is ever reported as met.
   rate-controlled replay, duplicate suppression, per-record latency.
 - **Configuration versioning, SBOM, monthly SLA, FAT/SAT**
   (`config_versioning.py`, `sbom.py`, `sla_report.py`, `fat_sat.py`).
-- **Live protocol ports** (`live_ports.py`, `wits0.py`, `witsml.py`, `etp.py`, `opcua_port.py`,
+- **Live protocol ports** (`live_ports.py`, `wits0.py`, `witsml.py`, `etp.py`, `seedlink.py`, `opcua_port.py`,
   `mqtt_port.py`, `modbus.py`): WITS Level 0 from the drill floor (TCP connect,
   TCP listen, serial), WITSML 1.4.1 stores (read-only, polled), OPC UA (read and
   subscribe), MQTT (number, JSON, Sparkplug B), Modbus TCP; every message becomes
@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (337 checks)
+gea accept                     # the product gate (340 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -583,6 +583,31 @@ sensitivity; a rate that cannot carry 1000 Hz is PARTIAL BAND, never
 promoted; the group and the support are declarations; a matched frequency
 is not a fault size. CSV or miniSEED/SAC; `gea vibration` runs the labelled
 pump; `gea help vibration`.
+
+### Live stations (SeedLink)
+
+The seismic leg had run on records that were already files. The stations
+serve SeedLink - the real-time protocol every data centre and most
+digitisers speak - and `gea/seedlink.py` is the customer: the TCP session on
+port 18000, `HELLO` read for what the server offers, SeedLink 3 (`STATION
+STA NET`, `SELECT LLCCC.T`, `DATA` with a hexadecimal sequence, `END`, the
+8-byte `SL` header on each 512-byte record) or SeedLink 4.0 (`SLPROTO 4.0`,
+`STATION NET_STA`, `SELECT LOC_B_S_SS`, a decimal sequence, the `SE` header
+with its length, uint64 sequence and station id, `ERROR <CODE>`), whichever
+the server speaks. Every record is appended byte for byte to a day file per
+channel under the station's `live/` folder with the state beside it - the
+last sequence number per station, so a reconnection (with backoff) resumes
+where it stopped and no record is filed twice; per channel the last sample,
+the latency, the records, the samples, the gaps (counted, never bridged).
+On the dashboard's Seismic page a live station is added with its host, port,
+network, station and selectors, started and stopped (the serving process
+keeps every enabled one up), and **folded**: the finished day files move into
+the station's record list, hashed, vertical first, and Refresh runs the leg
+on them as on any brought file. `gea seedlink-sim` is a three-component
+synthetic station speaking both versions; `gea seedlink --selftest` runs both
+against it; `gea seedlink --config ... --hello` prints what a server says of
+itself; `gea help seedlink`. A TexNet station is served by EarthScope at
+`rtserve.iris.washington.edu:18000`, network `TX`.
 
 ### WITSML 2.x over ETP
 

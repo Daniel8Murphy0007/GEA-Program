@@ -50,6 +50,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -5581,6 +5582,143 @@ def section_bj_etp(tmp: str) -> None:
        "launcher while it runs, so the program cannot be updated in place - stop, update, start with `python -m gea serve`; a panel started "
        "with `python -m gea` draws no such finding, and `gea update` from a launcher-started panel on Windows refuses to run pip and says why")
 
+
+def section_bk_seedlink(tmp: str) -> None:
+    """Section BK - the seismic leg's live port: SeedLink 3 and 4.0 against the simulator on the loopback, the records
+    byte for byte into day files, the resume by sequence number across a dropped link with no record twice, the live
+    station in the workspace, the service and the page, folded into the record list and refreshed."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    from . import seedlink as L
+    from . import seismic as S
+    from . import helplib as H
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bk"); d.mkdir()
+
+    # -- the protocol, both versions, on the loopback ----------------------------------------------------------------
+    r = L.selftest(tmp=str(d / "self"))
+    h4 = L.parse_hello("SeedLink v4.0 (RingServer/2022.075) :: SLPROTO:3.1 SLPROTO:4.0 CAP EXTREPLY NSWILDCARD BATCH WS:13")
+    h3 = L.parse_hello("SeedLink v3.3 (2020.122)")
+    import numpy as _np
+    tr = S.Trace("XX", "PAD3", "", "HHZ", 1.7e9, 100.0, _np.arange(500, dtype=_np.int64))
+    recs = S.build_records([tr], "INT32", 512)
+    back = S.read_mseed(b"".join(recs))
+    sel_err = None
+    try:
+        L.parse_selector("!HHZ")
+    except ValueError as e:
+        sel_err = str(e)
+    ok(r["status"] == "OK" and all(r["checks"].values()) and r["label"] == "SIMULATION_SELF_TEST"
+       and h4["protocols"] == ["3.1", "4.0"] and "NSWILDCARD" in h4["capabilities"] and h3["protocols"] == ["3.0"]
+       and L.selector_v4("HHZ.D") == "*_H_H_Z.2D" and L.selector_v4("00HHZ") == "00_H_H_Z" and L.parse_selector("HHZ.D") == ("", "HHZ", "D")
+       and sel_err and "negative" in sel_err
+       and len(recs) == 5 and all(len(x) == 512 for x in recs) and recs[0][:6] == b"000001" and recs[4][:6] == b"000005"
+       and len(back) == 1 and back[0].npts == 500 and not back[0].gaps,
+       "BK1 SeedLink 3 and 4.0 as the specifications have them, proven against the simulator on the loopback: HELLO parsed for the protocols and "
+       "capabilities offered (a 3 server lists none), `STATION STA NET` / `SELECT LLCCC.T` / `DATA hhhhhh` / `END` answered OK and the 8-byte "
+       "`SL` header with its hexadecimal sequence; `SLPROTO 4.0` / `STATION NET_STA` / `SELECT LOC_B_S_SS` / `DATA n` and the `SE` header with "
+       "its little-endian length and uint64 sequence and the station id; INFO answered in a log record (3) and in JSON (4.0); a selector honoured; "
+       "the records appended byte for byte to one day file per channel that reads back whole; a second run resuming from the saved sequence "
+       "number asks DATA for the next and adds no record twice; a station the server does not have is REFUSED and named, with no reconnect loop; "
+       "the 512-byte INT32 records the simulator serves are the writer's own and read back as one trace")
+
+    # -- a dropped link: the tap reconnects and resumes, nothing twice ------------------------------------------------
+    srv = L.simulate_server(interval_s=0.1, rate=250.0)
+    time.sleep(1.2)
+    cfg = dict(L.EXAMPLE_CONFIG, host="127.0.0.1", port=srv.port, protocol="3", streams=[{"network": "XX", "station": "PAD3", "selectors": ["HHZ.D"]}],
+               reconnect_s=[0.3, 0.3])
+    tap = L.SeedLinkTap(cfg, str(d / "drop"))
+    th = threading.Thread(target=tap.run, kwargs={"duration_s": 9.0}, daemon=True); th.start()
+    time.sleep(2.5)
+    n_before = tap.state["records"]
+    dropped = srv.drop_clients()
+    time.sleep(3.0)
+    tap.stop(); th.join(timeout=10)
+    st = tap.state
+    day = [f for f in os.listdir(d / "drop") if f.endswith(".mseed")]
+    trs = S.read_mseed(str(d / "drop" / day[0])) if day else []
+    ok(dropped >= 1 and n_before >= 2 and st["reconnects"] >= 1 and st["records"] > n_before and st["status"] == "STOPPED"
+       and len(day) == 1 and len(trs) == 1 and not trs[0].gaps and trs[0].npts == st["channels"]["XX.PAD3..HHZ"]["samples"] == st["records"] * 112
+       and any(l.startswith("> DATA ") and len(l.split()) == 3 for l in st["handshake"]) and st["channels"]["XX.PAD3..HHZ"]["gaps"] == 0,
+       "BK2 the link drops under a running session: the tap counts the reconnection, comes back with backoff, asks DATA for the sequence after "
+       "the last record it filed, and the day file reads back as one trace with no gap and no record twice - the records on disk equal the "
+       "records counted equal the samples over 112")
+
+    # -- the live station in the workspace, through the service and the page ---------------------------------------
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    users = Users(str(Path(wsp, "users.json"))); users.add("op", "operator-pass-1", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json"); req.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(req, timeout=120) as rr:
+                return rr.status, json.loads(rr.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        call("POST", "/api/login", {"name": "op", "password": "operator-pass-1"})
+        st_bad = call("POST", "/api/seismic/live/add", {"display": "bad", "config": {"host": "127.0.0.1", "port": srv.port, "streams": []}})[0]
+        cfg_all = dict(L.EXAMPLE_CONFIG, host="127.0.0.1", port=srv.port, protocol="auto")
+        st_add, added = call("POST", "/api/seismic/live/add", {"display": "Pad 3 live", "config": cfg_all, "lat": 31.5, "lon": -103.2, "band": [1, 50]})
+        sid = added.get("id")
+        st_start, started = call("POST", f"/api/seismic/live/{sid}/start")
+        t0 = time.time(); row = {}
+        while time.time() - t0 < 20:                        # until the card shows six records and a latency, not a fixed sleep (Windows was slower)
+            st_list, lst = call("GET", "/api/seismic/live")
+            row = next((x for x in lst["stations"] if x["id"] == sid), {})
+            if row.get("records", 0) >= 6 and row.get("latency_p95_s") is not None and len(row.get("channels", {})) == 3:
+                break
+            time.sleep(0.5)
+        st_seis, seis = call("GET", "/api/seismic")
+        st_stop, stopped = call("POST", f"/api/seismic/live/{sid}/stop")
+        st_fold, folded = call("POST", f"/api/seismic/live/{sid}/fold", {"include_open": True})
+        st_fold2, folded2 = call("POST", f"/api/seismic/live/{sid}/fold", {"include_open": True})
+        st_404 = call("POST", f"/api/seismic/live/{sid}/dance")[0]
+    finally:
+        svc.stop()
+        srv.stop()
+    station = ws.seismic_station(sid)
+    ws.refresh_seismic(sid, actor="tester")
+    res = ws.seismic_results(sid)
+    audit = [a["action"] for a in ws.audit_log()]
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    r1 = _sp.run([sys.executable, "-m", "gea", "seedlink", "--write-example-config", str(d / "sl.json")], capture_output=True, text=True)
+    r2 = _sp.run([sys.executable, "-m", "gea", "seedlink", "--config", str(d / "sl.json"), "--seconds", "1", "--out", str(d / "none")], capture_output=True, text=True)
+    help_md = (pkg / "help" / "seedlink.md").read_text(encoding="utf-8")
+    c = {
+        "add_refused_and_added": st_bad == 409 and st_add == 200 and added["live"]["stations"] == ["XX_PAD3"] and added["files"] == [] and added["kind"] == "single",
+        "started": st_start == 200 and started["running"] is True,
+        "connected_on_card": st_list == 200 and row.get("status") == "CONNECTED" and row.get("protocol") == "4" and row.get("records", 0) >= 6 and row.get("running") is True,
+        "three_channels_latency": set(row.get("channels", {})) == {"XX.PAD3..HHZ", "XX.PAD3..HHN", "XX.PAD3..HHE"} and row.get("latency_p95_s") is not None,
+        "station_list_carries_live": st_seis == 200 and any(s_.get("id") == sid and s_.get("live_state", {}).get("status") == "CONNECTED" for s_ in seis["stations"]),
+        "stopped": st_stop == 200 and stopped["running"] is False and stopped["status"] == "STOPPED",
+        "folded_z_first": st_fold == 200 and len(folded["folded"]) == 3 and folded["folded"][0].split(".")[3] == "HHZ" and st_fold2 == 200 and folded2["folded"] == [],
+        "unknown_action_404": st_404 == 404,
+        "station_files_hashed": len(station["files"]) == 3 and all(n in station["sha256"] for n in station["files"]) and station["live"]["folds"] == 1 and station["live"]["enabled"] is False,
+        "refreshed_on_folded": res.get("summary", {}).get("records") == 3 and res.get("summary", {}).get("unit") == "counts",
+        "audited": all(x in audit for x in ("seismic.live.add", "seismic.live.start", "seismic.live.stop", "seismic.live.fold", "seismic.refresh")),
+        "page_card": "Live stations (SeedLink)" in page_src and "/api/seismic/live/add" in page_src,
+        "cli": r1.returncode == 0 and r2.returncode != 0 and "seedlink-sim" in (r2.stdout + r2.stderr),
+        "help": any(t["topic"] == "seedlink" for t in H.topics()) and not H.check("seedlink") and "sequence number" in help_md
+                and "across a gap" in help_md.split("will not call a measurement")[1],
+    }
+    failed = [k for k, v in c.items() if not v]
+    ok(not failed,
+       "BK3 a live station in the workspace: added through the service with its SeedLink config (an empty stream list refused), started - "
+       "CONNECTED on 4.0 with the three channels, the latency and the records on the live-station card and on the station list - stopped, "
+       "folded (the day files hashed into the record list, the vertical first; a second fold finds nothing), and refreshed by the leg on what "
+       "the station sent; every step in the audit log; the page carries the card; `gea seedlink` writes its example and, with no server, "
+       "names the simulator to start; the help page says a gap is counted, never bridged"
+       + (f" [failed: {', '.join(failed)}; row={json.dumps({k: row.get(k) for k in ('status', 'protocol', 'records', 'latency_p95_s', 'last_error')})}]" if failed else ""))
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -5646,6 +5784,7 @@ def main() -> int:
         section_bh_vibration(tmp)
         section_bi_conformance(tmp)
         section_bj_etp(tmp)
+        section_bk_seedlink(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

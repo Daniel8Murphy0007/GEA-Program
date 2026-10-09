@@ -1270,3 +1270,56 @@ by the specification, not by hand-written field lists.
 - Replay of an ETP recording prints the session's shape and says it does
   not re-create samples (first draft printed `records: 0` without a word).
 - Section BJ (4 checks): 337.
+
+## 2026-10-09 - live stations: SeedLink (v0.17.0)
+
+v0.15.0 shipped five green; v0.16.0 was staged in the clone and handed over
+to ship. Asked what was next and offered the real records (his to supply),
+SeedLink live stations, a month-end packet and a soak, he chose SeedLink to
+be built in the cloud while v0.16.0 ships. The research before the code: the
+SeisComP SeedLink documentation for version 3 (commands, the CR LF
+responses, `LLCCC.T` selectors, the `year,month,day,hour,minute,second`
+time form, the 8-byte `SL` header with its six hexadecimal digits and the
+512-byte record, `END` in dial-up mode) and the FDSN SeedLink 4.0
+specification (`SLPROTO`, `NET_STA` and `LOC_B_S_SS` patterns, decimal
+sequence numbers, the `SE` header fields and byte order, the error codes,
+JSON INFO); libslink's source for how an INFO packet is told apart
+(`SLINFO`, `*` in the last header byte when more follow).
+
+- `gea/seedlink.py`: `parse_hello`, `parse_selector` / `selector_v4`,
+  `SeedLinkClient` (handshake in 3 or 4.0, `read_packet` for `SL`, `SLINFO`,
+  `SE` and `END`), `SeedLinkTap` (day files, state with per-station
+  sequence and per-channel latency/gaps, keepalive, reconnect with backoff,
+  REFUSED on an unknown station, ENDED on the server's END),
+  `SimulatedStation` / `SimulatedServer` / `simulate_server` (both
+  protocols, a ring per station, INFO in a log record and in JSON,
+  `drop_clients`), `LiveStations` (one tap thread per live station of a
+  workspace), `selftest`, `report_text`.
+- `seismic.build_records` factored out of `write_mseed` so the simulator
+  serves the writer's own records.
+- `Workspace.add_live_station`, `live_station_config`, `live_station_state`,
+  `set_live_enabled`, `fold_live_station`; `Service` runs `LiveStations`
+  with the scheduler and stops it with the service; `/api/seismic/live*`;
+  the Seismic page's live-station card; `gea seedlink`, `gea seedlink-sim`,
+  workspace actions `add-live-station`, `live-run`, `live-fold`; `gea help
+  seedlink`.
+- First draft lessons: a 100 Hz station fills a 112-sample record every
+  1.12 s, so the self-test's station runs at 250 Hz; the handshake log is
+  kept on the state so the resume's `DATA` line can be checked after the
+  client has closed.
+- Section BK (3 checks): 340.
+- v0.16.0 shipped with the Linux kit's tag run red at "Attach to the
+  release" while the release carried both kits: the attach steps of the tag
+  run and the main run started at 01:28:58 and 01:28:59, the main run
+  created the release, the tag run's create failed on it. attach-kit.sh now
+  tolerates a failed create when the release exists afterwards (the v0.13.0
+  fix had covered the upload collision, not the create). Rehearsed with a
+  stand-in `gh` in both orders. Folded into v0.17.0.
+- The ship's gate on Windows stopped at BK3 (339 passed) where the Linux
+  VM had passed it: the live-station card is read after a fixed 3 s sleep,
+  and the latency on the card was computed only every twenty records, so a
+  slower machine showed six records and no latency yet. The latency is now
+  computed per record and the check waits (up to 20 s) for the card to show
+  six records and a latency; BK3 names the sub-check that failed, with the
+  card's row, instead of one long AND. Also the `\ ` escape in the kit's
+  README text (a SyntaxWarning in every gate run) is written as `\\ `.

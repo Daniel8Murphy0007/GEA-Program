@@ -5,6 +5,78 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.17.0] - 2026-10-09 - live stations: SeedLink, the station's records as it writes them
+
+### Added
+- **The seismic leg's live port** (`gea/seedlink.py`): the stations do not
+  hand out files; they serve SeedLink, and this is the customer. A TCP
+  session on port 18000; `HELLO` parsed for the versions and capabilities
+  offered; SeedLink 3 as every SeisComP and ringserver serves it - ASCII
+  commands ending CR LF answered `OK` / `ERROR`, `STATION STA NET`, `SELECT
+  LLCCC.T`, `DATA` with the six-digit hexadecimal sequence number per
+  station, `END`, every packet an 8-byte `SL` header and a 512-byte miniSEED
+  record, `INFO` answered in a log record headed `SLINFO` - and SeedLink 4.0
+  as FDSN specifies it - `SLPROTO 4.0`, `USERAGENT`, `STATION NET_STA`,
+  `SELECT LOC_B_S_SS` (the 3 selector converted), `DATA n` decimal, `ERROR
+  <CODE> text`, the `SE` header with format and subformat bytes, the payload
+  length (uint32 LE), the sequence (uint64 LE) and the station id, `INFO` in
+  JSON. Whichever the server offers is spoken; `protocol` in the config may
+  insist on one.
+- **Byte for byte, resumed by sequence**: every record is appended as
+  received to a day file per channel (`NET.STA.LOC.CHA.YYYY.DDD.mseed`)
+  under the station's `live/` folder, the state beside it: the last
+  sequence number per station so a reconnection asks `DATA` for the next
+  and files no record twice (proven across a dropped link), per channel the
+  last sample, the latency (arrival minus the record's last sample), the
+  records, the samples, the gaps and overlaps between consecutive records -
+  counted, never bridged. The handshake is kept on the state. A station the
+  server does not have is REFUSED and named, with no reconnect loop; the
+  server's own `END` ends the run with the reason. INFO ID is the keepalive
+  when nothing has arrived.
+- **A live station in the workspace**: `add_live_station` with the SeedLink
+  config beside an empty record list; the serving process keeps every
+  enabled one up (`LiveStations`, one tap thread each, started with the
+  service and stopped with it); the Seismic page's "Live stations
+  (SeedLink)" card adds, starts, stops and folds; `/api/seismic/live`,
+  `/api/seismic/live/add`, `/api/seismic/live/<id>/start|stop|fold`; the
+  station list carries the live state. A **fold** moves the finished day
+  files (every day but the current UTC day, unless asked) into `source/`,
+  hashes each and appends it to the station's files - the vertical channel
+  first, so the leg's primary trace is Z - with the audit line naming what
+  was folded; Refresh then runs the leg on them exactly as on a brought
+  record. Audit: `seismic.live.add/start/stop/fold`.
+- **To rehearse against**: `gea seedlink-sim` is a synthetic
+  three-component station speaking 3.1 and 4.0 (INT32 512-byte records
+  from the writer's own `build_records`, a ring per station for resuming,
+  INFO in both forms, `drop_clients()` for the link-loss rehearsal); `gea
+  seedlink --selftest` runs both protocols against it on the loopback; `gea
+  seedlink --config ... --hello` prints what a server says of itself and
+  its INFO ID; `gea seedlink --config --seconds --out` runs a session
+  outside a workspace; `gea workspace --action add-live-station |
+  live-run | live-fold`; `gea help seedlink`. `seismic.build_records` is the
+  record builder `write_mseed` now writes through.
+- What it will not do: invent a sample across a gap; give a record a time
+  its header does not carry; decode a payload format it does not know
+  (counted with the format byte); keep a session the server has ended;
+  turn counts into ground motion - the refresh with a StationXML is where
+  that happens. Section BK (3 checks); the gate is 340.
+
+### Fixed
+- **The kit workflow's release race, the other way round**: v0.16.0's tag
+  run went red at the Linux attach step while the release had both kits.
+  The tag's own run and the main run of the same commit reach the attach
+  step within a second of each other; both saw no release, the main run
+  created it (the tag exists on origin, so a main run may), and the tag
+  run's `gh release create` failed on a release that now existed. The
+  attach script now treats "whichever run creates it, creates it": a
+  failed create is followed by a view, and a release that is there - made
+  by this run or by the one beside it - is attached to. Rehearsed against
+  a stand-in `gh` in both orders.
+- The live-station card showed no latency until twenty records had
+  arrived (the statistic was computed every twenty); it is computed per
+  record now. The kit's README text no longer carries an invalid `\ `
+  escape (a SyntaxWarning printed in every gate run).
+
 ## [v0.16.0] - 2026-10-08 - WITSML 2.x over ETP: the store pushes
 
 ### Added

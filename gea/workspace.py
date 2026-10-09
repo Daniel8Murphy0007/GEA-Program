@@ -463,6 +463,119 @@ class Workspace:
     def seismic_reports_dir(self, station_id: str) -> str:
         return self.dir('reports', 'seismic', station_id)
 
+    # -- a live station: records arriving over SeedLink, folded into the station's files ---------------------------
+    def live_dir(self, station_id: str) -> str:
+        return self.dir('seismic', station_id, 'live')
+
+    def add_live_station(self, display: str, config: dict, lat: Optional[float] = None, lon: Optional[float] = None, actor: str = 'system',
+                         band: Optional[List[float]] = None, datum: Optional[str] = None, note: str = '', stationxml: Optional[str] = None,
+                         sources_csv: Optional[str] = None) -> dict:
+        """A station whose records arrive over SeedLink rather than as files: the record list starts empty, the
+        SeedLink config is kept beside it, and the day files the port writes are folded into the list (hashed, like
+        any file a person brought) by `fold_live_station`. The leg then runs on them exactly as on a brought file."""
+        from . import geodesy as GD
+        from . import seedlink as L
+        try:
+            cfg = L.load_config(config)
+        except (ValueError, OSError) as e:
+            raise WorkspaceError(f'seedlink config: {e}')
+        sid = slug(display)
+        if sid in self.manifest.setdefault('seismic', []):
+            raise WorkspaceError(f'seismic station already exists: {sid}')
+        d = os.path.join(self.path, 'seismic', sid, 'source')
+        os.makedirs(d, exist_ok=True)
+        os.makedirs(os.path.join(self.path, 'seismic', sid, 'live'), exist_ok=True)
+        hashes, extras = {}, {}
+        for key, src in (('stationxml', stationxml), ('sources', sources_csv)):
+            if src:
+                if not os.path.isfile(src):
+                    raise WorkspaceError(f'{key} file not found: {src}')
+                name = os.path.basename(src)
+                shutil.copyfile(src, os.path.join(d, name))
+                extras[key] = name
+                hashes[name] = sha256_file(os.path.join(d, name))
+        clean = {k: v for k, v in cfg.items() if not k.startswith('_')}
+        with open(os.path.join(self.path, 'seismic', sid, 'live', 'seedlink.json'), 'w', encoding='utf-8') as f:
+            json.dump(clean, f, indent=1)
+        station = {'id': sid, 'display': display, 'kind': 'single', 'files': [], 'lat': lat, 'lon': lon, 'datum': GD.datum_name(datum),
+                   'stationxml': extras.get('stationxml'), 'sensors': None, 'sources': extras.get('sources'), 'permits': None, 'permits_import': None,
+                   'band_hz': list(band) if band else [1.0, 50.0], 'note': note, 'sha256': hashes, 'added_utc': utc_now_iso(), 'added_by': actor,
+                   'live': {'protocol': 'seedlink', 'host': clean['host'], 'port': clean['port'],
+                            'stations': [f"{x['network']}_{x['station']}" for x in cfg['_streams']], 'enabled': True, 'folds': 0}}
+        with open(os.path.join(self.path, 'seismic', sid, 'station.json'), 'w', encoding='utf-8') as f:
+            json.dump(station, f, indent=1)
+        self.manifest['seismic'].append(sid)
+        self._save()
+        self.audit(actor, 'seismic.live.add', {'id': sid, 'display': display, 'host': clean['host'], 'port': clean['port'], 'stations': station['live']['stations']},
+                   inputs=[os.path.join(self.path, 'seismic', sid, 'live', 'seedlink.json')])
+        return station
+
+    def live_station_config(self, station_id: str) -> dict:
+        st = self.seismic_station(station_id)
+        if not st.get('live'):
+            raise WorkspaceError(f'{station_id} is not a live station')
+        with open(os.path.join(self.path, 'seismic', station_id, 'live', 'seedlink.json'), encoding='utf-8') as f:
+            return json.load(f)
+
+    def live_station_state(self, station_id: str) -> dict:
+        p = os.path.join(self.path, 'seismic', station_id, 'live', 'seedlink_state.json')
+        if not os.path.isfile(p):
+            return {'status': 'IDLE', 'records': 0, 'channels': {}}
+        try:
+            with open(p, encoding='utf-8') as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            return {'status': 'UNREADABLE', 'records': 0, 'channels': {}}
+
+    def set_live_enabled(self, station_id: str, enabled: bool, actor: str = 'system') -> dict:
+        st = self.seismic_station(station_id)
+        if not st.get('live'):
+            raise WorkspaceError(f'{station_id} is not a live station')
+        st['live']['enabled'] = bool(enabled)
+        with open(os.path.join(self.path, 'seismic', station_id, 'station.json'), 'w', encoding='utf-8') as f:
+            json.dump(st, f, indent=1)
+        return st
+
+    def fold_live_station(self, station_id: str, actor: str = 'system', include_open: bool = False) -> dict:
+        """Move the day files the port has finished with (every day but the current UTC day, unless `include_open`)
+        from live/ into source/, hash each, and append them to the station's record list - Z channels first, so the
+        leg's primary trace is the vertical. What is folded is what the station sent, byte for byte; the refresh
+        then runs on it as on any brought record."""
+        st = self.seismic_station(station_id)
+        if not st.get('live'):
+            raise WorkspaceError(f'{station_id} is not a live station')
+        live = os.path.join(self.path, 'seismic', station_id, 'live')
+        src = os.path.join(self.path, 'seismic', station_id, 'source')
+        os.makedirs(src, exist_ok=True)
+        today = datetime.now(timezone.utc).strftime('%Y.%j')
+        names = sorted((n for n in os.listdir(live) if n.endswith('.mseed')), key=lambda n: (not n.split('.')[3].endswith('Z'), n))
+        folded, kept = [], []
+        for n in names:
+            day = '.'.join(n.split('.')[4:6])
+            if day == today and not include_open:
+                kept.append(n)
+                continue
+            if os.path.getsize(os.path.join(live, n)) == 0:
+                continue
+            target = n
+            if target in st['files']:
+                k = 2
+                while f"{os.path.splitext(n)[0]}.{k}.mseed" in st['files']:
+                    k += 1
+                target = f"{os.path.splitext(n)[0]}.{k}.mseed"
+            shutil.move(os.path.join(live, n), os.path.join(src, target))
+            st['files'].append(target)
+            st['sha256'][target] = sha256_file(os.path.join(src, target))
+            folded.append(target)
+        if folded:
+            st['files'].sort(key=lambda n: (not n.split('.')[3].endswith('Z') if n.count('.') >= 5 else 1, n))
+            st['live']['folds'] = int(st['live'].get('folds') or 0) + 1
+            st['live']['last_fold_utc'] = utc_now_iso()
+            with open(os.path.join(self.path, 'seismic', station_id, 'station.json'), 'w', encoding='utf-8') as f:
+                json.dump(st, f, indent=1)
+            self.audit(actor, 'seismic.live.fold', {'id': station_id, 'folded': folded, 'kept_open': kept}, inputs=[os.path.join(src, n) for n in folded])
+        return {'id': station_id, 'folded': folded, 'kept_open': kept, 'files': st['files']}
+
     def refresh_seismic(self, station_id: str, actor: str = 'system', win_s: float = 600.0) -> dict:
         """Run the leg on a station: read, remove the response when a station file is there, the spectrum and
         persistent lines, the detectability test when a source list and a position are there, the beam and the

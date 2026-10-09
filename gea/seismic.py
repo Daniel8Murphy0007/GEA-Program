@@ -571,12 +571,22 @@ def write_mseed(traces: Sequence[Trace], path: str, encoding: str = 'STEIM1', re
     """Write traces as SEED 2.4 data records with a blockette 1000 (big-endian). STEIM1 or INT32 for
     integer data; FLOAT32/FLOAT64 for float data. A writer exists so the reader can be proven on
     records this program made - and so a recorder's CSV can be archived in the format the archives use."""
+    with open(path, 'wb') as f:
+        for rec in build_records(traces, encoding, reclen):
+            f.write(rec)
+    return path
+
+
+def build_records(traces: Sequence[Trace], encoding: str = 'STEIM1', reclen: int = 4096, first_seq: int = 1) -> List[bytes]:
+    """The records `write_mseed` writes, as a list of byte strings - one per record, each exactly `reclen` bytes -
+    so a live server (SeedLink, 512-byte records) can serve what the writer would have filed."""
     enc_code = {'STEIM1': 10, 'STEIM2': 11, 'INT32': 3, 'INT16': 1, 'FLOAT32': 4, 'FLOAT64': 5}[encoding]
     rl_log = int(round(np.log2(reclen)))
     if 1 << rl_log != reclen or reclen < 256:
         raise ValueError("record length must be a power of two >= 256")
-    seq = 1
-    with open(path, 'wb') as f:
+    seq = first_seq
+    out: List[bytes] = []
+    if True:
         for tr in traces:
             fac, mult = _rate_to_factor(tr.sample_rate)
             data = np.asarray(tr.data)
@@ -619,11 +629,11 @@ def write_mseed(traces: Sequence[Trace], path: str, encoding: str = 'STEIM1', re
                 b1001 = struct.pack('>HHBbBB', 1001, 0, 0, usec, 0, 0)
                 rec = (hdr + b1000 + b1001).ljust(64, b'\x00') + body
                 assert len(rec) == reclen
-                f.write(rec)
+                out.append(rec)
                 prev = int(data[i + n - 1]) if encoding in ('STEIM1', 'STEIM2') else None
                 i += n
                 seq += 1
-    return path
+    return out
 
 
 # ---------------------------------------------------------------------------

@@ -4,6 +4,19 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.17.0 - 2026-10-09 - live stations (SeedLink)
+
+- **The station's records as it writes them.** A SeedLink customer speaking
+  3 and 4.0, whichever the server offers: the handshake per station, every
+  record appended byte for byte to a day file per channel, the last
+  sequence number kept so a reconnection resumes with no record twice, the
+  latency and the gaps per channel. In the workspace as a live station the
+  serving process keeps up, on the Seismic page to add, start, stop and
+  fold into the record list the leg refreshes on; a two-version simulator
+  and a loopback self-test. The kit workflow's attach step survives the
+  tag run and the main run creating the same release within a second
+  (v0.16.0's red Linux job, both kits on the release). Section BK; gate 340.
+
 ## v0.16.0 - 2026-10-08 - WITSML 2.x over ETP
 
 - **The store pushes.** An ETP v1.2 customer over WebSocket, Avro to the

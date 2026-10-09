@@ -4,21 +4,21 @@
 <style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
 <h1>Downhole Gauge Monitoring - Site Acceptance Test Protocol</h1>
 <table class="front">
-<tr><td>Protocol ID</td><td>SAT-20261008T213013Z</td></tr>
+<tr><td>Protocol ID</td><td>SAT-20261009T013023Z</td></tr>
 <tr><td>Type</td><td>Site Acceptance Test Protocol (SOW 4.2.21)</td></tr>
 <tr><td>Site</td><td>Report samples</td></tr>
-<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.16.0</td></tr>
-<tr><td>Run (UTC)</td><td>2026-10-08T21:30:13Z to 2026-10-08T21:31:14Z</td></tr>
+<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.17.0</td></tr>
+<tr><td>Run (UTC)</td><td>2026-10-09T01:30:23Z to 2026-10-09T01:31:22Z</td></tr>
 <tr><td>Steps</td><td>159 (159 pass / 0 fail)</td></tr>
 <tr><td>Result</td><td class="result-ok">ACCEPTED</td></tr>
 </table>
 <h2>1. Summary</h2>
-<p>159 numbered steps across sections A, C, F, AA, AB, AC, AD, AE, AF, AH, AI, AJ, AK, AG: 159 PASS, 0 FAIL. Result: ACCEPTED. Run 2026-10-08T21:30:13Z to 2026-10-08T21:31:14Z. 1 internal build checks ran alongside and are excluded from this client protocol; no check was altered.</p>
+<p>159 numbered steps across sections A, C, F, AA, AB, AC, AD, AE, AF, AH, AI, AJ, AK, AG: 159 PASS, 0 FAIL. Result: ACCEPTED. Run 2026-10-09T01:30:23Z to 2026-10-09T01:31:22Z. 1 internal build checks ran alongside and are excluded from this client protocol; no check was altered.</p>
 <h2>2. Installed environment (SAT)</h2>
-<p>Platform Linux-6.18.44-fc-v80-x86_64-with-glibc2.39; Python 3.11.15; SBOM generated 2026-10-08T21:31:14Z.</p>
+<p>Platform Linux-6.18.44-fc-v80-x86_64-with-glibc2.39; Python 3.11.15; SBOM generated 2026-10-09T01:31:22Z.</p>
 <table>
 <tr><th>Component</th><th>Version</th><th>Hash</th><th>Relationship</th></tr>
-<tr><td>Downhole Gauge Monitoring</td><td>0.16.0</td><td>14ce97f46a23e339</td><td>root</td></tr>
+<tr><td>Downhole Gauge Monitoring</td><td>0.17.0</td><td>36b1c0ea7cb937c1</td><td>root</td></tr>
 <tr><td>Python</td><td>3.11.15</td><td>n/a (runtime)</td><td>runtime</td></tr>
 <tr><td>numpy</td><td>2.4.4</td><td>746ec08d80152e0c</td><td>direct (numerical arrays (all engines))</td></tr>
 <tr><td>matplotlib</td><td>3.10.9</td><td>1bf2ed3745796629</td><td>optional (plotting (figures in reports))</td></tr>
@@ -219,7 +219,7 @@
 <table>
 <tr><th>Step</th><th>Check</th><th>Expected</th><th>Actual</th><th>Witness</th></tr>
 <tr><td>143</td><td>AJ1 the tester guide ships inside the package (gea/help/TESTER_GUIDE.md, declared as package data) and is byte-identical to docs/TESTER_GUIDE.md; `gea guide` prints it from the installed package, not from a checkout; the guide carries no hard-coded gate count to go stale</td><td>PASS</td><td>PASS</td><td>________</td></tr>
-<tr><td>144</td><td>AJ2 every help page carries its four lines in order (24 pages, indexed by the job); every dashboard view maps to a page; `gea help` prints the index, `gea help well-tests` the page with its reason codes, an unknown topic exits 2; the page keeps no help text of its own</td><td>PASS</td><td>PASS</td><td>________</td></tr>
+<tr><td>144</td><td>AJ2 every help page carries its four lines in order (25 pages, indexed by the job); every dashboard view maps to a page; `gea help` prints the index, `gea help well-tests` the page with its reason codes, an unknown topic exits 2; the page keeps no help text of its own</td><td>PASS</td><td>PASS</td><td>________</td></tr>
 <tr><td>145</td><td>AJ3 the API serves the same pages to a signed-in viewer: the index with each page&#x27;s summary and the view-to-topic map, a page as Markdown and as rendered HTML (the drift page names the datasheet and NONE ON RECORD), 404 for an unknown topic</td><td>PASS</td><td>PASS</td><td>________</td></tr>
 <tr><td>146</td><td>AJ4 (no wheel could be built on this machine&#x27;s pip/setuptools) the package-data declaration names help/* and every page and the guide are present under gea/help; the release workflow builds the wheel and runs this section from the installed kit</td><td>PASS</td><td>PASS</td><td>________</td></tr>
 </table>

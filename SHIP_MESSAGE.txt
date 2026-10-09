@@ -1,31 +1,34 @@
-v0.16.0 — WITSML 2.x OVER ETP: THE STORE PUSHES
+v0.17.0 — LIVE STATIONS: SEEDLINK, THE STATION'S RECORDS AS IT WRITES THEM
 
-The newer rigs and stores do not poll. Energistics ETP v1.2 is a WebSocket
-session, Avro-encoded to the published schemas, on which the customer names
-the channels it wants and the store pushes every value as it is written.
-gea/etp.py is that customer: the handshake with the subprotocol and the
-binary encoding, RequestSession for Discovery, Store and ChannelSubscribe,
-the channel metadata for the URIs the site's mapping declares (a URI the
-store does not have is named as missing), the subscription, and each
-ChannelData item as a record under the mapping's tag and unit at the store's
-own index - microseconds since the epoch - with the arrival time beside it,
-so the latency is measured per record. The codec is driven by the
-specification's own schemas, carried in the package; client message ids
-even, the store's odd; a ProtocolException carried with its code; a client
-or a store without the subprotocol refused at the handshake.
+The seismic leg had run on records that were already files - a TexNet day
+fetched over FDSN, an archive, a labelled synthetic scene. The stations do
+not hand out files; they serve SeedLink, the real-time protocol every data
+centre and most digitisers speak. gea/seedlink.py is that customer. It reads
+what the server says of itself and speaks SeedLink 3 or SeedLink 4.0 as
+offered: the station, the selectors and the sequence number to start from
+for each station, then END, and the server pushes each 512-byte miniSEED
+record as it is written. Every record is appended byte for byte to a day
+file per channel, with the state beside it: the last sequence number per
+station, so a reconnection asks for the next one and files no record twice
+- proven across a dropped link - and per channel the last sample, the
+latency, the records, the samples and the gaps, counted and never bridged.
 
-It runs where every other port runs: the patch supervisor (CONNECTED with
-the tags, units and latency; records on disk; reconnect with backoff), the
-service and its config validation, the page's patch form, `gea etp` with
-record and replay, `gea etp-sim` as a two-channel store to rehearse against,
-`gea etp --selftest` on the loopback.
+In the workspace it is a live station: added on the Seismic page with its
+host, port, network, station and selectors; started and stopped there (the
+serving process keeps every enabled one up); folded - the finished day files
+moved into the station's record list, hashed, the vertical channel first -
+and refreshed by the leg exactly as a brought record is. A synthetic
+three-component station speaking both versions rehearses it; the self-test
+runs both against it on the loopback. A TexNet station is served by
+EarthScope at rtserve.iris.washington.edu:18000.
 
-The doctor now names a panel that was started through the gea.exe launcher:
-pip cannot replace that launcher while the panel runs, so the program
-cannot be updated in place - stop, update, start with `python -m gea serve`.
+What it will not do: invent a sample across a gap; give a record a time its
+header does not carry; decode a payload it does not know; keep a session
+the server has ended; turn counts into ground motion - that is the refresh,
+with the station's response.
 
-What it will not do: give a time to a depth-indexed sample; name a tag it
-was not told; convert a unit it did not read; decode a message it does not
-know; talk to a store that is not ETP.
+Also in this ship: the kit workflow's attach step no longer goes red when
+the tag run and the main run create the same release within a second of
+each other (v0.16.0's Linux job; both kits were on the release).
 
-Section BJ is new. The gate is 337 checks. The standalone guard is clean.
+Section BK is new. The gate is 340 checks. The standalone guard is clean.
