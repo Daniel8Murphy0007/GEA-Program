@@ -5,6 +5,59 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.16.0] - 2026-10-08 - WITSML 2.x over ETP: the store pushes
+
+### Added
+- **ETP v1.2 customer** (`gea/etp.py`): the live-port leg on the protocol
+  the newer rigs and stores speak. A WebSocket client and server with the
+  ETP handshake (`Sec-WebSocket-Protocol: etp12.energistics.org`,
+  `etp-encoding: binary`, the payload-size limits), masking, fragments and
+  ping/pong; an Avro binary codec driven by the specification's own
+  schemas (`gea/etp12_schemas.json`, twenty messages plus the header and
+  the error record, from the Energistics ETP 1.2 Avro definitions as
+  published in the Apache-2.0 `etptypes` distribution) - zig-zag varints,
+  unions by branch, arrays and maps with block counts, defaults filled;
+  the message header with the flags as specified (multipart, final, no
+  data, compressed, acknowledge, header extension); client message ids
+  even from 2 and the store's odd from 1, as both reference
+  implementations number them. The session: RequestSession for the
+  customer roles of Discovery (3), Store (4) and ChannelSubscribe (21),
+  OpenSession read for what the store supports, Ping answered, CloseSession
+  honoured, a ProtocolException carried to the caller with its code and
+  message. The stream: GetChannelMetadata for the URIs the mapping declares
+  (a URI the store did not return is named as missing), SubscribeChannels,
+  and each ChannelData DataItem as a `SampleRecord` under the mapping's tag
+  and unit - the store's own index as the source time (an ETP DateTime
+  index is microseconds since the epoch; an ElapsedTime index is seconds
+  from its declared start; a depth index leaves the arrival time standing
+  and the record says so), the arrival as the ingest time, so the latency
+  is per record; a null or non-numeric value is BAD with the reason; a
+  channel the map does not name is counted unmapped; SubscriptionsStopped
+  and the store closing after records end the run normally with the reason
+  on the state.
+- **Everywhere a port is**: the patch supervisor runs `etp` like every
+  other protocol (CONNECTED with the tags, units and latency; records on
+  disk; STOPPED on request; reconnect with backoff); the service validates
+  its config (ws:// or wss://, channels with URIs) and serves its example;
+  the page's patch form offers "WITSML 2.x over ETP" (the 1.4 port is now
+  named "WITSML 1.4 store"); `gea etp` with `--write-example-config`,
+  `--seconds`, `--record`, `--out`, `--stream-csv`, `--replay` (a
+  recording holds the messages as received with ChannelData as counts, so
+  the replay reproduces the session's shape and says it does not re-create
+  samples) and `--selftest`; `gea etp-sim --port 9800 --frames --interval
+  --seed` is a store with two channels of a synthetic disposal well for a
+  site with no rig yet; `gea help etp`.
+- **The doctor names a panel that cannot be updated in place**: a panel
+  started through the `gea` / `gea.exe` console launcher holds that
+  launcher open, so pip cannot replace it while the panel runs (WinError 32
+  on Windows) and `gea update` from such a panel refuses to run pip and
+  says why - stop the panel, update from a prompt, start it with
+  `python -m gea serve`, which the kit launcher and start-gea.cmd do.
+- What it will not do: give a time to a depth-indexed sample; name a tag it
+  was not told; convert a unit it did not read; decode a message of a kind
+  it does not know (counted, with its header); talk to a store that is not
+  ETP (refused at the handshake). Section BJ (4 checks); the gate is 337.
+
 ## [v0.15.0] - 2026-10-08 - conformity, in the standards' words
 
 ### Added

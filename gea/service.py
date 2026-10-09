@@ -75,7 +75,7 @@ PBKDF2_ROUNDS = 200_000
 # Commands the page may run as jobs. Anything else is refused (never `serve`, never a shell).
 RUNNABLE = ('accept', 'fat-sat', 'sbom', 'permits', 'sla-report', 'model-cards', 'client-report', 'dashboard', 'workspace', 'drift-monitor',
             'well-test', 'alarms', 'notify', 'swaps', 'certificates', 'transient', 'housekeeping', 'store-forward', 'config', 'reconcile', 'ingest', 'opcua', 'mqtt', 'report', 'gamma', 'bench',
-            'service-life', 'telemetry', 'run', 'wells', 'survey', 'wits0', 'witsml', 'wits0-sim', 'files', 'doctor', 'update')
+            'service-life', 'telemetry', 'run', 'wells', 'survey', 'wits0', 'witsml', 'wits0-sim', 'etp', 'etp-sim', 'files', 'doctor', 'update')
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web')
 
 
@@ -594,6 +594,9 @@ class App:
             return EXAMPLE_CONFIG
         if name == 'witsml':
             from .witsml import EXAMPLE_CONFIG
+            return EXAMPLE_CONFIG
+        if name == 'etp':
+            from .etp import EXAMPLE_CONFIG
             return EXAMPLE_CONFIG
         if name == 'modbus_g6':
             with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example_register_map.json'), encoding='utf-8') as f:
@@ -1265,6 +1268,12 @@ class App:
                 load_config(content)
             except (ValueError, KeyError, TypeError) as e:
                 raise ApiError(400, f'WITSML configuration: {e}')
+        elif name.endswith('.etp') or name == 'etp':
+            from .etp import load_config
+            try:
+                load_config(content)
+            except (ValueError, KeyError, TypeError) as e:
+                raise ApiError(400, f'ETP configuration: {e}')
 
     def config_rollback(self, user: dict, name: str, version: int, note: str) -> dict:
         from .config_versioning import ConfigStore

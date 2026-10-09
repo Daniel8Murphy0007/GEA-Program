@@ -4,6 +4,17 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.16.0 - 2026-10-08 - WITSML 2.x over ETP
+
+- **The store pushes.** An ETP v1.2 customer over WebSocket, Avro to the
+  published schemas, Protocol 21 ChannelSubscribe: the declared channel
+  URIs subscribed and every value the store writes carried as a record
+  under the mapping's tag and unit at the store's own index, the latency
+  per record. In the patch supervisor, the service, the page and the CLI
+  like every other port; a two-channel simulated store and a loopback
+  self-test. The doctor names a panel started through gea.exe, which pip
+  cannot replace while it runs. Section BJ; gate 337.
+
 ## v0.15.0 - 2026-10-08 - conformity, in the standards' words
 
 - **The decision rule, named.** The bias-against-class line is a statement

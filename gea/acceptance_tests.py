@@ -5453,6 +5453,134 @@ def section_bi_conformance(tmp: str) -> None:
     finally:
         svc.stop()
 
+
+def section_bj_etp(tmp: str) -> None:
+    """Section BJ - the live-port leg on ETP v1.2: the Avro codec to the specification's schemas, the WebSocket
+    with the ETP handshake, the session, the ChannelSubscribe stream into records, the patch supervisor
+    running it, the API and the page knowing the protocol, and a store that is not ETP refused at the door."""
+    import http.cookiejar
+    import socket as _socket
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    from . import etp as E
+    from . import helplib as H
+    from .patches import PatchSupervisor, PROTOCOLS
+    from .ports import PORT_REGISTRY
+    from .telemetry import TelemetryRecorder, TelemetryConfig
+    from .downhole_engine import DownholeEngine, SimulatorConfig
+    from .workspace import Workspace, PORTS
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bj"); d.mkdir()
+
+    # -- the codec, to the schemas as published ------------------------------------------------------------
+    a = E.avro()
+    buf = E.encode_message(0, 1, {'applicationName': 'g', 'applicationVersion': '1', 'clientInstanceId': b'\x07' * 16, 'requestedProtocols': [], 'supportedDataObjects': [],
+                                  'currentDateTime': 5, 'earliestRetainedChangeTime': 0}, message_id=2)
+    hdr, body, name = E.decode_message(buf)
+    zz = [E.Avro._zigzag(x) for x in (0, -1, 1, -2, 2, 63, 64, -64, 2 ** 40)]
+    back = [E.Avro._unzigzag(b, 0)[0] for b in zz]
+    bad_mt = E.decode_message(a.encode(E.HEADER, {'protocol': 99, 'messageType': 99, 'correlationId': 0, 'messageId': 1, 'messageFlags': 0}) + b'\x00')
+    ok(len(a.messages) == 20 and (21, 4) in a.messages and (0, 1000) in a.messages and E.SCHEMA_FILE.endswith('etp12_schemas.json') and os.path.isfile(E.SCHEMA_FILE)
+       and name == 'RequestSession' and body['applicationName'] == 'g' and body['supportedFormats'] == ['xml'] and body['serverAuthorizationRequired'] is False
+       and hdr == {'protocol': 0, 'messageType': 1, 'correlationId': 0, 'messageId': 2, 'messageFlags': 0}
+       and zz[0] == b'\x00' and zz[1] == b'\x01' and zz[2] == b'\x02' and zz[5] == b'\x7e' and zz[6] == b'\x80\x01' and back == [0, -1, 1, -2, 2, 63, 64, -64, 2 ** 40]
+       and bad_mt[1] is None and 'no schema' in bad_mt[2]
+       and E.FLAG_MULTIPART == 0x01 and E.FLAG_FINAL == 0x02 and E.FLAG_ACK == 0x10 and E.FLAG_EXTENSION == 0x20 and E.ETP_SUBPROTOCOL == 'etp12.energistics.org',
+       "BJ1 the Avro binary codec is driven by the ETP v1.2 message schemas as published (twenty messages, the header and the error record): zig-zag "
+       "varints at their boundaries, defaults filled for fields not given, a record decoded back to what was encoded, a message of a kind this port "
+       "does not know left undecoded and named; the message flags and the subprotocol are the specification's")
+
+    # -- the session on the loopback: the self-test, and what the records carry ----------------------------------
+    r = E.selftest(frames=4, interval_s=0.15)
+    ok(r["status"] == "OK" and all(r["checks"].values()) and r["label"] == "SIMULATION_SELF_TEST" and r["n_records"] == 8
+       and r["store_messages"][:3] == ['RequestSession', 'GetChannelMetadata', 'SubscribeChannels'] and r["counts"]["exceptions"] == 0,
+       "BJ2 a customer session against the simulated store over a real WebSocket on the loopback: the ETP handshake (subprotocol, binary encoding, "
+       "payload limits), RequestSession answered by OpenSession, the channel metadata fetched for the declared URIs, the subscription, ChannelData "
+       "pushed at the store's own index (microseconds since the epoch) and carried as each record's source time with the latency measured, the "
+       "client's ids even and the store's odd, a URI the store does not have named as missing, a client without the subprotocol refused at the door")
+
+    # -- the patch supervisor, the API, the page ---------------------------------------------------------------------
+    hist = str(d / "hist.csv")
+    TelemetryRecorder(engine=DownholeEngine(SimulatorConfig()), config=TelemetryConfig(duration_hours=0.5, seed=3)).run().export_csv(hist)
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    w = ws.add_well_file(hist, display="SWD 1", actor="tester")
+    th, port, stop = E.simulate_store(frames=400, interval_s=0.1, seed=5)
+    cfg = json.loads(json.dumps(E.EXAMPLE_CONFIG)); cfg["url"] = f"ws://127.0.0.1:{port}/"
+    sup = PatchSupervisor(ws)
+    sup.store.add("rig", "etp", w["id"], cfg, "tester", priority=2, stale_after_s=5)
+    sup.start("rig", "tester")
+    time.sleep(3.0)
+    s1 = {x["name"]: x for x in sup.states()}["rig"]
+    sup.stop("rig", "tester")
+    s2 = {x["name"]: x for x in sup.states()}["rig"]
+    stop.set(); th.join(timeout=3)
+    users = Users(str(Path(wsp, "users.json"))); users.add("op", "operator-pass-1", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json"); req.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(req, timeout=120) as rr:
+                return rr.status, json.loads(rr.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        call("POST", "/api/login", {"name": "op", "password": "operator-pass-1"})
+        st_def, dflt = call("GET", "/api/config/defaults/etp")
+        st_pl, pl = call("GET", "/api/patches")
+        st_bad = call("POST", "/api/patches/add", {"name": "bad", "protocol": "etp", "well_id": w["id"], "config": {"url": "http://x/"}})[0]
+        st_add = call("POST", "/api/patches/add", {"name": "rig2", "protocol": "etp", "well_id": w["id"], "config": cfg, "priority": 1, "stale_after_s": 5})[0]
+    finally:
+        svc.stop()
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    r1 = _sp.run([sys.executable, "-m", "gea", "etp", "--write-example-config", str(d / "etp.json")], capture_output=True, text=True)
+    r2 = _sp.run([sys.executable, "-m", "gea", "etp", "--config", str(d / "etp.json"), "--seconds", "1"], capture_output=True, text=True)
+    th5, port5, stop5 = E.simulate_store(frames=8, interval_s=0.1)
+    cfg5 = json.loads(json.dumps(E.EXAMPLE_CONFIG)); cfg5["url"] = f"ws://127.0.0.1:{port5}/"
+    (d / "etp5.json").write_text(json.dumps(cfg5), encoding="utf-8")
+    r3 = _sp.run([sys.executable, "-m", "gea", "etp", "--config", str(d / "etp5.json"), "--seconds", "3", "--out", str(d / "recs.csv"), "--record", str(d / "rec.jsonl")], capture_output=True, text=True)
+    stop5.set(); th5.join(timeout=3)
+    r4 = _sp.run([sys.executable, "-m", "gea", "etp", "--config", str(d / "etp5.json"), "--replay", str(d / "rec.jsonl")], capture_output=True, text=True)
+    help_md = (pkg / "help" / "etp.md").read_text(encoding="utf-8")
+    ok(s1["status"] == "CONNECTED" and s1["samples_total"] >= 20 and set(s1["tags"]) == {"P_surf_psi", "Q_bpm"} and s1["tags"]["P_surf_psi"]["unit"] == "psi"
+       and 1400 < s1["tags"]["P_surf_psi"]["value"] < 1600 and s1["latency_p95_s"] is not None and s1["latency_p95_s"] < 3.0 and s2["status"] == "STOPPED"
+       and any(f.startswith("patch_rig_") and f.endswith(".records.csv") for f in os.listdir(Path(wsp, "wells", w["id"], "records", "live")))
+       and "etp" in PROTOCOLS and "etp" in PORTS and PORT_REGISTRY["etp"].status == "IMPLEMENTED_REQUIRES_SITE_CONFIG"
+       and st_def == 200 and dflt["content"]["url"].startswith("ws://") and "etp" in pl["protocols"] and st_bad == 400 and st_add == 200
+       and '<option value="etp">' in page_src
+       and r1.returncode == 0 and r2.returncode != 0 and "etp-sim" in (r2.stderr + r2.stdout)
+       and r3.returncode == 0 and (d / "recs.csv").is_file() and (d / "rec.jsonl").is_file() and '"records": 16' in r3.stdout and '"GOOD": 16' in r3.stdout
+       and r4.returncode == 0 and '"channel_data": 8' in r4.stdout and '"exceptions": 0' in r4.stdout and "session's shape" in r4.stdout and any(t["topic"] == "etp" for t in H.topics()) and not H.check("etp")
+       and "microseconds" in help_md and "arrival time" in help_md.split("will not call a measurement")[1],
+       "BJ3 the patch supervisor runs an ETP patch like any other port - CONNECTED with the two channels under their declared tags and units, "
+       "latency measured, records on disk, STOPPED on request; the service knows the protocol (its example config, the protocol list, a bad "
+       "config refused, a good one added); the page offers it; `gea etp` writes the example, names the missing store with the simulator to "
+       "start, records a session and replays its shape; the help page names the depth-indexed sample it will not give a time to")
+
+    # -- the doctor names a panel that cannot be updated in place ---------------------------------------------------
+    from . import doctor as D
+    argv0 = sys.argv[0]
+    try:
+        sys.argv[0] = r"C:\Users\op\AppData\Roaming\Python\Python312\Scripts\gea.exe"
+        env_l = D.check_environment()
+        sys.argv[0] = os.path.join(os.path.dirname(argv0) or ".", "__main__.py")
+        env_m = D.check_environment()
+    finally:
+        sys.argv[0] = argv0
+    fl = [x for x in env_l if "console launcher" in x["what"]]
+    ok(D.started_through_launcher(r"C:\py\Scripts\gea.exe").endswith("gea.exe") and D.started_through_launcher("/home/op/.local/bin/gea") == "/home/op/.local/bin/gea"
+       and D.started_through_launcher("/x/gea/__main__.py") is None and D.started_through_launcher("-m") is None
+       and len(fl) == 1 and fl[0]["level"] == "warn" and "WinError 32" in fl[0]["what"] and "python -m gea serve" in fl[0]["fix"]
+       and not any("console launcher" in x["what"] for x in env_m),
+       "BJ4 the doctor (and so `gea serve` at start) names a panel started through the gea / gea.exe console launcher: pip cannot replace that "
+       "launcher while it runs, so the program cannot be updated in place - stop, update, start with `python -m gea serve`; a panel started "
+       "with `python -m gea` draws no such finding, and `gea update` from a launcher-started panel on Windows refuses to run pip and says why")
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -5517,6 +5645,7 @@ def main() -> int:
         section_bg_ppdm(tmp)
         section_bh_vibration(tmp)
         section_bi_conformance(tmp)
+        section_bj_etp(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

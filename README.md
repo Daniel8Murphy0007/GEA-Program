@@ -33,7 +33,7 @@ reaches a client document. Nothing unmeasured is ever reported as met.
   rate-controlled replay, duplicate suppression, per-record latency.
 - **Configuration versioning, SBOM, monthly SLA, FAT/SAT**
   (`config_versioning.py`, `sbom.py`, `sla_report.py`, `fat_sat.py`).
-- **Live protocol ports** (`live_ports.py`, `wits0.py`, `witsml.py`, `opcua_port.py`,
+- **Live protocol ports** (`live_ports.py`, `wits0.py`, `witsml.py`, `etp.py`, `opcua_port.py`,
   `mqtt_port.py`, `modbus.py`): WITS Level 0 from the drill floor (TCP connect,
   TCP listen, serial), WITSML 1.4.1 stores (read-only, polled), OPC UA (read and
   subscribe), MQTT (number, JSON, Sparkplug B), Modbus TCP; every message becomes
@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (333 checks)
+gea accept                     # the product gate (337 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -104,7 +104,7 @@ gea swaps / gea certificates / gea notify / gea housekeeping / gea loadtest   # 
 
 ## Live data
 
-The engine reads live data through five protocol ports. All are **read-only**,
+The engine reads live data through six protocol ports. All are **read-only**,
 all map only what the site declares (a tag map the client owns; an empty map
 is declined), and all write every received message to a JSON-lines recording
 that `--replay` turns back into records without a connection - which is how a
@@ -117,6 +117,9 @@ gea wits0-sim --port 5001                             # a WITS0 sender to rehear
 gea wits0  --config wits0.json --seconds 60 --record floor/session.jsonl --out floor --stream-csv floor/stream.csv   # in the first window, while the sender runs
 gea witsml --write-example-config witsml.json         # a WITSML 1.4.1 store: url, uids, mnemonics -> tags; credentials by env name
 gea witsml --config witsml.json --seconds 60 --out store                 # needs a real store: the example url is a placeholder until you edit it
+gea etp    --write-example-config etp.json            # a WITSML 2.x store over ETP v1.2: ws:// or wss:// url, bearer token by env name, channel URIs -> tags, units
+gea etp-sim --port 9800                               # an ETP store with two channels to rehearse with - run it in a SECOND window and leave it running
+gea etp    --config etp.json --seconds 60 --record rig/session.jsonl --out rig   # subscribes; the store pushes every value as it is written
 gea opcua  --write-example-config opcua.json          # edit: endpoint, security, credential env names, nodes
 gea opcua  --config opcua.json --seconds 60 --record opc/session.jsonl --out opc --stream-csv opc/stream.csv   # needs a real OPC UA server, likewise
 gea mqtt   --write-example-config mqtt.json           # edit: broker, TLS, credential env names, topics
@@ -128,6 +131,7 @@ gea ingest --file floor/stream.csv                    # a stream CSV feeds the h
 |---|---|---|---|
 | `wits0` | WITS Level 0 frames (`&&` ... `!!`, four-digit item codes) over TCP connect, TCP listen or serial; record-01 dictionary built in | numeric GOOD; sentinels (-9999, -999.25) and non-numeric -> GAP with the reason | items 0105/0106 (date, time) when present, else arrival; ingest at arrival |
 | `witsml` | WITSML 1.4.1 SOAP store: GetVersion, GetCap, GetFromStore on one log object, rows newer than the last seen at each poll | numeric GOOD; the store's nullValue and empty fields -> GAP | the index curve of a time log; arrival for a depth log |
+| `etp` | Energistics ETP v1.2 over WebSocket (`etp12.energistics.org`, Avro binary to the published schemas): RequestSession/OpenSession, GetChannelMetadata for the declared URIs, SubscribeChannels, ChannelData pushed by the store (Protocol 21) | numeric GOOD; a non-numeric or null value -> BAD with the reason; a channel the map does not name is counted unmapped | the store's own index: an ETP DateTime index is microseconds since the epoch; an ElapsedTime index is seconds from its declared start; a depth index leaves the arrival time standing, named |
 | `opcua` | opc.tcp, read + subscribe; Basic256Sha256 SignAndEncrypt when a certificate and key are given | StatusCode severity bits: Good -> GOOD, Uncertain -> STALE, Bad -> GAP (value withheld) | source timestamp, else server timestamp, else arrival |
 | `mqtt` | MQTT v5 / v3.1.1, TLS optional, QoS per topic; `+`/`#` wildcards | number: GOOD or GAP; JSON: value/time/quality paths; Sparkplug B: `is_null` -> GAP, `Quality` != 192 -> STALE | JSON time path, Sparkplug metric timestamp, else arrival |
 | `modbus_g6` | Modbus TCP, user-supplied register map with a citation | read failures -> GAP | arrival |
@@ -579,6 +583,29 @@ sensitivity; a rate that cannot carry 1000 Hz is PARTIAL BAND, never
 promoted; the group and the support are declarations; a matched frequency
 is not a fault size. CSV or miniSEED/SAC; `gea vibration` runs the labelled
 pump; `gea help vibration`.
+
+### WITSML 2.x over ETP
+
+The newer rigs and stores do not poll: Energistics ETP v1.2 is a WebSocket
+session, Avro-encoded to the published schemas, on which the customer names
+the channels it wants and the store pushes every value as it is written.
+`gea/etp.py` is that customer: the handshake with the subprotocol, the
+binary encoding and the payload limits; RequestSession for Discovery, Store
+and ChannelSubscribe and what the store answered; the channel metadata for
+the URIs the mapping declares (a URI the store does not have is named as
+missing); the subscription; and each ChannelData DataItem as a record under
+the mapping's tag and unit, with the store's own index as the source time -
+microseconds since the epoch for a DateTime index, seconds from the declared
+start for ElapsedTime, the arrival time standing (and named) for a depth
+index - and the arrival as the ingest time, so the latency is per record.
+Client message ids even, the store's odd; a ProtocolException carried with
+its code; a client or a store without the subprotocol refused at the
+handshake. The patch supervisor runs it like every other port; the page
+offers it; `gea etp-sim` is a store with two channels of a synthetic
+disposal well; `gea etp --selftest` runs the codec and a loopback session;
+`gea help etp`. The doctor now also names a panel started through the
+`gea.exe` launcher, which pip cannot replace while it runs - stop, update,
+start with `python -m gea serve`.
 
 ### Conformity, in the standards' words
 

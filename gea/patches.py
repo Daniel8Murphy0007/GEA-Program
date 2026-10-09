@@ -44,13 +44,13 @@ from .sample_record import SampleRecord, RECORD_COLUMNS
 from .live_ports import records_to_stream, iso, utc_now
 from .workspace import Workspace, WorkspaceError, slug, sha256_file, utc_now_iso
 
-PROTOCOLS = ('wits0', 'witsml', 'opcua', 'mqtt', 'modbus_g6')
+PROTOCOLS = ('wits0', 'witsml', 'etp', 'opcua', 'mqtt', 'modbus_g6')
 STATES = ('STOPPED', 'CONNECTING', 'CONNECTED', 'DEGRADED', 'DOWN')
 BACKOFF_S = (2, 4, 8, 16, 32, 60)
 
 
 def _mod(protocol: str):
-    name = {'wits0': 'gea.wits0', 'witsml': 'gea.witsml', 'opcua': 'gea.opcua_port', 'mqtt': 'gea.mqtt_port', 'modbus_g6': 'gea.modbus'}[protocol]
+    name = {'wits0': 'gea.wits0', 'witsml': 'gea.witsml', 'etp': 'gea.etp', 'opcua': 'gea.opcua_port', 'mqtt': 'gea.mqtt_port', 'modbus_g6': 'gea.modbus'}[protocol]
     return __import__(name, fromlist=['x'])
 
 
@@ -328,6 +328,9 @@ class PatchRunner(threading.Thread):
             self.tap.run(None, on_record=self._on_record)
         elif proto == 'witsml':
             self.tap = mod.WitsmlTap(cfg)
+            self.tap.run(None, on_record=self._on_record)
+        elif proto == 'etp':                                    # WITSML 2.x over ETP v1.2: subscribe, and the store pushes
+            self.tap = mod.EtpTap(cfg)
             self.tap.run(None, on_record=self._on_record)
         elif proto == 'opcua':
             self.tap = mod.OpcUaTap(cfg).connect()

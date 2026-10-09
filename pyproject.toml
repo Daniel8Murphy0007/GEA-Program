@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gea-program"
-version = "0.15.0"
+version = "0.16.0"
 description = "GEA-Program: downhole gauge monitoring - canonical measurement records, quality rules, drift evaluation with a re-fit change log, well-test validation, alarm management, model cards, store-and-forward, monthly SLA measurement, FAT/SAT protocols and a dashboard, generated from live objects in the client's reporting outline."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -40,4 +40,4 @@ gea = "gea.cli:main"
 packages = ["gea"]
 
 [tool.setuptools.package-data]
-gea = ["catalog/*", "web/*", "help/*", "reference/*", "sample_well_profile.csv", "example_register_map.json", "BENCH_TEST_PROTOCOL.md"]
+gea = ["catalog/*", "web/*", "help/*", "reference/*", "sample_well_profile.csv", "example_register_map.json", "etp12_schemas.json", "BENCH_TEST_PROTOCOL.md"]

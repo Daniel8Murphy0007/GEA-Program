@@ -87,6 +87,7 @@ from .opcua_port import ASYNCUA_AVAILABLE, OpcUaTap          # registers the 'op
 from .mqtt_port import PAHO_AVAILABLE, MqttTap                # registers the 'mqtt' port at import
 from .wits0 import Wits0Tap, SERIAL_AVAILABLE                  # registers the 'wits0' port at import
 from .witsml import WitsmlTap                                  # registers the 'witsml' port at import
+from .etp import EtpTap                                        # registers the 'etp' port at import (WITSML 2.x over ETP v1.2)
 from .well_assembler import (
     WellAssembly, WellComponent, assemble, assemble_ktb_hb, assemble_odp_504b,
     assemble_site_1027, assemble_u1324, BUILTIN_ASSEMBLIES,
@@ -122,7 +123,7 @@ from .profile_catalog import (
     read_pangaea_txt,
 )
 
-__version__ = "0.15.0"
+__version__ = "0.16.0"
 __all__ = [
     "aging_rate", "rate_psi_yr", "accuracy_psi",
     "Sensor", "SimulatorConfig", "DownholeEngine",

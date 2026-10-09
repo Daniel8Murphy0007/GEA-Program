@@ -1237,3 +1237,36 @@ false-accept bound at the acceptance limit).
   U (k) and the standing with the missing clauses.
 - `gea help conformance`; README.
 - Section BI (3 checks): 333.
+
+## 2026-10-08 - WITSML 2.x over ETP: the store pushes (v0.16.0)
+
+v0.15.0 was prepared, verified in the clone and handed over to ship; this
+leg was built in the cloud while it shipped and transferred only after the
+tag was on origin. The list said WITSML 2.0 / ETP. The research before the
+code: ETP v1.2 is a WebSocket subprotocol (`etp12.energistics.org`) with an
+Avro-binary header and body, flags 0x01 multipart / 0x02 final / 0x04 no
+data / 0x08 compressed / 0x10 acknowledge / 0x20 header extension; the two
+reference implementations number client messages even from 2 and server
+messages odd from 1; ETP times are microseconds since the epoch; the
+real-time path is Protocol 21 ChannelSubscribe (GetChannelMetadata 21/1,
+SubscribeChannels 21/3, ChannelData 21/4, UnsubscribeChannels 21/7,
+SubscriptionsStopped 21/8). The message schemas were taken from the
+Energistics definitions as published in the Apache-2.0 `etptypes`
+distribution and carried as `gea/etp12_schemas.json` so the codec is driven
+by the specification, not by hand-written field lists.
+
+- `gea/etp.py`: `Avro` (schema-driven encode/decode), `encode_message` /
+  `decode_message`, `WebSocket` + `ws_connect` + `ws_accept`, `EtpSession`
+  (RequestSession/OpenSession, Ping, CloseSession, ProtocolException),
+  `EtpTap` (connect, channel metadata, subscribe, run → records), `replay`
+  (the session's shape), `simulate_store`, `selftest`.
+- Wired into `patches.py` PROTOCOLS, `service.py` defaults and validation,
+  `workspace.py` PORTS, the page's patch form, `gea etp` / `gea etp-sim`,
+  `gea help etp`.
+- `doctor.started_through_launcher`: the finding for a panel started through
+  gea.exe (pip cannot replace the launcher while it runs; `gea update` from
+  such a panel refuses and says why). Promised after the 0.11.0 → 0.14.0
+  update attempt on the site machine failed with WinError 32.
+- Replay of an ETP recording prints the session's shape and says it does
+  not re-create samples (first draft printed `records: 0` without a word).
+- Section BJ (4 checks): 337.

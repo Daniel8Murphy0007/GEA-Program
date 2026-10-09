@@ -265,7 +265,8 @@ def main(argv=None) -> int:
     for name, helptxt in (("opcua", "OPC UA client port: read once or subscribe; record; replay a recording offline"),
                           ("mqtt", "MQTT subscriber port (3.1.1/5.0; number | json | Sparkplug B): run; record; replay offline"),
                           ("wits0", "WITS Level 0 port (drill floor: mud logger / EDR) over TCP connect, TCP listen or serial: run; record; replay offline"),
-                          ("witsml", "WITSML 1.4.1 read-only client: poll a log object from the store; record; replay offline")):
+                          ("witsml", "WITSML 1.4.1 read-only client: poll a log object from the store; record; replay offline"),
+                          ("etp", "WITSML 2.x over Energistics ETP v1.2 (WebSocket, Avro): subscribe to channels and the store pushes; record; replay the session's shape")):
         p_lp = sub.add_parser(name, help=helptxt)
         p_lp.add_argument("--config", type=str, default=None, help="site map JSON (client-owned)")
         p_lp.add_argument("--write-example-config", type=str, default=None, help="write an example map here and exit")
@@ -275,6 +276,7 @@ def main(argv=None) -> int:
         p_lp.add_argument("--read-once", action="store_true", help="opcua: one Read of all nodes instead of a subscription")
         p_lp.add_argument("--out", type=str, default=None, help="write the records CSV here")
         p_lp.add_argument("--stream-csv", type=str, default=None, help="also write a historian-style CSV the other commands ingest")
+        p_lp.add_argument("--selftest", action="store_true", help="etp: the codec round-trip and a session against the simulated store on the loopback")
 
     p_ws = sub.add_parser("workspace", help="the client site folder: init, add wells (file | catalogue | live), list, migrate a --out folder, refresh the dashboard, audit log")
     p_ws.add_argument("--path", type=str, required=True, help="the workspace folder")
@@ -400,6 +402,11 @@ def main(argv=None) -> int:
     p_us.add_argument("--password-env", type=str, default="GEA_PASSWORD", help="environment variable holding the password (never a flag, never on the command line)")
     p_us.add_argument("--actor", type=str, default="cli")
 
+    p_es = sub.add_parser("etp-sim", help="an ETP v1.2 store for testing a patch without a rig: two channels of a synthetic disposal well, pushed as a customer subscribes")
+    p_es.add_argument("--port", type=int, default=9800)
+    p_es.add_argument("--frames", type=int, default=600)
+    p_es.add_argument("--interval", type=float, default=1.0, help="seconds between samples")
+    p_es.add_argument("--seed", type=int, default=1)
     p_w0 = sub.add_parser("wits0-sim", help="a WITS0 sender for testing a patch without a rig: listens once, then streams a deterministic drilling sequence")
     p_w0.add_argument("--port", type=int, default=5001)
     p_w0.add_argument("--frames", type=int, default=600)
@@ -1966,10 +1973,30 @@ def main(argv=None) -> int:
             stop.set()
             print("wits0-sim: stopped")
         return 0
-    elif a.cmd in ("opcua", "mqtt", "wits0", "witsml"):
+    elif a.cmd == "etp-sim":
+        from . import etp as _E
+        th, port, stop = _E.simulate_store(port=a.port, frames=a.frames, interval_s=a.interval, seed=a.seed, verbose=True)
+        print(f"etp-sim: an ETP v1.2 store listening on ws://127.0.0.1:{port}/ - this window is the STORE and stays here; nothing happens until a customer connects.\n"
+              f"  Open a SECOND window and run:  gea etp --config etp.json --seconds 60 --out floor   (with etp.json: url ws://127.0.0.1:{port}/ and the two example channel URIs)\n"
+              f"  or on the dashboard: Patch panel -> Add a patch -> etp, url ws://127.0.0.1:{port}/. Then it pushes {a.frames} samples per channel {a.interval:g} s apart. Ctrl+C stops it.", flush=True)
+        try:
+            while th.is_alive():
+                th.join(0.5)
+        except KeyboardInterrupt:
+            stop.set()
+            print("etp-sim: stopped")
+        return 0
+    elif a.cmd in ("opcua", "mqtt", "wits0", "witsml", "etp"):
         import json as _json
         from .live_ports import records_to_stream, summarize, write_records_csv
-        mod = __import__({"opcua": "gea.opcua_port", "mqtt": "gea.mqtt_port", "wits0": "gea.wits0", "witsml": "gea.witsml"}[a.cmd], fromlist=["x"])
+        mod = __import__({"opcua": "gea.opcua_port", "mqtt": "gea.mqtt_port", "wits0": "gea.wits0", "witsml": "gea.witsml", "etp": "gea.etp"}[a.cmd], fromlist=["x"])
+        if a.cmd == "etp" and getattr(a, "selftest", False):
+            r = mod.selftest()
+            print(f"etp selftest [{r['label']}]: {r['status']}")
+            for k, v in r["checks"].items():
+                print(f"  {'ok ' if v else 'BAD'} {k}")
+            print(f"  {r['n_records']} record(s) on {r['tags']}; store {r['store'].get('application')} protocols {r['store'].get('protocols')}; counts {r['counts']}")
+            return 0 if r["status"] == "OK" else 1
         if a.write_example_config:
             print("config:", mod.write_example_config(a.write_example_config))
             return 0
@@ -1994,6 +2021,11 @@ def main(argv=None) -> int:
                 tap = mod.Wits0Tap(a.config, recording_path=a.record)
                 recs = tap.run(a.seconds)
                 src = f"{tap.cfg['transport']} {tap.cfg.get('host') or tap.cfg.get('device') or ('listen:' + str(tap.cfg.get('listen_port')))}"
+            elif a.cmd == "etp":
+                tap = mod.EtpTap(a.config, recording_path=a.record)
+                recs = tap.run(a.seconds)
+                src = tap.cfg["url"] + (f"  (store: {tap.state.get('store', {}).get('application')}, {tap.state.get('channels')} channel(s) subscribed"
+                                        + (f", missing {tap.state.get('missing_uris')}" if tap.state.get('missing_uris') else '') + ')')
             else:
                 tap = mod.WitsmlTap(a.config, recording_path=a.record)
                 recs = tap.run(a.seconds)
@@ -2001,11 +2033,17 @@ def main(argv=None) -> int:
         except (NotImplementedError, ConnectionError, ValueError) as e:
             hint = {"wits0": "nothing is sending on that host:port - start `gea wits0-sim --port 5001` in a SECOND window first (it must be running while this reads), or point the config at the rig's real WITS0 feed",
                     "witsml": "no WITSML store answers at that url - the example config points at 127.0.0.1:8000, a placeholder; put the real store's url, uids and credential env names in it",
+                    "etp": "no ETP store answers at that url - start `gea etp-sim --port 9800` in a SECOND window first, or point the config at the rig's ETP endpoint (wss://...) with the channel URIs it publishes",
                     "opcua": "no OPC UA server answers at that endpoint - the example config is a placeholder; put the real server's endpoint, security and node ids in it",
                     "mqtt": "no MQTT broker answers at that host:port - the example config is a placeholder; put the real broker in it"}.get(a.cmd, "")
             raise SystemExit(f"{a.cmd}: {e}" + (f"\n  {hint}" if hint else ""))          # the reason and what to do, without a traceback
         print(f"{a.cmd}: {src}")
-        print(_json.dumps(summarize(recs), indent=1))
+        if a.cmd == "etp" and a.replay:
+            shape = getattr(mod.replay, "summary", {})
+            print(_json.dumps({"session_shape": shape, "records": 0,
+                               "note": "an ETP recording holds the messages as received with ChannelData as counts (the samples went to --out); the replay reproduces the session's shape, not the samples"}, indent=1))
+        else:
+            print(_json.dumps(summarize(recs), indent=1))
         if a.out:
             print("  records:", write_records_csv(recs, a.out))
         if a.stream_csv and recs:

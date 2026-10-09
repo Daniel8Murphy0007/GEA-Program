@@ -22,6 +22,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import socket
 import sys
 import sysconfig
@@ -116,6 +117,11 @@ def check_environment() -> List[dict]:
         f.append(_finding('info', f'no `gea` launcher in {" or ".join(candidates)}; use `python -m gea ...`'))
     elif found and not any(c in on_path for c in found):
         f.append(_finding('warn', f'the `gea` launcher is in {found[0]}, which is not on PATH', 'use `python -m gea ...`, or add that folder to PATH'))
+    launcher = started_through_launcher()
+    if launcher:
+        f.append(_finding('warn', f'this process was started through the console launcher {launcher}: while it runs, pip cannot replace '
+                          f'that launcher on Windows (WinError 32), so the program cannot be updated in place',
+                          'stop the panel, then update, then start it with `python -m gea serve` (the kit launcher and start-gea.cmd do)'))
     newest = pypi_newest()
 
     def _vt(v):
@@ -129,6 +135,18 @@ def check_environment() -> List[dict]:
     else:
         f.append(_finding('info', 'PyPI not reachable from here (offline site, or a proxy) - version not compared'))
     return f
+
+
+def started_through_launcher(argv0: Optional[str] = None) -> Optional[str]:
+    """The path of the `gea` / `gea.exe` console launcher this process was started through, or None when it was
+    started as `python -m gea` (or from a checkout). On Windows the launcher .exe is held open by the process it
+    started, so pip cannot replace it while the panel runs: `gea update` from such a panel, and `pip install
+    --upgrade` beside it, fail with WinError 32. The kit launchers and start-gea.cmd use `python -m gea` for this."""
+    a0 = sys.argv[0] if argv0 is None else argv0
+    base = re.split(r'[\\/]', a0 or '')[-1].lower()                      # either separator: the launcher path may be Windows-shaped
+    if base in ('gea', 'gea.exe', 'gea-script.py', 'gea-script.pyw'):
+        return a0
+    return None
 
 
 def pypi_newest(timeout_s: float = 3.0) -> Optional[str]:
@@ -150,9 +168,15 @@ def update(check_only: bool = False, extras: str = 'live,plotting,xls,desktop', 
     vt = lambda v: tuple(int(x) if x.isdigit() else 0 for x in str(v).split('.'))
     res = {'running': __version__, 'newest_pypi': newest, 'python': sys.executable, 'extras': extras,
            'state': 'unknown' if newest is None else ('current' if vt(newest) <= vt(__version__) else 'behind'), 'ran_pip': False, 'returncode': None}
+    launcher = started_through_launcher()
+    res['started_through_launcher'] = launcher
     if newest is None:
         res['note'] = 'PyPI is not reachable from here; an offline installation is updated by installing the newer kit from the release page'
-    if not check_only and newest is not None and res['state'] == 'behind':
+    if not check_only and newest is not None and res['state'] == 'behind' and launcher and os.name == 'nt':
+        res['note'] = (f'not run: this program was started through {launcher}, which pip cannot replace while it runs (WinError 32); '
+                       'stop the panel, update from a prompt (`python -m pip install --upgrade "gea-program[live]"`), then start it with `python -m gea serve`')
+        res['returncode'] = 2
+    elif not check_only and newest is not None and res['state'] == 'behind':
         spec = f'gea-program[{extras}]=={newest}' if extras else f'gea-program=={newest}'
         r = subprocess.run([sys.executable, '-m', 'pip', 'install', '--upgrade', spec], capture_output=True, text=True)
         res.update({'ran_pip': True, 'returncode': r.returncode, 'pip_tail': (r.stdout + r.stderr)[-1500:]})

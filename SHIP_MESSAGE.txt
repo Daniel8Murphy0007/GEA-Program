@@ -1,29 +1,31 @@
-v0.15.0 — CONFORMITY, IN THE STANDARDS' WORDS
+v0.16.0 — WITSML 2.x OVER ETP: THE STORE PUSHES
 
-The drift report printed a certificate's accuracy beside the measured bias
-and said "inside" or "OUTSIDE". That is a statement of conformity, and
-ISO/IEC 17025:2017 7.8.6 says what one has to carry: the results it applies
-to, the specification, and the decision rule - which takes the measurement
-uncertainty into account. "Inside" with no uncertainty and no rule is simple
-acceptance applied silently. gea/conformance.py names the rule and applies
-it in the open: the tag's bias over the window with its sample count, the
-certificate's accuracy class as the tolerance limit, the bias's expanded
-uncertainty at k = 2 as the guard band, and ILAC-G8:09/2019's non-binary
-rule - PASS, CONDITIONAL PASS, CONDITIONAL FAIL or FAIL - with the
-acceptance limit printed. Without an uncertainty it is simple acceptance,
-and the statement says so.
+The newer rigs and stores do not poll. Energistics ETP v1.2 is a WebSocket
+session, Avro-encoded to the published schemas, on which the customer names
+the channels it wants and the store pushes every value as it is written.
+gea/etp.py is that customer: the handshake with the subprotocol and the
+binary encoding, RequestSession for Discovery, Store and ChannelSubscribe,
+the channel metadata for the URIs the site's mapping declares (a URI the
+store does not have is named as missing), the subscription, and each
+ChannelData item as a record under the mapping's tag and unit at the store's
+own index - microseconds since the epoch - with the arrival time beside it,
+so the latency is measured per record. The codec is driven by the
+specification's own schemas, carried in the package; client message ids
+even, the store's odd; a ProtocolException carried with its code; a client
+or a store without the subprotocol refused at the handshake.
 
-The certificate register now takes what 7.8.4 asks the paper to carry - the
-expanded uncertainty with its coverage factor and probability, the
-traceability statement as worded, the conditions, the calibration date, the
-method, who authorised it, the adjustment results, the certificate's own
-decision rule - and judges each certificate against the fourteen items of
-7.8.2.1 and 7.8.4.1: CARRIED, NOT CARRIED, NOT RECORDED; COMPLETE or
-INCOMPLETE with the missing clauses named. On the status rows, in the API,
-on the well page, in the drift report.
+It runs where every other port runs: the patch supervisor (CONNECTED with
+the tags, units and latency; records on disk; reconnect with backoff), the
+service and its config validation, the page's patch form, `gea etp` with
+record and replay, `gea etp-sim` as a two-channel store to rehearse against,
+`gea etp --selftest` on the loopback.
 
-What it will not do: take into account an uncertainty that was not
-available; assume k = 2 for a certificate that did not state it; read the
-PDF - the register holds what a person transcribed.
+The doctor now names a panel that was started through the gea.exe launcher:
+pip cannot replace that launcher while the panel runs, so the program
+cannot be updated in place - stop, update, start with `python -m gea serve`.
 
-Section BI is new. The gate is 333 checks. The standalone guard is clean.
+What it will not do: give a time to a depth-indexed sample; name a tag it
+was not told; convert a unit it did not read; decode a message it does not
+know; talk to a store that is not ETP.
+
+Section BJ is new. The gate is 337 checks. The standalone guard is clean.
