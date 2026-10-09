@@ -5,6 +5,25 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.17.1] - 2026-10-09 - one kit run per ship
+
+### Fixed
+- **The kit workflow no longer races itself.** Every ship pushes main and
+  the tag together, and the workflow ran on both - two runs building the
+  same commit and attaching the same kits to the same release within
+  seconds of each other. Three ships in a row went red at the attach step
+  with the kits already on the release: v0.13.0 (the main run's upload
+  lost), v0.16.0 (the tag run's create lost), v0.17.0 (the tag run's upload
+  lost). Each was patched where it hit; the cause was two writers. The
+  workflow now runs once per ship - on the tag - and by hand, under a
+  concurrency group on the commit so a manual run that overlaps a tag run
+  is queued behind it rather than beside it. One writer per release: no
+  race to lose. The attach script keeps its tolerances (a create or an
+  upload that loses to a run beside it) as a second line, and its rule
+  text names the manual run that took the main run's place. A gap left by
+  a failed tag run is filled by a manual run of the workflow with the
+  release tag, as before.
+
 ## [v0.17.0] - 2026-10-09 - live stations: SeedLink, the station's records as it writes them
 
 ### Added

@@ -1,29 +1,27 @@
 name: Build the standalone install kit
 
-# Runs on every tag (the release's kits), on every push to main that touches the kit builder, the attach
-# script, the acceptance gate or this file (so a kit fix is proven at once), and by hand. The attach step
-# decides for itself: a tag run attaches to that tag's release; a main run attaches only when the release of
-# the version in pyproject.toml has no kit for that platform yet, creating that release if the tag exists and
-# a failed tag run left none (v0.5.0's Windows kit and both v0.6.0 kits were missing after failed tag runs);
-# a manual run with release_tag attaches to that tag, replacing what is there.
+# One run per ship. Every ship pushes main and the tag together, so a push trigger on main built the same
+# commit a second time and the two runs raced each other to the same release - v0.13.0 (the main run's upload
+# lost), v0.16.0 (the tag run's create lost), v0.17.0 (the tag run's upload lost): a red step every time,
+# with the kits on the release. The workflow now runs on the tag alone, and by hand. The attach step then has
+# one writer: a tag run attaches to its own release, replacing; a manual run with release_tag attaches to
+# that tag, replacing; a manual run with no tag attaches to the release of the version in pyproject.toml
+# only where a kit is missing (a failed tag run's gap, filled by hand). A concurrency group on the commit
+# serialises a manual run that overlaps a tag run, so even then the two never write at once.
 on:
   push:
     tags:
       - "v*"
-    branches:
-      - main
-    paths:
-      - "tools/build_installer.py"
-      - ".github/workflows/build-installer.yml"
-      - ".github/workflows/attach-kit.sh"
-      - "gea/acceptance_tests.py"   # the gate the installed kit runs: a gate change must be proven in a kit
-      - "pyproject.toml"
   workflow_dispatch:
     inputs:
       release_tag:
         description: "attach the kits to this existing release tag (e.g. v0.5.0), replacing its kits; empty = attach only where a kit is missing"
         required: false
         default: ""
+
+concurrency:
+  group: kit-${{ github.sha }}
+  cancel-in-progress: false
 
 permissions:
   contents: write   # to attach the kit to the GitHub release of the tag

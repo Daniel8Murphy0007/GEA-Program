@@ -4,6 +4,13 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.17.1 - 2026-10-09 - one kit run per ship
+
+- **The kit workflow no longer races itself.** It ran on the tag and on
+  main for every ship - two runs, one release - and lost a step to itself
+  on v0.13.0, v0.16.0 and v0.17.0. It runs once per ship now, on the tag,
+  serialised by commit; one writer per release. Gate 340.
+
 ## v0.17.0 - 2026-10-09 - live stations (SeedLink)
 
 - **The station's records as it writes them.** A SeedLink customer speaking

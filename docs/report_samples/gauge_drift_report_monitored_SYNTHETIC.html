@@ -4,10 +4,10 @@
 <style>body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1200px;color:#1a1a1a;background:#fff;padding:0 16px}h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ccc;padding-bottom:.2rem}table{border-collapse:collapse;margin:.5rem 0 1rem;font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body>
 <h1>Downhole Gauge Monitoring - Gauge Drift and Reconciliation Report</h1>
 <table class="front">
-<tr><td>Report ID</td><td>GDR-SYNTHETIC_field_(gea_tel-20261009T012753Z</td></tr>
+<tr><td>Report ID</td><td>GDR-SYNTHETIC_field_(gea_tel-20261009T190241Z</td></tr>
 <tr><td>Well</td><td>SYNTHETIC field (gea telemetry)</td></tr>
-<tr><td>Generated (UTC)</td><td>2026-10-09T01:27:53Z</td></tr>
-<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.17.0</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-09T19:02:41Z</td></tr>
+<tr><td>Program</td><td>Downhole Gauge Monitoring build 0.17.1</td></tr>
 <tr><td>Data window</td><td>2026-01-01T00:00:00Z to 2026-01-30T23:59:00Z</td></tr>
 <tr><td>Stations</td><td>6</td></tr>
 <tr><td>Result</td><td class="result-bad">MODEL DRIFT DETECTED</td></tr>
@@ -100,16 +100,16 @@
 <p>Model Drift: the live residual at a station moves outside the band the well model and the instrument&#x27;s datasheet aging rate account for. Model Staleness: the evaluation is older than the cadence. Clocks below start at the evaluation timestamp when drift is detected.</p>
 <table>
 <tr><th>Item</th><th>Value</th></tr>
-<tr><td>Evaluation timestamp (UTC)</td><td>2026-10-09T01:27:53Z</td></tr>
-<tr><td>Evaluation ID</td><td>EVAL-20261009T012753Z-0001</td></tr>
+<tr><td>Evaluation timestamp (UTC)</td><td>2026-10-09T19:02:40Z</td></tr>
+<tr><td>Evaluation ID</td><td>EVAL-20261009T190240Z-0001</td></tr>
 <tr><td>Evaluation cadence</td><td>every 24 h</td></tr>
-<tr><td>Next evaluation due (UTC)</td><td>2026-10-10T01:27:53Z</td></tr>
+<tr><td>Next evaluation due (UTC)</td><td>2026-10-10T19:02:40Z</td></tr>
 <tr><td>Model staleness</td><td>CURRENT - last evaluation 0.0 h ago, cadence 24 h</td></tr>
 <tr><td>Evaluations on record</td><td>1</td></tr>
 <tr><td>Model drift</td><td>DETECTED</td></tr>
 <tr><td>Stations requiring action</td><td>P_raw_psi_S2, P_raw_psi_S3, P_raw_psi_S5, P_raw_psi_S6</td></tr>
 <tr><td>Offset corrections in force (psi)</td><td>none</td></tr>
-<tr><td>Record integrity (sha256, first 16)</td><td>evaluations.jsonl 92a0733c72cf6e23, change_log.jsonl 5e8ef80946d45af6</td></tr>
+<tr><td>Record integrity (sha256, first 16)</td><td>evaluations.jsonl 170733fdbf9f5840, change_log.jsonl 884c8debda978335</td></tr>
 <tr><td>Notification due</td><td>2026-10-12 (1 business day)</td></tr>
 <tr><td>Fallback due</td><td>2026-10-13 (2 business days)</td></tr>
 <tr><td>Re-fit / redeploy due</td><td>2026-10-23 (10 business days)</td></tr>
@@ -117,12 +117,12 @@
 <table>
 <caption>Evaluation history (last 10 entries)</caption>
 <tr><th>Evaluation (UTC)</th><th>Evaluation ID</th><th>Station</th><th>Classification</th><th>Bias (psi)</th><th>Drift rate (psi/yr)</th><th>Correction in force (psi)</th></tr>
-<tr><td>2026-10-09T01:27:53Z</td><td>EVAL-20261009T012753Z-0001</td><td>P_raw_psi_S1</td><td>IN_FAMILY</td><td>0.42</td><td>1.02</td><td>0</td></tr>
-<tr><td>2026-10-09T01:27:53Z</td><td>EVAL-20261009T012753Z-0001</td><td>P_raw_psi_S2</td><td>UNEXPLAINED_TREND</td><td>0.49</td><td>16.28</td><td>0</td></tr>
-<tr><td>2026-10-09T01:27:53Z</td><td>EVAL-20261009T012753Z-0001</td><td>P_raw_psi_S3</td><td>UNEXPLAINED_TREND</td><td>0.21</td><td>-8.47</td><td>0</td></tr>
-<tr><td>2026-10-09T01:27:53Z</td><td>EVAL-20261009T012753Z-0001</td><td>P_raw_psi_S4</td><td>IN_FAMILY</td><td>0.57</td><td>5.42</td><td>0</td></tr>
-<tr><td>2026-10-09T01:27:53Z</td><td>EVAL-20261009T012753Z-0001</td><td>P_raw_psi_S5</td><td>UNEXPLAINED_TREND</td><td>0.11</td><td>-33.22</td><td>0</td></tr>
-<tr><td>2026-10-09T01:27:53Z</td><td>EVAL-20261009T012753Z-0001</td><td>P_raw_psi_S6</td><td>UNEXPLAINED_TREND</td><td>0.30</td><td>12.52</td><td>0</td></tr>
+<tr><td>2026-10-09T19:02:40Z</td><td>EVAL-20261009T190240Z-0001</td><td>P_raw_psi_S1</td><td>IN_FAMILY</td><td>0.42</td><td>1.02</td><td>0</td></tr>
+<tr><td>2026-10-09T19:02:40Z</td><td>EVAL-20261009T190240Z-0001</td><td>P_raw_psi_S2</td><td>UNEXPLAINED_TREND</td><td>0.49</td><td>16.28</td><td>0</td></tr>
+<tr><td>2026-10-09T19:02:40Z</td><td>EVAL-20261009T190240Z-0001</td><td>P_raw_psi_S3</td><td>UNEXPLAINED_TREND</td><td>0.21</td><td>-8.47</td><td>0</td></tr>
+<tr><td>2026-10-09T19:02:40Z</td><td>EVAL-20261009T190240Z-0001</td><td>P_raw_psi_S4</td><td>IN_FAMILY</td><td>0.57</td><td>5.42</td><td>0</td></tr>
+<tr><td>2026-10-09T19:02:40Z</td><td>EVAL-20261009T190240Z-0001</td><td>P_raw_psi_S5</td><td>UNEXPLAINED_TREND</td><td>0.11</td><td>-33.22</td><td>0</td></tr>
+<tr><td>2026-10-09T19:02:40Z</td><td>EVAL-20261009T190240Z-0001</td><td>P_raw_psi_S6</td><td>UNEXPLAINED_TREND</td><td>0.30</td><td>12.52</td><td>0</td></tr>
 </table>
 <h2>6. Configuration in force (SOW 4.2.1.4)</h2>
 <p>Classification thresholds and per-tag quality rules applied by this evaluation. These are engineering settings under version control; a change is a change-log entry, never silent.</p>
@@ -168,10 +168,10 @@
 <p>No configuration or model coefficient was changed by generating this report. Entries below are proposals for the approval workflow; an approved entry is applied and logged with the approver, timestamp and before/after values.</p>
 <table>
 <tr><th>Timestamp (UTC)</th><th>Tag</th><th>Change</th><th>Value</th><th>Status</th></tr>
-<tr><td>2026-10-09T01:27:53Z</td><td>P_raw_psi_S2</td><td>FALLBACK</td><td>hold model output for this station; investigate</td><td>PROPOSED</td></tr>
-<tr><td>2026-10-09T01:27:53Z</td><td>P_raw_psi_S3</td><td>FALLBACK</td><td>hold model output for this station; investigate</td><td>PROPOSED</td></tr>
-<tr><td>2026-10-09T01:27:53Z</td><td>P_raw_psi_S5</td><td>FALLBACK</td><td>hold model output for this station; investigate</td><td>PROPOSED</td></tr>
-<tr><td>2026-10-09T01:27:53Z</td><td>P_raw_psi_S6</td><td>FALLBACK</td><td>hold model output for this station; investigate</td><td>PROPOSED</td></tr>
+<tr><td>2026-10-09T19:02:40Z</td><td>P_raw_psi_S2</td><td>FALLBACK</td><td>hold model output for this station; investigate</td><td>PROPOSED</td></tr>
+<tr><td>2026-10-09T19:02:40Z</td><td>P_raw_psi_S3</td><td>FALLBACK</td><td>hold model output for this station; investigate</td><td>PROPOSED</td></tr>
+<tr><td>2026-10-09T19:02:40Z</td><td>P_raw_psi_S5</td><td>FALLBACK</td><td>hold model output for this station; investigate</td><td>PROPOSED</td></tr>
+<tr><td>2026-10-09T19:02:40Z</td><td>P_raw_psi_S6</td><td>FALLBACK</td><td>hold model output for this station; investigate</td><td>PROPOSED</td></tr>
 </table>
 <h2>8. Data provenance and limitations</h2>
 <p>Live data: field. Well model: total depth 20,300 ft; profile &#x27;linear gradients&#x27;; deviation &#x27;vertical&#x27;; gauge datasheet &#x27;geoq177_30k (default datasheet)&#x27;. Limitations: a trend is only classified when the window meets the minimum in section 6; the datasheet aging rate is the instrument&#x27;s published specification, not a measurement of this gauge; station depths supplied by the caller are marked as such above and should be confirmed from completion records.</p>

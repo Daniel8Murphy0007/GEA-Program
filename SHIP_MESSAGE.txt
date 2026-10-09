@@ -1,34 +1,14 @@
-v0.17.0 — LIVE STATIONS: SEEDLINK, THE STATION'S RECORDS AS IT WRITES THEM
+v0.17.1 — ONE KIT RUN PER SHIP
 
-The seismic leg had run on records that were already files - a TexNet day
-fetched over FDSN, an archive, a labelled synthetic scene. The stations do
-not hand out files; they serve SeedLink, the real-time protocol every data
-centre and most digitisers speak. gea/seedlink.py is that customer. It reads
-what the server says of itself and speaks SeedLink 3 or SeedLink 4.0 as
-offered: the station, the selectors and the sequence number to start from
-for each station, then END, and the server pushes each 512-byte miniSEED
-record as it is written. Every record is appended byte for byte to a day
-file per channel, with the state beside it: the last sequence number per
-station, so a reconnection asks for the next one and files no record twice
-- proven across a dropped link - and per channel the last sample, the
-latency, the records, the samples and the gaps, counted and never bridged.
+The kit workflow raced itself. Every ship pushes main and the tag together
+and the workflow ran on both: two runs building the same commit and
+attaching the same kits to the same release within seconds of each other.
+Three ships went red at the attach step with the kits already on the
+release - v0.13.0, v0.16.0, v0.17.0 - and each was patched where it hit.
+The cause was two writers. The workflow now runs once per ship, on the
+tag, and by hand; a concurrency group on the commit queues a manual run
+behind a tag run instead of beside it. One writer per release. The attach
+script keeps its tolerances as a second line.
 
-In the workspace it is a live station: added on the Seismic page with its
-host, port, network, station and selectors; started and stopped there (the
-serving process keeps every enabled one up); folded - the finished day files
-moved into the station's record list, hashed, the vertical channel first -
-and refreshed by the leg exactly as a brought record is. A synthetic
-three-component station speaking both versions rehearses it; the self-test
-runs both against it on the loopback. A TexNet station is served by
-EarthScope at rtserve.iris.washington.edu:18000.
-
-What it will not do: invent a sample across a gap; give a record a time its
-header does not carry; decode a payload it does not know; keep a session
-the server has ended; turn counts into ground motion - that is the refresh,
-with the station's response.
-
-Also in this ship: the kit workflow's attach step no longer goes red when
-the tag run and the main run create the same release within a second of
-each other (v0.16.0's Linux job; both kits were on the release).
-
-Section BK is new. The gate is 340 checks. The standalone guard is clean.
+No program code changes. The gate is 340 checks. The standalone guard is
+clean.

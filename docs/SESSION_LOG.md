@@ -1323,3 +1323,35 @@ JSON INFO); libslink's source for how an INFO packet is told apart
   six records and a latency; BK3 names the sub-check that failed, with the
   card's row, instead of one long AND. Also the `\ ` escape in the kit's
   README text (a SyntaxWarning in every gate run) is written as `\\ `.
+
+## 2026-10-09 - v0.17.0 shipped; the kit workflow's other race (held for the next ship)
+
+v0.17.0 shipped (5f201b1): PyPI, both ci runs and the main-branch kit run
+green; the tag run's Windows job red at "Attach the kit to the release" -
+with both kits on the release. This time the race was the upload, the other
+way round from v0.13.0: the tag run's Windows upload (`--clobber`) began at
+05:44:45, the main run of the same commit found no kit and uploaded its own
+at 05:44:54, and the tag run's upload ended 422 at 05:44:57. The two kits are
+built from one commit. attach-kit.sh now takes a kit that appeared meanwhile
+as its own on a tag run (a run asked for by hand still replaces, on a second
+attempt). Rehearsed against a stand-in `gh`: tag run under the race, manual
+run under the race, and the clean case. Goes out inside the next tagged
+version, as every change does.
+
+## 2026-10-09 - one kit run per ship (v0.17.1)
+
+He rejected the third patch of the attach step in as many ships, rightly:
+tolerating whichever side of the race lost that time fixed nothing. The
+cause is that a ship pushes main and the tag together and the kit workflow
+ran on both, so two runs built the same commit and wrote to the same
+release within seconds of each other. Under his rule that every push is a
+tagged commit, the main run was a duplicate of the tag run - the "prove a
+kit fix at once" purpose it had was already served by the tag run of the
+ship that carries the fix.
+
+- build-installer.yml: runs on the tag and by hand only; a concurrency
+  group on the commit serialises a manual run that overlaps a tag run.
+- attach-kit.sh: the rule text names the manual run in the main run's
+  place; the tolerances stay as a second line.
+- Version 0.17.1; samples re-rendered; gate 340 (the workflow is not gated
+  code, so the count does not move).
