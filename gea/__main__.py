@@ -392,6 +392,19 @@ def main(argv=None) -> int:
     p_hk.add_argument("--actor", type=str, default="housekeeping")
     p_hk.add_argument("--json", action="store_true")
 
+    p_sk = sub.add_parser("soak", help="the patches through link outages for hours, measured: N WITS0 patches, an ETP patch and a SeedLink station through relays that are cut on a schedule; the Soak Report")
+    p_sk.add_argument("--hours", type=float, default=None, help="how long (72 for the go-live soak); or --seconds")
+    p_sk.add_argument("--seconds", type=float, default=None)
+    p_sk.add_argument("--patches", type=int, default=2, help="WITS0 patches (the site's own count)")
+    p_sk.add_argument("--no-etp", action="store_true"); p_sk.add_argument("--no-seedlink", action="store_true")
+    p_sk.add_argument("--outage-every", type=float, default=600.0, help="seconds between link outages")
+    p_sk.add_argument("--outage-len", type=float, default=60.0, help="seconds each outage lasts")
+    p_sk.add_argument("--interval", type=float, default=1.0, help="simulator frame interval (s)")
+    p_sk.add_argument("--reconnect-budget", type=float, default=90.0, help="seconds a source may take to be back and receiving after the link returns")
+    p_sk.add_argument("--with-service", action="store_true", help="also serve the page and time its answers through the outages")
+    p_sk.add_argument("--out", type=str, default=None, help="where soak.json and the Soak Report go (default: the throw-away workspace's reports/soak)")
+    p_sk.add_argument("--keep", action="store_true", help="keep the throw-away workspace")
+    p_sk.add_argument("--json", action="store_true")
     p_lt = sub.add_parser("loadtest", help="how many supervised patches this machine carries: N WITS0 simulators and patches for a while, with the service answering")
     p_lt.add_argument("--patches", type=int, default=8)
     p_lt.add_argument("--seconds", type=float, default=30.0)
@@ -915,6 +928,15 @@ def main(argv=None) -> int:
             for x in r['records_removed'][:20]:
                 print(f"  record  {x['well_id']}/{x['file']}  {x['age_days']} d")
         return 0
+    elif a.cmd == "soak":
+        import json as _json
+        from .soak import run as _soak
+        secs = a.seconds if a.seconds is not None else (a.hours * 3600.0 if a.hours is not None else 600.0)
+        r = _soak(seconds=secs, patches=a.patches, etp=not a.no_etp, seedlink=not a.no_seedlink, outage_every_s=a.outage_every, outage_s=a.outage_len,
+                  interval_s=a.interval, with_service=a.with_service, keep=a.keep, out_dir=a.out, reconnect_budget_s=a.reconnect_budget, verbose=not a.json)
+        if a.json:
+            print(_json.dumps({k: v for k, v in r.items() if k != "samples_timeline"}, indent=1, default=str))
+        return 0 if r["ok"] else 1
     elif a.cmd == "loadtest":
         import json as _json
         from .loadtest import run as _lt

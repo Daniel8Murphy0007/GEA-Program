@@ -646,7 +646,7 @@ def section_s_correlation() -> None:
        and all("continuity" in r["continuity_claim"].lower()
                or r["continuity_claim"] == "TWIN_HOLE_ELIGIBLE"
                for r in df["refused"] + df["ok"])
-       and "honest census" in df["finding"],
+       and "census as it stands" in df["finding"],
        "S2 correlation: every cross-site pair carries a continuity claim "
        "bounded by distance, and thin pairs refuse with counts")
 
@@ -767,26 +767,27 @@ def section_y_survey() -> None:
     """Section Y - the one-command user path: gea survey."""
     from .survey_cmd import run_survey
     txt, d = run_survey(demo=True)
-    ok('one honest answer' in txt and d['n_stations'] == 65
-       and d['exclusions']['washout_or_null_stations'] == 46,
+    from .client_reports import forbidden_terms
+    ok('one answer with its provenance' in txt and d['n_stations'] == 65
+       and d['exclusions']['washout_or_null_stations'] == 46 and not forbidden_terms(txt),
        "Y1 survey demo: end-to-end on the bundled KTB excerpt - 65 "
-       "stations, 46 exclusions DISCLOSED, one readable report")
+       "stations, 46 exclusions DISCLOSED, one readable report that passes the same internal-register guard every client report passes")
     ok('vp_m_s' in d and abs(d.get('vp_cross_check_pct', 99)) < 5.0,
        "Y2 survey self-grading: the file carries its own sonic and the "
        "estimate lands within 5 pct of measured (demo: ~+0.7 pct) - the "
        "tool grades itself when the data allows")
-    ok('ASSUMPTION' in txt and 'refused to guess' in txt,
-       "Y3 survey honesty: the prior-family assumption is printed where "
-       "it acts and the refusals section is always present")
+    ok('ASSUMPTION' in txt and 'does not call a measurement' in txt,
+       "Y3 survey: the prior-family assumption is printed where "
+       "it acts and the what-this-tool-does-not-call-a-measurement section is always present")
     import tempfile, os as _os
     with tempfile.TemporaryDirectory() as td:
         f = _os.path.join(td, 'empty.las')
         open(f, 'w').write('~Version\n VERS. 2.0:\n~Well\n~Curve\n'
                            'DEPT.M : depth\n~ASCII\n1.0\n2.0\n')
         txt2, d2 = run_survey(path=f)
-        ok(d2['refusals'] and 'REFUSED' in txt2,
-           "Y4 survey refusal: a LAS with no density and no gravity gets "
-           "an honest refusal naming the unlocking channel, not an "
+        ok(d2['refusals'] and 'NOT ESTIMATED' in txt2 and not forbidden_terms(txt2),
+           "Y4 survey: a LAS with no density and no gravity gets "
+           "NOT ESTIMATED naming the unlocking channel, not an "
            "invented answer")
 
 
@@ -5996,6 +5997,105 @@ def section_bm_month_end(tmp: str) -> None:
        "says the index collects and does not recompute"
        + (f" [failed: {', '.join(failed2)}; cli={r_cli.stdout[-200:]!r} {r_cli.stderr[-200:]!r}]" if failed2 else ""))
 
+
+def section_bn_soak(tmp: str) -> None:
+    """Section BN - the soak: the link relay cuts and restores a connection; the patches, the ETP store and the
+    SeedLink station through relays under scheduled outages, every one back and receiving, SeedLink without a gap,
+    the page answering; the Soak Report; the CLI, the page row, the guard on plain-text deliverables."""
+    import socket as _socket
+    import subprocess as _sp
+    from . import soak as SK
+    from . import helplib as H
+    from .client_reports import forbidden_terms, guard_text
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bn"); d.mkdir()
+
+    # -- the relay alone: bytes through, a cut severs, a restore accepts again on the same port -------------------------
+    echo = _socket.socket(); echo.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1); echo.bind(("127.0.0.1", 0)); echo.listen(4); echo.settimeout(5)
+    eport = echo.getsockname()[1]
+
+    def echo_once():
+        try:
+            c, _ = echo.accept(); c.settimeout(5)
+            while True:
+                b = c.recv(4096)
+                if not b:
+                    break
+                c.sendall(b.upper())
+        except OSError:
+            pass
+    threading.Thread(target=echo_once, daemon=True).start()
+    rl = SK.LinkRelay(("127.0.0.1", eport)); rl.start()
+    cl = _socket.create_connection(("127.0.0.1", rl.port), timeout=5); cl.sendall(b"ping"); back = cl.recv(16)
+    rl.cut()
+    severed = False
+    try:
+        cl.settimeout(2); cl.sendall(b"x"); r_ = cl.recv(16); severed = r_ == b""
+    except OSError:
+        severed = True
+    refused = False
+    try:
+        _socket.create_connection(("127.0.0.1", rl.port), timeout=1).close()
+    except OSError:
+        refused = True
+    threading.Thread(target=echo_once, daemon=True).start()
+    rl.restore(); time.sleep(0.3)
+    cl2 = _socket.create_connection(("127.0.0.1", rl.port), timeout=5); cl2.sendall(b"again"); back2 = cl2.recv(16); cl2.close()
+    rl.stop(); echo.close()
+    ok(back == b"PING" and severed and refused and back2 == b"AGAIN" and rl.stats["cuts"] >= 1 and rl.stats["connections"] == 2 and rl.stats["bytes_to_target"] >= 9,
+       "BN1 the link relay: bytes flow both ways to the target; a cut closes the listener and severs every carried connection (a client's next "
+       "read sees the link gone and a new connection is refused); a restore listens again on the same port and carries a new connection")
+
+    # -- the soak itself, short: two WITS0 patches, the ETP store, the SeedLink station, two outages, the page ----------
+    res = SK.run(seconds=75, patches=2, etp=True, seedlink=True, outage_every_s=22, outage_s=5, interval_s=0.5, with_service=True, out_dir=str(d / "out"),
+                 reconnect_budget_s=30, verbose=False)
+    per = {p["protocol"]: p for p in res["per_source"]}
+    rep_md = (d / "out" / "soak_report.md").read_text(encoding="utf-8") if (d / "out" / "soak_report.md").exists() else ""
+    c = {
+        "ran_two_outages": len(res["outages"]) >= 2 and all(o["connections_cut"] >= 4 for o in res["outages"]),
+        "every_source_back": all(o["all_back"] for o in res["outages"]) and res["checks"]["every_outage_recovered"],
+        "down_during": all(set(o["down_during"]) >= {"station"} or len(o["down_during"]) >= 1 for o in res["outages"]),
+        "wits0_loss_counted": per["wits0"]["lost"] is not None and per["wits0"]["lost"] >= 1 and ("no replay" in per["wits0"]["resume"] or "gone" in per["wits0"]["resume"]),
+        "etp_no_replay_named": per["etp"]["lost"] is None and "store" in per["etp"]["resume"] and per["etp"]["received"] > 0,
+        "seedlink_resumed": per["seedlink"]["gaps"] == 0 and per["seedlink"]["lost"] == 0 and per["seedlink"]["reconnects"] >= 1 and "sequence" in per["seedlink"]["resume"],
+        "all_connected_at_end": res["checks"]["all_connected_at_end"] and all(p["status"] == "CONNECTED" for p in res["per_source"]),
+        "page_answered": res["service"]["probes_during_outage"] >= 2 and res["checks"]["page_answered_through_outages"],
+        "verdict_ok": res["ok"] and "OK" in res["verdict"] and "no gap" in res["verdict"],
+        "report_written": res.get("report") and os.path.isfile(res["report"]) and "Outages and recovery" in rep_md and "does not call a measurement" in rep_md
+                           and not forbidden_terms(rep_md) and os.path.isfile(d / "out" / "soak.json"),
+    }
+    failed = [k for k, v in c.items() if not v]
+    ok(not failed,
+       "BN2 the soak: two WITS0 patches, the ETP store and the SeedLink station through relays, the link cut twice on schedule - every source "
+       "down during the cut and back, CONNECTED and receiving, within the budget after it; WITS0's loss counted as the protocol's own (no replay), "
+       "the ETP store's new session named, SeedLink resumed by sequence number with no gap; the page answered through the outages; all connected "
+       "at the end; the Soak Report written with the outage table and what it does not call a measurement, clean of internal-register terms"
+       + (f" [failed: {', '.join(failed)}; verdict={res['verdict']!r}; outages={json.dumps(res['outages'], default=str)[:600]}]" if failed else ""))
+
+    # -- the CLI, the page, the help, the guard on plain text -----------------------------------------------------------
+    r_cli = _sp.run([sys.executable, "-m", "gea", "soak", "--seconds", "30", "--patches", "1", "--no-etp", "--no-seedlink", "--outage-every", "10", "--outage-len", "3", "--json"],
+                    capture_output=True, text=True)
+    try:
+        cli = json.loads(r_cli.stdout)
+    except ValueError:
+        cli = {}
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    help_md = (pkg / "help" / "soak.md").read_text(encoding="utf-8")
+    guard_err = None
+    try:
+        guard_text("a line that calls itself honest", "a test text")
+    except ValueError as e:
+        guard_err = str(e)
+    from .survey_cmd import run_survey
+    txt, _ = run_survey(demo=True)
+    ok(r_cli.returncode == 0 and cli.get("ok") is True and len(cli.get("outages", [])) >= 1 and cli["config"]["patches_wits0"] == 1 and cli["config"]["seedlink"] is False
+       and "data-v=\"soak\"" in page_src and "Soak" in page_src and "172 checks" not in page_src
+       and any(t["topic"] == "soak" for t in H.topics()) and not H.check("soak") and "declared, not observed" in help_md.split("will not call a measurement")[1]
+       and guard_err and "internal-register" in guard_err and not forbidden_terms(txt) and "does not call a measurement" in txt,
+       "BN3 `gea soak --json` runs the schedule and exits 0 on OK; the Verification page carries the soak row and button and no longer names a "
+       "gate count typed by hand; `gea help soak`; `guard_text` is the client-report guard for plain text, and the strata survey's report passes it "
+       "(its closing line and its NOT ESTIMATED section reworded)")
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -6064,6 +6164,7 @@ def main() -> int:
         section_bk_seedlink(tmp)
         section_bl_backup(tmp)
         section_bm_month_end(tmp)
+        section_bn_soak(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

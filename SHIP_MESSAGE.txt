@@ -1,20 +1,23 @@
-v0.19.0 — THE MONTH-END PACKET: THE MONTH'S DELIVERABLE, ASSEMBLED ONCE
+v0.20.0 — THE SOAK: THE PATCHES THROUGH LINK OUTAGES, MEASURED
 
-A client's month was five or six commands and a walk through the reports
-folder. It is one command now. gea workspace --action month-end --period
-2026-09 runs the refresh for the period and collects every report the
-program writes - each well's drift report, alarm month, well-test
-validation, shut-in report, data resilience, machine vibration and the
-certificate register's ISO/IEC 17025 7.8 conformity; each site's SRA packet
-for the period and site report; every seismic station and track; the
-accuracy statement, the SLA month, the FAT/SAT protocol, the model cards and
-the SBOM - into one dated folder with an index and a manifest, zipped beside
-it. The index says, item by item, INCLUDED with its files or NOT AVAILABLE
-with the reason that names what the site lacks; it lists every step that
-failed; it marks a month that has not ended OPEN. The manifest carries every
-file's SHA-256. Nothing is recomputed in the index: the packet is what the
-reports said, collected, so it can be handed over and verified against the
-files it came from. On the Reports page: the packets on record, Assemble as
-a job, Schedule monthly for the previous month.
+The load test said whether the machine carries the site's patches with the
+page answering. The soak says what happens when the link goes down and
+comes back, again and again, for hours. The site's patches, an ETP patch
+and a SeedLink live station each connect through a relay on the loopback;
+on the declared schedule every relay cuts every connection for the declared
+seconds and then listens again, while the simulators keep producing. What
+is measured is the supervisor's own reconnection and resume: per outage,
+the seconds each source took to be back and receiving; per source, what the
+protocol lost while the link was down - WITS0 has no replay, and that loss
+is counted, never recovered; SeedLink resumes by sequence number, and its
+gap count must be zero - and the page's answer time through it all. The
+Soak Report says it with the outage table and what it does not call a
+measurement. gea soak --hours 72 is the go-live run; Verification runs a
+fifteen-minute one from the page.
 
-Section BM is new. The gate is 344 checks. The standalone guard is clean.
+Also in this ship: the client-report guard now covers plain text. The
+strata survey's report carried two terms the guard refuses and never saw;
+it passes the guard now, reworded. The Verification page no longer names a
+gate count typed by hand.
+
+Section BN is new. The gate is 347 checks. The standalone guard is clean.

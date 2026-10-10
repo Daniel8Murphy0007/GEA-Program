@@ -103,6 +103,6 @@ def accuracy_report() -> Dict:
             'worst_mae_pct': (ok[-1]['mae_pct'] if ok else None),
             'median_coverage': (statistics.median(cov) if cov else None),
             'method': ('leave-one-out over the same machinery clients get; '
-                         'coverage targets ~0.68 (honest 1-sigma); refusals '
+                         'coverage targets ~0.68 (a true 1-sigma); refusals '
                          'listed, never hidden; regenerated live so the '
                          'accuracy table can never be a stale snapshot')}

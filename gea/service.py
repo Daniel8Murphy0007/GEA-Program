@@ -75,7 +75,7 @@ PBKDF2_ROUNDS = 200_000
 # Commands the page may run as jobs. Anything else is refused (never `serve`, never a shell).
 RUNNABLE = ('accept', 'fat-sat', 'sbom', 'permits', 'sla-report', 'model-cards', 'client-report', 'dashboard', 'workspace', 'drift-monitor',
             'well-test', 'alarms', 'notify', 'swaps', 'certificates', 'transient', 'housekeeping', 'store-forward', 'config', 'reconcile', 'ingest', 'opcua', 'mqtt', 'report', 'gamma', 'bench',
-            'service-life', 'telemetry', 'run', 'wells', 'survey', 'wits0', 'witsml', 'wits0-sim', 'etp', 'etp-sim', 'files', 'doctor', 'update', 'backup')
+            'service-life', 'telemetry', 'run', 'wells', 'survey', 'wits0', 'witsml', 'wits0-sim', 'etp', 'etp-sim', 'files', 'doctor', 'update', 'backup', 'soak')
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web')
 
 
@@ -1375,6 +1375,10 @@ class App:
             return self._job(['fat-sat', '--kind', 'SAT', '--out', os.path.join(self.ws.reports_dir)], user, 'SAT protocol')
         if what == 'sbom':
             return self._job(['sbom', '--out', self.ws.reports_dir], user, 'SBOM')
+        if what == 'soak':
+            n = max(1, len(self.patches.store.list()))        # the site's own patch count, never fewer than one
+            return self._job(['soak', '--patches', str(n), '--seconds', '900', '--outage-every', '120', '--outage-len', '20', '--with-service',
+                              '--out', os.path.join(self.ws.reports_dir, 'soak')], user, f'soak: {n} patch(es) through link outages for 15 min')
         if what == 'standalone':
             tool = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'tools', 'standalone_check.py')
             if not os.path.isfile(tool):

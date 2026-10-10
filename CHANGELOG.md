@@ -5,6 +5,47 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.20.0] - 2026-10-10 - the soak: the patches through link outages, measured
+
+### Added
+- **`gea soak`** (`gea/soak.py`): the last item on the go-live list that is
+  code. N WITS0 patches (the site's own count), an ETP patch and a SeedLink
+  live station each connect through a link relay on the loopback - a plain
+  TCP forwarder - and on the declared schedule every relay closes its
+  listener and every connection it carries for the declared seconds, then
+  listens again, while the simulators keep producing (the WITS0 simulator
+  now has a `repeat` mode: a client that goes away is replaced and the
+  sender carries on from the next frame, counting the frames nobody was
+  there for). What is measured is the supervisor's own reconnection,
+  backoff and resume: per outage, which sources were down during it and
+  how many seconds after the link returned each was CONNECTED and
+  receiving again, or NOT BACK within the budget; per source, received,
+  produced, lost (WITS0's, by the protocol's nature), gaps (SeedLink's,
+  which must be zero - the resume by sequence number is the proof),
+  reconnection attempts, latency p95 and how the protocol resumes; the
+  page's answer time outside and during the outages with
+  `--with-service`; the checks and the verdict. `soak.json` and the Soak
+  Report (the outage table, the per-source table, what it does not call a
+  measurement) go to `--out`. `--hours 72` is the go-live soak;
+  Verification runs a 15-minute one from the page at the site's patch
+  count. `gea help soak`. Section BN (3 checks); the gate is 347.
+
+### Fixed
+- **The internal-register guard now covers plain text.** The strata
+  survey's text report ended "This report is honest or it is nothing" and
+  headed its last section "what this tool refused to guess" - two of the
+  terms the client-report guard refuses, which it never saw because the
+  survey writes plain text rather than a rendered report.
+  `client_reports.guard_text` is that guard for any text the program hands
+  a client; the survey report passes through it, its closing line reads
+  "A number without its provenance is not in this report", its declined
+  estimates are NOT ESTIMATED and its last section is "what this tool does
+  not call a measurement"; the tester guide follows. Two internal strings
+  of the same register (the harness method note, the correlation census
+  line) are reworded.
+- The Verification page no longer names a gate count typed by hand
+  ("172 checks"); the count is in the run's own log.
+
 ## [v0.19.0] - 2026-10-10 - the month-end packet: the month's deliverable, assembled once
 
 ### Added

@@ -57,7 +57,7 @@ BROWSER" below. `verify.cmd` runs the full test from the kit.
 
 16. In a few seconds a report appears that starts with:
 
-        GEA SURVEY - one well, one honest answer
+        GEA SURVEY - one well, one answer with its provenance
 
 ## PART 5 — YOU'RE DONE. CHECK THESE THREE THINGS:
 
@@ -65,7 +65,7 @@ BROWSER" below. `verify.cmd` runs the full test from the kit.
     scientific well, public archive).
 18. Find the line starting with **CROSS-CHECK**. The program checks its own
     answer against the well's real measurement — it should say about **+0.7%**.
-19. Find the section **"what this tool refused to guess."** That is on
+19. Find the section **"what this tool does not call a measurement."** That is on
     purpose. This program tells you when it doesn't know something instead
     of making it up.
 

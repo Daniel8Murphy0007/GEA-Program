@@ -1406,3 +1406,24 @@ client is owed each month from the reports the program already writes.
   Schedule monthly (`monthly_day` + `daily_at` on the existing scheduler);
   `gea help month-end`; README.
 - Section BM (2 checks): 344.
+
+## 2026-10-10 - the soak (v0.20.0)
+
+v0.19.0 shipped four green; the site page was down because no serve had
+run since the Oct 8 start (the run log said so) - not a program fault. He
+chose the recommendation for v0.20.0: the soak, with the two hygiene fixes.
+
+- `gea/soak.py`: `LinkRelay` (a TCP forwarder with `cut()` / `restore()`),
+  `run` (the simulators behind relays, the supervisor and the live station,
+  the outage schedule, the reconnection timing per source after each
+  outage, the per-source counts, the page probes, the checks, soak.json,
+  the Soak Report), `soak_report`.
+- `wits0.simulate_server(repeat=True)` with `thread.stats` (frames sent,
+  frames with nobody listening, sessions) so a WITS0 sender survives a
+  dropped client like a mud logger does.
+- `gea soak`, `/api/verify` what=soak (15 min at the site's patch count),
+  the Verification row and button, `gea help soak`, README.
+- `client_reports.guard_text`; the survey report reworded and guarded
+  (section Y's expectations follow); the tester guide line and section
+  title; the two internal strings; the "172 checks" label.
+- Section BN (3 checks): 347.

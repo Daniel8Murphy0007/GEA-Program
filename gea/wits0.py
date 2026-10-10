@@ -321,8 +321,12 @@ def simulated_frame(k: int, t: datetime, seed: int = 1) -> Dict[str, object]:
 
 
 def simulate_server(port: int = 0, frames: int = 60, interval_s: float = 1.0, seed: int = 1, host: str = '127.0.0.1',
-                    start_time: Optional[datetime] = None, verbose: bool = False) -> Tuple[threading.Thread, int, threading.Event]:
-    """Listen once, then send `frames` frames `interval_s` apart to the first client. Returns (thread, port, stop)."""
+                    start_time: Optional[datetime] = None, verbose: bool = False, repeat: bool = False) -> Tuple[threading.Thread, int, threading.Event]:
+    """Listen once, then send `frames` frames `interval_s` apart to the first client. Returns (thread, port, stop).
+    With `repeat`, a client that goes away is replaced: the sender listens again and carries on from the next frame -
+    a mud logger does not stop logging because the link dropped (the soak's link-outage rehearsal). The frames sent
+    while nobody was connected are gone, as they are on a real floor: WITS0 has no replay. `thread.stats` counts
+    frames sent and sessions."""
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     srv.bind((host, port))
@@ -330,47 +334,61 @@ def simulate_server(port: int = 0, frames: int = 60, interval_s: float = 1.0, se
     bound = srv.getsockname()[1]
     stop = threading.Event()
     t0 = start_time or utc_now()
+    stats = {'frames_sent': 0, 'frames_unsent': 0, 'sessions': 0}
 
-    def _run():
+    def _accept():
         srv.settimeout(1.0)
         waited = 0
-        conn = None
         while not stop.is_set():
             try:
                 conn, peer = srv.accept()
-                break
+                return conn, peer
             except socket.timeout:
                 waited += 1
+                if repeat:
+                    stats['frames_unsent'] += 1              # a frame's worth of time with nobody listening (at 1 s per frame)
                 if verbose and waited % 15 == 0:
                     print(f'wits0-sim: waiting for a client on {host}:{bound} ({waited} s) - add a wits0 patch with transport tcp, host {host}, port {bound}', flush=True)
             except OSError:
                 break
-        srv.close()
-        if conn is None:
-            return
-        if verbose:
-            print(f'wits0-sim: client connected from {peer[0]}:{peer[1]}; sending {frames} frames {interval_s:g} s apart', flush=True)
+        return None, None
+
+    def _run():
+        k = 0
         try:
-            for k in range(frames):
-                if stop.is_set():
-                    break
-                conn.sendall(encode_frame(simulated_frame(k, utc_now() if start_time is None else t0 + timedelta(seconds=k * interval_s), seed)))
-                if verbose and (k + 1) % 20 == 0:
-                    print(f'wits0-sim: {k + 1} frames sent', flush=True)
-                if stop.wait(interval_s):
-                    break
-            if verbose:
-                print('wits0-sim: done; closing the connection', flush=True)
-        except OSError as e:
-            if verbose:
-                print(f'wits0-sim: the client went away ({e})', flush=True)
+            while not stop.is_set() and k < frames:
+                conn, peer = _accept()
+                if conn is None:
+                    return
+                stats['sessions'] += 1
+                if verbose:
+                    print(f'wits0-sim: client connected from {peer[0]}:{peer[1]}; sending {frames - k} frames {interval_s:g} s apart', flush=True)
+                try:
+                    while k < frames and not stop.is_set():
+                        conn.sendall(encode_frame(simulated_frame(k, utc_now() if start_time is None else t0 + timedelta(seconds=k * interval_s), seed)))
+                        stats['frames_sent'] += 1
+                        k += 1
+                        if verbose and k % 20 == 0:
+                            print(f'wits0-sim: {k} frames sent', flush=True)
+                        if stop.wait(interval_s):
+                            break
+                    if verbose and k >= frames:
+                        print('wits0-sim: done; closing the connection', flush=True)
+                except OSError as e:
+                    if verbose:
+                        print(f'wits0-sim: the client went away ({e})', flush=True)
+                finally:
+                    try:
+                        conn.close()
+                    except OSError:
+                        pass
+                if not repeat:
+                    return
         finally:
-            try:
-                conn.close()
-            except OSError:
-                pass
+            srv.close()
 
     th = threading.Thread(target=_run, name='wits0-sim', daemon=True)
+    th.stats = stats                                           # type: ignore[attr-defined]
     th.start()
     return th, bound, stop
 

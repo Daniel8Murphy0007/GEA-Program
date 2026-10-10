@@ -151,5 +151,5 @@ def depth_frame_pairs(em: EarthModel = None, target_bins: int = TARGET_BINS,
             'n_refused': len(refused),
             'finding': ('the library currently supports %d cross-site '
                         'depth-frame correlations; %d candidate pairs '
-                        'refused thin - the honest census, not a failure'
+                        'refused thin - the census as it stands, not a failure'
                         % (len(ok), len(refused)))}

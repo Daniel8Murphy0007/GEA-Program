@@ -50,6 +50,7 @@ INDEX: List[tuple] = [
     ('backup', 'The backup', 'the site copied off the machine, verified, and restored once before it is trusted'),
     ('doctor', 'Which code is running', 'gea doctor and the serve start-up gate'),
     ('audit-update', 'Audit / Update', 'the whole audit log with filters, the program against PyPI, every report against its source'),
+    ('soak', 'The soak', 'the patches through link outages for hours: reconnection, resume, loss by protocol, the page answering - measured, not modelled'),
     ('upkeep', 'Upkeep', 'housekeeping, sessions, the TLS proxy, the load test'),
 ]
 # the four lines every page must carry, in this order

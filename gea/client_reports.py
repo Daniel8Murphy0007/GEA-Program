@@ -1784,6 +1784,15 @@ def forbidden_terms(text: str) -> List[str]:
     return [t for t in FORBIDDEN_TERMS if t in low]
 
 
+def guard_text(text: str, what: str = 'a client deliverable') -> str:
+    """The guard `write` applies to rendered reports, for any other text the program hands a client - a plain-text
+    report, a printed summary: raise if an internal-register term is in it. Returns the text unchanged."""
+    bad = forbidden_terms(text)
+    if bad:
+        raise ValueError(f'{what} contains internal-register terms: {sorted(set(bad))}')
+    return text
+
+
 def write(doc: Document, out_dir: str, basename: str = 'gauge_drift_report') -> dict:
     """Write markdown, HTML, the machine JSON, the records CSV and the tag
     catalogue CSV. Returns the paths. Raises if the rendered report contains

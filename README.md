@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (344 checks)
+gea accept                     # the product gate (347 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -701,6 +701,14 @@ headers on every response, and `gea housekeeping --workspace C:\site --apply`
 than truncating them and prunes finished job folders and old recordings. `gea
 loadtest --patches 16 --seconds 60 --with-service` tells you whether the site
 machine carries the patches it will be given, with the page still answering.
+`gea soak --hours 72 --patches 4 --with-service --out C:\site\reports\soak`
+runs the site's patch count, an ETP patch and a SeedLink station through
+link relays that are cut on a schedule, and writes the Soak Report from the
+supervisor's own numbers: seconds to reconnect per source after every
+outage, what each protocol lost while the link was down (WITS0 has no
+replay; SeedLink resumes by sequence number, so its gap count must be
+zero), and the page's answer time through it; Verification runs a 15-minute
+one from the page. `gea help soak`.
 `gea backup --workspace C:\site --out D:\gea-backups --keep 14` copies the
 whole site into one dated archive with a manifest of every file's hash, onto
 another disk or a share; schedule it daily from Audit / Update, verify an

@@ -84,7 +84,7 @@ def run_survey(path: Optional[str] = None, demo: bool = False,
     out['channels_found'] = {k: v for k, v in keys.items() if v}
     out['n_stations'] = len(depth)
 
-    w('GEA SURVEY - one well, one honest answer')
+    w('GEA SURVEY - one well, one answer with its provenance')
     w('=' * 60)
     w('source: %s' % src_label)
     w('stations: %d   depth %.1f - %.1f m' % (len(depth),
@@ -118,7 +118,7 @@ def run_survey(path: Optional[str] = None, demo: bool = False,
             'no density (RHOB) and no gravity (GRAV) channel - the tool '
             'cannot characterize strata from this file; add either channel '
             'to unlock the chain')
-        w('REFUSED: %s' % out['refusals'][-1])
+        w('NOT ESTIMATED: %s' % out['refusals'][-1])
         out['report'] = '\n'.join(L)
         return '\n'.join(L), out
 
@@ -133,9 +133,9 @@ def run_survey(path: Optional[str] = None, demo: bool = False,
                                             WASHOUT_RHO_GCC))
     rho_k = [rho[i] for i in keep]
     if len(rho_k) < 5:
-        out['refusals'].append('fewer than 5 usable stations - refusing to '
-                               'summarize strata on this little support')
-        w('REFUSED: %s' % out['refusals'][-1])
+        out['refusals'].append('fewer than 5 usable stations - strata are not '
+                               'summarized on this little support')
+        w('NOT ESTIMATED: %s' % out['refusals'][-1])
         out['report'] = '\n'.join(L)
         return '\n'.join(L), out
 
@@ -184,8 +184,8 @@ def run_survey(path: Optional[str] = None, demo: bool = False,
             out['refusals'].append('all stations outside the prior '
                                    'family support - no Vp estimate rather '
                                    'than an extrapolated one')
-            w('REFUSED: %s' % out['refusals'][-1])
-        # honesty cross-check where the file carries its own sonic
+            w('NOT ESTIMATED: %s' % out['refusals'][-1])
+        # the cross-check where the file carries its own sonic
         if keys['sonic']:
             son = _floats(ch, keys['sonic'])
             meas = [1e6 / son[i] for i in keep if son[i] > 0]
@@ -223,7 +223,7 @@ def run_survey(path: Optional[str] = None, demo: bool = False,
           'certain):')
         w('  ' + ', '.join('%s (%d/%d stations)' % (n, c, len(rho_k))
                            for n, c in ranked))
-        w('  HONESTY: density ranges overlap - these are candidates, not '
+        w('  NOTE: density ranges overlap - these are candidates, not '
           'an identification; density-degenerate twins (e.g. '
           'amphibolite/basalt) are indistinguishable by design')
         out['rock_candidates'] = ranked
@@ -249,7 +249,7 @@ def run_survey(path: Optional[str] = None, demo: bool = False,
     w('')
 
     # ---- what the tool will NOT do ---------------------------------------
-    w('what this tool refused to guess:')
+    w('what this tool does not call a measurement:')
     w('  - a SINGLE confident rock name: density-only identification is '
       'a ranked shortlist with disclosed overlap, never a certainty')
     if not keys['gamma']:
@@ -258,6 +258,8 @@ def run_survey(path: Optional[str] = None, demo: bool = False,
         w('  - %s' % r_)
     w('')
     w('every number above carries its provenance; the assumptions are '
-      'printed where they act. This report is honest or it is nothing.')
+      'printed where they act. A number without its provenance is not in this report.')
     out['report'] = '\n'.join(L)
+    from .client_reports import guard_text
+    guard_text(out['report'], 'the strata survey report')      # the same guard every client report passes; plain text included
     return '\n'.join(L), out

@@ -4,6 +4,16 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.20.0 - 2026-10-10 - the soak
+
+- **The patches through link outages, measured.** The site's patches, an
+  ETP patch and a SeedLink station through loopback relays cut on a
+  schedule for hours; per outage the seconds each source took to be back
+  and receiving, per source what the protocol lost and whether the resume
+  left a gap, the page's answer time through it; the Soak Report. The
+  client-report guard extended to plain text (the survey reworded).
+  Section BN; gate 347.
+
 ## v0.19.0 - 2026-10-10 - the month-end packet
 
 - **The month's deliverable, assembled once.** The refresh for the
