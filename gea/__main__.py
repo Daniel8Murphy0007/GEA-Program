@@ -285,7 +285,7 @@ def main(argv=None) -> int:
                                "add-seismic", "refresh-seismic", "remove-seismic", "sar-film", "refresh-all", "add-track", "refresh-track", "remove-track",
                                "seismic-dataset", "seismic-field", "add-site", "sites", "site-report", "remove-site", "rename",
                                "set-well", "sra-define", "sra-report", "associate", "osdu-export", "quakeml-export", "well-identity", "vibration-report",
-                               "add-live-station", "live-fold", "live-run"])
+                               "add-live-station", "live-fold", "live-run", "month-end"])
     p_ws.add_argument("--stations", type=str, nargs="+", default=None, help="add-track: two or more array station ids of this workspace")
     p_ws.add_argument("--site", type=str, default=None, help="site-report/remove-site: the site id")
     p_ws.add_argument("--api", type=str, default=None, help="set-well: the API number")
@@ -307,7 +307,7 @@ def main(argv=None) -> int:
     p_ws.add_argument("--checkpoint-months", type=int, default=3, help="sra-define: months between checkpoints with Commission staff (3)")
     p_ws.add_argument("--formation-boundary", type=str, default="base of the Wolfcamp", help="sra-define: the stratigraphic boundary between the two tiers")
     p_ws.add_argument("--triggering-event", type=str, default="", help="sra-define: the catalogue id of the event the plan answers")
-    p_ws.add_argument("--catalog", type=str, default=None, help="sra-report: a TexNet earthquake-catalogue export (CSV)")
+    p_ws.add_argument("--catalog", type=str, default=None, help="sra-report / month-end: a TexNet earthquake-catalogue export (CSV)")
     p_ws.add_argument("--aftershocks", type=str, nargs="*", default=None, help="sra-report: catalogue ids the operator declares as aftershocks (exempt)")
     p_ws.add_argument("--start", type=str, default=None, help="sra-report: first day of the record, YYYY-MM-DD")
     p_ws.add_argument("--end", type=str, default=None, help="sra-report: last day of the record, YYYY-MM-DD")
@@ -359,6 +359,8 @@ def main(argv=None) -> int:
     p_ws.add_argument("--seedlink-config", type=str, default=None, help="add-live-station: the SeedLink config JSON (gea seedlink --write-example-config)")
     p_ws.add_argument("--include-open", action="store_true", help="live-fold: fold the current day's files too (they are still being written)")
     p_ws.add_argument("--seconds", type=float, default=None, help="live-run: how long to run (default: until Ctrl+C)")
+    p_ws.add_argument("--period", type=str, default="previous", help="month-end: the month, YYYY-MM, or 'previous' (the last closed month)")
+    p_ws.add_argument("--no-refresh", action="store_true", help="month-end: collect the reports as they stand without refreshing first")
     p_ws.add_argument("--name", type=str, default=None, help="init: site name; add-*: display name")
     p_ws.add_argument("--file", type=str, default=None, help="add-file: the client's data file; add-live: the port configuration JSON")
     p_ws.add_argument("--entry", type=str, default=None, help="add-catalog: catalogue entry")
@@ -1944,6 +1946,10 @@ def main(argv=None) -> int:
                     raise SystemExit("well-identity needs --well <id>")
                 r = ws.well_identity(a.well)
                 print(_ppdm_text(r)); return 0
+            elif a.action == "month-end":
+                from .month_end import report_text as _me_text
+                r = ws.month_end(a.period, actor=a.actor, refresh=not a.no_refresh, catalog_csv=a.catalog)
+                print(_me_text(r)); return 0 if not r["errors"] else 1
             elif a.action == "add-live-station":
                 if not a.seedlink_config or not a.name:
                     raise SystemExit("add-live-station needs --name <display> and --seedlink-config <json>")

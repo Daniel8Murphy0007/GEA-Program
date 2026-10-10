@@ -1051,6 +1051,14 @@ class Workspace:
         self.audit(actor, 'workspace.refresh_all', {'wells': n_wells, 'seismic': n_seis, 'tracks': n_tracks, 'errors': len(errors)})
         return {'wells': n_wells, 'seismic': n_seis, 'tracks': n_tracks, 'errors': errors}
 
+    def month_end(self, period: str, actor: str = 'system', refresh: bool = True, catalog_csv: Optional[str] = None) -> dict:
+        """The month's deliverable: the refresh for the period, then every report collected into
+        reports/month_end/<period>/ with an index and a manifest, and zipped. 'previous' is the last closed month."""
+        from . import month_end as ME
+        if period == 'previous':
+            period = ME.previous_period()
+        return ME.assemble(self, period, actor=actor, refresh=refresh, catalog_csv=catalog_csv)
+
     def report_ages(self) -> List[dict]:
         """Each report family's generated time against its source's modification time - the staleness table."""
         rows = []

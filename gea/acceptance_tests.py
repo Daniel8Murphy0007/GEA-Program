@@ -5872,6 +5872,130 @@ def section_bl_backup(tmp: str) -> None:
        "`--verify` says OK or names the tampered file, `--restore` brings the accounts back; the help page says a backup never restored is a hope"
        + (f" [failed: {', '.join(failed2)}; r_st0={r_st0.stdout[-120:]!r} {r_st0.stderr[-120:]!r}]" if failed2 else ""))
 
+
+def section_bm_month_end(tmp: str) -> None:
+    """Section BM - the month-end packet: the refresh for the period, every report collected with INCLUDED or NOT
+    AVAILABLE and the reason, the index and the manifest, the archive, the records; the page, the job and the
+    monthly schedule."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    import zipfile
+    from . import month_end as ME
+    from . import helplib as H
+    from .telemetry import TelemetryRecorder, TelemetryConfig
+    from .downhole_engine import DownholeEngine, SimulatorConfig
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bm"); d.mkdir()
+    hist = str(d / "hist.csv")
+    TelemetryRecorder(engine=DownholeEngine(SimulatorConfig()), config=TelemetryConfig(duration_hours=2.0, seed=5)).run().export_csv(hist)
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    w = ws.add_well_file(hist, display="SWD 1", actor="tester")
+    site = ws.add_site("Pad 3 site", wells=[w["id"]], actor="tester")
+    bad_period = None
+    try:
+        ME.period_bounds("2026-9")
+    except ValueError as e:
+        bad_period = str(e)
+    pb = ME.period_bounds("2026-02")
+    rec = ME.assemble(ws, "2026-09", actor="tester")
+    idx = json.loads((Path(rec["folder"]) / "INDEX.json").read_text(encoding="utf-8"))
+    man = json.loads((Path(rec["folder"]) / "MANIFEST.json").read_text(encoding="utf-8"))
+    by_name = {i["name"]: i for i in idx["items"]}
+    v_folder = ME.verify(rec["folder"]); v_zip = ME.verify(rec["archive"])
+    with zipfile.ZipFile(rec["archive"]) as z:
+        znames = set(z.namelist())
+    # a second assembly of the same period rebuilds whole; a future month is OPEN
+    rec2 = ME.assemble(ws, "2026-09", actor="tester", refresh=False)
+    from datetime import datetime as _dt, timezone as _tz
+    now = _dt.now(_tz.utc)
+    cur = f"{now.year:04d}-{now.month:02d}"
+    rec3 = ME.assemble(ws, cur, actor="tester", refresh=False)
+    pk = ME.packets(ws)
+    audit = [a["action"] for a in ws.audit_log()]
+    c1 = {
+        "period_checked": bool(bad_period) and "YYYY-MM" in bad_period and pb["days"] == 28 and pb["start"] == "2026-02-01T00:00:00Z" and pb["end"] == "2026-02-28T23:59:59Z" and pb["closed"] is True,
+        "included": by_name["SWD 1: gauge drift report"]["status"] == "INCLUDED" and by_name["SWD 1: alarm event report"]["status"] == "INCLUDED"
+                    and by_name["SLA month 2026-09"]["status"] == "INCLUDED" and by_name["Accuracy statement"]["status"] == "INCLUDED"
+                    and by_name["Pad 3 site: site report"]["status"] == "INCLUDED" and by_name["Model cards and SBOM"]["status"] == "INCLUDED",
+        "not_available_with_reason": by_name["SWD 1: machine vibration"]["status"] == "NOT AVAILABLE" and "no machine record" in by_name["SWD 1: machine vibration"]["reason"]
+                    and by_name["Pad 3 site: SRA packet for 2026-09"]["status"] == "NOT AVAILABLE" and "no Seismicity Response Area" in by_name["Pad 3 site: SRA packet for 2026-09"]["reason"]
+                    and "no certificate register" in by_name["SWD 1: certificate conformity (ISO/IEC 17025 7.8)"]["reason"],
+        "files_hashed": all(f["sha256"] and f["bytes"] > 0 for i in idx["items"] for f in i["files"]) and man["n_files"] == len(man["files"]) and man["n_files"] >= 20
+                    and "wells/SWD-1/gauge_drift_report.html" in man["files"] and "site/sla_report_2026-09.html" in man["files"] and "INDEX.html" in man["files"],
+        "record": rec["included"] == len([i for i in idx["items"] if i["status"] == "INCLUDED"]) and rec["closed"] is True and rec["errors"] == [] and os.path.isfile(rec["archive"])
+                    and os.path.isfile(rec["archive"] + "") and rec["archive"].endswith("month_end_Pad-3_2026-09.zip"),
+        "verify": v_folder["status"] == "OK" and v_zip["status"] == "OK" and v_zip["n_files"] == man["n_files"] and "MANIFEST.json" in znames and "INDEX.html" in znames,
+        "rebuilt_whole_and_open": rec2["generated_utc"] >= rec["generated_utc"] and rec2["refresh"] is False and rec3["closed"] is False and "OPEN" in (Path(rec3["folder"]) / "INDEX.md").read_text(encoding="utf-8")
+                    and len(pk) == 3 and all(p["present"] for p in pk) and pk[-1]["period"] == cur,
+        "audited": audit.count("month_end.assemble") == 3 and "dashboard.refresh" in audit and "site.report" in audit,
+        "not_a_measurement": "does not call a measurement" in (Path(rec["folder"]) / "INDEX.md").read_text(encoding="utf-8"),
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "BM1 the month-end packet: the period checked (YYYY-MM; February's 28 days; a past month closed), the refresh run for it, every report "
+       "collected - the well's drift and alarm reports, the SLA month, the accuracy statement, the site report, the model cards - INCLUDED with "
+       "hashed files, and the vibration report, the SRA packet and the certificate conformity NOT AVAILABLE with the reason that names what the "
+       "site lacks; INDEX and MANIFEST written, the archive verifies against the manifest, a second assembly rebuilds the period whole, the "
+       "current month is marked OPEN, every packet on record, every assembly in the audit"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- the page, the job, the schedule, the CLI, the help --------------------------------------------------------
+    users = Users(str(Path(wsp, "users.json"))); users.add("op", "operator-pass-1", "operator"); users.add("adm", "admin-pass-1", "admin")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json"); req.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(req, timeout=300) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        call("POST", "/api/login", {"name": "op", "password": "operator-pass-1"})
+        st_l, lst = call("GET", "/api/month-end")
+        st_bad = call("POST", "/api/month-end/run", {"period": "Sept 2026"})[0]
+        st_sched_op = call("POST", "/api/month-end/schedule", {"day": 1, "at": "03:00"})[0]
+        st_run, job = call("POST", "/api/month-end/run", {"period": "2026-08", "no_refresh": True})
+        done = svc.app.runner.wait(job["id"], 300)
+        st_l2, lst2 = call("GET", "/api/month-end")
+        req = urllib.request.Request(base + "/reports/month_end/2026-08/INDEX.html"); req.add_header("X-GEA-Action", "1")
+        with opener.open(req, timeout=60) as rr_:
+            html_ok = rr_.status == 200 and b"Month-End Packet" in rr_.read()
+        call("POST", "/api/login", {"name": "adm", "password": "admin-pass-1"})
+        st_sched_bad = call("POST", "/api/month-end/schedule", {"day": 31, "at": "03:00"})[0]
+        st_sched, sch = call("POST", "/api/month-end/schedule", {"day": 2, "at": "03:15"})
+        st_l3, lst3 = call("GET", "/api/month-end")
+    finally:
+        svc.stop()
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    help_md = (pkg / "help" / "month-end.md").read_text(encoding="utf-8")
+    r_cli = _sp.run([sys.executable, "-m", "gea", "workspace", "--path", wsp, "--action", "month-end", "--period", "2026-07", "--no-refresh"], capture_output=True, text=True)
+    r_prev = _sp.run([sys.executable, "-m", "gea", "workspace", "--path", wsp, "--action", "month-end", "--no-refresh"], capture_output=True, text=True)
+    c2 = {
+        "list": st_l == 200 and len(lst["packets"]) == 3 and lst["previous"] == ME.previous_period() and lst["schedule"] is None,
+        "refusals": st_bad == 400 and st_sched_op == 403 and st_sched_bad == 400,
+        "job": st_run == 200 and done["status"] == "DONE" and st_l2 == 200 and any(p["period"] == "2026-08" and p["present"] for p in lst2["packets"]) and html_ok,
+        "schedule": st_sched == 200 and sch["name"] == "month-end-monthly" and sch["monthly_day"] == 2 and sch["daily_at"] == "03:15" and "previous" in sch["args"]
+                    and st_l3 == 200 and lst3["schedule"]["name"] == "month-end-monthly",
+        "page": "Month-end packet" in page_src and "/api/month-end/run" in page_src and "/api/month-end/schedule" in page_src,
+        "cli": r_cli.returncode == 0 and "month-end 2026-07 (closed)" in r_cli.stdout and r_prev.returncode == 0 and f"month-end {ME.previous_period()} (closed)" in r_prev.stdout,
+        "help": any(t["topic"] == "month-end" for t in H.topics()) and not H.check("month-end") and "does not recompute" in help_md.split("will not call a measurement")[1],
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "BM2 the Reports page carries the packet card: the packets on record with their index and archive, the period defaulting to the last closed "
+       "month, Assemble as a job (a malformed period refused) whose INDEX the page then serves, Schedule monthly for an administrator only (day 1..28) "
+       "as the `month-end-monthly` entry for the previous month; `gea workspace --action month-end` with a period or with 'previous'; the help page "
+       "says the index collects and does not recompute"
+       + (f" [failed: {', '.join(failed2)}; cli={r_cli.stdout[-200:]!r} {r_cli.stderr[-200:]!r}]" if failed2 else ""))
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -5939,6 +6063,7 @@ def main() -> int:
         section_bj_etp(tmp)
         section_bk_seedlink(tmp)
         section_bl_backup(tmp)
+        section_bm_month_end(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

@@ -1602,6 +1602,10 @@ def make_handler(app: App):
                     return self._json(200, {'entries': app.catalog()})
                 if path == '/api/reports':
                     return self._json(200, app.reports_index())
+                if path == '/api/month-end':
+                    from . import month_end as ME
+                    sched = next((e for e in app.scheduler.entries() if e['name'] == 'month-end-monthly'), None)
+                    return self._json(200, {'packets': ME.packets(app.ws), 'previous': ME.previous_period(), 'schedule': sched})
                 if path == '/api/jobs':
                     return self._json(200, {'jobs': app.runner.list(int(qs.get('limit', ['50'])[0]))})
                 if path.startswith('/api/jobs/') and path.endswith('/log'):
@@ -1799,6 +1803,29 @@ def make_handler(app: App):
                                             'detail': ('the launcher will start the control panel again by itself if it stops unexpectedly'
                                                        if on else
                                                        'the launcher will hand the window to a PowerShell prompt when the control panel stops')})
+                if path == '/api/month-end/run':
+                    App.require(user, 'operator')
+                    from . import month_end as ME
+                    period = str(body.get('period') or 'previous')
+                    if period != 'previous':
+                        try:
+                            ME.period_bounds(period)
+                        except ValueError as e:
+                            raise ApiError(400, str(e))
+                    args = ['workspace', '--path', app.ws.path, '--action', 'month-end', '--period', period, '--actor', user['name']]
+                    if body.get('no_refresh'):
+                        args.append('--no-refresh')
+                    return self._json(200, app._job(args, user, f'month-end packet {period}'))
+                if path == '/api/month-end/schedule':
+                    App.require(user, 'admin')
+                    try:
+                        day = int(body.get('day', 1)); at = str(body.get('at') or '03:00')
+                    except (TypeError, ValueError):
+                        raise ApiError(400, 'day is a whole number 1..28')
+                    if not (1 <= day <= 28) or len(at) != 5 or at[2] != ':' or not (at[:2] + at[3:]).isdigit():
+                        raise ApiError(400, 'day is 1..28 and at is HH:MM')
+                    args = ['workspace', '--path', app.ws.path, '--action', 'month-end', '--period', 'previous', '--actor', 'schedule']
+                    return self._json(200, app.scheduler.add('month-end-monthly', args, user['name'], daily_at=at, monthly_day=day))
                 if path == '/api/backup/config':
                     App.require(user, 'admin')
                     return self._json(200, app.backup_set_config(user, body))

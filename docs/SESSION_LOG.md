@@ -1385,3 +1385,24 @@ tool (not reachable from here); the rest is his to run on the site machine.
   run (written before v0.17.1 removed the second run) goes out in this
   version as a second line, as the SESSION_LOG above says.
 - Section BL (2 checks): 342.
+
+## 2026-10-10 - the month-end packet (v0.19.0)
+
+v0.18.0 shipped four green. Asked to prepare v0.19.0 with no new data in
+C:\site (the TexNet injection export is still to come), the leg is the
+month-end packet from the roadmap: the one command that assembles what the
+client is owed each month from the reports the program already writes.
+
+- `gea/month_end.py`: `period_bounds` (YYYY-MM checked; the month's first
+  and last instants; closed or OPEN), `previous_period`, `assemble` (the
+  refresh with --month for the period, the SRA packet per site with the
+  period's bounds, the site reports; then the collection by report family
+  into reports/month_end/<period>/, the certificate conformity written from
+  the register, INDEX as a client report through `client_reports.write`
+  (so the forbidden-term guard applies), MANIFEST.json, the archive, the
+  record and the audit), `packets`, `verify`, `report_text`.
+- `Workspace.month_end`; `--action month-end --period --no-refresh
+  --catalog`; `/api/month-end*`; the Reports page card with Assemble and
+  Schedule monthly (`monthly_day` + `daily_at` on the existing scheduler);
+  `gea help month-end`; README.
+- Section BM (2 checks): 344.

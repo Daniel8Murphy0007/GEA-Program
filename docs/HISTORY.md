@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.19.0 - 2026-10-10 - the month-end packet
+
+- **The month's deliverable, assembled once.** The refresh for the
+  period, then every report for every well, site, station and track
+  collected into one dated folder and archive with an index (INCLUDED or
+  NOT AVAILABLE with the reason) and a manifest of every file's hash;
+  scheduled monthly from the Reports page. Section BM; gate 344.
+
 ## v0.18.0 - 2026-10-09 - the backup
 
 - **The site copied off the machine.** One dated archive of the whole

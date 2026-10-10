@@ -1,21 +1,20 @@
-v0.18.0 — THE BACKUP: THE SITE COPIED OFF THE MACHINE
+v0.19.0 — THE MONTH-END PACKET: THE MONTH'S DELIVERABLE, ASSEMBLED ONCE
 
-The records are the product, and nothing in the package copied the site
-anywhere. The doctor told a person to restore users.json "from a backup"
-that no command wrote. gea backup writes it: one dated archive of the whole
-site - every well's source and records, every station's source and live day
-files, the configuration, the monitor, the reports, users.json, the audit
-log, the patches, the schedule - with a manifest of every file's SHA-256
-inside and the archive's own hash beside it, onto another disk or a share
-(a folder inside the workspace is refused). --verify reads an archive
-against its manifest and names what differs. --restore brings one back onto
-an empty folder, verifies every file again, opens it as a workspace and
-says what came back - because a backup nobody has restored is a hope.
---keep prunes the old ones. The doctor warns when there has never been a
-backup or the last is more than a day old. On the dashboard, Audit / Update
-carries the card: the folder, Back up now, Schedule daily.
+A client's month was five or six commands and a walk through the reports
+folder. It is one command now. gea workspace --action month-end --period
+2026-09 runs the refresh for the period and collects every report the
+program writes - each well's drift report, alarm month, well-test
+validation, shut-in report, data resilience, machine vibration and the
+certificate register's ISO/IEC 17025 7.8 conformity; each site's SRA packet
+for the period and site report; every seismic station and track; the
+accuracy statement, the SLA month, the FAT/SAT protocol, the model cards and
+the SBOM - into one dated folder with an index and a manifest, zipped beside
+it. The index says, item by item, INCLUDED with its files or NOT AVAILABLE
+with the reason that names what the site lacks; it lists every step that
+failed; it marks a month that has not ended OPEN. The manifest carries every
+file's SHA-256. Nothing is recomputed in the index: the packet is what the
+reports said, collected, so it can be handed over and verified against the
+files it came from. On the Reports page: the packets on record, Assemble as
+a job, Schedule monthly for the previous month.
 
-Also in this ship: the attach step's tolerance for a tag run whose upload
-loses to a run beside it (a second line; v0.17.1 removed the second run).
-
-Section BL is new. The gate is 342 checks. The standalone guard is clean.
+Section BM is new. The gate is 344 checks. The standalone guard is clean.

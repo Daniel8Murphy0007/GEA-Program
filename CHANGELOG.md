@@ -5,6 +5,39 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.19.0] - 2026-10-10 - the month-end packet: the month's deliverable, assembled once
+
+### Added
+- **`gea workspace --action month-end`** (`gea/month_end.py`): the refresh
+  for the period (`--period 2026-09`, or `previous` for the last closed
+  month; `--no-refresh` to collect as things stand; `--catalog` for the SRA
+  packet), then every report the program writes, collected into
+  `reports/month_end/<period>/`: for the site, the dashboard index, the
+  accuracy statement, the SLA month for that period, the FAT/SAT protocol,
+  the model cards and the SBOM; for every well, the gauge drift report, the
+  alarm event report, the well-test validation, the shut-in / build-up
+  report, the data resilience report, the machine vibration report, and
+  the certificate register's conformity against ISO/IEC 17025 7.8 as it
+  stands; for every site, the SRA packet for the period (where a
+  Seismicity Response Area is defined) and the site report; for every
+  seismic station and track, their reports. `INDEX` (html, md, json) says
+  item by item INCLUDED with its files or NOT AVAILABLE with the reason
+  that names what the site lacks (no machine record, no SRA defined, no
+  certificate register, no well test detected, never refreshed), lists
+  every failed step, and marks a month that has not ended OPEN;
+  `MANIFEST.json` carries every file's SHA-256; the folder is zipped
+  beside it as `month_end_<site>_<period>.zip`. A period is rebuilt whole,
+  never merged. Each packet is logged in `records/month_end.jsonl` and in
+  the audit (`month_end.assemble`); `month_end.verify` checks a folder or
+  archive against its manifest. Nothing is recomputed in the index.
+- **The page**: Reports carries the packet card - the packets on record
+  with their index and archive, the period (defaulting to the last closed
+  month), Assemble as a job, and for an administrator Schedule monthly
+  (day 1..28 and the hour, UTC) as the `month-end-monthly` schedule entry
+  for the previous month. `/api/month-end`, `/api/month-end/run`,
+  `/api/month-end/schedule`. `gea help month-end`. Section BM (2 checks);
+  the gate is 344.
+
 ## [v0.18.0] - 2026-10-09 - the backup: the site copied off the machine
 
 ### Added

@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (342 checks)
+gea accept                     # the product gate (344 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -670,6 +670,24 @@ after the report was written - and "Update every report from its source"
 (operator), which is `gea workspace --action refresh-all` as a job: the
 dashboard for every well, then every seismic station, errors collected and
 listed, never hidden.
+
+### The month-end packet
+
+A client's month was five or six commands and a walk through the reports
+folder. `gea workspace --path C:\site --action month-end --period 2026-09`
+(or `--period previous`) runs the refresh for the period and collects every
+report the program writes - each well's drift report, alarm month, well-test
+validation, shut-in report, data resilience, machine vibration and the
+certificate register's ISO/IEC 17025 7.8 conformity; each site's SRA packet
+for the period and site report; every seismic station and track; the
+accuracy statement, the SLA month, the FAT/SAT protocol, the model cards and
+the SBOM - into `reports/month_end/<period>/` with `INDEX` (html, md, json:
+every item INCLUDED with its files or NOT AVAILABLE with the reason that
+names what the site lacks; every failed step; OPEN for a month that has not
+ended) and `MANIFEST.json` (every file's SHA-256), zipped beside it. Nothing
+is recomputed in the index. On the Reports page: the packets on record,
+Assemble as a job, and Schedule monthly (day and hour, the previous month).
+`gea help month-end`.
 
 ### Before a site goes live
 
