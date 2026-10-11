@@ -1103,7 +1103,8 @@ class Workspace:
         with open(p, encoding='utf-8') as f:
             return json.load(f)
 
-    def add_layer(self, src: str, display: str, actor: str = 'system', note: str = '', citation: str = '', member: Optional[str] = None) -> dict:
+    def add_layer(self, src: str, display: str, actor: str = 'system', note: str = '', citation: str = '', member: Optional[str] = None,
+                  formation: Optional[str] = None, role: Optional[str] = None) -> dict:
         """A structure layer - a shapefile (zip, folder or .shp) of mapped faults and folds - read once to prove it
         reads, copied in verbatim with every part hashed, and described: its coordinate system, extent, feature
         count, the structure types it carries, and the metadata it came with. The citation is the site's own
@@ -1111,6 +1112,11 @@ class Workspace:
         self.refresh()
         from . import shapefile as SF
         from . import structure as ST
+        from .interval import LAYER_ROLES
+        if role is not None and role not in LAYER_ROLES:
+            raise WorkspaceError(f'a layer role must be one of {LAYER_ROLES}, got {role!r}')
+        if role and not formation:
+            raise WorkspaceError('a role needs the formation it belongs to (--formation-name Wolfcamp --role top|isopach|base)')
         try:
             L = SF.read(src, member=member)
         except (ValueError, OSError) as e:
@@ -1129,7 +1135,10 @@ class Workspace:
             hashes[fn] = sha256_file(os.path.join(d, fn))
         type_attr, name_attr = ST.guess_attrs(L)
         kind = ST.layer_kind(L)
-        rec = {'id': lid, 'display': display, 'base': name, 'member': member, 'shape_type': L.shape_type, 'kind': kind, 'crs': {k: v for k, v in L.crs.items() if k != 'wkt'},
+        if role and kind != 'contours':
+            raise WorkspaceError(f'a formation role belongs to a contours layer; this layer reads as {kind}')
+        rec = {'id': lid, 'display': display, 'base': name, 'member': member, 'shape_type': L.shape_type, 'kind': kind,
+               'formation': formation or '', 'role': (role or ('top' if (formation and kind == 'contours') else '')), 'crs': {k: v for k, v in L.crs.items() if k != 'wkt'},
                'bbox': list(L.bbox), 'n_features': L.n, 'fields': L.fields, 'type_attr': type_attr, 'name_attr': name_attr,
                'value_attr': (ST.guess_value_attr(L) if kind == 'contours' else None),
                'type_counts': (dict(list(L.counts(type_attr).items())[:40]) if type_attr else {}), 'metadata': L.source.get('metadata', {}), 'citation': citation, 'note': note,
@@ -1193,6 +1202,43 @@ class Workspace:
             self.audit(actor, 'well.structure', {'id': well_id, 'status': res['status'], 'layers': len(res['layers']),
                                                  'nearest_fault_km': next((l_['nearest_fault']['distance_km'] for l_ in res['layers'] if l_.get('nearest_fault')), None)})
         return res
+
+    def well_interval(self, well_id: str, radius_km: float = 50.0, actor: str = 'system', write: bool = True) -> dict:
+        """The declared disposal interval against the mapped formation tops at the well, and the declared depth tier
+        against the mapped base of the formation the site's SRA names; written beside the well's reports."""
+        from . import interval as IV
+        w = self.well(well_id)
+        st = self.well_structure(well_id, radius_km, actor=actor, write=False)
+        boundary = None
+        for sid in self.manifest.get('sites', []):
+            site = self.site(sid)
+            if well_id in (site.get('wells') or []) and site.get('sra'):
+                boundary = site['sra'].get('formation_boundary'); break
+        res = IV.statement(w, st, self.layers(), boundary)
+        res['generated_utc'] = utc_now_iso()
+        if write:
+            d = self.dir('reports', 'wells', well_id)
+            with open(os.path.join(d, 'interval.json'), 'w', encoding='utf-8') as f:
+                json.dump(res, f, indent=1, default=str)
+            self.audit(actor, 'well.interval', {'id': well_id, 'status': res['status'], 'tier': (res.get('tier') or {}).get('status'),
+                                                'relations': [t['relation'] for t in res.get('tops', [])]})
+        return res
+
+    def events_vs_faults(self, events: List[dict], radius_km: float = 20.0) -> List[dict]:
+        """Every structure-kind layer's answer for a list of catalogue events: the nearest mapped fault to each epicentre."""
+        from . import interval as IV
+        out = []
+        for rec in self.layers():
+            if (rec.get('kind') or 'structure') != 'structure':
+                continue
+            try:
+                L = self.load_layer(rec['id'])
+                r = IV.events_vs_faults(events, L, rec.get('type_attr'), rec.get('name_attr'), radius_km)
+            except (ValueError, OSError) as e:
+                r = {'layer': rec['id'], 'status': 'UNREADABLE', 'note': str(e), 'events': [], 'lines': [f"{rec['id']}: UNREADABLE - {e}"]}
+            r['layer_id'] = rec['id']; r['layer_display'] = rec['display']; r['citation'] = rec.get('citation') or ''
+            out.append(r)
+        return out
 
     def month_end(self, period: str, actor: str = 'system', refresh: bool = True, catalog_csv: Optional[str] = None) -> dict:
         """The month's deliverable: the refresh for the period, then every report collected into
@@ -1369,13 +1415,35 @@ class Workspace:
         from . import geodesy as GD
         from .sra import BHP_METHODS, DEPTH_TIERS, RATE_UNITS
         w = self.well(well_id)
+        from .interval import DEPTH_REFS, REF_DATUMS
         if surface:
             lat, lon = surface.get('lat'), surface.get('lon')
-            if lat is None or lon is None:
-                raise WorkspaceError('a surface position needs --lat and --lon')
-            d = GD.datum_name(surface.get('datum'))
-            w['surface'] = {'lat': float(lat), 'lon': float(lon), 'datum': d}
+            elev = surface.get('elevation')
+            if lat is not None or lon is not None:
+                if lat is None or lon is None:
+                    raise WorkspaceError('a surface position needs --lat and --lon')
+                d = GD.datum_name(surface.get('datum'))
+                w['surface'] = {**(w.get('surface') or {}), 'lat': float(lat), 'lon': float(lon), 'datum': d}
+            if elev:
+                if not w.get('surface'):
+                    raise WorkspaceError('a reference elevation needs the surface position first (--lat --lon --datum)')
+                if elev.get('ft') is None:
+                    raise WorkspaceError('a reference elevation needs --ref-elev-ft')
+                if elev.get('datum') not in REF_DATUMS:
+                    raise WorkspaceError(f'the reference elevation datum must be one of {REF_DATUMS} (kelly bushing, ground level, derrick floor), got {elev.get("datum")!r}')
+                if not elev.get('source'):
+                    raise WorkspaceError('a reference elevation needs its source stated (--ref-elev-source "completion report W-2", or --elev-3dep)')
+                w['surface']['elevation'] = {'ft': float(elev['ft']), 'datum': elev['datum'], 'source': str(elev['source']),
+                                             **({k: elev[k] for k in ('vertical_datum', 'raster', 'queried_utc') if elev.get(k)})}
         if disposal:
+            if disposal.get('depth_reference') is not None and disposal['depth_reference'] not in DEPTH_REFS:
+                raise WorkspaceError(f'the depth reference must be one of {DEPTH_REFS}, got {disposal["depth_reference"]!r}')
+            t_, b_ = disposal.get('top_interval_ft'), disposal.get('base_interval_ft')
+            cur0 = w.get('disposal') or {}
+            t_ = cur0.get('top_interval_ft') if t_ is None else t_
+            b_ = cur0.get('base_interval_ft') if b_ is None else b_
+            if t_ is not None and b_ is not None and float(b_) <= float(t_):
+                raise WorkspaceError(f'the interval base ({b_} ft) must be deeper than its top ({t_} ft)')
             cur = dict(w.get('disposal') or {})
             for k, v in disposal.items():
                 if v is None:
@@ -1453,13 +1521,17 @@ class Workspace:
         from .client_reports import sra_packet_report, write
         pk = self.sra_packet(site_id, catalog_csv, aftershocks, start, end)
         if self.layers():                                      # the mapped structure around each inside well, from the layers the site brought
-            pk['structure'] = {}
+            pk['structure'] = {}; pk['interval'] = {}
             for w in pk['wells']:
                 if w.get('inside'):
                     try:
                         pk['structure'][w['id']] = self.well_structure(w['id'], actor=actor, write=False)
+                        pk['interval'][w['id']] = self.well_interval(w['id'], actor=actor, write=False)
                     except WorkspaceError as e:
                         pk['structure'][w['id']] = {'well': w['id'], 'status': 'NOT RUN', 'note': str(e), 'layers': []}
+                        pk['interval'][w['id']] = {'well': w['id'], 'status': 'NOT RUN', 'notes': [str(e)], 'lines': [f'NOT RUN - {e}'], 'tops': []}
+            if pk.get('seismicity') and pk['seismicity'].get('events'):     # the catalogue's events inside the area against the mapped faults
+                pk['events_faults'] = self.events_vs_faults(pk['seismicity']['events'])
         out = self.dir('reports', 'sites', site_id)
         doc = sra_packet_report(pk, program_version=__version__)
         paths = write(doc, out, 'sra_packet')

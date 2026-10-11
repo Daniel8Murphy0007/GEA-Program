@@ -285,7 +285,7 @@ def main(argv=None) -> int:
                                "add-seismic", "refresh-seismic", "remove-seismic", "sar-film", "refresh-all", "add-track", "refresh-track", "remove-track",
                                "seismic-dataset", "seismic-field", "add-site", "sites", "site-report", "remove-site", "rename",
                                "set-well", "sra-define", "sra-report", "associate", "osdu-export", "quakeml-export", "well-identity", "vibration-report",
-                               "add-live-station", "live-fold", "live-run", "month-end", "add-layer", "layers", "remove-layer", "structure"])
+                               "add-live-station", "live-fold", "live-run", "month-end", "add-layer", "layers", "remove-layer", "structure", "interval"])
     p_ws.add_argument("--stations", type=str, nargs="+", default=None, help="add-track: two or more array station ids of this workspace")
     p_ws.add_argument("--site", type=str, default=None, help="site-report/remove-site: the site id")
     p_ws.add_argument("--api", type=str, default=None, help="set-well: the API number")
@@ -362,6 +362,15 @@ def main(argv=None) -> int:
     p_ws.add_argument("--layer", type=str, default=None, help="add-layer: the shapefile (zip, folder or .shp); remove-layer: the layer id")
     p_ws.add_argument("--member", type=str, default=None, help="add-layer: which shapefile inside a zip or folder that holds several (gea structure --layer <zip> --list)")
     p_ws.add_argument("--citation", type=str, default="", help="add-layer: where the map came from, in the site's words")
+    p_ws.add_argument("--formation-name", type=str, default=None, help="add-layer: the formation a contours layer maps (Wolfcamp)")
+    p_ws.add_argument("--role", type=str, choices=["top", "isopach", "base"], default=None, help="add-layer: what the contours are of that formation: its top elevation, its thickness, or its base")
+    p_ws.add_argument("--base-interval-ft", type=float, default=None, help="set-well: base of the disposal interval, ft")
+    p_ws.add_argument("--depth-ref", type=str, choices=["TVD", "MD"], default=None, help="set-well: the interval depths are true vertical (TVD) or measured (MD) depth")
+    p_ws.add_argument("--ref-elev-ft", type=float, default=None, help="set-well: the reference elevation the depths are measured from, ft above sea level")
+    p_ws.add_argument("--ref-elev-datum", type=str, choices=["KB", "GL", "DF"], default=None, help="set-well: what that elevation is: kelly bushing, ground level, derrick floor")
+    p_ws.add_argument("--ref-elev-source", type=str, default=None, help="set-well: where the elevation came from (completion report, survey plat)")
+    p_ws.add_argument("--elev-3dep", action="store_true", help="set-well: fetch the GROUND elevation at the surface position from the USGS 3DEP point service and store it as the reference (datum GL, source stated)")
+    p_ws.add_argument("--epqs-url", type=str, default=None, help="set-well --elev-3dep / gea elevation: the EPQS endpoint (default the USGS one)")
     p_ws.add_argument("--period", type=str, default="previous", help="month-end: the month, YYYY-MM, or 'previous' (the last closed month)")
     p_ws.add_argument("--no-refresh", action="store_true", help="month-end: collect the reports as they stand without refreshing first")
     p_ws.add_argument("--name", type=str, default=None, help="init: site name; add-*: display name")
@@ -395,6 +404,10 @@ def main(argv=None) -> int:
     p_hk.add_argument("--actor", type=str, default="housekeeping")
     p_hk.add_argument("--json", action="store_true")
 
+    p_el = sub.add_parser("elevation", help="the ground elevation of a position from the USGS 3DEP point service: --lat --lon (the ground, NAVD88; not the kelly bushing)")
+    p_el.add_argument("--lat", type=float, required=True); p_el.add_argument("--lon", type=float, required=True)
+    p_el.add_argument("--url", type=str, default=None, help="the EPQS endpoint (default the USGS one)")
+    p_el.add_argument("--json", action="store_true")
     p_st = sub.add_parser("structure", help="the nearest mapped fault and fold to a position, from a shapefile: --layer <zip|folder|.shp> --lat --lon; --info describes the layer")
     p_st.add_argument("--layer", type=str, required=True)
     p_st.add_argument("--lat", type=float, default=None); p_st.add_argument("--lon", type=float, default=None)
@@ -938,6 +951,16 @@ def main(argv=None) -> int:
                 print(f"  job     {x['job']}  {x['age_days']} d  {x['bytes']} B")
             for x in r['records_removed'][:20]:
                 print(f"  record  {x['well_id']}/{x['file']}  {x['age_days']} d")
+        return 0
+    elif a.cmd == "elevation":
+        from .elevation import EPQS_URL, epqs
+        r = epqs(a.lat, a.lon, url=a.url or EPQS_URL)
+        if a.json:
+            print(json.dumps(r, indent=1)); return 0 if r["status"] == "OK" else 1
+        if r["status"] != "OK":
+            print(f"elevation: {r['status']} - {r.get('detail', '')}", file=sys.stderr); return 1
+        print(f"ground elevation at {a.lat}, {a.lon}: {r['elev_ft']:,.2f} ft ({r['vertical_datum']})")
+        print(f"  source: {r['source']}")
         return 0
     elif a.cmd == "structure":
         import json as _json
@@ -1953,13 +1976,28 @@ def main(argv=None) -> int:
             elif a.action == "set-well":
                 if not a.well:
                     raise SystemExit("set-well needs --well <id>")
-                surface = {"lat": a.lat, "lon": a.lon, "datum": a.datum} if (a.lat is not None or a.lon is not None) else None
+                surface = {"lat": a.lat, "lon": a.lon, "datum": a.datum} if (a.lat is not None or a.lon is not None) else {}
+                if a.elev_3dep:
+                    from .elevation import EPQS_URL, as_reference, epqs
+                    w0 = ws.well(a.well)
+                    pos = {"lat": a.lat, "lon": a.lon} if a.lat is not None else (w0.get("surface") or {})
+                    if pos.get("lat") is None:
+                        raise SystemExit("--elev-3dep needs the surface position (give --lat --lon --datum, or declare it first)")
+                    r = epqs(float(pos["lat"]), float(pos["lon"]), url=a.epqs_url or EPQS_URL)
+                    if r["status"] != "OK":
+                        raise SystemExit(f"3DEP: {r['status']} - {r.get('detail', '')} ({r['url']})")
+                    surface["elevation"] = as_reference(r)
+                    print(f"3DEP ground elevation {r['elev_ft']:,.2f} ft ({r['source']})")
+                elif a.ref_elev_ft is not None or a.ref_elev_datum or a.ref_elev_source:
+                    surface["elevation"] = {"ft": a.ref_elev_ft, "datum": a.ref_elev_datum, "source": a.ref_elev_source}
                 disposal = {k: v for k, v in {"api_number": a.api, "uic_number": a.uic, "depth_tier": a.depth_tier, "formation_basis": a.formation,
                                               "channel_pressure": a.channel_pressure, "channel_rate": a.channel_rate, "rate_unit": a.rate_unit,
                                               "bhp_method": a.bhp_method, "channel_bhp": a.channel_bhp, "top_interval_ft": a.top_interval_ft,
+                                              "base_interval_ft": a.base_interval_ft, "depth_reference": a.depth_ref,
                                               "gradient_psi_ft": a.gradient_psi_ft}.items() if v is not None}
                 if not surface and not disposal:
-                    raise SystemExit("set-well: nothing to declare (give --lat/--lon, or any of --api --uic --depth-tier --channel-pressure ...)")
+                    raise SystemExit("set-well: nothing to declare (give --lat/--lon, --ref-elev-ft, or any of --api --uic --depth-tier --top-interval-ft ...)")
+                surface = surface or None
                 w = ws.set_well(a.well, surface=surface, disposal=disposal or None, actor=a.actor)
                 print(f"well {a.well}: surface {w.get('surface')}; disposal {w.get('disposal')}"); return 0
             elif a.action == "sra-define":
@@ -2021,7 +2059,7 @@ def main(argv=None) -> int:
             elif a.action == "add-layer":
                 if not a.layer or not a.name:
                     raise SystemExit("add-layer needs --name <display> and --layer <shapefile zip | folder | .shp>")
-                L = ws.add_layer(a.layer, a.name, actor=a.actor, citation=a.citation, member=a.member)
+                L = ws.add_layer(a.layer, a.name, actor=a.actor, citation=a.citation, member=a.member, formation=a.formation_name, role=a.role)
                 tc = ", ".join(f"{k} {v}" for k, v in list(L["type_counts"].items())[:6])
                 print(f"layer {L['id']} ({L['kind']}): {L['n_features']} {L['shape_type']} features, {L['crs']['kind']} {L['crs'].get('datum') or ''}, extent lon {L['bbox'][0]:.3f}..{L['bbox'][2]:.3f} lat {L['bbox'][1]:.3f}..{L['bbox'][3]:.3f}"
                       + (f"; contour value {L['value_attr']}" if L.get('value_attr') else ''))
@@ -2049,6 +2087,14 @@ def main(argv=None) -> int:
                     print(f"  [{L.get('layer_display') or L['layer']}]")
                     for line in L["lines"]:
                         print("    " + line)
+                return 0 if r["status"] == "OK" else 1
+            elif a.action == "interval":
+                if not a.well:
+                    raise SystemExit("interval needs --well <id>")
+                r = ws.well_interval(a.well, a.radius_km if a.radius_km is not None else 50.0, actor=a.actor)
+                print(f"interval {a.well}: {r['status']}")
+                for line in r["lines"]:
+                    print("  " + line)
                 return 0 if r["status"] == "OK" else 1
             elif a.action == "month-end":
                 from .month_end import report_text as _me_text

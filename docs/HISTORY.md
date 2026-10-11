@@ -4,6 +4,17 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.22.0 - 2026-10-11 - the interval against the mapped tops
+
+- **Where the injection sits in the geology.** The declared disposal
+  interval, converted to subsea through a stated reference elevation, set
+  beside each formation-top bracket the layers give at the well: ABOVE,
+  BELOW or NOT RESOLVED; a base from a top and an isopach by shown
+  arithmetic; the depth tier CONSISTENT, INCONSISTENT or NOT RESOLVED
+  against the mapped base the SRA names. The catalogue's events against the
+  mapped faults. The ground elevation from USGS 3DEP, named as the ground.
+  Section BP; gate 353.
+
 ## v0.21.0 - 2026-10-11 - mapped structure
 
 - **The nearest fault, the contours, the basin, from a layer the site

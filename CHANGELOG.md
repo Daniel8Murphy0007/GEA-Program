@@ -5,6 +5,54 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.22.0] - 2026-10-11 - the interval against the mapped tops: where the injection sits in the geology
+
+### Added
+- **The declared interval against the mapped formation tops** (`gea/interval.py`):
+  the first question a reviewer of a disposal well in a seismic response area
+  asks, answered from the operator's declaration and the layers the site
+  brought. `set-well` now takes the base of the interval, whether the depths
+  are true vertical or measured (`--depth-ref`), and the reference elevation
+  the depths are measured from - its height, what it is (kelly bushing,
+  ground level, derrick floor) and where it came from, each required; a base
+  above its top and a reference without a source are refused. The interval
+  becomes subsea elevation (reference minus depth, the arithmetic printed);
+  each formation-top layer's bracket at the well (read, not interpolated)
+  places it ABOVE the mapped top, BELOW it, or NOT RESOLVED where the bracket
+  overlaps the interval - the map cannot place a top on one side of an
+  interval it straddles. A layer is told what it maps (`add-layer
+  --formation-name Wolfcamp --role top|isopach|base`); a formation with a top
+  and an isopach gets a base bracket by arithmetic the report shows (top
+  minus thickness, both as brackets), and the declared depth tier - shallow
+  or deep by the base the SRA names - is CONSISTENT with the map,
+  INCONSISTENT, or NOT RESOLVED. A measured-depth interval is refused with the
+  remedy; a ground-elevation reference carries the note that the kelly
+  bushing is higher by a height only the completion report states.
+  `--action interval --well`, `reports/wells/<id>/interval.json`, audited as
+  `well.interval`; the "Interval against the mapped tops" card on the well
+  page, with the declaration form; `/api/wells/<id>/interval` (GET, POST),
+  `/api/wells/<id>/declare`; the SRA packet's section 2c. `gea help interval`.
+- **The catalogue events against the mapped faults**: every event inside the
+  SRA against each structure layer - the nearest mapped trace to the
+  epicentre by distance and bearing, the counts within 1, 2 and 5 km of any
+  trace, the trace with the most events within 2 km. Section 2d of the SRA
+  packet. The depth is not used (a surface trace against an epicentre) and
+  proximity is not attribution; the packet says so.
+- **The ground elevation from USGS 3DEP** (`gea/elevation.py`): the Elevation
+  Point Query Service, queried as it specifies (x, y, wkid 4326, feet), the
+  answer kept with its raster, resolution and query time as the source; no
+  data, not JSON and unreachable each named. `gea elevation --lat --lon`;
+  `set-well --elev-3dep` stores it as the reference with datum GL; the page's
+  "Fetch the ground elevation" button. It is the ground, NAVD88, not the
+  kelly bushing, and every statement built on it says so. Nothing is fetched
+  unless asked.
+- What it will not do: interpolate a top between two contours; place an
+  interval the bracket overlaps; convert a measured depth; take a KB depth
+  from a ground elevation silently; call the tier right - it says whether the
+  declaration and the map agree, and the completion report is the record;
+  attribute an event to a trace it is near. Section BP (3 checks); the gate
+  is 353.
+
 ## [v0.21.0] - 2026-10-11 - mapped structure: the nearest fault, the contours, the basin, from a layer the site brought
 
 ### Added

@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (350 checks)
+gea accept                     # the product gate (353 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -608,6 +608,28 @@ synthetic station speaking both versions; `gea seedlink --selftest` runs both
 against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
+
+### The interval against the mapped tops
+
+Where does the injection sit in the geology? The operator declares the
+disposal interval - top and base, true vertical depth, and the reference
+elevation the depths are measured from with what it is (kelly bushing, ground,
+derrick floor) and where it came from: `gea workspace --action set-well --well
+<id> --top-interval-ft 9850 --base-interval-ft 10400 --depth-ref TVD
+--ref-elev-ft 2962 --ref-elev-datum KB --ref-elev-source "completion report"`
+(`--elev-3dep` fetches the ground elevation from the USGS 3DEP point service
+instead, stored with its raster and named as the ground). A contours layer is
+told what it maps (`add-layer ... --formation-name Wolfcamp --role
+top|isopach|base`). `--action interval --well <id>` then converts the interval
+to subsea with the arithmetic printed and sets it beside each formation-top
+bracket at the well: ABOVE the mapped top, BELOW it, or NOT RESOLVED where
+the bracket overlaps the interval; a formation with a top and an isopach gets
+a base bracket by arithmetic the report shows, and the declared depth tier
+(shallow or deep by the base the SRA names) is CONSISTENT with the map,
+INCONSISTENT, or NOT RESOLVED. The SRA packet's section 2c carries it and
+section 2d sets the catalogue's events against the mapped faults - the
+nearest trace to each epicentre, the counts within 1, 2 and 5 km, proximity
+never called attribution. `gea help interval`.
 
 ### Mapped structure
 

@@ -39,6 +39,7 @@ INDEX: List[tuple] = [
     ('files', 'Files', 'import and export roots, detection by content, the evidence pack'),
     ('notifications', 'Notifications', 'rules, channels, the delivery log'),
     ('structure', 'Mapped structure', 'the nearest fault and fold to a well from a structure layer the site brought, by distance and bearing'),
+    ('interval', 'The interval against the mapped tops', 'the declared disposal interval, subsea, beside each formation-top bracket; the depth tier against the mapped base; the catalogue events against the mapped faults'),
     ('sra', 'The Seismicity Response Area', 'the packet an operator inside an SRA puts in front of the Commission'),
     ('osdu', 'The OSDU-shaped export', 'the site as the manifest an operator\'s data platform loads'),
     ('quakeml', 'The QuakeML catalogue export', 'the site\'s own events in the format the regulator\'s catalogue tools read'),

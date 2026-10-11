@@ -6336,6 +6336,265 @@ def section_bo_structure(tmp: str) -> None:
        "all four; `gea structure --list` and `--member`"
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
+def section_bp_interval(tmp: str) -> None:
+    """Section BP - the declared interval against the mapped tops: subsea conversion through a stated reference, the
+    interval ABOVE / BELOW / NOT RESOLVED against each formation-top bracket, a base from a top and an isopach by the
+    arithmetic shown, the depth tier against the mapped base; the catalogue events against the mapped faults; the
+    3DEP ground elevation client against a stand-in service; the workspace, the SRA packet's sections, the API, the
+    page, the CLI, the help."""
+    import http.cookiejar
+    import http.server
+    import math as _math
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    import zipfile
+    from . import shapefile as SF
+    from . import interval as IV
+    from . import elevation as EL
+    from . import helplib as H
+    from .telemetry import TelemetryRecorder, TelemetryConfig
+    from .downhole_engine import DownholeEngine, SimulatorConfig
+    from .workspace import Workspace, WorkspaceError
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bp"); d.mkdir()
+
+    # -- BP1: the module on its own ----------------------------------------------------------------------------------
+    ss = IV.subsea_ft(9850.0, 2962.0)
+    c_above = IV.compare(-2050.0, -2650.0, (-8000.0, -7500.0))
+    c_below = IV.compare(-8100.0, -8700.0, (-8000.0, -7500.0))
+    c_nr = IV.compare(-7400.0, -7900.0, (-8000.0, -7500.0))
+    c_swapped = IV.compare(-2650.0, -2050.0, (-8000.0, -7500.0))          # top and base given the wrong way round
+    bb = IV.base_bracket((-8000.0, -7500.0), (1800.0, 2000.0))
+    t_deep_ok = IV.tier_check("deep", -10050.0, -10650.0, bb)
+    t_deep_bad = IV.tier_check("deep", -2050.0, -2650.0, bb)
+    t_shallow_ok = IV.tier_check("shallow", -2050.0, -2650.0, bb)
+    t_nr = IV.tier_check("shallow", -9500.0, -10100.0, bb)
+    t_none = IV.tier_check(None, -2050.0, -2650.0, bb)
+    br_on = IV.bracket_of({"status": "OK", "on": -7600.0, "between": None})
+    br_none = IV.bracket_of({"status": "OUTSIDE LAYER EXTENT"})
+    named = IV.formation_named("base of the Wolfcamp", ["Delaware", "Wolfcamp", "Bone Spring"])
+    named_none = IV.formation_named("base of the Ellenburger", ["Wolfcamp"])
+    well_md = {"id": "w", "surface": {"lat": 1.0, "lon": 1.0, "elevation": {"ft": 2950.0, "datum": "KB", "source": "report"}},
+               "disposal": {"top_interval_ft": 5000.0, "base_interval_ft": 5600.0, "depth_reference": "MD"}}
+    st_md = IV.statement(well_md, {"status": "OK", "layers": []}, [], None)
+    st_undeclared = IV.statement({"id": "w"}, {"status": "OK", "layers": []}, [], None)
+    well_gl = {"id": "w", "surface": {"lat": 1.0, "lon": 1.0, "elevation": {"ft": 2950.0, "datum": "GL", "source": "USGS 3DEP"}},
+               "disposal": {"top_interval_ft": 5000.0, "base_interval_ft": 5600.0, "depth_reference": "TVD"}}
+    st_gl = IV.statement(well_gl, {"status": "OK", "layers": [{"layer_id": "t", "layer": "t", "layer_kind": "contours", "status": "OK", "between": [-8000.0, -7500.0]}]},
+                         [{"id": "t", "kind": "contours", "formation": "Wolfcamp", "role": "top"}], None)
+    c1 = {
+        "subsea": ss == -6888.0,
+        "relations": c_above["relation"] == "ABOVE" and c_below["relation"] == "BELOW" and c_nr["relation"] == "NOT RESOLVED" and c_swapped["relation"] == "ABOVE"
+                     and "cannot place the top" in c_nr["detail"],
+        "base_arithmetic": bb == (-10000.0, -9300.0),
+        "tier": t_deep_ok["status"] == "CONSISTENT" and t_deep_bad["status"] == "INCONSISTENT" and t_shallow_ok["status"] == "CONSISTENT"
+                and t_nr["status"] == "NOT RESOLVED" and t_none["status"] == "NOT DECLARED",
+        "brackets_and_names": br_on == (-7600.0, -7600.0) and br_none is None and named == "Wolfcamp" and named_none is None,
+        "md_refused": st_md["status"] == "NOT RESOLVED" and "measured depth" in st_md["lines"][0] and "set-well --depth-ref TVD" in st_md["lines"][0],
+        "undeclared_named": st_undeclared["status"] == "NOT DECLARED" and "--top-interval-ft" in st_undeclared["lines"][0] and "--ref-elev-ft" in st_undeclared["lines"][0]
+                            and "--depth-ref" in st_undeclared["lines"][0],
+        "gl_note": st_gl["status"] == "OK" and st_gl["tops"][0]["relation"] == "ABOVE" and any("kelly bushing" in n and "not stated" in n for n in st_gl["notes"]),
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "BP1 the interval module: subsea = reference - depth; ABOVE, BELOW and NOT RESOLVED against a top bracket (the top and base taken either way round); "
+       "a base from a top bracket and a thickness bracket by the arithmetic shown; the tier CONSISTENT, INCONSISTENT, NOT RESOLVED or NOT DECLARED against "
+       "the base; a measured-depth interval refused naming the remedy; an undeclared interval named by what is missing; a ground-elevation reference "
+       "carries the note that the kelly bushing is not stated"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- BP2: the workspace, the SRA packet, the API, the page, the CLI, the help -----------------------------------
+    lat1, lon1 = 31.42, -103.50
+    kmlat = 1.0 / 111.195
+    kmlon = 1.0 / (111.195 * _math.cos(_math.radians(lat1)))
+
+    def ns_contours(name, attr, values, spacing_km=4.0):
+        ctr = [([[(lon1 + (i - (len(values) - 1) / 2) * spacing_km * kmlon, lat1 - 0.3), (lon1 + (i - (len(values) - 1) / 2) * spacing_km * kmlon, lat1 + 0.3)]],
+                {attr: float(v)}) for i, v in enumerate(values)]
+        SF.write(str(d / name), "PolyLine", ctr, [(attr, "F", 10, 1)], SF.NAD83_GEOGCS)
+        with zipfile.ZipFile(str(d / (name + ".zip")), "w") as z:
+            for ext in (".shp", ".shx", ".dbf", ".prj"):
+                z.write(str(d / (name + ext)), name + ext)
+        return str(d / (name + ".zip"))
+    z_top = ns_contours("WC_Top", "ElevTop_ft", [-8500, -8000, -7500, -7000])        # the position between -8,000 and -7,500
+    z_iso = ns_contours("WC_Isopach", "Thick_ft", [1600, 1800, 2000, 2200])          # between 1,800 and 2,000: base between -10,000 and -9,300
+    z_del = ns_contours("DEL_Top", "ElevTop_ft", [-2400, -2000, -1600, -1200])       # between -2,000 and -1,600
+    faults = [([[(lon1 - 0.3, lat1 + 3 * kmlat), (lon1 + 0.3, lat1 + 3 * kmlat)]], {"LONG_DESC": "fault", "NAME": "North Trace"}),
+              ([[(lon1 + 8 * kmlon, lat1 - 0.3), (lon1 + 8 * kmlon, lat1 + 0.3)]], {"LONG_DESC": "dotted fault", "NAME": "East Trace"})]
+    SF.write(str(d / "Faults_Test"), "PolyLine", faults, [("LONG_DESC", "C", 30, 0), ("NAME", "C", 30, 0)], SF.NAD83_GEOGCS)
+    with zipfile.ZipFile(str(d / "Faults_Test.zip"), "w") as z:
+        for ext in (".shp", ".shx", ".dbf", ".prj"):
+            z.write(str(d / ("Faults_Test" + ext)), "Faults_Test" + ext)
+    hist = str(d / "hist.csv")
+    TelemetryRecorder(engine=DownholeEngine(SimulatorConfig()), config=TelemetryConfig(duration_hours=1.0, seed=5)).run().export_csv(hist)
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    w = ws.add_well_file(hist, display="SWD 1", actor="tester")
+    lay_t = ws.add_layer(z_top, "WC top", actor="tester", formation="Wolfcamp", role="top", citation="the gate's own layer")
+    lay_i = ws.add_layer(z_iso, "WC isopach", actor="tester", formation="Wolfcamp", role="isopach")
+    ws.add_layer(z_del, "Delaware top", actor="tester", formation="Delaware")          # a formation named, the role defaulting to top
+    ws.add_layer(str(d / "Faults_Test.zip"), "Faults", actor="tester")
+    role_err = None
+    try:
+        ws.add_layer(str(d / "Faults_Test.zip"), "Faults as top", actor="tester", formation="X", role="top")
+    except WorkspaceError as e:
+        role_err = str(e)
+    before = ws.well_interval(w["id"], actor="tester")
+    elev_err = None
+    try:
+        ws.set_well(w["id"], surface={"lat": lat1, "lon": lon1, "datum": "NAD83", "elevation": {"ft": 2950.0, "datum": "KB"}}, actor="tester")
+    except WorkspaceError as e:
+        elev_err = str(e)
+    ws.set_well(w["id"], surface={"lat": lat1, "lon": lon1, "datum": "NAD83", "elevation": {"ft": 2950.0, "datum": "KB", "source": "completion report"}}, actor="tester")
+    order_err = None
+    try:
+        ws.set_well(w["id"], disposal={"top_interval_ft": 5600.0, "base_interval_ft": 5000.0}, actor="tester")
+    except WorkspaceError as e:
+        order_err = str(e)
+    ws.set_well(w["id"], disposal={"top_interval_ft": 5000.0, "base_interval_ft": 5600.0, "depth_reference": "TVD", "depth_tier": "shallow",
+                                   "formation_basis": "completed above the base of the Wolfcamp", "channel_pressure": "P_surf_psi", "channel_rate": "Q_bpm",
+                                   "rate_unit": "bbl/min", "bhp_method": "probe", "channel_bhp": "P_bh_psi"}, actor="tester")
+    site = ws.add_site("Pad 3 site", wells=[w["id"]], actor="tester")
+    ws.sra_define(site["id"], actor="tester", name="Pad 3 SRA", lat=lat1, lon=lon1, radius_km=9.08, plan_date="2026-01-15")
+    st1 = ws.well_interval(w["id"], actor="tester")
+    rel1 = {t["layer_id"]: t["relation"] for t in st1["tops"]}
+    ws.set_well(w["id"], disposal={"top_interval_ft": 13000.0, "base_interval_ft": 13600.0, "depth_tier": "deep"}, actor="tester")
+    st2 = ws.well_interval(w["id"], actor="tester")
+    ws.set_well(w["id"], disposal={"top_interval_ft": 10300.0, "base_interval_ft": 10900.0, "depth_tier": "deep"}, actor="tester")   # -7,350 to -7,950: across the top, above the base
+    st3 = ws.well_interval(w["id"], actor="tester")
+    ws.set_well(w["id"], disposal={"top_interval_ft": 12400.0, "base_interval_ft": 13000.0, "depth_tier": "deep"}, actor="tester")   # -9,450 to -10,050: across the base bracket
+    st3b = ws.well_interval(w["id"], actor="tester")
+    ws.set_well(w["id"], disposal={"top_interval_ft": 5000.0, "base_interval_ft": 5600.0, "depth_tier": "shallow"}, actor="tester")
+    # the catalogue: three events, two beside a trace
+    cat = str(d / "cat.csv")
+    with open(cat, "w", encoding="utf-8") as f:
+        f.write("EventID,Origin Date,Origin Time,Local Magnitude,Latitude (WGS84),Longitude (WGS84),Depth of Hypocenter (Km.  Rel to MSL)\n")
+        f.write(f"e1,2026-03-01,00:00:00,3.6,{lat1 + 2.5 * kmlat:.6f},{lon1:.6f},6.0\n")
+        f.write(f"e2,2026-03-02,00:00:00,2.0,{lat1:.6f},{lon1 + 7.5 * kmlon:.6f},5.0\n")
+        f.write(f"e3,2026-03-03,00:00:00,2.2,{lat1 - 0.05:.6f},{lon1 - 0.05:.6f},7.0\n")
+    pk = ws.write_sra_packet(site["id"], catalog_csv=cat, actor="tester")
+    sra_md = open(pk["paths"]["markdown"], encoding="utf-8").read()
+    audit = [a["action"] for a in ws.audit_log()]
+    users = Users(str(Path(wsp, "users.json"))); users.add("op", "operator-pass-1", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json"); req.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(req, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        call("POST", "/api/login", {"name": "op", "password": "operator-pass-1"})
+        st_g, got = call("GET", f"/api/wells/{w['id']}/interval")
+        st_d, dec = call("POST", f"/api/wells/{w['id']}/declare", {"disposal": {"top_interval_ft": 13000.0, "base_interval_ft": 13600.0, "depth_tier": "deep"}})
+        st_bad = call("POST", f"/api/wells/{w['id']}/declare", {"disposal": {"depth_reference": "feet"}})[0]
+        st_p, wrote = call("POST", f"/api/wells/{w['id']}/interval", {})
+        st_l, lst = call("GET", "/api/layers")
+    finally:
+        svc.stop()
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    help_md = (pkg / "help" / "interval.md").read_text(encoding="utf-8")
+    r_cli = _sp.run([sys.executable, "-m", "gea", "workspace", "--path", wsp, "--action", "interval", "--well", w["id"]], capture_output=True, text=True)
+    r_set = _sp.run([sys.executable, "-m", "gea", "workspace", "--path", wsp, "--action", "set-well", "--well", w["id"], "--top-interval-ft", "5000", "--base-interval-ft", "5600",
+                     "--depth-ref", "TVD", "--depth-tier", "shallow", "--ref-elev-ft", "2950", "--ref-elev-datum", "KB", "--ref-elev-source", "completion report"], capture_output=True, text=True)
+    r_add = _sp.run([sys.executable, "-m", "gea", "workspace", "--path", wsp, "--action", "add-layer", "--name", "WC top again", "--layer", z_top, "--formation-name", "Wolfcamp", "--role", "top"],
+                    capture_output=True, text=True)
+    sec2c = sra_md.split("The declared interval against the mapped tops")[1].split("## 2d")[0] if "The declared interval against the mapped tops" in sra_md else ""
+    sec2d = sra_md.split("Catalogue events against the mapped faults")[1].split("## 3")[0] if "Catalogue events against the mapped faults" in sra_md else ""
+    c2 = {
+        "layers_declared": lay_t["formation"] == "Wolfcamp" and lay_t["role"] == "top" and lay_i["role"] == "isopach" and role_err and "contours layer" in role_err
+                           and next(L_["role"] for L_ in ws.layers() if L_["id"] == "Delaware-top") == "top",
+        "declarations_refused": before["status"] == "NOT DECLARED" and elev_err and "source" in elev_err and order_err and "deeper than its top" in order_err,
+        "shallow_statement": st1["status"] == "OK" and st1["declared"]["top_subsea_ft"] == -2050.0 and st1["declared"]["base_subsea_ft"] == -2650.0
+                             and rel1 == {lay_t["id"]: "ABOVE", lay_i["id"]: "THICKNESS", "Delaware-top": "BELOW"}
+                             and st1["formations"][0]["base"] == [-10000.0, -9300.0] and st1["tier"]["status"] == "CONSISTENT" and st1["tier"]["formation"] == "Wolfcamp"
+                             and os.path.isfile(Path(wsp, "reports", "wells", w["id"], "interval.json")),
+        "deep_and_unresolved": st2["tier"]["status"] == "CONSISTENT" and st2["formations"][0]["interval_vs_base"]["relation"] == "BELOW"
+                               and st3["tier"]["status"] == "INCONSISTENT" and {t["layer_id"]: t["relation"] for t in st3["tops"]}[lay_t["id"]] == "NOT RESOLVED"
+                               and st3b["tier"]["status"] == "NOT RESOLVED" and st3b["formations"][0]["interval_vs_base"]["relation"] == "NOT RESOLVED",
+        "sra_sections": "## 2c" in sra_md and "| SWD-1 | OK |" in sec2c and "ABOVE WC top (-8,000/-7,500)" in sec2c and "CONSISTENT" in sec2c
+                        and "## 2d" in sra_md and "| Faults | e1 |" in sec2d and "North Trace | 0.50 |" in sec2d and "East Trace | 0.50 |" in sec2d
+                        and "2 within 1 km, 2 within 2 km, 2 within 5 km" in sec2d and "proximity to a mapped trace is not an attribution" in sec2d,
+        "audited": "well.interval" in audit and audit.count("well.interval") >= 3,
+        "api": st_g == 200 and got["status"] == "OK" and st_d == 200 and dec["disposal"]["depth_tier"] == "deep" and st_bad == 400 and st_p == 200
+               and wrote["tier"]["status"] == "CONSISTENT" and st_l == 200 and any(L_.get("role") == "isopach" for L_ in lst["layers"]),
+        "page": "intervalCardHtml" in page_src and "/api/wells/' + id + '/interval'" in page_src and "/api/elevation" in page_src and "lyRole" in page_src
+                and "kelly bushing is deeper by the KB height" in page_src,
+        "cli": r_cli.returncode == 0 and "BELOW the mapped Wolfcamp top" in r_cli.stdout and "Depth tier against the map (base of the Wolfcamp): CONSISTENT" in r_cli.stdout
+               and r_set.returncode == 0 and "'depth_reference': 'TVD'" in r_set.stdout and r_add.returncode == 0,
+        "help": any(t["topic"] == "interval" for t in H.topics()) and not H.check("interval") and "never a value between them" in help_md.split("will not call a measurement")[1],
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "BP2 the workspace: a contours layer declared with its formation and role (a role on a faults layer refused); the interval and its reference declared "
+       "(an elevation without its source refused, a base above its top refused), NOT DECLARED before; the shallow interval ABOVE the Wolfcamp top and "
+       "BELOW the Delaware top, the Wolfcamp base from top and isopach, the tier CONSISTENT; a deep interval CONSISTENT; an interval across the top NOT "
+       "RESOLVED against it and INCONSISTENT with a deep declaration; an interval across the base bracket NOT RESOLVED; the SRA packet's 2c and 2d; audited; the API declares, answers and writes; the page card with the 3DEP button; the CLI; the help"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- BP3: the 3DEP client against a stand-in service, and set-well --elev-3dep through it ----------------------
+    seen = []
+
+    class _EPQS(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *a):       # quiet
+            pass
+
+        def do_GET(self):
+            import urllib.parse as up
+            q = up.parse_qs(up.urlsplit(self.path).query)
+            seen.append(q)
+            y = float(q.get("y", ["0"])[0]); x = float(q.get("x", ["0"])[0])
+            if y > 80:
+                body = json.dumps({"location": {"x": x, "y": y}, "value": "-1000000", "rasterSource": "", "resolution": 0})
+            elif y < -80:
+                body = b"<html>not json</html>"
+            else:
+                body = json.dumps({"location": {"x": x, "y": y, "spatialReference": {"wkid": 4326}}, "locationId": 0, "value": "2951.37",
+                                   "rasterSource": "https://prd-tnm.s3.amazonaws.com/USGS_13_n32w104.tif", "resolution": 10})
+            data = body.encode() if isinstance(body, str) else body
+            self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(data))); self.end_headers()
+            self.wfile.write(data)
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _EPQS)
+    th = threading.Thread(target=srv.serve_forever, daemon=True); th.start()
+    url = f"http://127.0.0.1:{srv.server_address[1]}/v1/json"
+    try:
+        r_ok = EL.epqs(lat1, lon1, url=url)
+        r_nodata = EL.epqs(85.0, lon1, url=url)
+        r_notjson = EL.epqs(-85.0, lon1, url=url)
+        r_unreach = EL.epqs(lat1, lon1, url="http://127.0.0.1:9/v1/json", timeout=3)
+        ref = EL.as_reference(r_ok)
+        r_cli_el = _sp.run([sys.executable, "-m", "gea", "elevation", "--lat", str(lat1), "--lon", str(lon1), "--url", url], capture_output=True, text=True)
+        r_set3 = _sp.run([sys.executable, "-m", "gea", "workspace", "--path", wsp, "--action", "set-well", "--well", w["id"], "--elev-3dep", "--epqs-url", url], capture_output=True, text=True)
+        w3 = ws.well(w["id"])
+        st4 = ws.well_interval(w["id"], actor="tester")
+    finally:
+        srv.shutdown(); srv.server_close()
+    c3 = {
+        "answer": r_ok["status"] == "OK" and r_ok["elev_ft"] == 2951.37 and r_ok["resolution_m"] == 10.0 and "USGS_13_n32w104" in r_ok["raster"]
+                  and r_ok["source"].startswith("USGS 3DEP EPQS, ") and "10 m raster" in r_ok["source"] and "NAVD88" in r_ok["vertical_datum"],
+        "query_as_specified": seen and seen[0].get("wkid") == ["4326"] and seen[0].get("units") == ["Feet"] and abs(float(seen[0]["x"][0]) - lon1) < 1e-6 and abs(float(seen[0]["y"][0]) - lat1) < 1e-6,
+        "failures_named": r_nodata["status"] == "NO DATA" and r_notjson["status"] == "NOT JSON" and r_unreach["status"] == "UNREACHABLE" and EL.as_reference(r_nodata) is None,
+        "reference": ref == {"ft": 2951.37, "datum": "GL", "source": r_ok["source"], "vertical_datum": "NAVD88", "raster": r_ok["raster"], "queried_utc": r_ok["queried_utc"]},
+        "cli": r_cli_el.returncode == 0 and "2,951.37 ft" in r_cli_el.stdout and "source: USGS 3DEP EPQS" in r_cli_el.stdout,
+        "set_well": r_set3.returncode == 0 and "3DEP ground elevation 2,951.37 ft" in r_set3.stdout and w3["surface"]["elevation"]["datum"] == "GL"
+                    and w3["surface"]["elevation"]["ft"] == 2951.37 and "USGS 3DEP EPQS" in w3["surface"]["elevation"]["source"],
+        "gl_note_in_statement": st4["status"] == "OK" and st4["declared"]["ref_datum"] == "GL" and any("kelly bushing" in n for n in st4["notes"])
+                                and st4["declared"]["top_subsea_ft"] == round(2951.37 - 5000.0, 1),
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "BP3 the 3DEP point service: the query as the service specifies it (x, y, wkid 4326, feet), the answer with its raster, resolution and query "
+       "time as the source, the ground and NAVD88 named; no data, not JSON and unreachable each named; the answer as a reference elevation (datum GL); "
+       "`gea elevation` and `set-well --elev-3dep` through the stand-in service; the statement then carries the kelly-bushing note"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -6406,6 +6665,7 @@ def main() -> int:
         section_bm_month_end(tmp)
         section_bn_soak(tmp)
         section_bo_structure(tmp)
+        section_bp_interval(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

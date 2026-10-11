@@ -887,7 +887,8 @@ class App:
                 fh.write(base64.b64decode(f.get('content_b64') or ''))
             try:
                 return self.ws.add_layer(p, str(body.get('display') or os.path.splitext(name)[0]), actor=user['name'],
-                                         note=str(body.get('note', '')), citation=str(body.get('citation', '')), member=(str(body['member']) if body.get('member') else None))
+                                         note=str(body.get('note', '')), citation=str(body.get('citation', '')), member=(str(body['member']) if body.get('member') else None),
+                                         formation=(str(body['formation']) if body.get('formation') else None), role=(str(body['role']) if body.get('role') else None))
             except (WorkspaceError, ValueError) as e:
                 raise ApiError(409, str(e))
         finally:
@@ -1617,6 +1618,12 @@ def make_handler(app: App):
                         return self._json(200, app.ws.well_structure(wid, float(qs.get('radius_km', ['50'])[0]), actor='page', write=False))
                     except WorkspaceError as e:
                         raise ApiError(404, str(e))
+                if path.startswith('/api/wells/') and path.endswith('/interval'):
+                    wid = path[len('/api/wells/'):-len('/interval')]
+                    try:
+                        return self._json(200, app.ws.well_interval(wid, float(qs.get('radius_km', ['50'])[0]), actor='page', write=False))
+                    except WorkspaceError as e:
+                        raise ApiError(404, str(e))
                 if path == '/api/seismic/live':
                     from .seedlink import EXAMPLE_CONFIG as _SLX
                     return self._json(200, {'stations': app.live.states(), 'example_config': _SLX})
@@ -1797,6 +1804,30 @@ def make_handler(app: App):
                         return self._json(200, app.ws.well_structure(wid, float((body or {}).get('radius_km') or 50.0), actor=user['name']))
                     except WorkspaceError as e:
                         raise ApiError(404, str(e))
+                if path.startswith('/api/wells/') and path.endswith('/interval'):
+                    App.require(user, 'operator')
+                    wid = path[len('/api/wells/'):-len('/interval')]
+                    try:
+                        return self._json(200, app.ws.well_interval(wid, float((body or {}).get('radius_km') or 50.0), actor=user['name']))
+                    except WorkspaceError as e:
+                        raise ApiError(404, str(e))
+                if path.startswith('/api/wells/') and path.endswith('/declare'):
+                    App.require(user, 'operator')
+                    wid = path[len('/api/wells/'):-len('/declare')]
+                    b = body or {}
+                    try:
+                        return self._json(200, app.ws.set_well(wid, surface=(b.get('surface') or None), disposal=(b.get('disposal') or None), actor=user['name']))
+                    except WorkspaceError as e:
+                        raise ApiError(400, str(e))
+                if path == '/api/elevation':
+                    App.require(user, 'operator')
+                    from .elevation import EPQS_URL as _EPQS, epqs as _epqs
+                    b = body or {}
+                    try:
+                        lat, lon = float(b['lat']), float(b['lon'])
+                    except (KeyError, TypeError, ValueError):
+                        raise ApiError(400, 'lat and lon are needed')
+                    return self._json(200, _epqs(lat, lon, url=str(b.get('url') or _EPQS)))
                 if path == '/api/seismic/live/add':
                     App.require(user, 'operator')
                     return self._json(200, app.add_live_station(user, body))

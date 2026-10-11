@@ -1,40 +1,29 @@
-v0.21.0 — MAPPED STRUCTURE: THE NEAREST FAULT, THE CONTOURS, THE BASIN, FROM A LAYER THE SITE BROUGHT
+v0.22.0 — THE INTERVAL AGAINST THE MAPPED TOPS: WHERE THE INJECTION SITS IN THE GEOLOGY
 
-The first geological statement this program makes about a well. A structure
-layer - a shapefile of mapped faults and folds, a public map or the
-operator's own - is read as the specification lays the format out, without
-a dependency: the records by the .shx index (a USGS layer carries one whose
-own length is wrong, and the index is what the index is for), the
-attributes, the coordinate system taken, unprojected or refused by name,
-and the metadata beside it. The layer is kept in the workspace with every
-part hashed and the site's citation. For a well's declared surface position
-the program says how far and in which direction the nearest mapped fault
-is, the nearest fold, and what else the map holds within the radius - on
-the well page, in the SRA packet's new section for every well inside the
-area, and from the command line for any position. A position outside the
-layer's extent is said to be outside it, which is not the same as clear of
-faults.
+The first question a reviewer of a disposal well in a seismic response area
+asks, answered from two things the program already holds: the operator's
+declaration and the layers the site brought. The operator declares the
+interval - top and base, true vertical depth, the elevation the depths are
+measured from and what that elevation is (kelly bushing, ground, derrick
+floor) and where it came from. The program converts the interval to subsea
+with the arithmetic printed and sets it beside each formation-top bracket the
+contour layers give at the well: ABOVE the mapped top, BELOW it, or NOT
+RESOLVED where the bracket overlaps the interval - a map read between two
+contours cannot place a top on one side of an interval it straddles. A layer
+is told what it maps; a formation with a top and an isopach gets a base by
+arithmetic the report shows, and the declared depth tier - shallow or deep by
+the base the plan names - is CONSISTENT with the map, INCONSISTENT, or NOT
+RESOLVED. That is the line the Commission's review turns on.
 
-A layer is read for what it is: faults and folds give the nearest of each;
-formation-top contours say which two the position lies between - read, not
-interpolated, and only when the two nearest are one interval apart; basin
-polygons say which one the position is inside; picked wells give the
-nearest picks and say a pick at another well is not a pick at this one. A
-zip holding several shapefiles lists its members and one is named.
+The catalogue's events inside the area are set against the mapped faults:
+the nearest trace to each epicentre, the counts within 1, 2 and 5 km. The
+ground elevation of a position comes from the USGS 3D Elevation Program's
+point service when asked, kept with its raster and query time, and named as
+the ground - the kelly bushing is higher by a height only the completion
+report states, and every statement built on it says so.
 
-Proven on the USGS Professional Paper 1708 Appalachian basin structure
-layer (15,699 traces; from Youngstown, Ohio, the nearest mapped fault is the
-Akron-Suffield Fault, 31.5 km to the south-west) and on the EIA Permian
-Basin set (at 31.42 N, 103.50 W: inside the Delaware Basin, the Wolfcamp
-top between -8,000 and -7,600 ft, the nearest mapped fault 52.6 km to the
-south-south-west).
+What it will not do: interpolate a top; place an interval the bracket
+overlaps; convert a measured depth; call the tier right - it says whether the
+declaration and the map agree; attribute an event to a trace it is near.
 
-The workspace manifest is re-read when another process wrote it, so the
-panel and the command line on the same folder no longer hide or drop each
-other's additions.
-
-What it will not do: interpolate a depth or add a dip or activity the layer
-does not state; call a distance a hazard; vouch for a compiled map's
-accuracy.
-
-Section BO is new. The gate is 350 checks. The standalone guard is clean.
+Section BP is new. The gate is 353 checks. The standalone guard is clean.

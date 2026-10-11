@@ -1502,3 +1502,38 @@ the Delaware formation (ElevTop_ft, Thick_ft). All WGS84 geographic.
   four.
 - Section BO (3 checks): 350. The six zips go to C:\site\_incoming\ beside
   structure.zip; they are not in the package.
+
+## 2026-10-11 - the interval against the mapped tops (v0.22.0)
+
+v0.21.0 shipped four green (1c1aa01). He asked what else would grow the
+program and then said do them all; this is the first leg of that list, the
+one that needed nothing downloaded. The six EIA zips are in his site folder.
+
+- `gea/interval.py`: `subsea_ft`, `bracket_of`, `compare` (ABOVE / BELOW /
+  NOT RESOLVED against a bracket, the top and base taken either way round),
+  `base_bracket` (top minus thickness, as brackets), `tier_check`
+  (CONSISTENT / INCONSISTENT / NOT RESOLVED / NOT DECLARED), `formation_named`,
+  `statement` (NOT DECLARED names what is missing; MD refused with the
+  remedy; GL carries the kelly-bushing note), `events_vs_faults`.
+- `gea/elevation.py`: `epqs` (the 3DEP point service as it specifies the
+  query; NO DATA / NOT JSON / NO VALUE / UNREACHABLE), `as_reference`.
+- `Workspace.set_well`: `surface.elevation` {ft, datum KB|GL|DF, source}
+  each required; `disposal.base_interval_ft`, `depth_reference`; a base
+  above its top refused. `add_layer(formation=, role=)`: a role only on a
+  contours layer; a formation without a role defaults to top.
+  `well_interval` (reports/wells/<id>/interval.json, `well.interval`),
+  `events_vs_faults`; the SRA packet carries `interval` per inside well and
+  `events_faults` when a catalogue was given; sections 2c and 2d.
+- CLI: set-well `--base-interval-ft --depth-ref --ref-elev-ft
+  --ref-elev-datum --ref-elev-source --elev-3dep --epqs-url`; add-layer
+  `--formation-name --role`; `--action interval`; `gea elevation`. API:
+  `/api/wells/<id>/interval` GET/POST, `/api/wells/<id>/declare`,
+  `/api/elevation`; add-layer takes formation and role. Page: the interval
+  card with the declaration form and the 3DEP button; formation and role on
+  the layers form. `gea help interval`.
+- Section BP (3 checks): the module; the workspace through the SRA packet,
+  API, page, CLI, help; the 3DEP client against a stand-in service with
+  `set-well --elev-3dep` through it. Gate 353.
+- Still to come from his downloads: Hennings faults + WSM (slip tendency),
+  Volve WITSML/DDR/DLIS, TRRC H-10/W-14/GIS, TexNet injection export, ODNR
+  Class II, Utah FORGE. v0.23.0 (Modbus RTU, DNP3, HART-IP) needs none.

@@ -1664,6 +1664,39 @@ def sra_packet_report(pk: dict, evaluated_at: Optional[datetime] = None, program
             'outside a layer\'s extent is said to be outside it. A distance to a mapped trace is a fact of the map at that map\'s scale, not a hazard '
             'judgement; the layer\'s own metadata and the site\'s citation say where the map came from.'],
             [Table(['Well', 'Layer', 'Kind', 'Status', 'What the layer says'], srows, 'Mapped structure')]))
+        irows = []
+        for wid, iv in (pk.get('interval') or {}).items():
+            d = iv.get('declared') or {}
+            decl = (f"{d['top_ft']:,.0f}-{d['base_ft']:,.0f} ft {d['depth_reference']} below {d['ref_datum']} {d['ref_elev_ft']:,.0f} ft = "
+                    f"{d['top_subsea_ft']:,.0f} to {d['base_subsea_ft']:,.0f} ft subsea") if d else '-'
+            tops = '; '.join(f"{t['relation']} {t['layer']}" + (f" ({t['bracket'][0]:,.0f}/{t['bracket'][1]:,.0f})" if t.get('bracket') else '') for t in iv.get('tops', [])) or '-'
+            tier = iv.get('tier') or {}
+            irows.append([wid, iv.get('status', '-'), decl, tops[:260], (f"{tier.get('status')}: {tier.get('detail', '')}"[:220] if tier else '-')])
+        if irows:
+            secs.append(Section('2c', 'The declared interval against the mapped tops', [
+                'For each well inside the area, the declared disposal interval - top and base in true vertical depth below the reference elevation the '
+                'operator stated - converted to subsea elevation and set beside each formation-top bracket the layers give at the well: ABOVE the mapped top, '
+                'BELOW it, or NOT RESOLVED where the bracket overlaps the interval. Where a formation has a top layer and an isopach layer, its base is the '
+                'arithmetic shown, and the declared depth tier (shallow or deep by the base the plan names) is CONSISTENT with the map, INCONSISTENT, or '
+                'NOT RESOLVED. A contour map is read, not interpolated; the completion report is the record of the interval.'],
+                [Table(['Well', 'Status', 'Declared interval', 'Against the mapped tops', 'Depth tier against the map'], irows, 'Interval against the tops')]))
+        ef = pk.get('events_faults') or []
+        if ef:
+            paras = ['The catalogue events inside the area, each against the mapped fault traces of every structure layer: the nearest trace to the epicentre by '
+                     'distance and bearing, and the counts within 1, 2 and 5 km of any trace. An epicentre against a surface trace at the map\'s scale: the '
+                     'hypocentral depth is not used, and proximity to a mapped trace is not an attribution of the event to it.']
+            erows = []
+            for lay in ef:
+                for ln in lay.get('lines', [])[:2]:
+                    paras.append(f"{lay.get('layer_display') or lay.get('layer')}: {ln}")
+                for e in lay.get('events', []):
+                    f_ = e.get('fault') or {}
+                    erows.append([lay.get('layer_display') or lay.get('layer'), e.get('event_id'), (e.get('time') or '')[:16].replace('T', ' '),
+                                  (f"{e['magnitude']:.1f}" if e.get('magnitude') is not None else '-'), e.get('status', '-'),
+                                  f_.get('name') or f_.get('type') or '-', (f"{f_['distance_km']:.2f}" if f_.get('distance_km') is not None else '-'),
+                                  (f"{f_['bearing_deg']:.0f}" if f_.get('bearing_deg') is not None else '-')])
+            secs.append(Section('2d', 'Catalogue events against the mapped faults', paras,
+                                [Table(['Layer', 'Event', 'Time (UTC)', 'M', 'Status', 'Nearest mapped fault', 'Distance (km)', 'Bearing'], erows[:200], 'Events against the faults')]))
     n = 3
     inside_wells = [w for w in pk['wells'] if w['inside'] and w.get('months')]
     for w in inside_wells:
