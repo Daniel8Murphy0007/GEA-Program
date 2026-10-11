@@ -1,23 +1,40 @@
-v0.20.0 — THE SOAK: THE PATCHES THROUGH LINK OUTAGES, MEASURED
+v0.21.0 — MAPPED STRUCTURE: THE NEAREST FAULT, THE CONTOURS, THE BASIN, FROM A LAYER THE SITE BROUGHT
 
-The load test said whether the machine carries the site's patches with the
-page answering. The soak says what happens when the link goes down and
-comes back, again and again, for hours. The site's patches, an ETP patch
-and a SeedLink live station each connect through a relay on the loopback;
-on the declared schedule every relay cuts every connection for the declared
-seconds and then listens again, while the simulators keep producing. What
-is measured is the supervisor's own reconnection and resume: per outage,
-the seconds each source took to be back and receiving; per source, what the
-protocol lost while the link was down - WITS0 has no replay, and that loss
-is counted, never recovered; SeedLink resumes by sequence number, and its
-gap count must be zero - and the page's answer time through it all. The
-Soak Report says it with the outage table and what it does not call a
-measurement. gea soak --hours 72 is the go-live run; Verification runs a
-fifteen-minute one from the page.
+The first geological statement this program makes about a well. A structure
+layer - a shapefile of mapped faults and folds, a public map or the
+operator's own - is read as the specification lays the format out, without
+a dependency: the records by the .shx index (a USGS layer carries one whose
+own length is wrong, and the index is what the index is for), the
+attributes, the coordinate system taken, unprojected or refused by name,
+and the metadata beside it. The layer is kept in the workspace with every
+part hashed and the site's citation. For a well's declared surface position
+the program says how far and in which direction the nearest mapped fault
+is, the nearest fold, and what else the map holds within the radius - on
+the well page, in the SRA packet's new section for every well inside the
+area, and from the command line for any position. A position outside the
+layer's extent is said to be outside it, which is not the same as clear of
+faults.
 
-Also in this ship: the client-report guard now covers plain text. The
-strata survey's report carried two terms the guard refuses and never saw;
-it passes the guard now, reworded. The Verification page no longer names a
-gate count typed by hand.
+A layer is read for what it is: faults and folds give the nearest of each;
+formation-top contours say which two the position lies between - read, not
+interpolated, and only when the two nearest are one interval apart; basin
+polygons say which one the position is inside; picked wells give the
+nearest picks and say a pick at another well is not a pick at this one. A
+zip holding several shapefiles lists its members and one is named.
 
-Section BN is new. The gate is 347 checks. The standalone guard is clean.
+Proven on the USGS Professional Paper 1708 Appalachian basin structure
+layer (15,699 traces; from Youngstown, Ohio, the nearest mapped fault is the
+Akron-Suffield Fault, 31.5 km to the south-west) and on the EIA Permian
+Basin set (at 31.42 N, 103.50 W: inside the Delaware Basin, the Wolfcamp
+top between -8,000 and -7,600 ft, the nearest mapped fault 52.6 km to the
+south-south-west).
+
+The workspace manifest is re-read when another process wrote it, so the
+panel and the command line on the same folder no longer hide or drop each
+other's additions.
+
+What it will not do: interpolate a depth or add a dip or activity the layer
+does not state; call a distance a hazard; vouch for a compiled map's
+accuracy.
+
+Section BO is new. The gate is 350 checks. The standalone guard is clean.

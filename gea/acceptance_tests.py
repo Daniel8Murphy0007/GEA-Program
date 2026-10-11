@@ -6096,6 +6096,246 @@ def section_bn_soak(tmp: str) -> None:
        "gate count typed by hand; `gea help soak`; `guard_text` is the client-report guard for plain text, and the strata survey's report passes it "
        "(its closing line and its NOT ESTIMATED section reworded)")
 
+
+def section_bo_structure(tmp: str) -> None:
+    """Section BO - mapped structure: the shapefile read as specified (a layer this program wrote, round-tripped; the
+    .shx honoured; a coordinate system refused by name), the nearest fault and fold by distance and bearing with a
+    position outside the extent said to be outside, the layer kept in the workspace, the well's statement, the SRA
+    packet's section, the page, the CLI, the help."""
+    import http.cookiejar
+    import math as _math
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    import zipfile
+    from . import shapefile as SF
+    from . import structure as ST
+    from . import geodesy as GD
+    from . import helplib as H
+    from .telemetry import TelemetryRecorder, TelemetryConfig
+    from .downhole_engine import DownholeEngine, SimulatorConfig
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bo"); d.mkdir()
+
+    # -- a layer this program wrote: a fault 5 km due north of a point, a fold 12 km east, a polygon, a point ---------
+    lat0, lon0 = 31.5, -103.2
+    dlat = 5.0 / 111.195                                      # ~5 km north
+    dlon_e = 12.0 / (111.195 * _math.cos(_math.radians(lat0)))  # ~12 km east
+    base = str(d / "syn")
+    SF.write(base, "PolyLine", [
+        ([[(lon0 - 0.3, lat0 + dlat), (lon0 + 0.3, lat0 + dlat)]], {"type": "Fault-Normal", "name": "North Fault", "len_km": 60.0}),
+        ([[(lon0 + dlon_e, lat0 - 0.2), (lon0 + dlon_e, lat0 + 0.2)]], {"type": "Anticline", "name": "East Fold", "len_km": 44.0}),
+        ([[(lon0 - 0.5, lat0 - 0.4), (lon0 - 0.45, lat0 - 0.35)], [(lon0 - 0.44, lat0 - 0.34), (lon0 - 0.4, lat0 - 0.3)]], {"type": "Fault", "name": "Not Compiled", "len_km": 9.0}),
+    ], [("type", "C", 30, 0), ("name", "C", 40, 0), ("len_km", "N", 8, 1)], SF.NAD83_GEOGCS)
+    zpath = str(d / "syn.zip")
+    with zipfile.ZipFile(zpath, "w") as z:
+        for ext in (".shp", ".shx", ".dbf", ".prj"):
+            z.write(base + ext, "syn" + ext)
+    L = SF.read(zpath)
+    r = ST.nearest(L, lat0, lon0, radius_km=30)
+    g_fault = GD.geodesic_m(lat0, lon0, lat0 + dlat, lon0)["distance_m"] / 1000.0
+    g_fold = GD.geodesic_m(lat0, lon0, lat0, lon0 + dlon_e)["distance_m"] / 1000.0
+    out_ext = ST.nearest(L, 41.1, -80.6)
+    # a projected layer in a zone the program knows unprojects; an unknown projection is refused by name; no .prj is refused
+    zone = GD.ZONES["TX_CENTRAL"]
+    pr = GD.project(lat0 + dlat, lon0, zone)
+    SF.write(str(d / "proj"), "Point", [([[(pr["easting_m"], pr["northing_m"])]], {"name": "P"})], [("name", "C", 10, 0)],
+             'PROJCS["NAD_1983_StatePlane_Texas_Central_FIPS_4203",GEOGCS["GCS_North_American_1983",DATUM["D_North_American_1983",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Lambert_Conformal_Conic"],UNIT["Meter",1.0]]')
+    Lp = SF.read(str(d / "proj.shp"))
+    plon, plat = Lp.features[0].parts[0][0]
+    SF.write(str(d / "utm"), "Point", [([[(500000.0, 3485000.0)]], {"name": "U"})], [("name", "C", 10, 0)],
+             'PROJCS["WGS_1984_UTM_Zone_13N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],UNIT["Meter",1.0]]')
+    utm_err = noprj_err = None
+    try:
+        SF.read(str(d / "utm.shp"))
+    except ValueError as e:
+        utm_err = str(e)
+    SF.write(str(d / "noprj"), "Point", [([[(lon0, lat0)]], {"name": "N"})], [("name", "C", 10, 0)])
+    try:
+        SF.read(str(d / "noprj.shp"))
+    except ValueError as e:
+        noprj_err = str(e)
+    # the .shx honoured: a record whose own content length is wrong is found by the index
+    raw = bytearray(open(base + ".shp", "rb").read())
+    import struct as _st
+    off = 100; rn, cl = _st.unpack(">ii", raw[off:off + 8]); _st.pack_into(">i", raw, off + 4, cl - 8)
+    (d / "bad.shp").write_bytes(bytes(raw))
+    for ext in (".shx", ".dbf", ".prj"):
+        (d / ("bad" + ext)).write_bytes(open(base + ext, "rb").read())
+    Lbad = SF.read(str(d / "bad.shp"))
+    os.remove(d / "bad.shx")
+    seq_err = None
+    try:
+        SF.read(str(d / "bad.shp"))
+    except ValueError as e:
+        seq_err = str(e)
+    c1 = {
+        "round_trip": L.n == 3 and L.shape_type == "PolyLine" and L.crs["kind"] == "geographic" and L.crs["datum"] == "NAD83" and L.features[0].attrs == {"type": "Fault-Normal", "name": "North Fault", "len_km": 60.0}
+                      and len(L.features[2].parts) == 2 and L.fields[2]["type"] == "N",
+        "nearest_fault": r["status"] == "OK" and r["nearest_fault"]["name"] == "North Fault" and abs(r["nearest_fault"]["distance_km"] - g_fault) < 0.02 and abs(r["nearest_fault"]["bearing_deg"] - 0.0) < 1.0 or abs(r["nearest_fault"]["bearing_deg"] - 360.0) < 1.0,
+        "nearest_fold": r["nearest_fold"]["name"] == "East Fold" and abs(r["nearest_fold"]["distance_km"] - g_fold) < 0.02 and abs(r["nearest_fold"]["bearing_deg"] - 90.0) < 1.0,
+        "counts_and_lines": r["counts_within"] == {"fault": 1, "fold": 1, "other": 0} and f"{g_fault:.2f} km" in ST.lines(r)[0] and "N (" in ST.lines(r)[0] and "North Fault" in ST.lines(r)[0],
+        "outside_extent": out_ext["status"] == "OUTSIDE LAYER EXTENT" and "extent" in out_ext["note"] and ST.lines(out_ext)[0].startswith("Layer") and "OUTSIDE LAYER EXTENT" in ST.lines(out_ext)[0],
+        "projected_unprojected": Lp.crs["kind"] == "projected" and Lp.crs["zone"] == "TX_CENTRAL" and abs(plat - (lat0 + dlat)) < 1e-6 and abs(plon - lon0) < 1e-6,
+        "refused_by_name": utm_err and "UTM" in utm_err and "Texas State Plane" in utm_err and noprj_err and "no .prj" in noprj_err,
+        "shx_honoured": Lbad.n == 3 and seq_err and "content length" in seq_err,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "BO1 the shapefile as the specification lays it out, without a dependency: a layer this program wrote (lines with two parts, text and "
+       "number fields, the NAD83 .prj) zipped and read back whole; the nearest fault 5.0 km due north and the nearest fold 12 km due east found "
+       "with their distances on the ellipsoid and bearings; the counts within the radius and the printed statement; a position outside the "
+       "extent is OUTSIDE LAYER EXTENT, not clear of faults; a Texas State Plane layer unprojected to the metre, a UTM layer and a layer with "
+       "no .prj refused by name; a record whose own content length is wrong is found by the .shx and named without it"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- the workspace: the layer kept, the well's statement, the SRA packet, the page, the CLI ----------------------------
+    hist = str(d / "hist.csv")
+    TelemetryRecorder(engine=DownholeEngine(SimulatorConfig()), config=TelemetryConfig(duration_hours=1.0, seed=5)).run().export_csv(hist)
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    w = ws.add_well_file(hist, display="SWD 1", actor="tester")
+    w2 = ws.add_well_file(hist, display="SWD 2", actor="tester")
+    before = ws.well_structure(w["id"], actor="tester")
+    lay = ws.add_layer(zpath, "Synthetic structure", actor="tester", citation="the gate's own layer")
+    dup_err = None
+    try:
+        ws.add_layer(zpath, "Synthetic structure", actor="tester")
+    except Exception as e:
+        dup_err = str(e)
+    no_pos = ws.well_structure(w["id"], actor="tester")
+    ws.set_well(w["id"], surface={"lat": lat0, "lon": lon0, "datum": "NAD83"}, actor="tester")
+    ws.set_well(w2["id"], surface={"lat": 41.1, "lon": -80.6, "datum": "NAD83"}, actor="tester")
+    st1 = ws.well_structure(w["id"], radius_km=30, actor="tester")
+    st2 = ws.well_structure(w2["id"], actor="tester")
+    site = ws.add_site("Pad 3 site", wells=[w["id"], w2["id"]], actor="tester")
+    ws.sra_define(site["id"], actor="tester", name="Pad 3 SRA", lat=lat0, lon=lon0, radius_km=9.08, plan_date="2026-01-15")
+    pk = ws.write_sra_packet(site["id"], actor="tester")
+    sra_md = open(pk["paths"]["markdown"], encoding="utf-8").read()
+    audit = [a["action"] for a in ws.audit_log()]
+    users = Users(str(Path(wsp, "users.json"))); users.add("op", "operator-pass-1", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json"); req.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(req, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        call("POST", "/api/login", {"name": "op", "password": "operator-pass-1"})
+        st_l, lst = call("GET", "/api/layers")
+        st_ws, wst = call("GET", f"/api/wells/{w['id']}/structure?radius_km=30")
+        st_at, at = call("GET", f"/api/layers/{lay['id']}/at?lat={lat0}&lon={lon0}&radius_km=30")
+        st_bad = call("GET", f"/api/layers/{lay['id']}/at?lat=x")[0]
+        import base64 as _b64
+        st_add, added = call("POST", "/api/layers/add", {"display": "Second copy", "citation": "again", "file": {"filename": "syn2.zip", "content_b64": _b64.b64encode(open(zpath, "rb").read()).decode()}})
+        st_l2, lst2 = call("GET", "/api/layers")
+    finally:
+        svc.stop()
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    help_md = (pkg / "help" / "structure.md").read_text(encoding="utf-8")
+    r_cli = _sp.run([sys.executable, "-m", "gea", "structure", "--layer", zpath, "--lat", str(lat0), "--lon", str(lon0), "--radius-km", "30"], capture_output=True, text=True)
+    r_info = _sp.run([sys.executable, "-m", "gea", "structure", "--layer", zpath, "--info"], capture_output=True, text=True)
+    r_ws = _sp.run([sys.executable, "-m", "gea", "workspace", "--path", wsp, "--action", "structure", "--well", w2["id"]], capture_output=True, text=True)
+    c2 = {
+        "no_layer_then_no_position": before["status"] == "NO LAYER" and no_pos["status"] == "NO SURFACE POSITION" and "set-well" in no_pos["note"],
+        "layer_kept": lay["n_features"] == 3 and lay["type_attr"] == "type" and set(lay["sha256"]) == {"syn.shp", "syn.shx", "syn.dbf", "syn.prj"} and lay["citation"] == "the gate's own layer"
+                      and os.path.isfile(Path(wsp, "layers", lay["id"], "syn.shp")) and dup_err and "already exists" in dup_err,
+        "well_statement": st1["status"] == "OK" and st1["layers"][0]["nearest_fault"]["name"] == "North Fault" and abs(st1["layers"][0]["nearest_fault"]["distance_km"] - g_fault) < 0.02
+                          and os.path.isfile(Path(wsp, "reports", "wells", w["id"], "structure.json")) and st2["layers"][0]["status"] == "OUTSIDE LAYER EXTENT",
+        "sra_section": "Mapped structure around the wells" in sra_md and "North Fault" in sra_md and "| SWD-1 | Synthetic structure | structure | OK |" in sra_md and "SWD-2" not in sra_md.split("Mapped structure around the wells")[1].split("## 3")[0] and pk["paths"]["markdown"].endswith("sra_packet.md"),
+        "audited": "layer.add" in audit and audit.count("well.structure") >= 3,
+        "api": st_l == 200 and len(lst["layers"]) == 1 and st_ws == 200 and wst["layers"][0]["nearest_fault"]["name"] == "North Fault" and st_at == 200 and at["nearest_fold"]["name"] == "East Fold"
+               and st_bad == 400 and st_add == 200 and added["n_features"] == 3 and len(lst2["layers"]) == 2,
+        "page": "Structure layers" in page_src and "/api/layers/add" in page_src and "structureCardHtml" in page_src and "/structure'" in page_src,
+        "cli": r_cli.returncode == 0 and "North Fault" in r_cli.stdout and "due north" not in r_cli.stdout and r_info.returncode == 0 and "3 PolyLine features" in r_info.stdout
+               and r_ws.returncode == 0 and "OUTSIDE LAYER EXTENT" in r_ws.stdout,
+        "help": any(t["topic"] == "structure" for t in H.topics()) and not H.check("structure") and "never clear of faults" in help_md.split("will not call a measurement")[1],
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "BO2 the layer in the workspace: a well with no layer says NO LAYER and one with no declared position NO SURFACE POSITION naming the "
+       "command; the layer kept with every part hashed, its citation and its type attribute found, a second copy under the same name refused; "
+       "the well's statement written and audited with the nearest fault 5 km north, a well outside the extent said to be outside; the SRA packet's "
+       "section 2b carries the inside well and not the one outside the area; the API lists, answers for a well and for a position, refuses a bad position and takes a zip; the page carries the "
+       "layers card and the well's structure card; `gea structure` and `--action structure`; the help page"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- the other kinds a public download carries: contours, areas, points; a zip holding several shapefiles ---------
+    lat1, lon1 = 31.42, -103.50
+    kmlat = 1.0 / 111.195
+    kmlon = 1.0 / (111.195 * _math.cos(_math.radians(lat1)))
+    # contours of a formation top at 500-ft intervals, 4 km apart, running north-south; the position between -8000 and -7500
+    ctr = [([[(lon1 + (i - 1.5) * 4 * kmlon, lat1 - 0.3), (lon1 + (i - 1.5) * 4 * kmlon, lat1 + 0.3)]], {"ElevTop_ft": -8500.0 + 500.0 * i, "Shape_Leng": 0.6}) for i in range(4)]
+    SF.write(str(d / "Top_Elevation_EIA"), "PolyLine", ctr, [("ElevTop_ft", "F", 10, 1), ("Shape_Leng", "F", 12, 6)], SF.NAD83_GEOGCS)
+    # areas: two sub-basins, the position inside the eastern one
+    areas = [([[(lon1 - 0.5, lat1 - 0.5), (lon1 - 0.05, lat1 - 0.5), (lon1 - 0.05, lat1 + 0.5), (lon1 - 0.5, lat1 + 0.5), (lon1 - 0.5, lat1 - 0.5)]], {"Name": "West Basin"}),
+             ([[(lon1 - 0.05, lat1 - 0.5), (lon1 + 0.5, lat1 - 0.5), (lon1 + 0.5, lat1 + 0.5), (lon1 - 0.05, lat1 + 0.5), (lon1 - 0.05, lat1 - 0.5)]], {"Name": "East Basin"})]
+    SF.write(str(d / "SubBasins"), "Polygon", areas, [("Name", "C", 30, 0)], SF.NAD83_GEOGCS)
+    # points: picked wells, the nearest 2 km north-east
+    pts = [([[(lon1 + 1.4 * kmlon, lat1 + 1.4 * kmlat)]], {"WC_A_Elev": -7763.4, "WC_Thick": 4464.6}), ([[(lon1 - 6 * kmlon, lat1)]], {"WC_A_Elev": -7900.0, "WC_Thick": 4400.0})]
+    SF.write(str(d / "Wells_Picks"), "Point", pts, [("WC_A_Elev", "F", 10, 1), ("WC_Thick", "F", 10, 1)], SF.NAD83_GEOGCS)
+    # faults named only by the layer: an EIA-shaped Faults_* layer whose one text field is LONG_DESC 'fault'
+    SF.write(str(d / "Faults_Region"), "PolyLine", [([[(lon1 - 0.3, lat1 + 3 * kmlat), (lon1 + 0.3, lat1 + 3 * kmlat)]], {"LONG_DESC": "dotted fault", "Shape_Leng": 0.6})],
+             [("LONG_DESC", "C", 30, 0), ("Shape_Leng", "F", 12, 6)], SF.NAD83_GEOGCS)
+    multi = str(d / "permian_like.zip")
+    with zipfile.ZipFile(multi, "w") as z:
+        for base_ in ("Top_Elevation_EIA", "SubBasins", "Wells_Picks", "Faults_Region"):
+            for ext in (".shp", ".shx", ".dbf", ".prj"):
+                z.write(str(d / (base_ + ext)), base_ + ext)
+    mem = SF.members(multi)
+    multi_err = None
+    try:
+        SF.read(multi)
+    except ValueError as e:
+        multi_err = str(e)
+    Lc = SF.read(multi, member="Top_Elevation_EIA"); La = SF.read(multi, member="SubBasins"); Lp_ = SF.read(multi, member="Wells_Picks"); Lf = SF.read(multi, member="Faults_Region")
+    rc = ST.describe(Lc, lat1, lon1); ra = ST.describe(La, lat1, lon1); rp = ST.describe(Lp_, lat1, lon1); rf = ST.describe(Lf, lat1, lon1)
+    rc_on = ST.contour_at(Lc, lat1, lon1 + (0 - 1.5) * 4 * kmlon + 0.0001)
+    rc_out = ST.contour_at(Lc, 41.0, -80.0)
+    lay_c = ws.add_layer(multi, "EIA-shaped top", actor="tester", member="Top_Elevation_EIA")
+    lay_a = ws.add_layer(multi, "EIA-shaped basins", actor="tester", member="SubBasins")
+    st3 = ws.well_structure(w["id"], actor="tester", write=False)
+    ws.set_well(w2["id"], surface={"lat": lat1, "lon": lon1, "datum": "NAD83"}, actor="tester")
+    st4 = ws.well_structure(w2["id"], radius_km=30, actor="tester")
+    by_layer = {L_["layer_id"]: L_ for L_ in st4["layers"]}
+    r_list = _sp.run([sys.executable, "-m", "gea", "structure", "--layer", multi, "--list"], capture_output=True, text=True)
+    r_mem = _sp.run([sys.executable, "-m", "gea", "structure", "--layer", multi, "--member", "Top_Elevation_EIA", "--lat", str(lat1), "--lon", str(lon1)], capture_output=True, text=True)
+    r_nomem = _sp.run([sys.executable, "-m", "gea", "structure", "--layer", multi, "--lat", str(lat1), "--lon", str(lon1)], capture_output=True, text=True)
+    c3 = {
+        "members_listed_and_required": mem == ["Faults_Region", "SubBasins", "Top_Elevation_EIA", "Wells_Picks"] and multi_err and "member=" in multi_err and "4 shapefiles" in multi_err,
+        "kinds": ST.layer_kind(Lc) == "contours" and ST.layer_kind(La) == "areas" and ST.layer_kind(Lp_) == "points" and ST.layer_kind(Lf) == "structure" and ST.guess_value_attr(Lc) == "ElevTop_ft",
+        "contours_between": rc["status"] == "OK" and rc["between"] == [-8000.0, -7500.0] and rc["contour_interval"] == 500.0 and rc["unit"] == "ft" and rc["on"] is None
+                            and "Between the -8,000 ft and -7,500 ft contours" in ST.lines(rc)[0] and "not interpolated" in ST.lines(rc)[1],
+        "contours_on_and_outside": rc_on["on"] == -8500.0 and "On the -8,500 ft contour" in ST.lines(rc_on)[0] and rc_out["status"] == "OUTSIDE LAYER EXTENT",
+        "areas": ra["status"] == "OK" and [x["name"] for x in ra["inside"]] == ["East Basin"] and ST.lines(ra)[0].startswith("Inside East Basin"),
+        "points": rp["status"] == "OK" and rp["n_within"] == 2 and abs(rp["points"][0]["distance_km"] - 1.98) < 0.05 and "NE" in ST.lines(rp)[0] and "WC_A_Elev -7763.4" in ST.lines(rp)[0]
+                  and "not a pick at this one" in ST.lines(rp)[1],
+        "fault_by_layer_name": rf["status"] == "OK" and rf["nearest_fault"] is not None and abs(rf["nearest_fault"]["distance_km"] - 3.0) < 0.05 and rf["nearest_fault"]["type"] == "dotted fault",
+        "workspace_kinds": lay_c["kind"] == "contours" and lay_c["value_attr"] == "ElevTop_ft" and lay_c["member"] == "Top_Elevation_EIA" and lay_a["kind"] == "areas"
+                           and "Top_Elevation_EIA.shp" in lay_c["sha256"] and "SubBasins.dbf" in lay_a["sha256"],
+        "well_statements": st3["status"] == "OK" and len(st3["layers"]) == 4 and [L_["layer_id"] for L_ in st3["layers"]] == [lay["id"], added["id"], lay_c["id"], lay_a["id"]]
+                           and json.load(open(Path(wsp, "workspace.json"), encoding="utf-8"))["layers"] == [lay["id"], added["id"], lay_c["id"], lay_a["id"]] and by_layer[lay_c["id"]]["between"] == [-8000.0, -7500.0] and by_layer[lay_a["id"]]["inside"][0]["name"] == "East Basin"
+                           and by_layer[lay["id"]]["status"] == "OK" and abs(by_layer[lay["id"]]["nearest_fault"]["distance_km"] - 13.9) < 0.3 and by_layer[lay_c["id"]]["layer_kind"] == "contours",
+        "cli": r_list.returncode == 0 and r_list.stdout.split() == mem and r_mem.returncode == 0 and "Between the -8,000 ft and -7,500 ft" in r_mem.stdout
+               and r_nomem.returncode != 0 and "member=" in (r_nomem.stderr + r_nomem.stdout),
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "BO3 the other kinds a public download carries, shaped as the EIA Permian files are: a zip holding several shapefiles lists its members and "
+       "needs one named; a formation-top contour layer is read, not interpolated - the position lies between the -8,000 and -7,500 ft contours, on "
+       "one when it sits on it, OUTSIDE LAYER EXTENT elsewhere; a sub-basin polygon layer says which area the position is inside; a picked-wells "
+       "point layer gives the nearest pick with its values and says it is not a pick at this well; a faults layer whose only text field says "
+       "'dotted fault' is classified by its words and its name; the workspace keeps each with its kind and member and the well's statement carries "
+       "all four; `gea structure --list` and `--member`"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -6165,6 +6405,7 @@ def main() -> int:
         section_bl_backup(tmp)
         section_bm_month_end(tmp)
         section_bn_soak(tmp)
+        section_bo_structure(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

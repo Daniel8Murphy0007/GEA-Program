@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (347 checks)
+gea accept                     # the product gate (350 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -608,6 +608,31 @@ synthetic station speaking both versions; `gea seedlink --selftest` runs both
 against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
+
+### Mapped structure
+
+The first geological statement the program makes about a well. A structure
+layer - a shapefile of mapped faults and folds, a public map (USGS, a state
+survey, BEG/TexNet) or the operator's own - is read as the specification
+lays the format out (`gea/shapefile.py`, no dependency: the .shp by its .shx
+index, the .dbf attributes, the .prj coordinate system; geographic NAD83 or
+WGS84 taken as is, the Texas State Plane NAD83 zones unprojected, anything
+else refused by name) and kept in the workspace with every part hashed:
+`gea workspace --action add-layer --name ... --layer structure.zip
+--citation ...` (`--member <name>` names one shapefile in a zip holding
+several; `gea structure --layer <zip> --list` lists them). Each layer is
+kept by kind and read for what it is: faults and folds (`--action structure
+--well <id>` prints the nearest mapped fault and the nearest fold by
+distance along the ellipsoid and bearing, and what else the map holds within
+the radius), formation-top contours (which two the position lies between,
+read and not interpolated, or on one), basin and play polygons (which one
+the position is inside), picked wells (the nearest picks with their values).
+A position outside the layer's extent is OUTSIDE LAYER EXTENT, which is not
+"no faults". Proven on the USGS PP 1708 Appalachian structure layer and the
+EIA Permian Basin set. On the well page, in the SRA packet's
+section 2b for every well inside the area, and from `gea structure --layer
+<file> --lat --lon` for any position. A distance to a mapped trace is a fact
+of the map at the map's scale, not a hazard judgement. `gea help structure`.
 
 ### WITSML 2.x over ETP
 

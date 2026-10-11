@@ -1427,3 +1427,78 @@ chose the recommendation for v0.20.0: the soak, with the two hygiene fixes.
   (section Y's expectations follow); the tester guide line and section
   title; the two internal strings; the "172 checks" label.
 - Section BN (3 checks): 347.
+
+## 2026-10-10 - mapped structure (v0.21.0)
+
+v0.20.0 shipped four green. He chose the site layer for v0.21.0 and, since
+neither this workspace nor his VM can reach pubs.usgs.gov, downloaded the
+USGS structure shapefile himself and handed it over: it is PP 1708's
+Appalachian basin structure layer (15,699 PolyLine features - 12,526
+"Fault", 2,000 "Fault-Thrust", 296 anticlines, 277 synclines, the Rome
+Trough boundary faults, the Clarendon-Linden Fault Zone - NAD83 geographic,
+2014, Trippi/Ruppert/Ryder), not the Permian: the Appalachian basin is his
+own ground, and the Permian layers are still to be fetched.
+
+- `gea/shapefile.py`: `parse_prj`, `read_dbf`, `read_shx`, `read_shp`
+  (by the index when present), `read` (zip | folder | .shp; the metadata
+  beside it), `write` (for the gate's own layers), `NAD83_GEOGCS`. The real
+  layer exposed a record whose own content length understates its size
+  (record 15,692 of 15,699): a sequential read stopped there with a
+  nonsense shape type; the reader now follows the .shx, and names the
+  record and the remedy without it.
+- `gea/structure.py`: `classify`, `guess_attrs`, `nearest` (local-plane
+  segment distance, then Vincenty to the nearest point), `inside_extent`,
+  `compass`, `lines`.
+- `Workspace.add_layer / layers / layer / remove_layer / load_layer /
+  structure_at / well_structure`; the SRA packet's `structure` and section
+  2b; `/api/layers*`, `/api/wells/<id>/structure`; the Structure layers
+  card and the Mapped structure card; `gea structure`; workspace actions
+  `add-layer`, `layers`, `remove-layer`, `structure`; `gea help structure`.
+- Real numbers: the layer reads in 0.23 s; from Youngstown (41.0997 N,
+  80.6495 W) the nearest mapped fault is the Akron-Suffield Fault at
+  31.53 km, bearing 228 (SW), the Highlandtown Fault at 48.4 km; from a
+  Permian position, OUTSIDE LAYER EXTENT. The layer goes into his site as
+  C:\site\_incoming\structure.zip for `--action add-layer`; it is not in
+  the package.
+- Section BO (2 checks): 349.
+
+## 2026-10-11 - the Permian layers (v0.21.0, continued)
+
+He asked for the Permian Basin and I had given him the Appalachian paper's
+URL and two addresses that did not exist. I read EIA's oil and gas maps page
+live in the desktop browser and gave him the real ones; he downloaded six
+EIA zips and handed them over: PermianBasin_Boundary_Structural_Tectonic
+(nine shapefiles in one zip - the 2017 faults, the five sub-basins, the
+Wolfcamp picked wells, the extent, the Capitan reef trend, the Matador
+arch, the Marathon-Ouachita fold belt, the Palo Duro basin, the Wolfcamp
+shelf margin), Wolfcamp_Elevation_Isopachs (ZLEVEL contours at 400 ft),
+Wolfcamp_B_Delaware, Wolfcamp_Midland A-D, the Bone Spring formations and
+the Delaware formation (ElevTop_ft, Thick_ft). All WGS84 geographic.
+
+- `shapefile.members`, `read(..., member=)`: a zip with several shapefiles
+  is refused naming them; one is named.
+- `structure.layer_kind` - structure | contours | areas | points - and the
+  reading for each: `contour_at` (nearest contour per value; "between"
+  only when the two nearest values are one interval apart, else the
+  nearest and a note; "on" within 250 m), `within_areas` (ray casting),
+  `nearest_points`, `describe`, `lines` by kind; `classify` falls back to
+  the layer's name (Faults_Permian has one text field, LONG_DESC);
+  `inside_extent` widened by the radius. Workspace `add_layer(member=)`
+  keeps `member`, `kind`, `value_attr`; SRA section 2b columns Well |
+  Layer | Kind | Status | What the layer says; `gea structure --list
+  --member`; `add-layer --member`; `/api/layers/members`; the member
+  select on the Seismic page.
+- Real numbers at 31.42 N, 103.50 W: inside the Delaware Basin; Wolfcamp
+  top between -8,000 and -7,600 ft; Wolfcamp B between -8,500 and -8,000;
+  Delaware top between -2,000 and -1,800; 3rd Bone Spring between -7,000
+  and -6,500; nearest EIA fault 52.62 km SSW (dotted fault); nearest pick
+  3.25 km NNW (Wolfcamp_A 7763.39, WC_Thick 4464.56).
+- BO3 found a real fault: the gate's own process and its serving process
+  each held a Workspace on the same folder, and the second `add_layer`
+  from the first dropped the layer the service had added from
+  `workspace.json`. `Workspace.refresh()` re-reads the manifest when the
+  file changed since this object read or wrote it; every listing and
+  mutating method calls it. BO3 checks the manifest on disk holds all
+  four.
+- Section BO (3 checks): 350. The six zips go to C:\site\_incoming\ beside
+  structure.zip; they are not in the package.

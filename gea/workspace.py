@@ -92,6 +92,7 @@ class Workspace:
             raise WorkspaceError(f'not a workspace (no workspace.json): {self.path} - create one with `gea workspace --path ... --action init`')
         with open(self.manifest_path, encoding='utf-8') as f:
             self.manifest = json.load(f)
+        self._stamp = self._disk_stamp()
         # a serving process sets this to put selected audit entries on its console as they happen; the record
         # on the disk is written first and is the record - the console line is a courtesy to whoever is watching
         self.on_audit = None
@@ -116,6 +117,7 @@ class Workspace:
     def rename(self, name: str, actor: str = 'system') -> dict:
         """The site's name, as every report prints it. A name that is already this one is left alone and
         writes no audit line, so a launcher may say it on every start without filling the log."""
+        self.refresh()
         name = (name or '').strip()
         if not name:
             raise WorkspaceError('a site needs a name')
@@ -132,6 +134,28 @@ class Workspace:
         with open(tmp, 'w', encoding='utf-8') as f:
             json.dump(self.manifest, f, indent=1)
         os.replace(tmp, self.manifest_path)
+        self._stamp = self._disk_stamp()
+
+    def _disk_stamp(self):
+        st = os.stat(self.manifest_path)
+        return (st.st_mtime_ns, st.st_size)
+
+    def refresh(self) -> bool:
+        """Re-read workspace.json when another process has written it since this object last read or wrote it -
+        a serving process and a `gea workspace` command on the same folder each hold their own copy, and a
+        list of wells, stations, tracks, layers or sites must come from the disk, not from a stale copy, so
+        that one process's addition is neither hidden from the other nor dropped by the other's next save.
+        Every method that lists or changes the manifest calls this first. Returns True when it re-read."""
+        try:
+            stamp = self._disk_stamp()
+        except OSError:
+            return False
+        if stamp == self._stamp:
+            return False
+        with open(self.manifest_path, encoding='utf-8') as f:
+            self.manifest = json.load(f)
+        self._stamp = stamp
+        return True
 
     # -- paths ------------------------------------------------------------------------
     def dir(self, *parts: str) -> str:
@@ -197,6 +221,7 @@ class Workspace:
 
     # -- wells ------------------------------------------------------------------------
     def wells(self) -> List[dict]:
+        self.refresh()
         out = []
         for wid in self.manifest.get('wells', []):
             p = os.path.join(self.path, 'wells', wid, 'well.json')
@@ -213,6 +238,7 @@ class Workspace:
             return json.load(f)
 
     def _register(self, well: dict, actor: str) -> dict:
+        self.refresh()
         wid = well['id']
         if wid in self.manifest['wells']:
             raise WorkspaceError(f'well already exists: {wid}')
@@ -284,6 +310,7 @@ class Workspace:
 
     def remove_well(self, well_id: str, actor: str = 'system') -> None:
         """Unregister; the folder is kept (renamed) so nothing the client gave us is destroyed."""
+        self.refresh()
         if well_id not in self.manifest['wells']:
             raise WorkspaceError(f'no such well: {well_id}')
         self.manifest['wells'].remove(well_id)
@@ -352,6 +379,7 @@ class Workspace:
         return self.dir('seismic', station_id)
 
     def seismic_stations(self) -> List[dict]:
+        self.refresh()
         out = []
         for sid in self.manifest.get('seismic', []):
             p = os.path.join(self.path, 'seismic', sid, 'station.json')
@@ -379,6 +407,7 @@ class Workspace:
         `datum` is the datum the station's own position - and any sensor or rig row that does not say - is on. It is
         recorded rather than assumed: a station whose datum nobody states is marked UNKNOWN, and the refresh prints
         what that assumption is worth in metres at that site."""
+        self.refresh()
         from . import geodesy as GD
         if not files:
             raise WorkspaceError('a seismic station needs at least one record file')
@@ -451,6 +480,7 @@ class Workspace:
         return station
 
     def remove_seismic_station(self, station_id: str, actor: str = 'system') -> None:
+        self.refresh()
         if station_id not in self.manifest.get('seismic', []):
             raise WorkspaceError(f'no such seismic station: {station_id}')
         self.manifest['seismic'].remove(station_id)
@@ -473,6 +503,7 @@ class Workspace:
         """A station whose records arrive over SeedLink rather than as files: the record list starts empty, the
         SeedLink config is kept beside it, and the day files the port writes are folded into the list (hashed, like
         any file a person brought) by `fold_live_station`. The leg then runs on them exactly as on a brought file."""
+        self.refresh()
         from . import geodesy as GD
         from . import seedlink as L
         try:
@@ -816,6 +847,7 @@ class Workspace:
 
     # -- tracks: two or more array stations crossed over time -------------------------------
     def tracks(self) -> List[dict]:
+        self.refresh()
         out = []
         for tid in self.manifest.get('tracks', []):
             p = os.path.join(self.path, 'tracks', tid, 'track.json')
@@ -836,6 +868,7 @@ class Workspace:
         """A track: two or more array stations of this workspace whose bearings are crossed window by window, with
         an optional ground-truth CSV (point_id, lat, lon, utc) - the lateral's surveyed points, or a permit's
         surface hole with its date - copied in and hashed."""
+        self.refresh()
         if len(station_ids) < 2:
             raise WorkspaceError('a track needs two or more array stations')
         from .seismic_array import load_sensors_csv
@@ -874,6 +907,7 @@ class Workspace:
         return track
 
     def remove_track(self, track_id: str, actor: str = 'system') -> None:
+        self.refresh()
         if track_id not in self.manifest.get('tracks', []):
             raise WorkspaceError(f'no such track: {track_id}')
         self.manifest['tracks'].remove(track_id)
@@ -1051,6 +1085,115 @@ class Workspace:
         self.audit(actor, 'workspace.refresh_all', {'wells': n_wells, 'seismic': n_seis, 'tracks': n_tracks, 'errors': len(errors)})
         return {'wells': n_wells, 'seismic': n_seis, 'tracks': n_tracks, 'errors': errors}
 
+    # -- structure layers: the mapped faults and folds the site brought ------------------------------------------
+    def layers(self) -> List[dict]:
+        self.refresh()
+        out = []
+        for lid in self.manifest.get('layers', []):
+            p = os.path.join(self.path, 'layers', lid, 'layer.json')
+            if os.path.isfile(p):
+                with open(p, encoding='utf-8') as f:
+                    out.append(json.load(f))
+        return out
+
+    def layer(self, layer_id: str) -> dict:
+        p = os.path.join(self.path, 'layers', layer_id, 'layer.json')
+        if not os.path.isfile(p):
+            raise WorkspaceError(f'no such layer: {layer_id}')
+        with open(p, encoding='utf-8') as f:
+            return json.load(f)
+
+    def add_layer(self, src: str, display: str, actor: str = 'system', note: str = '', citation: str = '', member: Optional[str] = None) -> dict:
+        """A structure layer - a shapefile (zip, folder or .shp) of mapped faults and folds - read once to prove it
+        reads, copied in verbatim with every part hashed, and described: its coordinate system, extent, feature
+        count, the structure types it carries, and the metadata it came with. The citation is the site's own
+        statement of where the map came from, kept beside the file's."""
+        self.refresh()
+        from . import shapefile as SF
+        from . import structure as ST
+        try:
+            L = SF.read(src, member=member)
+        except (ValueError, OSError) as e:
+            raise WorkspaceError(f'layer: {e}')
+        lid = slug(display)
+        if lid in self.manifest.setdefault('layers', []):
+            raise WorkspaceError(f'layer already exists: {lid}')
+        d = os.path.join(self.path, 'layers', lid)
+        os.makedirs(d, exist_ok=True)
+        name, parts = SF._load_parts(src, member)
+        hashes = {}
+        for ext, data in parts.items():
+            fn = name + ext
+            with open(os.path.join(d, fn), 'wb') as f:
+                f.write(data)
+            hashes[fn] = sha256_file(os.path.join(d, fn))
+        type_attr, name_attr = ST.guess_attrs(L)
+        kind = ST.layer_kind(L)
+        rec = {'id': lid, 'display': display, 'base': name, 'member': member, 'shape_type': L.shape_type, 'kind': kind, 'crs': {k: v for k, v in L.crs.items() if k != 'wkt'},
+               'bbox': list(L.bbox), 'n_features': L.n, 'fields': L.fields, 'type_attr': type_attr, 'name_attr': name_attr,
+               'value_attr': (ST.guess_value_attr(L) if kind == 'contours' else None),
+               'type_counts': (dict(list(L.counts(type_attr).items())[:40]) if type_attr else {}), 'metadata': L.source.get('metadata', {}), 'citation': citation, 'note': note,
+               'sha256': hashes, 'added_utc': utc_now_iso(), 'added_by': actor, 'source_file': os.path.basename(src)}
+        with open(os.path.join(d, 'layer.json'), 'w', encoding='utf-8') as f:
+            json.dump(rec, f, indent=1)
+        self.manifest['layers'].append(lid)
+        self._save()
+        self.audit(actor, 'layer.add', {'id': lid, 'display': display, 'kind': kind, 'n_features': L.n, 'crs': rec['crs'].get('kind'), 'datum': rec['crs'].get('datum')},
+                   inputs=[os.path.join(d, fn) for fn in hashes])
+        return rec
+
+    def remove_layer(self, layer_id: str, actor: str = 'system') -> None:
+        self.refresh()
+        if layer_id not in self.manifest.get('layers', []):
+            raise WorkspaceError(f'no such layer: {layer_id}')
+        self.manifest['layers'].remove(layer_id)
+        self._save()
+        src = os.path.join(self.path, 'layers', layer_id)
+        if os.path.isdir(src):
+            os.rename(src, src + '.removed-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+        self.audit(actor, 'layer.remove', {'id': layer_id})
+
+    def load_layer(self, layer_id: str):
+        from . import shapefile as SF
+        rec = self.layer(layer_id)
+        return SF.read(os.path.join(self.path, 'layers', layer_id, rec['base'] + '.shp'))
+
+    def structure_at(self, lat: float, lon: float, radius_km: float = 50.0) -> List[dict]:
+        """Every layer's answer for a position: the nearest fault and fold, what is within the radius, or that the
+        position is outside the layer's extent."""
+        from . import structure as ST
+        out = []
+        for rec in self.layers():
+            try:
+                L = self.load_layer(rec['id'])
+                r = ST.describe(L, lat, lon, radius_km, rec.get('type_attr'), rec.get('name_attr'))
+            except (ValueError, OSError) as e:
+                r = {'layer': rec['id'], 'status': 'UNREADABLE', 'note': str(e), 'lat': lat, 'lon': lon, 'radius_km': radius_km}
+            r['layer_id'] = rec['id']; r['layer_display'] = rec['display']; r['citation'] = rec.get('citation') or ''; r['layer_kind'] = rec.get('kind') or r.get('kind', 'structure')
+            r['lines'] = ST.lines(r)
+            out.append(r)
+        return out
+
+    def well_structure(self, well_id: str, radius_km: float = 50.0, actor: str = 'system', write: bool = True) -> dict:
+        """The mapped structure around a well's declared surface position, per layer; written beside its reports."""
+        w = self.well(well_id)
+        surf = w.get('surface')
+        if not self.layers():
+            res = {'well': well_id, 'status': 'NO LAYER', 'note': 'no structure layer has been added to this workspace (gea workspace --action add-layer)', 'layers': []}
+        elif not surf:
+            res = {'well': well_id, 'status': 'NO SURFACE POSITION', 'note': 'the well has no declared surface position (gea workspace --action set-well --lat --lon --datum)', 'layers': []}
+        else:
+            res = {'well': well_id, 'status': 'OK', 'lat': surf['lat'], 'lon': surf['lon'], 'datum': surf.get('datum'), 'radius_km': radius_km,
+                   'layers': self.structure_at(float(surf['lat']), float(surf['lon']), radius_km)}
+        res['generated_utc'] = utc_now_iso()
+        if write:
+            d = self.dir('reports', 'wells', well_id)
+            with open(os.path.join(d, 'structure.json'), 'w', encoding='utf-8') as f:
+                json.dump(res, f, indent=1, default=str)
+            self.audit(actor, 'well.structure', {'id': well_id, 'status': res['status'], 'layers': len(res['layers']),
+                                                 'nearest_fault_km': next((l_['nearest_fault']['distance_km'] for l_ in res['layers'] if l_.get('nearest_fault')), None)})
+        return res
+
     def month_end(self, period: str, actor: str = 'system', refresh: bool = True, catalog_csv: Optional[str] = None) -> dict:
         """The month's deliverable: the refresh for the period, then every report collected into
         reports/month_end/<period>/ with an index and a manifest, and zipped. 'previous' is the last closed month."""
@@ -1098,6 +1241,7 @@ class Workspace:
 
     # -- a site: the engagement, not the leg --------------------------------------------------
     def sites(self) -> List[dict]:
+        self.refresh()
         out = []
         for sid in self.manifest.get('sites', []):
             p = os.path.join(self.path, 'sites', sid, 'site.json')
@@ -1121,6 +1265,7 @@ class Workspace:
         Until now the workspace held wells, stations and tracks as peers with nothing owning them. That made
         GEA three tools in one package rather than one program: nobody could ask what a client has, or what
         every leg of it says, without knowing the ids by heart."""
+        self.refresh()
         sid = slug(display)
         if sid in self.manifest.setdefault('sites', []):
             raise WorkspaceError(f'site already exists: {sid}')
@@ -1146,6 +1291,7 @@ class Workspace:
         return site
 
     def remove_site(self, site_id: str, actor: str = 'system') -> None:
+        self.refresh()
         if site_id not in self.manifest.get('sites', []):
             raise WorkspaceError(f'no such site: {site_id}')
         self.manifest['sites'].remove(site_id)
@@ -1306,6 +1452,14 @@ class Workspace:
         from . import sra as SR
         from .client_reports import sra_packet_report, write
         pk = self.sra_packet(site_id, catalog_csv, aftershocks, start, end)
+        if self.layers():                                      # the mapped structure around each inside well, from the layers the site brought
+            pk['structure'] = {}
+            for w in pk['wells']:
+                if w.get('inside'):
+                    try:
+                        pk['structure'][w['id']] = self.well_structure(w['id'], actor=actor, write=False)
+                    except WorkspaceError as e:
+                        pk['structure'][w['id']] = {'well': w['id'], 'status': 'NOT RUN', 'note': str(e), 'layers': []}
         out = self.dir('reports', 'sites', site_id)
         doc = sra_packet_report(pk, program_version=__version__)
         paths = write(doc, out, 'sra_packet')

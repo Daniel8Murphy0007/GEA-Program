@@ -4,6 +4,19 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.21.0 - 2026-10-11 - mapped structure
+
+- **The nearest fault, the contours, the basin, from a layer the site
+  brought.** A shapefile reader to the specification without a
+  dependency; a zip of several shapefiles by member; each layer kept by
+  kind - structure (nearest fault and fold by distance and bearing),
+  contours (between which two, read not interpolated), areas (inside
+  which), points (nearest picks) - a position outside the layer said to
+  be outside; the statement on the well page and in the SRA packet;
+  proven on the USGS PP 1708 Appalachian structure layer and the EIA
+  Permian Basin set. The workspace manifest re-read across processes.
+  Section BO; gate 350.
+
 ## v0.20.0 - 2026-10-10 - the soak
 
 - **The patches through link outages, measured.** The site's patches, an

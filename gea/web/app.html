@@ -191,6 +191,8 @@ VIEWS.well = async (id) => {
   if (can('operator')) {
     h += `<div class="row card"><button id="runDrift" type="button">Run the drift report</button>${w.kind === 'file' ? `<button id="runAlarms" type="button">Process alarms</button>` : ''}${w.kind === 'live' ? `<label>Seconds<input id="tapSec" type="number" value="60" min="1"></label><button id="tapStart" type="button">Start the tap</button><button id="tapStop" class="secondary" type="button">Stop</button>` : ''}<span class="small muted">every run is a job with its own log</span></div>`;
   }
+  // mapped structure
+  try { const st = await get('/api/wells/' + id + '/structure'); if (st.status !== 'NO LAYER') h += structureCardHtml(st); } catch (e) {}
   // drift
   if (R.gauge_drift_report) { const ev = R.gauge_drift_report.evaluation, dq = R.gauge_drift_report.data_quality || {};
     h += `<div class="card"><h3>Gauge drift and reconciliation <span class="small muted">${esc(R.gauge_drift_report.report_id)} · ${reportLinks(dir, 'gauge_drift_report')}</span></h3>`;
@@ -285,10 +287,13 @@ VIEWS.seismic = async () => {
       <div class="row"><label>Display name<input id="sName"></label><label>Record file(s)<input type="file" id="sFiles" multiple></label><label>Latitude<input id="sLat" type="number" step="0.000001"></label><label>Longitude<input id="sLon" type="number" step="0.000001"></label></div>
       <div class="row"><label>Rigs CSV (optional)<input type="file" id="sSources"></label><label>or a permit export (converted to the rigs CSV)<input type="file" id="sPermits"></label><label>StationXML (optional)<input type="file" id="sXml"></label><label>Sensors CSV (array only)<input type="file" id="sSensors"></label><label>Band, Hz<input id="sLo" type="number" value="1" step="0.1" style="width:5em"> – <input id="sHi" type="number" value="50" step="0.1" style="width:5em"></label><button id="sAdd" type="button">Add station</button></div></div>`;
   } else h += need('operator');
+  const layers = await get('/api/layers');
+  h += layersCardHtml(layers.layers);
   h += liveCardHtml(live);
   h += tracksCardHtml(tracks, stations);
   h += sarPanelHtml(sar);
   $('#main').innerHTML = h;
+  layersCardBind();
   liveCardBind(live);
   tracksCardBind(stations);
   sarPanelBind(sar);
@@ -464,6 +469,36 @@ VIEWS.audit = async () => {
 };
 
 // ---- tracks: two or more arrays crossed over time ----
+// ---- structure layers: the mapped faults and folds the site brought ----
+function layersCardHtml(layers) {
+  let h = `<div class="card"><h3>Structure layers <span class="small muted">the mapped faults and folds the site brought</span></h3><p class="small muted">A shapefile of mapped structure - a public map (USGS, a state survey, BEG/TexNet) or the operator's own - read once, kept with every part hashed, and asked for each well: the nearest mapped fault and fold by distance and bearing from the declared surface position, printed on the well page and in the SRA packet. A position outside a layer's extent is said to be outside it. A distance to a mapped trace is a fact of the map, not a hazard judgement.</p>`;
+  if (layers.length) {
+    h += `<table><thead><tr><th>Layer</th><th>Features</th><th>Types</th><th>Coordinates</th><th>Extent (lon, lat)</th><th>Source</th><th></th></tr></thead><tbody>`;
+    for (const L of layers) { const tc = Object.entries(L.type_counts || {}).slice(0, 4).map(([k, v]) => `${esc(k)} ${v}`).join(', ');
+      const md = L.metadata || {}; const src = (md.titles || []).slice(1, 2).join('') || (md.titles || [])[0] || '';
+      h += `<tr><td>${esc(L.display)}<div class="mono small muted">${esc(L.base)}.shp · ${esc(L.kind || 'structure')}${L.value_attr ? ' · ' + esc(L.value_attr) : ''}</div></td><td>${L.n_features}</td><td class="small">${tc}${Object.keys(L.type_counts || {}).length > 4 ? ', …' : ''}</td><td class="small">${esc(L.crs.kind)} ${esc(L.crs.datum || '')}</td><td class="small mono">${L.bbox.map(v => fmt(v, 2)).join(', ')}</td><td class="small">${esc(src)}${(md.pubdates || [])[0] ? ' (' + esc(md.pubdates[0]) + ')' : ''}${L.citation ? '<div class="muted">' + esc(L.citation) + '</div>' : ''}</td><td>${can('admin') ? `<button class="secondary danger" data-lrm="${esc(L.id)}" type="button">Remove</button>` : ''}</td></tr>`; }
+    h += `</tbody></table>`;
+  } else h += `<p class="muted small">No structure layer yet.</p>`;
+  if (can('operator')) h += `<div class="row"><label>Display name<input id="lyName" placeholder="EIA Permian faults (2017)"></label><label>Shapefile zip (.shp, .shx, .dbf, .prj together)<input type="file" id="lyFile" accept=".zip"></label><label>Shapefile inside the zip (when it holds several)<select id="lyMember"><option value="">— pick the zip first —</option></select></label><label>Citation (where the map came from)<input id="lyCite" style="min-width:20em"></label><button id="lyAdd" type="button">Add layer</button></div>`;
+  return h + `</div>`;
+}
+function layersCardBind() {
+  document.querySelectorAll('[data-lrm]').forEach(b => b.onclick = async () => { if (!confirm(`Remove layer ${b.dataset.lrm}? Its folder is kept, renamed.`)) return; try { await post(`/api/layers/${b.dataset.lrm}/remove`); toast('Removed', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+  const add = $('#lyAdd'); if (!add) return;
+  const fileIn = $('#lyFile'); if (fileIn) fileIn.onchange = async () => { const f = fileIn.files[0]; const sel = $('#lyMember'); if (!f) return; try { const r = await post('/api/layers/members', {file: {filename: f.name, content_b64: await readFile(f)}}); sel.innerHTML = r.members.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('') || '<option value="">(no shapefile in this zip)</option>'; if (r.members.length === 1) { sel.value = r.members[0]; } } catch (e) { toast(e.message, 'err'); } };
+  add.onclick = async () => { const f = $('#lyFile').files[0]; if (!f) return toast('Choose the shapefile zip', 'err'); add.disabled = true;
+    try { const L = await post('/api/layers/add', {display: $('#lyName').value || f.name.replace(/\.zip$/i, ''), citation: $('#lyCite').value, member: $('#lyMember').value || null, file: {filename: f.name, content_b64: await readFile(f)}});
+      toast(`Added ${L.id}: ${L.n_features} features`, 'ok'); route(); } catch (e) { toast(e.message, 'err'); } add.disabled = false; };
+}
+function structureCardHtml(st) {
+  let h = `<div class="card"><h3>Mapped structure <span class="small muted">the nearest fault and fold in each layer the site brought</span></h3>`;
+  if (st.status !== 'OK') return h + `<p class="small muted">${esc(st.status)}: ${esc(st.note || '')}</p></div>`;
+  h += `<p class="small muted">From the declared surface position ${fmt(st.lat, 5)}, ${fmt(st.lon, 5)} (${esc(st.datum || '')}), within ${fmt(st.radius_km, 0)} km.</p>`;
+  for (const L of st.layers) { h += `<h4>${esc(L.layer_display || L.layer)} <span class="small muted">${esc(L.layer_kind || L.kind || 'structure')}</span></h4>`; for (const line of L.lines) h += `<p class="small">${esc(line)}</p>`;
+    if (L.within && L.within.length) h += `<table><thead><tr><th>Distance (km)</th><th>Bearing</th><th>Kind</th><th>Type</th><th>Name</th></tr></thead><tbody>${L.within.map(x => `<tr><td>${fmt(x.distance_km, 2)}</td><td>${fmt(x.bearing_deg, 0)}°</td><td>${esc(x.kind)}</td><td>${esc(x.type)}</td><td>${esc(x.name)}</td></tr>`).join('')}</tbody></table>`; }
+  return h + `</div>`;
+}
+
 // ---- live stations: SeedLink, the station's records as the station writes them ----
 function liveCardHtml(live) {
   const rows = live.stations || [];

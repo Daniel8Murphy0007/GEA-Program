@@ -873,6 +873,26 @@ class App:
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
+    def add_layer(self, user: dict, body: dict) -> dict:
+        """A structure layer arrives as one zip (base64) holding the shapefile's parts; the workspace reads it once and keeps it."""
+        f = body.get('file') or {}
+        name = str(f.get('filename', ''))
+        if not name or '/' in name or '\\' in name:
+            raise ApiError(400, 'a plain file name is required')
+        tmp_dir = os.path.join(self.ws.path, 'jobs', '_uploads', secrets.token_hex(4))
+        os.makedirs(tmp_dir, exist_ok=True)
+        try:
+            p = os.path.join(tmp_dir, name)
+            with open(p, 'wb') as fh:
+                fh.write(base64.b64decode(f.get('content_b64') or ''))
+            try:
+                return self.ws.add_layer(p, str(body.get('display') or os.path.splitext(name)[0]), actor=user['name'],
+                                         note=str(body.get('note', '')), citation=str(body.get('citation', '')), member=(str(body['member']) if body.get('member') else None))
+            except (WorkspaceError, ValueError) as e:
+                raise ApiError(409, str(e))
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
     def add_seismic(self, user: dict, body: dict) -> dict:
         """Records (and the optional station file, sensors CSV and rigs CSV) arrive base64-encoded; each lands in a temporary
         folder and is copied into the workspace verbatim by the workspace, which hashes it."""
@@ -1576,6 +1596,27 @@ def make_handler(app: App):
                     return self._json(200, {'stations': [{**st, 'summary': app.ws.seismic_results(st['id']).get('summary'),
                                                           **({'live_state': app.live.state(st['id'])} if st.get('live') else {})} for st in app.ws.seismic_stations()],
                                             'site_reports': site})
+                if path == '/api/layers':
+                    return self._json(200, {'layers': app.ws.layers()})
+                if path == '/api/layers/members':
+                    raise ApiError(405, 'POST the zip to list its shapefiles')
+                if path.startswith('/api/layers/') and path.endswith('/at'):
+                    lid = path[len('/api/layers/'):-len('/at')]
+                    try:
+                        app.ws.layer(lid)
+                        lat = float(qs.get('lat', [''])[0]); lon = float(qs.get('lon', [''])[0]); rad = float(qs.get('radius_km', ['50'])[0])
+                    except WorkspaceError as e:
+                        raise ApiError(404, str(e))
+                    except ValueError:
+                        raise ApiError(400, 'lat and lon are needed')
+                    res = [r for r in app.ws.structure_at(lat, lon, rad) if r['layer_id'] == lid]
+                    return self._json(200, res[0] if res else {'status': 'NO LAYER'})
+                if path.startswith('/api/wells/') and path.endswith('/structure'):
+                    wid = path[len('/api/wells/'):-len('/structure')]
+                    try:
+                        return self._json(200, app.ws.well_structure(wid, float(qs.get('radius_km', ['50'])[0]), actor='page', write=False))
+                    except WorkspaceError as e:
+                        raise ApiError(404, str(e))
                 if path == '/api/seismic/live':
                     from .seedlink import EXAMPLE_CONFIG as _SLX
                     return self._json(200, {'stations': app.live.states(), 'example_config': _SLX})
@@ -1726,6 +1767,36 @@ def make_handler(app: App):
                 if path == '/api/seismic/add':
                     App.require(user, 'operator')
                     return self._json(200, app.add_seismic(user, body))
+                if path == '/api/layers/add':
+                    App.require(user, 'operator')
+                    return self._json(200, app.add_layer(user, body))
+                if path == '/api/layers/members':
+                    App.require(user, 'operator')
+                    from . import shapefile as _SF
+                    f = body.get('file') or {}
+                    tmp_dir = os.path.join(app.ws.path, 'jobs', '_uploads', secrets.token_hex(4))
+                    os.makedirs(tmp_dir, exist_ok=True)
+                    try:
+                        p = os.path.join(tmp_dir, 'members.zip')
+                        with open(p, 'wb') as fh:
+                            fh.write(base64.b64decode(f.get('content_b64') or ''))
+                        return self._json(200, {'members': _SF.members(p)})
+                    finally:
+                        shutil.rmtree(tmp_dir, ignore_errors=True)
+                if path.startswith('/api/layers/') and path.endswith('/remove'):
+                    App.require(user, 'admin')
+                    try:
+                        app.ws.remove_layer(path[len('/api/layers/'):-len('/remove')], actor=user['name'])
+                    except WorkspaceError as e:
+                        raise ApiError(404, str(e))
+                    return self._json(200, {'ok': True})
+                if path.startswith('/api/wells/') and path.endswith('/structure'):
+                    App.require(user, 'operator')
+                    wid = path[len('/api/wells/'):-len('/structure')]
+                    try:
+                        return self._json(200, app.ws.well_structure(wid, float((body or {}).get('radius_km') or 50.0), actor=user['name']))
+                    except WorkspaceError as e:
+                        raise ApiError(404, str(e))
                 if path == '/api/seismic/live/add':
                     App.require(user, 'operator')
                     return self._json(200, app.add_live_station(user, body))

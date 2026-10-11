@@ -1648,6 +1648,22 @@ def sra_packet_report(pk: dict, evaluated_at: Optional[datetime] = None, program
             'only when the regulator\'s sidetrack code was declared. The injection interval and the completion are the permit\'s and the '
             'completion report\'s facts and are named here as not held.'],
             [Table(['Well', 'US Well Number', 'Identifies', 'State', 'Wellbore', 'Origin datum', 'Aliases', 'Not named'], irows, 'Well identity')]))
+    if pk.get('structure'):
+        srows = []
+        for wid, st_ in pk['structure'].items():
+            if st_.get('status') != 'OK':
+                srows.append([wid, '-', '-', st_.get('status'), st_.get('note', '')[:140]])
+                continue
+            for L_ in st_['layers']:
+                srows.append([wid, L_.get('layer_display') or L_.get('layer'), L_.get('layer_kind') or L_.get('kind') or 'structure', L_.get('status'),
+                              (L_.get('lines') or [L_.get('note', '')])[0][:220]])
+        secs.append(Section('2b', 'Mapped structure around the wells', [
+            'For each well inside the area, what each layer the site brought says of the declared surface position: the nearest mapped fault trace '
+            'and fold axis by distance and bearing (a structure layer), the contours the position lies between (a formation-top or thickness map, '
+            'read and not interpolated), the area it falls in (a basin or sub-basin outline), the nearest picked well (a point layer). A position '
+            'outside a layer\'s extent is said to be outside it. A distance to a mapped trace is a fact of the map at that map\'s scale, not a hazard '
+            'judgement; the layer\'s own metadata and the site\'s citation say where the map came from.'],
+            [Table(['Well', 'Layer', 'Kind', 'Status', 'What the layer says'], srows, 'Mapped structure')]))
     n = 3
     inside_wells = [w for w in pk['wells'] if w['inside'] and w.get('months')]
     for w in inside_wells:

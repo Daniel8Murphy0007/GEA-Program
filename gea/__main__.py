@@ -285,7 +285,7 @@ def main(argv=None) -> int:
                                "add-seismic", "refresh-seismic", "remove-seismic", "sar-film", "refresh-all", "add-track", "refresh-track", "remove-track",
                                "seismic-dataset", "seismic-field", "add-site", "sites", "site-report", "remove-site", "rename",
                                "set-well", "sra-define", "sra-report", "associate", "osdu-export", "quakeml-export", "well-identity", "vibration-report",
-                               "add-live-station", "live-fold", "live-run", "month-end"])
+                               "add-live-station", "live-fold", "live-run", "month-end", "add-layer", "layers", "remove-layer", "structure"])
     p_ws.add_argument("--stations", type=str, nargs="+", default=None, help="add-track: two or more array station ids of this workspace")
     p_ws.add_argument("--site", type=str, default=None, help="site-report/remove-site: the site id")
     p_ws.add_argument("--api", type=str, default=None, help="set-well: the API number")
@@ -299,7 +299,7 @@ def main(argv=None) -> int:
     p_ws.add_argument("--channel-bhp", type=str, default=None, help="set-well: the downhole gauge channel (probe method)")
     p_ws.add_argument("--top-interval-ft", type=float, default=None, help="set-well: top of the disposal interval, ft (calculated method)")
     p_ws.add_argument("--gradient-psi-ft", type=float, default=None, help="set-well: fluid gradient, psi/ft (calculated method)")
-    p_ws.add_argument("--radius-km", type=float, default=None, help="sra-define: the area's radius in km (Gardendale: 9.08)")
+    p_ws.add_argument("--radius-km", type=float, default=None, help="sra-define: the area's radius in km (Gardendale: 9.08); structure: how far around the well to look (default 50)")
     p_ws.add_argument("--plan-date", type=str, default=None, help="sra-define: the plan date, YYYY-MM-DD")
     p_ws.add_argument("--threshold-m", type=float, default=3.5, help="sra-define: the magnitude the plan is written against (3.5)")
     p_ws.add_argument("--goal-months", type=int, default=18, help="sra-define: months without a threshold event that meet the goal (18)")
@@ -359,6 +359,9 @@ def main(argv=None) -> int:
     p_ws.add_argument("--seedlink-config", type=str, default=None, help="add-live-station: the SeedLink config JSON (gea seedlink --write-example-config)")
     p_ws.add_argument("--include-open", action="store_true", help="live-fold: fold the current day's files too (they are still being written)")
     p_ws.add_argument("--seconds", type=float, default=None, help="live-run: how long to run (default: until Ctrl+C)")
+    p_ws.add_argument("--layer", type=str, default=None, help="add-layer: the shapefile (zip, folder or .shp); remove-layer: the layer id")
+    p_ws.add_argument("--member", type=str, default=None, help="add-layer: which shapefile inside a zip or folder that holds several (gea structure --layer <zip> --list)")
+    p_ws.add_argument("--citation", type=str, default="", help="add-layer: where the map came from, in the site's words")
     p_ws.add_argument("--period", type=str, default="previous", help="month-end: the month, YYYY-MM, or 'previous' (the last closed month)")
     p_ws.add_argument("--no-refresh", action="store_true", help="month-end: collect the reports as they stand without refreshing first")
     p_ws.add_argument("--name", type=str, default=None, help="init: site name; add-*: display name")
@@ -392,6 +395,14 @@ def main(argv=None) -> int:
     p_hk.add_argument("--actor", type=str, default="housekeeping")
     p_hk.add_argument("--json", action="store_true")
 
+    p_st = sub.add_parser("structure", help="the nearest mapped fault and fold to a position, from a shapefile: --layer <zip|folder|.shp> --lat --lon; --info describes the layer")
+    p_st.add_argument("--layer", type=str, required=True)
+    p_st.add_argument("--lat", type=float, default=None); p_st.add_argument("--lon", type=float, default=None)
+    p_st.add_argument("--radius-km", type=float, default=50.0)
+    p_st.add_argument("--member", type=str, default=None, help="which shapefile inside a zip or folder that holds several")
+    p_st.add_argument("--list", action="store_true", help="list the shapefiles a zip or folder holds and exit")
+    p_st.add_argument("--info", action="store_true", help="describe the layer (coordinate system, extent, types, metadata) and exit")
+    p_st.add_argument("--json", action="store_true")
     p_sk = sub.add_parser("soak", help="the patches through link outages for hours, measured: N WITS0 patches, an ETP patch and a SeedLink station through relays that are cut on a schedule; the Soak Report")
     p_sk.add_argument("--hours", type=float, default=None, help="how long (72 for the go-live soak); or --seconds")
     p_sk.add_argument("--seconds", type=float, default=None)
@@ -928,6 +939,45 @@ def main(argv=None) -> int:
             for x in r['records_removed'][:20]:
                 print(f"  record  {x['well_id']}/{x['file']}  {x['age_days']} d")
         return 0
+    elif a.cmd == "structure":
+        import json as _json
+        from . import shapefile as _SF
+        from . import structure as _ST
+        if a.list:
+            ms = _SF.members(a.layer)
+            print("\n".join(ms) if ms else f"no shapefile in {a.layer}")
+            return 0 if ms else 1
+        try:
+            L = _SF.read(a.layer, member=a.member)
+        except (ValueError, OSError) as e:
+            raise SystemExit(f"structure: {e}")
+        ta, na = _ST.guess_attrs(L)
+        kind = _ST.layer_kind(L)
+        if a.info or a.lat is None or a.lon is None:
+            md = L.source.get("metadata", {})
+            info = {"name": L.name, "kind": kind, "shape_type": L.shape_type, "crs": {k: v for k, v in L.crs.items() if k != "wkt"}, "bbox": list(L.bbox), "n_features": L.n,
+                    "fields": L.fields, "type_attr": ta, "name_attr": na, "value_attr": _ST.guess_value_attr(L) if kind == "contours" else None,
+                    "type_counts": dict(list(L.counts(ta).items())[:20]) if ta else {}, "metadata": md}
+            if a.json:
+                print(_json.dumps(info, indent=1))
+            else:
+                print(f"{L.name} ({kind}): {L.n} {L.shape_type} features; {L.crs['kind']} {L.crs.get('datum') or ''}; extent lon {L.bbox[0]:.3f}..{L.bbox[2]:.3f} lat {L.bbox[1]:.3f}..{L.bbox[3]:.3f}")
+                print(f"  fields: {', '.join(f['name'] + ' (' + f['type'] + ')' for f in L.fields)}; type attribute {ta!r}, name attribute {na!r}")
+                for k, v in list(info["type_counts"].items())[:12]:
+                    print(f"  {v:7d}  {k}")
+                if md.get("titles"):
+                    print(f"  source: {'; '.join(md['titles'][:2])}" + (f" ({md['pubdates'][0]})" if md.get("pubdates") else ""))
+            if a.lat is None or a.lon is None:
+                return 0
+        r = _ST.describe(L, a.lat, a.lon, a.radius_km, ta, na)
+        if a.json:
+            print(_json.dumps(r, indent=1, default=str))
+        else:
+            for line in _ST.lines(r):
+                print(line)
+            for h in r.get("within", [])[:10]:
+                print(f"  {h['distance_km']:8.2f} km  {h['bearing_deg']:5.0f} deg  {h['kind']:5s}  {h['type']}  {h['name']}")
+        return 0 if r["status"] == "OK" else 1
     elif a.cmd == "soak":
         import json as _json
         from .soak import run as _soak
@@ -1968,6 +2018,38 @@ def main(argv=None) -> int:
                     raise SystemExit("well-identity needs --well <id>")
                 r = ws.well_identity(a.well)
                 print(_ppdm_text(r)); return 0
+            elif a.action == "add-layer":
+                if not a.layer or not a.name:
+                    raise SystemExit("add-layer needs --name <display> and --layer <shapefile zip | folder | .shp>")
+                L = ws.add_layer(a.layer, a.name, actor=a.actor, citation=a.citation, member=a.member)
+                tc = ", ".join(f"{k} {v}" for k, v in list(L["type_counts"].items())[:6])
+                print(f"layer {L['id']} ({L['kind']}): {L['n_features']} {L['shape_type']} features, {L['crs']['kind']} {L['crs'].get('datum') or ''}, extent lon {L['bbox'][0]:.3f}..{L['bbox'][2]:.3f} lat {L['bbox'][1]:.3f}..{L['bbox'][3]:.3f}"
+                      + (f"; contour value {L['value_attr']}" if L.get('value_attr') else ''))
+                print(f"  types: {tc}" + (" ..." if len(L["type_counts"]) > 6 else ""))
+                md = L.get("metadata") or {}
+                if md.get("titles"):
+                    print(f"  source: {'; '.join(md['titles'][:2])}" + (f" ({md['pubdates'][0]})" if md.get("pubdates") else ""))
+                return 0
+            elif a.action == "layers":
+                for L in ws.layers():
+                    print(f"{L['id']:28s} {L.get('kind', 'structure'):10s} {L['n_features']:7d} {L['shape_type']:9s} {L['crs']['kind']} {L['crs'].get('datum') or '':6s} {L['display']}")
+                if not ws.layers():
+                    print("no structure layer - add one with --action add-layer --name ... --layer <shapefile zip>")
+                return 0
+            elif a.action == "remove-layer":
+                if not a.layer:
+                    raise SystemExit("remove-layer needs --layer <id>")
+                ws.remove_layer(a.layer, actor=a.actor); print(f"removed layer {a.layer} (folder kept, renamed)"); return 0
+            elif a.action == "structure":
+                if not a.well:
+                    raise SystemExit("structure needs --well <id>")
+                r = ws.well_structure(a.well, a.radius_km if a.radius_km is not None else 50.0, actor=a.actor)
+                print(f"structure {a.well}: {r['status']}" + (f" - {r['note']}" if r.get("note") else ""))
+                for L in r["layers"]:
+                    print(f"  [{L.get('layer_display') or L['layer']}]")
+                    for line in L["lines"]:
+                        print("    " + line)
+                return 0 if r["status"] == "OK" else 1
             elif a.action == "month-end":
                 from .month_end import report_text as _me_text
                 r = ws.month_end(a.period, actor=a.actor, refresh=not a.no_refresh, catalog_csv=a.catalog)

@@ -5,6 +5,94 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.21.0] - 2026-10-11 - mapped structure: the nearest fault, the contours, the basin, from a layer the site brought
+
+### Added
+- **The shapefile, read as specified** (`gea/shapefile.py`): no
+  dependency. The .shp header and records (Point, PolyLine, Polygon,
+  MultiPoint and their Z/M forms, Z and M read past), the records found by
+  the .shx index when it is there - the index exists because a record's
+  own content length is not always right: one of the 15,699 in a USGS
+  layer understated its length, and a sequential read stops there and says
+  so - the .dbf attributes (text, number, logical, date), the .prj
+  coordinate system (geographic NAD83 or WGS84 taken as they are, the
+  Texas State Plane NAD83 zones unprojected through `geodesy`, anything
+  else refused by name), a zip, a folder or the .shp as the source, and
+  the FGDC metadata beside the layer (titles, originators, dates,
+  abstract) carried with it. A writer, so the reader is proven on files
+  this program made and the gate needs no download.
+- **Mapped structure** (`gea/structure.py`): for a position, the nearest
+  mapped fault and the nearest fold in a layer - the distance to the
+  nearest segment in a local plane, then the distance along the ellipsoid
+  and the bearing to that point - the n nearest features within a radius,
+  the counts by kind, the statement as the well page prints it; a
+  position outside the layer's extent is OUTSIDE LAYER EXTENT, never "no
+  faults". The structure type and name attributes are found by their
+  field names (`type`, `name`, and the usual variants) and can be named.
+- **In the workspace**: `add-layer` reads the layer once, keeps every
+  part under `layers/<id>/` with its hash, the extent, the feature count,
+  the type counts, the layer's own metadata and the site's citation;
+  `layers`, `remove-layer`; `structure --well <id> --radius-km` writes
+  `reports/wells/<id>/structure.json` and audits `well.structure`, saying
+  NO LAYER or NO SURFACE POSITION (naming `set-well --lat --lon --datum`)
+  when that is the case. The SRA packet carries section 2b, "Mapped
+  structure around the wells", for every well inside the area. The page:
+  the Structure layers card on the Seismic page (add a zip, the extent and
+  types, the source and citation, remove) and the Mapped structure card on
+  the well page. `/api/layers`, `/api/layers/add`,
+  `/api/layers/<id>/at?lat&lon`, `/api/wells/<id>/structure`. `gea
+  structure --layer <file> --lat --lon` and `--info` for any position and
+  any layer without a workspace. `gea help structure`.
+- **Proven on a real layer**: the USGS Professional Paper 1708
+  Appalachian basin structure layer (15,699 fault and fold traces, NAD83
+  geographic, 2014), supplied by the user, reads whole in a quarter of a
+  second; from Youngstown, Ohio, the nearest mapped fault is the
+  Akron-Suffield Fault, 31.5 km to the south-west; a Permian position is
+  OUTSIDE LAYER EXTENT. The layer is not shipped in the package.
+- **Every kind of layer the public structure downloads carry**: the EIA
+  Permian Basin set (2017-2019, WGS84 geographic), supplied by the user,
+  is nine shapefiles in one zip and five more zips of formation-top
+  contours - so a zip holding several shapefiles lists its members
+  (`gea structure --layer <zip> --list`) and one is named with
+  `--member` (`add-layer --member`, the member select on the page,
+  `/api/layers/members`); a layer with no `--member` and several
+  shapefiles is refused naming them. Each layer is kept with its kind,
+  and the statement is the kind's: a **structure** layer (faults and
+  folds - `Faults_Permian_201712`, 2,055 traces whose one text field says
+  'fault', 'dotted fault', 'dashed fault' or 'hidden contact', classified
+  by its words and by the layer's name) gives the nearest fault and fold;
+  a **contours** layer (`Wolfcamp_Formation_Elevation_201712`,
+  `ShalePlay_Wolfcamp_B_Elevation_EIA_201811`, the Bone Spring, Delaware
+  and Midland Wolfcamp A-D elevations and isopachs; the value attribute
+  found - `ZLEVEL`, `ElevTop_ft`, `Thick_ft`) says which two contours the
+  position lies between, or on one, read and not interpolated: "between"
+  is said only when the two nearest contours are one contour interval
+  apart, otherwise the nearest contour and its distance; an **areas**
+  layer (`Permian_SubBasins_201712`: Delaware, Midland, Central Basin
+  Platform, Ozona Arch, Val Verde) says which polygon the position is
+  inside, or none; a **points** layer
+  (`Wells_WolfCamp_with_StratigraphicPicks_201712`, 7,739 picked wells)
+  gives the nearest picks with their values and says a pick at another
+  well is not a pick at this one. Real numbers at 31.42 N, 103.50 W:
+  inside the Delaware Basin; Wolfcamp top between -8,000 and -7,600 ft;
+  Wolfcamp B top between -8,500 and -8,000 ft; Delaware top between
+  -2,000 and -1,800 ft; the nearest EIA fault 52.6 km SSW, a dotted
+  fault; the nearest pick 3.25 km NNW. The layers are not shipped in the
+  package.
+- **The manifest re-read**: a serving process and a `gea workspace`
+  command on the same folder each hold their own copy of
+  `workspace.json`; every method that lists or changes the wells,
+  stations, tracks, layers or sites now re-reads it when another process
+  wrote it, so one process's addition is neither hidden from the other
+  nor dropped by the other's next save (found when the gate's own
+  process and its serving process added layers in turn).
+- What it will not do: say a position is clear of faults when the layer
+  does not cover it; interpolate a depth between contours or add a
+  depth, dip, throw or activity the layer does not state; call a pick at
+  another well a pick at this one; call a distance a hazard; vouch for
+  the map's accuracy - a compiled regional map is not a site survey.
+  Section BO (3 checks); the gate is 350.
+
 ## [v0.20.0] - 2026-10-10 - the soak: the patches through link outages, measured
 
 ### Added
