@@ -4,7 +4,7 @@
 """patches - the patch panel: supervised live connections that stay up.
 
 A *patch* is a named connection from a source on the site network to a well in
-the workspace: a protocol (`wits0`, `witsml`, `opcua`, `mqtt`, `modbus_g6`), the
+the workspace: a protocol (`wits0`, `witsml`, `etp`, `opcua`, `mqtt`, `modbus_g6`, `modbus_rtu`, `dnp3`, `hartip`), the
 site's map for it (a JSON file under the well's `source/` folder, versioned in
 the configuration store), the well it feeds, a priority (when two patches carry
 the same tag, the higher priority wins at the same instant), and a staleness
@@ -44,13 +44,14 @@ from .sample_record import SampleRecord, RECORD_COLUMNS
 from .live_ports import records_to_stream, iso, utc_now
 from .workspace import Workspace, WorkspaceError, slug, sha256_file, utc_now_iso
 
-PROTOCOLS = ('wits0', 'witsml', 'etp', 'opcua', 'mqtt', 'modbus_g6')
+PROTOCOLS = ('wits0', 'witsml', 'etp', 'opcua', 'mqtt', 'modbus_g6', 'modbus_rtu', 'dnp3', 'hartip')
 STATES = ('STOPPED', 'CONNECTING', 'CONNECTED', 'DEGRADED', 'DOWN')
 BACKOFF_S = (2, 4, 8, 16, 32, 60)
 
 
 def _mod(protocol: str):
-    name = {'wits0': 'gea.wits0', 'witsml': 'gea.witsml', 'etp': 'gea.etp', 'opcua': 'gea.opcua_port', 'mqtt': 'gea.mqtt_port', 'modbus_g6': 'gea.modbus'}[protocol]
+    name = {'wits0': 'gea.wits0', 'witsml': 'gea.witsml', 'etp': 'gea.etp', 'opcua': 'gea.opcua_port', 'mqtt': 'gea.mqtt_port', 'modbus_g6': 'gea.modbus',
+            'modbus_rtu': 'gea.modbus_rtu', 'dnp3': 'gea.dnp3', 'hartip': 'gea.hartip'}[protocol]
     return __import__(name, fromlist=['x'])
 
 
@@ -63,7 +64,51 @@ def validate_port_config(protocol: str, config: dict) -> None:
         from .modbus import load_register_map
         load_register_map(config)
         return
+    if protocol in ('modbus_rtu', 'dnp3', 'hartip'):            # the port's own constructor is the check: mapping and its source required
+        cls = getattr(mod, {'modbus_rtu': 'RtuPort', 'dnp3': 'Dnp3Port', 'hartip': 'HartIpPort'}[protocol])
+        cls(mod.load_config(config))
+        return
     mod.load_config(config)
+
+
+def open_field_port(proto: str, mod, cfg: dict):
+    """A Modbus RTU, DNP3 or HART-IP port opened for a session; `transport: sim` starts the port's own stand-in first
+    (the rehearsal a site runs before the panel is on the line) and the handle rides on the port as `_sim`."""
+    cfg = dict(cfg)
+    sim_handle = None
+    if proto == 'modbus_rtu':
+        tap = mod.RtuPort(cfg)
+        tap.open()
+    elif proto == 'dnp3':
+        if cfg.get('transport') == 'sim':
+            sim = mod.SimOutstation(int(cfg.get('outstation', 10)), int(cfg.get('master', 1)))
+            sim_handle, port = sim.serve()
+            cfg.update(host='127.0.0.1', port=port)
+        tap = mod.Dnp3Port(cfg)
+        tap.master.connect()
+    else:
+        if cfg.get('transport') == 'sim':
+            sim = mod.SimDevice()
+            sim_handle, port = sim.serve()
+            cfg.update(host='127.0.0.1', port=port)
+        tap = mod.HartIpPort(cfg)
+        tap.client.connect()
+        tap.client.identify()
+    tap._sim = sim_handle
+    return tap
+
+
+def close_field_port(proto: str, tap) -> None:
+    try:
+        if proto == 'modbus_rtu':
+            tap.close()
+        elif proto == 'dnp3':
+            tap.master.close()
+        else:
+            tap.client.close()
+    finally:
+        if getattr(tap, '_sim', None) is not None:
+            tap._sim.close()
 
 
 class PatchStore:
@@ -345,6 +390,24 @@ class PatchRunner(threading.Thread):
             self.tap = mod.MqttTap(cfg)
             while not self.stop_event.is_set():
                 self.tap.run(30.0, on_record=self._on_record)
+        elif proto in ('modbus_rtu', 'dnp3', 'hartip'):          # the field ports: one connection, polled; every poll's records fed as they come
+            self.tap = open_field_port(proto, mod, cfg)
+            poll = float(cfg.get('interval_s', cfg.get('poll_s', 5.0)))
+            first = True
+            try:
+                while not self.stop_event.is_set():
+                    if proto == 'dnp3':
+                        self.tap.poll_once(integrity=first)
+                    else:
+                        self.tap.poll_once()
+                    first = False
+                    for r in self.tap.records:
+                        self._on_record(r)
+                    del self.tap.records[:]
+                    if self.stop_event.wait(poll):
+                        break
+            finally:
+                close_field_port(proto, self.tap)
         else:                                                   # modbus: poll the register map
             from .live_ports import TagMapping, make_record
             poll = float(cfg.get('poll_s', 5.0))

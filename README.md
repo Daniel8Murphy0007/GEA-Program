@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (353 checks)
+gea accept                     # the product gate (356 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -608,6 +608,21 @@ synthetic station speaking both versions; `gea seedlink --selftest` runs both
 against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
+
+### The field ports
+
+The three links a gauge panel on a pad actually offers, each read-only in
+the code (no write, control, time set or device-changing command exists),
+each refusing to run without the site's map and its source, each with a
+stand-in on the loopback to rehearse against, each one more protocol on the
+Patch panel: **Modbus RTU** (`gea modbus-rtu`; the RS-485 drop through
+pyserial, the `serial` extra, or RTU over TCP through a serial-to-Ethernet
+converter; CRC-16 framed and checked by this program; functions 03 and 04),
+**DNP3** (`gea dnp3`; IEEE 1815 data link, transport and application layers;
+integrity and event polls; analog, binary and counter objects with their
+flags and 48-bit event times; confirms and unsolicited responses handled),
+**HART-IP** (`gea hartip`; the session, command 0, 3 and 9; HART unit codes
+converted; device and variable status to quality). `gea help field-ports`.
 
 ### The interval against the mapped tops
 

@@ -6595,6 +6595,185 @@ def section_bp_interval(tmp: str) -> None:
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_bq_field_ports(tmp: str) -> None:
+    """Section BQ - the field ports: Modbus RTU framed and parsed as specified over a serial-shaped transport and over TCP,
+    DNP3 link / transport / application layers against a stand-in outstation, HART-IP sessions and commands 0, 3 and 9
+    against a stand-in device; each through the patch supervisor and the CLI; the help."""
+    import http.cookiejar
+    import struct
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    from . import modbus_rtu as MR
+    from . import dnp3 as DN
+    from . import hartip as HT
+    from . import helplib as H
+    from .patches import PROTOCOLS, PatchSupervisor, validate_port_config
+    from .telemetry import TelemetryRecorder, TelemetryConfig
+    from .downhole_engine import DownholeEngine, SimulatorConfig
+    from .workspace import Workspace, WorkspaceError
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bq"); d.mkdir()
+
+    # -- BQ1: Modbus RTU --------------------------------------------------------------------------------------------
+    st = MR.selftest()
+    sim = MR.SimSlave(7); sim.set(200, 1234.5, 'float32', 'little'); sim.set(202, -3, 'int16')
+    h, port = sim.serve_tcp()
+    try:
+        p = MR.RtuPort({'transport': 'tcp', 'host': '127.0.0.1', 'port': port, 'unit_id': 7, 'table': 'input', 'word_order': 'little', 'map_source': 'gate',
+                        'mapping': [{'address': 200, 'tag_id': 'A', 'type': 'float32', 'unit': 'psi'}, {'address': 202, 'tag_id': 'B', 'type': 'int16', 'unit': ''},
+                                    {'address': 300, 'tag_id': 'C', 'type': 'uint16', 'unit': ''}]})
+        p.run(polls=2, interval_s=0.05)
+        vals = {r.tag_id: (r.value, r.quality_flag, r.rule_fired) for r in p.records[-3:]}
+    finally:
+        h.close()
+    no_map = None
+    try:
+        MR.RtuPort({'transport': 'sim', 'mapping': [{'address': 1, 'tag_id': 'x'}]})
+    except ValueError as e:
+        no_map = str(e)
+    req = MR.read_request(7, 'input', 200, 2)
+    c1 = {
+        "selftest": st["ok"],
+        "request_as_specified": req[:6] == bytes([7, 4, 0, 200, 0, 2]) and MR.crc16(req[:6]) == struct.unpack('<H', req[6:])[0],
+        "rtu_over_tcp": abs(vals['A'][0] - 1234.5) < 1e-3 and vals['A'][1] == 'GOOD' and vals['B'][0] == -3.0 and vals['C'][1] == 'GAP' and 'ILLEGAL DATA ADDRESS' in vals['C'][2]
+                        and p.summary()['polls'] == 2 and len(p.faults) == 2,
+        "map_source_required": no_map and 'source' in no_map,
+        "serial_needs_extra": (lambda: (_ for _ in ()).throw(SystemExit))  # placeholder replaced below
+    }
+    try:
+        MR.SerialTransport('/dev/nonexistent-gea-port', 9600)
+        c1["serial_needs_extra"] = True                       # pyserial present: it raised on the device, below
+    except NotImplementedError as e:
+        c1["serial_needs_extra"] = 'gea-program[serial]' in str(e)
+    except Exception:                                         # noqa: BLE001 - pyserial installed and no such port: the dependency path is fine
+        c1["serial_needs_extra"] = True
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "BQ1 Modbus RTU: the CRC against the specification's vector and every register type both word orders round-tripped; a read request framed "
+       "as specified (unit, function, address, count, CRC low byte first); RTU over TCP against the stand-in slave - an input register in little word "
+       "order, a signed register, and a register the slave does not have answered ILLEGAL DATA ADDRESS and recorded as GAP with the fault; an "
+       "exception, a corrupt CRC and a silent slave each named; a map without its source refused; the serial transport names the extra it needs"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- BQ2: DNP3 and HART-IP ---------------------------------------------------------------------------------------
+    sd = DN.selftest()
+    sh = HT.selftest()
+    sim_o = DN.SimOutstation(outstation=4, master=3, analogs=[10.0, 20.0], flags=[0x01, 0x21], binaries=[0], counters=[9], events=False)
+    h, port = sim_o.serve()
+    try:
+        pd_ = DN.Dnp3Port({'transport': 'tcp', 'host': '127.0.0.1', 'port': port, 'master': 3, 'outstation': 4, 'point_source': 'gate',
+                           'mapping': [{'address': 'ai:0', 'tag_id': 'P', 'unit': 'psi'}, {'address': 'ai:1', 'tag_id': 'T', 'unit': 'degF'}, {'address': 'ai:9', 'tag_id': 'X', 'unit': ''}]})
+        pd_.run(polls=1)
+        q = {r.tag_id: (r.value, r.quality_flag, r.rule_fired) for r in pd_.records}
+        sd_sum = pd_.summary()
+    finally:
+        h.close()
+    wrong = DN.Dnp3Port({'transport': 'tcp', 'host': '127.0.0.1', 'port': 9, 'point_source': 'gate', 'mapping': [{'address': 'ai:0', 'tag_id': 'P'}]}, sock=None)
+    bad_addr = None
+    try:
+        DN.Dnp3Port({'point_source': 'gate', 'mapping': [{'address': 'analog 3', 'tag_id': 'P'}]})
+    except ValueError as e:
+        bad_addr = str(e)
+    sim_h = HT.SimDevice(pv=100.0, fixed_variable=5); h, port = sim_h.serve()
+    try:
+        ph = HT.HartIpPort({'transport': 'tcp', 'host': '127.0.0.1', 'port': port, 'device_source': 'gate',
+                            'mapping': [{'address': 'pv', 'tag_id': 'P', 'unit': 'kPa'}, {'address': 'dv:5', 'tag_id': 'Q', 'unit': 'bbl/min'}, {'address': 'dv:77', 'tag_id': 'Z', 'unit': ''}]})
+        ph.run(polls=1)
+        hq = {r.tag_id: (r.value, r.quality_flag, r.rule_fired, r.unit) for r in ph.records}
+    finally:
+        h.close()
+    c2 = {
+        "dnp3_selftest": sd["ok"], "hartip_selftest": sh["ok"],
+        "dnp3_flags": q['P'] == (10.0, 'GOOD', '') and q['T'][1] == 'BAD' and 'OVER_RANGE' in q['T'][2] and q['T'][0] == 20.0 and 'X' not in q
+                      and sd_sum['unmapped'] == {'bi:0': 1, 'ctr:0': 1} and sd_sum['outstation'] == 4 and sim_o.requests == [(1, 2, 3, 0)],
+        "dnp3_refusals": bad_addr and 'ai:<index>' in bad_addr and wrong.master.outstation == 10,
+        "hartip_units_and_status": hq['P'][1] == 'GOOD' and abs(hq['P'][0] - 100.0 / 0.14503773773) < 0.01 and hq['P'][3] == 'kPa'
+                                   and hq['Q'][1] == 'BAD' and 'MANUAL/FIXED' in hq['Q'][2] and abs(hq['Q'][0] - 7.25) < 1e-3
+                                   and hq['Z'][1] == 'GAP' and 'not in the answer' in hq['Z'][2] and sim_h.commands[:3] == [0, 3, 9],
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "BQ2 DNP3: the CRC against the specification's frame, a link round trip, every variation this master reads parsed with flags and the 48-bit "
+       "event time, an unknown object named; an integrity poll against the stand-in with its confirm and its unsolicited null response, the event's "
+       "time as the source time, a corrupt frame named; a point with OVER_RANGE carried as BAD with the flag, unmapped points counted, a bad point "
+       "address refused. HART-IP: the PDU round trip and check byte, command 3 parsed, a session with command 0 taking the long address, a PV the "
+       "device sends in psi recorded in kPa, a MANUAL/FIXED variable BAD with the status, a variable the device does not have GAP, DEVICE_MALFUNCTION "
+       "and a refused command 9 named"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- BQ3: the supervisor, the service, the CLI, the help ------------------------------------------------------------
+    hist = str(d / "hist.csv")
+    TelemetryRecorder(engine=DownholeEngine(SimulatorConfig()), config=TelemetryConfig(duration_hours=0.5, seed=3)).run().export_csv(hist)
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    w = ws.add_well_file(hist, display="Well F", actor="tester")
+    sup = PatchSupervisor(ws)
+    cfg_rtu = dict(MR.EXAMPLE_CONFIG, interval_s=0.2)
+    cfg_dnp = dict(DN.EXAMPLE_CONFIG, interval_s=0.2)
+    cfg_hart = dict(HT.EXAMPLE_CONFIG, interval_s=0.2)
+    for name, proto, cfg in (("rtu", "modbus_rtu", cfg_rtu), ("rtu-dnp", "dnp3", cfg_dnp), ("hart", "hartip", cfg_hart)):
+        sup.store.add(name, proto, w["id"], cfg, "tester", priority=1, stale_after_s=5)
+    bad_cfg = None
+    try:
+        validate_port_config("dnp3", {"mapping": [{"address": "ai:0", "tag_id": "P"}]})
+    except ValueError as e:
+        bad_cfg = str(e)
+    for name in ("rtu", "rtu-dnp", "hart"):
+        sup.start(name, "tester")
+    time.sleep(3.0)
+    states = {x["name"]: x for x in sup.states()}
+    for name in ("rtu", "rtu-dnp", "hart"):
+        sup.stop(name, "tester")
+    time.sleep(0.5)
+    stopped = {x["name"]: x["status"] for x in sup.states()}
+    users = Users(str(Path(wsp, "users.json"))); users.add("op", "operator-pass-1", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json"); req.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(req, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        call("POST", "/api/login", {"name": "op", "password": "operator-pass-1"})
+        st_p, pl = call("GET", "/api/patches")
+        st_x, ex = call("GET", "/api/config/defaults/hartip")
+    finally:
+        svc.stop()
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    help_md = (pkg / "help" / "field-ports.md").read_text(encoding="utf-8")
+    cfg_path = str(d / "rtu.json")
+    r_ex = _sp.run([sys.executable, "-m", "gea", "modbus-rtu", "--write-example-config", cfg_path], capture_output=True, text=True)
+    r_run = _sp.run([sys.executable, "-m", "gea", "modbus-rtu", "--config", cfg_path, "--polls", "2", "--out", str(d / "rtu.csv"), "--stream-csv", str(d / "rtu_stream.csv"), "--record", str(d / "rtu.jsonl")],
+                    capture_output=True, text=True)
+    r_self = _sp.run([sys.executable, "-m", "gea", "dnp3", "--selftest"], capture_output=True, text=True)
+    r_replay = _sp.run([sys.executable, "-m", "gea", "hartip", "--config", cfg_path, "--replay", "x"], capture_output=True, text=True)
+    c3 = {
+        "protocols": all(x in PROTOCOLS for x in ("modbus_rtu", "dnp3", "hartip")) and bad_cfg and "source" in bad_cfg,
+        "supervised": all(states[n]["status"] == "CONNECTED" and states[n]["samples_total"] >= 6 for n in ("rtu", "rtu-dnp", "hart"))
+                      and abs(states["rtu"]["tags"]["DHP_psi"]["value"] - 3185.5) < 1e-3 and abs(states["rtu-dnp"]["tags"]["INJ_bbl"]["value"] - 123456.0) < 1e-6
+                      and abs(states["hart"]["tags"]["DHT_degF"]["value"] - 212.3) < 1e-3 and all(stopped[n] == "STOPPED" for n in ("rtu", "rtu-dnp", "hart")),
+        "service": st_p == 200 and set(("modbus_rtu", "dnp3", "hartip")) <= set(pl["protocols"]) and st_x == 200 and ex["content"]["mapping"][0]["address"] == "pv",
+        "page": 'value="modbus_rtu"' in page_src and 'value="dnp3"' in page_src and 'value="hartip"' in page_src,
+        "cli": r_ex.returncode == 0 and r_run.returncode == 0 and '"polls": 2' in r_run.stdout and os.path.isfile(d / "rtu_stream.csv") and open(d / "rtu.jsonl").read().count("\n") == 2
+               and r_self.returncode == 0 and "dnp3 selftest: OK" in r_self.stdout and r_replay.returncode != 0 and "no recording to replay" in (r_replay.stderr + r_replay.stdout),
+        "help": any(t["topic"] == "field-ports" for t in H.topics()) and not H.check("field-ports") and "there is no code path for a Modbus write" in help_md.split("will not call a measurement")[1],
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "BQ3 the three ports on the Patch panel: a config without its source refused on commit; each supervised patch CONNECTED against its stand-in "
+       "with the values on the patch row, stopped on request; the service lists the protocols and serves the example maps; the page offers them for "
+       "a live well; `gea modbus-rtu` writes the example, polls it with the records, stream and per-poll recording, `--selftest` runs, `--replay` is "
+       "refused with the reason; the help page"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -6666,6 +6845,7 @@ def main() -> int:
         section_bn_soak(tmp)
         section_bo_structure(tmp)
         section_bp_interval(tmp)
+        section_bq_field_ports(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

@@ -4,6 +4,13 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.23.0 - 2026-10-12 - the field ports
+
+- **Modbus RTU, DNP3, HART-IP.** The three links a gauge panel on a pad
+  actually offers, each read-only, framed and parsed by this program as its
+  specification lays it out, each with a stand-in to rehearse against, each
+  supervised on the Patch panel. Section BQ; gate 356.
+
 ## v0.22.0 - 2026-10-11 - the interval against the mapped tops
 
 - **Where the injection sits in the geology.** The declared disposal

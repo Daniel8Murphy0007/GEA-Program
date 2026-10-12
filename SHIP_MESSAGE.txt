@@ -1,29 +1,28 @@
-v0.22.0 — THE INTERVAL AGAINST THE MAPPED TOPS: WHERE THE INJECTION SITS IN THE GEOLOGY
+v0.23.0 — THE FIELD PORTS: MODBUS RTU, DNP3, HART-IP
 
-The first question a reviewer of a disposal well in a seismic response area
-asks, answered from two things the program already holds: the operator's
-declaration and the layers the site brought. The operator declares the
-interval - top and base, true vertical depth, the elevation the depths are
-measured from and what that elevation is (kelly bushing, ground, derrick
-floor) and where it came from. The program converts the interval to subsea
-with the arithmetic printed and sets it beside each formation-top bracket the
-contour layers give at the well: ABOVE the mapped top, BELOW it, or NOT
-RESOLVED where the bracket overlaps the interval - a map read between two
-contours cannot place a top on one side of an interval it straddles. A layer
-is told what it maps; a formation with a top and an isopach gets a base by
-arithmetic the report shows, and the declared depth tier - shallow or deep by
-the base the plan names - is CONSISTENT with the map, INCONSISTENT, or NOT
-RESOLVED. That is the line the Commission's review turns on.
+The three links a gauge panel on a pad actually offers, and the ones the
+patch panel did not have. Modbus RTU - the RS-485 drop most surface-readout
+panels are - framed and parsed by this program as the specification lays it
+out, with no dependency: the serial line through pyserial, the same bytes
+through a serial-to-Ethernet converter, or the stand-in slave that ships
+with it. DNP3 - what pad RTUs and pipeline SCADA speak in North America - a
+read-only master with the data link, transport and application layers each
+as IEEE 1815 writes them: the integrity poll, the event poll, the confirms
+the outstation asks for, the unsolicited response answered and read, every
+analog, binary and counter variation with its flags, an event carrying the
+outstation's own time as the source time. HART-IP - the transmitter itself,
+asked for its identity, its loop current and its variables with their unit
+codes and status.
 
-The catalogue's events inside the area are set against the mapped faults:
-the nearest trace to each epicentre, the counts within 1, 2 and 5 km. The
-ground elevation of a position comes from the USGS 3D Elevation Program's
-point service when asked, kept with its raster and query time, and named as
-the ground - the kelly bushing is higher by a height only the completion
-report states, and every statement built on it says so.
+Each is read-only in the code, not by policy: no write, no control, no time
+set, no command that changes a device exists. Each refuses to run without
+the site's map and its source. Each has a stand-in on the loopback so a site
+rehearses before the panel is on the line, and each is one more protocol on
+the Patch panel, supervised, restarted with backoff, folded into the well's
+stream.
 
-What it will not do: interpolate a top; place an interval the bracket
-overlaps; convert a measured depth; call the tier right - it says whether the
-declaration and the map agree; attribute an event to a trace it is near.
+What it will not do: write to a device; clean a value the device flagged;
+guess a map; give a static value a time the device did not send; parse past
+an object it does not know.
 
-Section BP is new. The gate is 353 checks. The standalone guard is clean.
+Section BQ is new. The gate is 356 checks. The standalone guard is clean.

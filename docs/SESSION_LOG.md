@@ -1537,3 +1537,41 @@ one that needed nothing downloaded. The six EIA zips are in his site folder.
 - Still to come from his downloads: Hennings faults + WSM (slip tendency),
   Volve WITSML/DDR/DLIS, TRRC H-10/W-14/GIS, TexNet injection export, ODNR
   Class II, Utah FORGE. v0.23.0 (Modbus RTU, DNP3, HART-IP) needs none.
+
+## 2026-10-12 - the field ports (v0.23.0)
+
+v0.22.0 went to the clone verified; this leg was built in the cloud while
+it waited to ship. The three ports he asked for after the pantheon review -
+the ones a pad offers and the program did not take.
+
+- `gea/modbus_rtu.py`: `crc16` (the specification's vector 01 03 00 00 00
+  02 -> C4 0B), `frame`, `check_frame`, `read_request`,
+  `parse_read_response` (exception, CRC, unit and length each named),
+  `decode`/`encode` for every type and word order, `SerialTransport`
+  (pyserial, the inter-byte timeout as the 3.5-character gap),
+  `TcpTransport` (RTU over TCP), `SimSlave` (a register table; corrupt
+  every n-th; silent; `serve_tcp`), `RtuPort` (one read per mapped
+  register, GAP with the fault), `read_modbus_rtu`, `selftest`.
+- `gea/dnp3.py`: `crc_dnp` (the Annex frame 05 64 05 C0 01 00 00 04 ->
+  E9 21), `link_frame`/`parse_link` (header and block CRCs), `parse_objects`
+  (ranges 0/1/6/7/8/9, prefixes, packed bits, the 23 variations this
+  master reads, the 48-bit time), `Master` (send fragment, read frame,
+  reassemble, confirm, unsolicited, integrity and event polls, IIN names),
+  `Dnp3Port` (objects to records by `ai:`/`bi:`/`ctr:`), `SimOutstation`,
+  `read_dnp3`, `selftest`.
+- `gea/hartip.py`: the HART-IP header and the token-passing PDU with its
+  check byte, `parse_cmd0/3/9`, the unit-code table, `HartIpClient`
+  (session initiate/close, sequence matching, publish messages skipped,
+  NAK named, command 0 taking the long address), `HartIpPort` (units
+  converted, status bits to quality), `SimDevice`, `read_hartip`,
+  `selftest`.
+- `patches.py`: PROTOCOLS + the three; `open_field_port`/`close_field_port`
+  (transport sim starts the stand-in); the supervisor branch polls and
+  feeds records. `workspace.PORTS`; service RUNNABLE, example maps, the
+  tap command; the page's port list; `gea modbus-rtu|dnp3|hartip` with
+  `--config --polls --seconds --record --out --stream-csv --selftest`
+  (`--replay` refused with the reason). `gea help field-ports`.
+- Section BQ (3 checks): Modbus RTU; DNP3 and HART-IP; the supervisor,
+  the service, the CLI, the help. Gate 356.
+- Found on the way: the DNP3 self-test's confirm count raced the socket
+  close; it now waits for the confirm. Nothing from his downloads yet.

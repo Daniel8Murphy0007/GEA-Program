@@ -278,6 +278,20 @@ def main(argv=None) -> int:
         p_lp.add_argument("--stream-csv", type=str, default=None, help="also write a historian-style CSV the other commands ingest")
         p_lp.add_argument("--selftest", action="store_true", help="etp: the codec round-trip and a session against the simulated store on the loopback")
 
+    for name, helptxt in (("modbus-rtu", "Modbus RTU port, read-only: the serial line (pyserial) or RTU over TCP; functions 03/04 only; the stand-in slave with --selftest"),
+                          ("dnp3", "DNP3 (IEEE 1815) master, read-only: integrity and event polls over TCP; analog inputs, binaries, counters with flags and event times; the stand-in outstation with --selftest"),
+                          ("hartip", "HART-IP client, read-only: session, command 0, 3 and 9; the variables with their unit codes and status; the stand-in device with --selftest")):
+        p_fp = sub.add_parser(name, help=helptxt)
+        p_fp.add_argument("--config", type=str, default=None, help="site map JSON (client-owned): the transport, the mapping and its source")
+        p_fp.add_argument("--write-example-config", type=str, default=None, help="write the example map (the stand-in) here and exit")
+        p_fp.add_argument("--seconds", type=float, default=None, help="run for this long (polls = seconds / interval_s); default the map's polls")
+        p_fp.add_argument("--polls", type=int, default=None, help="poll this many times instead")
+        p_fp.add_argument("--record", type=str, default=None, help="write one JSON line per poll (the values and faults) here")
+        p_fp.add_argument("--replay", type=str, default=None, help="not offered by these ports (a poll is a request; there is nothing to replay)")
+        p_fp.add_argument("--out", type=str, default=None, help="write the records CSV here")
+        p_fp.add_argument("--stream-csv", type=str, default=None, help="also write a historian-style CSV the other commands ingest")
+        p_fp.add_argument("--selftest", action="store_true", help="the codec vectors and a session against the stand-in on the loopback")
+
     p_ws = sub.add_parser("workspace", help="the client site folder: init, add wells (file | catalogue | live), list, migrate a --out folder, refresh the dashboard, audit log")
     p_ws.add_argument("--path", type=str, required=True, help="the workspace folder")
     p_ws.add_argument("--action", type=str, default="list",
@@ -378,7 +392,7 @@ def main(argv=None) -> int:
     p_ws.add_argument("--entry", type=str, default=None, help="add-catalog: catalogue entry")
     p_ws.add_argument("--well", type=str, default=None, help="add-catalog: well tag inside the entry; remove: well id")
     p_ws.add_argument("--station-md", type=float, default=None, help="station MD in ft (catalogue wells need it)")
-    p_ws.add_argument("--port", type=str, default=None, choices=["opcua", "mqtt", "modbus_g6"], help="add-live: the port")
+    p_ws.add_argument("--port", type=str, default=None, choices=["opcua", "mqtt", "modbus_g6", "wits0", "witsml", "etp", "modbus_rtu", "dnp3", "hartip"], help="add-live: the port")
     p_ws.add_argument("--from", dest="from_dir", type=str, default=None, help="migrate: a folder written by `gea dashboard --out`")
     p_ws.add_argument("--actor", type=str, default="cli", help="who is acting (recorded in the audit log)")
     p_ws.add_argument("--month", type=str, default=None, help="refresh: also measure the SLA for YYYY-MM")
@@ -2267,6 +2281,70 @@ def main(argv=None) -> int:
         except KeyboardInterrupt:
             stop.set()
             print("etp-sim: stopped")
+        return 0
+    elif a.cmd in ("modbus-rtu", "dnp3", "hartip"):
+        import json as _json
+        from .live_ports import records_to_stream, summarize, write_records_csv
+        mod = __import__({"modbus-rtu": "gea.modbus_rtu", "dnp3": "gea.dnp3", "hartip": "gea.hartip"}[a.cmd], fromlist=["x"])
+        if a.selftest:
+            r = mod.selftest()
+            print(f"{a.cmd} selftest: {'OK' if r['ok'] else 'FAILED'}")
+            for k, v in r.items():
+                if k != "ok":
+                    print(f"  {'ok ' if v else 'BAD'} {k}")
+            return 0 if r["ok"] else 1
+        if a.write_example_config:
+            with open(a.write_example_config, "w", encoding="utf-8") as f:
+                _json.dump(mod.EXAMPLE_CONFIG, f, indent=1)
+            print("config:", a.write_example_config); return 0
+        if a.replay:
+            raise SystemExit(f"{a.cmd}: a poll is a request to the device; there is no recording to replay - run against the device or the stand-in")
+        if not a.config:
+            raise SystemExit(f"{a.cmd} needs --config (or --write-example-config to start one)")
+        cfg = mod.load_config(a.config)
+        polls = a.polls
+        if polls is None and a.seconds is not None:
+            polls = max(1, int(round(a.seconds / max(float(cfg.get("interval_s", 1.0)), 0.05))))
+        from .patches import close_field_port, open_field_port
+        proto = {"modbus-rtu": "modbus_rtu", "dnp3": "dnp3", "hartip": "hartip"}[a.cmd]
+        try:
+            tap = open_field_port(proto, mod, cfg)
+        except (NotImplementedError, ConnectionError, ValueError, OSError) as e:
+            raise SystemExit(f"{a.cmd}: {e}")
+        rec_f = open(a.record, "w", encoding="utf-8") if a.record else None
+        n = int(cfg.get("polls", 3) if polls is None else polls)
+        dt = float(cfg.get("interval_s", 1.0))
+        try:
+            for k in range(n):
+                before = len(tap.records)
+                r = tap.poll_once(integrity=(k == 0)) if a.cmd == "dnp3" else tap.poll_once()
+                if rec_f:
+                    rec_f.write(_json.dumps({"poll": k + 1, "utc": tap.records[-1].ingest_timestamp_utc if tap.records else None,
+                                             "values": {x.tag_id: x.value for x in tap.records[before:]}, "quality": {x.tag_id: x.quality_flag for x in tap.records[before:]},
+                                             "detail": (r if isinstance(r, dict) and a.cmd != "modbus-rtu" else None)}, default=str) + "\n")
+                if dt > 0 and k < n - 1:
+                    import time as _time
+                    _time.sleep(dt)
+        finally:
+            close_field_port(proto, tap)
+            if rec_f:
+                rec_f.close()
+        recs = tap.records
+        print(f"{a.cmd}: {_json.dumps(tap.summary(), default=str)}")
+        print(_json.dumps(summarize(recs), indent=1))
+        if a.out:
+            print("  records:", write_records_csv(recs, a.out))
+        if a.stream_csv and recs:
+            st = records_to_stream(recs, name=proto)
+            import csv as _csv
+            from datetime import datetime as _dt, timedelta as _td
+            t0 = _dt.fromisoformat(st.meta["start_time"])
+            with open(a.stream_csv, "w", newline="", encoding="utf-8") as f:
+                w = _csv.writer(f)
+                w.writerow(["timestamp"] + list(st.channels))
+                for i, t in enumerate(st.index):
+                    w.writerow([(t0 + _td(seconds=float(t))).isoformat()] + ["" if st.channels[c].values[i] != st.channels[c].values[i] else round(float(st.channels[c].values[i]), 4) for c in st.channels])
+            print("  stream:", a.stream_csv)
         return 0
     elif a.cmd in ("opcua", "mqtt", "wits0", "witsml", "etp"):
         import json as _json

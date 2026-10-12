@@ -5,6 +5,56 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.23.0] - 2026-10-12 - the field ports: Modbus RTU, DNP3, HART-IP
+
+### Added
+- **Modbus RTU** (`gea/modbus_rtu.py`): the serial line most wellsite gauge
+  panels actually speak, framed and parsed by this program as the
+  specification lays it out - address, function, data, CRC-16 (0xA001, low
+  byte first) - with no dependency: pyserial (the `serial` extra, already
+  the WITS0 port's) for the RS-485 drop, the same bytes over a TCP socket
+  for a serial-to-Ethernet converter that passes RTU through ("RTU over
+  TCP"), and an in-process stand-in slave for the rehearsal and the gate.
+  Functions 03 and 04 only; no code path writes. Every register type in
+  either word order; an exception response, a CRC mismatch and a silent
+  slave each named and recorded as GAP; the register map is the site's
+  with its source, required. `gea modbus-rtu`, protocol `modbus_rtu` on the
+  Patch panel.
+- **DNP3 (IEEE 1815)** (`gea/dnp3.py`): a read-only master - the data link
+  frame with CRC-16/DNP over the header and every 16-byte block, the
+  transport function's FIR/FIN/sequence reassembly, the application layer's
+  control, function and internal indications. An integrity poll (class 1, 2,
+  3 and 0) to start and an event poll after; confirms sent as the outstation
+  asks; an unsolicited response confirmed and read. Analog inputs (group 30,
+  every variation; group 32 events with the outstation's 48-bit time as the
+  source time), binary inputs (1, 2), counters (20, 22), each with its flags:
+  not ONLINE, COMM_LOST, OVER_RANGE, REFERENCE_ERR or RESTART is BAD with
+  the flag named, a FORCED value kept with the flag in the rule; an object
+  this master does not parse ends the fragment with the group and variation
+  named. No control, write, time set or restart exists in the code. The
+  stand-in outstation serves static points, events with time, a confirm
+  request, an unsolicited null response at connect, and a corrupt frame on
+  demand. `gea dnp3`, protocol `dnp3`.
+- **HART-IP** (`gea/hartip.py`): the transmitter itself through a HART-IP
+  gateway or a native device - the session, command 0 for the long address
+  and identity, command 3 for the loop current and the four dynamic
+  variables with their unit codes, command 9 for device variables by code
+  with their status. The HART unit-code table for the common units,
+  converted to the mapping's unit where a conversion is known; a response
+  code that is an error is GAP, DEVICE_MALFUNCTION or a variable status not
+  GOOD is BAD with the bit named. No command that changes a device exists in
+  the code. The stand-in device for the rehearsal and the gate. `gea
+  hartip`, protocol `hartip`.
+- **On the Patch panel**: the three protocols supervised like every other -
+  one connection, polled, restarted with backoff, the records folded into
+  the well's stream - with `transport: sim` starting the port's own stand-in
+  for a rehearsal; the example maps served; the live-well port list; the
+  job runner. `gea help field-ports`.
+- What it will not do: write to a device; clean a value the device flagged;
+  guess a register map or point list; give a static value a time the device
+  did not send; parse past an object it does not know. Section BQ (3
+  checks); the gate is 356.
+
 ## [v0.22.0] - 2026-10-11 - the interval against the mapped tops: where the injection sits in the geology
 
 ### Added
