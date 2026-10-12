@@ -46,6 +46,7 @@ class Layer:
     fields: List[dict]
     features: List[Feature] = field(default_factory=list)
     source: dict = field(default_factory=dict)
+    declared_kind: Optional[str] = None          # 'fault' | 'fold' when the site declares what every feature is (a layer whose attributes do not say)
 
     @property
     def n(self) -> int:
@@ -87,10 +88,29 @@ def parse_prj(wkt: Optional[str]) -> dict:
             if key in up or z in up:
                 zone = z
                 break
-        unit = 'ft' if re.search(r'UNIT\["[^"]*(FOOT|FEET|FT)', w, re.I) else 'm'
-        usable = zone is not None and datum == 'NAD83'
-        return {'kind': 'projected', 'datum': datum, 'projection': pname, 'zone': zone, 'unit': unit, 'wkt': w[:400], 'usable': usable,
-                'note': '' if usable else f'projected ({pname}): not one of the Texas State Plane NAD83 zones this program unprojects - supply the layer in geographic NAD83/WGS84'}
+        # the linear unit is the PROJCS's own (the last UNIT[...] in the string); the GEOGCS inside carries Degree
+        units = re.findall(r'UNIT\["([^"]*)"\s*,\s*([0-9.eE+-]+)', w)
+        unit = 'm'
+        if units:
+            uname, ufac = units[-1][0].upper(), float(units[-1][1])
+            unit = 'usft' if abs(ufac - 0.3048006096) < 1e-7 else ('ft' if abs(ufac - 0.3048) < 1e-7 else 'm')
+        # a generic Transverse Mercator (UTM, a state plane zone, any TM) or Lambert Conformal Conic from its own parameters
+        zone_def = None
+        proj = re.search(r'PROJECTION\["([^"]+)"', w)
+        pr = (proj.group(1) if proj else '').upper()
+        params = {k.upper(): float(v) for k, v in re.findall(r'PARAMETER\["([^"]+)"\s*,\s*([0-9.eE+-]+)\]', w)}
+        ell = 'GRS80' if datum == 'NAD83' else ('WGS84' if datum == 'WGS84' else ('CLARKE1866' if datum == 'NAD27' else None))
+        if ell and pr == 'TRANSVERSE_MERCATOR' and 'CENTRAL_MERIDIAN' in params:
+            zone_def = {'kind': 'tm', 'lat0': params.get('LATITUDE_OF_ORIGIN', 0.0), 'lon0': params['CENTRAL_MERIDIAN'], 'k0': params.get('SCALE_FACTOR', 1.0),
+                        'fe': params.get('FALSE_EASTING', 0.0), 'fn': params.get('FALSE_NORTHING', 0.0), 'ellipsoid': ell}
+        elif ell and pr in ('LAMBERT_CONFORMAL_CONIC', 'LAMBERT_CONFORMAL_CONIC_2SP') and 'STANDARD_PARALLEL_1' in params:
+            zone_def = {'kind': 'lcc', 'lat0': params.get('LATITUDE_OF_ORIGIN', 0.0), 'lon0': params.get('CENTRAL_MERIDIAN', 0.0), 'lat1': params['STANDARD_PARALLEL_1'],
+                        'lat2': params.get('STANDARD_PARALLEL_2', params['STANDARD_PARALLEL_1']), 'fe': params.get('FALSE_EASTING', 0.0), 'fn': params.get('FALSE_NORTHING', 0.0), 'ellipsoid': ell}
+        usable = (zone is not None and datum == 'NAD83') or zone_def is not None
+        how = ('the Texas State Plane zone ' + zone if zone and datum == 'NAD83' else (f'{pr.replace("_", " ").title()} on {ell} from the .prj parameters' if zone_def else ''))
+        return {'kind': 'projected', 'datum': datum, 'projection': pname, 'zone': zone, 'zone_def': zone_def, 'unit': unit, 'wkt': w[:400], 'usable': usable, 'how': how,
+                'note': '' if usable else f'projected ({pname}, {pr or "projection not named"}, datum {datum}): not a Transverse Mercator or Lambert Conformal Conic on NAD83/WGS84/NAD27 '
+                                          f'that this program unprojects from its parameters - supply the layer in geographic NAD83/WGS84'}
     return {'kind': 'unknown', 'datum': datum, 'wkt': w[:400], 'usable': False, 'note': 'a coordinate system this reader does not recognise'}
 
 
@@ -310,7 +330,7 @@ def read(src: str, max_features: Optional[int] = None, member: Optional[str] = N
     feats: List[Feature] = []
     unproj = None
     if crs['kind'] == 'projected':
-        zone = GD.ZONES[crs['zone']]
+        zone = GD.ZONES[crs['zone']] if (crs.get('zone') and crs.get('datum') == 'NAD83') else crs['zone_def']
         scale = GD.length_unit(crs['unit'])[0] if crs['unit'] != 'm' else 1.0
 
         def unproj(x: float, y: float) -> Tuple[float, float]:

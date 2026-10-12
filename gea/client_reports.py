@@ -1680,6 +1680,33 @@ def sra_packet_report(pk: dict, evaluated_at: Optional[datetime] = None, program
                 'arithmetic shown, and the declared depth tier (shallow or deep by the base the plan names) is CONSISTENT with the map, INCONSISTENT, or '
                 'NOT RESOLVED. A contour map is read, not interpolated; the completion report is the record of the interval.'],
                 [Table(['Well', 'Status', 'Declared interval', 'Against the mapped tops', 'Depth tier against the map'], irows, 'Interval against the tops')]))
+        slrows = []
+        sl_paras = []
+        for wid, sl in (pk.get('slip') or {}).items():
+            if sl.get('status') != 'OK':
+                slrows.append([wid, '-', '-', sl.get('status'), '-', '-', '-', (sl.get('note') or '')[:160]])
+                continue
+            if not sl_paras:
+                sl_paras.append(f"Stress state: {sl['lines'][0]}" if sl.get('lines') else '')
+            for lay in sl.get('layers', []):
+                for fr in lay.get('faults', [])[:12]:
+                    w_, b_ = fr['worst'], fr['best']
+                    pub = fr.get('published') or {}
+                    slrows.append([wid, lay.get('layer_display') or lay.get('layer_id'), fr.get('name') or fr.get('type') or f"trace {fr['index']}", f"{fr['distance_km']:.2f} km / strike {fr['strike_deg']:g}",
+                                   f"{w_['dip_deg']:g}" + (' (layer)' if fr.get('dip_source') == 'the layer' else ' (declared)'),
+                                   f"{b_['Ts_injection']:.2f}-{w_['Ts_injection']:.2f}", f"{w_['margin_after_injection_psi']:,.0f} to {b_['margin_after_injection_psi']:,.0f}",
+                                   (w_['status'] + (f"; published {pub['pressure_to_slip_psi']:,.0f} psi ({pub['field']})" if pub else ''))[:160]])
+        if slrows:
+            env = next((sl.get('friction_envelope') for sl in pk['slip'].values() if sl.get('friction_envelope')), None)
+            secs.append(Section('2e', 'Slip tendency on the mapped faults, from the declared stress state', [
+                'For each well inside the area, the mapped fault traces within the radius against the stress state the site declared - the three gradients and the '
+                'ambient pore pressure, the SHmax azimuth from the declaration or from the World Stress Map records near the well - at the depth of the declared '
+                'interval and the pore-pressure increase the plan is judged at: the shear and effective normal stress on each plane, the slip tendency, and the '
+                'pore-pressure increase that would bring the plane to the friction line (negative: past it under these inputs). The strike comes from the map; '
+                'the dip from the layer when it states one, otherwise the declared range; the friction coefficient as declared. Where a layer publishes its own '
+                'pressure-to-slip (BEG/TexNet Hennings et al. 2021), that number is printed beside this arithmetic. A statement on declared inputs, not a probability '
+                'and not a verdict.'] + sl_paras + ([env['statement']] if env else []),
+                [Table(['Well', 'Layer', 'Fault', 'Distance / strike', 'Dip', 'Ts (after)', 'Pressure to slip after (psi)', 'Worst case'], slrows[:120], 'Slip tendency')]))
         ef = pk.get('events_faults') or []
         if ef:
             paras = ['The catalogue events inside the area, each against the mapped fault traces of every structure layer: the nearest trace to the epicentre by '

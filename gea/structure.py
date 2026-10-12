@@ -143,7 +143,7 @@ def nearest(layer: Layer, lat: float, lon: float, radius_km: float = 50.0, type_
             k = math.cos(math.radians(lat))
             nlon = lon + math.degrees(best[1] / (k * R_EARTH_M)); nlat = lat + math.degrees(best[2] / R_EARTH_M)
             g = GD.geodesic_m(lat, lon, nlat, nlon)
-            hits.append({'index': i, 'kind': classify(f.attrs, type_attr, layer.name), 'type': str(f.attrs.get(type_attr, '')) if type_attr else '',
+            hits.append({'index': i, 'kind': (layer.declared_kind or classify(f.attrs, type_attr, layer.name)), 'type': str(f.attrs.get(type_attr, '')) if type_attr else '',
                          'name': str(f.attrs.get(name_attr, '')) if name_attr else '', 'distance_km': round(g['distance_m'] / 1000.0, 3),
                          'bearing_deg': round(g['azimuth_deg'] % 360.0, 1), 'nearest_lat': round(nlat, 6), 'nearest_lon': round(nlon, 6),
                          'attrs': {k_: v for k_, v in f.attrs.items()}})

@@ -6179,7 +6179,7 @@ def section_bo_structure(tmp: str) -> None:
         "counts_and_lines": r["counts_within"] == {"fault": 1, "fold": 1, "other": 0} and f"{g_fault:.2f} km" in ST.lines(r)[0] and "N (" in ST.lines(r)[0] and "North Fault" in ST.lines(r)[0],
         "outside_extent": out_ext["status"] == "OUTSIDE LAYER EXTENT" and "extent" in out_ext["note"] and ST.lines(out_ext)[0].startswith("Layer") and "OUTSIDE LAYER EXTENT" in ST.lines(out_ext)[0],
         "projected_unprojected": Lp.crs["kind"] == "projected" and Lp.crs["zone"] == "TX_CENTRAL" and abs(plat - (lat0 + dlat)) < 1e-6 and abs(plon - lon0) < 1e-6,
-        "refused_by_name": utm_err and "UTM" in utm_err and "Texas State Plane" in utm_err and noprj_err and "no .prj" in noprj_err,
+        "refused_by_name": utm_err and "UTM" in utm_err and "from its parameters" in utm_err and noprj_err and "no .prj" in noprj_err,
         "shx_honoured": Lbad.n == 3 and seq_err and "content length" in seq_err,
     }
     failed1 = [k for k, v in c1.items() if not v]
@@ -7072,6 +7072,208 @@ def section_bs_catalog(tmp: str) -> None:
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_bt_slip(tmp: str) -> None:
+    """Section BT - slip tendency on the mapped faults: the stress resolution against its identities, the regime, Ts and
+    the pressure to slip, the World Stress Map reader and the nearby azimuth; a UTM layer unprojected from its .prj
+    parameters with the fault's own dip and a published pressure-to-slip read beside this arithmetic; the workspace's
+    stress state, stress map and statement through the SRA packet, the API, the page, the CLI; the help."""
+    import http.cookiejar
+    import math as _math
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    import zipfile
+    from . import shapefile as SF
+    from . import slip as SL
+    from . import geodesy as GD
+    from . import helplib as H
+    from .telemetry import TelemetryRecorder, TelemetryConfig
+    from .downhole_engine import DownholeEngine, SimulatorConfig
+    from .workspace import Workspace, WorkspaceError
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bt"); d.mkdir()
+
+    # -- BT1: the arithmetic and the stress map -----------------------------------------------------------------------
+    st = SL.stress_at(8000.0, 1.05, 0.65, 0.95)
+    par = SL.resolve(80.0, 90.0, 80.0, st["Sv"], st["Shmin"], st["SHmax"])          # a vertical plane along SHmax: Shmin, no shear
+    per = SL.resolve(170.0, 90.0, 80.0, st["Sv"], st["Shmin"], st["SHmax"])         # across SHmax: SHmax, no shear
+    d45 = SL.resolve(35.0, 90.0, 80.0, st["Sv"], st["Shmin"], st["SHmax"])          # 45 deg: the mean and the half-difference
+    hor = SL.resolve(0.0, 0.0, 80.0, st["Sv"], st["Shmin"], st["SHmax"])            # a horizontal plane: Sv
+    ts = SL.slip_tendency(35.0, 90.0, st, 80.0, 0.6, 500.0)
+    ts_past = SL.slip_tendency(35.0, 90.0, st, 80.0, 0.6, 2000.0)
+    hdr = "ID,SITE,LAT,LON,AZI,TYPE,DEPTH,QUALITY,REGIME,LOCALITY,COUNTRY\n"
+    rows = "".join(f"w{i},S,{31.3 + 0.05 * i},{-103.6 + 0.04 * i},{(75 + 3 * (i % 5)) % 180},BO,2.5,{'ABC'[i % 3]},{'NF' if i % 2 else 'SS'},Delaware,USA\n" for i in range(12))
+    rows += "far,S,35.0,-100.0,10,FMS,3,A,TF,away,USA\nbad,S,31.4,-103.5,999,BO,2,A,NF,x,USA\nlow,S,31.42,-103.5,120,BO,2,E,NF,x,USA\n"
+    wsm_path = str(d / "wsm_like.csv")
+    Path(wsm_path).write_text(hdr + rows, encoding="utf-8")
+    recs = SL.read_wsm(wsm_path)
+    nb = SL.wsm_nearby(recs, 31.42, -103.50, 100.0)
+    nb_none = SL.wsm_nearby(recs, 45.0, -70.0, 50.0)
+    bad_wsm = None
+    try:
+        SL.read_wsm(io_bytes := b"A,B,C\n1,2,3\n")
+    except ValueError as e:
+        bad_wsm = str(e)
+    c1 = {
+        "identities": abs(par[0] - st["Shmin"]) < 1e-3 and abs(par[1]) < 1e-3 and abs(per[0] - st["SHmax"]) < 1e-3 and abs(per[1]) < 1e-3
+                      and abs(d45[0] - (st["SHmax"] + st["Shmin"]) / 2) < 1e-3 and abs(d45[1] - (st["SHmax"] - st["Shmin"]) / 2) < 1e-3 and abs(hor[0] - st["Sv"]) < 1e-3 and abs(hor[1]) < 1e-3,
+        "regime": SL.regime_of(8400, 5200, 7600) == "normal" and SL.regime_of(8000, 5200, 9000) == "strike-slip" and SL.regime_of(5000, 6000, 9000) == "reverse",
+        "tendency": ts["Ts_ambient"] == round(1200.0 / (6400.0 - 3464.0), 3) and ts["pressure_to_slip_psi"] == round(6400.0 - 3464.0 - 1200.0 / 0.6, 1) and ts["margin_after_injection_psi"] == round(ts["pressure_to_slip_psi"] - 500.0, 1)
+                    and ts["status"] == "BELOW THE FRICTION LINE" and ts_past["status"] == "PAST THE FRICTION LINE" and ts_past["Ts_injection"] > ts["Ts_injection"],
+        "wsm": len(recs) == 14 and nb["n"] == 12 and abs(nb["azimuth_mean"] - 80.25) < 0.5 and nb["by_quality"] == {"A": 4, "B": 4, "C": 4} and nb["by_regime"] == {"NF": 6, "SS": 6}
+               and nb["spread_deg_median"] <= 6 and nb_none["n"] == 0 and bad_wsm and "columns" in bad_wsm,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "BT1 the stress resolution against its identities (a vertical plane along SHmax feels Shmin and no shear, across it SHmax, at 45 degrees the mean and the "
+       "half-difference, a horizontal plane Sv), Anderson's regime from the ordering, the slip tendency and the pressure to slip by the published arithmetic, "
+       "past the friction line when the increase exceeds it; the World Stress Map CSV read by column name (a 999 azimuth and a D/E quality left out), the "
+       "records within the radius with the axial mean azimuth, spread, counts by quality and regime; no records, and a file without the columns, named"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- BT2: a UTM layer from its .prj parameters, with dip and a published pressure to slip -----------------------------
+    lat1, lon1 = 31.42, -103.50
+    utm13 = GD.utm(13, True, "WGS84")
+    wkt = ('PROJCS["WGS_1984_UTM_Zone_13N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],'
+           'UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",0.0],'
+           'PARAMETER["Central_Meridian",-105.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]')
+
+    def en(lat, lon):
+        p_ = GD.project(lat, lon, utm13)
+        return (p_["easting_m"], p_["northing_m"])
+    kmlat = 1.0 / 111.195
+    kmlon = 1.0 / (111.195 * _math.cos(_math.radians(lat1)))
+    # three faults: one along SHmax (92 deg) 3 km north with dip 62 and a published value; one across it; one 40 km away (outside the radius)
+    feats = [([[en(lat1 + 3 * kmlat, lon1 - 0.05), en(lat1 + 3 * kmlat - 0.1 * kmlat * 0.035 * 0, lon1 + 0.05)]], {"dip": 62.0, "note": "HIGH CONFIDENCE", "Pp2S_MPa": 5.0, "BEARING": 92.0}),
+             ([[en(lat1 - 0.05, lon1 + 6 * kmlon), en(lat1 + 0.05, lon1 + 6 * kmlon)]], {"dip": 85.0, "note": "LOW CONFIDENCE", "Pp2S_MPa": 20.0, "BEARING": 0.0}),
+             ([[en(lat1 + 0.36, lon1 - 0.02), en(lat1 + 0.36, lon1 + 0.02)]], {"dip": 70.0, "note": "FAR", "Pp2S_MPa": 9.0, "BEARING": 90.0})]
+    SF.write(str(d / "utm_faults"), "PolyLine", feats, [("dip", "F", 6, 1), ("note", "C", 20, 0), ("Pp2S_MPa", "F", 10, 4), ("BEARING", "F", 8, 2)], wkt)
+    with zipfile.ZipFile(str(d / "utm_faults.zip"), "w") as z:
+        for ext in (".shp", ".shx", ".dbf", ".prj"):
+            z.write(str(d / ("utm_faults" + ext)), "utm_faults" + ext)
+    L = SF.read(str(d / "utm_faults.zip"))
+    L.declared_kind = "fault"
+    f1 = L.features[0].parts[0][0]
+    faults = SL.faults_in_radius(L, lat1, lon1, 25.0)
+    res = SL.statement(faults, 9000.0, {"sv_psi_ft": 1.05, "shmin_psi_ft": 0.65, "shmax_psi_ft": 0.95, "pp_psi_ft": 0.45}, 92.0, (60.0, 75.0, 90.0), (0.6,), 300.0,
+                       sources={"shmax_azimuth": "the gate", "gradients": "the gate"})
+    along = next(r for r in res["faults"] if r["attrs"].get("note") == "HIGH CONFIDENCE")
+    across = next(r for r in res["faults"] if r["attrs"].get("note") == "LOW CONFIDENCE")
+    lcc_wkt = ('PROJCS["NAD_1983_Texas_Centric_Mapping_System_Lambert",GEOGCS["GCS_North_American_1983",DATUM["D_North_American_1983",SPHEROID["GRS_1980",6378137.0,298.257222101]],'
+               'PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Lambert_Conformal_Conic"],PARAMETER["False_Easting",1500000.0],PARAMETER["False_Northing",5000000.0],'
+               'PARAMETER["Central_Meridian",-100.0],PARAMETER["Standard_Parallel_1",27.5],PARAMETER["Standard_Parallel_2",35.0],PARAMETER["Latitude_Of_Origin",18.0],UNIT["Meter",1.0]]')
+    lcc = SF.parse_prj(lcc_wkt)
+    unknown = SF.parse_prj('PROJCS["X",GEOGCS["G",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]]],PROJECTION["Mercator"],PARAMETER["Central_Meridian",0.0],UNIT["Meter",1.0]]')
+    c2 = {
+        "unprojected": L.crs["kind"] == "projected" and L.crs["usable"] and "Transverse Mercator on WGS84" in L.crs["how"] and abs(f1[1] - (lat1 + 3 * kmlat)) < 2e-6 and abs(f1[0] - (lon1 - 0.05)) < 2e-6
+                       and lcc["usable"] and lcc["zone_def"]["kind"] == "lcc" and lcc["zone_def"]["lat1"] == 27.5 and not unknown["usable"] and "MERCATOR" in unknown["note"],
+        "faults_found": len(faults) == 2 and along["attrs"]["dip_deg"] == 62.0 and along["attrs"]["published_pressure_to_slip_psi"] == round(5.0 * 145.037738, 1)
+                        and abs(along["distance_km"] - 3.0) < 0.05 and abs(along["strike_deg"] - 90.0) < 1.0 and along["dip_source"] == "the layer" and len(along["cases"]) == 1,
+        "statement": along["worst"]["dip_deg"] == 62.0 and across["worst"]["dip_deg"] == 85.0 and along["angle_to_shmax_deg"] <= 3 and across["angle_to_shmax_deg"] > 85
+                     and along["worst"]["Ts_injection"] > across["worst"]["Ts_injection"] and res["regime"] == "normal"
+                     and along["published"]["pressure_to_slip_psi"] == round(5.0 * 145.037738, 1) and along["published"]["difference_psi"] == round(along["cases"][0]["pressure_to_slip_psi"] - along["published"]["pressure_to_slip_psi"], 1)
+                     and any("The layer publishes 725 psi to slip (Pp2S_MPa)" in ln for ln in res["lines"]) and res["faults"][0] is along,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "BT2 a UTM zone 13N layer unprojected from its .prj parameters (Transverse Mercator on WGS84; a Lambert Conformal Conic parsed the same way; a "
+       "Mercator refused by name); the faults within the radius with the layer's own dip and its published pressure-to-slip read as attributes; the trace "
+       "along SHmax ranked first with the higher tendency, its dip from the layer and one case, the published value printed beside this arithmetic with the difference"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- BT3: the workspace, the SRA packet, the API, the page, the CLI, the help -------------------------------------------
+    hist = str(d / "hist.csv")
+    TelemetryRecorder(engine=DownholeEngine(SimulatorConfig()), config=TelemetryConfig(duration_hours=1.0, seed=5)).run().export_csv(hist)
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    w = ws.add_well_file(hist, display="SWD 1", actor="tester")
+    s0 = ws.well_slip(w["id"], actor="tester")
+    ws.set_well(w["id"], surface={"lat": lat1, "lon": lon1, "datum": "NAD83", "elevation": {"ft": 2950.0, "datum": "KB", "source": "completion report"}}, actor="tester")
+    ws.set_well(w["id"], disposal={"top_interval_ft": 8700.0, "base_interval_ft": 9300.0, "depth_reference": "TVD", "depth_tier": "deep", "channel_pressure": "P_surf_psi",
+                                   "channel_rate": "Q_bpm", "rate_unit": "bbl/min", "bhp_method": "probe", "channel_bhp": "P_bh_psi"}, actor="tester")
+    s1 = ws.well_slip(w["id"], actor="tester")
+    no_src = None
+    try:
+        ws.set_stress({"sv_psi_ft": 1.05, "shmin_psi_ft": 0.65, "shmax_psi_ft": 0.95}, actor="tester")
+    except WorkspaceError as e:
+        no_src = str(e)
+    stx = ws.set_stress({"sv_psi_ft": 1.05, "shmin_psi_ft": 0.65, "shmax_psi_ft": 0.95, "pp_psi_ft": 0.45, "gradients_source": "the gate's declaration", "delta_pp_psi": 300.0}, actor="tester")
+    s2 = ws.well_slip(w["id"], actor="tester")
+    lay = ws.add_layer(str(d / "utm_faults.zip"), "Gate UTM faults", actor="tester", feature_kind="fault", citation="the gate's own layer")
+    bad_fk = None
+    try:
+        ws.add_layer(str(d / "utm_faults.zip"), "Again", actor="tester", feature_kind="contour")
+    except WorkspaceError as e:
+        bad_fk = str(e)
+    s3 = ws.well_slip(w["id"], actor="tester")
+    sm = ws.add_stress_map(wsm_path, actor="tester", citation="WSM-shaped, the gate")
+    s4 = ws.well_slip(w["id"], actor="tester")
+    wsm_q = ws.wsm_at(lat1, lon1, 100.0)
+    site = ws.add_site("Pad 3 site", wells=[w["id"]], actor="tester")
+    ws.sra_define(site["id"], actor="tester", name="Pad 3 SRA", lat=lat1, lon=lon1, radius_km=9.08, plan_date="2026-01-15")
+    pk = ws.write_sra_packet(site["id"], actor="tester")
+    sra_md = open(pk["paths"]["markdown"], encoding="utf-8").read()
+    audit = [a["action"] for a in ws.audit_log()]
+    users = Users(str(Path(wsp, "users.json"))); users.add("op", "operator-pass-1", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json"); req.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(req, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        call("POST", "/api/login", {"name": "op", "password": "operator-pass-1"})
+        st_g, got = call("GET", f"/api/wells/{w['id']}/slip")
+        st_s, stt = call("GET", "/api/stress")
+        st_w, wq = call("GET", f"/api/stress/wsm?lat={lat1}&lon={lon1}")
+        st_d, dec = call("POST", "/api/stress", {"sv_psi_ft": 1.05, "shmin_psi_ft": 0.65, "shmax_psi_ft": 0.95, "gradients_source": "api", "shmax_azimuth_deg": 95.0, "azimuth_source": "api"})
+        st_bad = call("POST", "/api/stress", {"sv_psi_ft": 1.0, "shmin_psi_ft": 0.9, "shmax_psi_ft": 0.5, "gradients_source": "x"})[0]
+        st_p, wrote = call("POST", f"/api/wells/{w['id']}/slip", {"delta_pp_psi": 100.0})
+        import base64 as _b64
+        st_m, mp = call("POST", "/api/stress/map", {"citation": "again", "file": {"filename": "wsm.csv", "content_b64": _b64.b64encode(open(wsm_path, "rb").read()).decode()}})
+    finally:
+        svc.stop()
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    help_md = (pkg / "help" / "slip.md").read_text(encoding="utf-8")
+    r_cli = _sp.run([sys.executable, "-m", "gea", "workspace", "--path", wsp, "--action", "slip", "--well", w["id"], "--delta-pp", "300"], capture_output=True, text=True)
+    r_wsm = _sp.run([sys.executable, "-m", "gea", "workspace", "--path", wsp, "--action", "wsm", "--lat", str(lat1), "--lon", str(lon1)], capture_output=True, text=True)
+    r_set = _sp.run([sys.executable, "-m", "gea", "workspace", "--path", wsp, "--action", "set-stress", "--sv", "1.05", "--shmin", "0.65", "--shmax", "0.95", "--gradients-source", "cli", "--shmax-azimuth", "92", "--azimuth-source", "cli"], capture_output=True, text=True)
+    r_sa = _sp.run([sys.executable, "-m", "gea", "slip", "--layer", str(d / "utm_faults.zip"), "--feature-kind", "fault", "--lat", str(lat1), "--lon", str(lon1), "--depth-ft", "9000", "--sv", "1.05", "--shmin", "0.65", "--shmax", "0.95",
+                    "--wsm", wsm_path, "--delta-pp", "300"], capture_output=True, text=True)
+    sec2e = sra_md.split("Slip tendency on the mapped faults, from the declared stress state")[1].split("## 2d")[0] if "Slip tendency on the mapped faults" in sra_md else ""
+    c3 = {
+        "refusals_in_order": s0["status"] == "NO SURFACE POSITION" and s1["status"] == "NO STRESS STATE" and no_src and "source" in no_src and s2["status"] == "NO FAULT LAYER"
+                             and bad_fk and "'fault' or 'fold'" in bad_fk and s3["status"] == "NO SHMAX AZIMUTH" and "add-stress-map" in s3["note"],
+        "from_the_map": s4["status"] == "OK" and abs(s4["shmax_azimuth_deg"] - 80.25) < 0.5 and "World Stress Map records within 100 km (12" in s4["azimuth_source"] and s4["depth_ft"] == 9000.0
+                        and s4["depth_how"].startswith("the midpoint") and s4["delta_pp_psi"] == 300.0 and len(s4["layers"]) == 1 and len(s4["layers"][0]["faults"]) == 2
+                        and s4["layers"][0]["faults"][0]["attrs"]["note"] == "HIGH CONFIDENCE" and s4["friction_envelope"]["min"] == 0.21 and sm["n_records"] == 14
+                        and wsm_q["n"] == 12 and wsm_q["citation"] == "WSM-shaped, the gate" and os.path.isfile(Path(wsp, "reports", "wells", w["id"], "slip.json")),
+        "sra_section": "## 2e" in sra_md and "| SWD-1 | Gate UTM faults |" in sec2e and "62 (layer)" in sec2e and "published 725 psi (Pp2S_MPa)" in sec2e and "none from the Permian Basin" in sec2e,
+        "audited": "stress.declare" in audit and "stress_map.add" in audit and audit.count("well.slip") >= 4,
+        "api": st_g == 200 and got["status"] == "OK" and st_s == 200 and stt["stress"]["gradients_source"] == "the gate's declaration" and stt["stress_map"]["n_records"] == 14
+               and st_w == 200 and wq["n"] == 12 and st_d == 200 and dec["shmax_azimuth_deg"] == 95.0 and st_bad == 400 and st_p == 200 and wrote["delta_pp_psi"] == 100.0
+               and wrote["shmax_azimuth_deg"] == 95.0 and st_m == 200 and mp["citation"] == "again",
+        "page": "slipCardHtml" in page_src and "stressCardHtml" in page_src and "/api/stress/map" in page_src and "lyFK" in page_src and "'/slip'" in page_src,
+        "cli": r_cli.returncode == 0 and "Slip tendency at 9,000 ft" in r_cli.stdout and "PAST THE FRICTION LINE" in r_cli.stdout or "BELOW THE FRICTION LINE" in r_cli.stdout
+               and r_wsm.returncode == 0 and "12 World Stress Map record(s)" in r_wsm.stdout and r_set.returncode == 0 and "SHmax azimuth 92.0" in r_set.stdout
+               and r_sa.returncode == 0 and "The layer publishes 725 psi to slip" in r_sa.stdout and "run from 0.21 to 0.9" in r_sa.stdout,
+        "help": any(t["topic"] == "slip" for t in H.topics()) and not H.check("slip") and "does not say the fault exists at depth" in help_md.split("will not call a measurement")[1],
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "BT3 the workspace: NO SURFACE POSITION, NO STRESS STATE (gradients without a source refused), NO FAULT LAYER (a feature kind that is not fault or fold "
+       "refused), NO SHMAX AZIMUTH naming the stress map, then OK with the azimuth from the map's records near the well and the depth from the declared interval; "
+       "the SRA packet's section 2e with the layer's dip and the published value; audited; the API declares the state, takes the map, answers the records near a "
+       "position and writes the statement; the page cards; `--action slip`, `wsm`, `set-stress` and `gea slip --wsm`; the help"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -7146,6 +7348,7 @@ def main() -> int:
         section_bq_field_ports(tmp)
         section_br_logs_historian(tmp)
         section_bs_catalog(tmp)
+        section_bt_slip(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

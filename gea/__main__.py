@@ -278,6 +278,14 @@ def main(argv=None) -> int:
         p_lp.add_argument("--stream-csv", type=str, default=None, help="also write a historian-style CSV the other commands ingest")
         p_lp.add_argument("--selftest", action="store_true", help="etp: the codec round-trip and a session against the simulated store on the loopback")
 
+    p_sl = sub.add_parser("slip", help="slip tendency on the mapped faults of a layer at a position, from declared gradients: --layer --lat --lon --depth-ft --sv --shmin --shmax (--shmax-azimuth or --wsm)")
+    p_sl.add_argument("--layer", type=str, required=True); p_sl.add_argument("--member", type=str, default=None); p_sl.add_argument("--feature-kind", type=str, choices=["fault", "fold"], default=None)
+    p_sl.add_argument("--lat", type=float, required=True); p_sl.add_argument("--lon", type=float, required=True); p_sl.add_argument("--radius-km", type=float, default=25.0)
+    p_sl.add_argument("--depth-ft", type=float, required=True)
+    p_sl.add_argument("--sv", type=float, required=True); p_sl.add_argument("--shmin", type=float, required=True); p_sl.add_argument("--shmax", type=float, required=True)
+    p_sl.add_argument("--pp", type=float, default=0.433); p_sl.add_argument("--shmax-azimuth", type=float, default=None); p_sl.add_argument("--wsm", type=str, default=None, help="the WSM database CSV: the azimuth from its records within 100 km")
+    p_sl.add_argument("--dips", type=float, nargs="+", default=[60.0, 75.0, 90.0]); p_sl.add_argument("--mu", type=float, nargs="+", default=[0.6]); p_sl.add_argument("--delta-pp", type=float, default=0.0)
+    p_sl.add_argument("--json", action="store_true")
     p_cat = sub.add_parser("catalog", help="the shipped catalogue: --list every entry with what reads it; --unused the carried ones; --check reads every entry; --friction the measured friction envelope; --core the core check; --entry X --info | --stream-csv")
     p_cat.add_argument("--list", action="store_true"); p_cat.add_argument("--unused", action="store_true"); p_cat.add_argument("--check", action="store_true")
     p_cat.add_argument("--friction", action="store_true"); p_cat.add_argument("--core", action="store_true")
@@ -319,7 +327,8 @@ def main(argv=None) -> int:
                                "add-seismic", "refresh-seismic", "remove-seismic", "sar-film", "refresh-all", "add-track", "refresh-track", "remove-track",
                                "seismic-dataset", "seismic-field", "add-site", "sites", "site-report", "remove-site", "rename",
                                "set-well", "sra-define", "sra-report", "associate", "osdu-export", "quakeml-export", "well-identity", "vibration-report",
-                               "add-live-station", "live-fold", "live-run", "month-end", "add-layer", "layers", "remove-layer", "structure", "interval"])
+                               "add-live-station", "live-fold", "live-run", "month-end", "add-layer", "layers", "remove-layer", "structure", "interval",
+                               "set-stress", "add-stress-map", "wsm", "slip"])
     p_ws.add_argument("--stations", type=str, nargs="+", default=None, help="add-track: two or more array station ids of this workspace")
     p_ws.add_argument("--site", type=str, default=None, help="site-report/remove-site: the site id")
     p_ws.add_argument("--api", type=str, default=None, help="set-well: the API number")
@@ -399,6 +408,18 @@ def main(argv=None) -> int:
     p_ws.add_argument("--formation-name", type=str, default=None, help="add-layer: the formation a contours layer maps (Wolfcamp)")
     p_ws.add_argument("--role", type=str, choices=["top", "isopach", "base"], default=None, help="add-layer: what the contours are of that formation: its top elevation, its thickness, or its base")
     p_ws.add_argument("--base-interval-ft", type=float, default=None, help="set-well: base of the disposal interval, ft")
+    p_ws.add_argument("--feature-kind", type=str, choices=["fault", "fold"], default=None, help="add-layer: what every feature of a structure layer is when its attributes do not say")
+    p_ws.add_argument("--sv", type=float, default=None, help="set-stress: vertical stress gradient, psi/ft")
+    p_ws.add_argument("--shmin", type=float, default=None, help="set-stress: minimum horizontal stress gradient, psi/ft")
+    p_ws.add_argument("--shmax", type=float, default=None, help="set-stress: maximum horizontal stress gradient, psi/ft")
+    p_ws.add_argument("--pp", type=float, default=None, help="set-stress: ambient pore-pressure gradient, psi/ft (hydrostatic 0.433 unless declared)")
+    p_ws.add_argument("--shmax-azimuth", type=float, default=None, help="set-stress: SHmax azimuth, degrees from north (or leave it to the stress map)")
+    p_ws.add_argument("--azimuth-source", type=str, default=None, help="set-stress: where the azimuth came from")
+    p_ws.add_argument("--gradients-source", type=str, default=None, help="set-stress: where the gradients came from")
+    p_ws.add_argument("--dips", type=float, nargs="+", default=None, help="set-stress: the dips to run when the layer states none (default 60 75 90)")
+    p_ws.add_argument("--mu", type=float, nargs="+", default=None, help="set-stress: the friction coefficients to run (default 0.6)")
+    p_ws.add_argument("--delta-pp", type=float, default=None, help="set-stress / slip: the pore-pressure increase to judge at, psi")
+    p_ws.add_argument("--depth-ft", type=float, default=None, help="slip: the depth to judge at (default the midpoint of the declared interval)")
     p_ws.add_argument("--depth-ref", type=str, choices=["TVD", "MD"], default=None, help="set-well: the interval depths are true vertical (TVD) or measured (MD) depth")
     p_ws.add_argument("--ref-elev-ft", type=float, default=None, help="set-well: the reference elevation the depths are measured from, ft above sea level")
     p_ws.add_argument("--ref-elev-datum", type=str, choices=["KB", "GL", "DF"], default=None, help="set-well: what that elevation is: kelly bushing, ground level, derrick floor")
@@ -2095,7 +2116,7 @@ def main(argv=None) -> int:
             elif a.action == "add-layer":
                 if not a.layer or not a.name:
                     raise SystemExit("add-layer needs --name <display> and --layer <shapefile zip | folder | .shp>")
-                L = ws.add_layer(a.layer, a.name, actor=a.actor, citation=a.citation, member=a.member, formation=a.formation_name, role=a.role)
+                L = ws.add_layer(a.layer, a.name, actor=a.actor, citation=a.citation, member=a.member, formation=a.formation_name, role=a.role, feature_kind=a.feature_kind)
                 tc = ", ".join(f"{k} {v}" for k, v in list(L["type_counts"].items())[:6])
                 print(f"layer {L['id']} ({L['kind']}): {L['n_features']} {L['shape_type']} features, {L['crs']['kind']} {L['crs'].get('datum') or ''}, extent lon {L['bbox'][0]:.3f}..{L['bbox'][2]:.3f} lat {L['bbox'][1]:.3f}..{L['bbox'][3]:.3f}"
                       + (f"; contour value {L['value_attr']}" if L.get('value_attr') else ''))
@@ -2123,6 +2144,32 @@ def main(argv=None) -> int:
                     print(f"  [{L.get('layer_display') or L['layer']}]")
                     for line in L["lines"]:
                         print("    " + line)
+                return 0 if r["status"] == "OK" else 1
+            elif a.action == "set-stress":
+                st = ws.set_stress({"sv_psi_ft": a.sv, "shmin_psi_ft": a.shmin, "shmax_psi_ft": a.shmax, "pp_psi_ft": a.pp, "shmax_azimuth_deg": a.shmax_azimuth,
+                                    "azimuth_source": a.azimuth_source, "gradients_source": a.gradients_source, "dips_deg": a.dips, "mus": a.mu, "delta_pp_psi": a.delta_pp, "note": a.note or ""}, actor=a.actor)
+                print(f"stress: Sv {st['sv_psi_ft']} Shmin {st['shmin_psi_ft']} SHmax {st['shmax_psi_ft']} Pp {st['pp_psi_ft']} psi/ft ({st['gradients_source']}); "
+                      f"SHmax azimuth {st.get('shmax_azimuth_deg', 'from the stress map')} ({st.get('azimuth_source', '')}); dips {st['dips_deg']}; mu {st['mus']}; delta Pp {st['delta_pp_psi']} psi"); return 0
+            elif a.action == "add-stress-map":
+                if not a.file:
+                    raise SystemExit("add-stress-map needs --file <wsm.csv>")
+                r = ws.add_stress_map(a.file, actor=a.actor, citation=a.citation)
+                print(f"stress map: {r['n_records']} records kept as {r['file']} (sha256 {r['sha256'][:16]})"); return 0
+            elif a.action == "wsm":
+                if a.lat is None or a.lon is None:
+                    raise SystemExit("wsm needs --lat --lon [--radius-km]")
+                r = ws.wsm_at(a.lat, a.lon, a.radius_km if a.radius_km is not None else 100.0)
+                print(r.get("statement") or f"{r['status']}: {r.get('note', '')}")
+                for rec in r.get("records", [])[:10]:
+                    print(f"  {rec['distance_km']:7.1f} km  {rec['azimuth']:5.0f} deg  {rec['quality']}  {rec['regime'] or '?':3s}  {rec['type']:4s}  {rec['locality'][:40]}")
+                return 0 if r.get("n") else 1
+            elif a.action == "slip":
+                if not a.well:
+                    raise SystemExit("slip needs --well <id>")
+                r = ws.well_slip(a.well, a.radius_km if a.radius_km is not None else 25.0, delta_pp_psi=a.delta_pp, depth_ft=a.depth_ft, actor=a.actor)
+                print(f"slip {a.well}: {r['status']}")
+                for line in r["lines"]:
+                    print("  " + line)
                 return 0 if r["status"] == "OK" else 1
             elif a.action == "interval":
                 if not a.well:
@@ -2303,6 +2350,33 @@ def main(argv=None) -> int:
         except KeyboardInterrupt:
             stop.set()
             print("etp-sim: stopped")
+        return 0
+    elif a.cmd == "slip":
+        import json as _json
+        from . import shapefile as _SF, slip as _SL, friction_priors as _FP
+        try:
+            L = _SF.read(a.layer, member=a.member)
+        except (ValueError, OSError) as e:
+            raise SystemExit(f"slip: {e}")
+        if a.feature_kind:
+            L.declared_kind = a.feature_kind
+        az, az_src = a.shmax_azimuth, "declared"
+        if az is None and a.wsm:
+            nb = _SL.wsm_nearby(_SL.read_wsm(a.wsm), a.lat, a.lon, 100.0)
+            if not nb["n"]:
+                raise SystemExit("slip: no World Stress Map record of quality A/B/C within 100 km; declare --shmax-azimuth with its source")
+            az, az_src = nb["azimuth_mean"], nb["statement"]
+        if az is None:
+            raise SystemExit("slip: give --shmax-azimuth or --wsm <wsm.csv>")
+        faults = _SL.faults_in_radius(L, a.lat, a.lon, a.radius_km)
+        r = _SL.statement(faults, a.depth_ft, {"sv_psi_ft": a.sv, "shmin_psi_ft": a.shmin, "shmax_psi_ft": a.shmax, "pp_psi_ft": a.pp}, az, tuple(a.dips), tuple(a.mu), a.delta_pp,
+                          sources={"shmax_azimuth": az_src, "gradients": "the command line"})
+        r["friction_envelope"] = _FP.envelope()
+        if a.json:
+            print(_json.dumps(r, indent=1, default=str)); return 0
+        for line in r["lines"]:
+            print(line)
+        print(r["friction_envelope"].get("statement", ""))
         return 0
     elif a.cmd == "catalog":
         import json as _json

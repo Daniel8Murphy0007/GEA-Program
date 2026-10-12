@@ -5,6 +5,59 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.26.0] - 2026-10-12 - slip tendency on the mapped faults: the stress state, stated, resolved on every trace
+
+### Added
+- **Slip tendency** (`gea/slip.py`): the open method - Morris slip
+  tendency, the fault slip potential arithmetic of Walsh and Zoback - done
+  on inputs the site declares with their sources and nothing else. The
+  stress state from declared gradients (Sv, Shmin, SHmax, the ambient pore
+  pressure; psi/ft) at the depth of the declared interval; the regime from
+  their ordering; for every mapped fault trace within the radius, its
+  length-weighted strike from the map, its dip from the layer's own `dip`
+  attribute when it states one or else each declared dip, the normal and
+  shear stress resolved on the plane, the effective normal stress at the
+  ambient and the increased pore pressure, the slip tendency at both, the
+  pore-pressure increase that brings the plane to the friction line and the
+  margin left after the declared increase - BELOW or PAST THE FRICTION LINE
+  for the worst and the best declared case. Where the layer publishes its
+  own pressure-to-slip - the BEG/TexNet `Pp2S_MPa` of Hennings et al. 2021,
+  computed under their calibrated stress model - that value is printed
+  beside this arithmetic with the difference. The measured friction
+  envelope from the catalogue (v0.25.0) printed last.
+- **The World Stress Map as the SHmax source**: the WSM 2016 database CSV
+  (CC BY 4.0) read by column name (a 999 azimuth and a D/E quality left
+  out); the records within a radius of a position with the axial mean
+  azimuth, its spread, the counts by quality and regime - a stated source
+  for a site's SHmax azimuth, taken for a well that declares none. Proven
+  on the real database: 40,730 records; at 31.42 N, 103.50 W, 35 A/B/C
+  records within 100 km give SHmax 92 deg (median deviation 17 deg); near
+  Youngstown, 9 records give 63 deg (deviation 8 deg).
+- **The Hennings 2021 Delaware Basin faults read**: the BEG/TexNet
+  basement-rooted (6,505 segments, with dip, confidence and `Pp2S_MPa`) and
+  shallow-normal (1,827 segments, with dip, name, source, `Pp2S_MPa`) layers
+  are UTM zone 13N - so the shapefile reader now unprojects any Transverse
+  Mercator or Lambert Conformal Conic layer from its own .prj parameters on
+  WGS84, NAD83 or NAD27 (the unit from the PROJCS's own UNIT), and a layer
+  whose attributes do not say "fault" is declared so (`add-layer
+  --feature-kind fault`). Both read in a tenth of a second; the statement
+  runs on them with their dips and prints their published values beside.
+  Not shipped in the package.
+- `set-stress` (the gradients with their source required; an azimuth with
+  its source, or left to the map), `add-stress-map`, `wsm --lat --lon`,
+  `slip --well --delta-pp --depth-ft`; `gea slip` for any layer and
+  position; `/api/stress` (GET, POST), `/api/stress/map`, `/api/stress/wsm`,
+  `/api/wells/<id>/slip` (GET, POST); the Stress state card on the Seismic
+  page and the Slip tendency card on the well page; the SRA packet's section
+  2e; `gea help slip`. NO SURFACE POSITION, NO STRESS STATE, NO FAULT LAYER,
+  NO SHMAX AZIMUTH and NO DEPTH each named with the remedy.
+- What it will not do: measure a stress - every gradient and azimuth is
+  declared with its source or taken from the WSM with the count and spread
+  printed; give a fault a dip the map does not carry; give a probability
+  of an earthquake - a pressure margin on a plane under stated assumptions
+  says nothing about whether the fault exists at depth, is connected, or
+  will slip; attribute an event. Section BT (3 checks); the gate is 365.
+
 ## [v0.25.0] - 2026-10-12 - the catalogue accounted for: what reads each entry, the measured friction, the core check
 
 ### Added

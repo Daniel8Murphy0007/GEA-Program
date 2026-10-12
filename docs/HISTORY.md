@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.26.0 - 2026-10-12 - slip tendency on the mapped faults
+
+- **The stress state, stated, resolved on every trace.** The fault slip
+  potential arithmetic on declared gradients; the SHmax azimuth from the
+  World Stress Map records near the well; the Hennings 2021 Delaware Basin
+  faults read from UTM with their dips, their published pressure-to-slip
+  printed beside this arithmetic; the measured friction envelope beside the
+  assumed coefficient. Section BT; gate 365.
+
 ## v0.25.0 - 2026-10-12 - the catalogue accounted for
 
 - **What reads each entry.** The register of the 52 shipped datasets

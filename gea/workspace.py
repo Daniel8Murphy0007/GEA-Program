@@ -1104,7 +1104,7 @@ class Workspace:
             return json.load(f)
 
     def add_layer(self, src: str, display: str, actor: str = 'system', note: str = '', citation: str = '', member: Optional[str] = None,
-                  formation: Optional[str] = None, role: Optional[str] = None) -> dict:
+                  formation: Optional[str] = None, role: Optional[str] = None, feature_kind: Optional[str] = None) -> dict:
         """A structure layer - a shapefile (zip, folder or .shp) of mapped faults and folds - read once to prove it
         reads, copied in verbatim with every part hashed, and described: its coordinate system, extent, feature
         count, the structure types it carries, and the metadata it came with. The citation is the site's own
@@ -1117,6 +1117,8 @@ class Workspace:
             raise WorkspaceError(f'a layer role must be one of {LAYER_ROLES}, got {role!r}')
         if role and not formation:
             raise WorkspaceError('a role needs the formation it belongs to (--formation-name Wolfcamp --role top|isopach|base)')
+        if feature_kind is not None and feature_kind not in ('fault', 'fold'):
+            raise WorkspaceError(f"a declared feature kind is 'fault' or 'fold' (every feature of a layer whose attributes do not say), got {feature_kind!r}")
         try:
             L = SF.read(src, member=member)
         except (ValueError, OSError) as e:
@@ -1135,10 +1137,12 @@ class Workspace:
             hashes[fn] = sha256_file(os.path.join(d, fn))
         type_attr, name_attr = ST.guess_attrs(L)
         kind = ST.layer_kind(L)
+        if feature_kind and kind != 'structure':
+            raise WorkspaceError(f'a declared feature kind belongs to a structure (lines) layer; this layer reads as {kind}')
         if role and kind != 'contours':
             raise WorkspaceError(f'a formation role belongs to a contours layer; this layer reads as {kind}')
         rec = {'id': lid, 'display': display, 'base': name, 'member': member, 'shape_type': L.shape_type, 'kind': kind,
-               'formation': formation or '', 'role': (role or ('top' if (formation and kind == 'contours') else '')), 'crs': {k: v for k, v in L.crs.items() if k != 'wkt'},
+               'formation': formation or '', 'role': (role or ('top' if (formation and kind == 'contours') else '')), 'feature_kind': feature_kind or '', 'crs': {k: v for k, v in L.crs.items() if k not in ('wkt', 'zone_def')},
                'bbox': list(L.bbox), 'n_features': L.n, 'fields': L.fields, 'type_attr': type_attr, 'name_attr': name_attr,
                'value_attr': (ST.guess_value_attr(L) if kind == 'contours' else None),
                'type_counts': (dict(list(L.counts(type_attr).items())[:40]) if type_attr else {}), 'metadata': L.source.get('metadata', {}), 'citation': citation, 'note': note,
@@ -1165,7 +1169,10 @@ class Workspace:
     def load_layer(self, layer_id: str):
         from . import shapefile as SF
         rec = self.layer(layer_id)
-        return SF.read(os.path.join(self.path, 'layers', layer_id, rec['base'] + '.shp'))
+        L = SF.read(os.path.join(self.path, 'layers', layer_id, rec['base'] + '.shp'))
+        if rec.get('feature_kind') in ('fault', 'fold'):
+            L.declared_kind = rec['feature_kind']
+        return L
 
     def structure_at(self, lat: float, lon: float, radius_km: float = 50.0) -> List[dict]:
         """Every layer's answer for a position: the nearest fault and fold, what is within the radius, or that the
@@ -1222,6 +1229,152 @@ class Workspace:
                 json.dump(res, f, indent=1, default=str)
             self.audit(actor, 'well.interval', {'id': well_id, 'status': res['status'], 'tier': (res.get('tier') or {}).get('status'),
                                                 'relations': [t['relation'] for t in res.get('tops', [])]})
+        return res
+
+    # -- the stress state, the stress map, slip tendency -------------------------------------------------------------
+    def set_stress(self, stress: dict, actor: str = 'system') -> dict:
+        """The site's declared stress state: the three gradients (psi/ft), the ambient pore-pressure gradient, the SHmax azimuth
+        with its source, the gradients' source, the dips and friction coefficients the statement is run for."""
+        from .slip import BYERLEE, PSI_PER_FT_HYDROSTATIC
+        cur = self.stress() or {}
+        new = dict(cur)
+        for k in ('sv_psi_ft', 'shmin_psi_ft', 'shmax_psi_ft', 'pp_psi_ft', 'shmax_azimuth_deg', 'delta_pp_psi'):
+            if stress.get(k) is not None:
+                new[k] = float(stress[k])
+        for k in ('azimuth_source', 'gradients_source', 'note'):
+            if stress.get(k):
+                new[k] = str(stress[k])
+        if stress.get('dips_deg'):
+            new['dips_deg'] = [float(x) for x in stress['dips_deg']]
+        if stress.get('mus'):
+            new['mus'] = [float(x) for x in stress['mus']]
+        missing = [k for k in ('sv_psi_ft', 'shmin_psi_ft', 'shmax_psi_ft') if new.get(k) is None]
+        if missing:
+            raise WorkspaceError('a stress state needs the three gradients: ' + ', '.join(missing) + ' (psi/ft)')
+        if not new.get('gradients_source'):
+            raise WorkspaceError('the gradients need their source stated (--gradients-source "Lund Snee & Zoback 2018, Table 2" or the operator\'s own measurement)')
+        if new.get('shmax_azimuth_deg') is not None and not new.get('azimuth_source'):
+            raise WorkspaceError('an SHmax azimuth needs its source stated (--azimuth-source ..., or leave it to the stress map)')
+        if not (0 < new['shmin_psi_ft'] <= new['shmax_psi_ft']):
+            raise WorkspaceError('Shmin must be positive and no larger than SHmax')
+        new.setdefault('pp_psi_ft', PSI_PER_FT_HYDROSTATIC)
+        new.setdefault('dips_deg', [60.0, 75.0, 90.0])
+        new.setdefault('mus', [BYERLEE])
+        new.setdefault('delta_pp_psi', 0.0)
+        new['declared_by'] = actor; new['declared_utc'] = utc_now_iso()
+        with open(os.path.join(self.config_dir, 'stress.json'), 'w', encoding='utf-8') as f:
+            json.dump(new, f, indent=1)
+        self.audit(actor, 'stress.declare', {k: new.get(k) for k in ('sv_psi_ft', 'shmin_psi_ft', 'shmax_psi_ft', 'pp_psi_ft', 'shmax_azimuth_deg', 'gradients_source', 'azimuth_source')})
+        return new
+
+    def stress(self) -> Optional[dict]:
+        p = os.path.join(self.path, 'config', 'stress.json')
+        if not os.path.isfile(p):
+            return None
+        with open(p, encoding='utf-8') as f:
+            return json.load(f)
+
+    def add_stress_map(self, src: str, actor: str = 'system', citation: str = '') -> dict:
+        """The World Stress Map database CSV, read once to prove it reads, kept whole with its hash and citation."""
+        from . import slip as SL
+        try:
+            recs = SL.read_wsm(src)
+        except (ValueError, OSError) as e:
+            raise WorkspaceError(f'stress map: {e}')
+        if not recs:
+            raise WorkspaceError('stress map: no records with a latitude, longitude and azimuth')
+        d = self.dir('layers', '_stress_map')
+        dst = os.path.join(d, 'wsm.csv')
+        shutil.copyfile(src, dst)
+        rec = {'file': 'wsm.csv', 'source_file': os.path.basename(src), 'n_records': len(recs), 'sha256': sha256_file(dst), 'citation': citation,
+               'added_utc': utc_now_iso(), 'added_by': actor}
+        with open(os.path.join(d, 'stress_map.json'), 'w', encoding='utf-8') as f:
+            json.dump(rec, f, indent=1)
+        self.audit(actor, 'stress_map.add', {'n_records': len(recs), 'sha256': rec['sha256'][:16]}, inputs=[dst])
+        return rec
+
+    def stress_map(self) -> Optional[dict]:
+        p = os.path.join(self.path, 'layers', '_stress_map', 'stress_map.json')
+        if not os.path.isfile(p):
+            return None
+        with open(p, encoding='utf-8') as f:
+            return json.load(f)
+
+    def wsm_at(self, lat: float, lon: float, radius_km: float = 100.0) -> dict:
+        from . import slip as SL
+        rec = self.stress_map()
+        if rec is None:
+            return {'n': 0, 'status': 'NO STRESS MAP', 'note': 'no stress map added (gea workspace --action add-stress-map --file wsm2016.csv)'}
+        recs = SL.read_wsm(os.path.join(self.path, 'layers', '_stress_map', rec['file']))
+        out = SL.wsm_nearby(recs, lat, lon, radius_km)
+        out['status'] = 'OK' if out['n'] else 'NO RECORDS IN RADIUS'
+        out['citation'] = rec.get('citation', '')
+        return out
+
+    def well_slip(self, well_id: str, radius_km: float = 25.0, delta_pp_psi: Optional[float] = None, depth_ft: Optional[float] = None,
+                  actor: str = 'system', write: bool = True) -> dict:
+        """Slip tendency on the mapped faults around a well, from the declared stress state; written beside the well's reports."""
+        from . import slip as SL
+        from . import friction_priors as FP
+        w = self.well(well_id)
+        surf = w.get('surface') or {}
+        res = {'well': well_id, 'status': 'OK', 'layers': [], 'lines': []}
+        st = self.stress()
+        if not surf.get('lat'):
+            res.update(status='NO SURFACE POSITION', note='the well has no declared surface position (set-well --lat --lon --datum)')
+        elif st is None:
+            res.update(status='NO STRESS STATE', note='no stress state declared (gea workspace --action set-stress --sv --shmin --shmax --gradients-source ...)')
+        elif not any((L_.get('kind') or 'structure') == 'structure' for L_ in self.layers()):
+            res.update(status='NO FAULT LAYER', note='no structure layer with fault traces has been added (add-layer)')
+        if res['status'] != 'OK':
+            res['lines'] = [f"Slip tendency: {res['status']} - {res['note']}"]
+        else:
+            disp = w.get('disposal') or {}
+            if depth_ft is None:
+                t, b = disp.get('top_interval_ft'), disp.get('base_interval_ft')
+                depth_ft = (float(t) + float(b)) / 2.0 if (t is not None and b is not None) else (float(t) if t is not None else None)
+            if depth_ft is None:
+                res.update(status='NO DEPTH', note='no depth to judge at: declare the interval (set-well --top-interval-ft --base-interval-ft) or give --depth-ft')
+                res['lines'] = [f"Slip tendency: {res['status']} - {res['note']}"]
+            else:
+                dpp = float(st.get('delta_pp_psi', 0.0) if delta_pp_psi is None else delta_pp_psi)
+                az, az_src = st.get('shmax_azimuth_deg'), st.get('azimuth_source', '')
+                wsm = None
+                if az is None:
+                    wsm = self.wsm_at(float(surf['lat']), float(surf['lon']), 100.0)
+                    if wsm.get('n'):
+                        az = wsm['azimuth_mean']; az_src = f"World Stress Map records within 100 km ({wsm['n']} of quality A/B/C, median deviation {wsm['spread_deg_median']:g} deg)" + (f"; {wsm['citation']}" if wsm.get('citation') else '')
+                if az is None:
+                    res.update(status='NO SHMAX AZIMUTH', note='no SHmax azimuth: declare one with its source (set-stress --shmax-azimuth --azimuth-source) or add the stress map (add-stress-map) with records near the well')
+                    res['lines'] = [f"Slip tendency: {res['status']} - {res['note']}"]
+                else:
+                    res.update(depth_ft=depth_ft, depth_how=('declared' if depth_ft is not None and (disp.get('top_interval_ft') is None or depth_ft != (float(disp.get('top_interval_ft', 0)) + float(disp.get('base_interval_ft', 0))) / 2.0) else 'the midpoint of the declared interval, ft below the reference'),
+                               delta_pp_psi=dpp, stress=st, shmax_azimuth_deg=az, azimuth_source=az_src, wsm=({k: v for k, v in wsm.items() if k != 'records'} if wsm else None),
+                               friction_envelope=FP.envelope())
+                    for rec in self.layers():
+                        if (rec.get('kind') or 'structure') != 'structure':
+                            continue
+                        try:
+                            L = self.load_layer(rec['id'])
+                            faults = SL.faults_in_radius(L, float(surf['lat']), float(surf['lon']), radius_km, rec.get('type_attr'), rec.get('name_attr'))
+                            r = SL.statement(faults, depth_ft, st, az, tuple(st.get('dips_deg', [60.0, 75.0, 90.0])), tuple(st.get('mus', [0.6])), dpp,
+                                             sources={'shmax_azimuth': az_src, 'gradients': st.get('gradients_source', '')})
+                        except (ValueError, OSError) as e:
+                            r = {'status': 'UNREADABLE', 'note': str(e), 'faults': [], 'lines': [f"{rec['id']}: UNREADABLE - {e}"]}
+                        r['layer_id'] = rec['id']; r['layer_display'] = rec['display']; r['citation'] = rec.get('citation') or ''; r['radius_km'] = radius_km
+                        res['layers'].append(r)
+                    res['lines'] = [f"Slip tendency at {depth_ft:,.0f} ft ({res['depth_how']}), SHmax {az:g} deg from {az_src or 'the declaration'}, a pore-pressure increase of {dpp:,.0f} psi."]
+                    for r in res['layers']:
+                        res['lines'].append(f"[{r['layer_display']}]")
+                        res['lines'].extend(r.get('lines', []))
+                    res['lines'].append(res['friction_envelope'].get('statement', ''))
+        res['generated_utc'] = utc_now_iso()
+        if write:
+            d = self.dir('reports', 'wells', well_id)
+            with open(os.path.join(d, 'slip.json'), 'w', encoding='utf-8') as f:
+                json.dump(res, f, indent=1, default=str)
+            self.audit(actor, 'well.slip', {'id': well_id, 'status': res['status'], 'layers': len(res['layers']),
+                                            'past_line_worst': [r.get('n_past_line') for r in res['layers']]})
         return res
 
     def events_vs_faults(self, events: List[dict], radius_km: float = 20.0) -> List[dict]:
@@ -1527,6 +1680,7 @@ class Workspace:
                     try:
                         pk['structure'][w['id']] = self.well_structure(w['id'], actor=actor, write=False)
                         pk['interval'][w['id']] = self.well_interval(w['id'], actor=actor, write=False)
+                        pk.setdefault('slip', {})[w['id']] = self.well_slip(w['id'], actor=actor, write=False)
                     except WorkspaceError as e:
                         pk['structure'][w['id']] = {'well': w['id'], 'status': 'NOT RUN', 'note': str(e), 'layers': []}
                         pk['interval'][w['id']] = {'well': w['id'], 'status': 'NOT RUN', 'notes': [str(e)], 'lines': [f'NOT RUN - {e}'], 'tops': []}

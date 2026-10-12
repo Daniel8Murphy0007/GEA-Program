@@ -192,7 +192,7 @@ VIEWS.well = async (id) => {
     h += `<div class="row card"><button id="runDrift" type="button">Run the drift report</button>${w.kind === 'file' ? `<button id="runAlarms" type="button">Process alarms</button>` : ''}${w.kind === 'live' ? `<label>Seconds<input id="tapSec" type="number" value="60" min="1"></label><button id="tapStart" type="button">Start the tap</button><button id="tapStop" class="secondary" type="button">Stop</button>` : ''}<span class="small muted">every run is a job with its own log</span></div>`;
   }
   // mapped structure
-  try { const st = await get('/api/wells/' + id + '/structure'); if (st.status !== 'NO LAYER') { h += structureCardHtml(st); const iv = await get('/api/wells/' + id + '/interval'); h += intervalCardHtml(w, iv); } } catch (e) {}
+  try { const st = await get('/api/wells/' + id + '/structure'); if (st.status !== 'NO LAYER') { h += structureCardHtml(st); const iv = await get('/api/wells/' + id + '/interval'); h += intervalCardHtml(w, iv); const sl = await get('/api/wells/' + id + '/slip'); h += slipCardHtml(sl); } } catch (e) {}
   // drift
   if (R.gauge_drift_report) { const ev = R.gauge_drift_report.evaluation, dq = R.gauge_drift_report.data_quality || {};
     h += `<div class="card"><h3>Gauge drift and reconciliation <span class="small muted">${esc(R.gauge_drift_report.report_id)} · ${reportLinks(dir, 'gauge_drift_report')}</span></h3>`;
@@ -247,7 +247,7 @@ VIEWS.well = async (id) => {
   const run = async (args, label) => { try { const j = await post('/api/jobs', {args, label}); toast(label + ': job ' + j.id, 'ok'); watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); } };
   const wsPath = (await get('/api/overview')).workspace.path;
   const b1 = $('#runDrift'); if (b1) b1.onclick = () => run(['workspace', '--path', wsPath, '--action', 'refresh', '--actor', me.name], 'drift report (all wells)');
-  intervalCardBind(id);
+  intervalCardBind(id); slipCardBind(id);
   const b2 = $('#runAlarms'); if (b2) b2.onclick = () => run(['workspace', '--path', wsPath, '--action', 'refresh', '--actor', me.name], 'alarms (all wells)');
   const ts = $('#tapStart'); if (ts) ts.onclick = async () => { try { const j = await post(`/api/wells/${id}/tap/start`, {seconds: +$('#tapSec').value}); toast('Tap started: job ' + j.id, 'ok'); watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); } };
   const tp = $('#tapStop'); if (tp) tp.onclick = async () => { try { await post(`/api/wells/${id}/tap/stop`); toast('Tap stopped', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } };
@@ -290,11 +290,12 @@ VIEWS.seismic = async () => {
   } else h += need('operator');
   const layers = await get('/api/layers');
   h += layersCardHtml(layers.layers);
+  h += stressCardHtml(layers.stress || null, layers.stress_map || null);
   h += liveCardHtml(live);
   h += tracksCardHtml(tracks, stations);
   h += sarPanelHtml(sar);
   $('#main').innerHTML = h;
-  layersCardBind();
+  layersCardBind(); stressCardBind();
   liveCardBind(live);
   tracksCardBind(stations);
   sarPanelBind(sar);
@@ -480,7 +481,7 @@ function layersCardHtml(layers) {
       h += `<tr><td>${esc(L.display)}<div class="mono small muted">${esc(L.base)}.shp · ${esc(L.kind || 'structure')}${L.value_attr ? ' · ' + esc(L.value_attr) : ''}</div></td><td>${L.n_features}</td><td class="small">${tc}${Object.keys(L.type_counts || {}).length > 4 ? ', …' : ''}</td><td class="small">${esc(L.crs.kind)} ${esc(L.crs.datum || '')}</td><td class="small mono">${L.bbox.map(v => fmt(v, 2)).join(', ')}</td><td class="small">${esc(src)}${(md.pubdates || [])[0] ? ' (' + esc(md.pubdates[0]) + ')' : ''}${L.citation ? '<div class="muted">' + esc(L.citation) + '</div>' : ''}</td><td>${can('admin') ? `<button class="secondary danger" data-lrm="${esc(L.id)}" type="button">Remove</button>` : ''}</td></tr>`; }
     h += `</tbody></table>`;
   } else h += `<p class="muted small">No structure layer yet.</p>`;
-  if (can('operator')) h += `<div class="row"><label>Display name<input id="lyName" placeholder="EIA Permian faults (2017)"></label><label>Shapefile zip (.shp, .shx, .dbf, .prj together)<input type="file" id="lyFile" accept=".zip"></label><label>Shapefile inside the zip (when it holds several)<select id="lyMember"><option value="">— pick the zip first —</option></select></label><label>Citation (where the map came from)<input id="lyCite" style="min-width:20em"></label><label>Formation (a contours layer)<input id="lyFm" placeholder="Wolfcamp" style="width:9em"></label><label>Role<select id="lyRole"><option value="">—</option><option value="top">top elevation</option><option value="isopach">thickness (isopach)</option><option value="base">base elevation</option></select></label><button id="lyAdd" type="button">Add layer</button></div>`;
+  if (can('operator')) h += `<div class="row"><label>Display name<input id="lyName" placeholder="EIA Permian faults (2017)"></label><label>Shapefile zip (.shp, .shx, .dbf, .prj together)<input type="file" id="lyFile" accept=".zip"></label><label>Shapefile inside the zip (when it holds several)<select id="lyMember"><option value="">— pick the zip first —</option></select></label><label>Citation (where the map came from)<input id="lyCite" style="min-width:20em"></label><label>Formation (a contours layer)<input id="lyFm" placeholder="Wolfcamp" style="width:9em"></label><label>Role<select id="lyRole"><option value="">—</option><option value="top">top elevation</option><option value="isopach">thickness (isopach)</option><option value="base">base elevation</option></select></label><label>Every feature is<select id="lyFK"><option value="">(as the attributes say)</option><option value="fault">a fault</option><option value="fold">a fold</option></select></label><button id="lyAdd" type="button">Add layer</button></div>`;
   return h + `</div>`;
 }
 function layersCardBind() {
@@ -488,8 +489,46 @@ function layersCardBind() {
   const add = $('#lyAdd'); if (!add) return;
   const fileIn = $('#lyFile'); if (fileIn) fileIn.onchange = async () => { const f = fileIn.files[0]; const sel = $('#lyMember'); if (!f) return; try { const r = await post('/api/layers/members', {file: {filename: f.name, content_b64: await readFile(f)}}); sel.innerHTML = r.members.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('') || '<option value="">(no shapefile in this zip)</option>'; if (r.members.length === 1) { sel.value = r.members[0]; } } catch (e) { toast(e.message, 'err'); } };
   add.onclick = async () => { const f = $('#lyFile').files[0]; if (!f) return toast('Choose the shapefile zip', 'err'); add.disabled = true;
-    try { const L = await post('/api/layers/add', {display: $('#lyName').value || f.name.replace(/\.zip$/i, ''), citation: $('#lyCite').value, member: $('#lyMember').value || null, formation: $('#lyFm').value || null, role: $('#lyRole').value || null, file: {filename: f.name, content_b64: await readFile(f)}});
+    try { const L = await post('/api/layers/add', {display: $('#lyName').value || f.name.replace(/\.zip$/i, ''), citation: $('#lyCite').value, member: $('#lyMember').value || null, formation: $('#lyFm').value || null, role: $('#lyRole').value || null, feature_kind: $('#lyFK').value || null, file: {filename: f.name, content_b64: await readFile(f)}});
       toast(`Added ${L.id}: ${L.n_features} features`, 'ok'); route(); } catch (e) { toast(e.message, 'err'); } add.disabled = false; };
+}
+function stressCardHtml(st, sm) {
+  let h = `<div class="card"><h3>Stress state <span class="small muted">what the slip-tendency statement rests on</span></h3>`;
+  if (st) h += `<p class="small">Sv ${esc(st.sv_psi_ft)}, Shmin ${esc(st.shmin_psi_ft)}, SHmax ${esc(st.shmax_psi_ft)}, Pp ${esc(st.pp_psi_ft)} psi/ft (${esc(st.gradients_source || '')}); SHmax azimuth ${st.shmax_azimuth_deg === undefined || st.shmax_azimuth_deg === null ? 'from the stress map' : esc(st.shmax_azimuth_deg) + '° (' + esc(st.azimuth_source || '') + ')'}; dips ${esc((st.dips_deg || []).join(', '))}; μ ${esc((st.mus || []).join(', '))}; judged at +${esc(st.delta_pp_psi)} psi. Declared by ${esc(st.declared_by)} ${esc(st.declared_utc)}.</p>`;
+  else h += `<p class="small muted">No stress state declared.</p>`;
+  h += sm ? `<p class="small">Stress map: ${esc(sm.source_file)}, ${sm.n_records} records, sha256 ${esc((sm.sha256 || '').slice(0, 16))}${sm.citation ? ' — ' + esc(sm.citation) : ''}.</p>` : `<p class="small muted">No stress map (the World Stress Map database CSV) added.</p>`;
+  if (can('operator')) {
+    h += `<div class="row"><label>Sv psi/ft<input id="ssSv" type="number" step="0.001" value="${st ? st.sv_psi_ft : ''}" style="width:6em"></label><label>Shmin<input id="ssMin" type="number" step="0.001" value="${st ? st.shmin_psi_ft : ''}" style="width:6em"></label><label>SHmax<input id="ssMax" type="number" step="0.001" value="${st ? st.shmax_psi_ft : ''}" style="width:6em"></label><label>Pp<input id="ssPp" type="number" step="0.001" value="${st ? st.pp_psi_ft : 0.433}" style="width:6em"></label><label>Gradients source<input id="ssGS" value="${esc(st ? st.gradients_source : '')}" style="min-width:16em"></label></div>
+      <div class="row"><label>SHmax azimuth °<input id="ssAz" type="number" step="0.1" value="${st && st.shmax_azimuth_deg != null ? st.shmax_azimuth_deg : ''}" style="width:6em"></label><label>Azimuth source<input id="ssAS" value="${esc(st ? st.azimuth_source || '' : '')}" style="min-width:14em"></label><label>Judge at +psi<input id="ssDp" type="number" step="1" value="${st ? st.delta_pp_psi : 0}" style="width:6em"></label><button id="ssSet" type="button">Declare the stress state</button></div>
+      <div class="row"><label>World Stress Map CSV<input type="file" id="smFile" accept=".csv"></label><label>Citation<input id="smCite" placeholder="World Stress Map 2016, Heidbach et al., CC BY 4.0" style="min-width:18em"></label><button class="secondary" id="smAdd" type="button">Add stress map</button></div>`;
+  }
+  return h + `</div>`;
+}
+function stressCardBind() {
+  const b = $('#ssSet'); if (!b) return;
+  b.onclick = async () => { const body = {sv_psi_ft: $('#ssSv').value, shmin_psi_ft: $('#ssMin').value, shmax_psi_ft: $('#ssMax').value, pp_psi_ft: $('#ssPp').value || null, gradients_source: $('#ssGS').value, shmax_azimuth_deg: $('#ssAz').value || null, azimuth_source: $('#ssAS').value || null, delta_pp_psi: $('#ssDp').value || null};
+    for (const k of Object.keys(body)) if (body[k] === '' || body[k] === null) delete body[k];
+    try { await post('/api/stress', body); toast('Stress state declared', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } };
+  const a = $('#smAdd'); if (a) a.onclick = async () => { const f = $('#smFile').files[0]; if (!f) return toast('Choose the WSM CSV', 'err'); a.disabled = true;
+    try { const r = await post('/api/stress/map', {citation: $('#smCite').value, file: {filename: f.name, content_b64: await readFile(f)}}); toast(`Stress map: ${r.n_records} records`, 'ok'); route(); } catch (e) { toast(e.message, 'err'); } a.disabled = false; };
+}
+function slipCardHtml(sl) {
+  let h = `<div class="card"><h3>Slip tendency on the mapped faults <span class="small muted">from the declared stress state</span></h3>`;
+  h += `<p class="small"><b>${esc(sl.status)}</b>${sl.note ? ': ' + esc(sl.note) : ''}</p>`;
+  for (const line of (sl.lines || []).slice(0, 3)) h += `<p class="small">${esc(line)}</p>`;
+  for (const L of (sl.layers || [])) { if (!L.faults || !L.faults.length) continue;
+    h += `<h4>${esc(L.layer_display || L.layer_id)} <span class="small muted">${L.faults.length} trace(s) within ${fmt(L.radius_km, 0)} km; ${L.n_past_line} past the friction line (worst case), ${L.n_past_line_best_case} (best)</span></h4>`;
+    h += `<table><thead><tr><th>Fault</th><th>Distance (km)</th><th>Strike</th><th>To SHmax</th><th>Dip</th><th>Ts after</th><th>Pressure to slip after (psi)</th><th>Worst case</th><th>Published</th></tr></thead><tbody>`;
+    for (const f of L.faults.slice(0, 15)) { const w = f.worst, b = f.best, p = f.published;
+      h += `<tr><td>${esc(f.name || f.type || 'trace ' + f.index)}${f.attrs && f.attrs.note ? `<div class="small muted">${esc(f.attrs.note)}</div>` : ''}</td><td>${fmt(f.distance_km, 2)}</td><td>${fmt(f.strike_deg, 0)}°</td><td>${fmt(f.angle_to_shmax_deg, 0)}°</td><td>${fmt(w.dip_deg, 0)}° <span class="small muted">${esc(f.dip_source)}</span></td><td>${fmt(b.Ts_injection, 2)}–${fmt(w.Ts_injection, 2)}</td><td>${fmt(w.margin_after_injection_psi, 0)} to ${fmt(b.margin_after_injection_psi, 0)}</td><td>${statusPill(w.status === 'PAST THE FRICTION LINE' ? 'bad' : 'good', w.status)}</td><td class="small">${p ? fmt(p.pressure_to_slip_psi, 0) + ' psi (' + esc(p.field) + '), ours ' + fmt(p.ours_at_ambient_psi, 0) : '—'}</td></tr>`; }
+    h += `</tbody></table>`; }
+  if (sl.friction_envelope && sl.friction_envelope.statement) h += `<p class="small muted">${esc(sl.friction_envelope.statement)}</p>`;
+  if (can('operator')) h += `<div class="row"><label>Judge at +psi<input id="slDp" type="number" step="1" value="${sl.delta_pp_psi ?? 0}" style="width:6em"></label><label>Radius km<input id="slR" type="number" step="1" value="25" style="width:5em"></label><button id="slRun" type="button">Write the statement</button></div>`;
+  return h + `</div>`;
+}
+function slipCardBind(id) {
+  const b = $('#slRun'); if (!b) return;
+  b.onclick = async () => { try { await post(`/api/wells/${id}/slip`, {delta_pp_psi: $('#slDp').value || null, radius_km: $('#slR').value || 25}); toast('Written', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } };
 }
 function structureCardHtml(st) {
   let h = `<div class="card"><h3>Mapped structure <span class="small muted">the nearest fault and fold in each layer the site brought</span></h3>`;

@@ -1,27 +1,28 @@
-v0.25.0 — THE CATALOGUE ACCOUNTED FOR: WHAT READS EACH ENTRY, THE MEASURED FRICTION, THE CORE CHECK
+v0.26.0 — SLIP TENDENCY ON THE MAPPED FAULTS: THE STRESS STATE, STATED, RESOLVED ON EVERY TRACE
 
-The program ships 52 public datasets with provenance sidecars; a sidecar
-says where an entry came from, not what reads it. Now the register does,
-and the gate holds it to the code both ways: every entry a module names is
-registered as used, every entry registered as used is named or is a log the
-survey takes, and every entry reads through its own reader. Twenty-nine are
-used; twenty-three are carried and say so, with the reason, and whether
-they stay in the wheel is the owner's call.
+After "how far is the nearest mapped fault" comes "how close to slipping is
+it, under this injection". The open method - Morris slip tendency, the fault
+slip potential arithmetic of Walsh and Zoback - is a stress state resolved on
+a plane: the vertical and the two horizontal stresses on it, the pore
+pressure taken off, the shear stress against the friction times the
+effective normal stress. This program does that arithmetic on inputs the
+site declares with their sources and on nothing it has not been told: the
+gradients and their source, the SHmax azimuth with its source or from the
+World Stress Map records near the well with their count and spread printed,
+the strike from the map, the dip from the layer where it states one and
+otherwise each declared dip, the friction coefficient printed against the
+catalogue's measured envelope. For every trace within the radius: the slip
+tendency at the ambient and the increased pore pressure, the pressure to
+slip and the margin left, below or past the friction line in the worst and
+the best declared case.
 
-Three uses are new. Every LAS log in the catalogue runs through the strata
-survey with its provenance on the source line - six real excerpts from four
-countries, one estimated and five refused with the reason, as the gate
-checks. Seven laboratory datasets on natural fault and sediment samples are
-read as what they measure and stated as the envelope a slip-tendency number
-will be printed beside: friction coefficients from 0.21 to 0.90 on seventy
-measurements, none from the Permian, against the 0.6 the law gives. And the
-Volve core checks the published sandstone range the rock inventory carries:
-bulk density per plug from grain density and porosity with the brine
-stated, 65 of 70 plugs inside the range, on the model card as an evaluation
-the inventory was not tuned to.
+The BEG/TexNet Delaware Basin fault layers of Hennings et al. 2021 are read -
+UTM, unprojected from the .prj's own parameters, 8,332 segments with their
+dips - and where they publish their own pressure-to-slip under their
+calibrated stress model, that number is printed beside this arithmetic with
+the difference. The published model is the one with a paper behind it.
 
-What it will not do: give the site a friction coefficient from other rocks;
-invent a use for a carried entry; estimate strata from too little support;
-call a derived core density a measurement.
+What it will not do: measure a stress; give a fault a dip the map does not
+carry; give a probability of an earthquake; attribute an event.
 
-Section BS is new. The gate is 362 checks. The standalone guard is clean.
+Section BT is new. The gate is 365 checks. The standalone guard is clean.

@@ -892,7 +892,8 @@ class App:
             try:
                 return self.ws.add_layer(p, str(body.get('display') or os.path.splitext(name)[0]), actor=user['name'],
                                          note=str(body.get('note', '')), citation=str(body.get('citation', '')), member=(str(body['member']) if body.get('member') else None),
-                                         formation=(str(body['formation']) if body.get('formation') else None), role=(str(body['role']) if body.get('role') else None))
+                                         formation=(str(body['formation']) if body.get('formation') else None), role=(str(body['role']) if body.get('role') else None),
+                                         feature_kind=(str(body['feature_kind']) if body.get('feature_kind') else None))
             except (WorkspaceError, ValueError) as e:
                 raise ApiError(409, str(e))
         finally:
@@ -1602,7 +1603,7 @@ def make_handler(app: App):
                                                           **({'live_state': app.live.state(st['id'])} if st.get('live') else {})} for st in app.ws.seismic_stations()],
                                             'site_reports': site})
                 if path == '/api/layers':
-                    return self._json(200, {'layers': app.ws.layers()})
+                    return self._json(200, {'layers': app.ws.layers(), 'stress': app.ws.stress(), 'stress_map': app.ws.stress_map()})
                 if path == '/api/layers/members':
                     raise ApiError(405, 'POST the zip to list its shapefiles')
                 if path.startswith('/api/layers/') and path.endswith('/at'):
@@ -1628,6 +1629,20 @@ def make_handler(app: App):
                         return self._json(200, app.ws.well_interval(wid, float(qs.get('radius_km', ['50'])[0]), actor='page', write=False))
                     except WorkspaceError as e:
                         raise ApiError(404, str(e))
+                if path.startswith('/api/wells/') and path.endswith('/slip'):
+                    wid = path[len('/api/wells/'):-len('/slip')]
+                    try:
+                        return self._json(200, app.ws.well_slip(wid, float(qs.get('radius_km', ['25'])[0]), actor='page', write=False))
+                    except WorkspaceError as e:
+                        raise ApiError(404, str(e))
+                if path == '/api/stress':
+                    return self._json(200, {'stress': app.ws.stress(), 'stress_map': app.ws.stress_map()})
+                if path == '/api/stress/wsm':
+                    try:
+                        lat, lon = float(qs['lat'][0]), float(qs['lon'][0]); rad = float(qs.get('radius_km', ['100'])[0])
+                    except (KeyError, ValueError):
+                        raise ApiError(400, 'lat and lon are needed')
+                    return self._json(200, app.ws.wsm_at(lat, lon, rad))
                 if path == '/api/seismic/live':
                     from .seedlink import EXAMPLE_CONFIG as _SLX
                     return self._json(200, {'stations': app.live.states(), 'example_config': _SLX})
@@ -1815,6 +1830,36 @@ def make_handler(app: App):
                         return self._json(200, app.ws.well_interval(wid, float((body or {}).get('radius_km') or 50.0), actor=user['name']))
                     except WorkspaceError as e:
                         raise ApiError(404, str(e))
+                if path.startswith('/api/wells/') and path.endswith('/slip'):
+                    App.require(user, 'operator')
+                    wid = path[len('/api/wells/'):-len('/slip')]
+                    b = body or {}
+                    try:
+                        return self._json(200, app.ws.well_slip(wid, float(b.get('radius_km') or 25.0), delta_pp_psi=(float(b['delta_pp_psi']) if b.get('delta_pp_psi') is not None else None),
+                                                                depth_ft=(float(b['depth_ft']) if b.get('depth_ft') is not None else None), actor=user['name']))
+                    except WorkspaceError as e:
+                        raise ApiError(404, str(e))
+                if path == '/api/stress':
+                    App.require(user, 'operator')
+                    try:
+                        return self._json(200, app.ws.set_stress(body or {}, actor=user['name']))
+                    except WorkspaceError as e:
+                        raise ApiError(400, str(e))
+                if path == '/api/stress/map':
+                    App.require(user, 'operator')
+                    f = (body or {}).get('file') or {}
+                    tmp_dir = os.path.join(app.ws.path, 'jobs', '_uploads', secrets.token_hex(4))
+                    os.makedirs(tmp_dir, exist_ok=True)
+                    try:
+                        p_ = os.path.join(tmp_dir, 'wsm.csv')
+                        with open(p_, 'wb') as fh:
+                            fh.write(base64.b64decode(f.get('content_b64') or ''))
+                        try:
+                            return self._json(200, app.ws.add_stress_map(p_, actor=user['name'], citation=str((body or {}).get('citation', ''))))
+                        except WorkspaceError as e:
+                            raise ApiError(400, str(e))
+                    finally:
+                        shutil.rmtree(tmp_dir, ignore_errors=True)
                 if path.startswith('/api/wells/') and path.endswith('/declare'):
                     App.require(user, 'operator')
                     wid = path[len('/api/wells/'):-len('/declare')]

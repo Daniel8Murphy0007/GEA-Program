@@ -1647,3 +1647,39 @@ nothing was left behind.
   tier (three private Retama entries, never in the wheel) is loaded there.
   The register, the audit and the check now cover the public tier only
   and count the operator tier without naming it. Gate 362 on both machines.
+
+## 2026-10-12 - slip tendency on the mapped faults (v0.26.0)
+
+He downloaded the two Hennings et al. 2021 fault layers and wsm2016.csv
+into the site folder. The Hennings layers are UTM 13N and carry the
+authors' own pressure-to-slip per segment (Pp2S_MPa) and dip - so the leg
+reads their numbers beside its own rather than pretending to replace them.
+
+- `gea/slip.py`: `stress_at`, `regime_of`, `resolve` (Cauchy on a plane
+  with vertical and horizontal principal axes; checked against its
+  identities in the gate), `slip_tendency` (Ts at ambient and at the
+  increase; pressure to slip; margin), `segment_strikes`,
+  `faults_in_radius` (length-weighted axial mean strike; the layer's own
+  dip, published Pp2S and confidence read as attributes), `statement`
+  (the layer's dip when stated else the declared range; the published
+  value beside; worst and best case), `lines`, `read_wsm` (by column
+  name), `wsm_nearby` (axial mean, spread, counts, Vincenty distances).
+- `shapefile.parse_prj`: any Transverse Mercator or Lambert Conformal Conic
+  from PARAMETERs on WGS84/NAD83/NAD27; the PROJCS's own UNIT; `read`
+  uses the parsed definition. `Layer.declared_kind`; `structure.nearest`
+  honours it; `add_layer(feature_kind=)`.
+- Workspace: `set_stress` (sources required), `stress`, `add_stress_map`
+  (kept whole, hashed), `stress_map`, `wsm_at`, `well_slip` (depth from the
+  interval midpoint; azimuth from the declaration or the map, stated;
+  refusals in order), the SRA packet `slip` and section 2e. CLI
+  `set-stress`, `add-stress-map`, `wsm`, `slip`, `gea slip`. API and page.
+  `gea help slip`.
+- Real numbers: WSM 40,730 records; 35 A/B/C within 100 km of 31.42 N,
+  103.50 W -> SHmax 92 deg, median deviation 17 deg (16 A, 11 B, 8 C);
+  Youngstown 9 within 150 km -> 63 deg. Hennings BSMT 6,505 segments,
+  SNF 1,827, both read in 0.1 s; at the Pad 3 test position the SNF traces
+  within 15 km publish 322-1,351 psi to slip; with example gradients this
+  arithmetic differed from them by hundreds of psi - the point of printing
+  both.
+- Section BT (3 checks); BO1's UTM case now expects the parameter-based
+  refusal. Gate 365.

@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (362 checks)
+gea accept                     # the product gate (365 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -608,6 +608,21 @@ synthetic station speaking both versions; `gea seedlink --selftest` runs both
 against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
+
+### Slip tendency on the mapped faults
+
+The stress state the site declares - the three gradients and the ambient
+pore pressure with their source, the SHmax azimuth with its source or from
+the World Stress Map records near the well (`add-stress-map wsm2016.csv`,
+`wsm --lat --lon`) - resolved on every mapped fault trace within the radius
+of a well at the depth of its declared interval: the slip tendency at the
+ambient and the increased pore pressure, the pressure to slip, the margin
+left after the increase, worst and best declared case. The dip comes from
+the layer where it states one (the Hennings 2021 BEG/TexNet layers do, and
+publish their own pressure-to-slip, printed beside this arithmetic); UTM and
+state-plane layers are unprojected from their .prj parameters. `set-stress`,
+`slip --well`, `gea slip`; the SRA packet's section 2e; `gea help slip`. A
+statement on declared inputs, not a probability and not a verdict.
 
 ### The catalogue accounted for
 
