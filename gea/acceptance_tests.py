@@ -7274,6 +7274,52 @@ def section_bt_slip(tmp: str) -> None:
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_bu_comcat(tmp: str) -> None:
+    """Section BU - the USGS ComCat / FDSN text export read as a catalogue, proven on two verbatim public-domain
+    extracts kept as fixtures (the Delaware Basin, September 2026; the Youngstown 2011 sequence); the SRA seismicity
+    on the real Youngstown sequence; the query builder; the CLI."""
+    import subprocess as _sp
+    from . import sra as SR
+    from . import geodesy as GD
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bu"); d.mkdir()
+    fx = pkg / "fixtures"
+    de = SR.read_catalog(str(fx / "comcat_delaware_basin_2026-09.txt"))
+    yo = SR.read_catalog(str(fx / "comcat_youngstown_2011-2012.txt"))
+    big = max(yo["events"], key=lambda e: e["magnitude"])
+    url = SR.comcat_url(41.1, -80.68, 25.0, "2011-03-01", "2012-03-01", 1.5)
+    # the Youngstown sequence against an SRA-shaped area around the Northstar 1 site: 10 km, M 2.0 threshold, plan date 2011-12-01
+    sra = SR.define("Youngstown", 41.12, -80.69, 10.0, "2011-12-01", threshold_m=2.0, formation_boundary="base of the Knox")
+    from datetime import datetime as _dt, timezone as _tz
+    se = SR.seismicity(sra, yo, as_of=_dt(2012, 2, 1, tzinfo=_tz.utc))
+    far = next(e for e in yo["events"] if e["event_id"] == "ld60004308")
+    dist_far = GD.geodesic_m(41.12, -80.69, far["lat"], far["lon"])["distance_m"] / 1000.0
+    r_file = _sp.run([sys.executable, "-m", "gea", "comcat", "--file", str(fx / "comcat_youngstown_2011-2012.txt"), "--lat", "41.1", "--lon", "-80.68"], capture_output=True, text=True)
+    r_url = _sp.run([sys.executable, "-m", "gea", "comcat", "--lat", "31.42", "--lon", "-103.5", "--radius-km", "30", "--start", "2026-09-01", "--end", "2026-10-01", "--min-mag", "2.5"], capture_output=True, text=True)
+    r_bad = _sp.run([sys.executable, "-m", "gea", "comcat", "--file", str(pkg / "catalog" / "collingwood_1_28_ks_complete.las")], capture_output=True, text=True)
+    help_md = (pkg / "help" / "sra.md").read_text(encoding="utf-8")
+    c1 = {
+        "delaware": de["format"] == "fdsn-text" and de["n_events"] == 28 and de["n_skipped"] == 0 and de["contributors"] == ["tx", "us"] and de["magnitude_types"] == ["mb_lg", "ml"]
+                    and max(e["magnitude"] for e in de["events"]) == 3.4 and de["events"][0]["event_id"] == "tx2026tgiogl" and de["events"][0]["time"] == "2026-09-30T13:35:58Z"
+                    and de["events"][0]["depth_km"] == 6.2024 and "mixes scales" in de["basis"] and sum(1 for e in de["events"] if e["contributor"] == "us") == 4,
+        "youngstown": yo["n_events"] == 9 and big["event_id"] == "ld60029101" and big["magnitude"] == 4.0 and big["time"] == "2011-12-31T20:05:01Z" and big["lat"] == 41.1215 and big["lon"] == -80.6843333
+                      and big["place"] == "3 km NW of Youngstown, Ohio" and yo["contributors"] == ["ld"],
+        "seismicity": se["n_inside"] == 9 and se["largest"]["event_id"] == "ld60029101" and se["largest"]["magnitude"] == 4.0 and se["n_at_or_above"] == 6 and dist_far < 10.0
+                      and se["trigger"]["status"] == "TRIGGERED" and se["trigger"]["respond_by"] == "2012-01-02T20:05:01Z" and se["goal"]["clock_started"] == "2011-12-31",
+        "url": url == "https://earthquake.usgs.gov/fdsnws/event/1/query?format=text&starttime=2011-03-01&endtime=2012-03-01&latitude=41.1000&longitude=-80.6800&maxradiuskm=25&minmagnitude=1.5&orderby=time-asc",
+        "cli": r_file.returncode == 0 and "largest: M 4.0 ml 2011-12-31T20:05:01Z at 41.1215, -80.6843" in r_file.stdout and "1.68 km" in r_file.stdout
+               and r_url.returncode == 0 and "maxradiuskm=30&minmagnitude=2.5" in r_url.stdout and r_bad.returncode == 1 and "not an FDSN text export" in r_bad.stdout,
+        "help_and_fixtures": "gea comcat" in help_md and (fx / "README.md").read_text(encoding="utf-8").count("earthquake.usgs.gov/fdsnws/event/1/query") == 2,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "BU1 the FDSN text export read as a catalogue with contributors and magnitude types: the Delaware Basin window of September 2026 (28 events, TexNet "
+       "and NEIC, ML and mb_Lg, largest M 3.4) and the Youngstown 2011 sequence (9 events, the M 4.0 of 2011-12-31 3 km NW of Youngstown); the SRA seismicity "
+       "on the real sequence inside a 10 km area (six at or above M 2.0, the M 4.0 TRIGGERED, the goal clock from 2011-12-31); the query builder; `gea comcat --file` with distances and `--lat --lon --start --end` printing the query; "
+       "a LAS refused; the help and the fixtures' provenance"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -7349,6 +7395,7 @@ def main() -> int:
         section_br_logs_historian(tmp)
         section_bs_catalog(tmp)
         section_bt_slip(tmp)
+        section_bu_comcat(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

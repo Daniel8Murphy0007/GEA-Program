@@ -1683,3 +1683,26 @@ reads their numbers beside its own rather than pretending to replace them.
   both.
 - Section BT (3 checks); BO1's UTM case now expects the parameter-based
   refusal. Gate 365.
+
+## 2026-10-12 - ComCat (v0.27.0)
+
+Neither this workspace nor his VM reaches earthquake.usgs.gov, so I read
+the FDSN text service through the desktop browser and kept the two answers
+verbatim as fixtures: the Delaware Basin for September 2026 (28 events,
+largest M 3.4, TexNet and NEIC) and Youngstown 2011-2012 (9 events, the
+M 4.0 of 2011-12-31 - his own ground, the Northstar 1 sequence).
+
+- `sra.read_fdsn_text` (contributor, magnitude type, place on each event;
+  `read_catalog` dispatches on the `#EventID|Time|` header),
+  `sra.comcat_url`; `gea comcat --file | --lat --lon --start --end`;
+  `gea/fixtures/README.md` with the two query URLs; `fixtures/*` in the
+  package data; the SRA help names the service.
+- Real numbers: a 10 km area at 41.12 N, 80.69 W with an M 2.0 threshold
+  and a 2011-12-01 plan date holds all 9 events, 6 at or above the
+  threshold; the M 4.0 is TRIGGERED with respond-by 2012-01-02T20:05:01Z;
+  the goal clock starts 2011-12-31.
+- Also found on the GDR for him: the FORGE 16A(78)-32 April 2022
+  stimulation data (288.94 MB, 1-second Pason data) and the seismic event
+  catalogues (321 kB, 720 kB updated) - gdr.openei.org submissions 1379,
+  1399, 1429.
+- Section BU (1 check). Gate 366.

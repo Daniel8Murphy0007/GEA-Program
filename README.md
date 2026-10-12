@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (365 checks)
+gea accept                     # the product gate (366 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -608,6 +608,16 @@ synthetic station speaking both versions; `gea seedlink --selftest` runs both
 against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
+
+### ComCat
+
+The seismicity response plan reads a TexNet export; it reads the FDSN text
+export of USGS ComCat - or any FDSN event service - the same way, with the
+contributor and magnitude type on every event. `gea comcat --lat --lon
+--radius-km --start --end` prints the query to open; `gea comcat --file`
+reads the answer; `sra-report --catalog` takes it. Proven on two verbatim
+public-domain extracts (the Delaware Basin, September 2026; the 2011
+Youngstown sequence with its M 4.0), kept as fixtures with their provenance.
 
 ### Slip tendency on the mapped faults
 

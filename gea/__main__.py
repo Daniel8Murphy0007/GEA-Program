@@ -278,6 +278,11 @@ def main(argv=None) -> int:
         p_lp.add_argument("--stream-csv", type=str, default=None, help="also write a historian-style CSV the other commands ingest")
         p_lp.add_argument("--selftest", action="store_true", help="etp: the codec round-trip and a session against the simulated store on the loopback")
 
+    p_cc = sub.add_parser("comcat", help="USGS ComCat / any FDSN event service: --lat --lon --radius-km --start --end prints the text-format query to open; --file reads the export it returns")
+    p_cc.add_argument("--lat", type=float, default=None); p_cc.add_argument("--lon", type=float, default=None); p_cc.add_argument("--radius-km", type=float, default=25.0)
+    p_cc.add_argument("--start", type=str, default=None); p_cc.add_argument("--end", type=str, default=None); p_cc.add_argument("--min-mag", type=float, default=1.0)
+    p_cc.add_argument("--file", type=str, default=None, help="an FDSN text export to read and summarise")
+    p_cc.add_argument("--json", action="store_true")
     p_sl = sub.add_parser("slip", help="slip tendency on the mapped faults of a layer at a position, from declared gradients: --layer --lat --lon --depth-ft --sv --shmin --shmax (--shmax-azimuth or --wsm)")
     p_sl.add_argument("--layer", type=str, required=True); p_sl.add_argument("--member", type=str, default=None); p_sl.add_argument("--feature-kind", type=str, choices=["fault", "fold"], default=None)
     p_sl.add_argument("--lat", type=float, required=True); p_sl.add_argument("--lon", type=float, required=True); p_sl.add_argument("--radius-km", type=float, default=25.0)
@@ -2350,6 +2355,35 @@ def main(argv=None) -> int:
         except KeyboardInterrupt:
             stop.set()
             print("etp-sim: stopped")
+        return 0
+    elif a.cmd == "comcat":
+        import json as _json
+        from . import sra as _SR
+        from . import geodesy as _GD
+        if a.file:
+            c = _SR.read_catalog(a.file)
+            if c.get("format") != "fdsn-text":
+                print(f"comcat: {a.file} is not an FDSN text export (it read as a {c.get('basis', '')[:60]}...)"); return 1
+            ev = c["events"]
+            if a.lat is not None and a.lon is not None:
+                for e in ev:
+                    dm = _GD.geodesic_m(a.lat, a.lon, e["lat"], e["lon"])["distance_m"]
+                    e["distance_km"] = round(dm / 1000.0, 2) if dm is not None else None
+            if a.json:
+                print(_json.dumps(c, indent=1, default=str)); return 0
+            big = max(ev, key=lambda e: e["magnitude"]) if ev else None
+            ts = sorted(e["time"] for e in ev)
+            print(f"comcat: {c['n_events']} event(s) ({c['n_skipped']} skipped) from {ts[0][:10] if ts else '-'} to {ts[-1][:10] if ts else '-'}; "
+                  f"contributors {', '.join(c['contributors'])}; magnitude types {', '.join(c['magnitude_types'])}")
+            if big:
+                print(f"  largest: M {big['magnitude']:.1f} {big['mag_type']} {big['time']} at {big['lat']:.4f}, {big['lon']:.4f}, {big['depth_km']} km - {big['place']} ({big['event_id']})")
+            for e in sorted(ev, key=lambda x: x["time"])[:40]:
+                print(f"  {e['time'][:19]}  M {e['magnitude']:>4.1f} {e['mag_type']:<6s} {e['lat']:9.4f} {e['lon']:10.4f} {str(e['depth_km']):>7s} km " + (f"{e['distance_km']:7.2f} km  " if e.get("distance_km") is not None else "") + f"{e['place']}")
+            return 0
+        if a.lat is None or a.lon is None or not a.start or not a.end:
+            raise SystemExit("comcat needs --lat --lon --start --end (--radius-km, --min-mag), or --file <export>")
+        print(_SR.comcat_url(a.lat, a.lon, a.radius_km, a.start, a.end, a.min_mag))
+        print("  open it in a browser (this machine may not reach the service) and save the text it returns; `gea comcat --file <saved>` reads it, and sra-report --catalog takes it.")
         return 0
     elif a.cmd == "slip":
         import json as _json

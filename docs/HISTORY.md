@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.27.0 - 2026-10-12 - ComCat
+
+- **The national catalogue read as the plan reads TexNet's.** The FDSN
+  text export with contributors and magnitude types; two verbatim
+  public-domain extracts as fixtures; the SRA seismicity proven on the
+  real 2011 Youngstown sequence (the M 4.0 of 2011-12-31 TRIGGERED);
+  `gea comcat`. Section BU; gate 366.
+
 ## v0.26.0 - 2026-10-12 - slip tendency on the mapped faults
 
 - **The stress state, stated, resolved on every trace.** The fault slip

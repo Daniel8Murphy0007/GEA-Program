@@ -340,6 +340,10 @@ def read_catalog(path: str, mapping: Optional[Dict[str, str]] = None) -> dict:
     """A TexNet earthquake-catalogue export (CSV). The columns are found by name; a mapping wins. Every event
     keeps its own id so a claim in the packet can be traced to the catalogue line it came from."""
     from .permits import read_table, _float
+    with open(path, encoding='utf-8-sig', errors='replace') as f:
+        first = f.readline()
+    if first.startswith('#EventID|') or first.startswith('EventID|Time|'):
+        return read_fdsn_text(path)
     header, rows = read_table(path)
     cols = _detect(header, mapping)
     events, skipped = [], 0
@@ -362,6 +366,45 @@ def read_catalog(path: str, mapping: Optional[Dict[str, str]] = None) -> dict:
     return {'path': os.path.abspath(path), 'export_mtime_utc': _utc(datetime.fromtimestamp(os.path.getmtime(path), timezone.utc)),
             'columns': cols, 'n_rows': len(rows), 'n_events': len(events), 'n_skipped': skipped, 'events': events,
             'datum': 'WGS84', 'basis': 'the TexNet earthquake catalogue as exported by the operator; positions WGS84, magnitudes ML'}
+
+
+def read_fdsn_text(path: str) -> dict:
+    """The FDSN event web service's text format - USGS ComCat (earthquake.usgs.gov/fdsnws/event/1/query?format=text), and every
+    FDSN-compliant catalogue service: `#EventID|Time|Latitude|Longitude|Depth/km|Author|Catalog|Contributor|ContributorID|MagType|
+    Magnitude|MagAuthor|EventLocationName`. The contributor (tx = TexNet, us = NEIC, ld = Lamont-Doherty) and the magnitude type ride
+    on each event, since a ComCat window mixes networks and magnitude scales."""
+    from .permits import _float
+    events, skipped, n_rows = [], 0, 0
+    with open(path, encoding='utf-8-sig', errors='replace') as f:
+        header = [h.strip().lstrip('#') for h in f.readline().rstrip('\n').split('|')]
+        idx = {h.lower(): i for i, h in enumerate(header)}
+        for line in f:
+            if not line.strip() or line.startswith('#'):
+                continue
+            n_rows += 1
+            parts = line.rstrip('\n').split('|')
+            def g(name):
+                i = idx.get(name)
+                return parts[i].strip() if i is not None and i < len(parts) else ''
+            t = _parse_dt(g('time').replace('T', ' ').split('.')[0]) if g('time') else None
+            m, la, lo = _float(g('magnitude')), _float(g('latitude')), _float(g('longitude'))
+            if t is None or m is None or la is None or lo is None:
+                skipped += 1; continue
+            events.append({'event_id': g('eventid') or f'row{n_rows}', 'time': _utc(t), 'magnitude': m, 'lat': la, 'lon': lo, 'depth_km': _float(g('depth/km')),
+                           'mag_type': g('magtype'), 'contributor': g('contributor'), 'catalog': g('catalog'), 'place': g('eventlocationname')})
+    contribs = sorted({e['contributor'] for e in events if e['contributor']})
+    mtypes = sorted({e['mag_type'] for e in events if e['mag_type']})
+    return {'path': os.path.abspath(path), 'export_mtime_utc': _utc(datetime.fromtimestamp(os.path.getmtime(path), timezone.utc)),
+            'columns': {h.lower(): h for h in header}, 'n_rows': n_rows, 'n_events': len(events), 'n_skipped': skipped, 'events': events, 'datum': 'WGS84',
+            'format': 'fdsn-text', 'contributors': contribs, 'magnitude_types': mtypes,
+            'basis': f"an FDSN event-service text export (USGS ComCat or another FDSN catalogue); positions WGS84; contributors {', '.join(contribs) or '?'}; "
+                     f"magnitude types {', '.join(mtypes) or '?'} - a window across networks mixes scales, and the plan's threshold is read as the catalogue's reported magnitude"}
+
+
+def comcat_url(lat: float, lon: float, radius_km: float, start: str, end: str, min_magnitude: float = 1.0, fmt: str = 'text') -> str:
+    """The ComCat query for a circle and a window - the URL to open in a browser or hand to a machine that can reach the service."""
+    return ('https://earthquake.usgs.gov/fdsnws/event/1/query?format=' + fmt + f'&starttime={start}&endtime={end}&latitude={lat:.4f}&longitude={lon:.4f}'
+            f'&maxradiuskm={radius_km:g}&minmagnitude={min_magnitude:g}&orderby=time-asc')
 
 
 def _detect(header: Sequence[str], mapping: Optional[Dict[str, str]]) -> Dict[str, Optional[str]]:

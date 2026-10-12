@@ -5,6 +5,33 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.27.0] - 2026-10-12 - ComCat: the national catalogue read as the plan reads TexNet's, proven on the Youngstown sequence
+
+### Added
+- **The FDSN event-service text export** (`sra.read_fdsn_text`): USGS
+  ComCat - and every FDSN-compliant catalogue service - answers
+  `format=text` with `#EventID|Time|Latitude|Longitude|Depth/km|...|
+  MagType|Magnitude|...|EventLocationName`. `read_catalog` now recognises
+  it and reads it with the contributor (tx = TexNet, us = NEIC, ld =
+  Lamont-Doherty) and the magnitude type on every event, and the packet's
+  basis says a window across networks mixes scales. `sra-report --catalog`
+  takes the file as it takes a TexNet export.
+- **Two verbatim public-domain extracts as fixtures** (`gea/fixtures/`,
+  provenance in its README): the Delaware and Midland basins for
+  September 2026 - 28 events M >= 2.5, TexNet and NEIC, ML and mb_Lg,
+  largest M 3.4 - and the 2011 Youngstown, Ohio sequence - 9 events within
+  25 km, ending in the M 4.0 of 2011-12-31 3 km NW of Youngstown. The gate
+  runs the SRA seismicity on the real Youngstown sequence inside a 10 km
+  area with an M 2.0 threshold: six at or above, the M 4.0 TRIGGERED with
+  its 48-hour respond-by, the goal clock from 2011-12-31.
+- `gea comcat --lat --lon --radius-km --start --end --min-mag` prints the
+  query to open (this program's machines may not reach the service; a
+  browser does); `gea comcat --file <export> [--lat --lon]` reads it and
+  lists the events with their distances. `gea help sra` names it.
+- What it will not do: fetch the catalogue itself from a machine that
+  cannot reach the service; read one network's magnitude as another's;
+  decide an aftershock. Section BU (1 check); the gate is 366.
+
 ## [v0.26.0] - 2026-10-12 - slip tendency on the mapped faults: the stress state, stated, resolved on every trace
 
 ### Added

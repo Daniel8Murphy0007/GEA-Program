@@ -1,0 +1,29 @@
+#EventID|Time|Latitude|Longitude|Depth/km|Author|Catalog|Contributor|ContributorID|MagType|Magnitude|MagAuthor|EventLocationName
+tx2026tgiogl|2026-09-30T13:35:58.370|31.618|-104.363|6.2024|tx|tx|tx|tx2026tgiogl|ml|2.9|tx|61 km S of Whites City, New Mexico
+tx2026tfzcgy|2026-09-30T08:50:13.448|31.624|-104.364|6.9714|tx|tx|tx|tx2026tfzcgy|ml|3.3|tx|61 km S of Whites City, New Mexico
+tx2026tbppja|2026-09-27T23:45:52.397|31.617|-104.312|8.4583|tx|tx|tx|tx2026tbppja|ml|2.5|tx|59 km NW of Toyah, Texas
+tx2026sxmsve|2026-09-25T18:01:21.042|31.379|-103.705|6.228|tx|tx|tx|tx2026sxmsve|ml|2.6|tx|11 km NE of Toyah, Texas
+tx2026svkhwu|2026-09-24T14:39:26.649|30.831|-103.394|3.3569|tx|tx|tx|tx2026svkhwu|ml|2.9|tx|37 km ESE of Balmorhea, Texas
+tx2026ssvrgl|2026-09-23T05:08:42.441|32.401|-102.046|7.1533|tx|tx|tx|tx2026ssvrgl|ml|3|tx|34 km WSW of Ackerly, Texas
+tx2026sspzfy|2026-09-23T02:16:59.235|32.436|-102.098|6.958|tx|tx|tx|tx2026sspzfy|ml|2.8|tx|35 km SSW of Los Ybanez, Texas
+tx2026srxfgq|2026-09-22T16:50:40.191|31.668|-104.402|6.0999|tx|tx|tx|tx2026srxfgq|ml|2.6|tx|56 km S of Whites City, New Mexico
+tx2026srvtwi|2026-09-22T16:07:21.955|31.605|-103.933|7.7533|tx|tx|tx|tx2026srvtwi|ml|2.5|tx|33 km WSW of Mentone, Texas
+tx2026srfrih|2026-09-22T08:04:38.331|31.666|-104.25|6.0999|tx|tx|tx|tx2026srfrih|ml|3.1|tx|57 km SSE of Whites City, New Mexico
+us7000tisq|2026-09-20T19:23:14.330|32.2823|-103.7703|7.6|us|us|us|us7000tisq|mb_lg|2.9|us|29 km ENE of Malaga, New Mexico
+tx2026sngzur|2026-09-20T04:23:40.180|31.668|-104.362|7.1765|tx|tx|tx|tx2026sngzur|ml|3.2|tx|56 km S of Whites City, New Mexico
+tx2026sipbbo|2026-09-17T15:04:16.188|32.074|-103.679|7.7533|tx|tx|tx|tx2026sipbbo|ml|2.7|tx|40 km ESE of Malaga, New Mexico
+tx2026siects|2026-09-17T09:34:33.358|31.665|-104.453|6.0999|tx|tx|tx|tx2026siects|ml|2.5|tx|57 km S of Whites City, New Mexico
+tx2026sfaiyw|2026-09-15T16:27:44.534|31.615|-104.113|6.0999|tx|tx|tx|tx2026sfaiyw|ml|2.6|tx|45 km NW of Toyah, Texas
+tx2026selaoc|2026-09-15T08:48:29.775|31.657|-104.135|6.1127|tx|tx|tx|tx2026selaoc|ml|3.3|tx|49 km NW of Toyah, Texas
+tx2026sawssd|2026-09-13T10:20:00.004|31.661|-104.432|6.0999|tx|tx|tx|tx2026sawssd|ml|3.4|tx|57 km S of Whites City, New Mexico
+tx2026sapxnl|2026-09-13T06:54:23.103|31.661|-104.432|6.0999|tx|tx|tx|tx2026sapxnl|ml|2.9|tx|57 km S of Whites City, New Mexico
+tx2026saectr|2026-09-13T00:58:24.306|31.751|-104.336|7.074|tx|tx|tx|tx2026saectr|ml|2.9|tx|47 km S of Whites City, New Mexico
+us7000tgvj|2026-09-12T00:22:12.507|32.2629|-103.2847|7.91|us|us|us|us7000tgvj|mb_lg|2.6|us|18 km NNW of Jal, New Mexico
+tx2026rupmzs|2026-09-10T00:15:33.655|31.64|-104.408|6.3306|tx|tx|tx|tx2026rupmzs|ml|3|tx|59 km S of Whites City, New Mexico
+us7000tg2k|2026-09-09T16:00:21.180|32.3229|-104.4961|3.897|us|us|us|us7000tg2k|ml|2.5|us|19 km NW of Whites City, New Mexico
+tx2026rqcbab|2026-09-07T13:11:15.952|32.005|-103.24|6.0999|tx|tx|tx|tx2026rqcbab|ml|2.7|tx|12 km SSW of Jal, New Mexico
+tx2026roctny|2026-09-06T11:24:04.550|31.542|-104.128|8.8428|tx|tx|tx|tx2026roctny|ml|2.5|tx|40 km NW of Toyah, Texas
+us7000tegw|2026-09-05T03:41:56.500|32.3519|-104.4998|5|us|us|us|us7000tegw|ml|2.7|us|22 km NNW of Whites City, New Mexico
+tx2026rliwah|2026-09-04T23:14:17.831|31.667|-104.37|6.9202|tx|tx|tx|tx2026rliwah|ml|2.5|tx|56 km S of Whites City, New Mexico
+tx2026rjxsxm|2026-09-04T04:35:25.328|31.542|-104.129|8.5095|tx|tx|tx|tx2026rjxsxm|ml|3.1|tx|40 km NW of Toyah, Texas
+tx2026rjmsif|2026-09-03T23:02:00.297|31.656|-104.387|6.0999|tx|tx|tx|tx2026rjmsif|ml|2.5|tx|57 km S of Whites City, New Mexico

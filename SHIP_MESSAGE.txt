@@ -1,28 +1,26 @@
-v0.26.0 — SLIP TENDENCY ON THE MAPPED FAULTS: THE STRESS STATE, STATED, RESOLVED ON EVERY TRACE
+v0.27.0 — COMCAT: THE NATIONAL CATALOGUE READ AS THE PLAN READS TEXNET'S, PROVEN ON THE YOUNGSTOWN SEQUENCE
 
-After "how far is the nearest mapped fault" comes "how close to slipping is
-it, under this injection". The open method - Morris slip tendency, the fault
-slip potential arithmetic of Walsh and Zoback - is a stress state resolved on
-a plane: the vertical and the two horizontal stresses on it, the pore
-pressure taken off, the shear stress against the friction times the
-effective normal stress. This program does that arithmetic on inputs the
-site declares with their sources and on nothing it has not been told: the
-gradients and their source, the SHmax azimuth with its source or from the
-World Stress Map records near the well with their count and spread printed,
-the strike from the map, the dip from the layer where it states one and
-otherwise each declared dip, the friction coefficient printed against the
-catalogue's measured envelope. For every trace within the radius: the slip
-tendency at the ambient and the increased pore pressure, the pressure to
-slip and the margin left, below or past the friction line in the worst and
-the best declared case.
+The seismicity response plan reads a TexNet catalogue export. The national
+catalogue - USGS ComCat, and every FDSN-compliant service - answers the
+same question for any site in the country in the FDSN text format, and the
+program now reads that as it reads TexNet's: every event with its
+contributor and its magnitude type, because a window across networks mixes
+scales and the packet should say so.
 
-The BEG/TexNet Delaware Basin fault layers of Hennings et al. 2021 are read -
-UTM, unprojected from the .prj's own parameters, 8,332 segments with their
-dips - and where they publish their own pressure-to-slip under their
-calibrated stress model, that number is printed beside this arithmetic with
-the difference. The published model is the one with a paper behind it.
+It is proven on two verbatim public-domain extracts kept as fixtures with
+their query URLs: the Delaware and Midland basins for September 2026, 28
+events from TexNet and NEIC with the largest at M 3.4; and the 2011
+Youngstown, Ohio sequence, nine events within 25 km ending in the M 4.0 of
+New Year's Eve 2011, three kilometres from the Northstar 1 disposal well.
+The gate runs the plan's arithmetic on that real sequence: inside a 10 km
+area at an M 2.0 threshold, six events at or above it, the M 4.0 TRIGGERED
+with its 48-hour respond-by, the goal clock started that night.
 
-What it will not do: measure a stress; give a fault a dip the map does not
-carry; give a probability of an earthquake; attribute an event.
+`gea comcat` prints the query for a position and a window, and reads the
+file the service returns.
 
-Section BT is new. The gate is 365 checks. The standalone guard is clean.
+What it will not do: fetch the catalogue from a machine that cannot reach
+the service; read one network's magnitude as another's; decide an
+aftershock.
+
+Section BU is new. The gate is 366 checks. The standalone guard is clean.
