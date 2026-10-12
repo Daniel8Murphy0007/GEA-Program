@@ -1575,3 +1575,40 @@ the ones a pad offers and the program did not take.
   the service, the CLI, the help. Gate 356.
 - Found on the way: the DNP3 self-test's confirm count raced the socket
   close; it now waits for the confirm. Nothing from his downloads yet.
+
+## 2026-10-12 - DLIS and the historian (v0.24.0)
+
+Built in the cloud behind v0.23.0 while v0.22.0 waits for its ship. The
+real file came from GitHub through his machine (equinor/dlisio's test data,
+the one file there that is an actually produced log) and sits in
+C:\site\_incoming\dlis\.
+
+- `gea/dlis.py`: `_Cursor` (every representation code), `read_sul`,
+  `segments` (visible records, segment attributes, trailers; an encrypted
+  segment kept and flagged), `logical_records` (reassembly by predecessor
+  and successor), `parse_eflr` (set, template, objects; absent attributes;
+  invariant attributes), `DlisFile` (CHANNEL, FRAME, ORIGIN, FILE-HEADER,
+  PARAMETER; encrypted records counted; `describe`, `frame_data`), `read`
+  (the LiveStream), `write` (sets, frames, FDATA; segmentation to the
+  record size; padding declared). The real file first failed on an
+  encrypted segment - the reader now names and skips it.
+- `files.detect` knows the label; `preview` describes a DLIS; `read_any`
+  reads it; `scan_root` imports it. `survey_cmd.run_survey(frame=)` reads a
+  DLIS and refuses a time-indexed frame by name. The `dlis` port in
+  PORT_REGISTRY. `gea dlis`, `gea survey --frame`.
+- `gea/piwebapi.py`: `PiWebApiClient` (GET; basic/bearer from the
+  environment; plain HTTP refused), `recorded` (paged), `interpolated`,
+  `value`, `classify`, `PiPort` (pull; units converted; faults named),
+  `SimServer` (paging, digital and system states, 404 with PI's error shape,
+  basic auth), `read_piwebapi`, `selftest`. Protocol `piwebapi` in
+  patches (the window moves with the last archive time), workspace PORTS,
+  service RUNNABLE and example, the page. `gea piwebapi`.
+- Real numbers (206_05a): 3,252 logical records; sets FILE-HEADER, ORIGIN,
+  EQUIPMENT x14, TOOL x2, 440-CHANNEL x95, PARAMETER x79/x138/x9,
+  CALIBRATION-MEASUREMENT x6, CALIBRATION-COEFFICIENT x12/x12, CALIBRATION
+  x27, PROCESS, 440-OP-CORE_TABLES x250, 440-OP-CORE_REPORT_FORMAT x17,
+  CHANNEL x104, 440-PRESENTATION-DESCRIPTION, 440-OP-CHANNEL x93, FRAME x2;
+  encrypted type 132 x9, type 128 x2; frame 800T 2,301 rows x 42 channels
+  in 0.07 s; the survey refuses it (time-indexed, no density) and says so.
+- Section BR (3 checks): DLIS; PI Web API; the detector, survey,
+  supervisor, service, CLI, help. Gate 359.

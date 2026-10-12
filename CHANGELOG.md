@@ -5,6 +5,56 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.24.0] - 2026-10-12 - the log as delivered and the historian: DLIS and PI Web API
+
+### Added
+- **DLIS (API RP66 V1)** (`gea/dlis.py`): the format a well log is delivered
+  in, read as the standard lays the container out and with no dependency -
+  the storage unit label; the visible records; the logical record segments
+  with their predecessor and successor flags and their trailers (padding,
+  checksum, trailing length); the explicitly formatted records as sets of
+  objects under a template, with the representation codes of Appendix B
+  (FSINGL, FDOUBL, FSHORT, ISINGL, VSINGL, the integers, UVARI in its three
+  lengths, IDENT, ASCII, DTIME, ORIGIN, OBNAME, OBJREF, ATTREF, STATUS,
+  UNITS); the FRAME and CHANNEL objects; the frame data records as the
+  channel values in the frame's order. An encrypted record is skipped and
+  counted by type, never decrypted or guessed; a channel with a dimension
+  other than one or a non-numeric code is read past and named; a frame
+  whose index is not depth is read as time and refused by the survey with
+  the frames named; a LAS handed to the reader is refused by its label. The
+  frame becomes the same stream the LAS port makes, with the origin's well,
+  field, company and producer on it. A writer, so the reader is proven on
+  files this program made before it meets a public one.
+- **Proven on a real file**: Schlumberger's MSCT station log of well
+  206/05a-3 (Faroe Petroleum, Fulla, 2011), the actually produced file in
+  the public dlisio test set: 3,252 logical records, 19 sets, 104 channels,
+  2 frames (2000T: 921 rows x 3 channels; 800T: 2,301 rows x 42 channels,
+  TIME 16,677,259 to 17,597,260 ms, TDEP 852,606 to 893,304 x 0.1 in), 11
+  vendor-encrypted records skipped and named, read whole in 0.07 s. Not
+  shipped in the package.
+- `gea dlis --file --info | --frame --out | --to-las`; `gea survey --file
+  log.dlis [--frame]`; the Files page detects a DLIS by its label, previews
+  it and imports it as a well; the `dlis` port in the registry. `gea help
+  dlis`.
+- **PI Web API** (`gea/piwebapi.py`): the operator's gauge history out of
+  the AVEVA (OSIsoft) PI System - GET only, on the point and stream
+  controllers: the point by path, `recorded` between two times with the
+  server's paging followed through `Links.Next`, `interpolated` at an
+  interval, the current `value`. Every value a record with the archive's
+  timestamp as the source time and the archive's flags kept: Good is GOOD;
+  Questionable and Substituted carried in the rule; not Good is BAD with
+  the value; a digital state is GAP with its name; a system state (I/O
+  Timeout, Shutdown...) GAP named as the archive's; the point's engineering
+  unit converted where a conversion is known. Basic or bearer auth from
+  environment variables the map NAMES (the map never holds a credential),
+  a credential over plain HTTP refused in code. Protocol `piwebapi` on the
+  Patch panel pulls on an interval with the window moving from the last
+  archive time seen; `gea piwebapi`; the stand-in server for the rehearsal
+  and the gate. `gea help historian`.
+- What it will not do: decrypt; lay out a channel by guess; place a time
+  frame on a depth axis; write to PI; hold a credential; fill a gap the
+  archive left. Section BR (3 checks); the gate is 359.
+
 ## [v0.23.0] - 2026-10-12 - the field ports: Modbus RTU, DNP3, HART-IP
 
 ### Added

@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (356 checks)
+gea accept                     # the product gate (359 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -608,6 +608,24 @@ synthetic station speaking both versions; `gea seedlink --selftest` runs both
 against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
+
+### The log as delivered, and the historian
+
+A well log arrives as DLIS (API RP66 V1); `gea/dlis.py` reads the container
+as the standard lays it out, with no dependency - the storage unit label,
+visible records, logical record segments and trailers, the sets of objects
+with every representation code, the frames and channels, the frame data -
+and hands the strata survey the same stream the LAS port does: `gea dlis
+--file log.dlis --info` describes it, `--to-las` exports a frame, `gea survey
+--file log.dlis` reads it directly, and the Files page detects it by its
+label. Encrypted records are skipped and named, never decrypted or guessed.
+Proven on a real Schlumberger station log (104 channels, two frames, 3,252
+records in a tenth of a second). The operator's gauge history in a PI System
+comes out through PI Web API (`gea piwebapi`, protocol `piwebapi` on the
+Patch panel): GET only, the archive between two times with its paging
+followed, every value with the archive's timestamp and flags, credentials
+from environment variables the map names. `gea help dlis`, `gea help
+historian`.
 
 ### The field ports
 

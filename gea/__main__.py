@@ -278,6 +278,21 @@ def main(argv=None) -> int:
         p_lp.add_argument("--stream-csv", type=str, default=None, help="also write a historian-style CSV the other commands ingest")
         p_lp.add_argument("--selftest", action="store_true", help="etp: the codec round-trip and a session against the simulated store on the loopback")
 
+    p_dl = sub.add_parser("dlis", help="a DLIS (RP66 V1) well log: --info describes it (origin, channels, frames, what was skipped); --frame --out writes the frame as a historian-style CSV; --to-las writes LAS 2.0")
+    p_dl.add_argument("--file", type=str, required=True)
+    p_dl.add_argument("--info", action="store_true")
+    p_dl.add_argument("--frame", type=str, default=None, help="the frame to read when the file holds several")
+    p_dl.add_argument("--out", type=str, default=None, help="write the frame's channels as CSV (index first)")
+    p_dl.add_argument("--to-las", type=str, default=None, help="write the frame as a LAS 2.0 file")
+    p_dl.add_argument("--json", action="store_true")
+    p_pi = sub.add_parser("piwebapi", help="the PI Web API historian pull, read-only: --config (base_url, auth by environment variable names, tags with paths); --selftest against the stand-in")
+    p_pi.add_argument("--config", type=str, default=None)
+    p_pi.add_argument("--write-example-config", type=str, default=None)
+    p_pi.add_argument("--out", type=str, default=None, help="write the records CSV here")
+    p_pi.add_argument("--stream-csv", type=str, default=None)
+    p_pi.add_argument("--seconds", type=float, default=None, help="ignored: a pull is one request per tag (kept so the live tap's call shape is the same)")
+    p_pi.add_argument("--record", type=str, default=None, help="write the pull's summary as one JSON line here")
+    p_pi.add_argument("--selftest", action="store_true")
     for name, helptxt in (("modbus-rtu", "Modbus RTU port, read-only: the serial line (pyserial) or RTU over TCP; functions 03/04 only; the stand-in slave with --selftest"),
                           ("dnp3", "DNP3 (IEEE 1815) master, read-only: integrity and event polls over TCP; analog inputs, binaries, counters with flags and event times; the stand-in outstation with --selftest"),
                           ("hartip", "HART-IP client, read-only: session, command 0, 3 and 9; the variables with their unit codes and status; the stand-in device with --selftest")):
@@ -671,8 +686,9 @@ def main(argv=None) -> int:
     p_fl.add_argument("--station-md", type=float, default=None)
     p_fl.add_argument("--actor", type=str, default="cli")
 
-    p_sy = sub.add_parser("survey", help="a LAS file in, one strata report out (--demo: the bundled public KTB excerpt); --out writes report.txt + survey.json")
-    p_sy.add_argument("--file", type=str, default=None, help="LAS 2.0 file")
+    p_sy = sub.add_parser("survey", help="a LAS or DLIS file in, one strata report out (--demo: the bundled public KTB excerpt); --out writes report.txt + survey.json")
+    p_sy.add_argument("--file", type=str, default=None, help="LAS 2.0 or DLIS (RP66 V1) file")
+    p_sy.add_argument("--frame", type=str, default=None, help="DLIS: the frame to read when the file holds several (gea dlis --file X --info lists them)")
     p_sy.add_argument("--demo", action="store_true")
     p_sy.add_argument("--family", type=str, default="continental_crystalline", help="prior family for the estimator")
     p_sy.add_argument("--lat", type=float, default=None)
@@ -808,8 +824,8 @@ def main(argv=None) -> int:
         import json as _json
         from .survey_cmd import run_survey
         if not (a.file or a.demo):
-            raise SystemExit("survey needs --file <LAS> or --demo")
-        txt, machine = run_survey(path=a.file, demo=a.demo, family=a.family, lat=a.lat, elev=a.elev)
+            raise SystemExit("survey needs --file <LAS or DLIS> or --demo")
+        txt, machine = run_survey(path=a.file, demo=a.demo, family=a.family, lat=a.lat, elev=a.elev, frame=a.frame)
         print(txt)
         if a.out:
             os.makedirs(a.out, exist_ok=True)
@@ -2282,6 +2298,111 @@ def main(argv=None) -> int:
             stop.set()
             print("etp-sim: stopped")
         return 0
+    elif a.cmd == "dlis":
+        import json as _json
+        from .dlis import DlisError, DlisFile, read as _read_dlis
+        try:
+            if a.info or not (a.out or a.to_las):
+                with open(a.file, "rb") as f:
+                    info = DlisFile(f.read(), os.path.basename(a.file)).describe()
+                if a.json:
+                    print(_json.dumps(info, indent=1, default=str)); return 0
+                o = info["origin"]
+                print(f"dlis: {a.file}")
+                print(f"  storage set: {info['storage_unit']['storage_set_id']}; file {info['file_header'].get('ID', '').strip()} seq {info['file_header'].get('SEQUENCE-NUMBER', '').strip()}")
+                print(f"  well: {o.get('WELL-NAME', '').strip() or '?'}  field: {o.get('FIELD-NAME', '').strip() or '?'}  company: {o.get('COMPANY', '').strip() or '?'}  producer: {o.get('PRODUCER-NAME', '').strip() or '?'}  created: {o.get('CREATION-TIME', '?')}")
+                print(f"  {info['n_records']} logical records; sets: " + ", ".join(f"{t}{'(' + n + ')' if n else ''} x{k}" for t, n, k in info["eflr_sets"]))
+                if info.get("encrypted_records"):
+                    print("  encrypted records skipped: " + ", ".join(f"{k} x{n}" for k, n in info["encrypted_records"].items()))
+                for u in info["unparsed"]:
+                    print("  not parsed: " + u)
+                print(f"  {len(info['channels'])} channels:")
+                for c in info["channels"]:
+                    print(f"    {c['name']:<12s} {c['units']:<10s} {c['code']:<7s} dim {c['dimension']}  {c['long_name']}")
+                for fr in info["frames"]:
+                    print(f"  frame {fr['name']}: index {fr['index_type']} {fr['direction']}, spacing {fr['spacing']} {fr['spacing_units']}, {fr['index_min']}..{fr['index_max']}; {len(fr['channels'])} channels: {', '.join(fr['channels'][:12])}{' ...' if len(fr['channels']) > 12 else ''}")
+                return 0
+            st = _read_dlis(a.file, frame=a.frame)
+        except (DlisError, OSError) as e:
+            raise SystemExit(f"dlis: {e}")
+        print(f"dlis: frame {st.meta['frame']}: {len(st.index)} rows, index {st.meta['index_channel']} ({st.meta['index_units']}) {float(st.index[0]):g}..{float(st.index[-1]):g}, {len(st.channels)} channels"
+              + (f"; {st.meta['notes']}" if st.meta.get("notes") else ""))
+        if a.out:
+            import csv as _csv
+            with open(a.out, "w", newline="", encoding="utf-8") as f:
+                w = _csv.writer(f)
+                w.writerow([st.meta["index_channel"]] + list(st.channels))
+                w.writerow([st.meta["index_units"]] + [st.channels[c].unit for c in st.channels])
+                for i in range(len(st.index)):
+                    w.writerow([float(st.index[i])] + ["" if st.channels[c].values[i] != st.channels[c].values[i] else float(st.channels[c].values[i]) for c in st.channels])
+            print("  csv:", a.out)
+        if a.to_las:
+            with open(a.to_las, "w", encoding="utf-8") as f:
+                f.write("~VERSION INFORMATION\n VERS.   2.0 : CWLS LOG ASCII STANDARD - VERSION 2.0\n WRAP.   NO  : ONE LINE PER DEPTH STEP\n")
+                f.write("~WELL INFORMATION\n")
+                f.write(f" STRT.{st.meta['index_units']:<6s} {float(st.index[0]):.4f} : START\n STOP.{st.meta['index_units']:<6s} {float(st.index[-1]):.4f} : STOP\n")
+                f.write(f" STEP.{st.meta['index_units']:<6s} {(float(st.index[1]) - float(st.index[0])) if len(st.index) > 1 else 0.0:.4f} : STEP\n NULL.       -999.25 : NULL VALUE\n")
+                f.write(f" WELL.       {st.meta.get('WELL-NAME', '').strip()} : WELL\n FLD .       {st.meta.get('FIELD-NAME', '').strip()} : FIELD\n COMP.       {st.meta.get('COMPANY', '').strip()} : COMPANY\n SRVC.       {st.meta.get('PRODUCER-NAME', '').strip()} : SERVICE COMPANY\n")
+                f.write(f" SRC .       DLIS {os.path.basename(a.file)} frame {st.meta['frame']} : SOURCE (gea dlis --to-las)\n")
+                f.write("~CURVE INFORMATION\n")
+                f.write(f" {st.meta['index_channel']:<8s}.{st.meta['index_units']:<8s} : INDEX\n")
+                for c in st.channels:
+                    f.write(f" {c:<8s}.{st.channels[c].unit:<8s} : {c}\n")
+                f.write("~A\n")
+                for i in range(len(st.index)):
+                    f.write(f"{float(st.index[i]):.4f}" + "".join(f" {(-999.25 if st.channels[c].values[i] != st.channels[c].values[i] else float(st.channels[c].values[i])):.4f}" for c in st.channels) + "\n")
+            print("  las:", a.to_las)
+        return 0
+    elif a.cmd == "piwebapi":
+        import json as _json
+        from .live_ports import records_to_stream, summarize, write_records_csv
+        from . import piwebapi as _PI
+        if a.selftest:
+            r = _PI.selftest()
+            print(f"piwebapi selftest: {'OK' if r['ok'] else 'FAILED'}")
+            for k, v in r.items():
+                if k != "ok":
+                    print(f"  {'ok ' if v else 'BAD'} {k}")
+            return 0 if r["ok"] else 1
+        if a.write_example_config:
+            with open(a.write_example_config, "w", encoding="utf-8") as f:
+                _json.dump(_PI.EXAMPLE_CONFIG, f, indent=1)
+            print("config:", a.write_example_config); return 0
+        if not a.config:
+            raise SystemExit("piwebapi needs --config (or --write-example-config to start one)")
+        cfg = _PI.load_config(a.config)
+        sim_h = None
+        try:
+            if cfg.get("base_url") == "sim":
+                sim = _PI.SimServer(); sim_h, port_ = sim.serve(); cfg = {**cfg, "base_url": f"http://127.0.0.1:{port_}/piwebapi", "auth": "none"}
+            try:
+                port = _PI.PiPort(cfg)
+                r = port.pull()
+            except (_PI.PiError, ValueError) as e:
+                raise SystemExit(f"piwebapi: {e}")
+        finally:
+            if sim_h is not None:
+                sim_h.close()
+        recs = port.records
+        print(f"piwebapi: {_json.dumps(port.summary(), default=str)}")
+        print(_json.dumps(summarize(recs), indent=1))
+        if a.record:
+            with open(a.record, "w", encoding="utf-8") as f:
+                f.write(_json.dumps({"pull": r, "summary": port.summary()}, default=str) + "\n")
+        if a.out:
+            print("  records:", write_records_csv(recs, a.out))
+        if a.stream_csv and recs:
+            st = records_to_stream(recs, name="piwebapi")
+            import csv as _csv
+            from datetime import datetime as _dt, timedelta as _td
+            t0 = _dt.fromisoformat(st.meta["start_time"])
+            with open(a.stream_csv, "w", newline="", encoding="utf-8") as f:
+                w = _csv.writer(f)
+                w.writerow(["timestamp"] + list(st.channels))
+                for i, t in enumerate(st.index):
+                    w.writerow([(t0 + _td(seconds=float(t))).isoformat()] + ["" if st.channels[c].values[i] != st.channels[c].values[i] else round(float(st.channels[c].values[i]), 4) for c in st.channels])
+            print("  stream:", a.stream_csv)
+        return 0 if not port.faults else 1
     elif a.cmd in ("modbus-rtu", "dnp3", "hartip"):
         import json as _json
         from .live_ports import records_to_stream, summarize, write_records_csv

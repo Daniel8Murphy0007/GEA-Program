@@ -49,7 +49,7 @@ from typing import Dict, List, Optional
 SCHEMA = 1
 _AUDIT_LOCK = threading.Lock()
 KINDS = ('file', 'catalog', 'live')
-PORTS = ('opcua', 'mqtt', 'modbus_g6', 'wits0', 'witsml', 'etp', 'modbus_rtu', 'dnp3', 'hartip')
+PORTS = ('opcua', 'mqtt', 'modbus_g6', 'wits0', 'witsml', 'etp', 'modbus_rtu', 'dnp3', 'hartip', 'piwebapi')
 
 
 def utc_now_iso() -> str:

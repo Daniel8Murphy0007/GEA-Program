@@ -61,7 +61,7 @@ def _floats(channels, key) -> List[float]:
 def run_survey(path: Optional[str] = None, demo: bool = False,
                family: str = 'continental_crystalline',
                lat: Optional[float] = None,
-               elev: Optional[float] = None) -> Tuple[str, Dict]:
+               elev: Optional[float] = None, frame: Optional[str] = None) -> Tuple[str, Dict]:
     """Run the end-to-end survey chain; returns (report_text, machine_dict)."""
     L: List[str] = []
     out: Dict = {'refusals': [], 'exclusions': {}}
@@ -74,9 +74,19 @@ def run_survey(path: Optional[str] = None, demo: bool = False,
     else:
         if not path:
             raise SystemExit('survey: give a LAS file, or use --demo')
-        st = read_las(path)
-        src_label = '%s (LAS 2.0, read by the las2 port)' % path
+        from .files import detect as _detect
+        kind = _detect(path)['kind']
+        if kind == 'dlis':
+            from .dlis import read as _read_dlis
+            st = _read_dlis(path, frame=frame)
+            src_label = '%s (DLIS RP66 V1, frame %s, read by the dlis port)' % (path, st.meta.get('frame'))
+        else:
+            st = read_las(path)
+            src_label = '%s (LAS 2.0, read by the las2 port)' % path
 
+    if st.index_kind != 'depth':
+        raise SystemExit('survey: the frame is indexed by %s (%s), not depth - a strata survey needs a depth-indexed frame; '
+                         'gea dlis --file ... --info lists the frames and their index types' % (st.index_kind, st.meta.get('index_channel', st.index_kind)))
     ch = st.channels
     depth = [float(v) for v in st.index]
     keys = {k: _find_channel(ch, k) for k in _SYNONYMS}

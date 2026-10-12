@@ -44,14 +44,14 @@ from .sample_record import SampleRecord, RECORD_COLUMNS
 from .live_ports import records_to_stream, iso, utc_now
 from .workspace import Workspace, WorkspaceError, slug, sha256_file, utc_now_iso
 
-PROTOCOLS = ('wits0', 'witsml', 'etp', 'opcua', 'mqtt', 'modbus_g6', 'modbus_rtu', 'dnp3', 'hartip')
+PROTOCOLS = ('wits0', 'witsml', 'etp', 'opcua', 'mqtt', 'modbus_g6', 'modbus_rtu', 'dnp3', 'hartip', 'piwebapi')
 STATES = ('STOPPED', 'CONNECTING', 'CONNECTED', 'DEGRADED', 'DOWN')
 BACKOFF_S = (2, 4, 8, 16, 32, 60)
 
 
 def _mod(protocol: str):
     name = {'wits0': 'gea.wits0', 'witsml': 'gea.witsml', 'etp': 'gea.etp', 'opcua': 'gea.opcua_port', 'mqtt': 'gea.mqtt_port', 'modbus_g6': 'gea.modbus',
-            'modbus_rtu': 'gea.modbus_rtu', 'dnp3': 'gea.dnp3', 'hartip': 'gea.hartip'}[protocol]
+            'modbus_rtu': 'gea.modbus_rtu', 'dnp3': 'gea.dnp3', 'hartip': 'gea.hartip', 'piwebapi': 'gea.piwebapi'}[protocol]
     return __import__(name, fromlist=['x'])
 
 
@@ -64,9 +64,15 @@ def validate_port_config(protocol: str, config: dict) -> None:
         from .modbus import load_register_map
         load_register_map(config)
         return
-    if protocol in ('modbus_rtu', 'dnp3', 'hartip'):            # the port's own constructor is the check: mapping and its source required
-        cls = getattr(mod, {'modbus_rtu': 'RtuPort', 'dnp3': 'Dnp3Port', 'hartip': 'HartIpPort'}[protocol])
-        cls(mod.load_config(config))
+    if protocol in ('modbus_rtu', 'dnp3', 'hartip', 'piwebapi'):  # the port's own constructor is the check: mapping and its source required
+        cls = getattr(mod, {'modbus_rtu': 'RtuPort', 'dnp3': 'Dnp3Port', 'hartip': 'HartIpPort', 'piwebapi': 'PiPort'}[protocol])
+        cfg = mod.load_config(config)
+        if protocol == 'piwebapi':
+            cfg = {**cfg, 'auth': 'none'} if cfg.get('base_url') == 'sim' else cfg      # the credential check is the session's, not the commit's
+            cfg = {**cfg, 'base_url': ('http://127.0.0.1:1/piwebapi' if cfg.get('base_url') == 'sim' else cfg.get('base_url'))}
+            if cfg.get('auth') in ('basic', 'bearer'):
+                cfg = {**cfg, 'auth': 'none'}
+        cls(cfg)
         return
     mod.load_config(config)
 
@@ -390,6 +396,30 @@ class PatchRunner(threading.Thread):
             self.tap = mod.MqttTap(cfg)
             while not self.stop_event.is_set():
                 self.tap.run(30.0, on_record=self._on_record)
+        elif proto == 'piwebapi':                                # the historian: a pull per interval, the window moving with the last archive time seen
+            from .piwebapi import PiPort as _PiPort, SimServer as _PiSim
+            cfg2 = dict(cfg)
+            sim_h = None
+            if cfg2.get('base_url') == 'sim':
+                sim = _PiSim(); sim_h, port_ = sim.serve(); cfg2.update(base_url=f'http://127.0.0.1:{port_}/piwebapi', auth='none')
+            self.tap = _PiPort(cfg2)
+            poll = float(cfg2.get('interval_s', cfg2.get('poll_s', 60.0)))
+            last_ts = None
+            try:
+                while not self.stop_event.is_set():
+                    if last_ts and self.tap.cfg.get('mode', 'recorded') == 'recorded':
+                        self.tap.cfg['start'] = last_ts
+                    self.tap.pull()
+                    for r in self.tap.records:
+                        if r.quality_flag != 'GAP' or 'state' in r.rule_fired:
+                            last_ts = max(last_ts or '', r.timestamp_utc)
+                        self._on_record(r)
+                    del self.tap.records[:]
+                    if self.stop_event.wait(poll):
+                        break
+            finally:
+                if sim_h is not None:
+                    sim_h.close()
         elif proto in ('modbus_rtu', 'dnp3', 'hartip'):          # the field ports: one connection, polled; every poll's records fed as they come
             self.tap = open_field_port(proto, mod, cfg)
             poll = float(cfg.get('interval_s', cfg.get('poll_s', 5.0)))

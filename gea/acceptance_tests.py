@@ -6774,6 +6774,198 @@ def section_bq_field_ports(tmp: str) -> None:
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_br_logs_historian(tmp: str) -> None:
+    """Section BR - the DLIS reader proven on files this program wrote (every layer of RP66 V1, the representation
+    codes, segmentation across visible records, encrypted records skipped and named, two frames, the refusals), into
+    the files detector, the survey and the CLI; the PI Web API pull against the stand-in server (paging, flags,
+    digital and system states, units, basic auth, plain HTTP refused), on the Patch panel and the CLI; the help."""
+    import http.cookiejar
+    import struct
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    from . import dlis as DL
+    from . import piwebapi as PI
+    from . import helplib as H
+    from .files import detect, preview, read_any
+    from .patches import PROTOCOLS, PatchSupervisor, validate_port_config
+    from .survey_cmd import run_survey
+    from .telemetry import TelemetryRecorder, TelemetryConfig
+    from .downhole_engine import DownholeEngine, SimulatorConfig
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "br"); d.mkdir()
+
+    # -- BR1: DLIS ------------------------------------------------------------------------------------------------------
+    n = 3000
+    depth = [1000.0 + 0.1524 * i for i in range(n)]
+    rho = [2.3 + 0.3 * np.sin(i / 50.0) for i in range(n)]; rho[5] = -999.25
+    dt = [80.0 + 10.0 * np.cos(i / 70.0) for i in range(n)]
+    gr = [60.0 + 40.0 * np.sin(i / 20.0) for i in range(n)]
+    cnt = [i % 7 for i in range(n)]
+    p_gate = DL.write(str(d / "gate.dlis"), [("DEPT", "m", 7, depth), ("RHOB", "g/cm3", 2, rho), ("DTCO", "us/ft", 2, dt), ("GR", "gAPI", 2, gr), ("CNT", "", 15, cnt)], well="GATE 1", max_record=256)
+    st = DL.read(p_gate)
+    f = DL.DlisFile(Path(p_gate).read_bytes(), "gate"); info = f.describe()
+    # the representation codes, each through a cursor
+    c = DL._Cursor(struct.pack(">f", 1.5) + struct.pack(">d", -2.25) + struct.pack(">h", -300) + struct.pack(">i", -70000) + bytes([200]) + struct.pack(">H", 60000)
+                   + struct.pack(">I", 4000000000) + bytes([0x7F]) + struct.pack(">H", 0x8000 | 300) + struct.pack(">I", 0xC0000000 | 70000)
+                   + bytes([3]) + b"ABC" + bytes([4]) + b"TEXT" + bytes([126, 0x1A, 20, 22, 48, 50]) + struct.pack(">H", 250) + bytes([1, 0, 3]) + b"OBJ")
+    vals = [c.value(2), c.value(7), c.value(13), c.value(14), c.value(15), c.value(16), c.value(17), c.uvari(), c.uvari(), c.uvari(), c.ident(), c.ascii(), c.value(21), c.obname()]
+    fshort = DL._Cursor(struct.pack(">H", (0x7FF << 4) | 0)).value(1)
+    # a second file: two frames, a time frame and a depth frame, a 2-D channel, an encrypted record planted
+    raw = bytearray(Path(p_gate).read_bytes())
+    # plant: flip the encryption bit of the first IFLR segment found (type 0, not EFLR)
+    p = DL.SUL_LEN; planted = 0
+    while p + 4 <= len(raw) and not planted:
+        vlen = struct.unpack(">H", raw[p:p + 2])[0]; q = p + 4
+        while q + 4 <= p + vlen:
+            slen = struct.unpack(">H", raw[q:q + 2])[0]
+            if not (raw[q + 2] & 0x80) and raw[q + 3] == 0 and not (raw[q + 2] & 0x60):
+                raw[q + 2] |= 0x10; planted = 1; break
+            q += slen
+        p += vlen
+    st_enc = DL.read(bytes(raw))
+    not_dlis = None
+    try:
+        DL.read(b"~VERSION INFORMATION\n VERS. 2.0\n" + bytes(100))
+    except DL.DlisError as e:
+        not_dlis = str(e)
+    two = str(d / "two.dlis")
+    DL.write(two, [("TIME", "s", 7, [float(i) for i in range(50)]), ("P", "psi", 2, [3000.0 + i for i in range(50)])], frame_name="TFRAME", index_type="TIME")
+    two_err = None
+    try:
+        DL.read(two + ".nope")
+    except (DL.DlisError, OSError) as e:
+        two_err = str(e)
+    st_t = DL.read(two)
+    c1 = {
+        "round_trip": st.index_kind == "depth" and len(st.index) == n and list(st.channels) == ["RHOB", "DTCO", "GR", "CNT"] and st.channels["RHOB"].unit == "g/cm3"
+                      and np.isnan(st.channels["RHOB"].values[5]) and float(np.nanmax(np.abs(st.channels["RHOB"].values[6:] - np.array(rho[6:])))) < 1e-6
+                      and float(np.max(np.abs(st.index - np.array(depth)))) < 1e-9 and st.channels["CNT"].values[13] == 6.0,
+        "layers": info["storage_unit"]["version"] == "V1.00" and info["storage_unit"]["max_record_length"] == 256 and info["origin"]["WELL-NAME"] == "GATE 1"
+                  and [t for t, _, _ in info["eflr_sets"]] == ["FILE-HEADER", "ORIGIN", "CHANNEL", "FRAME"] and info["frames"][0]["spacing"] is not None
+                  and abs(info["frames"][0]["spacing"] - 0.1524) < 1e-9 and info["n_records"] == 4 + n and st.meta["spacing"].startswith("0.1524 m"),
+        "segmented": len(DL.segments(Path(p_gate).read_bytes())) > info["n_records"],   # the CHANNEL and FRAME sets span segments at 256-byte records
+        "codes": (abs(vals[0] - 1.5) < 1e-7 and vals[1] == -2.25 and vals[2] == -300 and vals[3] == -70000 and vals[4] == 200 and vals[5] == 60000 and vals[6] == 4000000000
+                  and vals[7:10] == [127, 300, 70000] and vals[10] == "ABC" and vals[11] == "TEXT" and vals[12].startswith("2026-10-20T22:48:50.250") and vals[13] == (1, 0, "OBJ")
+                  and abs(fshort - 2047.0) < 1e-9),
+        "encrypted_skipped": planted == 1 and len(st_enc.index) == n - 1 and "encrypted records skipped: IFLR type 0 x1" in st_enc.meta["notes"],
+        "refusals": not_dlis and "not a DLIS V1 storage unit label" in not_dlis and two_err and st_t.index_kind == "time_s" and st_t.meta["frame"] == "TFRAME",
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "BR1 DLIS read as specified: a file this program wrote round-trips (the index, every channel with its units, the null sentinel, an integer channel); "
+       "the storage unit label, origin, sets and frame spacing described; a 1 KB visible record forces segmentation and the segments reassemble; the "
+       "representation codes (FSINGL, FDOUBL, the integers, UVARI in all three lengths, IDENT, ASCII, DTIME, OBNAME, FSHORT) decode; a planted encrypted "
+       "record is skipped and named; a LAS handed to the reader is refused by its label; a time-indexed frame is read as time"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- BR2: PI Web API ------------------------------------------------------------------------------------------------
+    sp = PI.selftest()
+    sim = PI.SimServer(n_values=30, page=7); h, port = sim.serve()
+    try:
+        prt = PI.PiPort({**PI.EXAMPLE_CONFIG, "base_url": f"http://127.0.0.1:{port}/piwebapi", "auth": "none", "mode": "interpolated", "mapping": PI.EXAMPLE_CONFIG["mapping"][:1]})
+        r = prt.pull()
+        prt2 = PI.PiPort({**PI.EXAMPLE_CONFIG, "base_url": f"http://127.0.0.1:{port}/piwebapi", "auth": "none", "mode": "recorded", "mapping": PI.EXAMPLE_CONFIG["mapping"][:1]})
+        r2 = prt2.pull()
+    finally:
+        h.close()
+    bad_mode = None
+    try:
+        PI.PiPort({**PI.EXAMPLE_CONFIG, "mode": "latest"})
+    except ValueError as e:
+        bad_mode = str(e)
+    c2 = {
+        "selftest": sp["ok"],
+        "interpolated": r["tags"]["DHP_psi"]["items"] == 6 and len(prt.records) == 6 and prt.records[1].timestamp_utc.startswith("2026-10-01T00:25:00"),
+        "paged": r2["tags"]["DHP_psi"]["items"] == 30 and sum("startIndex=" in u for u in prt2.client.calls) == 4 and prt2.summary()["calls"] == 6,
+        "bad_mode": bad_mode and "mode must be one of" in bad_mode,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "BR2 PI Web API: the self-test (classification of Good, Questionable, Substituted, not Good, digital and system states; recorded values paged "
+       "through Links.Next; a point the server lacks named with its HTTP status; a bar point recorded in psi; basic auth from the environment with a "
+       "wrong password a 401; a credential over plain HTTP refused); an interpolated pull at the interval; a 30-value archive in 7-value pages fetched "
+       "in 4 follow-ups; a mode the port does not offer refused"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- BR3: the detector, the survey, the supervisor, the service, the CLI, the help ---------------------------------
+    det = detect(p_gate); pv = preview(p_gate)
+    st_any = read_any(p_gate)
+    txt, machine = run_survey(path=p_gate)
+    time_refused = None
+    try:
+        run_survey(path=two)
+    except SystemExit as e:
+        time_refused = str(e)
+    hist = str(d / "hist.csv")
+    TelemetryRecorder(engine=DownholeEngine(SimulatorConfig()), config=TelemetryConfig(duration_hours=0.5, seed=3)).run().export_csv(hist)
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    w = ws.add_well_file(hist, display="Well H", actor="tester")
+    w_dlis = ws.add_well_file(p_gate, display="Gate log", actor="tester")
+    sup = PatchSupervisor(ws)
+    sup.store.add("hist", "piwebapi", w["id"], {**PI.EXAMPLE_CONFIG, "base_url": "sim", "interval_s": 0.5, "mode": "recorded"}, "tester", priority=1, stale_after_s=30)
+    bad_cfg = None
+    try:
+        validate_port_config("piwebapi", {"base_url": "sim", "mapping": [{"address": "\\\\X\\Y", "tag_id": "P"}]})
+    except ValueError as e:
+        bad_cfg = str(e)
+    sup.start("hist", "tester")
+    time.sleep(2.5)
+    s1 = {x["name"]: x for x in sup.states()}["hist"]
+    sup.stop("hist", "tester")
+    users = Users(str(Path(wsp, "users.json"))); users.add("op", "operator-pass-1", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json"); req.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(req, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        call("POST", "/api/login", {"name": "op", "password": "operator-pass-1"})
+        st_p, pl = call("GET", "/api/patches")
+        st_x, ex = call("GET", "/api/config/defaults/piwebapi")
+    finally:
+        svc.stop()
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    r_info = _sp.run([sys.executable, "-m", "gea", "dlis", "--file", p_gate, "--info"], capture_output=True, text=True)
+    r_las = _sp.run([sys.executable, "-m", "gea", "dlis", "--file", p_gate, "--to-las", str(d / "gate.las"), "--out", str(d / "gate.csv")], capture_output=True, text=True)
+    r_sv = _sp.run([sys.executable, "-m", "gea", "survey", "--file", str(d / "gate.las")], capture_output=True, text=True)
+    pi_cfg = str(d / "pi.json")
+    with open(pi_cfg, "w", encoding="utf-8") as fcfg:
+        json.dump({**PI.EXAMPLE_CONFIG, "base_url": "sim"}, fcfg)
+    r_pi = _sp.run([sys.executable, "-m", "gea", "piwebapi", "--config", pi_cfg, "--out", str(d / "pi.csv"), "--stream-csv", str(d / "pi_stream.csv")], capture_output=True, text=True)
+    r_pis = _sp.run([sys.executable, "-m", "gea", "piwebapi", "--selftest"], capture_output=True, text=True)
+    c3 = {
+        "detected": det["kind"] == "dlis" and "gea gate file" in det["detail"] and pv["lines"] and "GATE 1 / GATE by gea-program" in pv["lines"][0] and st_any.source_format == "dlis",
+        "survey": "read by the dlis port" in txt and machine["channels_found"].get("density") == "RHOB" and machine["n_stations"] == n
+                  and time_refused and "not depth" in time_refused and "TFRAME" not in time_refused,
+        "imported": w_dlis["kind"] == "file" and os.path.isfile(Path(wsp, "wells", w_dlis["id"], "source", "gate.dlis")),
+        "supervised": "piwebapi" in PROTOCOLS and bad_cfg and "source" in bad_cfg and s1["status"] in ("CONNECTED", "STOPPED") and s1["samples_total"] >= 500
+                      and abs(s1["tags"]["DHP_psi"]["value"] - (3185.5 + 0.01 * 249)) < 1e-6,
+        "service": st_p == 200 and "piwebapi" in pl["protocols"] and st_x == 200 and ex["content"]["auth"] == "basic" and 'value="piwebapi"' in page_src,
+        "cli": r_info.returncode == 0 and "well: GATE 1" in r_info.stdout and "frame FRAME1: index BOREHOLE-DEPTH INCREASING" in r_info.stdout
+               and r_las.returncode == 0 and os.path.isfile(d / "gate.las") and r_sv.returncode == 0 and "density -> RHOB" in r_sv.stdout
+               and r_pi.returncode == 0 and '"records": 750' in r_pi.stdout and os.path.isfile(d / "pi_stream.csv") and r_pis.returncode == 0,
+        "help": all(any(t["topic"] == x for t in H.topics()) and not H.check(x) for x in ("dlis", "historian"))
+                and "does not decrypt" in (pkg / "help" / "dlis.md").read_text(encoding="utf-8").split("will not call a measurement")[1]
+                and "no code path that writes a value" in (pkg / "help" / "historian.md").read_text(encoding="utf-8").split("will not call a measurement")[1],
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "BR3 a DLIS detected by its label, previewed and read like a LAS; the strata survey runs on it and refuses a time-indexed frame by name; "
+       "imported as a well; a PI pull supervised on the Patch panel with the window moving (a config without its source refused); the service "
+       "lists the protocol and serves the example; `gea dlis --info`, `--to-las` then `gea survey` on the LAS, `gea piwebapi` against the stand-in; the help pages"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -6846,6 +7038,7 @@ def main() -> int:
         section_bo_structure(tmp)
         section_bp_interval(tmp)
         section_bq_field_ports(tmp)
+        section_br_logs_historian(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

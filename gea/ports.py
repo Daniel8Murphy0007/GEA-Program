@@ -303,6 +303,10 @@ PORT_REGISTRY: Dict[str, PortSpec] = {
         name='las2', transport='file (LAS 2.0 well log, CWLS public standard)',
         status=IMPLEMENTED, reader=read_las,
         detail="unwrapped mode; NULL substitution; wrapped mode refused"),
+    'dlis': PortSpec(
+        name='dlis', transport='file (DLIS, API RP66 V1 well log container)',
+        status=IMPLEMENTED, reader=lambda src: __import__('gea.dlis', fromlist=['x']).read(src),
+        detail="storage unit label, visible records, logical record segments, EFLR sets and IFLR frames read as specified; encrypted records skipped and named"),
     # NOTE: this base entry is the fallback before the modbus module loads. Importing
     # modbus (which the package __init__ always does) UPGRADES this entry in
     # place to the real pymodbus TCP client (reader=read_modbus, status=

@@ -1,28 +1,29 @@
-v0.23.0 — THE FIELD PORTS: MODBUS RTU, DNP3, HART-IP
+v0.24.0 — THE LOG AS DELIVERED AND THE HISTORIAN: DLIS AND PI WEB API
 
-The three links a gauge panel on a pad actually offers, and the ones the
-patch panel did not have. Modbus RTU - the RS-485 drop most surface-readout
-panels are - framed and parsed by this program as the specification lays it
-out, with no dependency: the serial line through pyserial, the same bytes
-through a serial-to-Ethernet converter, or the stand-in slave that ships
-with it. DNP3 - what pad RTUs and pipeline SCADA speak in North America - a
-read-only master with the data link, transport and application layers each
-as IEEE 1815 writes them: the integrity poll, the event poll, the confirms
-the outstation asks for, the unsolicited response answered and read, every
-analog, binary and counter variation with its flags, an event carrying the
-outstation's own time as the source time. HART-IP - the transmitter itself,
-asked for its identity, its loop current and its variables with their unit
-codes and status.
+Two places an operator's data actually lives, and the program now reads
+both where they are. A well log is delivered as DLIS; the LAS was the
+export, and the strata survey read only the export. The DLIS reader takes
+the container as API RP66 V1 lays it out - the storage unit label, the
+visible records, the logical record segments and their trailers, the sets
+of objects under their templates with every representation code of Appendix
+B, the frames and channels, the frame data - with no dependency, and hands
+the survey the same stream the LAS port did. It is proven on a real
+Schlumberger station log from the public dlisio test set: 104 channels, two
+frames, 3,252 records read whole in a tenth of a second, 11 vendor-encrypted
+records skipped and named rather than guessed. The survey reads the DLIS
+itself now, and refuses a time-indexed frame by name.
 
-Each is read-only in the code, not by policy: no write, no control, no time
-set, no command that changes a device exists. Each refuses to run without
-the site's map and its source. Each has a stand-in on the loopback so a site
-rehearses before the panel is on the line, and each is one more protocol on
-the Patch panel, supervised, restarted with backoff, folded into the well's
-stream.
+The gauge history of most operators sits in a PI System. The PI Web API
+port pulls it, GET only: the point by path, the archive between two times
+with the server's paging followed to the end, every value with the
+archive's own timestamp as the source time and the archive's flags kept -
+Good, Questionable, Substituted, not Good, a digital state by its name, a
+system state named as the archive's. Credentials come from environment
+variables the map names and never from the map; a credential over plain
+HTTP is refused in code. On the Patch panel the historian becomes a live
+source, the window moving with the last archive time seen.
 
-What it will not do: write to a device; clean a value the device flagged;
-guess a map; give a static value a time the device did not send; parse past
-an object it does not know.
+What it will not do: decrypt; lay out a channel by guess; put a time frame
+on a depth axis; write to PI; hold a credential; fill a gap the archive left.
 
-Section BQ is new. The gate is 356 checks. The standalone guard is clean.
+Section BR is new. The gate is 359 checks. The standalone guard is clean.

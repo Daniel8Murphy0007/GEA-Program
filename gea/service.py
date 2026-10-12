@@ -76,7 +76,7 @@ PBKDF2_ROUNDS = 200_000
 RUNNABLE = ('accept', 'fat-sat', 'sbom', 'permits', 'sla-report', 'model-cards', 'client-report', 'dashboard', 'workspace', 'drift-monitor',
             'well-test', 'alarms', 'notify', 'swaps', 'certificates', 'transient', 'housekeeping', 'store-forward', 'config', 'reconcile', 'ingest', 'opcua', 'mqtt', 'report', 'gamma', 'bench',
             'service-life', 'telemetry', 'run', 'wells', 'survey', 'wits0', 'witsml', 'wits0-sim', 'etp', 'etp-sim', 'files', 'doctor', 'update', 'backup', 'soak',
-            'modbus-rtu', 'dnp3', 'hartip')
+            'modbus-rtu', 'dnp3', 'hartip', 'piwebapi', 'dlis')
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web')
 
 
@@ -605,8 +605,8 @@ class App:
         if name == 'modbus_g6':
             with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example_register_map.json'), encoding='utf-8') as f:
                 return json.load(f)
-        if name in ('modbus_rtu', 'dnp3', 'hartip'):
-            mod = __import__({'modbus_rtu': 'gea.modbus_rtu', 'dnp3': 'gea.dnp3', 'hartip': 'gea.hartip'}[name], fromlist=['x'])
+        if name in ('modbus_rtu', 'dnp3', 'hartip', 'piwebapi'):
+            mod = __import__({'modbus_rtu': 'gea.modbus_rtu', 'dnp3': 'gea.dnp3', 'hartip': 'gea.hartip', 'piwebapi': 'gea.piwebapi'}[name], fromlist=['x'])
             return mod.EXAMPLE_CONFIG
         if name == 'alarm_definitions':
             from .alarm_engine import defaults_from_catalogue

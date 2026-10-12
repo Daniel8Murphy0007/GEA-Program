@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.24.0 - 2026-10-12 - DLIS and the historian
+
+- **The log as delivered, and the history where it sits.** A DLIS reader to
+  RP66 V1 without a dependency, proven on a real Schlumberger station log;
+  the strata survey reads the DLIS itself. A PI Web API pull, read-only,
+  every value with its archive time and flags, on the Patch panel. Section
+  BR; gate 359.
+
 ## v0.23.0 - 2026-10-12 - the field ports
 
 - **Modbus RTU, DNP3, HART-IP.** The three links a gauge panel on a pad

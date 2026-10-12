@@ -49,7 +49,7 @@ from typing import Dict, List, Optional
 
 from .workspace import Workspace, WorkspaceError, sha256_file, utc_now_iso, slug
 
-KINDS = ('las', 'historian_csv', 'csv', 'pangaea', 'operator_table', 'segy', 'mseed', 'sac', 'xls', 'json', 'unknown')
+KINDS = ('las', 'dlis', 'historian_csv', 'csv', 'pangaea', 'operator_table', 'segy', 'mseed', 'sac', 'xls', 'json', 'unknown')
 TEXT_SNIFF = 64 * 1024
 
 
@@ -72,6 +72,8 @@ def detect(path: str) -> dict:
         head = f.read(max(TEXT_SNIFF, 3600))
     if head[:8] == b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1':
         return {'kind': 'xls', 'detail': 'OLE2 workbook (vendor survey export)', 'bytes': size, 'text': False}
+    if size >= 84 and head[4:6] == b'V1' and head[9:15].strip() == b'RECORD' and head[80:84][2:4] == b'\xff\x01':
+        return {'kind': 'dlis', 'detail': 'DLIS (RP66 V1) well log: ' + head[20:80].decode('ascii', 'replace').strip(), 'bytes': size, 'text': False}
     if head[:4] == b'PK\x03\x04':
         return {'kind': 'unknown', 'detail': 'zip container (xlsx or archive) - not an ingest format', 'bytes': size, 'text': False}
     # SEG-Y: 3200-byte textual header, EBCDIC or ASCII, then a 400-byte binary header
@@ -137,6 +139,17 @@ def preview(path: str, lines: int = 12) -> dict:
             out['lines'] = [f"{t.id}  {t.info()['start']} to {t.info()['end']}  {t.sample_rate:g} Hz  {t.npts} samples  {t.encoding}  {len(t.gaps)} gap(s)" for t in _read_seis(path)[:12]]
         except Exception as e:
             out['lines'] = [f'seismic record could not be read: {e}']
+    elif d['kind'] == 'dlis':
+        try:
+            from .dlis import DlisFile
+            with open(path, 'rb') as f:
+                info = DlisFile(f.read(), os.path.basename(path)).describe()
+            out['lines'] = [f"{info['origin'].get('WELL-NAME', '').strip() or '?'} / {info['origin'].get('FIELD-NAME', '').strip() or '?'} by {info['origin'].get('PRODUCER-NAME', '').strip() or '?'}; "
+                            f"{len(info['channels'])} channels; {len(info['frames'])} frame(s): " + '; '.join(f"{fr['name']} ({fr['index_type']}, {len(fr['channels'])} ch)" for fr in info['frames'])]
+            if info.get('encrypted_records'):
+                out['lines'].append('encrypted records skipped: ' + ', '.join(f'{k} x{n}' for k, n in info['encrypted_records'].items()))
+        except Exception as e:
+            out['lines'] = [f'DLIS could not be read: {e}']
     elif d['kind'] == 'segy':
         try:
             from .segy import read_segy
@@ -156,6 +169,9 @@ def read_any(path: str, kind: Optional[str] = None):
     if kind == 'las':
         from .ports import read_las
         return read_las(path)
+    if kind == 'dlis':
+        from .dlis import read as read_dlis
+        return read_dlis(path)
     if kind == 'pangaea':
         from .profile_catalog import read_pangaea_txt
         return read_pangaea_txt(path)
@@ -281,7 +297,7 @@ def import_file(ws: Workspace, root_name: str, rel: str, actor: str, display: Op
     return w
 
 
-def scan_root(ws: Workspace, root_name: str, actor: str = 'watch', kinds=('historian_csv', 'las', 'pangaea', 'operator_table', 'xls'), max_files: int = 50) -> dict:
+def scan_root(ws: Workspace, root_name: str, actor: str = 'watch', kinds=('historian_csv', 'las', 'dlis', 'pangaea', 'operator_table', 'xls'), max_files: int = 50) -> dict:
     """Import every not-yet-imported stream file under a root (watch folder)."""
     base = Roots(ws).resolve('import', root_name)
     done = imported(ws)
