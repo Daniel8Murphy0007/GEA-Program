@@ -110,7 +110,7 @@ def build_cards(monitor_log_dir: Optional[str] = None, program_version: str = ''
     from .accuracy_statement import library_backtest, MIN_TRIALS, N_BOOT, SEED
     from .sample_record import DEFAULT_TAG_CLASSES
     from .well_test_validation import DEFAULT_CRITERIA
-    from .rock_inventory import rock_inventory
+    from .rock_inventory import core_check, rock_inventory
     from . import strata_join as SJ
     from .reconciler import ReconcilerConfig
     ver = program_version or _v
@@ -203,7 +203,9 @@ def build_cards(monitor_log_dir: Optional[str] = None, program_version: str = ''
         inputs=[{'name': f"{k} ({v['tier']})", 'unit': f"g/cc, anchor {v['anchor']}, range {v['lo']}-{v['hi']}", 'source': str(v['citation'])[:120]} for k, v in inv.items()],
         settings=[{'setting': 'anchors', 'value': str(len(inv)), 'basis': 'standard geophysics density tables (Telford et al. 1990; Schoen 2015)'}],
         calibration_data=[{'dataset': 'published density tables', 'records': len(inv), 'database': 'Telford, Geldart & Sheriff (1990); Schoen (2015)', 'url': '', 'licence': 'published reference values', 'fetch_date': ''}],
-        evaluation=[{'metric': 'anchor reproduction', 'value': f"worst anchor residual {max(abs(float(v['residual_pct'])) for v in inv.values()):.3f} %", 'method': 'each anchor re-derived at gate time'}],
+        evaluation=[{'metric': 'anchor reproduction', 'value': f"worst anchor residual {max(abs(float(v['residual_pct'])) for v in inv.values()):.3f} %", 'method': 'each anchor re-derived at gate time'},
+                    {'metric': 'sandstone range against a real core', 'value': (lambda c: f"{c['inside']} of {c['n_plugs']} Volve 15/9-19 A core plugs inside {c['sandstone_range'][0]}-{c['sandstone_range'][1]} g/cc (core bulk {c['bulk_density']['min']}-{c['bulk_density']['max']})" if c.get('status') == 'OK' else c.get('status', '?'))(core_check()),
+                     'method': 'core grain density x (1 - porosity) + brine x porosity per plug, the catalogue core entry (Equinor Volve, open licence)'}],
         limitations=['Ranges overlap; the classifier returns ranked candidates, never one confident name.'],
         components=[{'role': 'inventory and classifier', 'sha256': _sha('rock_inventory.py')}],
         generated_utc=now))

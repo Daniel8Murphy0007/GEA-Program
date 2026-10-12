@@ -5,10 +5,10 @@
 <h1>Model Card - Rock density inventory (cited anchors)</h1>
 <table class="front">
 <tr><td>Model ID</td><td>rock_density_inventory</td></tr>
-<tr><td>Version</td><td>Downhole Gauge Monitoring build 0.24.0</td></tr>
+<tr><td>Version</td><td>Downhole Gauge Monitoring build 0.25.0</td></tr>
 <tr><td>Owner</td><td>assigned by the client at deployment</td></tr>
-<tr><td>Generated (UTC)</td><td>2026-10-11T23:09:21Z</td></tr>
-<tr><td>Inputs / datasets / evaluations</td><td>17 / 1 / 1</td></tr>
+<tr><td>Generated (UTC)</td><td>2026-10-11T23:42:00Z</td></tr>
+<tr><td>Inputs / datasets / evaluations</td><td>17 / 1 / 2</td></tr>
 </table>
 <h2>1. Intended use</h2>
 <p>Classify a measured bulk density into ranked candidate rock types by overlap with published density ranges.</p>
@@ -49,6 +49,7 @@
 <table>
 <tr><th>Metric</th><th>Result</th><th>Method</th></tr>
 <tr><td>anchor reproduction</td><td>worst anchor residual 0.000 %</td><td>each anchor re-derived at gate time</td></tr>
+<tr><td>sandstone range against a real core</td><td>65 of 70 Volve 15/9-19 A core plugs inside 2.05-2.55 g/cc (core bulk 2.054-2.776)</td><td>core grain density x (1 - porosity) + brine x porosity per plug, the catalogue core entry (Equinor Volve, open licence)</td></tr>
 </table>
 <h2>7. Known limitations</h2>
 <p>(1) Ranges overlap; the classifier returns ranked candidates, never one confident name.</p>
@@ -58,7 +59,7 @@
 <p>Each component is named by role with the sha256 (first 16 hex) of the source file that implements it in this build; the delivered source matches these hashes.</p>
 <table>
 <tr><th>Component</th><th>sha256</th></tr>
-<tr><td>inventory and classifier</td><td>e716ba1cc5c6eadf</td></tr>
+<tr><td>inventory and classifier</td><td>1b0e70ef46907df7</td></tr>
 </table>
 <footer>Generated from the live objects of this build; every evaluation is recomputed at generation time.</footer>
 </body></html>

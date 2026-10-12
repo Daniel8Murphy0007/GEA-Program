@@ -61,7 +61,7 @@ def _floats(channels, key) -> List[float]:
 def run_survey(path: Optional[str] = None, demo: bool = False,
                family: str = 'continental_crystalline',
                lat: Optional[float] = None,
-               elev: Optional[float] = None, frame: Optional[str] = None) -> Tuple[str, Dict]:
+               elev: Optional[float] = None, frame: Optional[str] = None, catalog: Optional[str] = None) -> Tuple[str, Dict]:
     """Run the end-to-end survey chain; returns (report_text, machine_dict)."""
     L: List[str] = []
     out: Dict = {'refusals': [], 'exclusions': {}}
@@ -71,6 +71,14 @@ def run_survey(path: Optional[str] = None, demo: bool = False,
         st = CATALOG[DEMO_ENTRY].stream()
         src_label = ('bundled demo: %s (KTB main hole composite-log '
                      'excerpt, GFZ public archive)' % DEMO_ENTRY)
+    elif catalog:
+        e = CATALOG.get(catalog)
+        if e is None:
+            raise SystemExit('survey: no catalogue entry %r (gea catalog --list)' % catalog)
+        if e.las_path.suffix.lower() != '.las':
+            raise SystemExit('survey: catalogue entry %s is %s, not a LAS log (the survey takes a well log)' % (catalog, e.provenance.get('kind', e.las_path.suffix)))
+        st = e.stream()
+        src_label = 'catalogue entry %s: %s (%s; %s)' % (catalog, str(e.provenance.get('well', ''))[:80], str(e.provenance.get('source_database', ''))[:60], str(e.provenance.get('license', ''))[:40])
     else:
         if not path:
             raise SystemExit('survey: give a LAS file, or use --demo')

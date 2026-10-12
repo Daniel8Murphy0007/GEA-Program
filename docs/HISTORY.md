@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.25.0 - 2026-10-12 - the catalogue accounted for
+
+- **What reads each entry.** The register of the 52 shipped datasets
+  against the code both ways; every LAS log through the strata survey with
+  its provenance; the measured friction envelope (0.21-0.90 on 70
+  measurements, none from the Permian) against Byerlee's 0.6; the Volve
+  core against the published sandstone range on the model card. Section
+  BS; gate 362.
+
 ## v0.24.0 - 2026-10-12 - DLIS and the historian
 
 - **The log as delivered, and the history where it sits.** A DLIS reader to

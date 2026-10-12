@@ -73,6 +73,32 @@ def rock_inventory() -> Dict:
     return inv
 
 
+def core_check(brine_gcc: float = 1.03) -> Dict:
+    """The published sandstone range against a real core: the Volve 15/9-19 A conventional core analysis in the
+    catalogue gives grain density and porosity per plug; bulk density follows as grain x (1 - phi) + brine x phi
+    (the brine density stated, the arithmetic shown). How many of those plug densities the published sandstone
+    range contains is a measurement the inventory was not tuned to."""
+    from .profile_catalog import CATALOG
+    e = CATALOG.get('volve_15_9_19a_core_excerpt')
+    if e is None:
+        return {'status': 'NO CORE ENTRY'}
+    st = e.stream()
+    import numpy as _np
+    gd, por = _np.asarray(st.channels['CGD'].values, float), _np.asarray(st.channels['CPOR'].values, float)
+    m = ~_np.isnan(gd) & ~_np.isnan(por)
+    gd, por = gd[m], por[m] / 100.0
+    bulk = gd * (1.0 - por) + brine_gcc * por
+    inv = _f()['sandstone']
+    inside = int(_np.sum((bulk >= inv['lo']) & (bulk <= inv['hi'])))
+    return {'status': 'OK', 'entry': 'volve_15_9_19a_core_excerpt', 'n_plugs': int(bulk.size), 'brine_gcc': brine_gcc,
+            'grain_density': {'min': round(float(gd.min()), 3), 'median': round(float(_np.median(gd)), 3), 'max': round(float(gd.max()), 3)},
+            'porosity_frac': {'min': round(float(por.min()), 3), 'median': round(float(_np.median(por)), 3), 'max': round(float(por.max()), 3)},
+            'bulk_density': {'min': round(float(bulk.min()), 3), 'median': round(float(_np.median(bulk)), 3), 'max': round(float(bulk.max()), 3)},
+            'sandstone_range': [inv['lo'], inv['hi']], 'inside': inside, 'outside': int(bulk.size) - inside,
+            'how': f'bulk = grain x (1 - phi) + {brine_gcc:g} x phi per plug; the published sandstone range {inv["lo"]}-{inv["hi"]} g/cc contains {inside} of {bulk.size} plugs',
+            'source': str(e.provenance.get('source_database', ''))[:100], 'license': str(e.provenance.get('license', ''))[:60]}
+
+
 # ---------------------------------------------------------------------------
 # SUPPORTING DATA STREAMS
 # ---------------------------------------------------------------------------

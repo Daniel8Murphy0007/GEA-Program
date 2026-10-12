@@ -278,6 +278,11 @@ def main(argv=None) -> int:
         p_lp.add_argument("--stream-csv", type=str, default=None, help="also write a historian-style CSV the other commands ingest")
         p_lp.add_argument("--selftest", action="store_true", help="etp: the codec round-trip and a session against the simulated store on the loopback")
 
+    p_cat = sub.add_parser("catalog", help="the shipped catalogue: --list every entry with what reads it; --unused the carried ones; --check reads every entry; --friction the measured friction envelope; --core the core check; --entry X --info | --stream-csv")
+    p_cat.add_argument("--list", action="store_true"); p_cat.add_argument("--unused", action="store_true"); p_cat.add_argument("--check", action="store_true")
+    p_cat.add_argument("--friction", action="store_true"); p_cat.add_argument("--core", action="store_true")
+    p_cat.add_argument("--entry", type=str, default=None); p_cat.add_argument("--info", action="store_true"); p_cat.add_argument("--stream-csv", type=str, default=None)
+    p_cat.add_argument("--json", action="store_true")
     p_dl = sub.add_parser("dlis", help="a DLIS (RP66 V1) well log: --info describes it (origin, channels, frames, what was skipped); --frame --out writes the frame as a historian-style CSV; --to-las writes LAS 2.0")
     p_dl.add_argument("--file", type=str, required=True)
     p_dl.add_argument("--info", action="store_true")
@@ -689,6 +694,7 @@ def main(argv=None) -> int:
     p_sy = sub.add_parser("survey", help="a LAS or DLIS file in, one strata report out (--demo: the bundled public KTB excerpt); --out writes report.txt + survey.json")
     p_sy.add_argument("--file", type=str, default=None, help="LAS 2.0 or DLIS (RP66 V1) file")
     p_sy.add_argument("--frame", type=str, default=None, help="DLIS: the frame to read when the file holds several (gea dlis --file X --info lists them)")
+    p_sy.add_argument("--catalog", type=str, default=None, help="a catalogue LAS entry instead of a file (gea catalog --list names them)")
     p_sy.add_argument("--demo", action="store_true")
     p_sy.add_argument("--family", type=str, default="continental_crystalline", help="prior family for the estimator")
     p_sy.add_argument("--lat", type=float, default=None)
@@ -823,9 +829,9 @@ def main(argv=None) -> int:
     elif a.cmd == "survey":
         import json as _json
         from .survey_cmd import run_survey
-        if not (a.file or a.demo):
-            raise SystemExit("survey needs --file <LAS or DLIS> or --demo")
-        txt, machine = run_survey(path=a.file, demo=a.demo, family=a.family, lat=a.lat, elev=a.elev, frame=a.frame)
+        if not (a.file or a.demo or a.catalog):
+            raise SystemExit("survey needs --file <LAS or DLIS>, --catalog <entry> or --demo")
+        txt, machine = run_survey(path=a.file, demo=a.demo, family=a.family, lat=a.lat, elev=a.elev, frame=a.frame, catalog=a.catalog)
         print(txt)
         if a.out:
             os.makedirs(a.out, exist_ok=True)
@@ -2297,6 +2303,58 @@ def main(argv=None) -> int:
         except KeyboardInterrupt:
             stop.set()
             print("etp-sim: stopped")
+        return 0
+    elif a.cmd == "catalog":
+        import json as _json
+        from . import catalog_register as _CR
+        if a.friction:
+            from . import friction_priors as _FP
+            print(_json.dumps({"measured": _FP.measured(), "envelope": _FP.envelope()}, indent=1, default=str) if a.json else _FP.text()); return 0
+        if a.core:
+            from .rock_inventory import core_check
+            c = core_check()
+            print(_json.dumps(c, indent=1) if a.json else (f"core check ({c.get('entry')}): {c.get('how')}\n  grain density {c['grain_density']['min']}-{c['grain_density']['max']} g/cc, porosity "
+                  f"{c['porosity_frac']['min']:.3f}-{c['porosity_frac']['max']:.3f}, bulk {c['bulk_density']['min']}-{c['bulk_density']['max']} g/cc; {c['outside']} plug(s) outside the range\n  source: {c['source']} [{c['license']}]" if c.get('status') == 'OK' else str(c)))
+            return 0
+        if a.check:
+            rows = _CR.check_all()
+            bad = [r for r in rows if not r["ok"]]
+            for r in rows:
+                print(f"  {'ok ' if r['ok'] else 'BAD'} {r['entry']:<40s} {r['shape']}")
+            print(f"catalog: {len(rows) - len(bad)} of {len(rows)} entries read through their own readers" + (f"; {len(bad)} did not" if bad else ""))
+            return 0 if not bad else 1
+        if a.entry:
+            from .profile_catalog import CATALOG as _CAT
+            e = _CAT.get(a.entry)
+            if e is None:
+                raise SystemExit(f"catalog: no entry {a.entry!r} (gea catalog --list)")
+            if a.stream_csv:
+                st = e.stream()
+                import csv as _csv
+                with open(a.stream_csv, "w", newline="", encoding="utf-8") as f:
+                    wr = _csv.writer(f)
+                    wr.writerow([st.index_kind] + list(st.channels)); wr.writerow([""] + [st.channels[c].unit for c in st.channels])
+                    for i in range(len(st.index)):
+                        wr.writerow([float(st.index[i])] + ["" if st.channels[c].values[i] != st.channels[c].values[i] else float(st.channels[c].values[i]) for c in st.channels])
+                print(f"{a.entry}: {len(st.index)} rows x {len(st.channels)} channels -> {a.stream_csv}")
+            reg = next(r for r in _CR.register() if r["entry"] == a.entry)
+            if a.json:
+                print(_json.dumps({"register": reg, "provenance": e.provenance}, indent=1, default=str))
+            else:
+                print(f"{a.entry}: {reg['kind']} ({reg['tier']}), {reg['file']} {reg['bytes']:,} bytes, {reg['status']}")
+                for u in reg["used_by"]:
+                    print("  used by:", u)
+                for k in ("well", "source_database", "source_url", "license", "fetch_date", "coverage", "purpose"):
+                    if e.provenance.get(k):
+                        print(f"  {k}: {str(e.provenance[k])[:300]}")
+                print("  reads as:", _CR.check_entry(e)["shape"])
+            return 0
+        rows = _CR.register()
+        if a.json:
+            print(_json.dumps({"entries": rows, "audit": _CR.audit()}, indent=1, default=str)); return 0
+        print(_CR.text(rows, unused_only=a.unused))
+        if a.unused:
+            print(f"\n  {_CR.NO_BAND_REASON}")
         return 0
     elif a.cmd == "dlis":
         import json as _json

@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (359 checks)
+gea accept                     # the product gate (362 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -608,6 +608,19 @@ synthetic station speaking both versions; `gea seedlink --selftest` runs both
 against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
+
+### The catalogue accounted for
+
+`gea catalog --list` is the register of the 52 shipped public datasets: for
+each, what in this program reads it, or CARRIED, NO BAND with the reason;
+the gate holds the register to the code both ways and reads every entry.
+`gea survey --catalog <entry>` runs the strata survey on any catalogue log
+with its provenance; `gea catalog --friction` reads seven laboratory
+datasets on natural fault and sediment samples as the measured friction
+envelope (0.21-0.90 on 70 measurements, none from the Permian) against
+Byerlee's 0.6; `gea catalog --core` checks the published sandstone range
+against the Volve core (65 of 70 plugs inside), an evaluation on the rock
+inventory model card. `gea help catalog`.
 
 ### The log as delivered, and the historian
 

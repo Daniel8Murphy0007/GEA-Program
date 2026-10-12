@@ -1,29 +1,27 @@
-v0.24.0 — THE LOG AS DELIVERED AND THE HISTORIAN: DLIS AND PI WEB API
+v0.25.0 — THE CATALOGUE ACCOUNTED FOR: WHAT READS EACH ENTRY, THE MEASURED FRICTION, THE CORE CHECK
 
-Two places an operator's data actually lives, and the program now reads
-both where they are. A well log is delivered as DLIS; the LAS was the
-export, and the strata survey read only the export. The DLIS reader takes
-the container as API RP66 V1 lays it out - the storage unit label, the
-visible records, the logical record segments and their trailers, the sets
-of objects under their templates with every representation code of Appendix
-B, the frames and channels, the frame data - with no dependency, and hands
-the survey the same stream the LAS port did. It is proven on a real
-Schlumberger station log from the public dlisio test set: 104 channels, two
-frames, 3,252 records read whole in a tenth of a second, 11 vendor-encrypted
-records skipped and named rather than guessed. The survey reads the DLIS
-itself now, and refuses a time-indexed frame by name.
+The program ships 52 public datasets with provenance sidecars; a sidecar
+says where an entry came from, not what reads it. Now the register does,
+and the gate holds it to the code both ways: every entry a module names is
+registered as used, every entry registered as used is named or is a log the
+survey takes, and every entry reads through its own reader. Twenty-nine are
+used; twenty-three are carried and say so, with the reason, and whether
+they stay in the wheel is the owner's call.
 
-The gauge history of most operators sits in a PI System. The PI Web API
-port pulls it, GET only: the point by path, the archive between two times
-with the server's paging followed to the end, every value with the
-archive's own timestamp as the source time and the archive's flags kept -
-Good, Questionable, Substituted, not Good, a digital state by its name, a
-system state named as the archive's. Credentials come from environment
-variables the map names and never from the map; a credential over plain
-HTTP is refused in code. On the Patch panel the historian becomes a live
-source, the window moving with the last archive time seen.
+Three uses are new. Every LAS log in the catalogue runs through the strata
+survey with its provenance on the source line - six real excerpts from four
+countries, one estimated and five refused with the reason, as the gate
+checks. Seven laboratory datasets on natural fault and sediment samples are
+read as what they measure and stated as the envelope a slip-tendency number
+will be printed beside: friction coefficients from 0.21 to 0.90 on seventy
+measurements, none from the Permian, against the 0.6 the law gives. And the
+Volve core checks the published sandstone range the rock inventory carries:
+bulk density per plug from grain density and porosity with the brine
+stated, 65 of 70 plugs inside the range, on the model card as an evaluation
+the inventory was not tuned to.
 
-What it will not do: decrypt; lay out a channel by guess; put a time frame
-on a depth axis; write to PI; hold a credential; fill a gap the archive left.
+What it will not do: give the site a friction coefficient from other rocks;
+invent a use for a carried entry; estimate strata from too little support;
+call a derived core density a measurement.
 
-Section BR is new. The gate is 359 checks. The standalone guard is clean.
+Section BS is new. The gate is 362 checks. The standalone guard is clean.

@@ -6966,6 +6966,112 @@ def section_br_logs_historian(tmp: str) -> None:
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_bs_catalog(tmp: str) -> None:
+    """Section BS - the catalogue accounted for: every entry reads; the register against the code both ways; the
+    measured friction envelope with provenance; the core check in the model card; every LAS entry through the
+    survey with an estimate or a named refusal; the CLI; the help."""
+    import subprocess as _sp
+    from . import catalog_register as CR
+    from . import friction_priors as FP
+    from . import helplib as H
+    from .profile_catalog import CATALOG
+    from .rock_inventory import core_check
+    from .survey_cmd import run_survey
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bs"); d.mkdir()
+
+    checks = CR.check_all()
+    bad = [c for c in checks if not c["ok"]]
+    aud = CR.audit()
+    reg = CR.register()
+    used = [r for r in reg if r["status"] == "USED"]
+    carried = [r for r in reg if r["status"] != "USED"]
+    c1 = {
+        "every_entry_reads": not bad and len(checks) == len(CR.public()) >= 50 and len(reg) == len(CR.public()) and aud["n_operator"] == len(CATALOG) - len(CR.public()),
+        "register_matches_code": aud["unregistered"] == [] and aud["unnamed"] == [] and aud["n_used"] == len(used) and aud["n_total"] == len(reg),
+        "carried_stated": all(r["why"].startswith("a science-hole dataset") and not r["used_by"] for r in carried) and all(r["used_by"] for r in used),
+        "sidecars": all(r["source"] and r["license"] and r["kind"] for r in reg),
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       f"BS1 the catalogue accounted for: {len(checks)} public entries each read through its own reader (an operator tier, when present on a machine, is counted and never listed); the register against the code both ways (an entry a "
+       "module names is registered as used, an entry registered as used is named or is a LAS the survey takes); every carried entry says so with the "
+       "reason and no use; every entry carries its source, licence and kind"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    meas = FP.measured(); env = FP.envelope()
+    by = {m["entry"]: m for m in meas}
+    cc = core_check()
+    cc2 = core_check(brine_gcc=1.0)
+    from .model_card import build_cards
+    cards = build_cards()
+    inv_card = next(c for c in cards if c.model_id == "rock_density_inventory")
+    ev = [e for e in inv_card.evaluation if e["metric"] == "sandstone range against a real core"]
+    c2 = {
+        "friction_read": len(meas) == 7 and by["costa_rica_odp_friction_envelope"]["mu"]["n"] == 31 and by["costa_rica_odp_friction_envelope"]["mu"]["min"] == 0.21
+                         and by["costa_rica_odp_friction_envelope"]["mu"]["max"] == 0.88 and by["hikurangi_u1520_friction_insitu"]["mu_peak"]["n"] == 12
+                         and by["hikurangi_u1520_friction_insitu"]["a_minus_b"]["min"] < 0 and by["nankai_megasplay_shear_strength"]["mu_how"].startswith("shear strength / effective")
+                         and by["sumatra_362_cohesion"]["strength"]["unit"] == "kPa" and by["sumatra_362_cohesion"]["strength"]["max"] == 990.0
+                         and by["ktb_vb_rockmech_compress"]["strength"]["n"] == 113 and by["jfast_c0019_slow_slip_events"]["strength"]["n"] == 5
+                         and by["barbados_110_consolidation"]["strength"]["what"] == "vane shear strength",
+        "envelope": env["n_entries"] == 3 and env["n_samples"] == 70 and env["min"] == 0.21 and env["max"] == 0.9 and env["byerlee"] == 0.6
+                    and "none from the Permian Basin" in env["statement"] and all(m["source"] and m["license"] and m["url"] for m in meas),
+        "core_check": cc["status"] == "OK" and cc["n_plugs"] == 70 and cc["inside"] == 65 and cc["outside"] == 5 and cc["sandstone_range"] == [2.05, 2.55]
+                      and cc["bulk_density"]["min"] == 2.054 and "grain x (1 - phi) + 1.03 x phi" in cc["how"] and cc2["inside"] != cc["inside"] or (cc2["brine_gcc"] == 1.0 and cc2["inside"] <= 70),
+        "in_model_card": len(ev) == 1 and "65 of 70 Volve 15/9-19 A core plugs inside 2.05-2.55" in ev[0]["value"] and "Equinor Volve" in ev[0]["method"],
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "BS2 the measured friction and strength read from seven catalogue entries with their sources and licences (Costa Rica 31 coefficients 0.21-0.88, Hikurangi "
+       "peak and steady-state with a-b, Nankai as shear strength over effective stress, Sumatra cohesion, Barbados vane shear, JFAST peak strength, KTB "
+       "compressive strength); the envelope 0.21-0.90 on 70 measurements from three datasets against Byerlee's 0.6, none from the Permian; the core check "
+       "(70 Volve plugs, bulk from grain density and porosity with the brine stated, 65 inside the published sandstone range) in the rock inventory model card"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    outcomes = {}
+    for name in ("scorpio_e1_sa_excerpt", "university_6_17_no1_tx_excerpt", "kennetcook_2_p129_excerpt", "collingwood_1_28_ks_complete", "l07_01_nl_excerpt", "volve_15_9_19_sr_excerpt"):
+        txt, m = run_survey(catalog=name)
+        outcomes[name] = ("ESTIMATED" if "Vp (compressional velocity) estimate" in txt and "NOT ESTIMATED" not in txt else "NOT ESTIMATED", txt)
+    not_las = None
+    try:
+        run_survey(catalog="volve_15_9_19a_core_excerpt")
+    except SystemExit as e:
+        not_las = str(e)
+    no_entry = None
+    try:
+        run_survey(catalog="nope")
+    except SystemExit as e:
+        no_entry = str(e)
+    r_list = _sp.run([sys.executable, "-m", "gea", "catalog", "--list"], capture_output=True, text=True)
+    r_unused = _sp.run([sys.executable, "-m", "gea", "catalog", "--unused"], capture_output=True, text=True)
+    r_check = _sp.run([sys.executable, "-m", "gea", "catalog", "--check"], capture_output=True, text=True)
+    r_fr = _sp.run([sys.executable, "-m", "gea", "catalog", "--friction"], capture_output=True, text=True)
+    r_core = _sp.run([sys.executable, "-m", "gea", "catalog", "--core"], capture_output=True, text=True)
+    r_ent = _sp.run([sys.executable, "-m", "gea", "catalog", "--entry", "scorpio_e1_sa_excerpt", "--info", "--stream-csv", str(d / "scorpio.csv")], capture_output=True, text=True)
+    r_sv = _sp.run([sys.executable, "-m", "gea", "survey", "--catalog", "l07_01_nl_excerpt"], capture_output=True, text=True)
+    help_md = (pkg / "help" / "catalog.md").read_text(encoding="utf-8")
+    c3 = {
+        "surveys": outcomes["l07_01_nl_excerpt"][0] == "ESTIMATED" and "density 2.64 - 2.74 g/cc" in outcomes["l07_01_nl_excerpt"][1]
+                   and outcomes["scorpio_e1_sa_excerpt"][0] == "NOT ESTIMATED" and "no density (RHOB) and no gravity" in outcomes["scorpio_e1_sa_excerpt"][1]
+                   and outcomes["university_6_17_no1_tx_excerpt"][0] == "NOT ESTIMATED" and "fewer than 5 usable stations" in outcomes["university_6_17_no1_tx_excerpt"][1]
+                   and outcomes["collingwood_1_28_ks_complete"][0] == "NOT ESTIMATED" and outcomes["kennetcook_2_p129_excerpt"][0] == "NOT ESTIMATED"
+                   and outcomes["volve_15_9_19_sr_excerpt"][0] == "NOT ESTIMATED" and all("catalogue entry " in o[1] for o in outcomes.values()),
+        "refusals": not_las and "not a LAS log" in not_las and no_entry and "no catalogue entry" in no_entry,
+        "cli": r_list.returncode == 0 and f"catalogue: {len(reg)} entries, {len(used)} used, {len(carried)} carried with no band" in r_list.stdout
+               and r_unused.returncode == 0 and "CARRIED, NO BAND" in r_unused.stdout and "USED" not in r_unused.stdout.split("\n", 1)[1].replace("UNUSED", "")
+               and r_check.returncode == 0 and f"{len(reg)} of {len(reg)} entries read" in r_check.stdout
+               and r_fr.returncode == 0 and "run from 0.21 to 0.9" in r_fr.stdout and r_core.returncode == 0 and "contains 65 of 70 plugs" in r_core.stdout
+               and r_ent.returncode == 0 and "used by: gea survey --catalog" in r_ent.stdout and os.path.isfile(d / "scorpio.csv") and r_sv.returncode == 0 and "density -> RHOB" in r_sv.stdout,
+        "help": any(t["topic"] == "catalog" for t in H.topics()) and not H.check("catalog") and "it does not give the fault's own" in help_md.split("will not call a measurement")[1],
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "BS3 every LAS entry through the strata survey with its catalogue provenance: L07-01 estimated (density 2.64-2.74 g/cc), Scorpio E1 NOT ESTIMATED "
+       "(no density), University 6-17, Kennetcook, Collingwood and 15/9-19 SR NOT ESTIMATED on too little support, each with the reason; a core entry and "
+       "an unknown name refused; `gea catalog --list --unused --check --friction --core --entry`; `gea survey --catalog`; the help"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -7039,6 +7145,7 @@ def main() -> int:
         section_bp_interval(tmp)
         section_bq_field_ports(tmp)
         section_br_logs_historian(tmp)
+        section_bs_catalog(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

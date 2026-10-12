@@ -39,6 +39,7 @@ INDEX: List[tuple] = [
     ('files', 'Files', 'import and export roots, detection by content, the evidence pack'),
     ('notifications', 'Notifications', 'rules, channels, the delivery log'),
     ('structure', 'Mapped structure', 'the nearest fault and fold to a well from a structure layer the site brought, by distance and bearing'),
+    ('catalog', 'The catalogue', 'every shipped public dataset, what in this program reads it or that nothing does; the measured friction envelope; the core check; any log through the survey'),
     ('dlis', 'The DLIS log', 'a well log as it is delivered (API RP66 V1), read as the standard lays it out: the frames, the channels, what was skipped; into the strata survey'),
     ('historian', 'The historian pull', 'an operator\'s gauge history out of the PI System through PI Web API, read-only, every value with its archive time and flags'),
     ('field-ports', 'The field ports', 'Modbus RTU on the serial line, DNP3 from the pad RTU, HART-IP from the transmitter itself - read-only, polled, with the stand-ins to rehearse against'),

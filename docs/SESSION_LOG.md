@@ -1612,3 +1612,38 @@ C:\site\_incoming\dlis\.
   in 0.07 s; the survey refuses it (time-indexed, no density) and says so.
 - Section BR (3 checks): DLIS; PI Web API; the detector, survey,
   supervisor, service, CLI, help. Gate 359.
+
+## 2026-10-12 - the catalogue accounted for (v0.25.0)
+
+He asked what in the repos the program was not taking up. The honest count:
+52 catalogue entries (the earlier "58" counted six .dat sidecar pairs
+twice); before this leg 17 were named by product code and the rest were
+reachable only through CatalogEntry.stream(). Now 29 used, 23 carried and
+said so. The catalogue this program was exported with is the same 52 files;
+nothing was left behind.
+
+- `gea/catalog_register.py`: USES (entry -> uses in the user's terms),
+  `register`, `check_entry`/`check_all`, `audit` (named-in-code vs
+  registered, both ways; a LAS entry counts as reachable through the
+  survey), `text`. `gea catalog --list --unused --check --entry --info
+  --stream-csv --friction --core`.
+- `gea/friction_priors.py`: `measured` (seven entries read as what they
+  measure, with provenance), `envelope` (0.21-0.90, 70 measurements, 3
+  datasets, Byerlee 0.6), `text`. The Nankai coefficient is shear strength
+  over effective vertical stress per sample and says so; Barbados' channel
+  is found by prefix (the header carries a parenthesis).
+- `rock_inventory.core_check`: 70 Volve plugs, bulk from grain density and
+  porosity with brine 1.03, 65 inside the published 2.05-2.55 sandstone
+  range; on the rock inventory model card's evaluation.
+- `survey_cmd.run_survey(catalog=)`; `gea survey --catalog`. Real outcomes:
+  L07-01 estimated (2.64-2.74 g/cc); Scorpio and Collingwood no density;
+  University 6-17, Kennetcook, 15/9-19 SR too little usable support.
+- `gea help catalog`. Section BS (3 checks): the register and every entry
+  read; friction and the core check; the surveys, CLI, help. Gate 362.
+- Decision for him: the 23 carried entries (paleoclimate, geochemistry,
+  science-hole physical properties) can stay with their provenance or be
+  dropped from the wheel; `gea catalog --unused` lists them.
+- On his machine the first run of BS1 counted 55 entries: the operator
+  tier (three private Retama entries, never in the wheel) is loaded there.
+  The register, the audit and the check now cover the public tier only
+  and count the operator tier without naming it. Gate 362 on both machines.

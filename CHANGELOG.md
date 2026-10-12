@@ -5,6 +5,57 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.25.0] - 2026-10-12 - the catalogue accounted for: what reads each entry, the measured friction, the core check
+
+### Added
+- **The catalogue register** (`gea/catalog_register.py`, `gea catalog`):
+  the 52 shipped public datasets each with what in this program reads it,
+  in the user's terms, or the plain statement CARRIED, NO BAND with the
+  reason (a science-hole dataset gathered for the simulator's priors that
+  no band of a gauge-monitoring and disposal-well program reads; dropping
+  it from the wheel is the owner's call). The gate holds the register to
+  the code both ways - an entry a module names must be registered as used,
+  an entry registered as used must be named or be a LAS the survey takes -
+  and reads every entry through its own reader (52 of 52). `--list`,
+  `--unused`, `--check`, `--entry --info`, `--entry --stream-csv` (any entry
+  as a stream file the other commands ingest). 29 entries used, 23 carried.
+- **Every LAS log through the strata survey**: `gea survey --catalog
+  <entry>` runs the survey on any catalogue log with its provenance on the
+  source line. On the six real excerpts: L07-01 (Dutch North Sea) is
+  estimated - density 2.64-2.74 g/cc, a Vp estimate; Scorpio E1 (South
+  Australia) and Collingwood 1-28 (Kansas) NOT ESTIMATED, no density
+  channel; University 6-17 (Texas), Kennetcook #2 (Nova Scotia) and 15/9-19
+  SR (Volve) NOT ESTIMATED on too little usable support - each with the
+  reason, as the gate checks.
+- **The measured friction envelope** (`gea/friction_priors.py`, `gea
+  catalog --friction`): seven catalogue datasets read as what they measure,
+  each with its source and licence - ODP Costa Rica friction ladders (31
+  coefficients, 0.21-0.88, 15-90 MPa, 19-212 C), IODP Hikurangi peak and
+  steady-state friction per lithology with a-b, IODP Nankai shear strength
+  over effective stress, IODP Sumatra cohesion (188-990 kPa), ODP Barbados
+  vane shear (19.5-290 kPa), IODP JFAST Tohoku fault-zone peak strength at
+  slow slip (1.7-1.9 MPa), KTB pilot-hole uniaxial compressive strength
+  (3-265 MPa, 113 cores). The envelope: friction coefficients 0.21 to 0.90
+  on 70 measurements from three datasets, none from the Permian Basin,
+  against Byerlee's 0.6 - what the slip-tendency leg will print beside its
+  assumed coefficient so the reader sees how far a law can sit from a
+  measurement.
+- **The core check** (`rock_inventory.core_check`, `gea catalog --core`):
+  the Volve 15/9-19 A conventional core analysis in the catalogue, bulk
+  density per plug as grain density x (1 - porosity) + brine x porosity
+  with the brine stated (1.03 g/cc), against the published sandstone range
+  the inventory carries: 65 of 70 plugs inside 2.05-2.55 g/cc, five outside
+  (grain densities to 3.03 - heavy minerals the range does not cover). On
+  the rock inventory model card as an evaluation the inventory was not
+  tuned to.
+- What it will not do: give the site a friction coefficient - the envelope
+  is what was measured on other rocks elsewhere; invent a use for a carried
+  entry; estimate strata from too little support; report a core bulk
+  density the core did not state without labelling it derived. Section BS
+  (3 checks); the gate is 362.
+- The register, audit and check cover the shipped (public) tier only; an
+  operator tier present on a machine is counted, never listed or named.
+
 ## [v0.24.0] - 2026-10-12 - the log as delivered and the historian: DLIS and PI Web API
 
 ### Added
