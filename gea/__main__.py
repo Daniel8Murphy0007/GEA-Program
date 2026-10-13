@@ -278,6 +278,13 @@ def main(argv=None) -> int:
         p_lp.add_argument("--stream-csv", type=str, default=None, help="also write a historian-style CSV the other commands ingest")
         p_lp.add_argument("--selftest", action="store_true", help="etp: the codec round-trip and a session against the simulated store on the loopback")
 
+    p_tl = sub.add_parser("tools", help="the tool library and the port registry: every tool with its citation, ratings and the interface it declares; every file format and live protocol; --rating checks a tool string")
+    p_tl.add_argument("--json", action="store_true")
+    p_tl.add_argument("--list", action="store_true", help="just the tool names")
+    p_tl.add_argument("--rating", action="store_true", help="check a tool string: --station <md_ft>:<tool> (repeatable)")
+    p_tl.add_argument("--station", type=str, action="append", default=None, help="a station as <measured depth in feet>:<tool name>")
+    p_tl.add_argument("--surface-temp-f", type=float, default=75.0); p_tl.add_argument("--temp-gradient-f-ft", type=float, default=0.018)
+    p_tl.add_argument("--surface-pressure-psi", type=float, default=14.7); p_tl.add_argument("--pressure-gradient-psi-ft", type=float, default=0.465)
     p_cc = sub.add_parser("comcat", help="USGS ComCat / any FDSN event service: --lat --lon --radius-km --start --end prints the text-format query to open; --file reads the export it returns")
     p_cc.add_argument("--lat", type=float, default=None); p_cc.add_argument("--lon", type=float, default=None); p_cc.add_argument("--radius-km", type=float, default=25.0)
     p_cc.add_argument("--start", type=str, default=None); p_cc.add_argument("--end", type=str, default=None); p_cc.add_argument("--min-mag", type=float, default=1.0)
@@ -2355,6 +2362,37 @@ def main(argv=None) -> int:
         except KeyboardInterrupt:
             stop.set()
             print("etp-sim: stopped")
+        return 0
+    elif a.cmd == "tools":
+        import json as _json
+        from . import tool_catalog as _TC
+        if a.rating or a.station:
+            stations = []
+            for spec in (a.station or []):
+                if ":" not in spec:
+                    raise SystemExit(f"--station takes <measured depth in feet>:<tool name>, got {spec!r}")
+                md, _, nm = spec.partition(":")
+                try:
+                    stations.append((float(md), nm.strip()))
+                except ValueError:
+                    raise SystemExit(f"--station depth is not a number: {md!r}")
+            try:
+                r = _TC.check_string(stations, surface_temp_F=a.surface_temp_f, temp_gradient_F_per_ft=a.temp_gradient_f_ft,
+                                     surface_pressure_psi=a.surface_pressure_psi, pressure_gradient_psi_per_ft=a.pressure_gradient_psi_ft)
+            except ValueError as e:
+                raise SystemExit(f"tools: {e}")
+            if a.json:
+                print(_json.dumps(r, indent=1)); return 0 if not r["n_over_rating"] else 1
+            for line in r["lines"]:
+                print(line)
+            return 0 if not r["n_over_rating"] else 1
+        if a.list:
+            for t in _TC.tools():
+                print(t["name"])
+            return 0
+        if a.json:
+            print(_json.dumps(_TC.catalog(), indent=1)); return 0
+        print(_TC.text())
         return 0
     elif a.cmd == "comcat":
         import json as _json

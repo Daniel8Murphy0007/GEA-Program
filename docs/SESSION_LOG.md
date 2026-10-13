@@ -1706,3 +1706,27 @@ M 4.0 of 2011-12-31 - his own ground, the Northstar 1 sequence).
   catalogues (321 kB, 720 kB updated) - gdr.openei.org submissions 1379,
   1399, 1429.
 - Section BU (1 check). Gate 366.
+
+## 2026-10-12 - Tools and ports (v0.28.0)
+
+Eight ships today (v0.20.0 through v0.27.0). He asked what was left besides
+client data and for a tool catalogue tab in the browser, and chose tools +
+the port registry.
+
+- `gea/tool_catalog.py`: `tools()` (the library with citations, ratings,
+  measures, declared interface, the datasheet aging rate via
+  `drift_model_for` or the reason there is none), `LIVE_PORTS` (the eleven
+  live protocols with what each speaks to, needs and rehearses against),
+  `ports()` (the file registry beside them), `ports_for_interface` /
+  `unmatched()` (the tools no port speaks, named), `catalog()`,
+  `check_string` (the rating check with the basis stated and unknown tools
+  refused), `text()`.
+- `/api/tools` (any signed-in reader), `/api/tools/rating` (gradients only -
+  a well profile is not inferred); the `#/tools` tab with the register, the
+  unmatched table and a rating-check form; `gea tools [--list|--json|
+  --rating --station <ft>:<tool>]` (exit 1 when over a rating);
+  `gea help tools` and the view mapping.
+- Real numbers: 7 tools (3 with published numbers, 4 user-supplied), 9 file
+  ports, 11 live protocols; a GEOQ 177 16k gauge at 16,000 ft sees 183.9 C
+  against its 177 C rating and is flagged.
+- Section BV (2 checks). Gate 368.

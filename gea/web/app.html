@@ -264,6 +264,61 @@ VIEWS.well = async (id) => {
   catch (e) { $('#chart').innerHTML = `<p class="muted">${esc(e.message)}</p>`; }
 };
 
+VIEWS.tools = async () => {
+  const c = await get('/api/tools');
+  let h = `<h2>Tools and ports</h2>` + help('tools');
+  h += `<p class="small muted">${esc(c.statement)}</p>`;
+  h += `<div class="tiles">` + tile('Tools in the library', `${c.counts.tools}`, 'neutral', '#/tools', `${c.counts.fully_specified} with published numbers`)
+     + tile('Parameters user-supplied', `${c.counts.user_supplied}`, c.counts.user_supplied ? 'warn' : 'good', '#/tools', 'no vendor numbers on the fetched pages')
+     + tile('File formats read', `${c.counts.file_ports}`, 'neutral', '#/tools')
+     + tile('Live protocols spoken', `${c.counts.live_ports}`, 'neutral', '#/live') + `</div>`;
+
+  h += `<div class="card"><h3>The tool library <span class="small muted">every entry carries its source; a tool whose vendor published no numbers carries none</span></h3>`;
+  h += `<table><thead><tr><th>Tool</th><th>Class</th><th>Measures</th><th>Rated</th><th>Aging (%FS/yr)</th><th>Speaks</th><th>Ports</th><th>Numbers</th></tr></thead><tbody>`;
+  for (const t of c.tools) {
+    h += `<tr><td><b>${esc(t.name)}</b>${t.notes ? `<div class="small muted">${esc(t.notes)}</div>` : ''}</td><td class="small">${esc(t.tool_class)}</td><td class="small">${esc((t.measures || []).join(', ') || '— (an interface)')}</td>`
+       + `<td class="small">${t.temp_rating_C != null ? fmt(t.temp_rating_C, 0) + ' °C' : '—'}${t.pressure_rating_psi != null ? ' / ' + fmt(t.pressure_rating_psi, 0) + ' psi' : ''}</td>`
+       + `<td>${t.aging_rate_pct_fs_yr != null ? fmt(t.aging_rate_pct_fs_yr, 4) : `<span class="small muted" title="${esc(t.aging_note)}">none on record</span>`}</td>`
+       + `<td class="small">${esc(t.telemetry_interface)}</td><td class="small">${(t.ports || []).map(p => `<a href="#/live">${esc(p)}</a>`).join(', ') || '<span class="muted">none in this build</span>'}</td>`
+       + `<td>${statusPill(t.spec_status === 'FULLY_SPECIFIED' ? 'good' : 'warn', t.spec_status === 'FULLY_SPECIFIED' ? 'published' : 'user-supplied')}</td></tr>`;
+    h += `<tr><td colspan="8" class="small muted">source: ${esc(t.source)}</td></tr>`;
+  }
+  h += `</tbody></table></div>`;
+
+  if (c.unmatched && c.unmatched.length) {
+    h += `<div class="card"><h3>Tools no live port in this build speaks</h3><table><thead><tr><th>Tool</th><th>It declares</th></tr></thead><tbody>${c.unmatched.map(u => `<tr><td>${esc(u.tool)}</td><td class="small">${esc(u.telemetry_interface)}</td></tr>`).join('')}</tbody></table><p class="small muted">Named rather than hidden: a reading from one of these comes in as a file, or through a port the site adds.</p></div>`;
+  }
+
+  h += `<div class="card"><h3>Live protocols <span class="small muted">what each speaks to, what the site must supply, and what to rehearse against</span></h3>`;
+  h += `<table><thead><tr><th>Port</th><th>Transport</th><th>Speaks to</th><th>Needs from the site</th><th>Rehearse with</th></tr></thead><tbody>`;
+  for (const p of c.ports.live) h += `<tr><td><a href="#/live">${esc(p.name)}</a></td><td class="small">${esc(p.transport)}</td><td class="small">${esc(p.speaks)}</td><td class="small">${esc(p.needs)}</td><td class="small mono">${esc(p.rehearse)}</td></tr>`;
+  h += `</tbody></table></div>`;
+
+  h += `<div class="card"><h3>File formats <span class="small muted">what a file can be brought in as</span></h3>`;
+  h += `<table><thead><tr><th>Port</th><th>Transport</th><th>Status</th><th>Detail</th></tr></thead><tbody>`;
+  for (const p of c.ports.files) h += `<tr><td>${esc(p.name)}</td><td class="small">${esc(p.transport)}</td><td>${statusPill(p.status === 'IMPLEMENTED' ? 'good' : 'warn', p.status)}</td><td class="small">${esc(p.detail)}</td></tr>`;
+  h += `</tbody></table></div>`;
+
+  const names = c.tools.filter(t => (t.measures || []).length).map(t => t.name);
+  h += `<div class="card"><h3>Rating check <span class="small muted">a tool string hung in a well: each station's tool against the conditions there</span></h3>
+    <p class="small muted">The conditions come from the gradients declared here, and the answer says so. A rating is the vendor's; this check is arithmetic on both, not a prediction of failure.</p>
+    <div class="row"><label>Surface temperature °F<input id="rcT" type="number" step="0.1" value="75" style="width:7em"></label><label>Gradient °F/ft<input id="rcTG" type="number" step="0.001" value="0.018" style="width:7em"></label><label>Surface pressure psi<input id="rcP" type="number" step="0.1" value="14.7" style="width:7em"></label><label>Gradient psi/ft<input id="rcPG" type="number" step="0.001" value="0.465" style="width:7em"></label></div>
+    <div class="row" id="rcRows"></div>
+    <div class="row"><button class="secondary" id="rcAdd" type="button">Add a station</button><button id="rcRun" type="button">Check the string</button></div>
+    <div id="rcOut"></div></div>`;
+  $('#main').innerHTML = h;
+  const mk = (md) => { const d = document.createElement('div'); d.className = 'row'; d.style.margin = '0';
+    d.innerHTML = `<label>Measured depth ft<input type="number" class="rcMd" value="${md}" style="width:8em"></label><label>Tool<select class="rcTool">${names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('')}</select></label><button class="secondary rcDel" type="button">Remove</button>`;
+    d.querySelector('.rcDel').onclick = () => d.remove(); $('#rcRows').appendChild(d); };
+  mk(500); mk(9000);
+  $('#rcAdd').onclick = () => mk(12000);
+  $('#rcRun').onclick = async () => {
+    const stations = [...document.querySelectorAll('#rcRows .row')].map(r => ({md_ft: parseFloat(r.querySelector('.rcMd').value), tool: r.querySelector('.rcTool').value})).filter(x => !isNaN(x.md_ft));
+    try { const r = await post('/api/tools/rating', {stations, surface_temp_F: parseFloat($('#rcT').value), temp_gradient_F_per_ft: parseFloat($('#rcTG').value), surface_pressure_psi: parseFloat($('#rcP').value), pressure_gradient_psi_per_ft: parseFloat($('#rcPG').value)});
+      let o = `<p class="small"><b>${r.n_over_rating ? r.n_over_rating + ' station(s) over a rating' : 'every station within its ratings'}</b> — ${esc(r.basis)}; ${esc(r.deviation)}.</p>`;
+      o += `<table><thead><tr><th>Depth (ft)</th><th>Tool</th><th>Temperature (°C)</th><th>Pressure (psi)</th><th>Rated</th><th>Verdict</th></tr></thead><tbody>${r.stations.map(x => `<tr><td>${fmt(x.md_ft, 0)}</td><td>${esc(x.tool)}</td><td>${fmt(x.station_temp_C, 1)}</td><td>${fmt(x.station_pressure_psi, 0)}</td><td class="small">${x.temp_rating_C != null ? fmt(x.temp_rating_C, 0) + ' °C' : '—'}${x.pressure_rating_psi != null ? ' / ' + fmt(x.pressure_rating_psi, 0) + ' psi' : ''}</td><td>${statusPill(x.ok ? 'good' : 'serious', x.ok ? 'within ratings' : (x.over_temp_rating ? 'OVER TEMPERATURE' : 'OVER PRESSURE'))}</td></tr>`).join('')}</tbody></table>`;
+      $('#rcOut').innerHTML = o; } catch (e) { toast(e.message, 'err'); } };
+};
 VIEWS.sites = async () => {
   const {sites} = await get('/api/sites');
   let h = `<h2>Sites</h2><p class="muted small">A site is the engagement: the wells, the seismic stations and the tracks that belong to one client's ground, held together so there is one thing to refresh and one thing to hand over. The Site Report pulls every leg of it into one document and names anything that has not been run since the thing it was made from changed.</p>`;
@@ -1099,7 +1154,7 @@ function authScreen(first) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/seismic', 'Seismic'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/seismic', 'Seismic'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, '']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }

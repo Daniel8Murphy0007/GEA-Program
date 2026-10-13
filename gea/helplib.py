@@ -42,6 +42,7 @@ INDEX: List[tuple] = [
     ('catalog', 'The catalogue', 'every shipped public dataset, what in this program reads it or that nothing does; the measured friction envelope; the core check; any log through the survey'),
     ('dlis', 'The DLIS log', 'a well log as it is delivered (API RP66 V1), read as the standard lays it out: the frames, the channels, what was skipped; into the strata survey'),
     ('historian', 'The historian pull', 'an operator\'s gauge history out of the PI System through PI Web API, read-only, every value with its archive time and flags'),
+    ('tools', 'Tools and ports', 'the downhole and surface tools this program knows, each with its citation and ratings, the formats and protocols that bring their readings in, and the rating check on a tool string'),
     ('field-ports', 'The field ports', 'Modbus RTU on the serial line, DNP3 from the pad RTU, HART-IP from the transmitter itself - read-only, polled, with the stand-ins to rehearse against'),
     ('slip', 'Slip tendency on the mapped faults', 'the declared stress state resolved on each mapped fault around a well: the slip tendency, the pressure to slip, the World Stress Map as the SHmax source, the published Hennings values beside'),
     ('interval', 'The interval against the mapped tops', 'the declared disposal interval, subsea, beside each formation-top bracket; the depth tier against the mapped base; the catalogue events against the mapped faults'),
@@ -66,7 +67,7 @@ REQUIRED_LINES = ('**The command**', '**What it writes**', '**The number to chec
 VIEW_TOPIC: Dict[str, str] = {
     'home': 'start', 'wells': 'data-in', 'well': 'drift', 'live': 'patches', 'patch': 'patches', 'files': 'files', 'alarms': 'alarms',
     'approvals': 'well-tests', 'config': 'site', 'reports': 'drift', 'verify': 'start', 'survey': 'data-in', 'jobs': 'site',
-    'admin': 'site', 'prefs': 'site', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'sar': 'seismic', 'sites': 'sites', 'audit': 'audit-update',
+    'admin': 'site', 'prefs': 'site', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'sar': 'seismic', 'sites': 'sites', 'audit': 'audit-update', 'tools': 'tools',
 }
 
 

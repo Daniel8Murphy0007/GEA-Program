@@ -5,6 +5,38 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.28.0] - 2026-10-12 - Tools and ports: the two registers that had no page
+
+### Added
+- **The Tools & ports tab** (`gea/tool_catalog.py`, `#/tools`, `gea
+  tools`): two registers have been in the code since the beginning with no
+  page. The tool library - the downhole and surface tools, each with the
+  citation its numbers came from, the temperature and pressure it is rated
+  for, what it measures, the telemetry interface it declares and the
+  datasheet aging rate where the vendor published one - and the port
+  registry, the file formats this program reads and the eleven live
+  protocols it speaks, each with what it speaks to, what the site must
+  supply before it runs, and what to rehearse against.
+- **The line between them, drawn**: a tool declares an interface and a port
+  speaks one, so the page says which ports can carry each tool and lists
+  the tools whose declared interface no port in this build speaks - the
+  vibrating-wire readout, the 18-point thermocouple card, the fibre
+  interrogator and the piezoresistive family - named rather than hidden. A
+  tool whose vendor published no numbers stays PARAMETERS_USER_SUPPLIED,
+  carries no aging rate and says why on its own line.
+- **The rating check, on the page**: a tool string hung in a well - each
+  station's tool against the temperature and pressure at that station, from
+  the gradients declared on the page, with the basis printed beside the
+  answer: the check that catches a 177 C gauge at 16,000 ft (183.9 C) before
+  the well does. `gea tools --rating --station <ft>:<tool>` exits 1 when a
+  station is over a rating. `/api/tools` (any signed-in reader),
+  `/api/tools/rating`. `gea help tools`.
+- What it will not do: invent a vendor number; call a station within its
+  ratings a promise the tool survives; use conditions it was not given -
+  without a well profile the gradients are the page's and the answer says
+  so; call a port a connection - whether the site's device answers is what
+  the Patch panel shows. Section BV (2 checks); the gate is 368.
+
 ## [v0.27.0] - 2026-10-12 - ComCat: the national catalogue read as the plan reads TexNet's, proven on the Youngstown sequence
 
 ### Added

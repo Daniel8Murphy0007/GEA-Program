@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (366 checks)
+gea accept                     # the product gate (368 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -608,6 +608,20 @@ synthetic station speaking both versions; `gea seedlink --selftest` runs both
 against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
+
+### Tools and ports
+
+The Tools & ports tab (`#/tools`, `gea tools`) is the program's two
+registers in one place: the tool library - every downhole and surface tool
+with its source citation, ratings, what it measures, the telemetry interface
+it declares and its datasheet aging rate where the vendor published one -
+and the ports, the file formats read and the eleven live protocols spoken,
+each with what it speaks to, what the site must supply and what to rehearse
+against. Tools whose declared interface no port in this build speaks are
+listed by name. The rating check hangs a tool string in a well and reports
+each station's tool against the conditions there, with the basis stated:
+`gea tools --rating --station 16000:quartz_pt_geoq177_16k` exits 1 when a
+station is over a rating. `gea help tools`.
 
 ### ComCat
 

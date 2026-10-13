@@ -7320,6 +7320,115 @@ def section_bu_comcat(tmp: str) -> None:
        + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
 
 
+def section_bv_tools(tmp: str) -> None:
+    """Section BV - the tool library and the port registry as one register: every tool with its citation, ratings,
+    declared interface and published aging rate (or the reason there is none); every file format and live protocol
+    with what the site must supply; the tools no port speaks named; the rating check; the API, the page, the CLI, the help."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    from . import tool_catalog as TC
+    from . import helplib as H
+    from .ports import PORT_REGISTRY
+    from .tool_library import PARAMETERS_USER_SUPPLIED, TOOL_LIBRARY
+    from .telemetry import TelemetryRecorder, TelemetryConfig
+    from .downhole_engine import DownholeEngine, SimulatorConfig
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bv"); d.mkdir()
+
+    c = TC.catalog()
+    by = {t["name"]: t for t in c["tools"]}
+    q30, piezo, g6 = by["quartz_pt_geoq177_30k"], by["piezoresistive_pt_class"], by["surface_interface_g6"]
+    rate = TC.check_string([(500.0, "quartz_pt_geoq177_30k"), (16000.0, "quartz_pt_geoq177_16k")])
+    deep = rate["stations"][1]
+    ok_all = TC.check_string([(500.0, "quartz_pt_geoq177_30k")])
+    bad_tool = empty = None
+    try:
+        TC.check_string([(100.0, "no_such_tool")])
+    except ValueError as e:
+        bad_tool = str(e)
+    try:
+        TC.check_string([])
+    except ValueError as e:
+        empty = str(e)
+    c1 = {
+        "tools": c["counts"]["tools"] == len(TOOL_LIBRARY) and c["counts"]["fully_specified"] + c["counts"]["user_supplied"] == len(TOOL_LIBRARY)
+                 and all(t["source"] for t in c["tools"]) and q30["aging_rate_pct_fs_yr"] is not None and q30["aging_note"].startswith("the datasheet")
+                 and q30["temp_rating_C"] == 177.0 and q30["pressure_rating_psi"] == 30000.0 and q30["gauge_spec"]["full_scale_psi"] == 30000.0,
+        "user_supplied_named": piezo["spec_status"] == PARAMETERS_USER_SUPPLIED and piezo["aging_rate_pct_fs_yr"] is None
+                               and "does not invent vendor numbers" in piezo["aging_note"] and g6["measures"] == [],
+        "ports": c["counts"]["file_ports"] == len(PORT_REGISTRY) and {p["name"] for p in c["ports"]["live"]} >= {"wits0", "witsml", "etp", "opcua", "mqtt", "modbus_g6", "modbus_rtu", "dnp3", "hartip", "piwebapi", "seedlink"}
+                 and all(p["needs"] and p["speaks"] and p["rehearse"] for p in c["ports"]["live"]) and any(p["status"] == "IMPLEMENTED" for p in c["ports"]["files"])
+                 and any(p["name"] == "dlis" for p in c["ports"]["files"]),
+        "interfaces": "modbus_rtu" in q30["ports"] and not piezo["ports"] and {u["tool"] for u in c["unmatched"]} == {t["name"] for t in c["tools"] if not t["ports"]}
+                      and "piezoresistive_pt_class" in {u["tool"] for u in c["unmatched"]},
+        "rating": rate["n_over_rating"] == 1 and deep["over_temp_rating"] and not deep["over_pressure_rating"] and abs(deep["station_temp_C"] - 183.9) < 0.2
+                  and "OVER its 177 C rating" in rate["lines"][2] and "declared gradients" in rate["basis"] and "no survey given" in rate["deviation"]
+                  and ok_all["n_over_rating"] == 0 and bad_tool and "not in the tool library" in bad_tool and empty and "at least one station" in empty,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       f"BV1 the register: all {len(TOOL_LIBRARY)} tools with their citations, the quartz gauge's datasheet aging rate and ratings, the piezoresistive "
+       "class carrying no rate and saying why, the interface card measuring nothing; every file port of the registry and all eleven live protocols with "
+       "what each needs from the site and what to rehearse against; the tools no port in this build speaks named; the rating check flagging a 177 C gauge "
+       "at 16,000 ft and clearing a shallow one, an unknown tool and an empty string refused"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    hist = str(d / "hist.csv")
+    TelemetryRecorder(engine=DownholeEngine(SimulatorConfig()), config=TelemetryConfig(duration_hours=0.5, seed=3)).run().export_csv(hist)
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    ws.add_well_file(hist, display="SWD 1", actor="tester")
+    users = Users(str(Path(wsp, "users.json"))); users.add("v", "viewer-pass-1", "viewer")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json"); req.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(req, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        st_anon = call("GET", "/api/tools")[0]
+        call("POST", "/api/login", {"name": "v", "password": "viewer-pass-1"})
+        st_g, got = call("GET", "/api/tools")
+        st_r, rr = call("POST", "/api/tools/rating", {"stations": [{"md_ft": 500, "tool": "quartz_pt_geoq177_30k"}, {"md_ft": 16000, "tool": "quartz_pt_geoq177_16k"}]})
+        st_bad = call("POST", "/api/tools/rating", {"stations": [{"md_ft": 100, "tool": "nope"}]})[0]
+        st_bad2 = call("POST", "/api/tools/rating", {"stations": [{"tool": "quartz_pt_geoq177_30k"}]})[0]
+    finally:
+        svc.stop()
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    help_md = (pkg / "help" / "tools.md").read_text(encoding="utf-8")
+    r_txt = _sp.run([sys.executable, "-m", "gea", "tools"], capture_output=True, text=True)
+    r_list = _sp.run([sys.executable, "-m", "gea", "tools", "--list"], capture_output=True, text=True)
+    r_json = _sp.run([sys.executable, "-m", "gea", "tools", "--json"], capture_output=True, text=True)
+    r_rate = _sp.run([sys.executable, "-m", "gea", "tools", "--rating", "--station", "500:quartz_pt_geoq177_30k", "--station", "16000:quartz_pt_geoq177_16k"], capture_output=True, text=True)
+    r_badst = _sp.run([sys.executable, "-m", "gea", "tools", "--rating", "--station", "500"], capture_output=True, text=True)
+    c2 = {
+        "api": st_anon == 401 and st_g == 200 and got["counts"]["tools"] == len(TOOL_LIBRARY) and st_r == 200 and rr["n_over_rating"] == 1
+               and rr["stations"][1]["over_temp_rating"] and st_bad == 400 and st_bad2 == 400,
+        "page": "VIEWS.tools" in page_src and "'#/tools', 'Tools & ports'" in page_src and "/api/tools/rating" in page_src
+                and "Tools no live port in this build speaks" in page_src and "Rating check" in page_src,
+        "cli": r_txt.returncode == 0 and "file ports:" in r_txt.stdout and "live ports:" in r_txt.stdout and "does not invent vendor numbers" in r_txt.stdout
+               and r_list.returncode == 0 and r_list.stdout.split() == sorted(TOOL_LIBRARY) and r_json.returncode == 0 and json.loads(r_json.stdout)["counts"]["live_ports"] == 11
+               and r_rate.returncode == 1 and "OVER its 177 C rating" in r_rate.stdout and r_badst.returncode != 0 and "<measured depth in feet>:<tool name>" in (r_badst.stderr + r_badst.stdout),
+        "help": any(t["topic"] == "tools" for t in H.topics()) and not H.check("tools") and H.VIEW_TOPIC.get("tools") == "tools"
+                and "not a promise the tool survives" in help_md.split("will not call a measurement")[1],
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "BV2 the Tools & ports tab: the API refuses an anonymous caller and answers a viewer, runs the rating check and refuses an unknown tool and a "
+       "station with no depth; the page carries the tab, the unmatched-tools table and the rating-check form; `gea tools`, `--list`, `--json` and "
+       "`--rating --station` (exit 1 when a station is over a rating, and a malformed station named); the help page and its view mapping"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -7396,6 +7505,7 @@ def main() -> int:
         section_bs_catalog(tmp)
         section_bt_slip(tmp)
         section_bu_comcat(tmp)
+        section_bv_tools(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

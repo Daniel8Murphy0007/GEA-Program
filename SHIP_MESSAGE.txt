@@ -1,26 +1,30 @@
-v0.27.0 — COMCAT: THE NATIONAL CATALOGUE READ AS THE PLAN READS TEXNET'S, PROVEN ON THE YOUNGSTOWN SEQUENCE
+v0.28.0 — TOOLS AND PORTS: THE TWO REGISTERS THAT HAD NO PAGE
 
-The seismicity response plan reads a TexNet catalogue export. The national
-catalogue - USGS ComCat, and every FDSN-compliant service - answers the
-same question for any site in the country in the FDSN text format, and the
-program now reads that as it reads TexNet's: every event with its
-contributor and its magnitude type, because a window across networks mixes
-scales and the packet should say so.
+Two registers have been in this program since the beginning and had nowhere
+to be seen: the tool library and the port registry. The tool library is the
+downhole and surface tools - each with the citation its numbers came from,
+the temperature and pressure it is rated for, what it measures, the
+telemetry interface it declares, and the aging rate its datasheet publishes.
+The port registry is what brings those readings in: the file formats this
+program reads and the eleven live protocols it speaks, each with what it
+speaks to, what the site must supply before it runs, and what to rehearse
+against when the device is not on line yet.
 
-It is proven on two verbatim public-domain extracts kept as fixtures with
-their query URLs: the Delaware and Midland basins for September 2026, 28
-events from TexNet and NEIC with the largest at M 3.4; and the 2011
-Youngstown, Ohio sequence, nine events within 25 km ending in the M 4.0 of
-New Year's Eve 2011, three kilometres from the Northstar 1 disposal well.
-The gate runs the plan's arithmetic on that real sequence: inside a 10 km
-area at an M 2.0 threshold, six events at or above it, the M 4.0 TRIGGERED
-with its 48-hour respond-by, the goal clock started that night.
+The new tab puts them side by side and draws the line between them. A tool
+declares an interface; a port speaks one; and the tools whose interface no
+port in this build speaks - the vibrating-wire readout, the thermocouple
+card, the fibre interrogator, the piezoresistive family - are listed by name
+rather than left out. A tool whose vendor published no numbers carries none,
+says PARAMETERS_USER_SUPPLIED, and tells you to load your own datasheet.
 
-`gea comcat` prints the query for a position and a window, and reads the
-file the service returns.
+The one piece of arithmetic on the page is the rating check: a tool string
+hung in a well, each station's tool against the conditions at that station,
+with the basis of those conditions printed beside the answer. A GEOQ 177
+gauge at 16,000 ft sees 183.9 C against its 177 C rating, and the page says
+so before the well does.
 
-What it will not do: fetch the catalogue from a machine that cannot reach
-the service; read one network's magnitude as another's; decide an
-aftershock.
+What it will not do: invent a vendor number; call a station within its
+ratings a promise; use conditions it was not given; call a port a
+connection.
 
-Section BU is new. The gate is 366 checks. The standalone guard is clean.
+Section BV is new. The gate is 368 checks. The standalone guard is clean.

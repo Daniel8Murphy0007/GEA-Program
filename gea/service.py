@@ -1637,6 +1637,9 @@ def make_handler(app: App):
                         raise ApiError(404, str(e))
                 if path == '/api/stress':
                     return self._json(200, {'stress': app.ws.stress(), 'stress_map': app.ws.stress_map()})
+                if path == '/api/tools':
+                    from . import tool_catalog as _TC
+                    return self._json(200, _TC.catalog())
                 if path == '/api/stress/wsm':
                     try:
                         lat, lon = float(qs['lat'][0]), float(qs['lon'][0]); rad = float(qs.get('radius_km', ['100'])[0])
@@ -1839,6 +1842,22 @@ def make_handler(app: App):
                                                                 depth_ft=(float(b['depth_ft']) if b.get('depth_ft') is not None else None), actor=user['name']))
                     except WorkspaceError as e:
                         raise ApiError(404, str(e))
+                if path == '/api/tools/rating':
+                    from . import tool_catalog as _TC
+                    b = body or {}
+                    try:
+                        stations = [(float(x['md_ft']), str(x['tool'])) for x in (b.get('stations') or [])]
+                    except (KeyError, TypeError, ValueError):
+                        raise ApiError(400, 'each station needs md_ft and tool')
+                    try:                                        # the conditions are the declared gradients, and the answer says so
+                        return self._json(200, _TC.check_string(stations, profile=None, deviation=None,
+                                                                surface_temp_F=float(b.get('surface_temp_F', 75.0)),
+                                                                temp_gradient_F_per_ft=float(b.get('temp_gradient_F_per_ft', 0.018)),
+                                                                surface_pressure_psi=float(b.get('surface_pressure_psi', 14.7)),
+                                                                pressure_gradient_psi_per_ft=float(b.get('pressure_gradient_psi_per_ft', 0.465)),
+                                                                name=str(b.get('name', 'toolstring'))))
+                    except (ValueError, KeyError) as e:
+                        raise ApiError(400, str(e))
                 if path == '/api/stress':
                     App.require(user, 'operator')
                     try:

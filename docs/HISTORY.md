@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.28.0 - 2026-10-12 - Tools and ports
+
+- **The two registers that had no page.** The tool library and the port
+  registry as one tab: every tool with its citation, ratings, declared
+  interface and datasheet aging rate; every file format and live protocol
+  with what the site must supply; the tools no port speaks, named; the
+  rating check on a tool string. Section BV; gate 368.
+
 ## v0.27.0 - 2026-10-12 - ComCat
 
 - **The national catalogue read as the plan reads TexNet's.** The FDSN
