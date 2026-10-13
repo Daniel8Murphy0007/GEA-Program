@@ -18,5 +18,15 @@
   ],
   "rendering_ambiguity_disclosure": "The source declares SEPARATOR TAB; the legacy site's HTML rendering collapses tabs to space runs, so EMPTY interior cells lose their position. Rows with all 8 fields are unambiguous. For short rows the reader applies a TYPE-DECLARED rule only: a trailing token containing a decimal point cannot be the I2 dip column and is assigned to E_MODUL; a trailing INTEGER token in a 7-field row (which could be an integer-valued E in GPa OR a dip in deg) is REFUSED - both E_MODUL and DIP set NaN and the raw token preserved in a per-row quality flag. Nothing is guessed from geology. The source URL serves the file for byte-level (tab-preserving) resolution.",
   "purpose": "sixteenth catalogue entry - the catalogue's first LABORATORY ROCK STRENGTH data (TENTH kind), completing the geomechanics pair with entry 15: strength (what the rock can bear) vs overburden (what it does bear). The gate compares them live: weak foliated gneisses whose measured UCS falls BELOW the density-derived overburden at their own depth - the physical reason the KTB pilot hole developed breakouts - are counted from data, not asserted.",
-  "verified": "sample count, depth/strength endpoints and extremes, type-rule assignments, refused-ambiguous count, and the live strength-vs-overburden comparison gate-pinned; source URL serves the identical table for independent re-verification"
+  "verified": "sample count, depth/strength endpoints and extremes, type-rule assignments, refused-ambiguous count, and the live strength-vs-overburden comparison gate-pinned; source URL serves the identical table for independent re-verification",
+  "position": {
+    "status": "OK",
+    "how": "same_well",
+    "lat": 49.81531,
+    "lon": 12.119101,
+    "datum": "WGS84",
+    "source": "the same borehole as ktb_vb_vlog251_temperature (its file header: Gauss-Krueger zone 4 Rechtswert/Hochwert (DHDN, Bessel) unprojected and shifted to WGS84 by EPSG 1776 (3 m))",
+    "line": "LONG  UNAL  Longitude                                                      RW:45 08 590 | LATI  UNAL  Latitude          ",
+    "same_well_as": "ktb_vb_vlog251_temperature"
+  }
 }

@@ -24,5 +24,14 @@
   ],
   "source_anomaly_disclosure": "TWO source quirks preserved verbatim: (1) the header parameter comment spells 'mininum velocity' (source typo, untouched); (2) experiment B379 run 1's mean slip velocity, Distance/Duration = 46.7/11510.0 = 0.00406 um/s, EXCEEDS its own reported maximum sliding velocity 0.0032 um/s - the other four SSE rows all keep Distance/Duration inside their reported [V_min, V_max] band; the inconsistency is the archive's, detected by re-deriving the band check, and carried unchanged with this disclosure",
   "purpose": "thirty-first catalogue entry - a TRIPLE FIRST: the JAPAN TRENCH joins as region NINETEEN, laboratory SLOW-SLIP-EVENT friction measurements are kind TWENTY (the time-dependent counterpart to the Nankai monotonic shear-strength table: not how strong the fault is, but HOW it fails), and at -6,887.5 m seafloor it sets the catalogue's water-depth record; the material is the actual plate-boundary gouge that hosted the 2011 Tohoku Mw 9.0 - the paper's headline physics (slow slip events nucleate spontaneously in this material at plate-tectonic loading rates, with tiny stress drops on a weak fault) is re-derived from the table by the gate on every run",
-  "verified": "83 non-empty body cells against the header's own Size declaration (23 label + 60 numeric, EXACT); stress-drop identity Perc = Tau_drop/Shear_str_max x 100 re-derived on all 5 SSE rows within input-rounding (<=0.02 pct); slow-slip character pinned (all V_max <= 0.0079 um/s - five orders below seismic slip rates - with durations 2-4 h); 4-of-5 mean-velocity band check + the B379-run-1 exceedance pinned as disclosed; the two '*no SSE' rows load as all-NaN numerics with Comment verbatim; gate-pinned; source URL serves the identical dataset"
+  "verified": "83 non-empty body cells against the header's own Size declaration (23 label + 60 numeric, EXACT); stress-drop identity Perc = Tau_drop/Shear_str_max x 100 re-derived on all 5 SSE rows within input-rounding (<=0.02 pct); slow-slip character pinned (all V_max <= 0.0079 um/s - five orders below seismic slip rates - with durations 2-4 h); 4-of-5 mean-velocity band check + the B379-run-1 exceedance pinned as disclosed; the two '*no SSE' rows load as all-NaN numerics with Comment verbatim; gate-pinned; source URL serves the identical dataset",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": 37.938905,
+    "lon": 143.913473,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 2 events in the file",
+    "line": "LATITUDE: 37.938905 * LONGITUDE: 143.913473"
+  }
 }

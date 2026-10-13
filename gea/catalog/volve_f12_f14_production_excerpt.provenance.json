@@ -17,5 +17,14 @@
   "units_disclosure": "Units are NOT in the CSV header; the assignments above follow the redistribution's published data dictionary (bar / degC / Sm3) and are INTERPRETIVE, recorded here rather than claimed as in-file.",
   "real_data_features": "Real operational messiness preserved verbatim: a genuine STUCK-SENSOR run (AVG_DOWNHOLE_PRESSURE frozen at 264.08789 bar 2008-05-11 -> 2008-05-19), a wellhead-pressure dropout (AVG_WHP_P = 0.0 on 2008-06-03), a negative water volume (-14.19 Sm3 on 2008-04-23), water-volume spikes (8019.72 Sm3 on 2008-05-24/25), and blank AVG_ANNULUS_PRESS cells on early F-14 records - the fault classes the telemetry QC pipeline injects synthetically, here occurring in real field data.",
   "purpose": "eleventh catalogue entry - the catalogue's first TIME-INDEXED real field data (SIXTH kind): daily per-well production/pressure/temperature history, the live stream's native shape; the closed-vs-live reconciler's real-data counterpart, and the first entry carrying real sensor-fault phenomenology",
-  "verified": "166 records; first-oil row, F-14 first row, stuck run, dropout, blanks->NaN and last row gate-pinned; source URL serves the full file for independent re-verification"
+  "verified": "166 records; first-oil row, F-14 first row, stuck run, dropout, blanks->NaN and last row gate-pinned; source URL serves the full file for independent re-verification",
+  "position": {
+    "status": "NO POSITION",
+    "how": "none",
+    "lat": null,
+    "lon": null,
+    "datum": null,
+    "source": "neither the file nor the sidecar states a coordinate",
+    "place": "Volve wells 15/9-F-12 H (NPD 5599) and 15/9-F-14 H (NPD 5351), VOLVE field, facility MAERSK INSPIRER, Norwegia"
+  }
 }

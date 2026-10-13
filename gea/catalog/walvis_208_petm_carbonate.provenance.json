@@ -17,5 +17,14 @@
   ],
   "source_anomaly_disclosure": "TWO source features preserved verbatim: (1) sample 208-1266C-17H-3,92 appears TWICE at the same depth with different values (44.80 and 47.80) - a replicate analysis carried as the archive left it; (2) hole 1265A's record never falls below 30 pct CaCO3 while the other four crash below 1.5 - carried as-is (the archived interval for 1265A is what the source published for that hole), so the depth-transect ordering pin below is stated over the four crashing holes only; noted also: the 1267B event LOCATION reads 'South Atlantic Ocean' where the other four read 'Walvis Ridge, Southeast Atlantic Ocean'",
   "purpose": "forty-second catalogue entry - the SOUTH ATLANTIC joins as region THIRTY (Walvis Ridge, the ocean basin the catalogue had never touched) and bulk carbonate content is kind THIRTY-ONE, carrying one of the most famous deep-sea records ever drilled: THE OCEAN ACIDIFYING 56 MILLION YEARS AGO - at each of four holes the carbonate collapses from ~90 pct to under 1.5 within centimetres (the CCD sweeping upward past the seafloor in under 10 kyr per the paper), and the gate re-derives the paper's central claim as arithmetic on every run: the boundary-clay thickness (sub-10 pct span) INCREASES MONOTONICALLY WITH WATER DEPTH across the four crashing holes - 0.04 m at -2,717 m, 0.08 at -3,797, 0.10 at -4,355, 0.15 at -4,759 - more than 2 km of CCD shoaling measured as four numbers in the right order; the natural deep-time companion to the catalogue's Guaymas isotopes and GBR U-Th clocks",
-  "verified": "247 rows / 741 counted cells against the header's own Size declaration (EXACT); per-hole mcd-minus-mbsf offset CONSTANT on all 247 rows ({18.11},{50.31},{40.78},{39.66},{25.83} - the splice identity); per-hole minima 0.40/1.30/30.0/0.40/0.92 and maxima 90.6-94.7 pinned; sub-10 clay spans 0.15/0.04/0.00/0.08/0.10 m with the four-hole depth-monotonic ordering pinned; the 17H-3,92 replicate pair pinned; 1-cm recovery jumps pinned (0.70->58.80 at 1262A; 4.20->73.70 at 1263C); gate-pinned; source URL serves the identical dataset"
+  "verified": "247 rows / 741 counted cells against the header's own Size declaration (EXACT); per-hole mcd-minus-mbsf offset CONSTANT on all 247 rows ({18.11},{50.31},{40.78},{39.66},{25.83} - the splice identity); per-hole minima 0.40/1.30/30.0/0.40/0.92 and maxima 90.6-94.7 pinned; sub-10 clay spans 0.15/0.04/0.00/0.08/0.10 m with the four-hole depth-monotonic ordering pinned; the 17H-3,92 replicate pair pinned; 1-cm recovery jumps pinned (0.70->58.80 at 1262A; 4.20->73.70 at 1263C); gate-pinned; source URL serves the identical dataset",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": -28.238912,
+    "lon": 2.21008,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 8 events in the file",
+    "line": "LATITUDE: -28.238912 * MEDIAN LONGITUDE: 2.210080"
+  }
 }

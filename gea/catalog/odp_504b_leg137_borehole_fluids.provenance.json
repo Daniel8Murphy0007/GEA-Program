@@ -15,5 +15,14 @@
   ],
   "science_disclosure": "The paper's own honest finding is preserved as the entry's meaning: these are BOREHOLE fluids, not confirmed formation waters - seawater mixing with a single reacted component (likely basaltic-rubble reaction at the hole bottom at ambient >160 degC). The depth trend IS the mixing gradient: Mg falls 54.0 -> 26.9 mmol/l while Ca rises 10.7 -> 43.0 and 87Sr/86Sr slides from the seawater value (0.70921) toward basaltic (0.70758). The BL-004M sample at 950 m is near-seawater (a fresh-water parcel in the column) - real structure, preserved.",
   "purpose": "eighteenth catalogue entry - TENTH region (North Pacific oceanic crust), FIRST subsea/sub-seafloor entry, ELEVENTH kind (borehole fluid chemistry): the chemistry of the fluid downhole tools actually live in (corrosion/scaling-relevant), from the ocean's KTB; also proves the PANGAEA textfile route - a whole new provenance-grade source family for the catalogue",
-  "verified": "8 samples; depth/Mg/Ca/pH/Sr-isotope endpoints and extremes; the mixing gradient (corr(depth,Mg) strongly negative, corr(depth,Ca) positive) computed live; NaN padding of short rows; in-file license/coordinates parsed to meta; gate-pinned; source URL serves the identical dataset for independent re-verification"
+  "verified": "8 samples; depth/Mg/Ca/pH/Sr-isotope endpoints and extremes; the mixing gradient (corr(depth,Mg) strongly negative, corr(depth,Ca) positive) computed live; NaN padding of short rows; in-file license/coordinates parsed to meta; gate-pinned; source URL serves the identical dataset for independent re-verification",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": 1.2269,
+    "lon": -83.7303,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 2 events in the file",
+    "line": "LATITUDE: 1.226900 * LONGITUDE: -83.730300"
+  }
 }

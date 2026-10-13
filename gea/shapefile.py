@@ -260,6 +260,9 @@ def _load_parts(src: str, member: Optional[str] = None) -> Tuple[str, Dict[str, 
     A zip or folder holding several shapefiles needs `member` (the base name) to say which."""
     want = ('.shp', '.dbf', '.prj', '.shp.xml', '.shx')
     parts: Dict[str, bytes] = {}
+    if not os.path.exists(src) and not os.path.isfile(src + '.shp') and not (src.lower().endswith('.shp') and os.path.isfile(src)):
+        here = os.getcwd()
+        raise ValueError(f'no such file: {src} (looked from {here}; a relative path is read from the folder the command runs in - give the full path, C:\\site\\_incoming\\layer.zip)')
     if os.path.isfile(src) and zipfile.is_zipfile(src):
         with zipfile.ZipFile(src) as z:
             names = [n for n in z.namelist() if not n.endswith('/')]

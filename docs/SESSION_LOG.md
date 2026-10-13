@@ -1730,3 +1730,44 @@ the port registry.
   ports, 11 live protocols; a GEOQ 177 16k gauge at 16,000 ft sees 183.9 C
   against its 177 C rating and is flagged.
 - Section BV (2 checks). Gate 368.
+
+## 2026-10-13 - The catalogue on a world map (v0.29.0)
+
+He asked where the datasets from the 14+ wells were and where the global
+map was. The datasets are the catalogue inside the wheel (52 public entries,
+49 wells and sites); the map had never been built. Then the Pad 3 bring-up:
+his pasted commands died on `<placeholders>` in PowerShell and on relative
+paths run from the repo folder; `C:\site\_incoming` held eight EIA/Hennings
+zips, the World Stress Map and a North Sea DLIS, none loaded. Loaded the
+33 layers and the stress map into Pad 3 from his machine (the Midland and
+Delaware Wolfcamp sets named apart, because two layers of one formation and
+role would have overwritten each other in the interval band - a defect
+found by reading `interval.statement`, now refused at `add-layer`). The
+DLIS (206/05a-3, Fulla field) needs a well to import into and is not a Pad 3
+well. An inventory workbook beside the files.
+
+- `gea/catalog_map.py`: `parse_file_position` (PANGAEA `LATITUDE:`, LAS
+  `LATI`/`LONG`, LAS `LOC` DMS, KTB `Latitude:` decimal, KTB Gauss-Krueger
+  `R`/`H`), `parse_provenance_position`, `SAME_WELL` (declared), `position_of`
+  by that chain, `positions`, `sidecar_positions`, `check_sidecars`,
+  `write_sidecars` (the sidecars' own two-space layout kept), `counts`,
+  `coastline` / `coastline_meta` (fixture), `project` (plate carree),
+  `groups`, `svg`, `text`. `tools/catalog_positions.py` writes the sidecars.
+- `geodesy`: BESSEL, DHDN (EPSG 1776, 3 m), `gauss_krueger`. The KTB main
+  hole's GK position before the shift is 2.3 m from the same hole's decimal
+  header, so that header is DHDN too; the pilot hole is 185 m west.
+- `gea/fixtures/ne_110m_coastline.json`: Natural Earth 1:110m coastline,
+  public domain, rounded to 0.01 degree (134 lines, 5,127 points), upstream
+  md5 in the README.
+- `/api/catalog/map`, `/api/catalog/entry/NAME`; the `#/catalog` tab;
+  `gea catalog --positions | --map OUT.SVG | --check-positions`; the catalog
+  help page extended; VIEW_TOPIC `catalog`.
+- Fixes: `add_layer` refuses a duplicate (formation, role) and names the way
+  out; `shapefile._load_parts` reports a missing path as `no such file`
+  with the folder it looked from; every pasteable `<placeholder>` in the
+  help command lines, README, usage messages, doctor fixes and the page
+  replaced by a real example value or an uppercase metavar (BV2's expected
+  station message updated to match).
+- Real numbers: 44 of 52 positioned (38 file headers, 4 same borehole, 2
+  source records, 1 approximate), 8 NO POSITION, 33 marks.
+- Sections BW (3 checks) and BX (2). Gate 373.

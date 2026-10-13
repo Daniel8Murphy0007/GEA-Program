@@ -16,5 +16,14 @@
   ],
   "science_disclosure": "The two-epoch structure IS the entry's meaning: the drilling-disturbed state (2.5-19.6 degC) recovering to the natural state (17.5-60.7 degC) after three sealed years - the disturbed-vs-equilibrium distinction the KTB temperature entries could only DISCLOSE is here MEASURED on both sides. The sealed profile shows the Davis-Becker result: a steep conductive sediment gradient (~104 degC/km - young hot crust) collapsing to an ISOTHERMAL basement section (60.6-60.7 degC across 596.8-612.3 m) - vigorous hydrothermal circulation homogenizing the upper basement. Surface station has no installation-epoch value (blank in source, NaN here).",
   "purpose": "TWENTIETH catalogue entry - the thematic crown: a real PERMANENT DOWNHOLE OBSERVATORY (thirteenth kind, region TWELVE) - the physical instrument class this entire simulator package models (sealed borehole, multi-year monitoring, data recoveries, a logger replacement: the ServiceLifeSimulator's world as history), carrying the disturbed->equilibrium recovery the catalogue's honesty pins have pointed at since entry 12",
-  "verified": "10 stations x 2 epochs; endpoints and extremes; +42.6 degC three-year recovery at 586.8 m; basement isothermality vs installation-epoch spread; ~104 degC/km sediment gradient; blank surface cell -> NaN; in-file license/coordinates to meta; gate-pinned; source URL serves the identical dataset"
+  "verified": "10 stations x 2 epochs; endpoints and extremes; +42.6 degC three-year recovery at 586.8 m; basement isothermality vs installation-epoch spread; ~104 degC/km sediment gradient; blank surface cell -> NaN; in-file license/coordinates to meta; gate-pinned; source URL serves the identical dataset",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": 47.7565,
+    "lon": -127.731,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 2 events in the file",
+    "line": "LATITUDE: 47.756500 * LONGITUDE: -127.731000"
+  }
 }

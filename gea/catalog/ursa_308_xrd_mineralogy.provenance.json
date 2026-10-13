@@ -17,5 +17,14 @@
   ],
   "source_anomaly_disclosure": "ONE lumping quirk proven twice over and preserved verbatim: the column labeled 'Total Carbonate' equals calcite + dolomite + siderite PLUS HALITE on all four rows EXACTLY (the salt is visible only on the two halite-bearing U1322D rows, 16.1+0.4=16.5 and 13.1+0.5=13.6), and the reading is independently confirmed because the grand partition Clay + Carbonate + Quartz-Feldspar + pyrite + clinoptilolite + amphibole reproduces the archived Total EXACTLY on all four rows only under it - a Gulf of Mexico table quietly filing salt under carbonate, above the world's most famous salt province; noted also: the <2-um clay-fraction percentages sum to {100, 101, 99, 100} - integer rounding carried as archived",
   "purpose": "forty-fifth catalogue entry - quantitative XRD MINERALOGY is kind THIRTY-FOUR (clay typing: the quantity that governs mudstone consolidation, fault friction AND wellbore stability), and it lands as a CROSS-LINK: U1324 already carries the catalogue's only measured in-situ pore pressures, and this entry supplies the lithology that makes that overpressure - 34-54 pct total clay dominated by mixed-layer illite-smectite at 60-80 pct of the clay fraction with 75-85 pct expandability, the swelling-clay assemblage that seals fluid in and drives the compaction disequilibrium the Ursa pressures measured; every archived total is re-earned: the 18-phase sum reproduces Total EXACTLY on all 4 rows (100.3/100.1/100.0/100.0), clay and quartz-feldspar groups close EXACTLY, and the carbonate group closes EXACTLY only when the archive's own halite-lumping is honored",
-  "verified": "4 rows / 112 counted cells against the header's own Size declaration (EXACT under the measured convention); 18-phase bulk sum == archived Total on 4/4 rows; Total Clay == 7-phase clay sum on 4/4; Total Quartz+Feldspar == Qz+Pl+Kfs on 4/4; Total Carbonate == Cal+Dol+Sd+Hl on 4/4 (the lumping quirk); grand partition == Total on 4/4; clay-fraction integer sums {99,100,101} pinned; expandability 75-85 and I/S 60-80 pinned; gate-pinned; source URL serves the identical dataset"
+  "verified": "4 rows / 112 counted cells against the header's own Size declaration (EXACT under the measured convention); 18-phase bulk sum == archived Total on 4/4 rows; Total Clay == 7-phase clay sum on 4/4; Total Quartz+Feldspar == Qz+Pl+Kfs on 4/4; Total Carbonate == Cal+Dol+Sd+Hl on 4/4 (the lumping quirk); grand partition == Total on 4/4; clay-fraction integer sums {99,100,101} pinned; expandability 75-85 and I/S 60-80 pinned; gate-pinned; source URL serves the identical dataset",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": 28.001494,
+    "lon": -89.001369,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 5 events in the file",
+    "line": "LATITUDE: 28.001494 * MEDIAN LONGITUDE: -89.001369"
+  }
 }

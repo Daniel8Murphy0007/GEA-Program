@@ -252,10 +252,10 @@ def report_text(r: dict, kind: str) -> str:
     if kind == 'restore':
         return (f"restored: {r['target']}\n  site {r['site']!r} from the backup of {r['backup_generated_utc']}: {r['n_files']} files, "
                 f"{len(r['wells'])} well(s) {r['wells']}, {len(r['seismic'])} station(s), users.json {'present' if r['users_json'] else 'ABSENT'}"
-                "\n  open it: gea serve --workspace <that folder> --port 8766, and look before you trust the copy")
+                "\n  open it: gea serve --workspace C:\\site-restored --port 8766, and look before you trust the copy")
     if kind == 'status':
         if r['never']:
-            return 'backup: NEVER - no backup has been taken from this workspace (gea backup --workspace ... --out <another disk>)'
+            return 'backup: NEVER - no backup has been taken from this workspace (gea backup --workspace C:\\site --out D:\\gea-backups)'
         l = r['last']
         return (f"backup: last {l['utc']} ({r['age_h']} h ago) -> {l['path']} ({'present' if r['present'] else 'NOT FOUND where the log says'}); "
                 f"{r['count']} on record; {'STALE' if r['stale'] else 'current'} (stale after {r['stale_after_h']:g} h)")

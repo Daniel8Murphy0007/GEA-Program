@@ -18,5 +18,14 @@
   ],
   "source_anomaly_disclosure": "THREE structural quirks preserved verbatim and proven by counting: (1) 36 rows archive a detection limit of literal 0.00E000 pmol/cm3/day - a physically impossible zero LOD, a format-precision artifact carried as the archive wrote it; (2) the triplicate design breaks in exactly three places - one SINGLETON (1228A-10H-2 at 83.15 m, one aliquot where every other sample has three) and two split-depth groups where aliquots of one sample carry slightly different depths (1229A-5H-5 at 38.67/38.69/38.69 m and 1229D-7H-1 at 49.76/49.76/49.80 m) - intra-triplicate depth wobble preserved; (3) 1230C-2H-3 appears at TWO distinct depths (7.84 and 8.27 m) as two separate triplicates from one section",
   "purpose": "forty-sixth catalogue entry - the PERU MARGIN joins as region THIRTY-THREE (the catalogue's first South Pacific entries, shelf to 5-km trench, from the founding expedition of deep-biosphere science) and MICROBIAL ACTIVITY RATES are kind THIRTY-FIVE: the catalogue's first measurement of LIFE - not a proxy but metabolism itself, counted atom by radioactive atom - and the deep biosphere's structure is re-derived on every gate run: rates spanning SIX orders of magnitude that collapse with depth (185 of 292 results below detection - the negative results carried as first-class data), the sulfate-methane transition at 1227D burning 770x brighter (5,337 pmol/cm3/day at 6.76 m) than the layer two metres above it, and Site 1229's famous DOUBLE LIFE - detections at the seafloor, a quiet middle, then metabolism RE-IGNITING at 95-186 m where deep brine feeds sulfate back into the system from below",
-  "verified": "292 rows / 876 counted cells against the header's own Size declaration (EXACT as 3N via the proven SRR/comment complementarity); rate maximum 5,337.46 at 6.76 m and SMT spike ratio 770x pinned; 107/185 detection split pinned; 36 literal-zero LODs pinned; the singleton and both split-depth triplicates pinned; 1229 deep re-ignition pinned (detections > 0.1 at 95.14, 157.80 and 185.82 m after none between 31 and 95 m); gate-pinned; source URL serves the identical dataset"
+  "verified": "292 rows / 876 counted cells against the header's own Size declaration (EXACT as 3N via the proven SRR/comment complementarity); rate maximum 5,337.46 at 6.76 m and SMT spike ratio 770x pinned; 107/185 detection split pinned; 36 literal-zero LODs pinned; the singleton and both split-depth triplicates pinned; 1229 deep re-ignition pinned (detections > 0.1 at 95.14, 157.80 and 185.82 m after none between 31 and 95 m); gate-pinned; source URL serves the identical dataset",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": -10.150208,
+    "lon": -79.0253,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 12 events in the file",
+    "line": "LATITUDE: -10.150208 * MEDIAN LONGITUDE: -79.025300"
+  }
 }

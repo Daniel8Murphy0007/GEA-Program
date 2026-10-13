@@ -24,5 +24,14 @@
   ],
   "source_anomaly_disclosure": "FOUR source spelling/format quirks preserved verbatim: (1) the dataset's own PANGAEA title reads 'share-wave' for shear-wave; (2) sample 48R-4 comment reads 'Fe-Ti Oxide Grabbo' for Gabbro; (3) sample 83R-4 comment reads 'tracee phyllosilicates'; (4) sample 55R-4's modal list reads '10 oxides' with the percent sign missing. Also sample 42R-4's label carries an anomalous space ('42R-4, 62-64'). All detected during transcription audit, carried unchanged.",
   "purpose": "twenty-seventh catalogue entry - the SOUTHWEST INDIAN RIDGE joins as region FIFTEEN and the catalogue COMPLETES THE OCEANIC-CRUST LADDER: sediments (many entries) -> pillow basalts (504B Leg 69) -> sheeted dikes (504B Leg 111) -> LAYER-3 GABBRO (735B Leg 118), the full ophiolite sequence held as verbatim public data; same four-identity elastic audit as the dike entry but on all 104 rows (density rides on every row), plus a fifth audit unique to this entry: the petrographic modal percentages in each sample's comment sum to ~100%",
-  "verified": "104 rows / 1,144 cells against the header Size declaration; Vp/Vs, Poisson, shear modulus rho*Vs^2 and bulk modulus rho*(Vp^2 - 4/3 Vs^2) re-derived on ALL 104 rows within the table's rounding; modal-mineralogy sum audit on all 13 samples; ranges and endpoints; four source spelling quirks pinned; gate-pinned; source URL serves the identical dataset"
+  "verified": "104 rows / 1,144 cells against the header Size declaration; Vp/Vs, Poisson, shear modulus rho*Vs^2 and bulk modulus rho*(Vp^2 - 4/3 Vs^2) re-derived on ALL 104 rows within the table's rounding; modal-mineralogy sum audit on all 13 samples; ranges and endpoints; four source spelling quirks pinned; gate-pinned; source URL serves the identical dataset",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": -32.724,
+    "lon": 57.2662,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 2 events in the file",
+    "line": "LATITUDE: -32.724000 * LONGITUDE: 57.266200"
+  }
 }

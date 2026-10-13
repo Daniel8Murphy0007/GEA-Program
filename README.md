@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (368 checks)
+gea accept                     # the product gate (373 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -197,7 +197,7 @@ value in your units (field or SI - "Your preferences", with site defaults
 under Administration); a first-run guide walks a new site through its
 settings, first well, people and first refresh; every page prints cleanly.
 
-Every action the page takes is a job: `python -m gea <command>` run by the
+Every action the page takes is a job: `python -m gea ...` run by the
 service with its log kept under `jobs/`, so one code path serves the page, the
 terminal and the acceptance gate, and a failed action shows its log instead of
 disappearing. Every action is written to `records/audit.jsonl` with the
@@ -519,7 +519,7 @@ an aftershock: those are declarations, and the packet says so.
 ### The OSDU-shaped export
 
 What a buyer's data team asks for on the first call. `gea workspace --action
-osdu-export --site <id> --partition ... --acl-owner ... --acl-viewer ...
+osdu-export --site retama-block --partition opendes --acl-owner ... --acl-viewer ...
 --legal-tag ...` writes the site as an `osdu:wks:Manifest:1.0.0` to the
 published well-known schemas: each well as Well and Wellbore 1.0.0 with its
 API and UIC as name aliases, its record as a WellLog 1.1.0 in the time
@@ -534,8 +534,8 @@ tag the manifest is NOT LOADABLE and says so. `gea help osdu`.
 ### The QuakeML catalogue export
 
 The site's own events in the format the regulator's catalogue tools read.
-After `associate`, `gea workspace --action quakeml-export --site <id>
-[--agency "<name>"]` writes `reports/sites/<site>/quakeml/<site>_events.xml`
+After `associate`, `gea workspace --action quakeml-export --site retama-block
+[--agency "Acme Operating"]` writes `reports/sites/<site>/quakeml/<site>_events.xml`
 as QuakeML 1.2 to the Basic Event Description schema: one event per
 associated event with its origin (the misfit region as the uncertainties,
 depth in metres and "operator assigned" because it was declared, the method
@@ -551,7 +551,7 @@ quakeml`; `gea quakeml` runs the labelled scene.
 
 ### The well as master data names it
 
-`gea workspace --action well-identity --well <id>` names a well the way the
+`gea workspace --action well-identity --well SWD-1` names a well the way the
 operator's master data and a regulator's well file name it: the US Well
 Number (the API number, whose standard PPDM has held since 2010) taken apart
 - state and offshore code, county code, unique well and its range, sidetrack
@@ -570,7 +570,7 @@ number apart from the command line; `gea help ppdm`.
 ### Machine vibration
 
 The pump's record read the way an operations engineer expects. `gea
-workspace --action vibration-report --well <id> --record pump.csv --vib-unit
+workspace --action vibration-report --well SWD-1 --record pump.csv --vib-unit
 g --rpm 1780 --group 2 --support rigid --bearing 9,7.94,39.04` writes the
 broadband r.m.s. vibration velocity over 10-1000 Hz (2-1000 Hz below 600
 r/min), the quantity ISO 20816-1 defines, and the ISO 20816-3 zone for the
@@ -653,13 +653,30 @@ statement on declared inputs, not a probability and not a verdict.
 `gea catalog --list` is the register of the 52 shipped public datasets: for
 each, what in this program reads it, or CARRIED, NO BAND with the reason;
 the gate holds the register to the code both ways and reads every entry.
-`gea survey --catalog <entry>` runs the strata survey on any catalogue log
+`gea survey --catalog collingwood_1_28_ks_complete` runs the strata survey on any catalogue log
 with its provenance; `gea catalog --friction` reads seven laboratory
 datasets on natural fault and sediment samples as the measured friction
 envelope (0.21-0.90 on 70 measurements, none from the Permian) against
 Byerlee's 0.6; `gea catalog --core` checks the published sandstone range
 against the Volve core (65 of 70 plugs inside), an evaluation on the rock
 inventory model card. `gea help catalog`.
+
+### The catalogue on a world map
+
+The Catalogue tab is where each of the 52 entries was drilled: 49 wells and
+sites from the KTB to Hikurangi, taken from each entry's own file - a
+PANGAEA event line, a LAS header, a KTB Gauss-Krueger grid reference
+unprojected on the Bessel ellipsoid and shifted to WGS84 with the shift
+stated - or from the sidecar's source record, or NO POSITION. Nothing is
+looked up: 44 of 52 are positioned (33 distinct marks; the entries of one
+borehole share a mark) and the 8 that are not are listed with what their
+files do say. The coastline is Natural Earth 1:110m (public domain, in
+`gea/fixtures` with its provenance). Each position is written into the
+entry's sidecar with the line it came from, and the gate holds the sidecars
+equal to a fresh read of the files. `gea catalog --positions`, `gea catalog
+--map catalogue.svg` (the same picture as a file, with the key),
+`--check-positions`. A mark is the coordinate the record states, not a
+position this program measured.
 
 ### The log as delivered, and the historian
 
@@ -705,7 +722,7 @@ derrick floor) and where it came from: `gea workspace --action set-well --well
 (`--elev-3dep` fetches the ground elevation from the USGS 3DEP point service
 instead, stored with its raster and named as the ground). A contours layer is
 told what it maps (`add-layer ... --formation-name Wolfcamp --role
-top|isopach|base`). `--action interval --well <id>` then converts the interval
+top|isopach|base`). `--action interval --well SWD-1` then converts the interval
 to subsea with the arithmetic printed and sets it beside each formation-top
 bracket at the well: ABOVE the mapped top, BELOW it, or NOT RESOLVED where
 the bracket overlaps the interval; a formation with a top and an isopach gets
@@ -726,8 +743,8 @@ index, the .dbf attributes, the .prj coordinate system; geographic NAD83 or
 WGS84 taken as is, the Texas State Plane NAD83 zones unprojected, anything
 else refused by name) and kept in the workspace with every part hashed:
 `gea workspace --action add-layer --name ... --layer structure.zip
---citation ...` (`--member <name>` names one shapefile in a zip holding
-several; `gea structure --layer <zip> --list` lists them). Each layer is
+--citation ...` (`--member Faults_Permian_201712` names one shapefile in a zip holding
+several; `gea structure --layer PermianBasin_Boundary_Structural_Tectonic.zip --list` lists them). Each layer is
 kept by kind and read for what it is: faults and folds (`--action structure
 --well <id>` prints the nearest mapped fault and the nearest fold by
 distance along the ellipsoid and bearing, and what else the map holds within
@@ -738,7 +755,7 @@ A position outside the layer's extent is OUTSIDE LAYER EXTENT, which is not
 "no faults". Proven on the USGS PP 1708 Appalachian structure layer and the
 EIA Permian Basin set. On the well page, in the SRA packet's
 section 2b for every well inside the area, and from `gea structure --layer
-<file> --lat --lon` for any position. A distance to a mapped trace is a fact
+structure.zip --lat 41.1 --lon -80.68` for any position. A distance to a mapped trace is a fact
 of the map at the map's scale, not a hazard judgement. `gea help structure`.
 
 ### WITSML 2.x over ETP
@@ -859,7 +876,7 @@ without administrator rights, and keeps the site's data in a separate
 workspace folder it never deletes.
 
 ```
-python tools/build_installer.py                       # dist/gea-program-<version>-win64/ and .zip (needs internet here, none there)
+python tools/build_installer.py                       # dist/gea-program-0.29.0-win64/ and .zip (needs internet here, none there)
 python tools/build_installer.py --extras live,plotting,xls   # a smaller kit without the PyQt6 desktop window
 python tools/build_installer.py --platform linux      # a venv-based kit for a Linux site server
 ```

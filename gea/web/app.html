@@ -319,12 +319,59 @@ VIEWS.tools = async () => {
       o += `<table><thead><tr><th>Depth (ft)</th><th>Tool</th><th>Temperature (°C)</th><th>Pressure (psi)</th><th>Rated</th><th>Verdict</th></tr></thead><tbody>${r.stations.map(x => `<tr><td>${fmt(x.md_ft, 0)}</td><td>${esc(x.tool)}</td><td>${fmt(x.station_temp_C, 1)}</td><td>${fmt(x.station_pressure_psi, 0)}</td><td class="small">${x.temp_rating_C != null ? fmt(x.temp_rating_C, 0) + ' °C' : '—'}${x.pressure_rating_psi != null ? ' / ' + fmt(x.pressure_rating_psi, 0) + ' psi' : ''}</td><td>${statusPill(x.ok ? 'good' : 'serious', x.ok ? 'within ratings' : (x.over_temp_rating ? 'OVER TEMPERATURE' : 'OVER PRESSURE'))}</td></tr>`).join('')}</tbody></table>`;
       $('#rcOut').innerHTML = o; } catch (e) { toast(e.message, 'err'); } };
 };
+VIEWS.catalog = async () => {
+  const c = await get('/api/catalog/map');
+  const k = c.counts;
+  let h = `<h2>The catalogue, where it was drilled</h2>` + help('catalog');
+  h += `<p class="small muted">${esc(c.statement)}. A position comes from the entry's own file or from the sidecar's source record, or it is NO POSITION; nothing is looked up or guessed. The coastline is Natural Earth 1:110m (public domain) - a point lands on it to about ten kilometres, which is what a world map is for.</p>`;
+  h += `<div class="tiles">` + tile('Catalogue entries', `${k.entries}`, 'neutral', '#/catalog', 'public tier, shipped in the wheel')
+     + tile('Positioned from their files', `${k.positioned}`, 'good', '#/catalog', `${k.by_how.file} file headers, ${k.by_how.same_well} same borehole, ${k.by_how.provenance} source records`)
+     + tile('NO POSITION', `${k.no_position}`, k.no_position ? 'warn' : 'good', '#/catalog', 'the file states no coordinate')
+     + tile('Distinct positions', `${k.distinct_positions}`, 'neutral', '#/catalog', 'to 0.01 degree') + `</div>`;
+  if (c.check && !c.check.ok) h += `<div class="card"><p class="small"><b>The sidecars disagree with a fresh read of the files</b> - ${esc(JSON.stringify(c.check.bad))}. Run tools/catalog_positions.py and ship the result.</p></div>`;
+  const W = 1000, H = 500, px = (lon, lat) => [((lon + 180) / 360) * W, ((90 - lat) / 180) * H];
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:1100px;display:block;background:#eef4fa;border:1px solid var(--line);border-radius:6px" font-family="inherit">`;
+  for (let lon = -180; lon <= 180; lon += 30) { const [x] = px(lon, 0); svg += `<line x1="${x.toFixed(1)}" y1="0" x2="${x.toFixed(1)}" y2="${H}" stroke="#cfd8e3" stroke-width="0.6"/>`; }
+  for (let lat = -90; lat <= 90; lat += 30) { const [, y] = px(0, lat); svg += `<line x1="0" y1="${y.toFixed(1)}" x2="${W}" y2="${y.toFixed(1)}" stroke="#cfd8e3" stroke-width="0.6"/>`; }
+  for (const line of c.coast) svg += `<polyline points="${line.map(([lo, la]) => px(lo, la).map(v => v.toFixed(1)).join(',')).join(' ')}" fill="none" stroke="#5c6b7a" stroke-width="0.8"/>`;
+  const ok = c.entries.filter(r => r.status === 'OK'), none = c.entries.filter(r => r.status !== 'OK');
+  const groups = new Map();
+  ok.forEach((r, i) => { r.n = i + 1; const key = r.lat.toFixed(2) + ',' + r.lon.toFixed(2); if (!groups.has(key)) groups.set(key, {lat: r.lat, lon: r.lon, rows: []}); groups.get(key).rows.push(r); });
+  for (const g of groups.values()) {
+    const [x, y] = px(g.lon, g.lat); const used = g.rows.some(r => r.register === 'USED');
+    svg += `<g class="cmark" data-entries="${esc(g.rows.map(r => r.entry).join(' '))}" style="cursor:pointer"><title>${esc(g.rows.map(r => r.n + '. ' + r.entry).join(' | '))}: ${g.lat.toFixed(4)}, ${g.lon.toFixed(4)}</title>`
+         + `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${g.rows.length > 1 ? 5.4 : 4.4}" fill="${used ? '#1f6fb2' : '#c77d00'}" stroke="#fff" stroke-width="1.2"/>`
+         + `<text x="${(x + 6).toFixed(1)}" y="${(y - 4).toFixed(1)}" font-size="9" fill="#1b2a38">${g.rows.map(r => r.n).join(',')}</text></g>`;
+  }
+  svg += `</svg>`;
+  h += `<div class="card">${svg}<p class="small muted">Blue: an entry a band of this program reads. Amber: carried with its provenance, no band. Plate carree, graticule every 30 degrees. Hover a mark for its entries; click one for its provenance. <code>gea catalog --map catalogue.svg</code> writes this picture as a file.</p></div>`;
+  h += `<div class="card"><h3>Every entry <span class="small muted">the position, where it came from, and what reads the entry</span></h3>`;
+  h += `<table><thead><tr><th>#</th><th>Entry</th><th>Well / site</th><th>Position</th><th>Datum</th><th>From</th><th>Register</th></tr></thead><tbody>`;
+  for (const r of ok) h += `<tr class="crow" data-entry="${esc(r.entry)}"><td>${r.n}</td><td><a href="#/catalog" class="centry" data-entry="${esc(r.entry)}"><b>${esc(r.entry)}</b></a></td><td class="small">${esc(r.well)}</td><td class="mono small">${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}${r.approximate ? ' <span class="muted">(approx.)</span>' : ''}</td><td class="small">${esc(r.datum || '')}</td><td class="small">${esc(r.source)}</td><td>${statusPill(r.register === 'USED' ? 'good' : 'warn', r.register || '—')}</td></tr>`;
+  for (const r of none) h += `<tr class="crow" data-entry="${esc(r.entry)}"><td>—</td><td><a href="#/catalog" class="centry" data-entry="${esc(r.entry)}"><b>${esc(r.entry)}</b></a></td><td class="small">${esc(r.well)}</td><td>${statusPill('warn', 'NO POSITION')}</td><td class="small">—</td><td class="small">${esc(r.source)}; the sidecar says: ${esc(r.place || '')}</td><td>${statusPill(r.register === 'USED' ? 'good' : 'warn', r.register || '—')}</td></tr>`;
+  h += `</tbody></table></div><div id="cEntryCard"></div>`;
+  $('#main').innerHTML = h;
+  const hl = (names, on) => { for (const n of names) { const tr = document.querySelector(`tr.crow[data-entry="${CSS.escape(n)}"]`); if (tr) tr.style.background = on ? 'var(--accent-bg, #fff6e0)' : ''; } };
+  for (const g of document.querySelectorAll('g.cmark')) { const names = g.dataset.entries.split(' '); g.onmouseenter = () => hl(names, true); g.onmouseleave = () => hl(names, false); g.onclick = () => showEntry(names[0]); }
+  for (const a of document.querySelectorAll('a.centry')) a.onclick = (ev) => { ev.preventDefault(); showEntry(a.dataset.entry); };
+  async function showEntry(name) {
+    try { const d = await get('/api/catalog/entry/' + encodeURIComponent(name)); const p = d.provenance || {}, pos = p.position || {};
+      let o = `<div class="card"><h3>${esc(name)} <span class="small muted">${esc(d.register.kind || '')} · ${esc(d.register.status || '')}</span></h3>`;
+      o += `<p class="small"><b>Well / site</b>: ${esc(p.well || '—')}</p>`;
+      o += `<p class="small"><b>Position</b>: ${pos.status === 'OK' ? `${(+pos.lat).toFixed(5)}, ${(+pos.lon).toFixed(5)} ${esc(pos.datum || '')} — ${esc(pos.source || '')}${pos.line ? ` <span class="mono muted">[${esc(pos.line)}]</span>` : ''}${pos.grid ? ` <span class="muted">grid E ${pos.grid.E} N ${pos.grid.N}, DHDN ${pos.grid.dhdn_lat}, ${pos.grid.dhdn_lon}, shifted ${pos.grid.shift_m} m</span>` : ''}` : `NO POSITION — ${esc(pos.source || '')}; the sidecar says: ${esc(pos.place || '')}`}</p>`;
+      for (const k of ['source_database', 'source_url', 'license', 'fetch_date', 'coverage', 'purpose']) if (p[k]) o += `<p class="small"><b>${esc(k.replace('_', ' '))}</b>: ${esc(String(p[k]).slice(0, 400))}</p>`;
+      o += `<p class="small"><b>Reads as</b>: ${esc(d.reads_as)}</p>`;
+      o += `<p class="small"><b>Used by</b>: ${(d.register.used_by || []).length ? (d.register.used_by || []).map(esc).join('; ') : esc(d.register.why || 'carried, no band')}</p>`;
+      o += `<p class="small muted"><code>gea catalog --entry ${esc(name)} --info</code></p></div>`;
+      $('#cEntryCard').innerHTML = o; $('#cEntryCard').scrollIntoView({behavior: 'smooth', block: 'nearest'}); } catch (e) { toast(e.message, 'err'); }
+  }
+};
 VIEWS.sites = async () => {
   const {sites} = await get('/api/sites');
   let h = `<h2>Sites</h2><p class="muted small">A site is the engagement: the wells, the seismic stations and the tracks that belong to one client's ground, held together so there is one thing to refresh and one thing to hand over. The Site Report pulls every leg of it into one document and names anything that has not been run since the thing it was made from changed.</p>`;
   h += `<table><thead><tr><th>Site</th><th>Client</th><th>Wells</th><th>Seismic</th><th>Tracks</th><th>Report</th><th>Seismicity Response Area</th></tr></thead><tbody>`;
   for (const s of sites) h += `<tr><td>${esc(s.display)}</td><td>${esc(s.client || '—')}</td><td>${(s.wells || []).map(esc).join(', ') || '—'}</td><td>${(s.seismic || []).map(esc).join(', ') || '—'}</td><td>${(s.tracks || []).map(esc).join(', ') || '—'}</td><td class="small">${s.report ? `<a href="reports/${esc(s.report)}" target="_blank">site report</a> <span class="muted">${tz(s.report_utc)}</span>` : '<span class="muted">none yet</span>'}</td><td class="small">${s.sra ? `${esc(s.sra.name)} · ${s.sra.radius_km} km · plan ${esc(s.sra.plan_date)}<br>${s.sra_report ? `<a href="reports/${esc(s.sra_report)}" target="_blank">SRA packet</a> ${statusPill(s.sra_status === 'COMPLETE' ? 'good' : 'warn', s.sra_status || '—')} <span class="muted">${tz(s.sra_utc)}</span>` : '<span class="muted">packet not written — <span class="mono">gea workspace --action sra-report --site ' + esc(s.id) + ' --catalog texnet.csv</span></span>'}` : '<span class="muted">none — <span class="mono">gea workspace --action sra-define --site ' + esc(s.id) + ' ...</span></span>'}</td></tr>`;
-  if (!sites.length) h += `<tr><td colspan="7" class="muted">no sites yet — <span class="mono">gea workspace --action add-site --name "&lt;name&gt;" --seismic &lt;id&gt; --wells &lt;id&gt;</span></td></tr>`;
+  if (!sites.length) h += `<tr><td colspan="7" class="muted">no sites yet — <span class="mono">gea workspace --action add-site --name "Retama block" --seismic TX-PB01 --wells SWD-1</span></td></tr>`;
   h += `</tbody></table>`;
   h += `<p class="small muted">A site is a list of what belongs to one engagement, not a boundary on the ground.</p>`;
   $('#main').innerHTML = h;
@@ -1096,7 +1143,7 @@ VIEWS.admin = async () => {
 
 VIEWS.help = async (topic) => {
   const idx = await loadHelp();
-  let h = `<h2>Help</h2><p class="small muted">By the job you came with. The same text prints with <span class="mono">gea help &lt;topic&gt;</span>; the tester guide with <span class="mono">gea guide</span>.</p>`;
+  let h = `<h2>Help</h2><p class="small muted">By the job you came with. The same text prints with <span class="mono">gea help drift</span> (any topic in the index); the tester guide with <span class="mono">gea guide</span>.</p>`;
   if (topic) { try { const pg = await get('/api/help/' + encodeURIComponent(topic)); h += `<div class="card helppage">${pg.html}</div><p><a href="#/help">All topics</a></p>`; } catch (e) { h += `<p class="serious">${esc(e.message)}</p>`; } }
   else h += `<div class="card">${idx.topics.map(t => `<div class="hit"><span class="k">${esc(t.topic)}</span><a href="#/help/${esc(t.topic)}">${esc(t.title)}</a><span class="small muted">${esc(t.summary)}</span></div>`).join('')}</div>`;
   $('#main').innerHTML = h;
@@ -1154,7 +1201,7 @@ function authScreen(first) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/seismic', 'Seismic'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/seismic', 'Seismic'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, '']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }

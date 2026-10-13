@@ -22,5 +22,14 @@
   ],
   "source_anomaly_disclosure": "SOURCE LABELING INCONSISTENCY preserved verbatim: the ten rows belonging to Expedition 316 holes carry Event labels '316-C0004C' / '316-C0008A' but sample labels prefixed '315-C0004C...' / '315-C0008A...' - the expedition number inside the sample designation contradicts the event label (C0004C and C0008A were drilled on Exp 316; the '315-' prefixes are a source-table typo). Detected by cross-checking the two label columns; carried unchanged with this disclosure.",
   "purpose": "twenty-sixth catalogue entry - a DOUBLE FIRST: the NANKAI TROUGH joins as region FOURTEEN (the catalogue's first subduction-zone accretionary prism and first Chikyu-drilled data) and laboratory shear strength of slope sediments is kind EIGHTEEN (the soft-sediment counterpart to the KTB crystalline-rock strength tables); carries live slope-stability physics: the gate re-derives the paper's headline static-stability conclusion on every run",
-  "verified": "15 rows / 150 counted cells against the header Size declaration; stress-ratio buoyancy band sigma'_v/sigma_v within [0.35, 0.42] on all 15 rows across all three holes; static factor-of-safety Tau > sigma'_v*sin(slope)*cos(slope) on all 15 rows (paper's 'slopes stable under static conditions' re-derived live); 315/316 label inconsistency pinned; R^2 >= 0.995 on all rows; gate-pinned; source URL serves the identical dataset"
+  "verified": "15 rows / 150 counted cells against the header Size declaration; stress-ratio buoyancy band sigma'_v/sigma_v within [0.35, 0.42] on all 15 rows across all three holes; static factor-of-safety Tau > sigma'_v*sin(slope)*cos(slope) on all 15 rows (paper's 'slopes stable under static conditions' re-derived live); 315/316 label inconsistency pinned; R^2 >= 0.995 on all rows; gate-pinned; source URL serves the identical dataset",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": 33.224416,
+    "lon": 136.720129,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 6 events in the file",
+    "line": "LATITUDE: 33.224416 * MEDIAN LONGITUDE: 136.720129"
+  }
 }

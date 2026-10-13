@@ -17,5 +17,14 @@
   ],
   "source_anomaly_disclosure": "No internal inconsistencies detected - the archive closes against its own definitions: the cohesion coefficient re-derives as C divided by the row's populated stress on ALL 13 rows within 0.0005 (rounding of the 3-decimal coefficient), and the identity itself REVEALS the table's structure - the two stress columns are perfectly complementary (intact rows carry only the calculated in-situ vertical stress, powder rows only the device consolidation stress; never both, never neither), which is also exactly what makes the 91-point Size declaration close; noted for the record: the header states that the printed version marks side-friction-corrected values in italics - formatting the plain-text export cannot carry, disclosed by the archive itself",
   "purpose": "forty-seventh catalogue entry - NORTH SUMATRA / WHARTON BASIN joins as region THIRTY-FOUR (the inputs to the deadliest megathrust of the century - the 2004 Mw 9.2 that killed ~230,000 people - drilled 1.25-1.36 km below the seabed at the horizon that becomes the decollement) and COHESION is kind THIRTY-SIX: the strength intercept that friction coefficients alone cannot give, the missing term of the Mohr-Coulomb envelope the catalogue's four friction kinds already span; the Geology headline is re-derived on every gate run: these sediments are WEAK - cohesion never exceeds 990 kPa at ~13 MPa stress, cohesion coefficients 0.014-0.082 (strength intercepts of 1.4-8.2 percent of the confining stress) - the weakness that let the 2004 rupture propagate shallow and generate its full tsunami",
-  "verified": "13 rows / 91 counted cells against the header's own Size declaration (EXACT, closing only through the proven stress-column complementarity); Ccoef = C/stress identity 13/13 within 0.0005; intact<->vertical and powder<->normal condition-stress coupling 13/13; cohesion range [188, 990] kPa and coefficient range [0.014, 0.082] pinned; four intact/powder replicate depths pinned; gate-pinned; source URL serves the identical dataset"
+  "verified": "13 rows / 91 counted cells against the header's own Size declaration (EXACT, closing only through the proven stress-column complementarity); Ccoef = C/stress identity 13/13 within 0.0005; intact<->vertical and powder<->normal condition-stress coupling 13/13; cohesion range [188, 990] kPa and coefficient range [0.014, 0.082] pinned; four intact/powder replicate depths pinned; gate-pinned; source URL serves the identical dataset",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": 3.03425,
+    "lon": 91.605617,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 2 events in the file",
+    "line": "LATITUDE: 3.034250 * LONGITUDE: 91.605617"
+  }
 }

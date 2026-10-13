@@ -40,7 +40,7 @@ What the service does on its own, proxy or not:
   stations' live files - into one dated archive with a manifest, onto another
   disk or a share (a folder inside the workspace is refused); schedule it
   daily from Audit / Update, and restore it once onto an empty folder
-  (`gea backup --restore <archive> --to C:\site-restored`) and open the page
+  (`gea backup --restore D:\gea-backups\gea-site-Pad-3-20261013T020000Z.zip --to C:\site-restored`) and open the page
   before the first well is live. The doctor warns when there has never been
   one or the last is more than 26 hours old.
 

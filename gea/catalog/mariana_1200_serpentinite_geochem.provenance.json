@@ -17,5 +17,14 @@
   ],
   "source_anomaly_disclosure": "FOUR source quirks preserved verbatim: (1) the archived Total column closes against the sum of the nine listed oxides on 19 of 20 full rows (12 exact within 0.02, all within 0.07) but the EXOTIC CLAST row 1200D-8H-1,119-121 archives Total = 95.00 while its own listed oxides sum to 98.91 - a 3.91% internal discrepancy in the source (its published Total presumably includes components not carried into this table), pinned as the exception; (2) hole 195-1200B contributes core sample 2H-1,52-54 while the file's own event header declares '0 cores; 0 m cored; 0 m drilled' for that hole - an internal event-metadata contradiction; (3) several TiO2 cells archive below-detection as literal 0.00; (4) rows are not in depth order and two samples (9R-1,77-79 and 8H-1,127-129) carry only trace-element data with all oxides blank",
   "purpose": "thirty-seventh catalogue entry - the MARIANA FOREARC joins as region TWENTY-FIVE (the catalogue's first serpentinite mud volcano - a window through the forearc to the subducting plate 20+ km down, beside the South Chamorro CORK) and bulk-rock major/trace geochemistry is kind TWENTY-SIX; the mantle-wedge story is re-derived by the gate on every run: ALL 19 serpentinite rows pass the four-way fingerprint (ultramafic MgO, chromite Cr, mantle Ni, serpentine structural-water LOI) while the single exotic clast FAILS all four simultaneously (MgO 3.04, Cr 54, Ni 130, LOI 7.6 with TiO2 3.92 and Al2O3 21.16) - lithology classification by pure arithmetic - and the highest-Sr sample (1,756.6 ppm) is exactly the highest-CaO serpentinite (9.80%), the seafloor carbonate overprint appearing in two independent columns at once",
-  "verified": "22 rows / 432 counted cells against the header's own Size declaration (EXACT); oxide-sum closure re-derived on all 20 full rows (19 within 0.07, the exotic clast's 3.91 internal discrepancy disclosed and pinned); serpentinite fingerprint 19/19 vs exotic 0/4; Sr-max = CaO-max coincidence pinned to sample 1200D-1H-1,15-17; the 1200B zero-cores contradiction pinned; gate-pinned; source URL serves the identical dataset"
+  "verified": "22 rows / 432 counted cells against the header's own Size declaration (EXACT); oxide-sum closure re-derived on all 20 full rows (19 within 0.07, the exotic clast's 3.91 internal discrepancy disclosed and pinned); serpentinite fingerprint 19/19 vs exotic 0/4; Sr-max = CaO-max coincidence pinned to sample 1200D-1H-1,15-17; the 1200B zero-cores contradiction pinned; gate-pinned; source URL serves the identical dataset",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": 13.78356,
+    "lon": 146.00309,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 8 events in the file",
+    "line": "LATITUDE: 13.783560 * MEDIAN LONGITUDE: 146.003090"
+  }
 }

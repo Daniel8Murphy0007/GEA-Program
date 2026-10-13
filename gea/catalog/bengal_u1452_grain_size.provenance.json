@@ -16,5 +16,14 @@
   ],
   "source_anomaly_disclosure": "ONE source quirk preserved verbatim and proven by physics: the grain-size unit is labeled [phi] but the VALUES cannot be phi - the maximum, 53.9, would mean 2^-53.9 mm = 6e-17 mm, five orders below an atomic nucleus, and even the background 3-8 range behaves as MICRONS (3-8 um = fine silt/clay, exactly the hemipelagic monsoon lithology of the source paper) - the archive carries micron values under a phi unit label, detected by impossibility, carried unchanged; noted also: one isolated coarse sample near the core top (29.11 at 0.07 m) alongside the contiguous event bed",
   "purpose": "forty-first catalogue entry - the BENGAL FAN / BAY OF BENGAL joins as region TWENTY-NINE (the largest sediment body on Earth: the Himalaya's erosion archive) and laser granulometry is kind THIRTY; the physics headline is a two-witness turbidite: the SEVEN contiguous coarse samples at 1.75-1.87 m (15.57-53.90, the only contiguous run above 15) coincide EXACTLY with the age model's plateau - per-step age increments of 0.0013-0.0014 ka against a background median of 0.8604 ka, a 615x time compression meaning ~14 cm deposited in about a DECADE - the event bed announced independently by grain size and by time standing still, the same event-deposit physics the catalogue carries from the Dead Sea (one scanned debrite) and El'gygytgyn (the full inventory), now witnessed by an age model",
-  "verified": "235 rows / 235 counted cells against the header's own Size declaration (EXACT - both geocodes excluded by the PANGAEA counting convention); uniform 0.02-m grid on all 234 increments; age strictly increasing across all 234 steps; exactly 8 samples above 15 (1 isolated near-surface + 7 contiguous at 1.75-1.87 m, maximum 53.90 at 1.85 m); event-bed age steps 0.0013-0.0014 ka vs background median 0.8604 ka (615x compression); the phi-impossibility quantified (2^-53.9 mm = 5.95e-17 mm); gate-pinned; source URL serves the identical dataset"
+  "verified": "235 rows / 235 counted cells against the header's own Size declaration (EXACT - both geocodes excluded by the PANGAEA counting convention); uniform 0.02-m grid on all 234 increments; age strictly increasing across all 234 steps; exactly 8 samples above 15 (1 isolated near-surface + 7 contiguous at 1.75-1.87 m, maximum 53.90 at 1.85 m); event-bed age steps 0.0013-0.0014 ka vs background median 0.8604 ka (615x compression); the phi-impossibility quantified (2^-53.9 mm = 5.95e-17 mm); gate-pinned; source URL serves the identical dataset",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": 8.00681,
+    "lon": 87.18186,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 2 events in the file",
+    "line": "LATITUDE: 8.006810 * LONGITUDE: 87.181860"
+  }
 }

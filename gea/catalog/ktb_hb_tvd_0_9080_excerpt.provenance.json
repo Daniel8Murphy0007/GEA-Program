@@ -16,5 +16,15 @@
   "datum_disclosure": "TVD(0) = 0.15239 m at MD 0 and TVD exceeds MD by ~0.15 m over the top ~1,400 m: a fixed ~0.152 m (half-foot) DATUM OFFSET between the TVD reference and the MD start point, present in the source and preserved verbatim - NOT 'corrected' here. Geometric TVD<=MD reasoning applies only after removing this documented offset.",
   "transcription_disclosure": "Transcribed from the HTML rendering of the ASCII file. The 2,804 rows are highly regular (1 m steps, 5-significant-figure F4 TVD values in long constant-suffix runs); they were reproduced by run-faithful transcription: every run boundary and every exceptional row (32 of them, e.g. 25->25.146, 98->98.143, 933->933.08, the 1912 and 2066 suffix rollovers) was read directly from the capture and hard-coded, then the written file was structurally verified against the capture (row count, exact MD sequence, TVD monotonicity, drift envelope, 16 spot rows). The source URL serves the full file for independent byte-level re-verification.",
   "purpose": "fourteenth catalogue entry - SECOND real well trajectory, and the opposite extreme from the first: L06-06 is a real DEVIATED S-well, KTB-HB is the vertical-drilling-system showpiece (near-perfect verticality to 2.8 km) - a real NULL CONTROL for the engine's MD->TVD physics; pairs with entry 12 to make KTB-HB the first well with BOTH temperature and trajectory in the catalogue",
-  "verified": "2,804 rows; exact 1 m MD sequence; |TVD-MD| <= 0.35 m; datum offset 0.15239 preserved; monotonic TVD; survey() port upgrade verified; gate-pinned"
+  "verified": "2,804 rows; exact 1 m MD sequence; |TVD-MD| <= 0.35 m; datum offset 0.15239 preserved; monotonic TVD; survey() port upgrade verified; gate-pinned",
+  "position": {
+    "status": "OK",
+    "how": "same_well",
+    "lat": 49.815302,
+    "lon": 12.121675,
+    "datum": "WGS84",
+    "source": "the same borehole as ktb_hb_hlog246_temperature (its file header: Gauss-Krueger zone 4 Rechtswert/Hochwert (DHDN, Bessel) unprojected and shifted to WGS84 by EPSG 1776 (3 m))",
+    "line": "LONG  UNAL  Longitude                                                      R 45 08 775,24 | LATI  UNAL  Latitude        ",
+    "same_well_as": "ktb_hb_hlog246_temperature"
+  }
 }

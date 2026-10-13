@@ -16,5 +16,14 @@
   ],
   "source_anomaly_disclosure": "No internal inconsistencies detected - the inventory closes against its own geometry: every one of the 180 intervals has positive thickness and every one of the 179 successive gaps is non-negative (perfectly ordered, non-overlapping; the tightest separation is 4 mm at 298.724/298.728 m); noted verbatim: the event LOCATION field spells 'Sibiria', and the longest turbidite-free reach is 24.807 m (222.694-247.501 m) in the Pliocene section",
   "purpose": "FORTIETH catalogue entry - THE MILESTONE REACHES THE ARCTIC BY LAND: entry 30 reached the North Pole by icebreaker (ACEX); entry 40 reaches 3.6 million years of Arctic climate through lake ice above a METEORITE CRATER - CHUKOTKA / EL'GYGYTGYN joins as region TWENTY-EIGHT (the catalogue's first impact-crater lake, first Russian site, first drilled-from-ice platform, pairing the Chicxulub impact entry AND the Dead Sea lake entry) and the event-deposit inventory is kind TWENTY-NINE: not a scan of one event (the Dead Sea debrite) but the COMPLETE CATALOGUE of every mass-flow a basin recorded - the exact intervals the Science authors excised so the Pliocene-warmth signal could be read clean; and a milestone coincidence carried for the record: this lake's inventory contains an interval at 172.052-172.131 m, numerically the same window the Dead Sea debrite scan occupies in ITS core",
-  "verified": "180 intervals / 360 counted cells against the header's own Size declaration (EXACT); all thicknesses positive (0.021-3.344 m, maximum at 85.187 m); all 179 gaps non-negative (strict non-overlapping depth order, minimum 0.004 m); total event thickness 36.717 m = 12.0% of the 305.822-m span; 113/67 Pleistocene/Pliocene event split; largest turbidite-free reach 24.807 m; gate-pinned; source URL serves the identical dataset"
+  "verified": "180 intervals / 360 counted cells against the header's own Size declaration (EXACT); all thicknesses positive (0.021-3.344 m, maximum at 85.187 m); all 179 gaps non-negative (strict non-overlapping depth order, minimum 0.004 m); total event thickness 36.717 m = 12.0% of the 305.822-m span; 113/67 Pleistocene/Pliocene event split; largest turbidite-free reach 24.807 m; gate-pinned; source URL serves the identical dataset",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": 67.4997,
+    "lon": 172.10394,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 2 events in the file",
+    "line": "LATITUDE: 67.499700 * LONGITUDE: 172.103940"
+  }
 }

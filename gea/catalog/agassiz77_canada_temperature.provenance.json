@@ -9,9 +9,22 @@
   "fetch_date": "2026-08-24",
   "fetch_method": "read-only HTTPS fetch (text/plain) - COMPLETE file",
   "coverage": "COMPLETE FILE: all 67 stations, 10.91-340.91 m at 5 m spacing, verbatim (database-stated coverage 97% of the 341 m thickness). Database metadata notes: ice thickness in data does not match Vinther (2008) and the location is approximate - carried honestly as the database's own caveat.",
-  "curves": ["d (depth, m)", "t (temperature, degC) - MEASURED TEMPERATURE, 5 m stations"],
+  "curves": [
+    "d (depth, m)",
+    "t (temperature, degC) - MEASURED TEMPERATURE, 5 m stations"
+  ],
   "temperature_data": "Second continuous MEASURED temperature profile: 67 stations, -24.16 degC near surface warming monotonically below ~16 m to -16.74 degC at 340.91 m - a classic High Arctic ice-cap thermal profile (no deep glacial minimum: the cap is thin relative to GISP2).",
   "dialect_notes": "GEUS d,t CSV with space-after-comma values (parser handles); the catalogue's second temperature-CSV entry.",
   "purpose": "seventh catalogue entry - SEVENTH region (CANADA, Ellesmere Island); second MEASURED_CURVES-tier well; 1977 vintage (the catalogue's oldest measurement)",
-  "verified": "67 stations; endpoints verbatim; MEASURED_CURVES derivation; gate-pinned"
+  "verified": "67 stations; endpoints verbatim; MEASURED_CURVES derivation; gate-pinned",
+  "position": {
+    "status": "OK",
+    "how": "provenance",
+    "lat": 80.7,
+    "lon": -73.1,
+    "datum": "UNKNOWN",
+    "approximate": true,
+    "source": "provenance sidecar: the source database's metadata, as written at catalogue time (stated as approximate)",
+    "line": "(approx 80.7 N, -73.1 E"
+  }
 }

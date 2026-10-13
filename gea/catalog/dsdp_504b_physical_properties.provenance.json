@@ -20,5 +20,14 @@
   ],
   "science_disclosure": "THE SELF-AUDITING DATASET: porosity, grain density and bulk density are linked by the identity WBD = phi*rho_w + (1-phi)*rho_grain. The file carries all three, so the gate verifies the dataset against its own physics on all 61 rows (mean absolute closure ~0.01 g/cm3 at seawater rho_w = 1.025) - a 1979 laboratory's internal consistency, re-audited on every gate run. The porosity-depth structure (fresh massive units at ~2.7% vs altered/brecciated horizons at 10-11%) is the young-crust alteration story in numbers.",
   "purpose": "twenty-second catalogue entry - FIFTEENTH kind (physical properties: porosity/density family) and the catalogue's FIRST DSDP-ERA entry (Glomar Challenger, 1979 - scientific ocean drilling's founding vessel). Hole 504B becomes the catalogue's third multi-dataset family (entry 18 fluids at >160C ambient + entry 22 physical properties of the same rock those fluids react with).",
-  "verified": "61 samples; depth/porosity/density endpoints and extremes; the WBD identity closure computed live across all rows; per-sample labels; in-file license/coordinates to meta; gate-pinned; source URL serves the identical dataset"
+  "verified": "61 samples; depth/porosity/density endpoints and extremes; the WBD identity closure computed live across all rows; per-sample labels; in-file license/coordinates to meta; gate-pinned; source URL serves the identical dataset",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": 1.2272,
+    "lon": -83.7302,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 2 events in the file",
+    "line": "LATITUDE: 1.227200 * LONGITUDE: -83.730200"
+  }
 }

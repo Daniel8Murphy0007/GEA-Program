@@ -19,5 +19,14 @@
   "hiatuses_in_the_data": "BOTH ACEX hiatuses are encoded in the table's structure: (1) the 26.2-Myr mid-Cenozoic hiatus appears as a DUPLICATE-DEPTH PAIR - 198.70 m carries two ages, 18,200 and 44,400 ka: the same centimetre of seafloor is both early Miocene and middle Eocene; (2) the 2.2-Myr middle-late Miocene hiatus sits between 135.49 m (9,360 ka) and 140.44 m (11,560 ka).",
   "source_anomaly_disclosure": "The source header's own Comment field is TRUNCATED IN THE ARCHIVE - it ends mid-sentence at 'Paleogene: (404.8-198.7) m/(56.2-44.4) Ma. Average sedimentation' with the Paleogene average rate cut off (re-derivable: 206.1 m / 11.8 Ma = 17.5 m/Myr). Preserved verbatim, including the cut. Note also the header's 404.8 m full-section base vs the table's 399.63 m deepest control point (chron C25n) - consistent, not contradictory.",
   "purpose": "thirtieth catalogue entry - a MILESTONE ENTRY: the CENTRAL ARCTIC OCEAN joins as region EIGHTEEN at 87.89 N (235 km from the North Pole - the catalogue now literally reaches from pole to pole through 30 entries), first icebreaker-drilled data, first composite virtual core, and AGE-DEPTH GEOCHRONOLOGY is kind NINETEEN - the catalogue's first time axis: every earlier entry measures the state of the subsurface, this one dates it",
-  "verified": "10 rows / 38 counted cells against the header Size declaration; ALL six sedimentation rates re-derived live from the control points (five interval rates as delta-depth/delta-age between the correct hiatus-aware bounds + the 135.49 m rate from the surface); header-average identity 198.7/16.0 = 12.4 m/Myr re-derived; duplicate-depth hiatus pair pinned; endpoints; gate-pinned; source URL serves the identical dataset"
+  "verified": "10 rows / 38 counted cells against the header Size declaration; ALL six sedimentation rates re-derived live from the control points (five interval rates as delta-depth/delta-age between the correct hiatus-aware bounds + the 135.49 m rate from the surface); header-average identity 198.7/16.0 = 12.4 m/Myr re-derived; duplicate-depth hiatus pair pinned; endpoints; gate-pinned; source URL serves the identical dataset",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": 87.89,
+    "lon": 137.65,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 2 events in the file",
+    "line": "LATITUDE: 87.890000 * LONGITUDE: 137.650000"
+  }
 }

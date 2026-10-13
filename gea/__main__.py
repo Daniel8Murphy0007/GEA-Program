@@ -281,8 +281,8 @@ def main(argv=None) -> int:
     p_tl = sub.add_parser("tools", help="the tool library and the port registry: every tool with its citation, ratings and the interface it declares; every file format and live protocol; --rating checks a tool string")
     p_tl.add_argument("--json", action="store_true")
     p_tl.add_argument("--list", action="store_true", help="just the tool names")
-    p_tl.add_argument("--rating", action="store_true", help="check a tool string: --station <md_ft>:<tool> (repeatable)")
-    p_tl.add_argument("--station", type=str, action="append", default=None, help="a station as <measured depth in feet>:<tool name>")
+    p_tl.add_argument("--rating", action="store_true", help="check a tool string: --station 9850:quartz_pt_geoq177_16k (depth in ft, then the tool; repeatable)")
+    p_tl.add_argument("--station", type=str, action="append", default=None, help="a station as DEPTH_FT:TOOL, e.g. 9850:quartz_pt_geoq177_16k")
     p_tl.add_argument("--surface-temp-f", type=float, default=75.0); p_tl.add_argument("--temp-gradient-f-ft", type=float, default=0.018)
     p_tl.add_argument("--surface-pressure-psi", type=float, default=14.7); p_tl.add_argument("--pressure-gradient-psi-ft", type=float, default=0.465)
     p_cc = sub.add_parser("comcat", help="USGS ComCat / any FDSN event service: --lat --lon --radius-km --start --end prints the text-format query to open; --file reads the export it returns")
@@ -303,6 +303,9 @@ def main(argv=None) -> int:
     p_cat.add_argument("--friction", action="store_true"); p_cat.add_argument("--core", action="store_true")
     p_cat.add_argument("--entry", type=str, default=None); p_cat.add_argument("--info", action="store_true"); p_cat.add_argument("--stream-csv", type=str, default=None)
     p_cat.add_argument("--json", action="store_true")
+    p_cat.add_argument("--positions", action="store_true", help="where every entry was drilled, from its own file or sidecar, or NO POSITION")
+    p_cat.add_argument("--map", type=str, default=None, metavar="OUT.SVG", help="write the world map of the catalogue (coastline + one mark per positioned entry + the key) as an SVG file")
+    p_cat.add_argument("--check-positions", action="store_true", help="the sidecars' recorded positions against a fresh read of the files (the gate's check)")
     p_dl = sub.add_parser("dlis", help="a DLIS (RP66 V1) well log: --info describes it (origin, channels, frames, what was skipped); --frame --out writes the frame as a historian-style CSV; --to-las writes LAS 2.0")
     p_dl.add_argument("--file", type=str, required=True)
     p_dl.add_argument("--info", action="store_true")
@@ -415,7 +418,7 @@ def main(argv=None) -> int:
     p_ws.add_argument("--include-open", action="store_true", help="live-fold: fold the current day's files too (they are still being written)")
     p_ws.add_argument("--seconds", type=float, default=None, help="live-run: how long to run (default: until Ctrl+C)")
     p_ws.add_argument("--layer", type=str, default=None, help="add-layer: the shapefile (zip, folder or .shp); remove-layer: the layer id")
-    p_ws.add_argument("--member", type=str, default=None, help="add-layer: which shapefile inside a zip or folder that holds several (gea structure --layer <zip> --list)")
+    p_ws.add_argument("--member", type=str, default=None, help="add-layer: which shapefile inside a zip or folder that holds several (gea structure --layer layer.zip --list)")
     p_ws.add_argument("--citation", type=str, default="", help="add-layer: where the map came from, in the site's words")
     p_ws.add_argument("--formation-name", type=str, default=None, help="add-layer: the formation a contours layer maps (Wolfcamp)")
     p_ws.add_argument("--role", type=str, choices=["top", "isopach", "base"], default=None, help="add-layer: what the contours are of that formation: its top elevation, its thickness, or its base")
@@ -475,7 +478,7 @@ def main(argv=None) -> int:
     p_el.add_argument("--lat", type=float, required=True); p_el.add_argument("--lon", type=float, required=True)
     p_el.add_argument("--url", type=str, default=None, help="the EPQS endpoint (default the USGS one)")
     p_el.add_argument("--json", action="store_true")
-    p_st = sub.add_parser("structure", help="the nearest mapped fault and fold to a position, from a shapefile: --layer <zip|folder|.shp> --lat --lon; --info describes the layer")
+    p_st = sub.add_parser("structure", help="the nearest mapped fault and fold to a position, from a shapefile: --layer layer.zip (or a folder, or a .shp) --lat --lon; --info describes the layer")
     p_st.add_argument("--layer", type=str, required=True)
     p_st.add_argument("--lat", type=float, default=None); p_st.add_argument("--lon", type=float, default=None)
     p_st.add_argument("--radius-km", type=float, default=50.0)
@@ -589,7 +592,7 @@ def main(argv=None) -> int:
     p_pm = sub.add_parser("permits", help="a drilling-permit export (CSV/TSV) to the rigs CSV the seismic tests judge against, with an import note")
     p_pm.add_argument("--file", type=str, required=True, help="the permit export (a regulator's query CSV, an operator's schedule)")
     p_pm.add_argument("--out", type=str, required=True, help="the rigs CSV to write (an .import.json note is written beside it)")
-    p_pm.add_argument("--mapping", type=str, default=None, help='JSON {"lat": "<column>", "lon": ..., "start": ..., "end": ..., "id": ..., "name": ...} when the guesses are wrong')
+    p_pm.add_argument("--mapping", type=str, default=None, help='JSON {"lat": "LAT_COLUMN", "lon": ..., "start": ..., "end": ..., "id": ..., "name": ...} when the guesses are wrong')
     p_pm.add_argument("--default-days", type=float, default=30.0, help="a row without an end date works this many days from its start (default 30)")
     p_pm.add_argument("--within", type=float, nargs=3, default=None, metavar=("LAT", "LON", "KM"), help="keep only rigs within KM of LAT, LON")
     p_pm.add_argument("--datum", type=str, default=None, help="the datum the export's positions are on (WGS84, NAD83, NAD27) when no column says; every row is converted to WGS84 and the note records the shift")
@@ -863,7 +866,7 @@ def main(argv=None) -> int:
         import json as _json
         from .survey_cmd import run_survey
         if not (a.file or a.demo or a.catalog):
-            raise SystemExit("survey needs --file <LAS or DLIS>, --catalog <entry> or --demo")
+            raise SystemExit("survey needs --file mywell.las (a LAS or DLIS), --catalog collingwood_1_28_ks_complete, or --demo")
         txt, machine = run_survey(path=a.file, demo=a.demo, family=a.family, lat=a.lat, elev=a.elev, frame=a.frame, catalog=a.catalog)
         print(txt)
         if a.out:
@@ -1961,11 +1964,11 @@ def main(argv=None) -> int:
                 w = ws.add_well_live(a.name, a.port, a.file, actor=a.actor, station_md_ft=a.station_md)
             elif a.action == "remove":
                 if not a.well:
-                    raise SystemExit("remove needs --well <id>")
+                    raise SystemExit("remove needs --well WELL_ID")
                 ws.remove_well(a.well, actor=a.actor); print("removed (folder kept):", a.well); return 0
             elif a.action == "migrate":
                 if not a.from_dir:
-                    raise SystemExit("migrate needs --from <folder written by gea dashboard --out>")
+                    raise SystemExit("migrate needs --from FOLDER (one written by gea dashboard --out)")
                 print(_json.dumps(ws.migrate_out_dir(a.from_dir, actor=a.actor), indent=1)); return 0
             elif a.action == "refresh":
                 r = ws.refresh_dashboard(actor=a.actor, outages=a.outage, month=a.month, run_sat=a.sat)
@@ -2009,7 +2012,7 @@ def main(argv=None) -> int:
                 return 0
             elif a.action == "remove-track":
                 if not a.track:
-                    raise SystemExit("remove-track needs --track <id>")
+                    raise SystemExit("remove-track needs --track TRACK_ID")
                 ws.remove_track(a.track, actor=a.actor); print("removed (folder kept):", a.track); return 0
             elif a.action == "sar-film":
                 r = ws.sar_film(actor=a.actor, seed=a.seed, hours=a.hours, step_s=a.step, band=tuple(a.band) if a.band else (1.0, 20.0), method=a.method, scene=a.scene)
@@ -2023,14 +2026,14 @@ def main(argv=None) -> int:
             elif a.action == "sites":
                 rows = ws.sites()
                 if not rows:
-                    print("no sites yet; `--action add-site --name <name> --wells ... --seismic ... --tracks ...`")
+                    print("no sites yet; `--action add-site --name \"Retama block\" --wells SWD-1 --seismic TX-PB01 --tracks pad-7-lateral`")
                 for st in rows:
                     print(f"  {st['id']:<24} {st.get('client') or '-':<20} {len(st['wells'])} well(s), {len(st['seismic'])} station(s), "
                           f"{len(st['tracks'])} track(s)")
                 return 0
             elif a.action == "site-report":
                 if not a.site:
-                    raise SystemExit("site-report needs --site <id>")
+                    raise SystemExit("site-report needs --site SITE_ID")
                 r = ws.write_site_report(a.site, actor=a.actor)
                 c = r["summary"]["counts"]
                 print(f"site-report: {a.site} - {c['wells']} well(s), {c['seismic']} seismic station(s), {c['tracks']} track(s)")
@@ -2040,11 +2043,11 @@ def main(argv=None) -> int:
                 return 0
             elif a.action == "remove-site":
                 if not a.site:
-                    raise SystemExit("remove-site needs --site <id>")
+                    raise SystemExit("remove-site needs --site SITE_ID")
                 ws.remove_site(a.site, actor=a.actor); print("removed (folder kept):", a.site); return 0
             elif a.action == "set-well":
                 if not a.well:
-                    raise SystemExit("set-well needs --well <id>")
+                    raise SystemExit("set-well needs --well WELL_ID")
                 surface = {"lat": a.lat, "lon": a.lon, "datum": a.datum} if (a.lat is not None or a.lon is not None) else {}
                 if a.elev_3dep:
                     from .elevation import EPQS_URL, as_reference, epqs
@@ -2081,14 +2084,14 @@ def main(argv=None) -> int:
             elif a.action == "sra-report":
                 from .sra import report_text as _sra_text
                 if not a.site:
-                    raise SystemExit("sra-report needs --site <id>")
+                    raise SystemExit("sra-report needs --site SITE_ID")
                 r = ws.write_sra_packet(a.site, catalog_csv=a.catalog, aftershocks=a.aftershocks, start=a.start, end=a.end, actor=a.actor)
                 print(_sra_text(r["packet"]))
                 print("  report:", r["paths"]["html"]); print("  daily export:", r["paths"]["daily_csv"], f"({r['export_rows']} rows)"); return 0
             elif a.action == "associate":
                 from .seismic_assoc import report_text as _assoc_text
                 if not a.site:
-                    raise SystemExit("associate needs --site <id>")
+                    raise SystemExit("associate needs --site SITE_ID")
                 r = ws.associate_site(a.site, vp_km_s=a.vp, depth_km=a.depth_km, band=a.band, start=a.start, end=a.end, catalog_csv=a.catalog,
                                       rms_tol_s=a.rms_tol, actor=a.actor)
                 for sid, x in r["stations"].items():
@@ -2098,7 +2101,7 @@ def main(argv=None) -> int:
             elif a.action == "osdu-export":
                 from .osdu import report_text as _osdu_text
                 if not a.site:
-                    raise SystemExit("osdu-export needs --site <id>")
+                    raise SystemExit("osdu-export needs --site SITE_ID")
                 r = ws.osdu_export(a.site, partition=a.partition, acl_owners=a.acl_owner, acl_viewers=a.acl_viewer, legal_tags=a.legal_tag,
                                    countries=a.country, operator_org_id=a.operator_org, out_dir=a.out, actor=a.actor)
                 print(_osdu_text(r)); v = r["validate"]
@@ -2106,7 +2109,7 @@ def main(argv=None) -> int:
             elif a.action == "vibration-report":
                 from .vibration import report_text as _vib_text
                 if not a.well or not a.record:
-                    raise SystemExit("vibration-report needs --well <id> and --record <file>")
+                    raise SystemExit("vibration-report needs --well WELL_ID and --record pump.csv")
                 brg = None
                 if a.bearing:
                     parts = [float(x) for x in a.bearing.split(",")]
@@ -2122,12 +2125,12 @@ def main(argv=None) -> int:
             elif a.action == "well-identity":
                 from .ppdm import report_text as _ppdm_text
                 if not a.well:
-                    raise SystemExit("well-identity needs --well <id>")
+                    raise SystemExit("well-identity needs --well WELL_ID")
                 r = ws.well_identity(a.well)
                 print(_ppdm_text(r)); return 0
             elif a.action == "add-layer":
                 if not a.layer or not a.name:
-                    raise SystemExit("add-layer needs --name <display> and --layer <shapefile zip | folder | .shp>")
+                    raise SystemExit("add-layer needs --name \"EIA Wolfcamp top\" and --layer C:\\site\\_incoming\\layer.zip (a shapefile zip, a folder, or a .shp)")
                 L = ws.add_layer(a.layer, a.name, actor=a.actor, citation=a.citation, member=a.member, formation=a.formation_name, role=a.role, feature_kind=a.feature_kind)
                 tc = ", ".join(f"{k} {v}" for k, v in list(L["type_counts"].items())[:6])
                 print(f"layer {L['id']} ({L['kind']}): {L['n_features']} {L['shape_type']} features, {L['crs']['kind']} {L['crs'].get('datum') or ''}, extent lon {L['bbox'][0]:.3f}..{L['bbox'][2]:.3f} lat {L['bbox'][1]:.3f}..{L['bbox'][3]:.3f}"
@@ -2141,15 +2144,15 @@ def main(argv=None) -> int:
                 for L in ws.layers():
                     print(f"{L['id']:28s} {L.get('kind', 'structure'):10s} {L['n_features']:7d} {L['shape_type']:9s} {L['crs']['kind']} {L['crs'].get('datum') or '':6s} {L['display']}")
                 if not ws.layers():
-                    print("no structure layer - add one with --action add-layer --name ... --layer <shapefile zip>")
+                    print("no structure layer - add one with --action add-layer --name \"EIA Wolfcamp top\" --layer C:\\site\\_incoming\\layer.zip")
                 return 0
             elif a.action == "remove-layer":
                 if not a.layer:
-                    raise SystemExit("remove-layer needs --layer <id>")
+                    raise SystemExit("remove-layer needs --layer LAYER_ID (gea workspace --action layers lists them)")
                 ws.remove_layer(a.layer, actor=a.actor); print(f"removed layer {a.layer} (folder kept, renamed)"); return 0
             elif a.action == "structure":
                 if not a.well:
-                    raise SystemExit("structure needs --well <id>")
+                    raise SystemExit("structure needs --well WELL_ID")
                 r = ws.well_structure(a.well, a.radius_km if a.radius_km is not None else 50.0, actor=a.actor)
                 print(f"structure {a.well}: {r['status']}" + (f" - {r['note']}" if r.get("note") else ""))
                 for L in r["layers"]:
@@ -2164,7 +2167,7 @@ def main(argv=None) -> int:
                       f"SHmax azimuth {st.get('shmax_azimuth_deg', 'from the stress map')} ({st.get('azimuth_source', '')}); dips {st['dips_deg']}; mu {st['mus']}; delta Pp {st['delta_pp_psi']} psi"); return 0
             elif a.action == "add-stress-map":
                 if not a.file:
-                    raise SystemExit("add-stress-map needs --file <wsm.csv>")
+                    raise SystemExit("add-stress-map needs --file C:\\site\\_incoming\\wsm2016.csv")
                 r = ws.add_stress_map(a.file, actor=a.actor, citation=a.citation)
                 print(f"stress map: {r['n_records']} records kept as {r['file']} (sha256 {r['sha256'][:16]})"); return 0
             elif a.action == "wsm":
@@ -2177,7 +2180,7 @@ def main(argv=None) -> int:
                 return 0 if r.get("n") else 1
             elif a.action == "slip":
                 if not a.well:
-                    raise SystemExit("slip needs --well <id>")
+                    raise SystemExit("slip needs --well WELL_ID")
                 r = ws.well_slip(a.well, a.radius_km if a.radius_km is not None else 25.0, delta_pp_psi=a.delta_pp, depth_ft=a.depth_ft, actor=a.actor)
                 print(f"slip {a.well}: {r['status']}")
                 for line in r["lines"]:
@@ -2185,7 +2188,7 @@ def main(argv=None) -> int:
                 return 0 if r["status"] == "OK" else 1
             elif a.action == "interval":
                 if not a.well:
-                    raise SystemExit("interval needs --well <id>")
+                    raise SystemExit("interval needs --well WELL_ID")
                 r = ws.well_interval(a.well, a.radius_km if a.radius_km is not None else 50.0, actor=a.actor)
                 print(f"interval {a.well}: {r['status']}")
                 for line in r["lines"]:
@@ -2197,20 +2200,20 @@ def main(argv=None) -> int:
                 print(_me_text(r)); return 0 if not r["errors"] else 1
             elif a.action == "add-live-station":
                 if not a.seedlink_config or not a.name:
-                    raise SystemExit("add-live-station needs --name <display> and --seedlink-config <json>")
+                    raise SystemExit("add-live-station needs --name \"TX PB01 live\" and --seedlink-config seedlink.json")
                 st = ws.add_live_station(a.name, a.seedlink_config, a.lat, a.lon, actor=a.actor, band=a.band, stationxml=a.stationxml, sources_csv=a.sources)
                 print(f"live station {st['id']}: {st['live']['host']}:{st['live']['port']} {st['live']['stations']} - run `gea workspace --path ... --action live-run --station {st['id']}` or Start it on the page")
                 return 0
             elif a.action == "live-fold":
                 if not a.station:
-                    raise SystemExit("live-fold needs --station <id>")
+                    raise SystemExit("live-fold needs --station STATION_ID")
                 r = ws.fold_live_station(a.station, actor=a.actor, include_open=a.include_open)
                 print(f"folded {len(r['folded'])} file(s) into {a.station}: {r['folded']}; still open: {r['kept_open']}")
                 return 0
             elif a.action == "live-run":
                 from . import seedlink as _L
                 if not a.station:
-                    raise SystemExit("live-run needs --station <id>")
+                    raise SystemExit("live-run needs --station STATION_ID")
                 cfg = ws.live_station_config(a.station)
                 d = ws.live_dir(a.station)
                 tap = _L.SeedLinkTap(cfg, d, os.path.join(d, "seedlink_state.json"))
@@ -2223,7 +2226,7 @@ def main(argv=None) -> int:
             elif a.action == "quakeml-export":
                 from .quakeml import report_text as _qml_text
                 if not a.site:
-                    raise SystemExit("quakeml-export needs --site <id>")
+                    raise SystemExit("quakeml-export needs --site SITE_ID")
                 r = ws.quakeml_export(a.site, agency=a.agency, out=a.out, actor=a.actor)
                 print(_qml_text(r)); return 0 if r["status"] == "WRITTEN" else 1
             elif a.action == "seismic-dataset":
@@ -2253,7 +2256,7 @@ def main(argv=None) -> int:
                 return 0 if not r["errors"] else 1
             elif a.action == "remove-seismic":
                 if not a.station:
-                    raise SystemExit("remove-seismic needs --station <id>")
+                    raise SystemExit("remove-seismic needs --station STATION_ID")
                 ws.remove_seismic_station(a.station, actor=a.actor); print("removed (folder kept):", a.station); return 0
             else:
                 print(_json.dumps(ws.summary(), indent=1)); return 0
@@ -2285,14 +2288,14 @@ def main(argv=None) -> int:
                 r = _B.verify(a.verify); print(_B.report_text(r, "verify")); return 0 if r["status"] == "OK" else 1
             if a.restore:
                 if not a.to:
-                    raise SystemExit("backup --restore needs --to <empty folder>")
+                    raise SystemExit("backup --restore needs --to C:\\site-restored (an empty folder)")
                 print(_B.report_text(_B.restore(a.restore, a.to, a.actor), "restore")); return 0
             if not a.workspace:
-                raise SystemExit("backup needs --workspace <site folder> (with --out <another disk>), or --verify / --restore an archive")
+                raise SystemExit("backup needs --workspace C:\\site (with --out D:\\gea-backups, another disk), or --verify / --restore an archive")
             if a.status:
                 r = _B.status(a.workspace); print(_B.report_text(r, "status")); return 0 if not (r["never"] or r["stale"]) else 1
             if not a.out:
-                raise SystemExit("backup needs --out <a folder on another disk or a share>")
+                raise SystemExit("backup needs --out D:\\gea-backups (a folder on another disk or a share)")
             print(_B.report_text(_B.make(a.workspace, a.out, a.actor, keep=a.keep, label=a.label), "make")); return 0
         except (ValueError, OSError) as e:
             raise SystemExit(f"backup: {e}")
@@ -2370,7 +2373,7 @@ def main(argv=None) -> int:
             stations = []
             for spec in (a.station or []):
                 if ":" not in spec:
-                    raise SystemExit(f"--station takes <measured depth in feet>:<tool name>, got {spec!r}")
+                    raise SystemExit(f"--station takes DEPTH_FT:TOOL (9850:quartz_pt_geoq177_16k), got {spec!r}")
                 md, _, nm = spec.partition(":")
                 try:
                     stations.append((float(md), nm.strip()))
@@ -2419,9 +2422,9 @@ def main(argv=None) -> int:
                 print(f"  {e['time'][:19]}  M {e['magnitude']:>4.1f} {e['mag_type']:<6s} {e['lat']:9.4f} {e['lon']:10.4f} {str(e['depth_km']):>7s} km " + (f"{e['distance_km']:7.2f} km  " if e.get("distance_km") is not None else "") + f"{e['place']}")
             return 0
         if a.lat is None or a.lon is None or not a.start or not a.end:
-            raise SystemExit("comcat needs --lat --lon --start --end (--radius-km, --min-mag), or --file <export>")
+            raise SystemExit("comcat needs --lat --lon --start --end (--radius-km, --min-mag), or --file comcat.txt")
         print(_SR.comcat_url(a.lat, a.lon, a.radius_km, a.start, a.end, a.min_mag))
-        print("  open it in a browser (this machine may not reach the service) and save the text it returns; `gea comcat --file <saved>` reads it, and sra-report --catalog takes it.")
+        print("  open it in a browser (this machine may not reach the service) and save the text it returns; `gea comcat --file comcat.txt` reads it, and sra-report --catalog takes it.")
         return 0
     elif a.cmd == "slip":
         import json as _json
@@ -2439,7 +2442,7 @@ def main(argv=None) -> int:
                 raise SystemExit("slip: no World Stress Map record of quality A/B/C within 100 km; declare --shmax-azimuth with its source")
             az, az_src = nb["azimuth_mean"], nb["statement"]
         if az is None:
-            raise SystemExit("slip: give --shmax-azimuth or --wsm <wsm.csv>")
+            raise SystemExit("slip: give --shmax-azimuth or --wsm wsm2016.csv")
         faults = _SL.faults_in_radius(L, a.lat, a.lon, a.radius_km)
         r = _SL.statement(faults, a.depth_ft, {"sv_psi_ft": a.sv, "shmin_psi_ft": a.shmin, "shmax_psi_ft": a.shmax, "pp_psi_ft": a.pp}, az, tuple(a.dips), tuple(a.mu), a.delta_pp,
                           sources={"shmax_azimuth": az_src, "gradients": "the command line"})
@@ -2453,6 +2456,22 @@ def main(argv=None) -> int:
     elif a.cmd == "catalog":
         import json as _json
         from . import catalog_register as _CR
+        if a.positions or a.map or a.check_positions:
+            from . import catalog_map as _CM
+            if a.check_positions:
+                chk = _CM.check_sidecars()
+                print(_json.dumps(chk, indent=1) if a.json else ("catalog positions: the sidecars match a fresh read of every file" if chk["ok"] else "catalog positions: DRIFT - " + _json.dumps(chk["bad"])))
+                return 0 if chk["ok"] else 1
+            rows = _CM.sidecar_positions()
+            if a.map:
+                reg = {r["entry"]: r["status"] for r in _CR.register()}
+                with open(a.map, "w", encoding="utf-8") as f:
+                    f.write(_CM.svg(rows, register=reg))
+                c = _CM.counts(rows)
+                print(f"catalog map: {c['positioned']} of {c['entries']} entries on {c['distinct_positions']} marks, {c['no_position']} NO POSITION listed below the key -> {a.map}")
+            if a.positions:
+                print(_json.dumps({"positions": rows, "counts": _CM.counts(rows)}, indent=1, default=str) if a.json else _CM.text(rows))
+            return 0
         if a.friction:
             from . import friction_priors as _FP
             print(_json.dumps({"measured": _FP.measured(), "envelope": _FP.envelope()}, indent=1, default=str) if a.json else _FP.text()); return 0

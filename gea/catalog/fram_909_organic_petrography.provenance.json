@@ -18,5 +18,14 @@
   ],
   "source_anomaly_disclosure": "THREE quirks preserved verbatim, each proven by arithmetic: (1) the three-maceral sum closes at 100.00 +/- 0.01 on ELEVEN of twelve rows but row 102R-2,105-10 sums to 103.18 - a 3.18-point slip in one archived maceral cell, the exception that proves the closure; (2) a UNITS MISLABEL provable by magnitude: the accumulation-rate columns are labeled g/m**2/ka but their values reproduce C x SR x DBD only in g/cm**2/ka (within 18 pct, vs a factor-10,000 miss under the printed unit); (3) EIGHT of twelve sample labels carry a truncated cm-interval (e.g. '124-12' for 124-126, an impossible end<start interval) - a systematic field-width clip in the archive; noted also: ages are Miocene millions expressed in ka (17370 ka = 17.37 Ma), consistent and correct",
   "purpose": "forty-ninth catalogue entry - the FRAM STRAIT joins as region THIRTY-SIX (the Arctic gateway: the one deep doorway between the Arctic and the world ocean, 79 N) and ORGANIC PETROGRAPHY is kind THIRTY-EIGHT - microscope-counted maceral fractions, the visual complement to the catalogue's Rock-Eval screen: not what the kerogen yields but WHAT IT IS; the source-rock verdict is re-derived on every gate run: the TOC partition closes EXACTLY on all 12 rows (terrestrial + marine = total to the last 0.01), terrestrial carbon is >= 81 pct of TOC everywhere with vitrinite+huminite >= 77.85 pct of the macerals (type III land plants rafted to 79 N by Miocene rivers), HI never reaches 200, and the archived 3.34 cm/ka sedimentation rate re-derives from the table's own dual geocodes (depth span / age span = 3.338) - a fair-to-good but immature source rock, exactly as the abstract's R0 ~0.5 pct concludes",
-  "verified": "12 rows / 156 counted cells against the header's own Size declaration (EXACT with both geocodes excluded); TOC = ter + mar identity 12/12 EXACT (worst 0.000); maceral closure 11/12 within 0.01 with the single 103.18 slip pinned; accumulation-rate magnitude check pins the g/cm2/ka reading (worst 18 pct vs 10^4 under the label); depth-span/age-span = 3.338 vs archived 3.34; 8 truncated labels pinned; terrestrial fraction >= 0.809 and HI <= 176.7 and TOC max 2.87 pinned; gate-pinned; source URL serves the identical dataset"
+  "verified": "12 rows / 156 counted cells against the header's own Size declaration (EXACT with both geocodes excluded); TOC = ter + mar identity 12/12 EXACT (worst 0.000); maceral closure 11/12 within 0.01 with the single 103.18 slip pinned; accumulation-rate magnitude check pins the g/cm2/ka reading (worst 18 pct vs 10^4 under the label); depth-span/age-span = 3.338 vs archived 3.34; 8 truncated labels pinned; terrestrial fraction >= 0.809 and HI <= 176.7 and TOC max 2.87 pinned; gate-pinned; source URL serves the identical dataset",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": 78.5849,
+    "lon": 3.0704,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 2 events in the file",
+    "line": "LATITUDE: 78.584900 * LONGITUDE: 3.070400"
+  }
 }

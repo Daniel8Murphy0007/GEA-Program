@@ -23,5 +23,14 @@
   ],
   "source_anomaly_disclosure": "No archival anomalies detected: all five closure identities (WBD from porosity+grain, DBD from porosity+grain, void ratio from porosity, and both water contents from WBD/DBD) close on all 18 rows within rounding - the cleanest fully-interlocked table in the catalogue to date. Sampling gaps (e.g. 104 -> 146 mbsf) reflect the hole's 22.2% hard-rock recovery, preserved as-is.",
   "purpose": "twenty-eighth catalogue entry - the MID-ATLANTIC RIDGE joins as region SIXTEEN and THE LADDER GOES BELOW THE CRUST: after sediments -> pillow basalts (504B Leg 69) -> sheeted dikes (504B Leg 111) -> layer-3 gabbro (735B Leg 118), Hole 1274A adds SERPENTINIZED MANTLE PERIDOTITE - the catalogue now spans the full oceanic lithosphere section from seafloor mud to the mantle; and the dataset is a five-identity self-audit in which every derived column closes against every other on every row",
-  "verified": "18 rows / 180 counted cells against the header Size declaration; WBD = phi*rho_w + (1-phi)*rho_grain and DBD = (1-phi)*rho_grain and e = phi/(1-phi) and water contents (WBD-DBD)/WBD, (WBD-DBD)/DBD all re-derived on all 18 rows; grain-density serpentinization band 2.588-2.823 pinned; endpoints; gate-pinned; source URL serves the identical dataset"
+  "verified": "18 rows / 180 counted cells against the header Size declaration; WBD = phi*rho_w + (1-phi)*rho_grain and DBD = (1-phi)*rho_grain and e = phi/(1-phi) and water contents (WBD-DBD)/WBD, (WBD-DBD)/DBD all re-derived on all 18 rows; grain-density serpentinization band 2.588-2.823 pinned; endpoints; gate-pinned; source URL serves the identical dataset",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": 15.64778,
+    "lon": -46.67636,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 2 events in the file",
+    "line": "LATITUDE: 15.647780 * LONGITUDE: -46.676360"
+  }
 }

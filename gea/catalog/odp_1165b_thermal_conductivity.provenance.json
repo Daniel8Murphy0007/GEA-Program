@@ -18,5 +18,14 @@
   ],
   "source_anomaly_disclosure": "ONE SOURCE ARCHIVAL TYPO, DETECTED BY THE DATA'S OWN STRUCTURE and preserved verbatim: at 317.350 m the replicate triplet reads '1.013, 0.016, 1.031' while the archived k is 1.0200 - the mean of the printed replicates (0.687) does NOT reproduce the archived value, but replacing the second replicate with 1.016 does exactly. The 0.016 is a dropped leading digit in the SOURCE archive (JANUS/PANGAEA chain), carried here unchanged with this disclosure; the other 80 rows reproduce their archived mean from their replicates to within rounding.",
   "purpose": "twenty-third catalogue entry - ANTARCTICA joins as region THIRTEEN (the catalogue's first Southern Hemisphere polar margin, completing a pole-to-pole span with Greenland and the Canadian Arctic); second thermal-conductivity dataset (Site 1027 pairing kind); and the second self-auditing structure this week: replicate-mean verification on all 81 rows, which is ALSO what caught the source typo",
-  "verified": "81 measurements; endpoints and k extremes; replicate-mean identity verified live on 80 of 81 rows with the single non-closing row pinned AS the disclosed source typo; per-sample labels; in-file license/coordinates to meta; gate-pinned; source URL serves the identical dataset"
+  "verified": "81 measurements; endpoints and k extremes; replicate-mean identity verified live on 80 of 81 rows with the single non-closing row pinned AS the disclosed source typo; per-sample labels; in-file license/coordinates to meta; gate-pinned; source URL serves the identical dataset",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": -64.37965,
+    "lon": 67.21905,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 2 events in the file",
+    "line": "LATITUDE: -64.379650 * LONGITUDE: 67.219050"
+  }
 }

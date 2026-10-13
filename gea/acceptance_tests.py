@@ -6527,7 +6527,8 @@ def section_bp_interval(tmp: str) -> None:
         "page": "intervalCardHtml" in page_src and "/api/wells/' + id + '/interval'" in page_src and "/api/elevation" in page_src and "lyRole" in page_src
                 and "kelly bushing is deeper by the KB height" in page_src,
         "cli": r_cli.returncode == 0 and "BELOW the mapped Wolfcamp top" in r_cli.stdout and "Depth tier against the map (base of the Wolfcamp): CONSISTENT" in r_cli.stdout
-               and r_set.returncode == 0 and "'depth_reference': 'TVD'" in r_set.stdout and r_add.returncode == 0,
+               and r_set.returncode == 0 and "'depth_reference': 'TVD'" in r_set.stdout
+               and r_add.returncode != 0 and "already exists" in (r_add.stderr + r_add.stdout) and "overwrite each other" in (r_add.stderr + r_add.stdout),
         "help": any(t["topic"] == "interval" for t in H.topics()) and not H.check("interval") and "never a value between them" in help_md.split("will not call a measurement")[1],
     }
     failed2 = [k for k, v in c2.items() if not v]
@@ -6535,7 +6536,7 @@ def section_bp_interval(tmp: str) -> None:
        "BP2 the workspace: a contours layer declared with its formation and role (a role on a faults layer refused); the interval and its reference declared "
        "(an elevation without its source refused, a base above its top refused), NOT DECLARED before; the shallow interval ABOVE the Wolfcamp top and "
        "BELOW the Delaware top, the Wolfcamp base from top and isopach, the tier CONSISTENT; a deep interval CONSISTENT; an interval across the top NOT "
-       "RESOLVED against it and INCONSISTENT with a deep declaration; an interval across the base bracket NOT RESOLVED; the SRA packet's 2c and 2d; audited; the API declares, answers and writes; the page card with the 3DEP button; the CLI; the help"
+       "RESOLVED against it and INCONSISTENT with a deep declaration; an interval across the base bracket NOT RESOLVED; the SRA packet's 2c and 2d; audited; the API declares, answers and writes; the page card with the 3DEP button; the CLI (a second Wolfcamp top refused since v0.29.0); the help"
        + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
 
     # -- BP3: the 3DEP client against a stand-in service, and set-well --elev-3dep through it ----------------------
@@ -7417,7 +7418,7 @@ def section_bv_tools(tmp: str) -> None:
                 and "Tools no live port in this build speaks" in page_src and "Rating check" in page_src,
         "cli": r_txt.returncode == 0 and "file ports:" in r_txt.stdout and "live ports:" in r_txt.stdout and "does not invent vendor numbers" in r_txt.stdout
                and r_list.returncode == 0 and r_list.stdout.split() == sorted(TOOL_LIBRARY) and r_json.returncode == 0 and json.loads(r_json.stdout)["counts"]["live_ports"] == 11
-               and r_rate.returncode == 1 and "OVER its 177 C rating" in r_rate.stdout and r_badst.returncode != 0 and "<measured depth in feet>:<tool name>" in (r_badst.stderr + r_badst.stdout),
+               and r_rate.returncode == 1 and "OVER its 177 C rating" in r_rate.stdout and r_badst.returncode != 0 and "DEPTH_FT:TOOL" in (r_badst.stderr + r_badst.stdout),
         "help": any(t["topic"] == "tools" for t in H.topics()) and not H.check("tools") and H.VIEW_TOPIC.get("tools") == "tools"
                 and "not a promise the tool survives" in help_md.split("will not call a measurement")[1],
     }
@@ -7427,6 +7428,225 @@ def section_bv_tools(tmp: str) -> None:
        "station with no depth; the page carries the tab, the unmatched-tools table and the rating-check form; `gea tools`, `--list`, `--json` and "
        "`--rating --station` (exit 1 when a station is over a rating, and a malformed station named); the help page and its view mapping"
        + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+
+def section_bw_catalog_map(tmp: str) -> None:
+    """Section BW - where every catalogue entry was drilled, from its own file or sidecar or NO POSITION, written into the
+    sidecars and held equal to a fresh read; the Gauss-Krueger unprojection checked against the hole's own decimal header;
+    the world map as SVG and on the Catalogue tab; the API, the CLI, the help."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    from . import catalog_map as CM
+    from . import catalog_register as CR
+    from . import geodesy as G
+    from . import helplib as H
+    from .telemetry import TelemetryRecorder, TelemetryConfig
+    from .downhole_engine import DownholeEngine, SimulatorConfig
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bw"); d.mkdir()
+
+    rows = CM.positions()
+    rec = CM.sidecar_positions()
+    by = {r["entry"]: r for r in rows}
+    c = CM.counts(rows)
+    chk = CM.check_sidecars()
+    hb, vb, bhgm = by["ktb_hb_hlog246_temperature"], by["ktb_vb_vlog251_temperature"], by["ktb_hb_bhgm_density"]
+    # the main hole's GK position, on DHDN before the shift, against the same hole's decimal-degree header line
+    hb_dhdn = G.geodesic_m(hb["grid"]["dhdn_lat"], hb["grid"]["dhdn_lon"], bhgm["lat"], bhgm["lon"])["distance_m"]
+    hb_vb = G.geodesic_m(hb["lat"], hb["lon"], vb["lat"], vb["lon"])["distance_m"]
+    pang = by["dsdp_504b_physical_properties"]
+    kc, l07, cw, ag = by["kennetcook_2_p129_excerpt"], by["l07_01_nl_excerpt"], by["collingwood_1_28_ks_complete"], by["agassiz77_canada_temperature"]
+    none = [r for r in rows if r["status"] != "OK"]
+    c1 = {
+        "counts": c["entries"] == len(CR.public()) and c["positioned"] == 44 and c["no_position"] == 8 and c["by_how"] == {"file": 38, "same_well": 4, "provenance": 2}
+                  and c["approximate"] == 1 and c["distinct_positions"] == 33,
+        "pangaea": pang["how"] == "file" and abs(pang["lat"] - 1.2272) < 1e-6 and abs(pang["lon"] + 83.7302) < 1e-6 and pang["datum"] == "WGS84" and "PANGAEA" in pang["source"]
+                   and "LATITUDE: 1.227200" in pang["line"] and "the first of" in by["barbados_110_consolidation"]["source"],
+        "las": kc["how"] == "file" and abs(kc["lat"] - 45.209510) < 1e-5 and abs(kc["lon"] + 63.756794) < 1e-5 and "degrees-minutes-seconds" in kc["source"] and kc["datum"] == "UNKNOWN"
+               and l07["how"] == "file" and abs(l07["lat"] - 53.722768) < 1e-6 and abs(l07["lon"] - 4.796468) < 1e-6 and "LATI/LONG" in l07["source"],
+        "gauss_krueger": hb["how"] == "file" and hb["grid"]["zone"] == 4 and hb["grid"]["E"] == 4508775.24 and hb["grid"]["N"] == 5519864.35 and hb["datum"] == "WGS84"
+                         and "EPSG 1776" in hb["source"] and 100 < hb["grid"]["shift_m"] < 140 and hb_dhdn < 5.0 and 150 < hb_vb < 250
+                         and abs(G.unproject(4508775.24, 5519864.35, G.gauss_krueger(4))[0] - 49.81637) < 1e-4 and G.ELLIPSOIDS["BESSEL"][0] == 6377397.155
+                         and G.datum_name("EPSG:4314") == "DHDN",
+        "same_well": all(by[n]["how"] == "same_well" and by[n]["same_well_as"] == CM.SAME_WELL[n] and by[n]["lat"] == by[CM.SAME_WELL[n]]["lat"] for n in CM.SAME_WELL)
+                     and bhgm["how"] == "file" and bhgm["datum"] == "UNKNOWN" and "KTB file" in bhgm["source"],
+        "provenance": cw["how"] == "provenance" and abs(cw["lat"] - 37.41565) < 1e-6 and abs(cw["lon"] + 101.58701) < 1e-6 and not cw["approximate"] and "well record" in cw["source"]
+                      and ag["how"] == "provenance" and ag["approximate"] and ag["lat"] == 80.7 and ag["lon"] == -73.1 and "approximate" in ag["source"],
+        "no_position": {r["entry"] for r in none} == {"gisp2_greenland_temperature", "gom_308_t2p_insitu", "l06_06_nl_survey", "scorpio_e1_sa_excerpt", "university_6_17_no1_tx_excerpt",
+                                                      "volve_15_9_19_sr_excerpt", "volve_15_9_19a_core_excerpt", "volve_f12_f14_production_excerpt"}
+                       and all(r["lat"] is None and r["place"] and "states a coordinate" in r["source"] for r in none) and "Mt Eba" in by["scorpio_e1_sa_excerpt"]["place"],
+        "sidecars": chk["ok"] and chk["n"] == len(rows) and all(r.get("status") in ("OK", "NO POSITION") for r in rec)
+                    and all(rec_r["lat"] == r["lat"] and rec_r["how"] == r["how"] for rec_r, r in zip(rec, rows)) and CM.write_sidecars() == [],
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       f"BW1 positions: {c['positioned']} of {c['entries']} entries from their own files (38 headers: PANGAEA events, LAS LATI/LONG, a LAS LOC in DMS, "
+       "KTB Gauss-Krueger zone 4 unprojected on Bessel and shifted to WGS84 by EPSG 1776 - the main hole's unshifted position within 5 m of the same "
+       "hole's decimal header, the pilot hole 150-250 m away; 4 as the same borehole as one that is; 2 from the sidecar's source record, one approximate), "
+       "8 NO POSITION with what the sidecar does say; the sidecars equal a fresh read and a rewrite changes nothing"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    reg = {r["entry"]: r["status"] for r in CR.register()}
+    svg = CM.svg(rec, register=reg)
+    groups = CM.groups([r for r in rec if r["status"] == "OK"])
+    coast = CM.coastline(); meta = CM.coastline_meta()
+    x_ktb, y_ktb = CM.project(hb["lon"], hb["lat"], 1000, 500)
+    x_504, y_504 = CM.project(pang["lon"], pang["lat"], 1000, 500)
+    c2 = {
+        "coast": meta["n_lines"] == 134 and meta["n_points"] == 5127 and "Natural Earth" in meta["source"] and meta["md5_upstream"] == "0b8f91e9d9c4fb607e61e121b5ac48fa"
+                 and all(-180 <= lo <= 180 and -90 <= la <= 90 for line in coast for lo, la in line) and "ne_110m_coastline.json" in (pkg / "fixtures" / "README.md").read_text(encoding="utf-8"),
+        "projection": abs(x_ktb - 533.7) < 0.2 and abs(y_ktb - 111.6) < 0.2 and abs(x_504 - 267.4) < 0.2 and abs(y_504 - 246.6) < 0.2,
+        "groups": len(groups) == 33 and sum(len(g["rows"]) for g in groups) == 44 and any(len(g["rows"]) == 7 and all(r["entry"].startswith("ktb_") for r in g["rows"]) for g in groups),
+        "svg": svg.startswith("<svg") and svg.count("<polyline") == 134 and svg.count("<circle") == 33 and "NO POSITION (8)" in svg and "Natural Earth" in svg
+               and "scorpio_e1_sa_excerpt" in svg and svg.count("<title>") == 34 and "44 of 52 entries positioned" in svg and "#1f6fb2" in svg and "#c77d00" in svg,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "BW2 the map: the Natural Earth 1:110m coastline fixture (134 lines, 5,127 points, its upstream md5 and provenance in the fixtures README), the plate "
+       "carree placing KTB and 504B where they are, 44 entries on 33 marks (the seven KTB entries one mark), the SVG with one polyline per coastline, one "
+       "circle per mark, a tooltip per mark, the key, the NO POSITION list and the two colours"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    hist = str(d / "hist.csv")
+    TelemetryRecorder(engine=DownholeEngine(SimulatorConfig()), config=TelemetryConfig(duration_hours=0.5, seed=3)).run().export_csv(hist)
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    ws.add_well_file(hist, display="SWD 1", actor="tester")
+    users = Users(str(Path(wsp, "users.json"))); users.add("v", "viewer-pass-1", "viewer")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json"); req.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(req, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        st_anon = call("GET", "/api/catalog/map")[0]
+        call("POST", "/api/login", {"name": "v", "password": "viewer-pass-1"})
+        st_m, m = call("GET", "/api/catalog/map")
+        st_e, e = call("GET", "/api/catalog/entry/ktb_hb_hlog246_temperature")
+        st_bad = call("GET", "/api/catalog/entry/no_such_entry")[0]
+    finally:
+        svc.stop()
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    help_md = (pkg / "help" / "catalog.md").read_text(encoding="utf-8")
+    out_svg = str(d / "catalogue.svg")
+    r_map = _sp.run([sys.executable, "-m", "gea", "catalog", "--map", out_svg], capture_output=True, text=True)
+    r_pos = _sp.run([sys.executable, "-m", "gea", "catalog", "--positions"], capture_output=True, text=True)
+    r_json = _sp.run([sys.executable, "-m", "gea", "catalog", "--positions", "--json"], capture_output=True, text=True)
+    r_chk = _sp.run([sys.executable, "-m", "gea", "catalog", "--check-positions"], capture_output=True, text=True)
+    r_tool = _sp.run([sys.executable, str(pkg.parent / "tools" / "catalog_positions.py")], capture_output=True, text=True)
+    c3 = {
+        "api": st_anon == 401 and st_m == 200 and len(m["entries"]) == 52 and m["counts"]["positioned"] == 44 and len(m["coast"]) == 134 and m["check"]["ok"]
+               and all("register" in r and "well" in r for r in m["entries"]) and st_e == 200 and e["provenance"]["position"]["grid"]["zone"] == 4
+               and e["register"]["status"] == "USED" and st_bad == 404,
+        "page": "VIEWS.catalog" in page_src and "'#/catalog', 'Catalogue'" in page_src and "/api/catalog/map" in page_src and "/api/catalog/entry/" in page_src
+                and "NO POSITION" in page_src and "Natural Earth" in page_src and "cmark" in page_src,
+        "cli": r_map.returncode == 0 and "44 of 52 entries on 33 marks" in r_map.stdout and Path(out_svg).read_text(encoding="utf-8").count("<circle") == 33
+               and r_pos.returncode == 0 and "44 of 52 entries positioned" in r_pos.stdout and "NO POSITION" in r_pos.stdout and "Mt Eba" in r_pos.stdout
+               and r_json.returncode == 0 and json.loads(r_json.stdout)["counts"]["no_position"] == 8
+               and r_chk.returncode == 0 and "match a fresh read" in r_chk.stdout and r_tool.returncode == 0 and "all already current" in r_tool.stdout,
+        "help": not H.check("catalog") and H.VIEW_TOPIC.get("catalog") == "catalog" and "--map" in help_md and "NO POSITION" in help_md
+                and "Natural Earth" in help_md and "not a position" in help_md.split("will not call a measurement")[1],
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "BW3 the Catalogue tab: the API refuses an anonymous caller and answers a viewer with the entries, the coastline and the sidecar check, one entry's "
+       "full provenance with its grid record, an unknown entry 404; the page carries the tab, the marks and the entry card; `gea catalog --map`, "
+       "`--positions` (and `--json`), `--check-positions` and the sidecar tool; the help page says what a mark is not"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
+def section_bx_pasteable(tmp: str) -> None:
+    """Section BX - three things a site operator hit at the keyboard: a second layer with the same formation and role
+    silently replacing the first in the interval band; a missing file reported as a stem without .shp; and command
+    placeholders written as <this>, which PowerShell refuses before Python runs."""
+    import math as _math
+    from . import shapefile as SF
+    from .workspace import Workspace, WorkspaceError
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bx"); d.mkdir()
+
+    lat1, lon1 = 31.42, -103.50
+    kmlon = 1.0 / (111.195 * _math.cos(_math.radians(lat1)))
+    ctr = [([[(lon1 + (i - 1.5) * 4 * kmlon, lat1 - 0.3), (lon1 + (i - 1.5) * 4 * kmlon, lat1 + 0.3)]], {"ElevTop_ft": -8500.0 + 500.0 * i, "Shape_Leng": 0.6}) for i in range(4)]
+    SF.write(str(d / "Top_A"), "PolyLine", ctr, [("ElevTop_ft", "F", 10, 1), ("Shape_Leng", "F", 12, 6)], SF.NAD83_GEOGCS)
+    SF.write(str(d / "Top_B"), "PolyLine", ctr, [("ElevTop_ft", "F", 10, 1), ("Shape_Leng", "F", 12, 6)], SF.NAD83_GEOGCS)
+    thick = [([[(lon1 + (i - 1.5) * 4 * kmlon, lat1 - 0.3), (lon1 + (i - 1.5) * 4 * kmlon, lat1 + 0.3)]], {"Thick_ft": 400.0 + 100.0 * i, "Shape_Leng": 0.6}) for i in range(4)]
+    SF.write(str(d / "Iso_A"), "PolyLine", thick, [("Thick_ft", "F", 10, 1), ("Shape_Leng", "F", 12, 6)], SF.NAD83_GEOGCS)
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    ws.add_layer(str(d / "Top_A.shp"), "Wolfcamp top A", actor="tester", formation="Wolfcamp", role="top", citation="test")
+    dup = dup_default = None
+    try:
+        ws.add_layer(str(d / "Top_B.shp"), "Wolfcamp top B", actor="tester", formation="Wolfcamp", role="top", citation="test")
+    except WorkspaceError as e:
+        dup = str(e)
+    try:                                   # a contours layer with a formation and no role defaults to `top`: the same refusal
+        ws.add_layer(str(d / "Top_B.shp"), "Wolfcamp top B2", actor="tester", formation="Wolfcamp", citation="test")
+    except WorkspaceError as e:
+        dup_default = str(e)
+    ws.add_layer(str(d / "Iso_A.shp"), "Wolfcamp isopach", actor="tester", formation="Wolfcamp", role="isopach", citation="test")
+    ws.add_layer(str(d / "Top_B.shp"), "Wolfcamp top Delaware", actor="tester", formation="Wolfcamp (Delaware)", role="top", citation="test")
+    layers = ws.layers()
+    missing = missing_zip = None
+    try:
+        SF.read(str(d / "nowhere.zip"))
+    except ValueError as e:
+        missing_zip = str(e)
+    try:
+        ws.add_layer("_incoming\\Wolfcamp_Elevation_Isopachs.zip", "EIA Wolfcamp top", actor="tester")
+    except WorkspaceError as e:
+        missing = str(e)
+    c1 = {
+        "refused": dup and "already exists: Wolfcamp-top-A" in dup and "overwrite each other in the interval band" in dup and "remove-layer --layer Wolfcamp-top-A" in dup
+                   and "--formation-name" in dup and dup_default and "Wolfcamp-top-A" in dup_default,
+        "allowed": len(layers) == 3 and {(L["formation"], L["role"]) for L in layers} == {("Wolfcamp", "top"), ("Wolfcamp", "isopach"), ("Wolfcamp (Delaware)", "top")},
+        "missing": missing_zip and missing_zip.startswith("no such file: ") and "nowhere.zip" in missing_zip and ".zip.shp" not in missing_zip and "looked from" in missing_zip
+                   and missing and missing.startswith("layer: no such file: _incoming") and "full path" in missing,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "BX1 add-layer refuses a second layer of one formation and role (and the defaulted role), naming the first and the two ways out, while a different "
+       "role and a formation named apart are taken; a path that is not there is reported as no such file with the folder it was looked for from, "
+       "never as a stem that lacks .shp"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # every pasteable command line in the help, the README, the usage messages, the doctor's fixes and the page: no <placeholder>
+    ph = re.compile(r"<[a-zA-Z][a-zA-Z0-9 ._|/:\\-]*>")
+    bad = []
+    for md in sorted((pkg / "help").glob("*.md")):
+        for ln in md.read_text(encoding="utf-8").splitlines():
+            if ln.startswith("**The command**") and ph.search(ln):
+                bad.append(f"{md.name}: {ph.search(ln).group(0)}")
+    readme = (pkg.parent / "README.md").read_text(encoding="utf-8")
+    for ln in readme.splitlines():
+        if re.search(r"(^|`)(python -m )?gea [a-z-]", ln) and ph.search(ln) and not ln.lstrip().startswith("|"):
+            bad.append(f"README: {ph.search(ln).group(0)}")
+    for mod in ("__main__.py", "doctor.py", "backup.py", "workspace.py"):
+        src = (pkg / mod).read_text(encoding="utf-8")
+        for ln in src.splitlines():
+            if re.search(r'needs --|help=|_finding\(|fix:|gea (workspace|backup|serve|structure|comcat|survey|tools) ', ln) and ph.search(ln) and "re.compile" not in ln:
+                bad.append(f"{mod}: {ph.search(ln).group(0)}")
+    page = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    for m in re.finditer(r'class="mono">([^<]*gea [^<]*)<', page):
+        if "&lt;" in m.group(1):
+            bad.append("app.html: " + m.group(1)[:60])
+    c2 = {"none_left": not bad, "readme_real": "--well SWD-1" in readme and "collingwood_1_28_ks_complete" in readme,
+          "help_real": "--well SWD-1" in (pkg / "help" / "interval.md").read_text(encoding="utf-8") and "9850:quartz_pt_geoq177_16k" in (pkg / "help" / "tools.md").read_text(encoding="utf-8"),
+          "usage_metavar": "needs --well WELL_ID" in (pkg / "__main__.py").read_text(encoding="utf-8")}
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "BX2 no command line a site operator would paste carries a <placeholder>: the help pages' command lines, the README's commands, the usage "
+       "messages, the doctor's fixes and the page's hints use real example values (SWD-1, a catalogue entry, a tool name) or an uppercase metavar"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else "") + (f" [left: {'; '.join(bad[:8])}]" if bad else ""))
 
 
 def main() -> int:
@@ -7506,6 +7726,8 @@ def main() -> int:
         section_bt_slip(tmp)
         section_bu_comcat(tmp)
         section_bv_tools(tmp)
+        section_bw_catalog_map(tmp)
+        section_bx_pasteable(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

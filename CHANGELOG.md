@@ -5,6 +5,60 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.29.0] - 2026-10-13 - The catalogue on a world map, and three things that broke at the keyboard
+
+### Added
+- **Where every catalogue entry was drilled** (`gea/catalog_map.py`,
+  `tools/catalog_positions.py`): a position is taken from the entry's own
+  file - a PANGAEA event line (WGS84), a LAS `LATI`/`LONG` pair, a LAS `LOC`
+  line in degrees-minutes-seconds, or a KTB header in Gauss-Krueger zone 4
+  (Rechtswert/Hochwert on DHDN, unprojected on the Bessel ellipsoid and
+  shifted to WGS84 by EPSG 1776, the shift and its 3 m stated) - or from the
+  sidecar's source record (the KGS well record for Collingwood 1-28; the
+  Agassiz metadata, carried as approximate), or it is NO POSITION. Four
+  entries are positioned as the same borehole as one that is (the KTB main
+  and pilot holes), declared, not matched. Nothing is looked up or guessed:
+  GISP2, Volve, the NLOG survey, Scorpio E1 and University 6-17 stay NO
+  POSITION with what their files do say. 44 of 52 positioned, 33 distinct
+  positions, 8 NO POSITION. Written once into each sidecar as a `position`
+  block with the line it was read from; the gate recomputes from the files
+  and holds the two equal.
+- **The Catalogue tab** (`#/catalog`, `/api/catalog/map`,
+  `/api/catalog/entry/NAME`): the world map - the Natural Earth 1:110m
+  coastline (public domain, 134 lines, its upstream md5 in the fixtures
+  README), plate carree, one numbered mark per position with the entries
+  of one borehole sharing a mark, blue where a band reads the entry and
+  amber where it is carried - with every entry beneath it: the position,
+  the datum, the line it came from, the register status; a mark or a name
+  opens the entry's provenance. `gea catalog --map catalogue.svg` writes
+  the same picture as a file with the key and the NO POSITION list;
+  `--positions`, `--check-positions`.
+- `geodesy`: the Bessel 1841 ellipsoid, the DHDN datum with its published
+  three-parameter shift, `gauss_krueger(zone)`.
+
+### Fixed
+- **A second layer of one formation and role silently replaced the first**
+  in the interval band (`interval.statement` keys a formation's bracket on
+  the pair). `add-layer` now refuses it, names the layer that is there and
+  the two ways out - remove it, or name the formations apart
+  (`Wolfcamp B (Delaware)` beside `Wolfcamp B (Midland)`, which is how the
+  Pad 3 workspace was loaded). A different role, or a formation named
+  apart, is taken as before.
+- **A path that is not there was reported as a stem without `.shp`**
+  (`no such shapefile: _incoming\layer.zip.shp`). It is now `no such file`,
+  with the folder it was looked for from - a relative path is read from the
+  folder the command runs in, which is the mistake it was hiding.
+- **Command placeholders written as `<this>`** - in the help pages' command
+  lines, the README, the usage messages, the doctor's fixes and the page's
+  hints - which PowerShell refuses before Python runs (`The '<' operator is
+  reserved for future use`). Every pasteable command now carries a real
+  example value (`--well SWD-1`, a catalogue entry, a tool name, a path
+  under `C:\site\_incoming`) or an uppercase metavar (`--well WELL_ID`),
+  and the gate reads every one of those surfaces for a `<placeholder>`.
+- What it will not do: put a mark where no file states a coordinate; call a
+  mark a position this program measured; move a Pad 3 layer that is already
+  loaded. Sections BW (3 checks) and BX (2); the gate is 373.
+
 ## [v0.28.0] - 2026-10-12 - Tools and ports: the two registers that had no page
 
 ### Added

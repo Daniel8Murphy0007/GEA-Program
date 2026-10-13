@@ -18,5 +18,14 @@
   ],
   "source_anomaly_disclosure": "TWO source quirks preserved verbatim: (1) row 204-1245B-11H-2 carries top = 96.00 m and bottom = 7.40 m - bottom ABOVE top by 88.6 m, physically impossible for a core section; the plausible reading is that '97.40' lost its leading 9, and the archive's own geocode 51.70 = (96.00 + 7.40)/2 EXACTLY - the midpoint arithmetic faithfully propagated the typo, making the row internally consistent with its own corruption (also out of depth order between 87.56 and 112.25); detected by the bottom<top audit, carried unchanged; (2) the header abstract states the 1249F-9H3 monitoring experiment yielded '35-70 pct' while Table 1 archives 30-75 for the same core - an abstract-vs-table discrepancy in the source, both preserved verbatim, not reconciled",
   "purpose": "thirty-fourth catalogue entry - the CASCADIA MARGIN joins as region TWENTY-TWO and in-situ GAS HYDRATE CONCENTRATION is kind TWENTY-THREE: the first drilling-hazard quantity in the catalogue (hydrate dissociation destabilizes boreholes, floods logs with gas cracks, and blinds resistivity tools - the abstract's own 'biased sampling' warning about gas-crack data exclusion is preserved in the file), measured by resistivity petrophysics - the same physical channel this product's wireline simulations carry; the summit-vs-flanks structure is re-derived by the gate: every interval outside Site 1249 and the 1248C-4X-1 experiment is <= 15 pct while the southern-summit intervals reach 55-75",
-  "verified": "32 rows / 172 counted cells against the header's own Size declaration (EXACT, closing only with the 9 second-labels + 3 comment cells); geocode = (top+bottom)/2 re-derived on ALL 32 rows within 0.005 m (including the corrupted 11H-2 row - the archive is consistent with its own typo); exactly ONE bottom<top row (the disclosed typo); min <= max hydrate on all rows; the three monitoring cores match the abstract's design; all 25 non-summit background rows at min = 0 and max <= 15; abstract-vs-table discrepancy disclosed; gate-pinned; source URL serves the identical dataset"
+  "verified": "32 rows / 172 counted cells against the header's own Size declaration (EXACT, closing only with the 9 second-labels + 3 comment cells); geocode = (top+bottom)/2 re-derived on ALL 32 rows within 0.005 m (including the corrupted 11H-2 row - the archive is consistent with its own typo); exactly ONE bottom<top row (the disclosed typo); min <= max hydrate on all rows; the three monitoring cores match the abstract's design; all 25 non-summit background rows at min = 0 and max <= 15; abstract-vs-table discrepancy disclosed; gate-pinned; source URL serves the identical dataset",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": 44.580963,
+    "lon": -125.135414,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 10 events in the file",
+    "line": "LATITUDE: 44.580963 * MEDIAN LONGITUDE: -125.135414"
+  }
 }

@@ -1126,6 +1126,16 @@ class Workspace:
         lid = slug(display)
         if lid in self.manifest.setdefault('layers', []):
             raise WorkspaceError(f'layer already exists: {lid}')
+        kind = ST.layer_kind(L)
+        eff_role = role or ('top' if (formation and kind == 'contours') else '')
+        if formation and eff_role:
+            # the interval band keys a formation's bracket on (formation, role); a second layer with the same pair would
+            # silently replace the first in that band, so it is refused here and the two must be named apart
+            for other in self.layers():
+                if other.get('formation') == formation and other.get('role') == eff_role:
+                    raise WorkspaceError(f"a {eff_role} layer for the formation {formation!r} already exists: {other['id']} ({other.get('display', '')}). "
+                                         f"Two layers of one formation and role would overwrite each other in the interval band; remove the first "
+                                         f"(--action remove-layer --layer {other['id']}) or name the formations apart (--formation-name \"{formation} (Delaware)\")")
         d = os.path.join(self.path, 'layers', lid)
         os.makedirs(d, exist_ok=True)
         name, parts = SF._load_parts(src, member)
@@ -1136,7 +1146,6 @@ class Workspace:
                 f.write(data)
             hashes[fn] = sha256_file(os.path.join(d, fn))
         type_attr, name_attr = ST.guess_attrs(L)
-        kind = ST.layer_kind(L)
         if feature_kind and kind != 'structure':
             raise WorkspaceError(f'a declared feature kind belongs to a structure (lines) layer; this layer reads as {kind}')
         if role and kind != 'contours':

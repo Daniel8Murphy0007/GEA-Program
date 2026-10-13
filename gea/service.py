@@ -87,6 +87,12 @@ def _iso_epoch(t: Optional[float]) -> Optional[str]:
     return datetime.fromtimestamp(t, tz=timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
+def app_catalog_well(name: str) -> str:
+    from .profile_catalog import CATALOG as _CAT
+    e = _CAT.get(name)
+    return str(e.provenance.get('well', '')) if e else ''
+
+
 class ApiError(Exception):
     def __init__(self, status: int, message: str, retry_after: Optional[int] = None):
         super().__init__(message)
@@ -1640,6 +1646,25 @@ def make_handler(app: App):
                 if path == '/api/tools':
                     from . import tool_catalog as _TC
                     return self._json(200, _TC.catalog())
+                if path == '/api/catalog/map':
+                    from . import catalog_map as _CM, catalog_register as _CR
+                    reg = {r['entry']: r for r in _CR.register()}
+                    rows = _CM.sidecar_positions()
+                    for r in rows:
+                        rr = reg.get(r['entry'], {})
+                        r['register'] = rr.get('status', ''); r['kind'] = rr.get('kind', ''); r['used_by'] = rr.get('used_by', [])
+                        r['well'] = str(app_catalog_well(r['entry']))[:140]
+                    return self._json(200, {'entries': rows, 'coast': _CM.coastline(), 'coast_meta': _CM.coastline_meta(), 'counts': _CM.counts(rows),
+                                            'statement': _CM.text(rows).splitlines()[0], 'check': _CM.check_sidecars()})
+                if path.startswith('/api/catalog/entry/'):
+                    from . import catalog_register as _CR
+                    from .profile_catalog import CATALOG as _CAT
+                    name = path[len('/api/catalog/entry/'):]
+                    e = _CAT.get(name)
+                    if e is None or e.provenance.get('tier', 'public') != 'public':
+                        return self._json(404, {'error': f'no catalogue entry {name!r}'})
+                    reg = next((r for r in _CR.register() if r['entry'] == name), {})
+                    return self._json(200, {'entry': name, 'register': reg, 'provenance': e.provenance, 'reads_as': _CR.check_entry(e)['shape']})
                 if path == '/api/stress/wsm':
                     try:
                         lat, lon = float(qs['lat'][0]), float(qs['lon'][0]); rad = float(qs.get('radius_km', ['100'])[0])

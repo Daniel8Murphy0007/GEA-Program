@@ -47,6 +47,7 @@ ELLIPSOIDS: Dict[str, Tuple[float, float]] = {
     'WGS84': (6378137.0, 298.257223563),
     'GRS80': (6378137.0, 298.257222101),
     'CLARKE1866': (6378206.4, 294.9786982),
+    'BESSEL': (6377397.155, 299.1528128),        # Bessel 1841: the DHDN ellipsoid the German Gauss-Krueger grids sit on
 }
 
 # datum -> ellipsoid, the three-parameter shift to WGS84 (metres, geocentric), and what that shift is worth
@@ -59,6 +60,10 @@ DATUMS: Dict[str, dict] = {
     'NAD27': {'ellipsoid': 'CLARKE1866', 'to_wgs84': (-8.0, 160.0, 176.0), 'accuracy_m': 10.0,
               'note': 'the published CONUS-mean three-parameter shift (DMA TR8350.2). A grid transformation (NADCON) is better by several '
                       'metres and is not in this program; this is good to roughly ten'},
+    'DHDN': {'ellipsoid': 'BESSEL', 'to_wgs84': (582.0, 105.0, 414.0), 'accuracy_m': 3.0,
+             'note': 'Deutsches Hauptdreiecksnetz (the datum of the German Gauss-Krueger grids): the published three-parameter shift '
+                     'EPSG 1776 (DHDN to WGS 84 (1), former West Germany, about 3 m). A seven-parameter transformation is better by a '
+                     'metre or two and is not in this program'},
     'UNKNOWN': {'ellipsoid': 'WGS84', 'to_wgs84': (0.0, 0.0, 0.0), 'accuracy_m': None,
                 'note': 'nobody said which datum these numbers are on. They are used as given, which is an assumption, not a conversion'},
 }
@@ -66,6 +71,7 @@ DATUMS: Dict[str, dict] = {
 ALIASES = {'WGS 84': 'WGS84', 'WGS-84': 'WGS84', 'EPSG:4326': 'WGS84', '4326': 'WGS84', 'WGS1984': 'WGS84',
            'NAD 83': 'NAD83', 'NAD-83': 'NAD83', 'EPSG:4269': 'NAD83', '4269': 'NAD83', 'NAD83(2011)': 'NAD83', 'GRS80': 'NAD83',
            'NAD 27': 'NAD27', 'NAD-27': 'NAD27', 'EPSG:4267': 'NAD27', '4267': 'NAD27', 'CLARKE1866': 'NAD27',
+           'DHDN': 'DHDN', 'EPSG:4314': 'DHDN', '4314': 'DHDN', 'POTSDAM': 'DHDN', 'BESSEL': 'DHDN',
            '': 'UNKNOWN', 'NONE': 'UNKNOWN', 'UNSTATED': 'UNKNOWN', 'UNKNOWN': 'UNKNOWN'}
 
 US_SURVEY_FOOT = 1200.0 / 3937.0            # exactly, by definition
@@ -258,6 +264,12 @@ def _lcc(lat0, lon0, lat1, lat2, fe, fn, ellipsoid):
 
 def utm(zone: int, north: bool = True, ellipsoid: str = 'WGS84') -> dict:
     return _tm(0.0, -183.0 + 6.0 * zone, 0.9996, 500000.0, 0.0 if north else 10000000.0, ellipsoid)
+
+
+def gauss_krueger(zone: int) -> dict:
+    """The German 3-degree Gauss-Krueger grid (DHDN, Bessel): zone n has central meridian 3n degrees E, scale 1, and a false
+    easting of n * 1,000,000 + 500,000 m - the leading digit of a 'Rechtswert' names its zone."""
+    return _tm(0.0, 3.0 * zone, 1.0, zone * 1000000.0 + 500000.0, 0.0, 'BESSEL')
 
 
 # Texas state plane, NAD83, metres (the false northings step by a million per zone, which is how you

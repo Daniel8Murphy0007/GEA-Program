@@ -1,30 +1,42 @@
-v0.28.0 — TOOLS AND PORTS: THE TWO REGISTERS THAT HAD NO PAGE
+v0.29.0 — THE CATALOGUE ON A WORLD MAP, AND THREE THINGS THAT BROKE AT THE KEYBOARD
 
-Two registers have been in this program since the beginning and had nowhere
-to be seen: the tool library and the port registry. The tool library is the
-downhole and surface tools - each with the citation its numbers came from,
-the temperature and pressure it is rated for, what it measures, the
-telemetry interface it declares, and the aging rate its datasheet publishes.
-The port registry is what brings those readings in: the file formats this
-program reads and the eleven live protocols it speaks, each with what it
-speaks to, what the site must supply before it runs, and what to rehearse
-against when the device is not on line yet.
+Where were the datasets from the 14+ wells, and where was the global map?
+The datasets were always the catalogue inside the wheel - 52 public
+entries, 49 wells and sites, each with its provenance - reachable by name
+and never shown as a place. The map had never been built. Now it is the
+Catalogue tab: every entry where it was drilled, on the Natural Earth
+coastline, with the entries beneath it and each one's provenance a click
+away.
 
-The new tab puts them side by side and draws the line between them. A tool
-declares an interface; a port speaks one; and the tools whose interface no
-port in this build speaks - the vibrating-wire readout, the thermocouple
-card, the fibre interrogator, the piezoresistive family - are listed by name
-rather than left out. A tool whose vendor published no numbers carries none,
-says PARAMETERS_USER_SUPPLIED, and tells you to load your own datasheet.
+A position here comes from the entry's own file or it does not exist. A
+PANGAEA event line gives it on WGS84. A LAS header gives it in decimal
+degrees or in degrees-minutes-seconds. A KTB header gives it as a
+Gauss-Krueger grid reference, which this program unprojects on the Bessel
+ellipsoid and shifts to WGS84 by the published transformation, stating the
+120 m the shift moved it and the 3 m the transformation is worth; the main
+hole's unshifted position sits 2 m from the same hole's decimal header,
+which says that header was on DHDN too. Four entries are positioned as the
+same borehole as one that is, declared by name. Two come from the sidecar's
+source record, one of them stated as approximate and carried as such.
+Eight are NO POSITION - GISP2, the three Volve entries, the NLOG survey,
+Scorpio E1, University 6-17, the Gulf of Mexico penetrometers - because
+their files state no coordinate, and a well-known site is not looked up.
+44 of 52, on 33 marks. The positions are written once into the sidecars
+with the line each was read from, and the gate recomputes them from the
+files on every run.
 
-The one piece of arithmetic on the page is the rating check: a tool string
-hung in a well, each station's tool against the conditions at that station,
-with the basis of those conditions printed beside the answer. A GEOQ 177
-gauge at 16,000 ft sees 183.9 C against its 177 C rating, and the page says
-so before the well does.
+Three defects came out of one evening at the keyboard loading Pad 3. A
+second layer with the same formation and role silently replaced the first
+in the interval band; add-layer now refuses it and names the way out. A
+path that was not there was reported as a stem lacking .shp; it is now "no
+such file", with the folder it was looked for from, because the mistake was
+the folder. And the help's <placeholders>, which PowerShell refuses before
+Python ever runs, are gone from every command line a site operator would
+paste - a real example value or an uppercase metavar in their place, and
+the gate reads every one of those surfaces.
 
-What it will not do: invent a vendor number; call a station within its
-ratings a promise; use conditions it was not given; call a port a
-connection.
+What it will not do: put a mark where no file states a coordinate; call a
+mark a position this program measured; move a layer that is already loaded.
 
-Section BV is new. The gate is 368 checks. The standalone guard is clean.
+Sections BW and BX are new. The gate is 373 checks. The standalone guard
+is clean.

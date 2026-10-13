@@ -18,5 +18,14 @@
   ],
   "science_disclosure": "The paper's finding, present in the data: MEASURED pore pressure exceeds hydrostatic at essentially every station (Delta ut up to 5.60 MPa at 608.2 m, where u_end 18.80 MPa vs hydrostatic 16.73 and overburden 22.11) - high shallow OVERPRESSURE under rapid Mississippi-fan sedimentation, the documented preconditioner of the submarine landslides at this site. Baselines and measurements travel TOGETHER in one file, so overpressure is computed, not asserted. Quirks preserved verbatim: T2P tip rows carry blank baseline cells (reported per-deployment once); the 300/505 m stations share an overburden value as printed in the source; extrapolation-method spread (u end vs u* variants) is the paper's own disclosed uncertainty.",
   "purpose": "nineteenth catalogue entry - the catalogue's LAST MISSING PHYSICAL QUANTITY arrives: measured downhole PRESSURE (TWELFTH kind), in region ELEVEN (Gulf of Mexico). This is the reconciler's THE-FIND scenario in real data: measured pressure vs a hydrostatic baseline, residual = real overpressure. Also the second REAL dual-sensor instrument (T2P tip+shaft) after the KTB twin-temperature sonde.",
-  "verified": "18 deployments; depth/pressure endpoints; overpressure-above-hydrostatic computed live at every baselined station; the 608.2 m headline station pinned exactly; duplicate-depth tip/shaft structure and blank-baseline padding pinned; in-file license/coordinates parsed to meta; source URL serves the identical dataset"
+  "verified": "18 deployments; depth/pressure endpoints; overpressure-above-hydrostatic computed live at every baselined station; the 608.2 m headline station pinned exactly; duplicate-depth tip/shaft structure and blank-baseline padding pinned; in-file license/coordinates parsed to meta; source URL serves the identical dataset",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": 28.001329,
+    "lon": -89.002321,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 3 events in the file",
+    "line": "LATITUDE: 28.001329 * LONGITUDE: -89.002321"
+  }
 }

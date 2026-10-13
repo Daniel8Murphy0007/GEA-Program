@@ -4,6 +4,17 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.29.0 - 2026-10-13 - the catalogue on a world map
+
+- **Where it was drilled, from its own file.** 44 of the 52 entries
+  positioned from their headers or source records (PANGAEA, LAS, a KTB
+  Gauss-Krueger reference unprojected on Bessel and shifted to WGS84), 8
+  NO POSITION rather than looked up; the positions in the sidecars and held
+  to a fresh read; the Catalogue tab and `gea catalog --map` on the Natural
+  Earth coastline. Three keyboard defects fixed: the silent formation+role
+  overwrite, the missing-file message, the `<placeholder>` that PowerShell
+  refuses. Sections BW, BX; gate 373.
+
 ## v0.28.0 - 2026-10-12 - Tools and ports
 
 - **The two registers that had no page.** The tool library and the port

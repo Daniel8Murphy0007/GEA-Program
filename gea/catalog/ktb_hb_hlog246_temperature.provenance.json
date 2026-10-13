@@ -18,5 +18,22 @@
   "disturbance_disclosure": "This is a MUD-TEMPERATURE log, NOT an equilibrium profile: per the in-file header, circulation stopped 09:00 01/01/94 and the logger was at bottom 07:45 02/01/94 (~22.75 h shut-in). Per the GFZ data report (STR 21/03), all KTB single temperature logs reflect the temporary, drilling-disturbed temperature field; the best equilibrium approximation is the 1996-2000 log set (ZIP-bound, not text-accessible). The values here are real measurements of what the sonde read - carried as such, not as formation equilibrium temperature.",
   "format_disclosure": "Transcribed from the legacy site's HTML rendering of the ASCII log; the '!'-prefixed header lines and space-separated data rows are preserved as rendered (the HTML wrapper markup is not part of the record).",
   "purpose": "twelfth catalogue entry - the catalogue's first HOT temperature data (both prior measured T-curves are ice boreholes): 170-185 degC crystalline rock at 7.7-8.0 km, HPHT-simulator-relevant regime; NINTH region (Germany); first KTB/.dat dialect (read_ktb_dat)",
-  "verified": "1,589 rows; first row 7743.1392/169.67, in-capture max 185.53, last row 7985.1504/183.58 gate-pinned; 22.75 h shut-in disclosure pinned; source URL serves the full log for independent re-verification"
+  "verified": "1,589 rows; first row 7743.1392/169.67, in-capture max 185.53, last row 7985.1504/183.58 gate-pinned; 22.75 h shut-in disclosure pinned; source URL serves the full log for independent re-verification",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": 49.815302,
+    "lon": 12.121675,
+    "datum": "WGS84",
+    "source": "file header: Gauss-Krueger zone 4 Rechtswert/Hochwert (DHDN, Bessel) unprojected and shifted to WGS84 by EPSG 1776 (3 m)",
+    "line": "LONG  UNAL  Longitude                                                      R 45 08 775,24 | LATI  UNAL  Latitude        ",
+    "grid": {
+      "zone": 4,
+      "E": 4508775.24,
+      "N": 5519864.35,
+      "dhdn_lat": 49.81637,
+      "dhdn_lon": 12.121947,
+      "shift_m": 120.445
+    }
+  }
 }

@@ -17,5 +17,14 @@
   ],
   "source_anomaly_disclosure": "No internal inconsistencies detected - the archive's numbers close cleanly; noted for the record: this dataset is the archive's own figure-support excerpt (its title carries 'Fig. 2u'), a complete dataset in its own right with its own DOI and Size declaration, scoped by the source to one debrite; MS values are stored at integer resolution with three trailing zeros",
   "purpose": "thirty-eighth catalogue entry - the DEAD SEA BASIN joins as region TWENTY-SIX (the catalogue's first lake borehole, first on-land-below-sea-level site, first hypersaline system, and first plate-boundary transform record - drilled for PALEOSEISMOLOGY: a 220-kyr earthquake archive, the natural-hazard companion to the catalogue's laboratory friction and slow-slip entries) and XRF core scanning + MS profiling is kind TWENTY-SEVEN at the catalogue's finest resolution (1 mm); the debrite's anatomy is re-derived by the gate on every run: a DIAMAGNETIC evaporite matrix (33 of 76 rows below zero, floor -9e-6 SI - aragonite and halite repelling the field), ONE positive detrital excursion (peak +25) whose MS >= 10 band carries 1.99x the mean Ti of the diamagnetic intervals (detrital magnetite and clay riding in the flow), and the aragonite cap at the very top of the scan holding the highest Ca count (20,120 cps)",
-  "verified": "76 rows / 228 counted cells against the header's own Size declaration (EXACT); uniform 1-mm grid on all 75 increments; MS range [-9, +25] with 33 diamagnetic rows; detrital coupling pinned (mean Ti in the MS>=10 band / mean Ti in the MS<=0 band = 1.99); Ca maximum at the first row; gate-pinned; source URL serves the identical dataset"
+  "verified": "76 rows / 228 counted cells against the header's own Size declaration (EXACT); uniform 1-mm grid on all 75 increments; MS range [-9, +25] with 33 diamagnetic rows; detrital coupling pinned (mean Ti in the MS>=10 band / mean Ti in the MS<=0 band = 1.99); Ca maximum at the first row; gate-pinned; source URL serves the identical dataset",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": 31.508056,
+    "lon": 35.471111,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 2 events in the file",
+    "line": "LATITUDE: 31.508056 * LONGITUDE: 35.471111"
+  }
 }

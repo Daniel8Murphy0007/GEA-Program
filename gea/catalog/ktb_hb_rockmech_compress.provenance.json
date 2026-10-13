@@ -18,5 +18,15 @@
   ],
   "rendering_ambiguity_disclosure": "Same TAB-collapse ambiguity as entry 16, same handling: trailing tokens assigned by DECLARED TYPE only; trailing integers that could be either an integer-valued E-modulus or a dip are REFUSED (NaN + raw token in a per-row quality flag). Source URL carried for byte-level resolution.",
   "purpose": "seventeenth catalogue entry - completes the KTB STRENGTH PAIR (Main + Pilot): the gate now compares the two holes' rock strength live (deep HB amphibolites vs the VB's mixed weak-gneiss/strong-amphibolite section) and extends the strength-vs-overburden count to 4.2-7.4 km depths, where even 100+ MPa amphibolites begin to fall below the density-derived overburden - the mechanical squeeze of true depth, counted from data",
-  "verified": "21 samples; endpoints and extremes; single-gneiss row; refused-ambiguous count; HB-vs-VB strength comparison and deep strength-vs-overburden count gate-pinned; source URL serves the identical table for independent re-verification"
+  "verified": "21 samples; endpoints and extremes; single-gneiss row; refused-ambiguous count; HB-vs-VB strength comparison and deep strength-vs-overburden count gate-pinned; source URL serves the identical table for independent re-verification",
+  "position": {
+    "status": "OK",
+    "how": "same_well",
+    "lat": 49.815302,
+    "lon": 12.121675,
+    "datum": "WGS84",
+    "source": "the same borehole as ktb_hb_hlog246_temperature (its file header: Gauss-Krueger zone 4 Rechtswert/Hochwert (DHDN, Bessel) unprojected and shifted to WGS84 by EPSG 1776 (3 m))",
+    "line": "LONG  UNAL  Longitude                                                      R 45 08 775,24 | LATI  UNAL  Latitude        ",
+    "same_well_as": "ktb_hb_hlog246_temperature"
+  }
 }

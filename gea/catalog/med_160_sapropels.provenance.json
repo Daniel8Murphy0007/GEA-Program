@@ -18,5 +18,14 @@
   ],
   "source_anomaly_disclosure": "THREE European-formatting fossils preserved verbatim: (1) sample label '160-967C-6H-2,17,5-61' carries a DECIMAL COMMA inside the position field (17,5 = 17.5 cm) - a continental-European notation artifact living inside an ODP label; (2) interval comment '36,164' uses a comma where every other row uses a dash (36-164); (3) one interval comment is the bare string '0' (966C-5H-2, a layer starting at the section top); also preserved: three sedimentation rates carry the archive's own '#' approximate-value flag as literal string prefixes, exactly as published",
   "purpose": "forty-eighth catalogue entry - the EASTERN MEDITERRANEAN joins as region THIRTY-FIVE (the last major absent basin: the sea whose deep water repeatedly suffocated) and SAPROPEL STRATIGRAPHY is kind THIRTY-SEVEN - dated basin-wide ANOXIA-event layers with astronomical cycle codes, distinct from the catalogue's instantaneous event deposits (turbidites, debrites): these are millennia-long ocean-state failures paced by Earth's precession; and the paper's central claim closes as arithmetic on every gate run: the i-cycle letter suffixes mark the SAME sapropel at different sites, and ALL SIX multi-site cycles carry IDENTICAL ages across sites (i-282 = 2,945 ka at three sites, i-292 = 3,060 ka at three, i-294/156/176/250 each at two) - 'sapropel formation was simultaneous at different depths', proven by nine single-valued age sets",
-  "verified": "17 rows / 89 counted cells against the header's own Size declaration (EXACT - the 4 second-labels close it); the row count IS the abstract's own 'Seventeen'; 9 distinct i-cycles ALL single-aged, with the 6 multi-site cycles (3+3+2+2+2+2 = 14 site-occurrences) age-identical across sites; SR range [1.66, 4.23] with exactly 3 #-flagged rows pinned; all three formatting fossils pinned; gate-pinned; source URL serves the identical dataset"
+  "verified": "17 rows / 89 counted cells against the header's own Size declaration (EXACT - the 4 second-labels close it); the row count IS the abstract's own 'Seventeen'; 9 distinct i-cycles ALL single-aged, with the 6 multi-site cycles (3+3+2+2+2+2 = 14 site-occurrences) age-identical across sites; SR range [1.66, 4.23] with exactly 3 #-flagged rows pinned; all three formatting fossils pinned; gate-pinned; source URL serves the identical dataset",
+  "position": {
+    "status": "OK",
+    "how": "file",
+    "lat": 34.590986,
+    "lon": 26.202671,
+    "datum": "WGS84",
+    "source": "file header: LATITUDE/LONGITUDE (PANGAEA event, WGS84 by PANGAEA convention); the first of 10 events in the file",
+    "line": "LATITUDE: 34.590986 * MEDIAN LONGITUDE: 26.202671"
+  }
 }
