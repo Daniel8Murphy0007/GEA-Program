@@ -1,42 +1,16 @@
-v0.29.0 — THE CATALOGUE ON A WORLD MAP, AND THREE THINGS THAT BROKE AT THE KEYBOARD
+v0.29.1 — THE KIT'S GATE: TWO CHECKS THAT ASSUMED A CHECKOUT
 
-Where were the datasets from the 14+ wells, and where was the global map?
-The datasets were always the catalogue inside the wheel - 52 public
-entries, 49 wells and sites, each with its provenance - reachable by name
-and never shown as a place. The map had never been built. Now it is the
-Catalogue tab: every entry where it was drilled, on the Natural Earth
-coastline, with the entries beneath it and each one's provenance a click
-away.
+v0.29.0 reached PyPI and both ci runs were green; both kit builds failed at
+the step that installs the kit offline and runs its gate. Two of the new
+checks assumed they were running in a checkout: BW3 ran
+tools/catalog_positions.py and BX2 read README.md from beside the package,
+and an installed kit carries neither. The program was never wrong; its gate
+was, inside the kit.
 
-A position here comes from the entry's own file or it does not exist. A
-PANGAEA event line gives it on WGS84. A LAS header gives it in decimal
-degrees or in degrees-minutes-seconds. A KTB header gives it as a
-Gauss-Krueger grid reference, which this program unprojects on the Bessel
-ellipsoid and shifts to WGS84 by the published transformation, stating the
-120 m the shift moved it and the 3 m the transformation is worth; the main
-hole's unshifted position sits 2 m from the same hole's decimal header,
-which says that header was on DHDN too. Four entries are positioned as the
-same borehole as one that is, declared by name. Two come from the sidecar's
-source record, one of them stated as approximate and carried as such.
-Eight are NO POSITION - GISP2, the three Volve entries, the NLOG survey,
-Scorpio E1, University 6-17, the Gulf of Mexico penetrometers - because
-their files state no coordinate, and a well-known site is not looked up.
-44 of 52, on 33 marks. The positions are written once into the sidecars
-with the line each was read from, and the gate recomputes them from the
-files on every run.
+Each check now does what the tester-guide and report-sample checks have
+done since v0.4.0: in a checkout it reads the file; in a kit it says so and
+checks what the kit does carry. The fix was proven the way the kit runs -
+both sections executed from a copy of the package alone - before this ship,
+and that run is now part of the prechecks for every leg that adds a check.
 
-Three defects came out of one evening at the keyboard loading Pad 3. A
-second layer with the same formation and role silently replaced the first
-in the interval band; add-layer now refuses it and names the way out. A
-path that was not there was reported as a stem lacking .shp; it is now "no
-such file", with the folder it was looked for from, because the mistake was
-the folder. And the help's <placeholders>, which PowerShell refuses before
-Python ever runs, are gone from every command line a site operator would
-paste - a real example value or an uppercase metavar in their place, and
-the gate reads every one of those surfaces.
-
-What it will not do: put a mark where no file states a coordinate; call a
-mark a position this program measured; move a layer that is already loaded.
-
-Sections BW and BX are new. The gate is 373 checks. The standalone guard
-is clean.
+Nothing else changes. The gate is 373 checks. The standalone guard is clean.

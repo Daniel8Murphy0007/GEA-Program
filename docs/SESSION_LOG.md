@@ -1771,3 +1771,16 @@ well. An inventory workbook beside the files.
 - Real numbers: 44 of 52 positioned (38 file headers, 4 same borehole, 2
   source records, 1 approximate), 8 NO POSITION, 33 marks.
 - Sections BW (3 checks) and BX (2). Gate 373.
+
+## 2026-10-13 - The kit's gate (v0.29.1)
+
+v0.29.0 shipped: ci tag, ci main and PyPI green; both kit builds red at the
+installed kit's gate. No log access from here (the job log needs admin
+rights), but the public steps named the step and a package-only copy of
+`gea/` reproduced it in one run: BW3's `tools/catalog_positions.py` and
+BX2's `README.md` do not exist beside an installed package -
+FileNotFoundError. Guarded both the way AJ1 and AM already are (read in a
+checkout, say so in a kit), reran both sections from the package-only copy
+with PYTHONPATH set so the CLI subprocesses see it: 5 passed. The
+package-only run is now part of the cloud prechecks for every leg that adds
+a section. Gate 373.

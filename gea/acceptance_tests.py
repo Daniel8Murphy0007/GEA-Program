@@ -7543,7 +7543,9 @@ def section_bw_catalog_map(tmp: str) -> None:
     r_pos = _sp.run([sys.executable, "-m", "gea", "catalog", "--positions"], capture_output=True, text=True)
     r_json = _sp.run([sys.executable, "-m", "gea", "catalog", "--positions", "--json"], capture_output=True, text=True)
     r_chk = _sp.run([sys.executable, "-m", "gea", "catalog", "--check-positions"], capture_output=True, text=True)
-    r_tool = _sp.run([sys.executable, str(pkg.parent / "tools" / "catalog_positions.py")], capture_output=True, text=True)
+    tool = pkg.parent / "tools" / "catalog_positions.py"                 # a checkout has it; an installed kit does not, and says so
+    r_tool = _sp.run([sys.executable, str(tool)], capture_output=True, text=True) if tool.is_file() else None
+    tool_ok = (r_tool.returncode == 0 and "all already current" in r_tool.stdout) if r_tool is not None else (CM.write_sidecars() == [])
     c3 = {
         "api": st_anon == 401 and st_m == 200 and len(m["entries"]) == 52 and m["counts"]["positioned"] == 44 and len(m["coast"]) == 134 and m["check"]["ok"]
                and all("register" in r and "well" in r for r in m["entries"]) and st_e == 200 and e["provenance"]["position"]["grid"]["zone"] == 4
@@ -7553,7 +7555,7 @@ def section_bw_catalog_map(tmp: str) -> None:
         "cli": r_map.returncode == 0 and "44 of 52 entries on 33 marks" in r_map.stdout and Path(out_svg).read_text(encoding="utf-8").count("<circle") == 33
                and r_pos.returncode == 0 and "44 of 52 entries positioned" in r_pos.stdout and "NO POSITION" in r_pos.stdout and "Mt Eba" in r_pos.stdout
                and r_json.returncode == 0 and json.loads(r_json.stdout)["counts"]["no_position"] == 8
-               and r_chk.returncode == 0 and "match a fresh read" in r_chk.stdout and r_tool.returncode == 0 and "all already current" in r_tool.stdout,
+               and r_chk.returncode == 0 and "match a fresh read" in r_chk.stdout and tool_ok,
         "help": not H.check("catalog") and H.VIEW_TOPIC.get("catalog") == "catalog" and "--map" in help_md and "NO POSITION" in help_md
                 and "Natural Earth" in help_md and "not a position" in help_md.split("will not call a measurement")[1],
     }
@@ -7561,7 +7563,7 @@ def section_bw_catalog_map(tmp: str) -> None:
     ok(not failed3,
        "BW3 the Catalogue tab: the API refuses an anonymous caller and answers a viewer with the entries, the coastline and the sidecar check, one entry's "
        "full provenance with its grid record, an unknown entry 404; the page carries the tab, the marks and the entry card; `gea catalog --map`, "
-       "`--positions` (and `--json`), `--check-positions` and the sidecar tool; the help page says what a mark is not"
+       "`--positions` (and `--json`), `--check-positions` and the sidecar tool (in a checkout; an installed kit rewrites nothing); the help page says what a mark is not"
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
@@ -7626,7 +7628,8 @@ def section_bx_pasteable(tmp: str) -> None:
         for ln in md.read_text(encoding="utf-8").splitlines():
             if ln.startswith("**The command**") and ph.search(ln):
                 bad.append(f"{md.name}: {ph.search(ln).group(0)}")
-    readme = (pkg.parent / "README.md").read_text(encoding="utf-8")
+    readme_path = pkg.parent / "README.md"                              # a checkout; an installed kit carries no README beside the package
+    readme = readme_path.read_text(encoding="utf-8") if readme_path.is_file() else ""
     for ln in readme.splitlines():
         if re.search(r"(^|`)(python -m )?gea [a-z-]", ln) and ph.search(ln) and not ln.lstrip().startswith("|"):
             bad.append(f"README: {ph.search(ln).group(0)}")
@@ -7639,13 +7642,14 @@ def section_bx_pasteable(tmp: str) -> None:
     for m in re.finditer(r'class="mono">([^<]*gea [^<]*)<', page):
         if "&lt;" in m.group(1):
             bad.append("app.html: " + m.group(1)[:60])
-    c2 = {"none_left": not bad, "readme_real": "--well SWD-1" in readme and "collingwood_1_28_ks_complete" in readme,
+    c2 = {"none_left": not bad, "readme_real": (not readme) or ("--well SWD-1" in readme and "collingwood_1_28_ks_complete" in readme),
           "help_real": "--well SWD-1" in (pkg / "help" / "interval.md").read_text(encoding="utf-8") and "9850:quartz_pt_geoq177_16k" in (pkg / "help" / "tools.md").read_text(encoding="utf-8"),
           "usage_metavar": "needs --well WELL_ID" in (pkg / "__main__.py").read_text(encoding="utf-8")}
     failed2 = [k for k, v in c2.items() if not v]
     ok(not failed2,
        "BX2 no command line a site operator would paste carries a <placeholder>: the help pages' command lines, the README's commands, the usage "
        "messages, the doctor's fixes and the page's hints use real example values (SWD-1, a catalogue entry, a tool name) or an uppercase metavar"
+       + ("" if readme else " (the README is read in a checkout; this is an installed kit)")
        + (f" [failed: {', '.join(failed2)}]" if failed2 else "") + (f" [left: {'; '.join(bad[:8])}]" if bad else ""))
 
 

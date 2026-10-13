@@ -5,6 +5,21 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.29.1] - 2026-10-13 - The kit's gate: two checks that assumed a checkout
+
+### Fixed
+- **BW3 and BX2 crashed inside the installed kit.** Both v0.29.0 kit builds
+  (Windows and Linux) failed at "install it offline and run its gate": BW3
+  ran `tools/catalog_positions.py` and BX2 read `README.md` from beside the
+  package, and an installed kit has neither - a `FileNotFoundError` in the
+  gate, with the program itself untouched (the PyPI release and both ci
+  runs were green). Each check now does what the tester guide and the
+  report-samples sections already do: in a checkout it reads the file; in a
+  kit it says so and checks what the kit does carry (BW3 proves a sidecar
+  rewrite changes nothing; BX2 reads the help, the usage messages, the
+  doctor and the page). Proven by running both sections from a copy of the
+  package alone before this ship. The gate is still 373.
+
 ## [v0.29.0] - 2026-10-13 - The catalogue on a world map, and three things that broke at the keyboard
 
 ### Added

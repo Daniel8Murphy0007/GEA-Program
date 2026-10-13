@@ -4,6 +4,12 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.29.1 - 2026-10-13 - the kit's gate
+
+- **Two checks that assumed a checkout.** BW3 and BX2 read a tools script
+  and the README from beside the package; an installed kit has neither.
+  In a kit each now checks what the kit carries and says so. Gate 373.
+
 ## v0.29.0 - 2026-10-13 - the catalogue on a world map
 
 - **Where it was drilled, from its own file.** 44 of the 52 entries
