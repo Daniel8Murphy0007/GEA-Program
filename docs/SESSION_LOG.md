@@ -1842,3 +1842,56 @@ survey run on the written LAS exposed a pre-existing defect: `read_las`
 dropped the index unit and the survey read feet as metres - fixed in
 `read_las` (index_unit kept) and `run_survey` (feet converted once, the
 depth line says which). BY extended; Y, R, J, B, BS, BR re-run green.
+
+## 2026-10-14 - The drilling record reads its own depth (v0.30.1)
+
+v0.30.0 shipped with the stopgap. Run on his three files, the record's
+footage and total depth were still wrong: 30693545
+took its total depth from 25,779 ft, a depth carried over from the well
+before, and none of the three footages equalled total depth less the first
+depth. Replaced the stopgap (`feet_by_increments`, `hole_depth_drops`,
+first-on-bottom start) with `depth_events`: STALE OPENING (a section's
+opening run left by a jump of more than 10 ft, or differing from where the
+file left off and holding to the section's end, nothing drilled - excluded);
+RE-REFERENCE (a fall regained within its own section faster than 1,000 ft/h
+or with the recorder's ROP at zero - the window excluded); SIDETRACK (a
+fall of 500 ft or more and the next six hours on bottom under 20 ft/h - a
+new borehole; TD from the final borehole; `_keep_masks` keeps the TVD table
+by hole depth and the gamma log by bit depth off the abandoned interval);
+CORRECTION (a smaller fall, footage taken back; a set-forward of more than
+10 ft off bottom, footage added); UNRESOLVED otherwise. `_idle_flag`: 30
+min or more with the flag set at bottom, depth still and ROP zero is kept
+out of the drilling hours. The running bottom and per-sample increments
+come from one pass that `record`, `gamma_log` and `md_tvd_table` share.
+- First real run found a 12 ft fall at the end of a section (30665733,
+  06-16 02:33) treated as a re-reference regained 67 days later, with 18 h
+  excluded: the regain is now bounded to the section. The same well's 18 h
+  were in fact the on-bottom flag left on at 8,591 ft with ROP zero
+  (08-21 00:11 to 08-22 02:38): `_idle_flag`. And its footage took back a
+  12 ft overstatement twice because the set-forward between was not
+  credited: set-forwards are now corrections that add.
+- The first full refresh of Pad 3 with the tightened stale-opening rule
+  (left by a jump, or differing and held to the section's end) read
+  30665733 as sidetracked from 25,722 ft, 41,009.9 ft drilled: its two
+  one-minute restart sections opened on 25,722, and each was judged
+  against the stale section before it. Where the file left off is now the
+  last depth it can be trusted for (excluded samples skipped).
+  `selftest_flag` carries three stale restarts in a row. The real files
+  were re-run with the final module before the transfer was rebuilt.
+- Real numbers (his machine, preview): 30636033 - STALE OPENING 8,285 ft
+  (06-30 19:00, 91 min), RE-REFERENCE 1,417 ft (07-01 14:27, 7,081 ft in
+  169 min), CORRECTION 281.7 ft (07-02 14:47); TD 25,804.0, 23,796.2 ft,
+  162.15 h drilling. 30665733 - CORRECTION -94.0 (06-11 10:52) and +93.7
+  (12:36), -11.9 (06-16 02:33), STALE OPENING 25,722 ft at each of four
+  restarts (08-20 23:15, 08-21 00:00, 00:04, 00:11), +11.1 (08-21 00:11),
+  -11.1 (08-22 02:38); 19.92 h flag idle; TD
+  25,918.0, 23,879.0 ft, 166.61 h. 30693545 - STALE OPENING 25,779 ft
+  (07-23 08:00), RE-REFERENCE 20,038 ft (07-31 05:19, 35,091 ft/h),
+  SIDETRACK 24,902.2 -> 16,855 ft (08-11 16:11, 0.6 ft/h median for six
+  hours); TD 25,722.0 (not 25,779), 31,752.2 ft = 22,885.2 + 8,867.0,
+  258.98 h, 8.72 h flag idle; gamma 23,671 bins; TVD stops 60.1 ft short.
+- `selftest_events` (one of each of the four events) and `selftest_flag`
+  (idle flag, set-forward, a fall regained only in the next section, a
+  section drilling on from its opening depth). BY1 updated for the removed
+  fields; BY4 new. The well page shows the events, the boreholes and the
+  hours kept out. Gate 377.

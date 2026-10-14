@@ -5,6 +5,49 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.30.1] - 2026-10-14 - The drilling record reads its own depth before counting
+
+### Fixed
+- **Total depth and the footage were wrong on the real files.** v0.30.0
+  took the third well's total depth from 25,779 ft - a depth the recorder
+  carried over from the well before - and none of the three footages
+  equalled total depth less the first depth; it named the hole depth's
+  falls and carried two arithmetics rather than deciding. The record now
+  reads the hole depth channel for what it can be trusted for before it
+  counts a foot (`depth_events`), and names each place it lies as a
+  **depth event**: a section opening on a depth carried over from the last
+  well and left by a jump (STALE OPENING) and a depth set back and counted
+  up again by running pipe, regained within its own section faster than
+  any bit drills or with the recorder's own rate of penetration at zero
+  (RE-REFERENCE), are excluded; a set-back of 500 ft or more followed by
+  six hours time-drilled under 20 ft/h is a SIDETRACK - total depth is the
+  final borehole's, the footage counts every borehole, and the gamma log
+  and the MD-TVD table are kept off the abandoned hole; a smaller fall
+  (footage taken back) or a set-forward of more than 10 ft off bottom
+  (footage added) is a CORRECTION; anything else is UNRESOLVED and said to
+  be. Without a sidetrack the footage is exactly total depth less the
+  first depth on bottom.
+- **The on-bottom flag left on.** A stretch of 30 minutes or more with the
+  flag set at the bottom of the hole, the depth still and the rate of
+  penetration zero is kept out of the drilling hours and counted on its
+  own (`flag_idle_hours`) - 19.9 h in one well, 8.7 h in another.
+- A restart that opens on a carried-over depth is judged against the last
+  depth the file can be trusted for, never against a stale section before
+  it: one well restarted four times within the hour on the previous
+  well's depth, and each restart is its own STALE OPENING.
+- On the three real files (the owner's machine): 30636033 - TD 25,804.0 ft,
+  23,796.2 ft drilled; 30665733 - TD 25,918.0 ft, 23,879.0 ft; 30693545 -
+  TD 25,722.0 ft (not 25,779), sidetracked at 16,855 ft after drilling to
+  24,902 ft, 31,752.2 ft drilled across both boreholes.
+### Changed
+- The record's sections give the running bottom when the section opened
+  and the depth events in it; the well gives the boreholes, the first depth
+  on bottom, the hours excluded and why. The removed v0.30.0 fields
+  `feet_by_increments` and `hole_depth_drops` are gone. The well page
+  carries the depth events, the boreholes and the hours kept out; the help
+  page `edr` names every event. Section BY gains BY4 (`selftest_events`,
+  `selftest_flag`); the gate is 377.
+
 ## [v0.30.0] - 2026-10-14 - The drilling recorder's export, read as delivered
 
 ### Added

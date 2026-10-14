@@ -1,34 +1,33 @@
-v0.30.0 — THE DRILLING RECORDER'S EXPORT, READ AS DELIVERED
+v0.30.1 — THE DRILLING RECORD READS ITS OWN DEPTH BEFORE COUNTING
 
-Three one-second drilling files arrived - a rig's electronic drilling
-recorder, eighteen WITS channels, five million rows across three wells
-drilled to 25,800 feet this summer - and the program could not read them.
-The recorder writes the date and the time in two columns, and the
-historian port, which takes one timestamp column, fell over on the first
-row. The answer was not to convert the files by hand. It was a port.
+v0.30.0 read the drilling recorder's export as delivered, and on the real
+files its arithmetic was still wrong. The third well's total depth came
+out as 25,779 feet; none of the three footages equalled total depth less
+the first depth. The record named the hole depth channel's falls and
+carried two numbers instead of deciding.
 
-The EDR port reads the layout as delivered: the two time columns, the
-units from the header, -999.25 and the empty cell as missing and counted,
-the sections from the gaps where the rig left the well and came back,
-every sample with its wall-clock stamp - streamed, so the largest file
-reads in half a minute. From the stream it writes the drilling record: per
-section the hours, the hole depth where drilling began and the deepest it
-got, the feet drilled, the hours on bottom and rotating, the rate of
-penetration on bottom, the connections, the peaks; for the well, total
-depth and the moment the bit was first on bottom there, the recorder's
-own TVD at that depth; and the MD-TVD table, every row of which says it is
-the recorder's interpolation and not a survey.
+A hole depth channel lies in four ways, and each leaves a shape. A
+recorder moved from the last well opens on that well's depth and holds it
+until someone sets it. A depth set back to 1,417 feet is counted up again
+as pipe runs in, at 2,500 feet an hour with the recorder's own rate of
+penetration at zero. A depth set back 8,047 feet and then time-drilled at
+under a foot an hour for six hours is a sidetrack: the third well was
+drilled to 24,902 feet, kicked off at 16,855 and drilled again to 25,722 -
+its total depth - and the 25,779 in its file was a depth carried over
+from the well before. And a stand counted twice is taken back.
 
-The real files taught the record two things on the owner's machine. A
-recorder restarting after a casing run carries a stale depth in its first
-rows and then resets its hole depth - 8,498 feet to 1,417, 25,779 to 8,285
-- so the section's start is taken from the first on-bottom sample, and
-where the channel's own upward steps disagree with start-to-deepest the
-record carries both numbers and names the fall. And the recorder's TVD
-stops short of total depth, by 29 to 117 feet; the record says how far.
+The record now reads every one of these before it counts a foot, names
+each as a depth event in the record and on the well page, takes total
+depth from the final borehole, and keeps the abandoned hole out of the
+gamma log and the TVD table. It also keeps out of the drilling hours the
+28.6 hours, across two wells, in which the on-bottom flag was left on
+with nothing drilled. Without a sidetrack the footage is exactly total
+depth less the first depth - 23,796.2 and 23,879.0 feet - and with one,
+31,752.2.
 
-What it will not do: fill a sentinel; call the recorder's TVD a survey;
-name a formation, a landing point or a kick-off; judge the drilling; run a
-drilling recorder through the gauge pipeline.
+What it will not do: call a depth event more than the shape it read - the
+daily drilling report decides; name a formation or a landing point; judge
+the drilling.
 
-Section BY is new. The gate is 376 checks. The standalone guard is clean.
+Section BY gains a fourth check. The gate is 377 checks. The standalone
+guard is clean.

@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (376 checks)
+gea accept                     # the product gate (377 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -691,8 +691,14 @@ on bottom and rotating, the rate of penetration on bottom, the connections,
 the peaks; for the well, total depth and when the bit was first on bottom
 there, the recorder's TVD at it; per channel what was missing and how
 often; and the **MD-TVD table**, hole depth against the recorder's
-interpolated TVD, labelled an interpolation and not a survey. A recorder
-that resets its hole depth at a restart is named, not corrected. `gea edr
+interpolated TVD, labelled an interpolation and not a survey. Before any
+footage is counted the hole depth is read for what it can be trusted for:
+a depth carried over from the last well, a depth set back and counted up
+again by running pipe, a sidetrack, an overstated or understated depth
+corrected - each named as a depth event in the record and on the well
+page, and handled so that total depth is the final borehole's and the
+footage adds up. The recorder's gamma is written as a LAS log by bit
+depth. `gea edr
 --file C:\site\_incoming\30636033.csv`; `gea workspace --action add-file`
 then `refresh` for the record beside the well's other reports. `gea help
 edr`.

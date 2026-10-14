@@ -7697,10 +7697,11 @@ def section_by_edr(tmp: str) -> None:
         "sections": rec["n_sections"] == 3 and all(x["rows"] == 3000 and x["hours"] == 0.83 for x in secs) and secs[0]["gap_before_hours"] is None
                     and secs[1]["gap_before_hours"] == 48.0 and secs[2]["gap_before_hours"] == 48.0 and all(x["connections"] == 25 for x in secs)
                     and all(x["rop_on_bottom_mean_ft_h"] == 600.0 and x["on_bottom_hours"] == 0.69 and x["rotating_hours"] == 0.69 for x in secs)
-                    and secs[0]["hole_depth_at_start_ft"] == 1500.2 and abs(secs[0]["feet_drilled"] - 416.5) < 0.2 and secs[0]["feet_by_increments"] == secs[0]["feet_drilled"]
-                    and "hole_depth_drops" not in secs[0] and secs[0]["wob_max_klbf"] == 20.0 and secs[0]["rpm_max"] == 60.0,
+                    and secs[0]["hole_depth_at_start_ft"] == 1500.2 and abs(secs[0]["feet_drilled"] - 416.5) < 0.2 and "depth_events" not in secs[0]
+                    and secs[1]["hole_depth_at_start_ft"] == 1916.7 and secs[0]["wob_max_klbf"] == 20.0 and secs[0]["rpm_max"] == 60.0,
         "well": rec["total_depth_md_ft"] == 2750.0 and rec["tvd_at_td_ft"] == 2015.0 and rec["on_bottom_hours"] == 2.08 and abs(rec["feet_drilled"] - 1249.8) < 0.2
-                and rec["feet_by_increments"] == rec["feet_drilled"] and not rec["notes"]
+                and rec["depth_events"] == [] and rec["excluded_hours"] == 0.0 and rec["flag_idle_hours"] == 0.0 and not rec["notes"]
+                and rec["first_hole_depth_ft"] == 1500.2 and [b["status"] for b in rec["boreholes"]] == ["FINAL"]
                 and abs(rec["feet_per_on_bottom_hour"] - 600.9) < 0.2 and rec["hours_recorded"] == 2.5 and rec["span_days"] == 4.1 and rec["reached_td"].startswith("2026-06-05T02:29"),
         "md_tvd": rec["md_tvd"]["status"] == "OK" and rec["md_tvd"]["n"] == 13 and rec["md_tvd"]["tvd_decreasing_steps"] == 0 and rec["md_tvd"]["samples_without_tvd"] == 900
                   and "not a survey" in rec["md_tvd"]["source"] and rec["lateral"]["lateral_start_md_ft"] == 1999.8 and abs(rec["lateral"]["lateral_length_ft"] - 750.2) < 0.2
@@ -7716,6 +7717,27 @@ def section_by_edr(tmp: str) -> None:
         "registry": PORT_REGISTRY["edr"].status == "IMPLEMENTED" and read_any(r["path"]).source_format == "edr"
                     and any(p["name"] == "edr" and p["status"] == "IMPLEMENTED" for p in TC.catalog()["ports"]["files"]),
     }
+    # the depth events: a stale opening, a re-reference, a sidetrack and a correction, each named and handled
+    ev = E.selftest_events(str(d)); er = ev["record"]
+    types = [(e["type"], e["from_ft"], e["to_ft"]) for e in er["depth_events"]]
+    bh = er["boreholes"]
+    c4 = {}
+    c4["events"] = (types == [("STALE OPENING", 9999.0, 5200.2), ("RE-REFERENCE", 5400.0, 2000.0), ("SIDETRACK", 5500.0, 4800.0), ("CORRECTION", 5700.0, 5650.2)]
+                    and er["total_depth_md_ft"] == 5750.0 and abs(er["feet_drilled"] - 1449.8) < 0.2 and er["first_hole_depth_ft"] == 5000.2
+                    and len(bh) == 2 and bh[0]["status"].startswith("ABANDONED") and bh[0]["deepest_ft"] == 5500.0 and bh[1]["status"] == "FINAL" and bh[1]["from_ft"] == 4800.0
+                    and er["on_bottom_hours"] == 8.45 and er["on_bottom_flag_hours"] == 9.39 and er["excluded_hours"] == 1.03
+                    and any("largest value is 9,999.0 ft" in x for x in er["notes"])
+                    and er["gamma"]["status"] == "OK" and er["gamma"]["bins"] == 951 and er["gamma"]["depth_from_ft"] == 4800.0 and er["gamma"]["depth_to_ft"] == 5750.0
+                    and len(ev["gamma"].index) == 951 and bool(np.all(ev["gamma"].channels["GR"].values == 110.0))
+                    and er["md_tvd"]["n"] == 10 and any(l.startswith("Depth event, SIDETRACK") and "abandoned" in l for l in er["lines"])
+                    and any(l.startswith("Boreholes:") for l in er["lines"]))
+    fl = E.selftest_flag(str(d))["record"]
+    c4["flag_and_corrections"] = ([(e["type"], e["from_ft"], e["to_ft"]) for e in fl["depth_events"]] == [("CORRECTION", 1060.0, 1080.0), ("CORRECTION", 1140.0, 1128.0), ("CORRECTION", 1128.0, 1140.0),
+                                                                                                      ("STALE OPENING", 9999.0, None), ("STALE OPENING", 9999.0, None), ("STALE OPENING", 9999.0, 1200.1)]
+                                  and fl["total_depth_md_ft"] == 1230.0 and fl["first_hole_depth_ft"] == 1000.1 and abs(fl["feet_drilled"] - 229.9) < 0.05
+                                  and fl["on_bottom_hours"] == 0.58 and fl["flag_idle_hours"] == 0.56 and fl["excluded_hours"] == 0.18 and fl["on_bottom_flag_hours"] == 1.14
+                                  and [x.get("hole_depth_at_start_ft") for x in fl["sections"]] == [1000.1, 1128.0, None, None, 1200.0] and len(fl["boreholes"]) == 1
+                                  and any("nothing drilled" in l for l in fl["lines"]))
     odd = str(d / "odd.csv")
     with open(r["path"], encoding="utf-8") as f, open(odd, "w", encoding="utf-8") as g:
         for i, line in enumerate(f):
@@ -7819,6 +7841,19 @@ def section_by_edr(tmp: str) -> None:
        "placeholder; `gea ingest --port historian_csv` on an EDR export exits 1 with the sentence and no traceback, `--port edr` reads it; `gea survey` on the "
        "written gamma LAS converts its feet once, says so, recognizes the gamma and says what it lacks; the help page and its index entry"
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+    c4["help"] = all(t in help_md for t in ("STALE OPENING", "RE-REFERENCE", "SIDETRACK", "CORRECTION", "UNRESOLVED")) and "daily drilling report" in help_md \
+        and "nothing drilled" in help_md and "total depth less the first depth" in help_md
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       "BY4 the depth events: a section opening on another well's depth (STALE OPENING, excluded), a depth set back and regained by counting pipe at 3,600 "
+       "ft/h (RE-REFERENCE, excluded), a 700 ft set-back time-drilled at 5 ft/h (SIDETRACK: total depth 5,750 ft from the final borehole, 1,449.8 ft drilled "
+       "counting the abandoned 4,800-5,500 ft, the gamma log and TVD table kept off the abandoned hole) and a 50 ft overstated depth (CORRECTION) each named; "
+       "a 20 ft set-forward off bottom added, a 12 ft fall regained only in the next section a correction and never a re-reference, the next section drilling "
+       "on from its opening depth not a stale opening, three restarts on another well's depth each a stale opening (judged against the last depth the file can "
+       "be trusted for), and 2,000 s of on-bottom flag with nothing drilled kept out of the drilling hours - footage exactly total depth less the first depth "
+       "(229.9 ft); the help page names every event"
+       + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
 
 
 def main() -> int:

@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.30.1 - 2026-10-14 - the drilling record reads its own depth
+
+- **Depth events before footage.** Stale openings, re-references,
+  sidetracks and corrections named and handled before a foot is counted;
+  total depth from the final borehole; the abandoned hole kept out of the
+  gamma log and the TVD table; the on-bottom flag left on kept out of the
+  drilling hours. The third well's total depth corrected from 25,779 to
+  25,722 ft, a sidetrack at 16,855 ft found. BY4; gate 377.
+
 ## v0.30.0 - 2026-10-14 - the drilling recorder
 
 - **A rig's one-second export, read as delivered.** The `edr` port: the
