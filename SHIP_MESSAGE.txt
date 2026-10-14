@@ -1,16 +1,34 @@
-v0.29.1 — THE KIT'S GATE: TWO CHECKS THAT ASSUMED A CHECKOUT
+v0.30.0 — THE DRILLING RECORDER'S EXPORT, READ AS DELIVERED
 
-v0.29.0 reached PyPI and both ci runs were green; both kit builds failed at
-the step that installs the kit offline and runs its gate. Two of the new
-checks assumed they were running in a checkout: BW3 ran
-tools/catalog_positions.py and BX2 read README.md from beside the package,
-and an installed kit carries neither. The program was never wrong; its gate
-was, inside the kit.
+Three one-second drilling files arrived - a rig's electronic drilling
+recorder, eighteen WITS channels, five million rows across three wells
+drilled to 25,800 feet this summer - and the program could not read them.
+The recorder writes the date and the time in two columns, and the
+historian port, which takes one timestamp column, fell over on the first
+row. The answer was not to convert the files by hand. It was a port.
 
-Each check now does what the tester-guide and report-sample checks have
-done since v0.4.0: in a checkout it reads the file; in a kit it says so and
-checks what the kit does carry. The fix was proven the way the kit runs -
-both sections executed from a copy of the package alone - before this ship,
-and that run is now part of the prechecks for every leg that adds a check.
+The EDR port reads the layout as delivered: the two time columns, the
+units from the header, -999.25 and the empty cell as missing and counted,
+the sections from the gaps where the rig left the well and came back,
+every sample with its wall-clock stamp - streamed, so the largest file
+reads in half a minute. From the stream it writes the drilling record: per
+section the hours, the hole depth where drilling began and the deepest it
+got, the feet drilled, the hours on bottom and rotating, the rate of
+penetration on bottom, the connections, the peaks; for the well, total
+depth and the moment the bit was first on bottom there, the recorder's
+own TVD at that depth; and the MD-TVD table, every row of which says it is
+the recorder's interpolation and not a survey.
 
-Nothing else changes. The gate is 373 checks. The standalone guard is clean.
+The real files taught the record two things on the owner's machine. A
+recorder restarting after a casing run carries a stale depth in its first
+rows and then resets its hole depth - 8,498 feet to 1,417, 25,779 to 8,285
+- so the section's start is taken from the first on-bottom sample, and
+where the channel's own upward steps disagree with start-to-deepest the
+record carries both numbers and names the fall. And the recorder's TVD
+stops short of total depth, by 29 to 117 feet; the record says how far.
+
+What it will not do: fill a sentinel; call the recorder's TVD a survey;
+name a formation, a landing point or a kick-off; judge the drilling; run a
+drilling recorder through the gauge pipeline.
+
+Section BY is new. The gate is 376 checks. The standalone guard is clean.

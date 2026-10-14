@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.30.0 - 2026-10-14 - the drilling recorder
+
+- **A rig's one-second export, read as delivered.** The `edr` port: the
+  two-column date and time, the units from the header, sentinels and
+  blanks counted, sections from the gaps, streamed; the drilling record
+  per section and for the well; the MD-TVD table labelled an
+  interpolation; proven on three real 25,800 ft laterals on the owner's
+  machine. Section BY; gate 376.
+
 ## v0.29.1 - 2026-10-13 - the kit's gate
 
 - **Two checks that assumed a checkout.** BW3 and BX2 read a tools script

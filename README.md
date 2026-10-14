@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (373 checks)
+gea accept                     # the product gate (376 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -677,6 +677,25 @@ equal to a fresh read of the files. `gea catalog --positions`, `gea catalog
 --map catalogue.svg` (the same picture as a file, with the key),
 `--check-positions`. A mark is the coordinate the record states, not a
 position this program measured.
+
+### The drilling recorder
+
+A rig's electronic drilling recorder exports one row per second: the date
+and the time in two columns, then the WITS record-1 channels with their
+units in the header; `-999.25` or an empty cell where it had nothing; the
+file stopping while the rig is off the well. The `edr` port reads that
+layout as delivered - streamed, three million rows in under a minute - and
+writes the **drilling record**: per section the hours, the gap before, the
+hole depth where drilling began and the deepest it got, feet drilled, hours
+on bottom and rotating, the rate of penetration on bottom, the connections,
+the peaks; for the well, total depth and when the bit was first on bottom
+there, the recorder's TVD at it; per channel what was missing and how
+often; and the **MD-TVD table**, hole depth against the recorder's
+interpolated TVD, labelled an interpolation and not a survey. A recorder
+that resets its hole depth at a restart is named, not corrected. `gea edr
+--file C:\site\_incoming\30636033.csv`; `gea workspace --action add-file`
+then `refresh` for the record beside the well's other reports. `gea help
+edr`.
 
 ### The log as delivered, and the historian
 

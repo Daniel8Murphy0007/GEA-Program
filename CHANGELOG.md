@@ -5,6 +5,67 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.30.0] - 2026-10-14 - The drilling recorder's export, read as delivered
+
+### Added
+- **The EDR port** (`gea/edr.py`, port `edr`, `gea edr`): a rig's
+  electronic drilling recorder exports one row per second with the date and
+  the time in two columns, then the WITS record-1 channels with their units
+  in the header; `-999.25` and an empty cell where the recorder had nothing;
+  the file stopping while the rig is off the well and resuming when it is
+  back. This program now reads that layout as delivered - streamed, so a
+  three-million-row export reads in under a minute - with the sentinels and
+  blanks missing and counted per channel, the sections named from the gaps,
+  and every sample's wall-clock stamp kept. `gea files` detects it by its
+  first line; the historian port, handed one, says what it is and which
+  port reads it instead of a traceback.
+- **The drilling record**: per section, the span, the hours, the gap before,
+  the hole depth where drilling began and the deepest it got, feet drilled
+  (and the channel's own upward steps beside it when the two differ - the
+  recorder resets its hole depth at a restart, and the record names each
+  fall rather than choosing), hours on bottom and rotating, the rate of
+  penetration while on bottom, the connections, the peaks; for the well,
+  total depth and when the bit was first on bottom there, the recorder's
+  TVD at that depth, feet per on-bottom hour; per channel, coverage and the
+  counts of what was missing. `drilling_record.json/.md/.html` through the
+  client-report guard, beside the well's other reports after `add-file` and
+  `refresh`; the well page carries the card.
+- **The MD-TVD table** (`md_tvd.csv`): hole depth against the recorder's
+  interpolated TVD, one row per 100 ft, every row labelled an interpolation
+  the recorder made from the surveys it was given - not a survey - and
+  where that TVD comes within 1% of its maximum, read as the start of the
+  lateral and said to be arithmetic on the table.
+- **The gamma log the recorder carries** (`gamma_log.las`): the gamma
+  channel while on bottom, as a log by bit depth in one-foot bins (the
+  median and the count per bin), written as LAS 2.0 beside the record and
+  said to be indexed to bit depth - shallow by the sensor's distance behind
+  the bit, which the recorder does not state. The lithology-from-GR index
+  this program applies to any gamma log runs on it (picks from the log's
+  own percentiles, SAND/SHALE per bin), named a gamma index and not a
+  formation. On the real files this is a complete log: every one-foot bin
+  from below surface casing to total depth, 23,700 bins per well, which
+  nothing had read.
+- **Observations**: values below zero where the quantity cannot be, rate
+  spikes above 1,000 ft/h, the differential pressure's negative stretches
+  (the recorder's off-bottom reference, not a fault) - counted and named
+  in the record, nothing altered.
+- Proven on the synthetic export in the gate and on a rig's three real
+  one-second files on the machine that holds them (1.4, 1.5 and 2.8 million
+  rows; 25,800 ft MD laterals at 9,050-9,250 ft TVD; a recorder that reset
+  its hole depth at every restart). `gea help edr`.
+### Fixed
+- **A LAS in feet was surveyed as metres.** `read_las` dropped the index
+  curve's unit and `gea survey` printed every depth as metres and used it
+  as such - the Kansas and Texas catalogue logs among them. The reader now
+  keeps the index unit; the survey converts feet to metres once, says so
+  on its depth line, and says when a source states no unit or one it does
+  not convert.
+- What it will not do: fill a sentinel; call the recorder's TVD a survey;
+  name a formation, a landing point or a kick-off; judge the drilling; run
+  a drilling recorder through the gauge pipeline or derive alarm defaults
+  from it; correct a value it observes. Section BY (3 checks); the gate is
+  376.
+
 ## [v0.29.1] - 2026-10-13 - The kit's gate: two checks that assumed a checkout
 
 ### Fixed

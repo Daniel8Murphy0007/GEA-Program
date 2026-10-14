@@ -306,6 +306,8 @@ def main(argv=None) -> int:
     p_cat.add_argument("--positions", action="store_true", help="where every entry was drilled, from its own file or sidecar, or NO POSITION")
     p_cat.add_argument("--map", type=str, default=None, metavar="OUT.SVG", help="write the world map of the catalogue (coastline + one mark per positioned entry + the key) as an SVG file")
     p_cat.add_argument("--check-positions", action="store_true", help="the sidecars' recorded positions against a fresh read of the files (the gate's check)")
+    p_ed = sub.add_parser("edr", help="an electronic drilling recorder's one-second export (date and time columns, WITS record-1 channels): --file reads it and prints the drilling record; --out DIR writes the record (json, md, html) and the MD-TVD table; --selftest proves the port on a synthetic export")
+    p_ed.add_argument("--file", type=str, default=None); p_ed.add_argument("--out", type=str, default=None); p_ed.add_argument("--json", action="store_true"); p_ed.add_argument("--selftest", action="store_true")
     p_dl = sub.add_parser("dlis", help="a DLIS (RP66 V1) well log: --info describes it (origin, channels, frames, what was skipped); --frame --out writes the frame as a historian-style CSV; --to-las writes LAS 2.0")
     p_dl.add_argument("--file", type=str, required=True)
     p_dl.add_argument("--info", action="store_true")
@@ -768,7 +770,10 @@ def main(argv=None) -> int:
               f"(uptime {s['uptime_pct']}%, stuck P/R {s['stuck_score']['precision']}/{s['stuck_score']['recall']})")
     elif a.cmd == "ingest":
         from . import ingest as _ingest
-        st = _ingest(a.file, port=a.port)
+        try:
+            st = _ingest(a.file, port=a.port)
+        except (ValueError, OSError) as e:
+            raise SystemExit(f"ingest: {e}")
         import json as _json
         print(_json.dumps(st.summary(), indent=1))
     elif a.cmd == "bench":
@@ -2521,6 +2526,28 @@ def main(argv=None) -> int:
         if a.unused:
             print(f"\n  {_CR.NO_BAND_REASON}")
         return 0
+    elif a.cmd == "edr":
+        import json as _json
+        from . import edr as _EDR
+        from . import __version__ as _ver
+        if a.selftest:
+            import tempfile as _tf
+            with _tf.TemporaryDirectory() as _t:
+                r = _EDR.selftest(_t)
+            print(_json.dumps(r["record"], indent=1, default=str) if a.json else "\n".join(r["record"]["lines"])); return 0
+        if not a.file:
+            raise SystemExit("edr needs --file C:\\site\\_incoming\\30636033.csv (an EDR export), or --selftest")
+        try:
+            st = _EDR.read(a.file)
+        except ValueError as e:
+            raise SystemExit(f"edr: {e}")
+        if a.out:
+            paths = _EDR.write_record(st, a.out, _ver)
+            rec = paths.pop("record")
+            print("\n".join(rec["lines"]))
+            print("written:", ", ".join(os.path.basename(v) for k, v in paths.items())); return 0
+        rec = _EDR.record(st)
+        print(_json.dumps(rec, indent=1, default=str) if a.json else "\n".join(rec["lines"])); return 0
     elif a.cmd == "dlis":
         import json as _json
         from .dlis import DlisError, DlisFile, read as _read_dlis

@@ -1784,3 +1784,61 @@ checkout, say so in a kit), reran both sections from the package-only copy
 with PYTHONPATH set so the CLI subprocesses see it: 5 passed. The
 package-only run is now part of the cloud prechecks for every leg that adds
 a section. Gate 373.
+
+## 2026-10-14 - The drilling recorder (v0.30.0)
+
+v0.29.1 shipped green on all four rows. He put `Drilling Data.zip` (669 MB)
+in `C:\site\_incoming`: three one-second EDR exports named by job number,
+18 WITS record-1 channels, May-September 2026. Read on his machine only
+(operator data; nothing copied here). The program could not take them: the
+date and time are two columns, so `files` called it "csv, first column not
+a timestamp" and `ingest` tracebacked. Built the port rather than convert
+his files by hand.
+
+- `gea/edr.py`: `is_edr`, `split_header` (units mapped: feet->ft,
+  klbs->klbf, ft_per_hr->ft/h, kft_lb->kft.lbf, api->gAPI...), `read`
+  (streamed into `array('d')`, sentinel/blank/non-numeric counted, sections
+  at gaps > 60 s, out-of-order and duplicate stamps counted), `record`
+  (sections: hours, gap before, hole depth at the first on-bottom sample
+  and the deepest, feet drilled start-to-deepest and the channel's upward
+  steps beside it, hole-depth falls > 10 ft named as resets, on-bottom and
+  rotating hours, ROP on bottom mean/median, connections = on-bottom flag
+  falling, peaks; well: TD, the first on-bottom sample at TD, the deepest
+  TVD-bearing sample's TVD and how far short of TD the TVD stops, feet per
+  on-bottom hour), `md_tvd_table` (one row per 100 ft, the last sample of
+  each step, non-monotone steps counted), `lateral_from_table` (TVD within
+  1% of its max), `lines`, `document`, `write_record`, `selftest`.
+- `files.detect` kind `edr`; `read_any`; `PORT_REGISTRY['edr']`;
+  `read_historian_csv` refuses a non-timestamp first cell by row and column
+  and names the EDR port when the header is the two-column layout;
+  `gea ingest` exits 1 with the sentence; `dashboard.orchestrate` writes the
+  drilling record for an EDR well and runs no gauge pipeline; the alarm
+  defaults skip a non-historian file well; the well page card; `gea edr
+  --file | --out | --json | --selftest`; help `edr`.
+- Real numbers (his machine, package-only preview): 30636033 - 1,434,807
+  rows, 2 sections, TD 25,804 ft MD on 2026-07-08, recorder TVD 9,052 ft,
+  lateral from 15,500 ft MD (10,275 ft), 164.7 h on bottom, 19 s to read;
+  30665733 - 1,512,262 rows, 8 sections (four of them minutes long at a
+  restart), TD 25,918 ft, TVD 9,251 ft, lateral from 14,200 ft (11,688 ft),
+  186.5 h on bottom; 30693545 - 2,849,464 rows, TD 25,779 ft, TVD 9,077 ft,
+  lateral from 15,100 ft (10,562 ft), 267.8 h on bottom, 36 s to read.
+  Every file resets its hole depth at a restart (8,498 -> 1,417 ft on
+  07-01; 25,779 -> 8,285 ft on 07-23); the record carries both arithmetics
+  and names the fall. Gamma is sentinel for 40-43% of rows; TVD is blank
+  for 9-20% and stops 29-117 ft short of TD.
+- Section BY (3 checks). Gate 376.
+
+He asked for the mining to be verified completely, and whether the
+program and the site are synchronized, which fields the data updates, what
+must be recalculated, and whether the client folders exist. The
+verification found the largest thing the record was not reading: the
+gamma channel, sentinel 40% of the time, is a complete MWD gamma log the
+rest of the time - 577,938 on-bottom samples covering every one-foot bin
+from 2,061 to 25,804 ft in the first file. Added `gamma_log` (bins of bit
+depth, median and count), `write_las`, `gamma_lithology` (the program's
+own GR index), and `observations` (below-zero counts, ROP spikes, the
+negative differential pressure named as the recorder's reference). The
+survey run on the written LAS exposed a pre-existing defect: `read_las`
+dropped the index unit and the survey read feet as metres - fixed in
+`read_las` (index_unit kept) and `run_survey` (feet converted once, the
+depth line says which). BY extended; Y, R, J, B, BS, BR re-run green.

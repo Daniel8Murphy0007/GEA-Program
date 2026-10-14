@@ -107,6 +107,10 @@ def collect(out_dir: str) -> dict:
                                    'dup': sum(v.get('duplicates_in_delivery', 0) for v in gr.values()),
                                    'outages': len(sim.get('outages', [])), 'replayed': sim.get('stats', {}).get('replayed', 0),
                                    'report': os.path.join(d, 'data_resilience_report.html')}
+            drl = _load(os.path.join(d, 'drilling_record.json'))
+            if drl:
+                w['drilling'] = {'td_md_ft': drl.get('total_depth_md_ft'), 'tvd_at_td_ft': drl.get('tvd_at_td_ft'), 'sections': drl.get('n_sections'),
+                                 'on_bottom_hours': drl.get('on_bottom_hours'), 'report': os.path.join(d, 'drilling_record.html')}
             wells.append(w)
     site = {}
     cert_counts = {'VALID': 0, 'EXPIRING': 0, 'EXPIRED': 0, 'MISSING': 0}
@@ -154,6 +158,9 @@ def _sev(cls: str) -> int:
 def _drift_status(w: dict) -> tuple:
     d = w.get('drift')
     if not d:
+        if w.get('drilling'):
+            dl = w['drilling']
+            return 'neutral', f"DRILLING RECORD - TD {dl['td_md_ft']:,.0f} ft MD" if dl.get('td_md_ft') is not None else 'DRILLING RECORD'
         return 'neutral', 'NOT EVALUATED'
     if d['detected']:
         return 'critical', 'MODEL DRIFT DETECTED'
@@ -268,6 +275,9 @@ def render(data: dict, out_dir: str, site_name: str = 'site', program_version: s
             links.append(f'<a href="{e(_rel(out_dir, al["report"]))}">alarms</a>')
         if rs.get('report'):
             links.append(f'<a href="{e(_rel(out_dir, rs["report"]))}">resilience</a>')
+        dl = w.get('drilling') or {}
+        if dl.get('report'):
+            links.append(f'<a href="{e(_rel(out_dir, dl["report"]))}">drilling record</a>')
         pg = qd.get('pct_good_min')
         meter = f'<div class="meter"><i style="width:{pg:.0f}%"></i></div>' if pg is not None else ''
         rows.append('<tr>'
@@ -300,7 +310,7 @@ def render(data: dict, out_dir: str, site_name: str = 'site', program_version: s
     # report index
     idx = []
     for w in wells:
-        for k in ('drift', 'well_tests', 'alarms', 'resilience'):
+        for k in ('drift', 'well_tests', 'alarms', 'resilience', 'drilling'):
             r = (w.get(k) or {}).get('report')
             if r:
                 idx.append(f'<li>{e(w["name"])} - <a href="{e(_rel(out_dir, r))}">{k.replace("_", " ")}</a></li>')
@@ -390,7 +400,17 @@ def orchestrate(out_dir: str, catalog_wells: List[dict], file_wells: List[dict],
             made.setdefault(name, []).append('ingest_failed')
             continue
         with open(os.path.join(d, 'well.json'), 'w', encoding='utf-8') as f:
-            json.dump({'display': name, 'source': fw['path'], 'index_kind': stream.index_kind}, f)
+            json.dump({'display': name, 'source': fw['path'], 'index_kind': stream.index_kind, 'source_format': stream.source_format}, f)
+        if stream.source_format == 'edr':                         # a drilling recorder's export: the drilling record, not the gauge pipeline
+            from .edr import write_record
+            try:
+                write_record(stream, d, _v)
+                made.setdefault(name, []).append('drilling_record')
+            except Exception as ex:
+                with open(os.path.join(d, 'drilling_record_not_written.json'), 'w', encoding='utf-8') as f:
+                    json.dump({'well': name, 'reason': f'{type(ex).__name__}: {ex}'}, f, indent=1)
+                made.setdefault(name, []).append('drilling_record_not_written')
+            continue
         if stream.index_kind != 'time_s':                      # a depth log is a survey input: run the strata survey, not the gauge pipeline
             try:
                 from .survey_cmd import run_survey

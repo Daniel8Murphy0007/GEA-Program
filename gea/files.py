@@ -49,7 +49,7 @@ from typing import Dict, List, Optional
 
 from .workspace import Workspace, WorkspaceError, sha256_file, utc_now_iso, slug
 
-KINDS = ('las', 'dlis', 'historian_csv', 'csv', 'pangaea', 'operator_table', 'segy', 'mseed', 'sac', 'xls', 'json', 'unknown')
+KINDS = ('las', 'dlis', 'historian_csv', 'edr', 'csv', 'pangaea', 'operator_table', 'segy', 'mseed', 'sac', 'xls', 'json', 'unknown')
 TEXT_SNIFF = 64 * 1024
 
 
@@ -115,6 +115,8 @@ def detect(path: str) -> dict:
             return {'kind': 'json', 'detail': 'JSON (a port map or configuration)', 'bytes': size, 'text': True}
         except (json.JSONDecodeError, UnicodeDecodeError):
             pass
+    if first.upper().startswith('YYYY/MM/DD,HH:MM:SS,'):
+        return {'kind': 'edr', 'detail': f'EDR one-second export: date and time columns, then {first.count(",") - 1} channels with units in the header', 'bytes': size, 'text': True}
     if ',' in first or ';' in first or '\t' in first:
         delim = ',' if ',' in first else (';' if ';' in first else '\t')
         rows = list(csv.reader(io.StringIO('\n'.join(lines[:3])), delimiter=delim))
@@ -172,6 +174,9 @@ def read_any(path: str, kind: Optional[str] = None):
     if kind == 'dlis':
         from .dlis import read as read_dlis
         return read_dlis(path)
+    if kind == 'edr':
+        from .edr import read as read_edr
+        return read_edr(path)
     if kind == 'pangaea':
         from .profile_catalog import read_pangaea_txt
         return read_pangaea_txt(path)

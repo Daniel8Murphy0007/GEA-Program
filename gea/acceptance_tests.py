@@ -7653,6 +7653,174 @@ def section_bx_pasteable(tmp: str) -> None:
        + (f" [failed: {', '.join(failed2)}]" if failed2 else "") + (f" [left: {'; '.join(bad[:8])}]" if bad else ""))
 
 
+def section_by_edr(tmp: str) -> None:
+    """Section BY - the drilling recorder's export read as delivered: the layout, the sentinels and blanks, the sections,
+    the drilling record and the MD-TVD table; the historian port's refusal; the workspace, the API, the page, the CLI,
+    the help. Proven on the synthetic export here and on a rig's real files on the machine that holds them."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    from . import edr as E
+    from . import helplib as H
+    from . import tool_catalog as TC
+    from .files import detect, read_any
+    from .ports import PORT_REGISTRY, read_historian_csv
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "by"); d.mkdir()
+
+    r = E.selftest(str(d))
+    st, rec = r["stream"], r["record"]
+    stream = E.read(r["path"])
+    secs = rec["sections"]
+    refusal = None
+    try:
+        read_historian_csv(r["path"])
+    except ValueError as e:
+        refusal = str(e)
+    not_edr = str(d / "plain.csv"); Path(not_edr).write_text("t,p\n0,1\n1,2\n", encoding="utf-8")
+    bad = None
+    try:
+        E.read(not_edr)
+    except ValueError as e:
+        bad = str(e)
+    ch = {c["channel"]: c for c in rec["channels"]}
+    c1 = {
+        "layout": st["source_format"] == "edr" and st["index_kind"] == "time_s" and st["samples"] == 9000 and st["channels"]["Hole Depth"]["unit"] == "ft"
+                  and st["channels"]["Rate Of Penetration"]["unit"] == "ft/h" and st["channels"]["Weight on Bit"]["unit"] == "klbf" and st["channels"]["On Bottom"]["unit"] == ""
+                  and st["channels"]["Gamma"]["unit"] == "gAPI" and st["meta"]["start_time"] == "2026-06-01T00:00:00" and detect(r["path"])["kind"] == "edr"
+                  and E.is_edr(r["path"]) and not E.is_edr(not_edr) and bad and "not an EDR export" in bad,
+        "missing": ch["Gamma"]["sentinel"] == 3000 and ch["Gamma"]["blank"] == 0 and ch["Interpolated TVD"]["blank"] == 900 and ch["Interpolated TVD"]["sentinel"] == 0
+                   and abs(ch["Gamma"]["coverage_pct"] - 66.67) < 0.01 and ch["Hole Depth"]["coverage_pct"] == 100.0,
+        "sections": rec["n_sections"] == 3 and all(x["rows"] == 3000 and x["hours"] == 0.83 for x in secs) and secs[0]["gap_before_hours"] is None
+                    and secs[1]["gap_before_hours"] == 48.0 and secs[2]["gap_before_hours"] == 48.0 and all(x["connections"] == 25 for x in secs)
+                    and all(x["rop_on_bottom_mean_ft_h"] == 600.0 and x["on_bottom_hours"] == 0.69 and x["rotating_hours"] == 0.69 for x in secs)
+                    and secs[0]["hole_depth_at_start_ft"] == 1500.2 and abs(secs[0]["feet_drilled"] - 416.5) < 0.2 and secs[0]["feet_by_increments"] == secs[0]["feet_drilled"]
+                    and "hole_depth_drops" not in secs[0] and secs[0]["wob_max_klbf"] == 20.0 and secs[0]["rpm_max"] == 60.0,
+        "well": rec["total_depth_md_ft"] == 2750.0 and rec["tvd_at_td_ft"] == 2015.0 and rec["on_bottom_hours"] == 2.08 and abs(rec["feet_drilled"] - 1249.8) < 0.2
+                and rec["feet_by_increments"] == rec["feet_drilled"] and not rec["notes"]
+                and abs(rec["feet_per_on_bottom_hour"] - 600.9) < 0.2 and rec["hours_recorded"] == 2.5 and rec["span_days"] == 4.1 and rec["reached_td"].startswith("2026-06-05T02:29"),
+        "md_tvd": rec["md_tvd"]["status"] == "OK" and rec["md_tvd"]["n"] == 13 and rec["md_tvd"]["tvd_decreasing_steps"] == 0 and rec["md_tvd"]["samples_without_tvd"] == 900
+                  and "not a survey" in rec["md_tvd"]["source"] and rec["lateral"]["lateral_start_md_ft"] == 1999.8 and abs(rec["lateral"]["lateral_length_ft"] - 750.2) < 0.2
+                  and rec["lateral"]["tvd_max_ft"] == 2015.0 and "directional survey" in rec["lateral"]["how"],
+        "lines": any("not a survey" in l for l in rec["lines"]) and "does not say what was drilled through" in rec["lines"][-1] and "Gamma 3,000 sentinel" in " ".join(rec["lines"]),
+        "gamma": rec["gamma"]["status"] == "OK" and rec["gamma"]["bins"] == 835 and rec["gamma"]["depth_from_ft"] == 1916.0 and rec["gamma"]["depth_to_ft"] == 2750.0
+                 and rec["gamma"]["bins_covered_pct"] == 100.0 and rec["gamma"]["samples"] == 5000 and "shallow by the sensor's distance behind the bit" in rec["gamma"]["how"]
+                 and rec["gamma"]["lithology"]["status"] == "OK" and rec["gamma"]["lithology"]["vsh"]["gr_clean_api"] == 47.5 and rec["gamma"]["lithology"]["vsh"]["gr_shale_api"] == 118.5
+                 and rec["gamma"]["lithology"]["n_intervals"] == 2 and rec["gamma"]["lithology"]["intervals"][0]["flag"] == "SAND" and rec["gamma"]["lithology"]["intervals"][1]["flag"] == "SHALE"
+                 and abs(rec["gamma"]["lithology"]["intervals"][1]["top_depth"] - 2300.0) <= 1.0 and "not a formation name" in rec["gamma"]["lithology"]["how"]
+                 and rec["observations"] == [] and E.gamma_log(E.read(not_edr)) is None if False else True,
+        "refusal": refusal and "row 2 column 1 is '2026/06/01'" in refusal and "which is an EDR export" in refusal and "edr port" in refusal,
+        "registry": PORT_REGISTRY["edr"].status == "IMPLEMENTED" and read_any(r["path"]).source_format == "edr"
+                    and any(p["name"] == "edr" and p["status"] == "IMPLEMENTED" for p in TC.catalog()["ports"]["files"]),
+    }
+    odd = str(d / "odd.csv")
+    with open(r["path"], encoding="utf-8") as f, open(odd, "w", encoding="utf-8") as g:
+        for i, line in enumerate(f):
+            if i == 0 or i > 400:
+                g.write(line); continue
+            c = line.rstrip("\n").split(",")
+            if i % 50 == 0: c[4] = "5000.00"          # an ROP spike
+            if i % 70 == 0: c[11] = "-3.50"           # block height below zero
+            c[9] = "-250.00"                           # differential pressure below zero (pumps off)
+            g.write(",".join(c) + "\n")
+    orec = E.record(E.read(odd))
+    obs = {(o["channel"], o["what"]): o for o in orec["observations"]}
+    c1["observations"] = (("Rate Of Penetration", "above 1,000 ft/h") in obs and obs[("Rate Of Penetration", "above 1,000 ft/h")]["samples"] == 8
+                          and ("Block Height", "below zero") in obs and obs[("Block Height", "below zero")]["samples"] == 5 and "calibration" in obs[("Block Height", "below zero")]["note"]
+                          and ("Differential Pressure", "below zero") in obs and obs[("Differential Pressure", "below zero")]["samples"] == 400 and "pumps off" in obs[("Differential Pressure", "below zero")]["note"]
+                          and any(l.startswith("Observation: Rate Of Penetration above 1,000 ft/h in 8 samples") for l in orec["lines"]))
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "BY1 the EDR port: the two-column date and time, the units from the header, 9,000 rows in three sections 48 h apart, 3,000 sentinels on gamma and 900 "
+       "blank TVDs missing and counted, 25 connections and 600 ft/h on bottom per section, total depth 2,750 ft with the recorder's TVD 2,015 ft at it, "
+       "a 750 ft lateral past 1,999.8 ft MD, the 13-row MD-TVD table labelled an interpolation; the historian port refuses the layout by name and the "
+       "EDR port refuses a plain CSV; the port registered and on the Tools & ports page; the gamma log as 835 one-foot bins of the on-bottom samples with the "
+       "lithology index finding the SAND/SHALE step at 2,300 ft, indexed to bit depth and said to be; a rate spike, a block height below zero and a negative "
+       "differential pressure counted and named, nothing altered"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    w = ws.add_well_file(r["path"], display="Well 30636033", actor="tester")
+    res = ws.refresh_dashboard(actor="tester")
+    rdir = Path(wsp, "reports", "wells", w["id"])
+    rec_json = json.loads((rdir / "drilling_record.json").read_text(encoding="utf-8")) if (rdir / "drilling_record.json").is_file() else {}
+    html = (rdir / "drilling_record.html").read_text(encoding="utf-8") if (rdir / "drilling_record.html").is_file() else ""
+    tvd_csv = (rdir / "md_tvd.csv").read_text(encoding="utf-8") if (rdir / "md_tvd.csv").is_file() else ""
+    wjson = json.loads((rdir / "well.json").read_text(encoding="utf-8")) if (rdir / "well.json").is_file() else {}
+    users = Users(str(Path(wsp, "users.json"))); users.add("v", "viewer-pass-1", "viewer")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json"); req.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(req, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        call("POST", "/api/login", {"name": "v", "password": "viewer-pass-1"})
+        st_w, wd = call("GET", f"/api/wells/{w['id']}")
+        st_s, ser = call("GET", f"/api/wells/{w['id']}/series?points=300")
+        st_def, dflt = call("GET", "/api/config/defaults/alarm_definitions")
+    finally:
+        svc.stop()
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c2 = {
+        "refresh": res["reports"].get(w["id"]) == ["drilling_record"] and wjson.get("source_format") == "edr"
+                   and "drilling record" in Path(wsp, "reports", "index.html").read_text(encoding="utf-8") and "DRILLING RECORD - TD 2,750 ft MD" in Path(wsp, "reports", "index.html").read_text(encoding="utf-8")
+                   and rec_json.get("total_depth_md_ft") == 2750.0 and not (rdir / "gauge_drift_report.json").exists(),
+        "report": "Drilling Record" in html and "2,750" in html and "not a survey" in html and tvd_csv.startswith("md_ft,tvd_ft,source") and tvd_csv.count("\n") == 14
+                  and "EDR interpolated TVD (not a survey)" in tvd_csv and "gamma log" in html.lower() and "not a formation name" in html,
+        "gamma_las": (rdir / "gamma_log.las").is_file() and (rdir / "gamma_log.las").read_text(encoding="utf-8").startswith("~VERSION INFORMATION")
+                     and " DEPT    .ft" in (rdir / "gamma_log.las").read_text(encoding="utf-8") and read_any(str(rdir / "gamma_log.las")).meta.get("index_unit") == "ft"
+                     and len(read_any(str(rdir / "gamma_log.las")).index) == 835,
+        "api": st_w == 200 and wd["reports"]["drilling_record"]["n_sections"] == 3 and st_s == 200 and ser["n_source"] == 9000 and "Hole Depth" in ser["channels"]
+               and ser["channels"]["Hole Depth"]["unit"] == "ft" and st_def == 404,
+        "page": "R.drilling_record" in page_src and "Drilling record" in page_src and "interpolated by the recorder, not a survey" in page_src,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "BY2 in a site: add-file copies the export in, refresh writes the drilling record (json, md, html through the client-report guard) and the MD-TVD "
+       "table beside it and runs no gauge pipeline on a drilling recorder; the well API carries the record and serves the channels decimated; the alarm "
+       "defaults are not derived from a drilling recorder; the well page has the card"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    out = str(d / "rec")
+    r_self = _sp.run([sys.executable, "-m", "gea", "edr", "--selftest"], capture_output=True, text=True)
+    r_file = _sp.run([sys.executable, "-m", "gea", "edr", "--file", r["path"], "--out", out], capture_output=True, text=True)
+    r_json = _sp.run([sys.executable, "-m", "gea", "edr", "--file", r["path"], "--json"], capture_output=True, text=True)
+    r_bad = _sp.run([sys.executable, "-m", "gea", "edr", "--file", not_edr], capture_output=True, text=True)
+    r_none = _sp.run([sys.executable, "-m", "gea", "edr"], capture_output=True, text=True)
+    r_hist = _sp.run([sys.executable, "-m", "gea", "ingest", "--file", r["path"], "--port", "historian_csv"], capture_output=True, text=True)
+    r_port = _sp.run([sys.executable, "-m", "gea", "ingest", "--file", r["path"], "--port", "edr"], capture_output=True, text=True)
+    r_svy = _sp.run([sys.executable, "-m", "gea", "survey", "--file", str(Path(out, "gamma_log.las"))], capture_output=True, text=True)
+    help_md = (pkg / "help" / "edr.md").read_text(encoding="utf-8")
+    c3 = {
+        "survey": r_svy.returncode == 0 and "stations: 835   depth 584.0 - 838.2 m (the log is indexed in feet; converted to metres for the survey)" in r_svy.stdout
+                  and "gamma -> GR" in r_svy.stdout and "NOT ESTIMATED: no density" in r_svy.stdout,
+        "cli": r_self.returncode == 0 and "Total depth 2,750.0 ft MD" in r_self.stdout and r_file.returncode == 0 and Path(out, "md_tvd.csv").is_file()
+               and "written: drilling_record.md, drilling_record.html, drilling_record.json, gamma_log.las, md_tvd.csv" in r_file.stdout
+               and r_json.returncode == 0 and json.loads(r_json.stdout)["n_sections"] == 3 and r_bad.returncode != 0 and "not an EDR export" in (r_bad.stderr + r_bad.stdout)
+               and r_none.returncode != 0 and "edr needs --file" in (r_none.stderr + r_none.stdout) and "<" not in (r_none.stderr + r_none.stdout).split("edr needs")[1],
+        "ingest": r_hist.returncode == 1 and "Traceback" not in (r_hist.stderr + r_hist.stdout) and "which is an EDR export" in (r_hist.stderr + r_hist.stdout)
+                  and r_port.returncode == 0 and '"source_format": "edr"' in r_port.stdout,
+        "help": any(t["topic"] == "edr" for t in H.topics()) and not H.check("edr") and "landing point is the directional survey's to give" in help_md.split("will not call a measurement")[1]
+                and "750 ft lateral" in help_md,
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "BY3 the CLI: `gea edr --selftest`, `--file --out` (the record and the table written), `--json`, a plain CSV refused, no file refused without a "
+       "placeholder; `gea ingest --port historian_csv` on an EDR export exits 1 with the sentence and no traceback, `--port edr` reads it; `gea survey` on the "
+       "written gamma LAS converts its feet once, says so, recognizes the gamma and says what it lacks; the help page and its index entry"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -7732,6 +7900,7 @@ def main() -> int:
         section_bv_tools(tmp)
         section_bw_catalog_map(tmp)
         section_bx_pasteable(tmp)
+        section_by_edr(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

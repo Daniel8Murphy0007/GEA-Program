@@ -97,6 +97,19 @@ def run_survey(path: Optional[str] = None, demo: bool = False,
                          'gea dlis --file ... --info lists the frames and their index types' % (st.index_kind, st.meta.get('index_channel', st.index_kind)))
     ch = st.channels
     depth = [float(v) for v in st.index]
+    # the index unit as the file states it: a LAS or DLIS in feet is converted to metres here, once, and the report says so;
+    # a source that states no unit is read as metres and the report says that too
+    iu = str(st.meta.get('index_unit', st.meta.get('index_units', ''))).strip().upper()
+    if iu in ('FT', 'F', 'FEET', 'FOOT'):
+        depth = [v * 0.3048 for v in depth]
+        depth_note = 'the log is indexed in feet; converted to metres for the survey'
+    elif iu in ('M', 'METRES', 'METERS', 'METRE', 'METER'):
+        depth_note = 'metres, as the log states'
+    elif iu:
+        depth_note = "the index unit is '%s', which this survey does not convert; read as given" % iu
+    else:
+        depth_note = 'the source states no depth unit; read as metres'
+    out['depth_unit'] = {'stated': iu or None, 'note': depth_note}
     keys = {k: _find_channel(ch, k) for k in _SYNONYMS}
     out['source'] = src_label
     out['channels_found'] = {k: v for k, v in keys.items() if v}
@@ -105,8 +118,8 @@ def run_survey(path: Optional[str] = None, demo: bool = False,
     w('GEA SURVEY - one well, one answer with its provenance')
     w('=' * 60)
     w('source: %s' % src_label)
-    w('stations: %d   depth %.1f - %.1f m' % (len(depth),
-                                              min(depth), max(depth)))
+    w('stations: %d   depth %.1f - %.1f m (%s)' % (len(depth),
+                                                   min(depth), max(depth), depth_note))
     w('channels recognized: %s' % (', '.join(
         '%s -> %s' % (k, v) for k, v in keys.items() if v) or 'NONE'))
     w('')

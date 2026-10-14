@@ -40,6 +40,7 @@ INDEX: List[tuple] = [
     ('notifications', 'Notifications', 'rules, channels, the delivery log'),
     ('structure', 'Mapped structure', 'the nearest fault and fold to a well from a structure layer the site brought, by distance and bearing'),
     ('catalog', 'The catalogue', 'every shipped public dataset, what in this program reads it or that nothing does; the measured friction envelope; the core check; any log through the survey'),
+    ('edr', 'The drilling recorder', 'the rig\'s one-second EDR export read as delivered - sections, depths, hours on bottom, the rate of penetration, the recorder\'s MD-TVD table - and what the record will not say'),
     ('dlis', 'The DLIS log', 'a well log as it is delivered (API RP66 V1), read as the standard lays it out: the frames, the channels, what was skipped; into the strata survey'),
     ('historian', 'The historian pull', 'an operator\'s gauge history out of the PI System through PI Web API, read-only, every value with its archive time and flags'),
     ('tools', 'Tools and ports', 'the downhole and surface tools this program knows, each with its citation and ratings, the formats and protocols that bring their readings in, and the rating check on a tool string'),

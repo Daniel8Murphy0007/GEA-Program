@@ -620,7 +620,11 @@ class App:
             from . import ingest
             for w in self.ws.wells():
                 if w['kind'] == 'file':
-                    st = ingest(os.path.join(self.ws.path, 'wells', w['id'], 'source', w['files'][0]))
+                    from .files import detect as _detect
+                    src = os.path.join(self.ws.path, 'wells', w['id'], 'source', w['files'][0])
+                    if _detect(src)['kind'] != 'historian_csv':
+                        continue                                    # a drilling recorder or a log is not a gauge historian
+                    st = ingest(src)
                     return [d.__dict__ for d in defaults_from_catalogue(TagCatalogue.from_stream(st))]
             raise ApiError(404, 'default alarm definitions are derived from a historian well; add one first')
         raise ApiError(404, f'no defaults for {name}')

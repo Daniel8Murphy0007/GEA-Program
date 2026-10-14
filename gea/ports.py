@@ -26,6 +26,9 @@ Design rules:
     ever touches a site.
 
 Implemented file formats:
+  * edr — an electronic drilling recorder's one-second export (gea/edr.py):
+    date and time in two columns, WITS record-1 channels with units in the
+    header, -999.25 and blank cells missing; streamed, sectioned.
   * historian_csv — wide-format historian export: first column timestamp
     (ISO or numeric), remaining columns channels; blank cells = missing.
     Auto-detects the telemetry export layout (flag_* columns).
@@ -126,7 +129,13 @@ def read_historian_csv(path) -> LiveStream:
     times = np.zeros(n)
     t0 = None
     for i, r in enumerate(data):
-        times[i], t0 = _parse_time(r[0], t0)
+        try:
+            times[i], t0 = _parse_time(r[0], t0)
+        except ValueError:
+            hint = (' - the date and the time are in two columns, which is an EDR export: gea edr --file, or add-file reads it through the edr port'
+                    if (len(header) > 1 and header[0].strip().upper() == 'YYYY/MM/DD' and header[1].strip().upper() == 'HH:MM:SS') else '')
+            raise ValueError(f"{p.name}: row {i + 2} column 1 is {r[0]!r}, not a timestamp (ISO) or elapsed seconds; the historian port takes a "
+                             f"timestamp in the first column{hint}") from None
     flag_cols = {j: h for j, h in enumerate(header) if h.startswith('flag_')}
     chan_cols = [j for j in range(1, len(header)) if j not in flag_cols]
     channels: Dict[str, StreamChannel] = {}
@@ -257,6 +266,8 @@ def read_las(path) -> LiveStream:
     index = arr[:, 0]
     channels = {m: StreamChannel(name=m, unit=u, values=arr[:, j])
                 for j, (m, u) in enumerate(curves) if j > 0}
+    meta['index_channel'] = curves[0][0]
+    meta['index_unit'] = curves[0][1]                      # the ~Curve unit of the index: ft or m, as the file states it
     return LiveStream(name=p.stem, source_format='las2',
                       index_kind='depth', index=index, channels=channels, meta=meta)
 
@@ -303,6 +314,10 @@ PORT_REGISTRY: Dict[str, PortSpec] = {
         name='las2', transport='file (LAS 2.0 well log, CWLS public standard)',
         status=IMPLEMENTED, reader=read_las,
         detail="unwrapped mode; NULL substitution; wrapped mode refused"),
+    'edr': PortSpec(
+        name='edr', transport='file (EDR one-second export: date and time columns, WITS record-1 channels with units in the header)',
+        status=IMPLEMENTED, reader=lambda src: __import__('gea.edr', fromlist=['x']).read(src),
+        detail="streamed; -999.25 and blank cells missing and counted; sections from the gaps; the drilling record and the MD-TVD table written from it"),
     'dlis': PortSpec(
         name='dlis', transport='file (DLIS, API RP66 V1 well log container)',
         status=IMPLEMENTED, reader=lambda src: __import__('gea.dlis', fromlist=['x']).read(src),
