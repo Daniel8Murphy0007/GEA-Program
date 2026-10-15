@@ -8448,6 +8448,171 @@ def section_cc_site_map(tmp: str) -> None:
        "bar, the not-placed wells with the way to place them, what is at a click; the help page"
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
+
+def section_cd_control_room(tmp: str) -> None:
+    """Section CD - the control room: the wall board judged by its stated rule (a shape and a word for each state, worst
+    first, a recorded well never called stale, a live feed's age measured), the shift handover signed by one operator and
+    acknowledged by another with both in the audit log, wall passes that show the wall and nothing else, the page."""
+    import http.cookiejar
+    import urllib.request
+    import urllib.error
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+    from . import control_room as CR
+    from . import edr as E
+    from . import helplib as H
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "cd"); d.mkdir()
+
+    ev = E.selftest_events(str(d))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    wd = ws.add_well_file(ev["path"], display="Drilling well", actor="tester")
+    wa = ws.add_well_file(ev["path"], display="Alarm well", actor="tester")
+    wc = ws.add_well_catalog("volve_f12_f14_production_excerpt", "15/9-F-12", 10000.0, actor="tester")
+    ws.refresh_dashboard(actor="tester")
+    wn = ws.add_well_file(ev["path"], display="New well", actor="tester")          # added after the refresh: no reports yet
+    ra = Path(ws.reports_dir, "wells", wa["id"])
+    (ra / "alarm_event_report.json").write_text(json.dumps({"active": [
+        {"alarm_id": "SPP.HH_RANGE", "state": "ACTIVE_UNACKED", "priority": "P2", "tag_id": "SPP"},
+        {"alarm_id": "HKLD.QUALITY", "state": "ACTIVE_ACKED", "priority": "P4", "tag_id": "HKLD"}], "shelved": []}), encoding="utf-8")
+    now = _dt(2026, 10, 15, 12, 0, 0, tzinfo=_tz.utc)
+    iso = lambda s: (now - _td(seconds=s)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    feed = lambda age, status="CONNECTED", wid=wn["id"]: [{"name": "p1", "well_id": wid, "status": status, "last_sample_utc": (iso(age) if age is not None else None), "patch": {"stale_after_s": 120.0}}]
+    b0 = CR.board(ws, [], now=now)
+    t0 = {t["well_id"]: t for t in b0["tiles"]}
+    dr = t0[wd["id"]]["drilling"]
+    live = {k: {t["well_id"]: t for t in CR.board(ws, feed(*a), now=now)["tiles"]}[wn["id"]] for k, a in
+            {"fresh": (30,), "late": (400,), "silent": (1000,), "down": (60, "DOWN"), "none": (None,)}.items()}
+    c1 = {
+        "states": t0[wa["id"]]["state"] == "SERIOUS" and t0[wa["id"]]["reasons"][:2] == ["1 unacknowledged P2 alarm(s)", "1 other active alarm(s)"]
+                  and t0[wc["id"]]["state"] == "SERIOUS" and "no explanation" in t0[wc["id"]]["reasons"][0]
+                  and t0[wd["id"]]["state"] == "GOOD" and t0[wd["id"]]["reasons"] == ["nothing needs attention"]
+                  and t0[wn["id"]]["state"] == "NO_DATA",
+        "shape_word": all(t["shape"] == CR.SHAPE[t["state"]] and t["word"] == CR.WORD[t["state"]] for t in b0["tiles"])
+                      and len(set(CR.SHAPE.values())) == 4 and len(set(CR.WORD.values())) == 4,
+        "order": [t["state"] for t in b0["tiles"]] == sorted((t["state"] for t in b0["tiles"]), key=CR.STATES.index)
+                 and b0["counts"] == {"SERIOUS": 2, "WATCH": 0, "GOOD": 1, "NO_DATA": 1},
+        "recorded": t0[wd["id"]]["live"] is None and t0[wd["id"]]["recorded"]["record_end_utc"] == dr["record_end_utc"]
+                    and "never called stale" in b0["rule"],
+        "read_only": not Path(wsp, "handover").exists() and not Path(wsp, "wall").exists(),
+        "drilling": dr["cache"] and dr["td_md_ft"] == 5750.0 and dr["bottom_ft"] == 5750.0 and dr["on_bottom_hours"] is not None
+                    and (dr["rop_ft_h"] is not None) == bool(dr["drilling_now"]),
+        "live": live["fresh"]["state"] == "GOOD" and live["late"]["state"] == "WATCH" and "past the 2 min stale limit" in live["late"]["reasons"][0]
+                and live["silent"]["state"] == "SERIOUS" and live["silent"]["reasons"][0].startswith("no live sample for 16 min")
+                and live["down"]["state"] == "SERIOUS" and live["none"]["state"] == "WATCH" and abs(live["fresh"]["live"]["age_s"] - 30) < 1e-6,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CD1 the wall board by its stated rule, read without writing anything: an unacknowledged P2 alarm and a gauge off with no explanation SERIOUS, a well with reports and "
+       "nothing else GOOD, a well with neither reports nor a live sample NO DATA, each state its own shape and word, worst first; a recorded well "
+       "described at the end of its record and never called stale (bottom 5,750 ft, the ROP only while drilling at the end); a live feed's "
+       "measured age against its stale limit - 30 s good, 400 s watch, 1,000 s serious, a patch down serious"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    users = Users(str(Path(wsp, "users.json")))
+    for n_, r_ in (("adm", "admin"), ("op1", "operator"), ("op2", "operator"), ("v", "viewer")):
+        users.add(n_, f"{n_}-pass-123", r_)
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener():
+        return urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(op, method, path, body=None):
+        req = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            req.add_header("Content-Type", "application/json"); req.add_header("X-GEA-Action", "1")
+        try:
+            with op.open(req, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+
+    def signin(name):
+        op = opener(); call(op, "POST", "/api/login", {"name": name, "password": f"{name}-pass-123"}); return op
+    try:
+        anon = opener()
+        st_anon, _ = call(anon, "GET", "/api/wall")
+        V, O1, O2, A = signin("v"), signin("op1"), signin("op2"), signin("adm")
+        st_v, bv = call(V, "GET", "/api/wall")
+        st_vw, _ = call(V, "POST", "/api/handover", {"open": "x"})
+        st_empty, _ = call(O1, "POST", "/api/handover", {"open": " ", "watching": "", "done": ""})
+        st_long, _ = call(O1, "POST", "/api/handover", {"open": "x" * 2001})
+        st_w, note = call(O1, "POST", "/api/handover", {"open": "Pump 2 liner swap not finished.", "watching": "SPP on the alarm well.", "done": "Reamed to bottom."})
+        _, bdg1 = call(V, "GET", "/api/badges")
+        _, wall1 = call(V, "GET", "/api/wall")
+        st_self, self_ = call(O1, "POST", "/api/handover/ack", {"id": note.get("id")})
+        st_ack, ack = call(O2, "POST", "/api/handover/ack", {"id": note.get("id"), "comment": "read at 06:05"})
+        st_ack2, _ = call(O2, "POST", "/api/handover/ack", {"id": note.get("id")})
+        st_nf, _ = call(O2, "POST", "/api/handover/ack", {"id": "H-none"})
+        _, bdg2 = call(V, "GET", "/api/badges")
+        _, hv = call(V, "GET", "/api/handover")
+        # wall passes
+        st_pv, _ = call(V, "POST", "/api/wall/pass", {"label": "doghouse"})
+        st_pnl, _ = call(A, "POST", "/api/wall/pass", {"label": " "})
+        st_pc, wp = call(A, "POST", "/api/wall/pass", {"label": "doghouse wall", "days": 30})
+        _, plist = call(A, "GET", "/api/wall/passes")
+        W = opener()
+        st_bad, _ = call(W, "POST", "/api/wall/enter", {"code": wp["id"] + ".wrong"})
+        st_in, _ = call(W, "POST", "/api/wall/enter", {"code": wp["code"]})
+        st_ww, wwall = call(W, "GET", "/api/wall")
+        _, wsess = call(W, "GET", "/api/session")
+        st_wo, _ = call(W, "GET", "/api/overview")
+        st_wh, _ = call(W, "GET", "/api/handover")
+        st_wpost, _ = call(W, "POST", "/api/handover", {"open": "x"})
+        st_rv, _ = call(A, "POST", "/api/wall/pass/revoke", {"id": wp["id"]})
+        st_after, _ = call(W, "GET", "/api/wall")
+        _, plist2 = call(A, "GET", "/api/wall/passes")
+        L = opener()
+        lock = [call(L, "POST", "/api/wall/enter", {"code": "W000000.nope"})[0] for _ in range(6)]
+    finally:
+        svc.stop()
+    audit = [e["action"] for e in ws.audit_log(5000)]
+    raw = (Path(wsp, "wall", "passes.json")).read_text(encoding="utf-8")
+    lines = Path(wsp, "handover", "notes.jsonl").read_text(encoding="utf-8").splitlines()
+    c2 = {
+        "roles": st_anon == 401 and st_v == 200 and len(bv["tiles"]) == 4 and st_vw == 403,
+        "note": st_empty == 400 and st_long == 400 and st_w == 200 and note["by"] == "op1" and note["ack"] is None
+                and note["board"]["SERIOUS"] == 2 and note["board"]["alarms_unacked"] == 1
+                and wall1["handover"]["id"] == note["id"] and wall1["handover"]["ack"] is None and bdg1["handover_unacked"] == 1,
+        "ack": st_self == 403 and "author cannot acknowledge" in self_["error"] and st_ack == 200 and ack["by"] == "op2"
+               and st_ack2 == 400 and st_nf == 404 and bdg2["handover_unacked"] == 0
+               and hv["notes"][0]["ack"]["by"] == "op2" and hv["notes"][0]["ack"]["comment"] == "read at 06:05",
+        "append_only": len(lines) == 2 and json.loads(lines[0])["kind"] == "note" and json.loads(lines[1])["kind"] == "ack",
+        "audit": all(a_ in audit for a_ in ("handover.write", "handover.ack", "wall.pass.create", "wall.pass.failed", "wall.pass.enter", "wall.pass.revoke")),
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CD2 the shift handover: a viewer reads the wall and cannot write; an empty or over-long note refused; a signed note keeps its author, its "
+       "time and the board's counts (2 serious, 1 unacknowledged alarm), shows on the wall and badges the tab until acknowledged; the author "
+       "cannot acknowledge it, the next operator can (once, with a comment); notes and acknowledgements appended, never rewritten; every step in "
+       "the audit log"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    help_md = (pkg / "help" / "control-room.md").read_text(encoding="utf-8")
+    c3 = {
+        "pass": st_pv == 403 and st_pnl == 400 and st_pc == 200 and wp["code"].startswith(wp["id"] + ".") and wp["code"].split(".", 1)[1] not in raw
+                and "hash" not in json.dumps(plist) and plist["passes"][0]["status"] == "ACTIVE",
+        "wall_only": st_bad == 401 and st_in == 200 and st_ww == 200 and len(wwall["tiles"]) == 4 and wsess["user"] is None
+                     and wsess["wall_pass"]["label"] == "doghouse wall" and st_wo == 401 and st_wh == 401 and st_wpost == 401,
+        "revoke": st_rv == 200 and st_after == 401 and plist2["passes"][0]["status"] == "REVOKED" and lock[-1] == 429,
+        "page": all(x in page_src for x in ("VIEWS.wall", "VIEWS.control", "['#/control', 'Control room']", "/api/wall", "/api/handover/ack",
+                                             "NOT UPDATING", "wakeLock", "requestFullscreen", "SIGNED OUT", "This is a wall screen",
+                                             "crShape", "data-age0", "turns pages", "/api/wall/pass/revoke", "handover_unacked")),
+        "help": any(t["topic"] == "control-room" for t in H.topics()) and not H.check("control-room") and H.VIEW_TOPIC.get("control") == "control-room"
+                and "never called stale" in help_md.split("will not call a measurement")[1],
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CD3 wall passes: issued by an administrator only and named for the screen, the code shown once and only its hash kept; a wrong pass "
+       "refused and locked out after repeats; a pass shows the wall and nothing else - no other page, no handover list, no writing - until it is "
+       "revoked; the page: the wall full screen with its shapes and words, the age of its last answer, NOT UPDATING across the screen when the "
+       "service stops, the screen kept awake, pages turned when the wells do not fit, the handover written and acknowledged; the help page"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -8532,6 +8697,7 @@ def main() -> int:
         section_ca_setup_checklist(tmp)
         section_cb_charts(tmp)
         section_cc_site_map(tmp)
+        section_cd_control_room(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

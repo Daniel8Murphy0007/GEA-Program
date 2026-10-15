@@ -2045,3 +2045,36 @@ The ergonomics leg, third item.
   Chromium light, dark and phone: click answers, key zoom, drag pan, fit,
   rings, no page errors.
 - Section CC (3 checks). Gate 389.
+
+## 2026-10-15 - The control room (v0.35.0)
+
+The ergonomics leg, fourth and last item.
+- Read first what the workspace already says about a well's state, so the
+  wall adds no judgement of its own beyond one stated rule: the alarm
+  report's active and shelved alarms with their priorities, the dashboard's
+  gauge-drift classification, the drilling record and its chart cache
+  (bottom, bit, ROP over the last ten minutes of drilling, only when
+  drilling was within half an hour of the record's end), and the patches'
+  last sample against each patch's own stale limit.
+- `gea/control_room.py`: `board` (a tile per well, worst first, counts,
+  the latest alarm events, the latest handover, the rule in words),
+  `text` for the terminal; `write_note` / `ack_note` / `notes` over an
+  append-only `handover/notes.jsonl` (the author cannot acknowledge, a
+  note is acknowledged once); `pass_create` / `pass_list` / `pass_revoke`
+  / `pass_check` over `wall/passes.json` (SHA-256 of the code, constant-
+  time compare, expiry).
+- Service: `/api/wall` answers a signed-in person or a valid `gea_wall`
+  cookie and nothing else does; `/api/wall/enter` is locked out after
+  repeated wrong passes like a sign-in; `handover_unacked` joins the badges.
+- The page: `#/wall` hides the header and navigation, its own high-contrast
+  tokens in light and dark, SVG shapes drawn in the state colour with the
+  glyph in the page colour, mono figures with thousands separators, the
+  live age ticking each second, the stale notice and grey tiles past two
+  refresh periods, the Screen Wake Lock asked for (and re-asked on return),
+  pages turned on a wide screen and scrolled on a phone. `#/control`: open
+  the wall, the latest note with its acknowledgement, the three-part form,
+  the history with the board's counts then, the passes for an
+  administrator. Driven in headless Chromium at 1920x1080 light and dark,
+  1600x900 under a pass with the service stopped mid-run, and phone width:
+  no page errors.
+- Section CD (3 checks). Gate 392.

@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.35.0 - 2026-10-15 - the control room
+
+- **A wall screen and the shift handover.** A tile per well, worst first,
+  judged by a stated rule into four states each with its own shape and
+  word; refreshed every 30 s with its age shown and a notice across the
+  screen when it stops; full screen, kept awake, pages turned; a handover
+  note signed by one operator and acknowledged by another, both audited;
+  wall passes that show the wall and nothing else. Section CD; gate 392.
+
 ## v0.34.0 - 2026-10-15 - the site map
 
 - **Everything with a position, one frame.** Placed wells (datum shifts

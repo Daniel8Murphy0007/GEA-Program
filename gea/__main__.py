@@ -475,6 +475,21 @@ def main(argv=None) -> int:
     p_ck.add_argument("--note", type=str, default="", help="--confirm: what it was checked against (required)")
     p_ck.add_argument("--actor", type=str, default="cli")
 
+    p_wl = sub.add_parser("wall", help="the control-room board as text: a line per well, worst first, its state and why (the same board the wall screen shows)")
+    p_wl.add_argument("--workspace", type=str, default=None, help="the workspace folder, e.g. C:\\site")
+    p_wl.add_argument("--json", action="store_true")
+
+    p_ho = sub.add_parser("handover", help="the shift handover: list the notes, sign one (--write) or acknowledge one (--ack)")
+    p_ho.add_argument("--workspace", type=str, default=None, help="the workspace folder, e.g. C:\\site")
+    p_ho.add_argument("--write", action="store_true", help="sign a note: give at least one of --open, --watching, --done")
+    p_ho.add_argument("--open", type=str, default="", help="--write: what the next shift must pick up")
+    p_ho.add_argument("--watching", type=str, default="", help="--write: what is being watched, and why")
+    p_ho.add_argument("--done", type=str, default="", help="--write: what this shift did")
+    p_ho.add_argument("--ack", type=str, default=None, help="acknowledge the note with this id (not your own)")
+    p_ho.add_argument("--comment", type=str, default="", help="--ack: an optional comment")
+    p_ho.add_argument("--actor", type=str, default=None, help="who signs or acknowledges (required with --write and --ack)")
+    p_ho.add_argument("--json", action="store_true")
+
     p_sv = sub.add_parser("serve", help="serve the dashboard over a workspace: the page, the reports and the JSON API (standard library HTTP)")
     p_sv.add_argument("--workspace", type=str, required=True, help="the workspace folder (gea workspace --action init)")
     p_sv.add_argument("--host", type=str, default="127.0.0.1", help="bind address; 0.0.0.0 exposes it on the site network (put TLS in front)")
@@ -1922,6 +1937,51 @@ def main(argv=None) -> int:
         else:
             print(_SC.text(r))
         return 0 if r["ready"] else 2
+    elif a.cmd in ("wall", "handover"):
+        import json as _json
+        from . import control_room as _CR
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if not a.workspace:
+            raise SystemExit(f"{a.cmd} needs --workspace, e.g. --workspace C:\\site")
+        try:
+            ws = Workspace(a.workspace)
+        except WorkspaceError as e:
+            raise SystemExit(f"{a.cmd}: {e}")
+        if a.cmd == "wall":
+            b = _CR.board(ws)
+            print(_json.dumps(b, indent=1) if a.json else _CR.text(b))
+            return 0
+        try:
+            if a.write:
+                if not a.actor:
+                    raise SystemExit("handover --write needs --actor, the name the note is signed with")
+                b = _CR.board(ws)
+                counts = {**b["counts"], "alarms_unacked": sum(((t.get("alarms") or {}).get("unacked") or 0) for t in b["tiles"])}
+                n = _CR.write_note(ws, a.actor, a.open, a.watching, a.done, counts)
+                print(f"handover {n['id']} signed by {n['by']} at {n['utc']}")
+                return 0
+            if a.ack:
+                if not a.actor:
+                    raise SystemExit("handover --ack needs --actor, the incoming operator's name")
+                r = _CR.ack_note(ws, a.ack, a.actor, a.comment)
+                print(f"handover {a.ack} acknowledged by {r['by']} at {r['utc']}")
+                return 0
+        except (ValueError, KeyError, PermissionError) as e:
+            raise SystemExit(f"handover: {e.args[0] if e.args else e}")
+        ns = _CR.notes(ws, 0)
+        if a.json:
+            print(_json.dumps(ns, indent=1))
+        elif not ns:
+            print("no handover notes yet")
+        else:
+            for n in ns:
+                print(f"{n['id']}  {n['utc']}  by {n['by']}  " + (f"acknowledged by {n['ack']['by']} at {n['ack']['utc']}" if n.get('ack') else "NOT YET ACKNOWLEDGED"))
+                for k in _CR.NOTE_FIELDS:
+                    if n.get(k):
+                        print(f"    {k}: {n[k]}")
+        return 0
     elif a.cmd == "serve":
         from .service import Service
         from .workspace import WorkspaceError

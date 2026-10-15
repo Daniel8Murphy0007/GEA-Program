@@ -569,6 +569,50 @@ class App:
                 out.append({'well_id': w['id'], 'display': w.get('display') or w['id'], **p})
         return {'wells': out, 'how': 'the running bottom of each hole against days since its first sample; stale and re-referenced depths excluded, a sidetrack as a step back'}
 
+    # -- the control room: the wall board, the shift handover, wall passes ---------------------------
+    @staticmethod
+    def _cr(fn, *a, **k):
+        try:
+            return fn(*a, **k)
+        except PermissionError as e:
+            raise ApiError(403, str(e))
+        except KeyError as e:
+            raise ApiError(404, str(e.args[0]) if e.args else 'not found')
+        except ValueError as e:
+            raise ApiError(400, str(e))
+
+    def wall(self) -> dict:
+        from . import control_room as CR
+        return CR.board(self.ws, self.patches.states())
+
+    def handover_write(self, user: dict, body: dict) -> dict:
+        from . import control_room as CR
+        b = CR.board(self.ws, self.patches.states())
+        counts = {**b['counts'], 'alarms_unacked': sum(((t.get('alarms') or {}).get('unacked') or 0) for t in b['tiles'])}
+        return self._cr(CR.write_note, self.ws, user['name'], str(body.get('open', '')), str(body.get('watching', '')), str(body.get('done', '')), counts)
+
+    def handover_ack(self, user: dict, body: dict) -> dict:
+        from . import control_room as CR
+        return self._cr(CR.ack_note, self.ws, str(body.get('id', '')), user['name'], str(body.get('comment', '')))
+
+    def wall_enter(self, code: str, client: str = '') -> dict:
+        """A wall screen presents its pass: checked like a sign-in, with the same lock-out after repeated failures."""
+        from . import control_room as CR
+        now = time.time()
+        keys = [f'wall:{client}'] if client else ['wall:']
+        with self._lock:
+            waits = [w for w in (self._locked(k, now) for k in keys) if w]
+        if waits:
+            raise ApiError(429, f'too many wrong wall passes; try again in {max(waits)} s', retry_after=max(waits))
+        p = CR.pass_check(self.ws, code)
+        if p is None:
+            with self._lock:
+                self._note_failure(keys, now)
+            self.ws.audit('wall', 'wall.pass.failed', {'client': client})
+            raise ApiError(401, 'that wall pass is not valid (wrong, expired or revoked)')
+        self.ws.audit('wall:' + p['id'], 'wall.pass.enter', {'label': p['label'], 'client': client})
+        return p
+
     def series(self, well_id: str, max_points: int = 1500) -> dict:
         """The well's measured stream, down-sampled by stride for the page's trend plots
         (values, quality per sample, the unit) - read from the source, never from a cache."""
@@ -1301,7 +1345,16 @@ class App:
         return {'alarms_unacked': unacked, 'alarms_active': active, 'alarms_shelved': shelved, 'approvals_pending': pend,
                 'jobs_running': running, 'jobs_failed_24h': failed,
                 'patches_down': sum(1 for p in pst if p.get('status') in ('DOWN', 'DEGRADED')), 'patches': len(pst),
-                'setup_todo': self._setup_todo(), 'generated_utc': utc_now_iso()}
+                'setup_todo': self._setup_todo(), 'handover_unacked': self._handover_unacked(), 'generated_utc': utc_now_iso()}
+
+    def _handover_unacked(self) -> int:
+        """1 when the latest handover note waits for the incoming operator's acknowledgement, for the Control room badge."""
+        try:
+            from . import control_room as CR
+            h = CR.latest(self.ws)
+            return 1 if h and not h.get('ack') else 0
+        except Exception:
+            return 0
 
     def _setup_todo(self) -> int:
         """The required setup items not done, for the Setup tab's badge."""
@@ -1526,13 +1579,17 @@ def make_handler(app: App):
             pass
 
         # -- plumbing ------------------------------------------------------------------
-        def _cookie(self) -> Optional[str]:
+        def _cookie(self, name: str = 'gea_session') -> Optional[str]:
             c = self.headers.get('Cookie', '')
             for part in c.split(';'):
                 k, _, v = part.strip().partition('=')
-                if k == 'gea_session':
+                if k == name:
                     return v
             return None
+
+        def _wall_pass(self) -> Optional[dict]:
+            from . import control_room as CR
+            return CR.pass_check(app.ws, self._cookie('gea_wall'))
 
         def _secure_headers(self) -> None:
             self.send_header('X-Content-Type-Options', 'nosniff')
@@ -1622,8 +1679,20 @@ def make_handler(app: App):
                     s = self._user()
                     return self._json(200, {'user': ({'name': s['name'], 'role': s['role'], 'prev_login_utc': s.get('prev_login_utc'),
                                                       'prefs': app.users.prefs(s['name'])} if s else None), 'users': app.users.count(),
-                                            'workspace': app.ws.manifest['name'], 'site': app.ws.manifest.get('site', {})})
+                                            'workspace': app.ws.manifest['name'], 'site': app.ws.manifest.get('site', {}),
+                                            'wall_pass': (lambda p: {k: p[k] for k in ('id', 'label', 'expires_utc')} if p else None)(self._wall_pass())})
+                if path == '/api/wall':
+                    if self._user() is None and self._wall_pass() is None:
+                        raise ApiError(401, 'sign in, or enter a wall pass')
+                    return self._json(200, app.wall())
                 user = App.require(self._user(), 'viewer')
+                if path == '/api/handover':
+                    from . import control_room as CR
+                    return self._json(200, {'notes': CR.notes(app.ws, int((qs.get('limit') or ['20'])[0]))})
+                if path == '/api/wall/passes':
+                    from . import control_room as CR
+                    App.require(user, 'admin')
+                    return self._json(200, {'passes': CR.pass_list(app.ws)})
                 if path == '/api/overview':
                     return self._json(200, app.overview())
                 if path == '/api/badges':
@@ -1921,7 +1990,31 @@ def make_handler(app: App):
                     u = app.users.add(str(body.get('name', '')), str(body.get('password', '')), 'admin')
                     app.ws.audit(u['name'], 'user.add', {'name': u['name'], 'role': 'admin', 'first': True})
                     return self._json(200, {'user': u})
+                if path == '/api/wall/enter':
+                    from . import control_room as CR
+                    code = str(body.get('code', '')).strip()
+                    p = app.wall_enter(code, client=self._client())
+                    from datetime import datetime as _dt, timezone as _tz
+                    age = max(60, int((_dt.fromisoformat(p['expires_utc'].replace('Z', '+00:00')) - _dt.now(_tz.utc)).total_seconds()))
+                    return self._json(200, {'wall_pass': {k: p[k] for k in ('id', 'label', 'expires_utc')}},
+                                      set_cookie=f'gea_wall={code}; HttpOnly; SameSite=Strict; Path=/; Max-Age={age}')
+                if path == '/api/wall/leave':
+                    return self._json(200, {'ok': True}, set_cookie='gea_wall=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
                 user = self._user()
+                if path == '/api/handover':
+                    App.require(user, 'operator')
+                    return self._json(200, app.handover_write(user, body))
+                if path == '/api/handover/ack':
+                    App.require(user, 'operator')
+                    return self._json(200, app.handover_ack(user, body))
+                if path == '/api/wall/pass':
+                    from . import control_room as CR
+                    App.require(user, 'admin')
+                    return self._json(200, App._cr(CR.pass_create, app.ws, user['name'], str(body.get('label', '')), body.get('days') or CR.PASS_DAYS_DEFAULT))
+                if path == '/api/wall/pass/revoke':
+                    from . import control_room as CR
+                    App.require(user, 'admin')
+                    return self._json(200, App._cr(CR.pass_revoke, app.ws, user['name'], str(body.get('id', ''))))
                 if path == '/api/jobs':
                     App.require(user, 'operator')
                     return self._json(200, app._job([str(a) for a in body.get('args', [])], user, str(body.get('label', ''))))

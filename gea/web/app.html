@@ -97,6 +97,33 @@ header .search{display:flex;gap:4px;align-items:center}header .search input{font
 .since{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;background:var(--track);border-radius:10px;padding:8px 14px;margin:8px 0;font-size:14px}.since b{font-weight:600}
 .wizard ol{padding-left:20px}.wizard li{margin:6px 0}.steps{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.steps span{padding:4px 10px;border-radius:14px;background:var(--track);font-size:13px}.steps span.on{background:var(--accent);color:var(--accent-ink)}
 .hit{display:flex;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--grid)}.hit .k{min-width:120px;color:var(--muted);font-size:13px}
+body.wallmode header,body.wallmode nav,body.wallmode .skip{display:none}
+body.wallmode main{max-width:none;padding:12px 18px}
+body.wallmode{--wbg:#fff;--wink:#000;--wmut:#2b2b2b;--wline:#000;--wsr:#b00020;--wwt:#9a4f00;--wgd:#056b35;--wnd:#555;background:var(--wbg);color:var(--wink);font-size:20px}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) body.wallmode{--wbg:#000;--wink:#fff;--wmut:#dcdcdc;--wline:#fff;--wsr:#ff5a5a;--wwt:#ffb020;--wgd:#3ddc84;--wnd:#b0b0b0}}
+:root[data-theme=dark] body.wallmode{--wbg:#000;--wink:#fff;--wmut:#dcdcdc;--wline:#fff;--wsr:#ff5a5a;--wwt:#ffb020;--wgd:#3ddc84;--wnd:#b0b0b0}
+.wl-top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 24px;padding-bottom:10px;border-bottom:3px solid var(--wline)}
+.wl-site{font-size:34px;font-weight:800;letter-spacing:.01em}.wl-clock{font:700 34px var(--mono)}
+.wl-counts{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:24px;font-weight:700}.wl-counts span{display:inline-flex;align-items:center;gap:6px}
+.wl-fresh{font-size:18px;color:var(--wmut)}.wl-sp{flex:1}
+.wl-btns{display:flex;gap:8px}.wl-btns button,.wl-btns a{font-size:16px;padding:6px 12px;border:2px solid var(--wline);background:var(--wbg);color:var(--wink);border-radius:6px;text-decoration:none}
+.wl-stale{margin:10px 0;padding:14px 18px;border:4px solid var(--wsr);font-size:26px;font-weight:800;color:var(--wsr);background:repeating-linear-gradient(135deg,transparent 0 14px,rgba(128,128,128,.18) 14px 28px)}
+.wl-hand{margin:12px 0;padding:12px 16px;border:3px dashed var(--wline);font-size:20px}.wl-hand.open{border-style:solid;border-width:4px}
+.wl-hand h3{margin:0 0 6px;font-size:24px}.wl-hand .p{margin:4px 0;white-space:pre-wrap}.wl-hand .p b{display:inline-block;min-width:6.5em}
+.wl-hand button{font-size:18px;padding:8px 14px;margin-top:6px}
+.wl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,400px),1fr));gap:14px;margin-top:12px}
+.wl-grid.stale .wl-tile,#wlHand.stale{opacity:.4}
+.wl-tile{border:3px solid var(--wline);border-top-width:14px;border-radius:8px;padding:10px 14px 12px;background:var(--wbg)}
+.wl-tile.st-SERIOUS{border-color:var(--wsr)}.wl-tile.st-WATCH{border-color:var(--wwt)}.wl-tile.st-GOOD{border-color:var(--wgd)}.wl-tile.st-NO_DATA{border-color:var(--wnd);border-style:dashed}
+.wl-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.wl-head h3{margin:0;font-size:30px;line-height:1.15;overflow-wrap:anywhere}
+.wl-state{display:inline-flex;align-items:center;gap:8px;font-size:28px;font-weight:800;white-space:nowrap}
+.wl-why{margin:8px 0;padding-left:1.1em;font-size:20px;line-height:1.3}
+.wl-m{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 14px;margin:6px 0}.wl-m div{min-width:0}.wl-m dt{font-size:15px;color:var(--wmut);text-transform:uppercase;letter-spacing:.04em}.wl-m dd{margin:0;font:700 26px var(--mono)}
+.wl-data{font-size:17px;color:var(--wmut);border-top:1px solid var(--wline);padding-top:6px;margin-top:4px}
+.wl-foot{display:flex;flex-wrap:wrap;gap:6px 24px;margin-top:12px;font-size:17px;color:var(--wmut)}
+.wl-ev{display:flex;flex-wrap:wrap;gap:4px 18px}
+.wl-out{margin:40px auto;max-width:900px;padding:24px;border:4px solid var(--wsr);font-size:28px;font-weight:800}
+@media (max-width:640px){.wl-hand .p b{display:block}body.wallmode{font-size:16px}.wl-site,.wl-clock{font-size:24px}.wl-head h3{font-size:22px}.wl-state{font-size:20px}.wl-m dd{font-size:20px}}
 @media print{header,nav,#toasts,button,.btn,.help,.skip,.row.card,input,select,textarea{display:none !important}body{background:#fff;color:#000;font-size:12px}main{max-width:none;padding:0}.card,.tile{box-shadow:none;border-color:#999;break-inside:avoid}a{color:#000;text-decoration:none}table{font-size:11px}svg.chart{height:200px}h2::after{content:" — printed " attr(data-printed);font-size:11px;color:#555}}
 .apr{min-width:260px;max-width:100%;overflow-wrap:anywhere}
 .kv{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;font-size:14px}.kv dt{color:var(--muted)}.kv dd{margin:0}
@@ -141,7 +168,7 @@ let me = null, workspaceName = '', PREFS = {units: 'field', time_zone: 'UTC', th
 // time: every timestamp the service gives is UTC; the viewer sees it in the site's or their own zone
 function tz(iso) { if (!iso) return '—'; const z = PREFS.time_zone || SITE.time_zone || 'UTC'; try { const d = new Date(String(iso).replace(' ', 'T').replace(/(Z|[+-]\d\d:?\d\d)?$/, m => m || 'Z')); if (isNaN(d)) return esc(iso); return new Intl.DateTimeFormat(undefined, {timeZone: z, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZoneName: 'short'}).format(d); } catch (e) { return esc(iso); } }
 // units: field (psi, °F, ft, bbl/d) or SI (kPa, °C, m, m³/d); conversion only at display time, the files keep their units
-const UNITS = {psi: ['kPa', v => v * 6.894757], psia: ['kPa', v => v * 6.894757], psig: ['kPa', v => v * 6.894757], degF: ['°C', v => (v - 32) / 1.8], '°F': ['°C', v => (v - 32) / 1.8], F: ['°C', v => (v - 32) / 1.8], ft: ['m', v => v * 0.3048], 'bbl/d': ['m³/d', v => v * 0.158987], STB_d: ['m³/d', v => v * 0.158987], 'Mscf/d': ['m³/d', v => v * 28.3168], 'lb/ft3': ['kg/m³', v => v * 16.0185]};
+const UNITS = {psi: ['kPa', v => v * 6.894757], psia: ['kPa', v => v * 6.894757], psig: ['kPa', v => v * 6.894757], degF: ['°C', v => (v - 32) / 1.8], '°F': ['°C', v => (v - 32) / 1.8], F: ['°C', v => (v - 32) / 1.8], ft: ['m', v => v * 0.3048], 'bbl/d': ['m³/d', v => v * 0.158987], STB_d: ['m³/d', v => v * 0.158987], 'Mscf/d': ['m³/d', v => v * 28.3168], 'lb/ft3': ['kg/m³', v => v * 16.0185], 'ft/h': ['m/h', v => v * 0.3048]};
 function U(v, unit, d=2) { if (v === null || v === undefined || v === '' || typeof v !== 'number') return fmt(v, d); const si = (PREFS.units || SITE.units || 'field') === 'si'; const c = si && UNITS[unit]; return c ? `${fmt(c[1](v), d)} ${esc(c[0])}` : `${fmt(v, d)}${unit ? ' ' + esc(unit) : ''}`; }
 function unitLabel(unit) { const si = (PREFS.units || SITE.units || 'field') === 'si'; return si && UNITS[unit] ? UNITS[unit][0] : unit; }
 // help panels: the same text as `gea help <topic>` (gea/help/*.md), fetched once; a view maps to a topic
@@ -1700,16 +1727,162 @@ VIEWS.welcome = async () => {
 const watching = {};
 function watch(id, done) { if (watching[id]) return; watching[id] = true; const tick = async () => { try { const j = await get('/api/jobs/' + id); if (j.status === 'QUEUED' || j.status === 'RUNNING') return setTimeout(tick, 2000); delete watching[id]; toast(`${j.label}: ${j.status}`, j.status === 'DONE' ? 'ok' : 'err'); if (done) done(j); } catch (e) { delete watching[id]; } }; setTimeout(tick, 1500); }
 
+// ---------- the control room: the wall board and the shift handover ---------------------------------
+// The wall reads /api/wall every refresh_s seconds. It says how old its last answer is, and when the service stops
+// answering it says so across the screen and greys every tile: old numbers are never shown as current.
+const WALL = {active: false, board: null, recv: 0, timer: null, tick: null, pageTimer: null, page: 0, lock: null, err: null};
+let WALLONLY = null;   // the wall pass, when the screen is signed in by a pass and not by a person
+const CR_WORD = {SERIOUS: 'Serious', WATCH: 'Watch', GOOD: 'Good', NO_DATA: 'No data'};
+function crShape(state, size = 40) {
+  const c = {SERIOUS: 'var(--wsr)', WATCH: 'var(--wwt)', GOOD: 'var(--wgd)', NO_DATA: 'var(--wnd)'}[state] || 'var(--wnd)';
+  const g = 'var(--wbg)';
+  const p = {SERIOUS: `<polygon points="7,1 17,1 23,7 23,17 17,23 7,23 1,17 1,7" fill="${c}"/><path d="M8 8l8 8M16 8l-8 8" stroke="${g}" stroke-width="2.8"/>`,
+             WATCH: `<polygon points="12,1.5 23,22 1,22" fill="${c}"/><path d="M12 8.5v6.5" stroke="${g}" stroke-width="2.8"/><circle cx="12" cy="18.4" r="1.6" fill="${g}"/>`,
+             GOOD: `<circle cx="12" cy="12" r="11" fill="${c}"/><path d="M6.5 12.5l3.6 3.6 7.4-8" fill="none" stroke="${g}" stroke-width="2.8"/>`,
+             NO_DATA: `<circle cx="12" cy="12" r="10" fill="none" stroke="${c}" stroke-width="2.4" stroke-dasharray="4 3"/><path d="M7 12h10" stroke="${c}" stroke-width="2.8"/>`}[state] || '';
+  return `<svg class="crs" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${p}</svg>`;
+}
+function crAgo(s) { s = Math.max(0, Math.round(s)); if (s < 90) return s + ' s'; if (s < 5400) return Math.floor(s / 60) + ' min'; if (s < 172800) return (s / 3600).toFixed(1) + ' h'; return (s / 86400).toFixed(1) + ' days'; }
+function crClock() { const z = PREFS.time_zone || SITE.time_zone || 'UTC'; try { return new Intl.DateTimeFormat(undefined, {timeZone: z, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZoneName: 'short'}).format(new Date()); } catch (e) { return new Date().toISOString().slice(11, 19) + ' UTC'; } }
+function crNum(v, unit, d) { const si = (PREFS.units || SITE.units || 'field') === 'si'; const c = si && UNITS[unit]; const x = c ? c[1](v) : v; return `${x.toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d})} ${esc(c ? c[0] : unit)}`; }
+function crTile(t) {
+  const m = [], dr = t.drilling, al = t.alarms;
+  if (dr) {
+    if (dr.bottom_ft !== null && dr.bottom_ft !== undefined) m.push(['Bottom', crNum(dr.bottom_ft, 'ft', 0)]); else if (dr.td_md_ft !== null && dr.td_md_ft !== undefined) m.push(['TD', crNum(dr.td_md_ft, 'ft', 0)]);
+    if (dr.bit_ft !== null && dr.bit_ft !== undefined) m.push(['Bit', crNum(dr.bit_ft, 'ft', 0)]);
+    m.push(['ROP', dr.rop_ft_h !== null && dr.rop_ft_h !== undefined ? crNum(dr.rop_ft_h, 'ft/h', 0) : (dr.drilling_now === false ? 'off bottom' : '—')]);
+    if (dr.on_bottom_hours !== null && dr.on_bottom_hours !== undefined) m.push(['On bottom', crNum(dr.on_bottom_hours, 'h', 1)]);
+  }
+  m.push(['Alarms', al ? `${al.active}${al.unacked ? ` · ${al.unacked} unacked` : ''}` : 'no report']);
+  if (t.drift) m.push(['Gauges', t.drift.detected ? esc(String(t.drift.worst).replace(/_/g, ' ').toLowerCase()) : 'in family']);
+  let data;
+  if (t.live) data = t.live.age_s === null || t.live.age_s === undefined ? 'live feed: no sample yet' : `live feed: latest sample <b data-age0="${t.live.age_s}">${crAgo(t.live.age_s)}</b> ago`;
+  else data = 'recorded well' + (t.recorded && t.recorded.record_end_utc ? ` · the record ends ${tz(t.recorded.record_end_utc)}` : '') + (dr && dr.note ? ` · ${esc(dr.note)}` : '');
+  const why = t.reasons.slice(0, 3).map(r => `<li>${esc(r)}</li>`).join('') + (t.reasons.length > 3 ? `<li>and ${t.reasons.length - 3} more</li>` : '');
+  return `<article class="wl-tile st-${esc(t.state)}" aria-label="${esc(t.display)}: ${esc(t.word)}"><div class="wl-head"><h3>${esc(t.display)}</h3><div class="wl-state">${crShape(t.state)}<span>${esc(t.word)}</span></div></div><ul class="wl-why">${why}</ul><dl class="wl-m">${m.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl><div class="wl-data">${data}</div></article>`;
+}
+function crHand(h, compact) {
+  if (!h) return compact ? '' : `<div class="wl-hand"><h3>No handover note yet</h3></div>`;
+  const parts = [['Open', h.open], ['Watching', h.watching], ['Done', h.done]].filter(x => x[1]).map(([k, v]) => `<div class="p"><b>${k}</b> ${esc(v)}</div>`).join('');
+  if (h.ack) return `<div class="wl-hand"><h3>Handover from ${esc(h.by)} at ${tz(h.utc)} — acknowledged by ${esc(h.ack.by)} at ${tz(h.ack.utc)}</h3>${compact ? '' : parts}</div>`;
+  const canAck = can('operator') && me && me.name !== h.by;
+  return `<div class="wl-hand open" role="region" aria-label="Handover note"><h3>${crShape('WATCH', 26)} Handover from ${esc(h.by)} at ${tz(h.utc)} — not yet acknowledged</h3>${parts}${canAck ? `<p><label>Comment (optional)<input id="hoAckC" maxlength="2000"></label><button type="button" id="hoAck" data-id="${esc(h.id)}">I have read this — acknowledge</button></p>` : (me && me.name === h.by ? `<p class="small">The incoming operator acknowledges it; you wrote it.</p>` : '')}</div>`;
+}
+function crBindAck() { const b = $('#hoAck'); if (b) b.onclick = async () => { b.disabled = true; try { await post('/api/handover/ack', {id: b.dataset.id, comment: ($('#hoAckC') || {}).value || ''}); toast('Handover acknowledged', 'ok'); if (WALL.active) wallFetch(); else route(); } catch (e) { toast(e.message, 'err'); b.disabled = false; } }; }
+function wallStop() { WALL.active = false; clearTimeout(WALL.timer); clearInterval(WALL.tick); clearInterval(WALL.pageTimer); WALL.timer = WALL.tick = WALL.pageTimer = null; document.body.classList.remove('wallmode'); if (WALL.lock) { try { WALL.lock.release(); } catch (e) {} WALL.lock = null; } }
+async function wallWake() {
+  const el = $('#wlWake'); if (!el) return;
+  if (!('wakeLock' in navigator)) { el.textContent = 'this browser cannot keep the screen awake (it needs https or localhost): set the display never to sleep'; return; }
+  try { WALL.lock = await navigator.wakeLock.request('screen'); el.textContent = 'screen kept awake'; WALL.lock.addEventListener('release', () => { if (WALL.active && $('#wlWake')) $('#wlWake').textContent = 'screen wake released; it is asked for again when the page is shown'; }); }
+  catch (e) { el.textContent = 'the browser refused to keep the screen awake: ' + e.message; }
+}
+document.addEventListener('visibilitychange', () => { if (WALL.active && document.visibilityState === 'visible') { wallWake(); wallFetch(); } });
+function wallPaint() {
+  const b = WALL.board; if (!b || !$('#wlGrid')) return;
+  const c = b.counts;
+  $('#wlCounts').innerHTML = ['SERIOUS', 'WATCH', 'GOOD', 'NO_DATA'].map(s => `<span>${crShape(s, 28)}${c[s]} ${CR_WORD[s]}</span>`).join('');
+  $('#wlHand').innerHTML = crHand(b.handover, !!(b.handover && b.handover.ack)); crBindAck();
+  const grid = $('#wlGrid'); const tiles = b.tiles;
+  if (!tiles.length) { grid.innerHTML = `<p>No wells in this workspace yet.</p>`; $('#wlPage').textContent = ''; }
+  else {
+    grid.innerHTML = tiles.map(crTile).join('');
+    // pages: when the tiles do not fit the screen, show as many as fit and turn the page every 15 s (worst first, so page 1 carries them)
+    const cols = getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length || 1;
+    const th = Math.max(...[...grid.children].map(x => x.offsetHeight)) + 14;
+    const avail = window.innerHeight - grid.getBoundingClientRect().top - 70;
+    const per = Math.max(cols, Math.floor(Math.max(th, avail) / th) * cols);
+    const pages = window.innerWidth >= 900 ? Math.ceil(tiles.length / per) : 1;   // a phone scrolls; a wall turns pages
+    if (pages > 1) { WALL.page = WALL.page % pages; grid.innerHTML = tiles.slice(WALL.page * per, (WALL.page + 1) * per).map(crTile).join(''); $('#wlPage').textContent = `page ${WALL.page + 1} of ${pages} (${tiles.length} wells, worst first)`;
+      if (!WALL.pageTimer) WALL.pageTimer = setInterval(() => { WALL.page++; wallPaint(); }, 15000); }
+    else { $('#wlPage').textContent = `${tiles.length} well${tiles.length === 1 ? '' : 's'}`; clearInterval(WALL.pageTimer); WALL.pageTimer = null; WALL.page = 0; }
+  }
+  $('#wlEvents').innerHTML = (b.recent_events || []).length ? 'Latest alarm events: ' + b.recent_events.map(e => `<span>${tz(e.utc)} ${esc(e.display)} ${esc(e.alarm_id)} ${esc(e.priority || '')} ${esc(String(e.event || '').toLowerCase())}</span>`).join('') : '';
+  wallFresh();
+}
+function wallFresh() {
+  const f = $('#wlFresh'); if (!f) return;
+  const age = WALL.recv ? (Date.now() - WALL.recv) / 1000 : null, lim = 2 * ((WALL.board && WALL.board.refresh_s) || 30) + 5;
+  $('#wlClock').textContent = crClock();
+  f.textContent = WALL.recv ? `updated ${crAgo(age)} ago · every ${(WALL.board && WALL.board.refresh_s) || 30} s` : 'waiting for the first answer…';
+  document.querySelectorAll('[data-age0]').forEach(x => { x.textContent = crAgo(+x.dataset.age0 + (age || 0)); });
+  const stale = WALL.err || (age !== null && age > lim);
+  const sb = $('#wlStale'); sb.hidden = !stale;
+  if (stale) sb.textContent = `NOT UPDATING — ${WALL.recv ? `the last answer was ${crAgo(age)} ago (${tz(new Date(WALL.recv).toISOString())}); everything below is from then` : 'no answer from the service yet'}${WALL.err ? ` · ${WALL.err}` : ''}`;
+  $('#wlGrid').classList.toggle('stale', !!stale); $('#wlHand').classList.toggle('stale', !!stale);
+}
+async function wallFetch() {
+  if (!WALL.active) return;
+  clearTimeout(WALL.timer);
+  try { const b = await get('/api/wall'); WALL.board = b; WALL.recv = Date.now(); WALL.err = null; wallPaint(); }
+  catch (e) {
+    if (e.status === 401) { wallStop(); WALLONLY = null; document.body.classList.add('wallmode'); $('#main').innerHTML = `<div class="wl-out" role="alert">${crShape('NO_DATA', 48)} SIGNED OUT — this wall is not updating and shows nothing old. <p style="font-size:18px;font-weight:400">The session or the wall pass ended. <button type="button" id="wlSignIn">Sign in again</button></p></div>`; $('#wlSignIn').onclick = () => { document.body.classList.remove('wallmode'); me = null; boot(); }; return; }
+    WALL.err = 'the service did not answer: ' + e.message; wallFresh();
+  }
+  if (WALL.active) WALL.timer = setTimeout(wallFetch, 1000 * ((WALL.board && WALL.board.refresh_s) || 30));
+}
+VIEWS.wall = async () => {
+  wallStop(); WALL.active = true; WALL.recv = 0; WALL.board = null; WALL.err = null; WALL.page = 0;
+  document.body.classList.add('wallmode');
+  const who = WALLONLY ? `wall pass: ${esc(WALLONLY.label)}` : (me ? `${esc(me.name)} · ${esc(me.role)}` : '');
+  $('#main').innerHTML = `<h2 class="skip">Control room</h2><div class="wl-top"><div class="wl-site">${esc(SITE.display_name || workspaceName)}</div><div class="wl-clock" id="wlClock">${crClock()}</div><div class="wl-counts" id="wlCounts" aria-live="polite"></div><div class="wl-sp"></div><div class="wl-fresh" id="wlFresh" aria-live="polite"></div><div class="wl-btns"><button type="button" id="wlFs" title="F">Full screen</button>${WALLONLY ? `<button type="button" id="wlLeave">Leave</button>` : `<a href="#/control" id="wlLeave" title="Esc">Leave</a>`}</div></div><div id="wlStale" class="wl-stale" role="alert" hidden></div><div id="wlHand"></div><div id="wlGrid" class="wl-grid"></div><div class="wl-foot"><span id="wlPage"></span><span id="wlWake"></span><span>${who}</span><span class="wl-ev" id="wlEvents"></span></div>`;
+  $('#wlFs').onclick = () => wallFull();
+  if (WALLONLY) $('#wlLeave').onclick = async () => { try { await post('/api/wall/leave'); } catch (e) {} wallStop(); WALLONLY = null; boot(); };
+  WALL.tick = setInterval(wallFresh, 1000);
+  wallWake();
+  await wallFetch();
+};
+function wallFull() { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(e => toast('Full screen refused: ' + e.message, 'err')); }
+document.addEventListener('keydown', ev => {
+  if (!WALL.active || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+  if (ev.key === 'f' || ev.key === 'F') { ev.preventDefault(); wallFull(); }
+  else if (ev.key === 'Escape' && !document.fullscreenElement && !WALLONLY) { location.hash = '#/control'; }
+});
+window.addEventListener('resize', () => { if (WALL.active && WALL.board) wallPaint(); });
+// the control-room page: open the wall, write and acknowledge the handover, the history, the wall passes
+VIEWS.control = async () => {
+  const [hv, b] = await Promise.all([get('/api/handover?limit=30'), get('/api/wall')]);
+  const c = b.counts;
+  let h = `<h2>Control room</h2><p>The wall board is a tile per well, worst first, read from across the room: the state in a shape and a word, why, and the numbers that matter. It refreshes itself every ${b.refresh_s} s and says plainly when it has stopped.</p>`;
+  h += `<div class="row card"><a class="btn" href="#/wall">Open the wall</a><span class="small">Now: ${c.SERIOUS} serious · ${c.WATCH} watch · ${c.GOOD} good · ${c.NO_DATA} no data. On the wall, F is full screen and Esc comes back here.</span></div>`;
+  const latest = hv.notes[0];
+  h += `<div class="card"><h3>Latest handover</h3>${latest ? crHandCard(latest) : '<p class="muted">No handover note yet.</p>'}</div>`;
+  if (can('operator')) h += `<form class="card" id="hoForm"><h3>Write the handover</h3><p class="small muted">For the incoming shift: what is open, what you are watching, what you did. It is signed with your name and the time, kept with the board as it stands now, and stays on the wall until the next operator acknowledges it.</p><label>Open — what the next shift must pick up<textarea id="hoOpen" maxlength="2000" style="min-height:80px;font-family:var(--sans)"></textarea></label><label>Watching — what is being watched, and why<textarea id="hoWatch" maxlength="2000" style="min-height:80px;font-family:var(--sans)"></textarea></label><label>Done — what this shift did<textarea id="hoDone" maxlength="2000" style="min-height:80px;font-family:var(--sans)"></textarea></label><p><button type="submit">Sign and hand over</button></p></form>`;
+  else h += need('operator');
+  h += `<h3>Handover history</h3>`;
+  h += hv.notes.length ? `<table><thead><tr><th>Written</th><th>By</th><th>Open · watching · done</th><th>Board then</th><th>Acknowledged</th></tr></thead><tbody>${hv.notes.map(n => `<tr><td>${tz(n.utc)}<br><span class="mono small">${esc(n.id)}</span></td><td>${esc(n.by)}</td><td class="apr">${[['Open', n.open], ['Watching', n.watching], ['Done', n.done]].filter(x => x[1]).map(([k, v]) => `<b>${k}:</b> ${esc(v)}`).join('<br>')}</td><td class="small">${n.board && n.board.SERIOUS !== undefined ? `${n.board.SERIOUS} serious · ${n.board.WATCH} watch · ${n.board.alarms_unacked || 0} unacked` : '—'}</td><td>${n.ack ? `${esc(n.ack.by)}<br>${tz(n.ack.utc)}${n.ack.comment ? `<br><i>${esc(n.ack.comment)}</i>` : ''}` : statusPill('warn', 'not yet')}</td></tr>`).join('')}</tbody></table>` : '<p class="muted">None yet.</p>';
+  if (can('admin')) {
+    const ps = await get('/api/wall/passes');
+    h += `<div class="card"><h3>Wall passes</h3><p class="small">A pass lets a screen show the wall without anyone's account: it reads the board and the latest handover and nothing else, it expires, and you can revoke it here. On the screen, open this page's address, choose <b>This is a wall screen</b> and type the code once.</p><form class="row" id="wpForm"><label>Screen<input id="wpLabel" placeholder="doghouse wall" required maxlength="80"></label><label>Days<input id="wpDays" type="number" min="1" max="365" value="90"></label><button type="submit">Issue a pass</button></form><div id="wpCode"></div>`;
+    h += ps.passes.length ? `<table><thead><tr><th>Pass</th><th>Screen</th><th>Issued</th><th>Expires</th><th>Status</th><th></th></tr></thead><tbody>${ps.passes.map(p => `<tr><td class="mono">${esc(p.id)}</td><td>${esc(p.label)}</td><td>${esc(p.created_by)}<br>${tz(p.created_utc)}</td><td>${tz(p.expires_utc)}</td><td>${statusPill(p.status === 'ACTIVE' ? 'good' : 'neutral', p.status.toLowerCase())}${p.revoked_by ? ` by ${esc(p.revoked_by)}` : ''}</td><td>${p.status === 'ACTIVE' ? `<button type="button" class="secondary" data-wprev="${esc(p.id)}">Revoke</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<p class="muted small">No passes issued.</p>';
+    h += `</div>`;
+  }
+  $('#main').innerHTML = h;
+  crBindAck();
+  const f = $('#hoForm'); if (f) f.onsubmit = async ev => { ev.preventDefault(); const bt = f.querySelector('button'); bt.disabled = true; try { const n = await post('/api/handover', {open: $('#hoOpen').value, watching: $('#hoWatch').value, done: $('#hoDone').value}); toast('Handover ' + n.id + ' signed', 'ok'); route(); } catch (e) { toast(e.message, 'err'); bt.disabled = false; } };
+  const wf = $('#wpForm'); if (wf) wf.onsubmit = async ev => { ev.preventDefault(); try { const p = await post('/api/wall/pass', {label: $('#wpLabel').value, days: +$('#wpDays').value}); $('#wpCode').innerHTML = `<div class="card" role="alert"><p><b>Pass ${esc(p.id)} for ${esc(p.label)}</b>, until ${tz(p.expires_utc)}. The code, shown this once:</p><p class="mono" style="font-size:20px;overflow-wrap:anywhere">${esc(p.code)}</p><p class="small">Only its hash is kept. Type it into the wall screen; if it is lost, revoke this pass and issue another.</p></div>`; } catch (e) { toast(e.message, 'err'); } };
+  document.querySelectorAll('[data-wprev]').forEach(x => x.onclick = async () => { if (!confirm('Revoke wall pass ' + x.dataset.wprev + '? The screen using it stops at its next refresh.')) return; try { await post('/api/wall/pass/revoke', {id: x.dataset.wprev}); toast('Revoked', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+};
+function crHandCard(n) {
+  const parts = [['Open', n.open], ['Watching', n.watching], ['Done', n.done]].filter(x => x[1]).map(([k, v]) => `<p style="white-space:pre-wrap"><b>${k}:</b> ${esc(v)}</p>`).join('');
+  const canAck = !n.ack && can('operator') && me.name !== n.by;
+  return `<p class="small">${esc(n.id)} · written by <b>${esc(n.by)}</b> at ${tz(n.utc)} · ${n.ack ? `acknowledged by <b>${esc(n.ack.by)}</b> at ${tz(n.ack.utc)}` : statusPill('warn', 'not yet acknowledged')}</p>${parts}${canAck ? `<p class="row"><label>Comment (optional)<input id="hoAckC" maxlength="2000"></label><button type="button" id="hoAck" data-id="${esc(n.id)}">I have read this — acknowledge</button></p>` : ''}`;
+}
+async function wallOnly(s) {
+  WALLONLY = s.wall_pass; SITE = s.site || {}; $('#nav').innerHTML = ''; $('#whoami').textContent = ''; $('#logoutBtn').hidden = true; $('#searchForm').hidden = true;
+  await VIEWS.wall();
+}
+
 // ---------- auth screens ------------------------------------------------------------------
 function authScreen(first) {
-  $('#main').innerHTML = `<div class="auth card"><h2>${first ? 'First administrator' : 'Sign in'}</h2><p class="small muted">${first ? 'This workspace has no accounts yet. Create the administrator; add everyone else under Administration.' : 'Workspace: ' + esc(workspaceName)}</p><form id="authForm"><label>Name<input id="aName" autocomplete="username" required></label><label>Password<input id="aPw" type="password" autocomplete="${first ? 'new-password' : 'current-password'}" required minlength="${first ? 8 : 1}"></label><p><button type="submit">${first ? 'Create and sign in' : 'Sign in'}</button></p></form></div>`;
+  $('#main').innerHTML = `<div class="auth card"><h2>${first ? 'First administrator' : 'Sign in'}</h2><p class="small muted">${first ? 'This workspace has no accounts yet. Create the administrator; add everyone else under Administration.' : 'Workspace: ' + esc(workspaceName)}</p><form id="authForm"><label>Name<input id="aName" autocomplete="username" required></label><label>Password<input id="aPw" type="password" autocomplete="${first ? 'new-password' : 'current-password'}" required minlength="${first ? 8 : 1}"></label><p><button type="submit">${first ? 'Create and sign in' : 'Sign in'}</button></p></form>${first ? '' : `<details><summary>This is a wall screen</summary><form id="wpEnter"><label>Wall pass<input id="wpCodeIn" autocomplete="off" required></label><p class="small muted">An administrator issues the pass under Control room. The screen keeps it until it expires or is revoked, and sees the wall and nothing else.</p><p><button type="submit">Show the wall</button></p></form></details>`}</div>`;
   $('#authForm').onsubmit = async (ev) => { ev.preventDefault(); try { if (first) await post('/api/setup', {name: $('#aName').value, password: $('#aPw').value}); const r = await post('/api/login', {name: $('#aName').value, password: $('#aPw').value}); me = r.user; await boot(); } catch (e) { toast(e.message, 'err'); } };
+  const wp = $('#wpEnter'); if (wp) wp.onsubmit = async (ev) => { ev.preventDefault(); try { await post('/api/wall/enter', {code: $('#wpCodeIn').value.trim()}); location.hash = '#/wall'; await boot(); } catch (e) { toast(e.message, 'err'); } };
   $('#aName').focus();
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/seismic', 'Seismic'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
-const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w']};
+const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/seismic', 'Seismic'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w'], '#/control': b => [b.handover_unacked, 'w']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }
 setInterval(refreshBadges, 30000);
@@ -1720,6 +1893,7 @@ async function _route() {
   renderNav();
   const parts = (location.hash || '#/').split('?')[0].slice(2).split('/').filter(Boolean);
   const view = parts[0] || 'home', arg = parts.slice(1).join('/');
+  if (view !== 'wall') wallStop();
   try {
     if (view === 'wells' && arg) await VIEWS.well(decodeURIComponent(arg));
     else if (view === 'seismic' && arg) await VIEWS.seismic_station(decodeURIComponent(arg));
@@ -1728,13 +1902,15 @@ async function _route() {
     else if (view === 'help') await VIEWS.help(arg ? decodeURIComponent(arg) : undefined);
     else if (VIEWS[view]) await VIEWS[view](arg ? decodeURIComponent(arg) : undefined);
     else $('#main').innerHTML = `<h2>Not found</h2>`;
-    const h2 = $('#main h2'); if (h2 && PREFS.help_open && !$('#main .help')) { await loadHelp(); if (HELPIDX.views[view]) h2.insertAdjacentHTML('afterend', help(view)); }
+    const h2 = $('#main h2'); if (h2 && view !== 'wall' && PREFS.help_open && !$('#main .help')) { await loadHelp(); if (HELPIDX.views[view]) h2.insertAdjacentHTML('afterend', help(view)); }
     stamp(); refreshBadges();
   } catch (e) { $('#main').innerHTML = `<div class="card"><h2>Could not load this page</h2><p>${esc(e.message)}</p></div>`; if (e.status === 401) { me = null; boot(); } }
   $('#main').focus({preventScroll: true});
 }
 async function boot() {
   const s = await get('/api/session'); workspaceName = s.workspace; $('#siteName').textContent = workspaceName; me = s.user;
+  if (!me && s.wall_pass) return wallOnly(s);
+  WALLONLY = null; wallStop();
   if (!me) { $('#whoami').textContent = ''; $('#logoutBtn').hidden = true; $('#nav').innerHTML = ''; return authScreen(s.users === 0); }
   $('#whoami').textContent = `${me.name} · ${me.role}`; $('#logoutBtn').hidden = false; $('#searchForm').hidden = false;
   PREFS = {...PREFS, ...(me.prefs || {})}; SITE = s.site || {}; applyTheme(); $('#helpBtn').setAttribute('aria-pressed', String(!!PREFS.help_open));

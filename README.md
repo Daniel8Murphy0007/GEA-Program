@@ -609,6 +609,23 @@ against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
 
+### The control room
+
+The Control room tab opens the wall: a screen read from across the room, one
+tile per well, worst first, each with its state in a shape and a word -
+Serious, Watch, Good, No data - the reasons in plain words, the alarms, the
+gauges, and for a drilling recorder the bottom, the bit, the rate of
+penetration and the hours on bottom at the end of the record. It refreshes
+itself every 30 seconds, says how old its last answer is, and puts a notice
+across the screen when the service stops answering; a recorded well is
+described at the end of its record and never called stale. F is full screen;
+the screen is kept awake where the browser allows it; when the wells do not
+fit, the pages turn, the worst first. The outgoing operator writes the shift
+handover - what is open, what is being watched, what was done - and it stays
+on the wall until the incoming operator acknowledges it; both go in the audit
+log. A wall pass lets a screen show the wall and nothing else with no one's
+account signed in. `gea wall`, `gea handover`, `gea help control-room`.
+
 ### The site map
 
 The Map tab puts everything in the workspace that has a position in one

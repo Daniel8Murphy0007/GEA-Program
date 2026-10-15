@@ -1,30 +1,32 @@
-v0.34.0 — THE SITE MAP
+v0.35.0 — THE CONTROL ROOM
 
-Pad 3 has thirty-three structure layers in it, a stress map of forty
-thousand records, three wells - and nowhere to see them together. The
-layers answered questions about a position one at a time; nothing drew
-them. This release adds the Map tab.
+A monitor on the doghouse wall has to be read from across the room by
+someone who is busy, and it has to say so when it is wrong. This release
+adds the Control room tab and the wall it opens.
 
-Everything in the workspace that has a position goes into one frame: the
-wells at their declared surface positions, every structure layer the site
-brought - faults and folds, formation contours, areas, points - the World
-Stress Map's SHmax directions, the seismic stations and the response
-areas, over the outline of the US states and counties. A well declared on
-NAD27 is moved to WGS84 by its datum shift, about fifty metres here, and
-the move is printed beside it. A well with no declared position is listed
-as not placed, with the way to place it, and is never drawn anywhere.
+One tile per well, the worst first. Each says its state in a shape and a
+word - Serious, Watch, Good, No data - so it reads on a washed-out screen
+and without colour, then why in plain words, then the numbers that matter:
+the alarms, the gauges, and for a drilling recorder the bottom, the bit,
+the rate of penetration and the hours on bottom. The rule a tile is judged
+by is written on the help page and nowhere bent: an unacknowledged P1 or P2
+alarm, a gauge off with no explanation, a live feed down or long silent is
+Serious; anything else active, explained or late is Watch. A recorded well
+is described at the end of its record and is never called stale.
 
-Each view draws its layers at the detail it needs - a vertex that would
-land in the same screen cell as the one before it is left out of the
-drawing, never moved - so the half-million vertices of Pad 3's layers
-pan and zoom without waiting. Click anywhere and every layer says what it
-knows about that spot: the nearest fault and its distance, the contours
-it lies between, the area it falls in, and how far it is from every
-placed well.
+The wall refreshes itself every thirty seconds and shows how old its last
+answer is. When the service stops answering, a notice goes across the
+screen with the age of everything below it and every tile greys; a wall
+whose sign-in has ended shows nothing old at all. F is full screen, the
+screen is kept awake where the browser allows it, and when the wells do not
+fit the pages turn, the worst first.
 
-The outline ships with the program - the Census Bureau's 2017
-cartographic boundaries, with their provenance - so the map works with
-no network at all.
+The shift handover sits beside it. The outgoing operator writes what is
+open, what is being watched and what was done; the note is signed, keeps
+the board as it stood, and stays on the wall until the incoming operator
+acknowledges it. Both go in the audit log. A wall pass lets a screen show
+the wall and nothing else, with no one's account signed in; the code is
+shown once and can be revoked.
 
-Section CC is new, three checks. The gate is 389 checks. The standalone
+Section CD is new, three checks. The gate is 392 checks. The standalone
 guard is clean.

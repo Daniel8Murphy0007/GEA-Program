@@ -5,6 +5,51 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.35.0] - 2026-10-15 - The control room
+
+### Added
+- **The wall** (`gea/control_room.py`, `#/wall`): a screen read from across
+  the room - one tile per well, worst first, its state in a shape and a word
+  (Serious, an octagon; Watch, a triangle; Good, a circle; No data, a dashed
+  ring) so it reads without colour, the reasons in plain words, and the
+  numbers that matter: the alarms active and unacknowledged, the gauges, and
+  for a drilling recorder the bottom, the bit, the rate of penetration and
+  the hours on bottom at the end of the record. Large type, high contrast,
+  light and dark.
+- **The rule a tile is judged by, stated on the page**: Serious is an
+  unacknowledged P1/P2 alarm, a gauge reading off with no explanation, or a
+  live feed down or silent five times its stale limit (fifteen minutes at
+  least); Watch is any other active or shelved alarm, an explained drift, or
+  a live feed past its stale limit, degraded or stopped; Good is a well with
+  reports and none of these; No data is neither reports nor a live sample.
+  A recorded well is described at the end of its record and is never called
+  stale; only a live feed has an age, and it is measured.
+- **It refreshes itself and says when it has stopped.** Every 30 seconds;
+  the top right says how old the last answer is; after two missed refreshes
+  a notice across the screen gives the age of everything below and every
+  tile is greyed; a wall whose session or pass has ended shows nothing old.
+  F or the button is full screen, Esc goes back; the screen is kept awake
+  where the browser allows it, and says so where it does not; when the wells
+  do not fit, the wall turns the page every 15 seconds, the worst first.
+- **The shift handover** on the Control room tab: the outgoing operator
+  writes what is open, what is being watched and what was done; the note is
+  signed with the name and time, keeps the board's counts at that moment,
+  goes up on the wall and badges the tab until the incoming operator
+  acknowledges it (not the author). Appended to `handover/notes.jsonl`,
+  never rewritten; each note and acknowledgement in the audit log; the
+  history on the tab.
+- **Wall passes**: an administrator issues a pass named for a screen (1 to
+  365 days); the screen types the code once and shows the wall and the
+  latest handover and nothing else, with no one's account signed in. The
+  code is shown once and only its hash is kept; a wrong pass is locked out
+  like a wrong password; a pass can be revoked at any time.
+- `gea wall --workspace` prints the board; `gea handover --workspace` lists,
+  signs (`--write`) and acknowledges (`--ack`) notes. API `/api/wall`,
+  `/api/handover`, `/api/handover/ack`, `/api/wall/pass`,
+  `/api/wall/passes`, `/api/wall/pass/revoke`, `/api/wall/enter`,
+  `/api/wall/leave`. `gea help control-room`.
+- Section CD (3 checks); the gate is 392.
+
 ## [v0.34.0] - 2026-10-15 - The site map
 
 ### Added
