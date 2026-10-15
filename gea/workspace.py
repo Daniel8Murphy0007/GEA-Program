@@ -1569,7 +1569,8 @@ class Workspace:
             raise WorkspaceError(f'well {well_id}: no recorded stream yet')
         return read_any(src)
 
-    def set_well(self, well_id: str, surface: Optional[dict] = None, disposal: Optional[dict] = None, actor: str = 'system') -> dict:
+    def set_well(self, well_id: str, surface: Optional[dict] = None, disposal: Optional[dict] = None, actor: str = 'system',
+                 identity: Optional[dict] = None) -> dict:
         """What the operator declares about a well and this program cannot measure: where its surface location
         is and on which datum; that it is a disposal well, its API and UIC numbers, its depth tier by the named
         formation, which of its channels are the surface injection pressure and the injection rate, and how its
@@ -1597,6 +1598,15 @@ class Workspace:
                     raise WorkspaceError('a reference elevation needs its source stated (--ref-elev-source "completion report W-2", or --elev-3dep)')
                 w['surface']['elevation'] = {'ft': float(elev['ft']), 'datum': elev['datum'], 'source': str(elev['source']),
                                              **({k: elev[k] for k in ('vertical_datum', 'raster', 'queried_utc') if elev.get(k)})}
+        if identity:
+            # who the well is, for any well: its US Well Number, its name on the permit, its operator. A producing well's
+            # number belongs here, not in the disposal block (which would declare it a disposal well)
+            cur_i = dict(w.get('identity') or {})
+            for k in ('api_number', 'well_name', 'operator'):
+                v = identity.get(k)
+                if v is not None and str(v).strip():
+                    cur_i[k] = str(v).strip()
+            w['identity'] = cur_i
         if disposal:
             if disposal.get('depth_reference') is not None and disposal['depth_reference'] not in DEPTH_REFS:
                 raise WorkspaceError(f'the depth reference must be one of {DEPTH_REFS}, got {disposal["depth_reference"]!r}')
@@ -1619,9 +1629,13 @@ class Workspace:
                 cur[k] = v
             cur.setdefault('role', 'disposal')
             w['disposal'] = cur
+            if disposal.get('api_number'):                      # one number per well: the identity follows the latest declaration
+                w['identity'] = {**(w.get('identity') or {}), 'api_number': str(disposal['api_number']).strip()}
+        if identity and identity.get('api_number') and w.get('disposal'):
+            w['disposal']['api_number'] = w['identity']['api_number']   # and a disposal well's block follows its identity
         with open(os.path.join(self.well_dir(well_id), 'well.json'), 'w', encoding='utf-8') as f:
             json.dump(w, f, indent=1)
-        self.audit(actor, 'well.declare', {'id': well_id, 'surface': w.get('surface'), 'disposal': w.get('disposal')})
+        self.audit(actor, 'well.declare', {'id': well_id, 'surface': w.get('surface'), 'disposal': w.get('disposal'), 'identity': w.get('identity')})
         return w
 
     def well_identity(self, well_id: str) -> dict:

@@ -5,6 +5,53 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.32.0] - 2026-10-15 - The setup checklist
+
+### Added
+- **The Setup tab** (`gea/setup_checklist.py`, `#/setup`, `gea checklist`):
+  what a workspace still needs before its reports can be handed over, read
+  from the workspace as it stands - an item is done because what it asks
+  for is there, never because someone ticked it. Ten required items for a
+  one-well site (an administrator; the wells; a site record naming the
+  client and holding every well; a backup folder off the machine; a current
+  backup; the daily schedule; current reports; and per well the surface
+  location with its datum, the reference elevation with its source, and the
+  US Well Number), the fleet and the depth-event check recommended, the
+  stress state and structure layers optional.
+- **Each item carries its action**: declare the position (latitude,
+  longitude, datum), the elevation (KB, GL or DF and its source, or the
+  ground level from USGS 3DEP at the declared position, offered to check
+  before declaring), the well number; create the site with its client and
+  wells; set the backup folder, back up now, schedule it daily; refresh the
+  reports. "Go to the next item" takes the operator to the first required
+  item not done. Where every value is known the item prints the command to
+  paste; where the operator must supply one it names the values and where
+  they come from, and prints no command with stand-ins in it.
+- **The Setup tab's badge** counts the required items still to do; the
+  Home page shows the progress and names the next item.
+- **Confirmations**: a drilling record's depth events are confirmed by a
+  person against the daily drilling reports, with a note, kept with the
+  name and the time (`config/checklist.json`, the audit log); when the
+  record changes - a different number of events or total depth - the
+  confirmation stops counting and the item says to check again.
+- `gea checklist --workspace C:\site` prints the list and exits 0 when
+  every required item is done, 2 otherwise; `--json`; `--confirm ITEM
+  --note ...`. API `/api/setup/checklist`, `/api/setup/confirm`,
+  `/api/sites/add`. `gea help setup`.
+### Fixed
+- **A producing well's US Well Number made it a disposal well.** The
+  number was kept only in the disposal block, so declaring it
+  (`set-well --api`) marked any well as a disposal well. It is now the
+  well's identity (`identity.api_number`, with the well name and operator
+  beside it); a disposal well keeps its number in the disposal block as
+  well, where the SRA packet reads it. The PPDM identity and the OSDU
+  record read either.
+- **A drilling record whose gamma was flat in the kept interval was not
+  written**: the lithology message said it was "refusing" to invent a
+  contrast, and the client-report guard rejected the word. The message now
+  says none is invented.
+- Section CA (3 checks); the gate is 383.
+
 ## [v0.31.0] - 2026-10-15 - The downhole tool library, with a tutorial on every tool
 
 ### Added

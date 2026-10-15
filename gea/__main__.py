@@ -468,6 +468,13 @@ def main(argv=None) -> int:
     p_ws.add_argument("--sat", action="store_true", help="refresh: also run the SAT protocol")
     p_ws.add_argument("--outage", action="append", default=None, help="refresh: outage window start/end (ISO), repeatable")
 
+    p_ck = sub.add_parser("checklist", help="the setup checklist: what this workspace still needs before its reports can be handed over - read from the workspace as it stands")
+    p_ck.add_argument("--workspace", type=str, default=None, help="the workspace folder, e.g. C:\\site")
+    p_ck.add_argument("--json", action="store_true")
+    p_ck.add_argument("--confirm", type=str, default=None, help="record a person's check of a confirmation item, e.g. events:Well-30636033")
+    p_ck.add_argument("--note", type=str, default="", help="--confirm: what it was checked against (required)")
+    p_ck.add_argument("--actor", type=str, default="cli")
+
     p_sv = sub.add_parser("serve", help="serve the dashboard over a workspace: the page, the reports and the JSON API (standard library HTTP)")
     p_sv.add_argument("--workspace", type=str, required=True, help="the workspace folder (gea workspace --action init)")
     p_sv.add_argument("--host", type=str, default="127.0.0.1", help="bind address; 0.0.0.0 exposes it on the site network (put TLS in front)")
@@ -1890,6 +1897,31 @@ def main(argv=None) -> int:
     elif a.cmd == "update":
         from .doctor import update as _update
         return _update(check_only=a.check, extras=a.extras, as_json=a.json)
+    elif a.cmd == "checklist":
+        import json as _json
+        from . import setup_checklist as _SC
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if not a.workspace:
+            raise SystemExit("checklist needs --workspace, e.g. --workspace C:\\site")
+        try:
+            ws = Workspace(a.workspace)
+        except WorkspaceError as e:
+            raise SystemExit(f"checklist: {e}")
+        if a.confirm:
+            try:
+                rec = _SC.confirm(ws, a.confirm, a.actor, a.note)
+            except ValueError as e:
+                raise SystemExit(f"checklist: {e}")
+            print(f"confirmed {a.confirm} by {rec['by']} at {rec['utc']}: {rec['note']}")
+            return 0
+        r = _SC.checklist(ws)
+        if a.json:
+            print(_json.dumps(r, indent=1))
+        else:
+            print(_SC.text(r))
+        return 0 if r["ready"] else 2
     elif a.cmd == "serve":
         from .service import Service
         from .workspace import WorkspaceError
@@ -2078,16 +2110,19 @@ def main(argv=None) -> int:
                     print(f"3DEP ground elevation {r['elev_ft']:,.2f} ft ({r['source']})")
                 elif a.ref_elev_ft is not None or a.ref_elev_datum or a.ref_elev_source:
                     surface["elevation"] = {"ft": a.ref_elev_ft, "datum": a.ref_elev_datum, "source": a.ref_elev_source}
-                disposal = {k: v for k, v in {"api_number": a.api, "uic_number": a.uic, "depth_tier": a.depth_tier, "formation_basis": a.formation,
+                identity = {"api_number": a.api} if a.api else {}
+                disposal = {k: v for k, v in {"uic_number": a.uic, "depth_tier": a.depth_tier, "formation_basis": a.formation,
                                               "channel_pressure": a.channel_pressure, "channel_rate": a.channel_rate, "rate_unit": a.rate_unit,
                                               "bhp_method": a.bhp_method, "channel_bhp": a.channel_bhp, "top_interval_ft": a.top_interval_ft,
                                               "base_interval_ft": a.base_interval_ft, "depth_reference": a.depth_ref,
                                               "gradient_psi_ft": a.gradient_psi_ft}.items() if v is not None}
-                if not surface and not disposal:
+                if a.api and (disposal or (ws.well(a.well).get("disposal") or {})):
+                    disposal["api_number"] = a.api          # a disposal well keeps its number in the block the SRA packet reads too
+                if not surface and not disposal and not identity:
                     raise SystemExit("set-well: nothing to declare (give --lat/--lon, --ref-elev-ft, or any of --api --uic --depth-tier --top-interval-ft ...)")
                 surface = surface or None
-                w = ws.set_well(a.well, surface=surface, disposal=disposal or None, actor=a.actor)
-                print(f"well {a.well}: surface {w.get('surface')}; disposal {w.get('disposal')}"); return 0
+                w = ws.set_well(a.well, surface=surface, disposal=disposal or None, identity=identity or None, actor=a.actor)
+                print(f"well {a.well}: surface {w.get('surface')}; identity {w.get('identity')}; disposal {w.get('disposal')}"); return 0
             elif a.action == "sra-define":
                 if not a.site or not a.name or a.lat is None or a.lon is None or a.radius_km is None or not a.plan_date:
                     raise SystemExit("sra-define needs --site, --name, --lat, --lon, --radius-km and --plan-date")

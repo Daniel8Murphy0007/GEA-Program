@@ -81,8 +81,8 @@ def shale_volume(gr: np.ndarray,
     if gr_shale <= gr_clean:
         raise ValueError(
             f"GR_shale ({gr_shale:g}) must exceed GR_clean ({gr_clean:g}) - "
-            "a flat curve carries no lithology contrast (refusing, not "
-            "inventing one)")
+            "a flat curve carries no lithology contrast, and none is "
+            "invented")
     raw = (g - gr_clean) / (gr_shale - gr_clean)
     vsh = np.clip(raw, 0.0, 1.0)
     clamped = int(np.sum((raw < 0.0) | (raw > 1.0)) - np.sum(np.isnan(raw)))

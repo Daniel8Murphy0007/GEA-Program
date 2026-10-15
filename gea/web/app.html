@@ -50,6 +50,15 @@ details summary{cursor:pointer;color:var(--accent)}
 @media (hover:none){.tl-tip{display:none}}
 dialog.tl-dlg{width:min(780px,94vw);max-height:90vh;border:1px solid var(--grid);border-radius:12px;padding:0;background:var(--surface);color:var(--ink);box-shadow:0 12px 40px rgba(0,0,0,.35)}
 dialog.tl-dlg::backdrop{background:rgba(0,0,0,.45)}
+.ck-bar{height:10px;border-radius:999px;background:var(--track);overflow:hidden;margin:6px 0 4px;max-width:520px}.ck-bar span{display:block;height:100%;background:var(--good);border-radius:999px}
+.ck-item{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:12px 0;border-bottom:1px solid var(--grid)}.ck-item:last-child{border-bottom:0}
+.ck-item .ck-mark{font-size:20px;line-height:1.2;width:1.4em;text-align:center}.ck-item.done .ck-mark{color:var(--good)}.ck-item.todo .ck-mark{color:var(--warn)}
+.ck-item h4{margin:0;font-size:15px}.ck-item.next{background:linear-gradient(90deg,var(--track),transparent 70%);border-radius:8px;padding-left:6px}
+.ck-lv{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;border:1px solid var(--grid);color:var(--muted);margin-left:6px;vertical-align:2px}
+.ck-lv.required{border-color:var(--accent);color:var(--accent)}
+.ck-act{margin-top:6px}.ck-act form{margin-top:4px}.ck-act .row label>input,.ck-act .row label>select{min-width:8em}
+.ck-chk{display:inline-flex!important;gap:6px;align-items:center;margin-right:12px}.ck-chk>input{display:inline-block!important;margin:0!important;width:auto;padding:0;min-width:0!important}
+.ck-cli{font-family:var(--mono);font-size:12.5px;background:var(--page);border:1px solid var(--grid);border-radius:6px;padding:4px 8px;display:inline-block;margin-top:4px;user-select:all;word-break:break-all}
 .tl-dlg .tl-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px 18px;border-bottom:1px solid var(--grid)}
 .tl-dlg .tl-head h3{margin:0 0 4px}.tl-dlg .tl-body{padding:6px 18px 16px;overflow:auto;max-height:calc(90vh - 90px)}
 .tl-dlg dl{margin:6px 0}.tl-dlg dt{font-weight:600;margin-top:12px;color:var(--ink2)}.tl-dlg dd{margin:3px 0 0}
@@ -147,6 +156,9 @@ VIEWS.home = async () => {
   let h = `<h2>${esc(SITE.display_name || ws.name)}</h2>${help('home')}<p class="muted small">Program ${esc(o.service.program_version)} · ${ws.n_wells} wells · service up since ${tz(o.service.started_utc)} · dashboard ${d ? 'generated ' + tz(d.generated_utc) : 'not yet generated'} · ${o.jobs_running.length} job(s) running</p>`;
   try { const sv = await get('/api/since'); if (sv.since) { const c = sv.counts || {}; const n = Object.values(c).reduce((a, b) => a + b, 0); h += `<div class="since"><span>Since your last visit (${tz(sv.since)}):</span><span><b>${sv.alarm_events}</b> alarm event(s)</span><span><b>${sv.jobs.total}</b> job(s), <b>${sv.jobs.failed}</b> failed</span><span><b>${n}</b> recorded action(s)${n ? ': ' + Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => `${esc(k)} ×${v}`).join(', ') : ''}</span>${sv.alarm_items && sv.alarm_items.length ? `<span class="small">latest: ${sv.alarm_items.slice(0, 3).map(a => `${esc(a.event)} ${esc(a.alarm_id)} on ${esc(a.well)}`).join(' · ')}</span>` : ''}</div>`; } else h += `<div class="since"><span>Welcome - this is your first visit. The next sign-in will show what changed in between.</span></div>`; } catch (e) {}
   if (can('admin') && ws.n_wells === 0 && !PREFS.wizard_done && !SITE.wizard_done) h += `<div class="card wizard"><h3>New site</h3><p>No wells yet. The <a href="#/welcome">first-run guide</a> sets up units, the first well, users and the first refresh in four steps.</p></div>`;
+  try { const ck = await get('/api/setup/checklist'); const c = ck.counts;
+    if (!ck.ready) { const nx = ck.items.find(i => i.id === ck.next);
+      h += `<div class="card ck-home"><h3>Setup: ${c.required_done} of ${c.required} required done</h3><div class="ck-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${c.required}" aria-valuenow="${c.required_done}" aria-label="Setup progress"><span style="width:${(100 * c.required_done / Math.max(1, c.required)).toFixed(0)}%"></span></div><p class="small">Next: <b>${esc(nx.title)}</b>${nx.well_name ? ' — ' + esc(nx.well_name) : ''}. <a href="#/setup">Open the setup checklist</a></p></div>`; } } catch (e) {}
   h += `<div class="tiles">`;
   h += tile('Wells with model drift detected', `${nDrift} of ${ws.n_wells}`, nDrift ? 'warn' : 'good', '#/wells');
   h += tile('Active alarms (unacknowledged)', `${active} (${unacked})`, unacked ? 'serious' : (active ? 'warn' : 'good'), '#/alarms');
@@ -439,6 +451,69 @@ async function toolLibrary() {
   };
   const redraw = () => { if (!$('#tlGrid')) return; draw(); fleetCard(); };
   TLX.redraw = redraw; redraw();
+}
+// the setup checklist: what this workspace still needs, read from the workspace as it stands
+VIEWS.setup = async () => {
+  const ck = await get('/api/setup/checklist'); const c = ck.counts;
+  const showDone = (() => { try { return localStorage.getItem('gea-ck-done') !== '0'; } catch (e) { return true; } })();
+  let h = `<h2>Setup checklist</h2>` + help('setup');
+  h += `<div class="card"><h3>${c.required_done} of ${c.required} required done${ck.ready ? ' — ready to hand over' : ''}</h3>
+    <div class="ck-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${c.required}" aria-valuenow="${c.required_done}" aria-label="Required setup done"><span style="width:${(100 * c.required_done / Math.max(1, c.required)).toFixed(0)}%"></span></div>
+    <p class="small muted">Recommended ${c.recommended_done} of ${c.recommended} · optional ${c.optional_done} of ${c.optional}. ${esc(ck.statement)}</p>
+    <div class="row">${ck.next ? `<button type="button" id="ckNext">Go to the next item</button>` : ''}<label class="small ck-chk"><input type="checkbox" id="ckShowDone" ${showDone ? 'checked' : ''}> Show done items</label></div></div>`;
+  const groups = [];
+  for (const it of ck.items) { const g = it.scope === 'site' ? 'Workspace' : (it.well_name || it.well); let G = groups.find(x => x.name === g); if (!G) groups.push(G = {name: g, items: []}); G.items.push(it); }
+  for (const G of groups) {
+    const nd = G.items.filter(i => i.status === 'DONE').length;
+    h += `<div class="card"><h3>${esc(G.name)} <span class="small muted">${nd} of ${G.items.length} done</span></h3>`;
+    for (const it of G.items) { if (it.status === 'DONE' && !showDone) continue; h += ckItemHtml(it, it.id === ck.next); }
+    h += `</div>`;
+  }
+  $('#main').innerHTML = h;
+  $('#ckShowDone').onchange = ev => { try { localStorage.setItem('gea-ck-done', ev.target.checked ? '1' : '0'); } catch (e) {} route(); };
+  if ($('#ckNext')) $('#ckNext').onclick = () => { const el = document.getElementById('ck-' + ck.next); if (el) { el.scrollIntoView({behavior: 'smooth', block: 'center'}); const f = el.querySelector('input,select,button,a'); if (f) setTimeout(() => f.focus(), 300); } };
+  ckBind(ck);
+};
+function ckItemHtml(it, isNext) {
+  const done = it.status === 'DONE', a = it.action || {};
+  let h = `<div class="ck-item ${done ? 'done' : 'todo'}${isNext ? ' next' : ''}" id="ck-${esc(it.id)}"><div class="ck-mark" aria-hidden="true">${done ? '✓' : '○'}</div><div>`;
+  h += `<h4>${esc(it.title)}<span class="ck-lv ${esc(it.level)}">${esc(it.level)}</span> <span class="small ${done ? 'good' : 'warn'}">${done ? 'done' : 'to do'}</span></h4>`;
+  h += `<div class="small">${esc(it.detail)}</div><div class="small muted">${esc(it.why)}</div>`;
+  if (!done && it.needs && it.needs.length) h += `<div class="small"><b>Needs:</b> ${it.needs.map(esc).join('; ')}.</div>`;
+  let act = '';
+  const enc = encodeURIComponent(it.id);
+  if (a.kind === 'link') act = `<a class="btn secondary" href="${esc(a.href)}">${esc(a.label)}</a>`;
+  else if (a.kind === 'button') act = can(a.role) ? `<button type="button" class="ck-btn" data-post="${esc(a.post)}" data-job="${a.job ? 1 : 0}" ${a.disabled ? 'disabled' : ''}>${esc(a.label)}</button>${a.disabled ? ` <span class="small muted">${esc(a.disabled_reason || '')}</span>` : ''}` : need(a.role);
+  else if (a.kind === 'site') act = can('operator') ? `<form class="ck-form row" data-kind="site"><label>Site name<input name="display" required placeholder="Pad 3"></label><label>Client<input name="client" required></label>
+      <fieldset class="small" style="border:0;padding:0;margin:0"><legend class="small">Wells</legend>${(a.wells || []).map(w => `<label class="ck-chk"><input type="checkbox" name="wells" value="${esc(w)}" checked> ${esc(a.well_names[w] || w)}</label>`).join('') || '<span class="muted">every well is already in a site</span>'}</fieldset><button type="submit">Create the site</button></form>` : need('operator');
+  else if (a.kind === 'backup_folder') act = can('admin') ? `<form class="ck-form row" data-kind="backup_folder"><label>Backup folder (another disk or a share)<input name="out_dir" required value="${esc(a.value || '')}" placeholder="D:\\gea-backups" style="width:22em"></label><button type="submit">Save</button></form>` : need('admin');
+  else if (a.kind === 'surface') { const v = a.value || {};
+    act = can('operator') ? `<form class="ck-form row" data-kind="surface" data-well="${esc(a.well)}"><label>Latitude<input name="lat" type="number" step="any" min="-90" max="90" required value="${v.lat ?? ''}" style="width:9em"></label><label>Longitude<input name="lon" type="number" step="any" min="-180" max="180" required value="${v.lon ?? ''}" style="width:9em"></label><label>Datum<select name="datum" required><option value="">choose…</option>${a.datums.map(d => `<option ${v.datum === d ? 'selected' : ''}>${esc(d)}</option>`).join('')}</select></label><button type="submit">Declare</button></form>` : need('operator'); }
+  else if (a.kind === 'elevation') act = !can('operator') ? need('operator') : (a.needs_surface ? `<span class="small muted">Declare the surface location first.</span>` :
+      `<form class="ck-form row" data-kind="elevation" data-well="${esc(a.well)}"><label>Elevation, ft<input name="ft" type="number" step="any" required style="width:8em"></label><label>Measured at<select name="datum">${a.datums.map(d => `<option value="${esc(d)}">${({KB: 'KB - kelly bushing', GL: 'GL - ground level', DF: 'DF - derrick floor'})[d] || esc(d)}</option>`).join('')}</select></label><label>Source<input name="source" required placeholder="completion report" style="width:14em"></label><button type="submit">Declare</button>${a.pos ? `<button type="button" class="secondary ck-3dep" data-lat="${a.pos.lat}" data-lon="${a.pos.lon}" title="Ask the USGS 3DEP point service for the ground elevation at the declared position">Ground level from 3DEP</button>` : ''}</form>`);
+  else if (a.kind === 'api') act = can('operator') ? `<form class="ck-form row" data-kind="api" data-well="${esc(a.well)}"><label>US Well Number<input name="api_number" required value="${esc(a.value || '')}" placeholder="42-109-…" style="width:14em" pattern="[0-9 .-]+"></label><button type="submit">Declare</button></form>` : need('operator');
+  else if (a.kind === 'confirm') act = can('operator') ? `<ul class="small">${(a.events || []).map(e => `<li><b>${esc(e.type)}</b> ${tz(e.at)} — ${esc(e.effect)}</li>`).join('')}</ul><form class="ck-form row" data-kind="confirm" data-item="${esc(it.id)}"><label style="flex:1 1 24em">Checked against<input name="note" required placeholder="daily drilling reports, 30 Jun – 12 Jul" style="width:100%"></label><button type="submit">Confirm</button></form>` : need('operator');
+  if (act) h += done ? `<details class="ck-act"><summary class="small">Change</summary>${act}</details>` : `<div class="ck-act">${act}</div>`;
+  if (!done && it.cli) h += `<div class="small muted" style="margin-top:6px">or at the command line: <span class="ck-cli">${esc(it.cli)}</span></div>`;
+  return h + `</div></div>`;
+}
+function ckBind(ck) {
+  const after = async (msg) => { toast(msg, 'ok'); await refreshBadges(); route(); };
+  for (const b of document.querySelectorAll('.ck-btn')) b.onclick = async () => { b.disabled = true;
+    try { const r = await post(b.dataset.post, {}); if (b.dataset.job === '1' && r && r.id) { toast('Started: job ' + r.id, 'ok'); watch(r.id, () => { refreshBadges(); route(); }); } else await after('Done'); } catch (e) { toast(e.message, 'err'); b.disabled = false; } };
+  for (const b of document.querySelectorAll('.ck-3dep')) b.onclick = async () => { b.disabled = true;
+    try { const r = await post('/api/elevation', {lat: +b.dataset.lat, lon: +b.dataset.lon}); const f = b.closest('form');
+      if (r.status === 'OK') { f.ft.value = r.elev_ft; f.datum.value = 'GL'; f.source.value = r.source; toast(`3DEP ground elevation ${r.elev_ft} ft — check it, then Declare`, 'ok'); }
+      else toast(`3DEP: ${r.status} ${r.detail || ''}`, 'err'); } catch (e) { toast(e.message, 'err'); } b.disabled = false; };
+  for (const f of document.querySelectorAll('.ck-form')) f.onsubmit = async ev => { ev.preventDefault(); const k = f.dataset.kind, fd = new FormData(f), w = f.dataset.well;
+    try {
+      if (k === 'site') { await post('/api/sites/add', {display: fd.get('display'), client: fd.get('client'), wells: fd.getAll('wells')}); return after('Site created'); }
+      if (k === 'backup_folder') { await post('/api/backup/config', {out_dir: fd.get('out_dir')}); return after('Backup folder saved'); }
+      if (k === 'surface') { await post(`/api/wells/${encodeURIComponent(w)}/declare`, {surface: {lat: +fd.get('lat'), lon: +fd.get('lon'), datum: fd.get('datum')}}); return after('Surface location declared'); }
+      if (k === 'elevation') { await post(`/api/wells/${encodeURIComponent(w)}/declare`, {surface: {elevation: {ft: +fd.get('ft'), datum: fd.get('datum'), source: fd.get('source')}}}); return after('Reference elevation declared'); }
+      if (k === 'api') { await post(`/api/wells/${encodeURIComponent(w)}/declare`, {identity: {api_number: fd.get('api_number')}}); return after('US Well Number declared'); }
+      if (k === 'confirm') { await post('/api/setup/confirm', {item: f.dataset.item, note: fd.get('note')}); return after('Confirmed'); }
+    } catch (e) { toast(e.message, 'err'); } };
 }
 VIEWS.catalog = async () => {
   const c = await get('/api/catalog/map');
@@ -1322,8 +1397,8 @@ function authScreen(first) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/seismic', 'Seismic'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
-const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, '']};
+const NAV = [['#/', 'Home'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/seismic', 'Seismic'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }
 setInterval(refreshBadges, 30000);

@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.32.0 - 2026-10-15 - the setup checklist
+
+- **What a workspace still needs, read as it stands.** The Setup tab and
+  `gea checklist`: each well's position, elevation and number, the client
+  site, the backup and its schedule, current reports, each with its form
+  or button; a badge and the next item on the Home page; confirmations by
+  a person with a note. A producing well's US Well Number is its identity,
+  no longer a disposal declaration. Section CA; gate 383.
+
 ## v0.31.0 - 2026-10-15 - the downhole tool library
 
 - **Every downhole tool class, with a tutorial.** Ninety-six classes in

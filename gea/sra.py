@@ -165,7 +165,7 @@ def well_membership(sra: dict, well: dict) -> dict:
     """One well against the area: its distance, its tier, and what the operator has and has not declared."""
     disp = well.get('disposal') or {}
     surf = well.get('surface') or {}
-    out = {'id': well['id'], 'display': well.get('display'), 'api_number': disp.get('api_number') or '',
+    out = {'id': well['id'], 'display': well.get('display'), 'api_number': disp.get('api_number') or (well.get('identity') or {}).get('api_number') or '',
            'uic_number': disp.get('uic_number') or '', 'role': disp.get('role') or 'undeclared',
            'depth_tier': disp.get('depth_tier') if disp.get('depth_tier') in DEPTH_TIERS else 'UNCLASSIFIED',
            'formation_basis': disp.get('formation_basis') or '', 'bhp_method': disp.get('bhp_method') or '',

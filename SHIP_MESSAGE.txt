@@ -1,31 +1,33 @@
-v0.31.0 — THE DOWNHOLE TOOL LIBRARY, WITH A TUTORIAL ON EVERY TOOL
+v0.32.0 — THE SETUP CHECKLIST
 
-The tool library held seven gauges: the instruments this program reads.
-A well holds far more than that. Bits and hole openers, motors and rotary
-steerable systems, MWD and LWD, collars, jars and subs, shoes and float
-collars, packers, plugs, sleeves and pumps, the wireline tools, the
-fishing tools, the test tools. This release puts every class of downhole
-tool in use across the industry on the Tools & ports page: ninety-six of
-them in nine categories.
+Pad 3 has three wells in it, read and reported on, and nothing yet that
+says where they are, whose they are, or that a copy of any of it exists
+off the machine. The program knew all of that - each fact was a field it
+could read - and said none of it in one place. This release adds the
+Setup tab.
 
-Each class is a chip. Point at it, or Tab to it, and its one-line
-description appears. Click, tap or press Enter and its tutorial opens:
-what it is, where it runs, how it works, what it shows in the data, what
-to watch, and what this program does with it. Esc closes it and puts you
-back where you were.
+It is read from the workspace as it stands. An item is done because what
+it asks for is there: a declared surface location and its datum, a
+reference elevation with its source, a US Well Number, a site record that
+names the client and holds every well, a backup folder off the machine, a
+current backup, the daily schedule, reports newer than their data. Each
+item carries its own form or button, and the command to paste where every
+value is already known. Where the operator has to supply a value - a
+position, an elevation, a number - the item says which values and where
+they come from, and prints no command with stand-ins in it. The tab's
+badge counts what is left; the Home page names the next item.
 
-Every class was checked against public pages. There are 192 of them, all
-fetched on one day and recorded with the class: the SLB Energy Glossary,
-SPE PetroWiki, the OSHA eTool, maker datasheets, academic tool pages. The
-tutorials carry no numbers of their own. The 196 figures on the cards are
-the pages' own words, with the unit and the page, and the card says when
-a figure is one maker's product rather than a limit for the class. A
-class with no published figure says to supply the datasheet.
+A drilling record's depth events are the one thing only a person can
+check: against the daily drilling reports. That check is confirmed with a
+note, kept with the name and the time, and stops counting if the record
+changes.
 
-That is where the fleet comes in. Your own tools - maker, model, serial,
-the datasheet that rates them - go in beside the classes, from the
-tutorial or the command line. They are kept in the workspace and every
-change is in the audit log.
+Building it turned up two things. Declaring a well number put it in the
+disposal block, which made any well a disposal well - every Pad 3 producer
+would have become one. The number is now the well's identity. And a
+drilling record whose gamma was flat in the kept interval was not written,
+because one message used a word the client-report guard rejects. Both are
+fixed and both are checked.
 
-Section BZ is new, three checks. The gate is 380 checks. The standalone
+Section CA is new, three checks. The gate is 383 checks. The standalone
 guard is clean.

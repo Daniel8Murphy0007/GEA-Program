@@ -1938,3 +1938,42 @@ v0.30.1 carried the drilling-record fix; this is the library.
 - Section BZ (3 checks). Gate 380. His fleet list (make and model per tool)
   is the next input; the ergonomics leg follows (setup checklist,
   interactive charts, site map, control-room mode).
+
+## 2026-10-15 - The setup checklist (v0.32.0)
+
+The ergonomics leg, first item: the well setup checklist, chosen to put
+Pad 3's outstanding setup on one page.
+- `gea/setup_checklist.py`: every item is computed from the workspace on
+  each read (users.json, the wells' declarations, the site records,
+  records/backup_config.json, backups.jsonl through `backup.status`,
+  jobs/schedule.json, `report_ages`, the fleet, the stress declaration, the
+  layers, each EDR well's drilling_record.json). Required items are
+  counted; recommended and optional are shown. A CONFIRMATION (depth
+  events against the daily drilling reports) is kept in
+  config/checklist.json with a basis key (event count and TD); a changed
+  record invalidates it.
+- Commands are printed only when they can be pasted as they stand (the
+  refresh, the backup run with the configured folder); items that need a
+  value from the operator name the values and their source instead - the
+  rule that PowerShell placeholders taught in v0.29.
+- Found building it: declaring a US Well Number (`set-well --api`) wrote it
+  into the disposal block, which sets role = disposal - every Pad 3
+  producer would have become a disposal well. Added `identity` to
+  `set_well` (api_number, well_name, operator), `ppdm.declared_api`
+  (identity, then disposal), OSDU and SRA read through it; the CLI writes
+  the disposal copy only for a disposal well. The first gate run caught
+  BG3: a disposal number re-declared to twelve digits left the identity on
+  the old ten - `set_well` now keeps the two in step, the latest
+  declaration winning.
+- Found running it: the events selftest well's drilling record was not
+  written - its gamma in the kept (sidetrack) interval is flat, and the
+  lithology message's word "refusing" tripped the client-report guard. The
+  real Pad 3 wells were not affected (their gamma has contrast); the
+  message now reads "none is invented". CA1 holds both.
+- The page: progress bar, "Go to the next item", per-group counts, forms
+  per kind (site, backup folder, surface, elevation with a 3DEP ground-level
+  fill, US Well Number, confirmation), done items folded under "Change"
+  and hideable (remembered per browser). Driven in headless Chromium:
+  3 of 10 to 10 of 10 through the page's own forms and buttons, the Setup
+  badge 7 to 0, no page errors, phone width without horizontal scroll.
+- Section CA (3 checks). Gate 383.

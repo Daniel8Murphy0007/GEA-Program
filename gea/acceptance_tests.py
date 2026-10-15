@@ -8005,6 +8005,171 @@ def section_bz_tool_library(tmp: str) -> None:
        "a placeholder; the help page"
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
+
+def section_ca_setup_checklist(tmp: str) -> None:
+    """Section CA - the setup checklist: what a workspace still needs before its reports can be handed over, read from
+    the workspace as it stands, each item with its form, button or command; a producing well's US Well Number declared as
+    its identity, not as a disposal well's; a drilling record with depth events written through the client-report guard."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    from . import edr as E
+    from . import backup as BK
+    from . import ppdm as PP
+    from . import helplib as H
+    from . import setup_checklist as SC
+    from .client_reports import FORBIDDEN_TERMS
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ca"); d.mkdir()
+
+    def _raises(fn, exc, words=""):
+        try:
+            fn()
+        except exc as e:
+            return words in str(e)
+        return False
+
+    ev = E.selftest_events(str(d))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    w = ws.add_well_file(ev["path"], display="Well 30693545", actor="tester")
+    ws.refresh_dashboard(actor="tester")
+    rdir = Path(wsp, "reports", "wells", w["id"])
+    rec = json.loads((rdir / "drilling_record.json").read_text(encoding="utf-8")) if (rdir / "drilling_record.json").is_file() else {}
+    flat_msg = ""
+    try:
+        E.gamma_lithology(E.gamma_log(E.read(ev["path"]), keep=E._keep_masks(E.read(ev["path"]), E.depth_events(E.read(ev["path"])))[1]))
+    except ValueError as e:
+        flat_msg = str(e)
+    flat_lith = (rec.get("gamma") or {}).get("lithology") or {}
+    Users(str(Path(wsp, "users.json"))).add("admin1", "admin-pass-12", "admin")
+    r0 = SC.checklist(ws)
+    ids = {i["id"]: i for i in r0["items"]}
+    r_cli0 = _sp.run([sys.executable, "-m", "gea", "checklist", "--workspace", wsp], capture_output=True, text=True)
+    c1 = {
+        "edr_record": rec.get("total_depth_md_ft") == 5750.0 and len(rec.get("depth_events") or []) == 4 and not (rdir / "drilling_record_not_written.json").exists()
+                      and not any(t in json.dumps(rec).lower() for t in FORBIDDEN_TERMS),
+        "items": {"accounts", "wells", "site", "backup_folder", "backup_taken", "backup_schedule", "reports_current", "fleet", "stress", "layers",
+                  f"surface:{w['id']}", f"elevation:{w['id']}", f"api:{w['id']}", f"events:{w['id']}"} == set(ids)
+                 and r0["counts"]["required"] == 10 and r0["counts"]["required_done"] == 3 and r0["next"] == "site" and not r0["ready"]
+                 and ids["accounts"]["status"] == "DONE" and ids["wells"]["status"] == "DONE" and ids["reports_current"]["status"] == "DONE"
+                 and ids[f"surface:{w['id']}"]["status"] == "TO DO" and ids[f"events:{w['id']}"]["level"] == "recommended"
+                 and ids[f"elevation:{w['id']}"]["action"]["needs_surface"] is True,
+        "commands": all("<" not in (i.get("cli") or "") for i in r0["items"]) and ids["reports_current"]["cli"] == f"gea workspace --path {wsp} --action refresh"
+                    and ids[f"surface:{w['id']}"]["cli"] is None and "survey plat" in " ".join(ids[f"surface:{w['id']}"]["needs"]),
+        "text": "3 of 10 required done" in SC.text(r0) and "[ ] Surface location and its datum" in SC.text(r0) and "needs: latitude and longitude" in SC.text(r0)
+                and "Next: A site record ties the wells to the client." in SC.text(r0),
+        "cli": r_cli0.returncode == 2 and "Setup checklist - Pad 3: 3 of 10 required done" in r_cli0.stdout,
+        "confirm_rules": _raises(lambda: SC.confirm(ws, f"events:{w['id']}", "tester", ""), ValueError, "needs a note")
+                         and _raises(lambda: SC.confirm(ws, "site", "tester", "x"), ValueError, "not an item"),
+        "flat_gamma": bool(flat_msg) and "none is invented" in flat_msg and not any(t in flat_msg.lower() for t in FORBIDDEN_TERMS)
+                      and "none is invented" in str(flat_lith.get("why", "")),
+    }
+    SC.confirm(ws, f"events:{w['id']}", "tester", "daily drilling reports 1-3 Jul 2026")
+    c_ok = {i["id"]: i for i in SC.checklist(ws)["items"]}[f"events:{w['id']}"]
+    cf = json.loads(Path(wsp, "config", "checklist.json").read_text(encoding="utf-8"))
+    cf["confirmed"][f"events:{w['id']}"]["basis"] = "2 event(s), TD 5000.0"
+    Path(wsp, "config", "checklist.json").write_text(json.dumps(cf), encoding="utf-8")
+    c_stale = {i["id"]: i for i in SC.checklist(ws)["items"]}[f"events:{w['id']}"]
+    c1["confirm"] = (c_ok["status"] == "DONE" and "confirmed by tester" in c_ok["detail"] and "daily drilling reports 1-3 Jul 2026" in c_ok["detail"]
+                     and c_stale["status"] == "TO DO" and "check again" in c_stale["detail"] and '"checklist.confirm"' in Path(wsp, "records", "audit.jsonl").read_text(encoding="utf-8"))
+    SC.confirm(ws, f"events:{w['id']}", "tester", "daily drilling reports 1-3 Jul 2026")
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CA1 the checklist read from the workspace: ten required items for a workspace with one drilling-recorder well (the accounts, the wells, a site "
+       "record with the client, the backup folder, a current backup, the daily schedule, current reports, and the well's surface location, reference "
+       "elevation and US Well Number), the fleet and the depth-event check recommended, stress and layers optional; the next item named; a command "
+       "printed only where it can be pasted as it stands; `gea checklist` exits 2 until it is ready; a confirmation needs its note, is kept with the "
+       "name and time, and stops counting when the drilling record changes; a flat gamma curve's message, and the drilling record that carries it, pass "
+       "the client-report guard"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # the well number: a producing well's identity, not a disposal well's
+    w2 = ws.add_well_file(ev["path"], display="Producer 2", actor="tester")
+    r_api = _sp.run([sys.executable, "-m", "gea", "workspace", "--path", wsp, "--action", "set-well", "--well", w2["id"], "--api", "42-109-33456"], capture_output=True, text=True)
+    w2r = ws.well(w2["id"])
+    ws.set_well(w2["id"], disposal={"uic_number": "000123"}, actor="tester")
+    r_api2 = _sp.run([sys.executable, "-m", "gea", "workspace", "--path", wsp, "--action", "set-well", "--well", w2["id"], "--api", "42-109-33457"], capture_output=True, text=True)
+    w2d = ws.well(w2["id"])
+    ident = PP.well_identity(w2r)
+    ws.remove_well(w2["id"], actor="tester")
+    users = Users(str(Path(wsp, "users.json"))); users.add("op", "operator-pass-1", "operator"); users.add("v", "viewer-pass-1", "viewer")
+    out_dir = str(d / "backups")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def session(name, pw):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+        def call(method, path, body=None):
+            req = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+            req.add_header("Content-Type", "application/json"); req.add_header("X-GEA-Action", "1")
+            try:
+                with o.open(req, timeout=120) as rr_:
+                    return rr_.status, json.loads(rr_.read())
+            except urllib.error.HTTPError as e:
+                return e.code, json.loads(e.read())
+        call("POST", "/api/login", {"name": name, "password": pw})
+        return call
+    try:
+        view, op, adm = session("v", "viewer-pass-1"), session("op", "operator-pass-1"), session("admin1", "admin-pass-12")
+        st_ck, ck = view("GET", "/api/setup/checklist")
+        st_b0, b0 = view("GET", "/api/badges")
+        st_sv, _ = view("POST", "/api/sites/add", {"display": "Pad 3", "client": "Acme", "wells": [w["id"]]})
+        st_s, site = op("POST", "/api/sites/add", {"display": "Pad 3", "client": "Acme Operating", "wells": [w["id"]]})
+        st_s2, s2 = op("POST", "/api/sites/add", {"display": "Empty", "client": "Acme", "wells": []})
+        st_d1, _ = op("POST", f"/api/wells/{w['id']}/declare", {"surface": {"lat": 31.84, "lon": -104.21, "datum": "NAD83"}})
+        st_d2, _ = op("POST", f"/api/wells/{w['id']}/declare", {"surface": {"elevation": {"ft": 3532.5, "datum": "KB", "source": "completion report W-2"}}})
+        st_d3, wd3 = op("POST", f"/api/wells/{w['id']}/declare", {"identity": {"api_number": "42-109-33456"}})
+        st_bc, _ = adm("POST", "/api/backup/config", {"out_dir": out_dir})
+        st_bs, _ = adm("POST", "/api/backup/schedule", {})
+        st_cv, _ = view("POST", "/api/setup/confirm", {"item": f"events:{w['id']}", "note": "x"})
+        BK.make(wsp, out_dir, actor="tester")
+        st_ck2, ck2 = view("GET", "/api/setup/checklist")
+        st_b1, b1 = view("GET", "/api/badges")
+    finally:
+        svc.stop()
+    r_cli1 = _sp.run([sys.executable, "-m", "gea", "checklist", "--workspace", wsp], capture_output=True, text=True)
+    c2 = {
+        "identity": r_api.returncode == 0 and (w2r.get("identity") or {}).get("api_number") == "42-109-33456" and "disposal" not in w2r
+                    and not any("no US Well Number" in g for g in ident["gaps"]) and PP.declared_api(w2r) == "42-109-33456"
+                    and r_api2.returncode == 0 and (w2d.get("disposal") or {}).get("api_number") == "42-109-33457" and (w2d.get("identity") or {}).get("api_number") == "42-109-33457",
+        "api": st_ck == 200 and ck["counts"]["required"] == 10 and st_b0 == 200 and b0.get("setup_todo") == 7
+               and st_sv == 403 and st_s == 200 and site["client"] == "Acme Operating" and st_s2 == 400 and "nothing in it" in s2.get("error", "")
+               and st_d1 == 200 and st_d2 == 200 and st_d3 == 200 and wd3["identity"]["api_number"] == "42-109-33456" and "disposal" not in wd3
+               and st_bc == 200 and st_bs == 200 and st_cv == 403,
+        "ready": st_ck2 == 200 and ck2["ready"] and ck2["counts"]["required_done"] == 10 and st_b1 == 200 and b1.get("setup_todo") == 0
+                 and r_cli1.returncode == 0 and "Ready to hand over." in r_cli1.stdout and "[x] US Well Number (API)" in r_cli1.stdout
+                 and "42-109-33456 - Texas, county 109" in r_cli1.stdout,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    if "ready" in failed2:
+        failed2.append("left: " + ", ".join(i["id"] for i in ck2.get("items", []) if i["level"] == "required" and i["status"] != "DONE"))
+    ok(not failed2,
+       "CA2 done through the page's own calls: a site created with its client (an operator's act, not a viewer's; a site with no wells turned away), "
+       "the surface location, the reference elevation and the US Well Number declared, the backup folder set and the daily backup scheduled by an "
+       "administrator, a backup taken - and the checklist ready, the Setup badge at zero, `gea checklist` exiting 0; a US Well Number declared for "
+       "a producing well is its identity and does not make it a disposal well, while a disposal well's number stays where the SRA packet reads it"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    help_md = (pkg / "help" / "setup.md").read_text(encoding="utf-8")
+    c3 = {
+        "page": all(x in page_src for x in ("VIEWS.setup", "['#/setup', 'Setup']", "'#/setup': b => [b.setup_todo", "/api/setup/checklist", "/api/setup/confirm",
+                                             "/api/sites/add", 'data-kind="surface"', 'data-kind="elevation"', 'data-kind="api"', 'data-kind="site"',
+                                             'data-kind="backup_folder"', 'data-kind="confirm"', "Go to the next item", 'role="progressbar"', "Ground level from 3DEP",
+                                             "ck-home", "Show done items")),
+        "help": any(t["topic"] == "setup" for t in H.topics()) and not H.check("setup") and H.VIEW_TOPIC.get("setup") == "setup"
+                and "a done item as a correct one" in help_md.split("will not call a measurement")[1],
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CA3 the Setup tab with its badge, the Home page's next item, each item's form or button, the progress bar, the done items folded away on "
+       "request; the help page and its view mapping"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -8086,6 +8251,7 @@ def main() -> int:
         section_bx_pasteable(tmp)
         section_by_edr(tmp)
         section_bz_tool_library(tmp)
+        section_ca_setup_checklist(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

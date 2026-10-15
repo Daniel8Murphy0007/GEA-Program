@@ -144,21 +144,21 @@ def well_record(well: dict, ctx: Context) -> dict:
     ident = P.well_identity(well)
     wn = ident.get('us_well_number') or {}
     data: Dict[str, Any] = {**_common(ctx), 'FacilityName': well.get('display') or well['id'],
-                            'FacilityID': wn.get('api10') if wn.get('status') == 'VALID' else (disp.get('api_number') or well['id']),
+                            'FacilityID': wn.get('api10') if wn.get('status') == 'VALID' else (P.declared_api(well) or well['id']),
                             'FacilityTypeID': ctx.ref('reference-data--FacilityType', 'Well'),
                             'OperatingEnvironmentID': ctx.ref('reference-data--OperatingEnvironment', 'Onshore'),
                             'NameAliases': [{'AliasName': well['id'], 'AliasNameTypeID': ctx.ref('reference-data--AliasNameType', 'UniqueIdentifier')}],
                             'ExtensionProperties': {'gea': {'well_id': well['id'], 'kind': well.get('kind'), 'role': disp.get('role')}}}
-    if disp.get('api_number'):
-        data['NameAliases'].append({'AliasName': disp['api_number'], 'AliasNameTypeID': ctx.ref('reference-data--AliasNameType', 'RegulatoryIdentifier')})
+    if P.declared_api(well):
+        data['NameAliases'].append({'AliasName': P.declared_api(well), 'AliasNameTypeID': ctx.ref('reference-data--AliasNameType', 'RegulatoryIdentifier')})
     if wn.get('status') == 'VALID':
         # the US Well Number as the standard writes it: the ten-digit well origin, typed; the state named in the extension
         data['NameAliases'].append({'AliasName': wn['api10'], 'AliasNameTypeID': ctx.ref('reference-data--AliasNameType', 'USWellNumber')})
         data['ExtensionProperties']['gea']['us_well_number'] = {'api10': wn['api10'], 'api12': wn.get('api12'), 'api14': wn.get('api14'),
                                                                'state': wn['state'], 'county_code': wn['county']['code'],
                                                                'unique_well': wn['unique_well'], 'identifies': wn['identifies']}
-    elif disp.get('api_number'):
-        data['ExtensionProperties']['gea']['us_well_number'] = {'declared': disp['api_number'], 'status': 'INVALID', 'problems': wn.get('problems')}
+    elif P.declared_api(well):
+        data['ExtensionProperties']['gea']['us_well_number'] = {'declared': P.declared_api(well), 'status': 'INVALID', 'problems': wn.get('problems')}
     if disp.get('uic_number'):
         data['NameAliases'].append({'AliasName': disp['uic_number'], 'AliasNameTypeID': ctx.ref('reference-data--AliasNameType', 'PermitNumber')})
     if ctx.operator_org_id:

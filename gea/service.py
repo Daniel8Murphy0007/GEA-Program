@@ -1222,7 +1222,16 @@ class App:
         return {'alarms_unacked': unacked, 'alarms_active': active, 'alarms_shelved': shelved, 'approvals_pending': pend,
                 'jobs_running': running, 'jobs_failed_24h': failed,
                 'patches_down': sum(1 for p in pst if p.get('status') in ('DOWN', 'DEGRADED')), 'patches': len(pst),
-                'generated_utc': utc_now_iso()}
+                'setup_todo': self._setup_todo(), 'generated_utc': utc_now_iso()}
+
+    def _setup_todo(self) -> int:
+        """The required setup items not done, for the Setup tab's badge."""
+        try:
+            from . import setup_checklist as _SC
+            c = _SC.checklist(self.ws)['counts']
+            return c['required'] - c['required_done']
+        except Exception:
+            return 0
 
     def since(self, after: Optional[str], limit: int = 50) -> dict:
         """What happened since `after` (ISO UTC; default: the signed-in user's previous sign-in): audit actions grouped, alarm events, jobs."""
@@ -1650,6 +1659,9 @@ def make_handler(app: App):
                 if path == '/api/tools':
                     from . import tool_catalog as _TC
                     return self._json(200, _TC.catalog())
+                if path == '/api/setup/checklist':
+                    from . import setup_checklist as _SC
+                    return self._json(200, _SC.checklist(app.ws))
                 if path == '/api/tools/taxonomy':
                     from . import tool_taxonomy as _TX
                     q = qs.get('q', [''])[0]; cat = qs.get('category', [''])[0] or None
@@ -1880,6 +1892,22 @@ def make_handler(app: App):
                                                                 depth_ft=(float(b['depth_ft']) if b.get('depth_ft') is not None else None), actor=user['name']))
                     except WorkspaceError as e:
                         raise ApiError(404, str(e))
+                if path == '/api/setup/confirm':
+                    App.require(user, 'operator')
+                    from . import setup_checklist as _SC
+                    b = body or {}
+                    try:
+                        return self._json(200, _SC.confirm(app.ws, str(b.get('item') or ''), user['name'], str(b.get('note') or '')))
+                    except ValueError as e:
+                        raise ApiError(400, str(e))
+                if path == '/api/sites/add':
+                    App.require(user, 'operator')
+                    b = body or {}
+                    try:
+                        return self._json(200, app.ws.add_site(str(b.get('display') or '').strip(), wells=[str(x) for x in (b.get('wells') or [])],
+                                                               client=str(b.get('client') or '').strip(), note=str(b.get('note') or ''), actor=user['name']))
+                    except WorkspaceError as e:
+                        raise ApiError(400, str(e))
                 if path == '/api/tools/fleet':
                     App.require(user, 'operator')
                     from . import tool_taxonomy as _TX
@@ -1944,7 +1972,8 @@ def make_handler(app: App):
                     wid = path[len('/api/wells/'):-len('/declare')]
                     b = body or {}
                     try:
-                        return self._json(200, app.ws.set_well(wid, surface=(b.get('surface') or None), disposal=(b.get('disposal') or None), actor=user['name']))
+                        return self._json(200, app.ws.set_well(wid, surface=(b.get('surface') or None), disposal=(b.get('disposal') or None),
+                                                               identity=(b.get('identity') or None), actor=user['name']))
                     except WorkspaceError as e:
                         raise ApiError(400, str(e))
                 if path == '/api/elevation':

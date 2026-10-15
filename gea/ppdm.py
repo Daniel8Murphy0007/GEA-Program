@@ -130,13 +130,19 @@ def parse_well_number(text: Any) -> dict:
 # --------------------------------------------------------------------------------------------------------------
 # the well's identity as "What is a Well" components
 # --------------------------------------------------------------------------------------------------------------
+def declared_api(well: dict) -> Optional[str]:
+    """The US Well Number the operator declared for a well: its identity block, or - for a well declared before the
+    identity block existed - its disposal block."""
+    return ((well.get('identity') or {}).get('api_number') or (well.get('disposal') or {}).get('api_number') or None)
+
+
 def well_identity(well: dict, site: Optional[dict] = None, channels: Optional[List[str]] = None) -> dict:
     """The components of PPDM's "What is a Well" the site can name for this well, from what the operator
     declared (set-well) and what the program holds; every component it cannot name is a gap by name."""
     disp = well.get('disposal') or {}
     surf = well.get('surface') or {}
     wid = well['id']
-    api = parse_well_number(disp.get('api_number')) if disp.get('api_number') else None
+    api = parse_well_number(declared_api(well)) if declared_api(well) else None
     comps: Dict[str, Any] = {}
     gaps: List[str] = []
     aliases: List[dict] = [{'name': well.get('display') or wid, 'type': 'operator name', 'basis': 'the name the operator gave the record'},

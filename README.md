@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (380 checks)
+gea accept                     # the product gate (383 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -608,6 +608,23 @@ synthetic station speaking both versions; `gea seedlink --selftest` runs both
 against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
+
+### The setup checklist
+
+The Setup tab (`#/setup`, `gea checklist --workspace C:\site`) says what a
+workspace still needs before its reports can be handed over, read from the
+workspace as it stands: an administrator, the wells, a site record naming
+the client, a backup folder off the machine, a current backup, the daily
+schedule, current reports, and for each well its surface location and
+datum, its reference elevation with its source, and its US Well Number.
+Each item carries its own form or button - declare the position, take the
+ground level from USGS 3DEP to check, create the site, back up now - and,
+where every value is already known, the command to paste. The tab's badge
+counts the required items still to do and the Home page names the next
+one. A drilling record's depth events are confirmed by a person against
+the daily drilling reports, with a note; the confirmation stops counting
+if the record changes. `gea checklist` exits 0 when everything required is
+done. `gea help setup`.
 
 ### Tools and ports
 
