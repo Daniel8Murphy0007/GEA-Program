@@ -43,6 +43,7 @@ INDEX: List[tuple] = [
     ('edr', 'The drilling recorder', 'the rig\'s one-second EDR export read as delivered - sections, depths, hours on bottom, the rate of penetration, the recorder\'s MD-TVD table - and what the record will not say'),
     ('dlis', 'The DLIS log', 'a well log as it is delivered (API RP66 V1), read as the standard lays it out: the frames, the channels, what was skipped; into the strata survey'),
     ('historian', 'The historian pull', 'an operator\'s gauge history out of the PI System through PI Web API, read-only, every value with its archive time and flags'),
+    ('map', 'The site map', 'everything with a position in one frame: the placed wells, the structure layers, the stress directions, the stations and response areas over the state and county outline; what every layer says about any spot'),
     ('charts', 'The charts', 'a well\'s channels stacked on one axis with a linked cursor, zoom and pan from every sample, time or depth for a drilling recorder, the depth events marked, and the drilling progress of every well'),
     ('setup', 'The setup checklist', 'what this workspace still needs before its reports can be handed over - each well\'s location, elevation and number, the client site, the backup, the reports - read from the workspace as it stands, each with its form or button'),
     ('tools', 'Tools and ports', 'every class of downhole tool in use across the industry with a hover description and a pop-open tutorial, your own fleet with its datasheets, the gauges this program reads with their citations and ratings, the formats and protocols that bring readings in, and the rating check on a tool string'),
@@ -70,7 +71,7 @@ REQUIRED_LINES = ('**The command**', '**What it writes**', '**The number to chec
 VIEW_TOPIC: Dict[str, str] = {
     'home': 'start', 'wells': 'data-in', 'well': 'drift', 'live': 'patches', 'patch': 'patches', 'files': 'files', 'alarms': 'alarms',
     'approvals': 'well-tests', 'config': 'site', 'reports': 'drift', 'verify': 'start', 'survey': 'data-in', 'jobs': 'site',
-    'admin': 'site', 'prefs': 'site', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'sar': 'seismic', 'sites': 'sites', 'setup': 'setup', 'audit': 'audit-update', 'tools': 'tools', 'catalog': 'catalog',
+    'admin': 'site', 'prefs': 'site', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'sar': 'seismic', 'sites': 'sites', 'setup': 'setup', 'map': 'map', 'audit': 'audit-update', 'tools': 'tools', 'catalog': 'catalog',
 }
 
 

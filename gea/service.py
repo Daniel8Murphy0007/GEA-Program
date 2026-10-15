@@ -1805,6 +1805,34 @@ def make_handler(app: App):
                         raise ApiError(404, str(e))
                     except (KeyError, ValueError) as e:
                         raise ApiError(400, str(e.args[0] if e.args else e))
+                if path == '/api/map' or path.startswith('/api/map/'):
+                    from . import site_map as _SM
+                    def _bbox():
+                        try:
+                            b = [float(x) for x in qs.get('bbox', [''])[0].split(',')]
+                            assert len(b) == 4 and b[0] < b[2] and b[1] < b[3]
+                            return b
+                        except (ValueError, AssertionError):
+                            raise ApiError(400, 'bbox is west,south,east,north in degrees')
+                    tol = float(qs.get('tol', ['0'])[0] or 0)
+                    if path == '/api/map':
+                        return self._json(200, _SM.overview(app.ws))
+                    if path == '/api/map/outline':
+                        return self._json(200, _SM.outline_view(_bbox(), tol))
+                    if path == '/api/map/stress':
+                        return self._json(200, _SM.stress_view(app.ws, _bbox()))
+                    if path == '/api/map/at':
+                        try:
+                            lat, lon = float(qs['lat'][0]), float(qs['lon'][0])
+                        except (KeyError, ValueError):
+                            raise ApiError(400, 'lat and lon are needed')
+                        return self._json(200, _SM.what_here(app.ws, lat, lon, float(qs.get('radius_km', ['25'])[0])))
+                    if path.startswith('/api/map/layer/'):
+                        try:
+                            return self._json(200, _SM.layer_view(app.ws, path[len('/api/map/layer/'):], _bbox(), tol))
+                        except WorkspaceError as e:
+                            raise ApiError(404, str(e))
+                    raise ApiError(404, 'no such map route')
                 if path == '/api/pad/progress':
                     return self._json(200, app.pad_progress())
                 if path.startswith('/api/wells/') and path.endswith('/series'):

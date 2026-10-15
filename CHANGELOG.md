@@ -5,6 +5,46 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.34.0] - 2026-10-15 - The site map
+
+### Added
+- **The Map tab** (`gea/site_map.py`, `#/map`): everything in the workspace
+  that has a position, in one WGS84 frame - the wells at their declared
+  surface positions, every structure layer the site brought (faults and
+  folds, formation contours by role, areas, points), the World Stress Map's
+  SHmax directions (best quality first), the seismic stations and the
+  Seismicity Response Areas, over the outline of the US states and counties.
+- **One frame, every shift stated.** A well declared on NAD27 is moved to
+  WGS84 by its datum shift (about fifty metres in West Texas) and the move
+  is shown beside it; NAD83 is taken as WGS84 to within about two metres, as
+  everywhere else in the program. A well with no declared position is listed
+  as NOT PLACED, with the way to place it, and is never drawn.
+- **Drawn at the view's detail, nothing moved.** A layer is read once per
+  run of the program (again when it changes) and each view gets its
+  features in the box, thinned to the view's pixel: a vertex that would land
+  in the same screen cell as the one before it is left out of the drawing,
+  never moved, and the ends are kept; points are sampled evenly past four
+  thousand.
+- **What is here**: a click (or Enter for the centre) asks every layer for
+  its own statement at that spot - the nearest fault and its distance and
+  bearing, the contours it lies between, the area it falls in, the nearest
+  points - with the distance and bearing to every placed well. Pointing
+  shows the position and the nearest placed well.
+- **Ergonomics**: drag to pan, the wheel or + − to zoom, Home to return (to
+  the placed wells, else the response area, else the area most of the
+  layers cover); the same on the keyboard; layer toggles with a fit button
+  each; distance rings around the wells; a scale bar; light and dark; phone
+  width.
+- **The outline ships with the program**: `reference/us_outline.json`, the
+  US Census Bureau's 2017 cartographic county boundaries by way of the
+  us-atlas 3.0.1 package (built by `tools/build_us_outline.py`), with its
+  provenance - hashes, the public-domain source and the package's ISC
+  notice - beside it; state lines in a wide view, county lines and names
+  once the view is close. The map needs no network.
+- API `/api/map`, `/api/map/layer/<id>`, `/api/map/outline`,
+  `/api/map/stress`, `/api/map/at`. `gea help map`.
+- Section CC (3 checks); the gate is 389.
+
 ## [v0.33.0] - 2026-10-15 - Interactive charts
 
 ### Added

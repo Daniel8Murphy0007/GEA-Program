@@ -2011,3 +2011,37 @@ three-million-row file: one sample in two thousand).
   page moved on. A channel the well lacks is named (Cache.unit raised a
   bare KeyError first - CB2 caught it).
 - Section CB (3 checks). Gate 386.
+
+## 2026-10-15 - The site map (v0.34.0)
+
+The ergonomics leg, third item.
+- Research first: an offline base outline. us-atlas 3.0.1 from the npm
+  registry (counties-10m.json: TopoJSON of the Census Bureau's 2017
+  cartographic county boundaries; the data are public domain, the package
+  ISC). `tools/build_us_outline.py` decodes the arcs once (9,869 arcs,
+  46,565 points, 1e-4 degree), tags 1,994 as state lines (one county, or
+  two states, on its sides), and gives each of the 3,231 counties a label
+  point; `reference/us_outline.json` (1.7 MB) with a provenance sidecar
+  carrying both hashes, the source and the ISC notice.
+- `gea/site_map.py`: layers read once per process (keyed on layer.json's
+  mtime) into arrays in the frame (a non-NAD83/WGS84 layer would be moved
+  by the datum shift at its centre - the layer reader accepts only those
+  two today, so the path stands ready); thinning by screen-cell grid (keeps
+  ends, drops, never moves); points sampled; the stress map read once;
+  `what_here` runs each layer's own `structure.describe` on the cached
+  layer at the click, un-shifted into the layer's datum.
+- Pad 3's 33 layers measured on his machine before building: 614,007
+  vertices in all, 4 s to read them all once; the Eastern US structural
+  features layer alone is 320,732 (far outside the basin, culled by box).
+  Default view without placed wells: the layers whose centres lie within
+  five degrees of the median centre - Pad 3's basin layers, not the eastern
+  US.
+- The page: SVG at the container's pixel width, outline under the layers
+  (county lines only closer than a dozen degrees, names closer than six),
+  faults solid and folds dashed in ink, contours by role in the categorical
+  slots (top blue, isopach aqua dashed, base orange), areas a light wash,
+  stress ticks in orange with A/B heavier, wells in the accent with links,
+  rings, scale bar, the outline's source in the corner. Driven in headless
+  Chromium light, dark and phone: click answers, key zoom, drag pan, fit,
+  rings, no page errors.
+- Section CC (3 checks). Gate 389.

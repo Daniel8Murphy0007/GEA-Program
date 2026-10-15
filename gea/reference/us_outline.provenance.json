@@ -1,0 +1,22 @@
+{
+ "file": "us_outline.json",
+ "sha256": "f582b06faac8bda77621ccf11ac4010ffbbafad20cbe16f1e40325b4fd5a8bb3",
+ "derived_from": {
+  "package": "us-atlas@3.0.1 (npm)",
+  "file": "counties-10m.json",
+  "sha256": "145aaf5d1433352a6a1d8e86b5f149c7c653f9171baf14aaf75ee66575def1b0",
+  "repository": "https://github.com/topojson/us-atlas"
+ },
+ "original_source": "US Census Bureau, cartographic boundary files, 2017 edition (counties), https://www2.census.gov/geo/tiger/GENZ2017/shp/ - a work of the US Government, public domain",
+ "package_license": "ISC",
+ "package_license_text": "Copyright 2013-2019 Michael Bostock\n\nPermission to use, copy, modify, and/or distribute this software for any purpose\nwith or without fee is hereby granted, provided that the above copyright notice\nand this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH\nREGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND\nFITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,\nINDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS\nOF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER\nTORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF\nTHIS SOFTWARE.\n",
+ "how": "TopoJSON arcs decoded once to degrees, rounded to 1e-4 degree; a state line is an arc on one county only or between counties of two states",
+ "built_utc": "2026-10-15T17:06:59Z",
+ "counts": {
+  "arcs": 9869,
+  "state_line_arcs": 1994,
+  "points": 46565,
+  "counties": 3231,
+  "states": 56
+ }
+}

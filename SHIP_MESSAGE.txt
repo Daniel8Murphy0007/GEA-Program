@@ -1,32 +1,30 @@
-v0.33.0 — INTERACTIVE CHARTS
+v0.34.0 — THE SITE MAP
 
-A well's page drew one channel at a time, as a fixed picture of a thinned
-copy: fifteen hundred points out of a three-million-row drilling export,
-one sample in two thousand. A connection, a jar firing, a stall lasts a
-few seconds; at that thinning it was not on the chart at all.
+Pad 3 has thirty-three structure layers in it, a stress map of forty
+thousand records, three wells - and nowhere to see them together. The
+layers answered questions about a position one at a time; nothing drew
+them. This release adds the Map tab.
 
-The Charts card replaces it. Up to four channels stack on one axis, each
-on its own scale, and one cursor reads them all at the same moment. Drag
-across a stretch to zoom into it, wheel to zoom where you point,
-double-click to see everything again; the keyboard does the same. Every
-view is cut from every sample: each point on screen is a bucket carrying
-the minimum, the maximum and the mean of the samples in it, so a
-one-second spike survives a month-wide view, and a stretch with no
-samples is drawn empty - a gap in the recording is never bridged. Close
-enough in, the chart shows the samples themselves.
+Everything in the workspace that has a position goes into one frame: the
+wells at their declared surface positions, every structure layer the site
+brought - faults and folds, formation contours, areas, points - the World
+Stress Map's SHmax directions, the seismic stations and the response
+areas, over the outline of the US states and counties. A well declared on
+NAD27 is moved to WGS84 by its datum shift, about fifty metres here, and
+the move is printed beside it. A well with no declared position is listed
+as not placed, with the way to place it, and is never drawn anywhere.
 
-For a drilling recorder the axis switches between time and depth - the
-drilling samples by bit depth, kept off the hole a sidetrack abandoned,
-the same samples the gamma log uses. The depth events are marked where
-they happened, the string coming off bottom is ticked when zoomed in, and
-each section of the recording is one click. The Wells page now carries
-the drilling progress of every drilling-recorder well: hole depth against
-days, one colour per well, a cursor that reads them all on the same day.
+Each view draws its layers at the detail it needs - a vertex that would
+land in the same screen cell as the one before it is left out of the
+drawing, never moved - so the half-million vertices of Pad 3's layers
+pan and zoom without waiting. Click anywhere and every layer says what it
+knows about that spot: the nearest fault and its distance, the contours
+it lies between, the area it falls in, and how far it is from every
+placed well.
 
-The refresh writes each well's chart cache from the read it already
-makes, so a three-million-row file answers a zoom in a fifth of a
-second. The cache is a copy: it is rebuilt when its source changes and
-left out of backups.
+The outline ships with the program - the Census Bureau's 2017
+cartographic boundaries, with their provenance - so the map works with
+no network at all.
 
-Section CB is new, three checks. The gate is 386 checks. The standalone
+Section CC is new, three checks. The gate is 389 checks. The standalone
 guard is clean.

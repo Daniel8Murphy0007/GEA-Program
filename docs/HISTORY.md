@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.34.0 - 2026-10-15 - the site map
+
+- **Everything with a position, one frame.** Placed wells (datum shifts
+  shown), the structure layers thinned to the view without moving a vertex,
+  stress directions, stations, response areas, over a shipped Census
+  outline; what every layer says about a clicked spot; not-placed wells
+  listed, never drawn. Section CC; gate 389.
+
 ## v0.33.0 - 2026-10-15 - interactive charts
 
 - **Stacked channels, a linked cursor, zoom and pan from every sample.**

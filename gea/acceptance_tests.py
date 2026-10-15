@@ -8304,6 +8304,150 @@ def section_cb_charts(tmp: str) -> None:
        "kept while a window loads, the drilling progress chart with one colour per well in a fixed order in both themes; the help page"
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
+
+def section_cc_site_map(tmp: str) -> None:
+    """Section CC - the site map: the shipped state and county outline with its provenance, every positioned thing in one
+    WGS84 frame (a NAD27 well moved by its datum shift and saying so, a well without a position never drawn), a layer
+    thinned to the view's pixel without a vertex moved, what every layer says about a spot, the page."""
+    import hashlib as _hl
+    import http.cookiejar
+    import math as _m
+    import urllib.request
+    import urllib.error
+    from . import edr as E
+    from . import helplib as H
+    from . import shapefile as SF
+    from . import site_map as SM
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "cc"); d.mkdir()
+
+    ol = SM.outline_data()
+    prov = json.loads((pkg / "reference" / "us_outline.provenance.json").read_text(encoding="utf-8"))
+    cul = [c for c in ol["counties"] if c["name"] == "Culberson"]
+    wide = SM.outline_view([-110.0, 25.0, -90.0, 37.0], 0.02)
+    near = SM.outline_view([-105.2, 31.0, -104.0, 32.0], 0.002)
+    c1 = {
+        "outline": len(ol["counties"]) == 3231 and ol["states"].get("48") == "Texas" and cul and cul[0]["fips"] == "48109"
+                   and abs(cul[0]["label"][0] + 104.65) < 0.2 and abs(cul[0]["label"][1] - 31.47) < 0.2,
+        "provenance": prov["sha256"] == _hl.sha256((pkg / "reference" / "us_outline.json").read_bytes()).hexdigest() and prov["package_license"] == "ISC"
+                      and "Copyright 2013-2019 Michael Bostock" in prov["package_license_text"] and "public domain" in prov["original_source"]
+                      and prov["counts"]["counties"] == 3231,
+        "detail": all(a["s"] == 1 for a in wide["arcs"]) and not wide["labels"] and any(a["s"] == 0 for a in near["arcs"])
+                  and "Culberson" in [x["name"] for x in near["labels"]],
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CC1 the outline ships with the program: the US Census Bureau's 2017 cartographic counties by way of us-atlas 3.0.1, 3,231 counties, the "
+       "provenance with its hash, the package's ISC notice and the public-domain source; state lines only in a wide view, county lines and names "
+       "once the view is close (Culberson, FIPS 48109)"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    lat1, lon1 = 31.42, -104.10
+    kmlon = 1.0 / (111.195 * _m.cos(_m.radians(lat1)))
+    faults = [([[(lon1 - 0.2 + 0.01 * i, lat1 - 0.3 + 0.0002 * j) for j in range(3001)]], {"TYPE": "normal fault", "NAME": f"F{i}"}) for i in range(0, 40, 8)]
+    SF.write(str(d / "Faults"), "PolyLine", faults, [("TYPE", "C", 20, 0), ("NAME", "C", 10, 0)], SF.NAD83_GEOGCS)
+    ctr = [([[(lon1 + (i - 1.5) * 4 * kmlon + 0.001 * k, lat1 - 0.3 + 0.006 * k) for k in range(100)]], {"ElevTop_ft": -8500.0 + 500.0 * i}) for i in range(4)]
+    SF.write(str(d / "Top_A"), "PolyLine", ctr, [("ElevTop_ft", "F", 10, 1)], SF.NAD83_GEOGCS)
+    SF.write(str(d / "Picks"), "Point", [([[(lon1 + 0.0001 * i, lat1 + 0.00005 * i)]], {"NAME": f"P{i}"}) for i in range(6000)], [("NAME", "C", 10, 0)], SF.NAD83_GEOGCS)
+    with open(d / "wsm.csv", "w", encoding="utf-8") as f:
+        f.write("ID,LAT,LON,AZI,TYPE,DEPTH,QUALITY,REGIME,LOCALITY\n")
+        for i in range(40):
+            f.write(f"W{i},{lat1 - 0.1 + 0.005 * i:.4f},{lon1 - 0.05:.4f},{60 + i},BO,2.5,{'DCBA'[i % 4]},NF,test\n")
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    empty_view = SM.overview(ws)["view"]
+    ws.add_layer(str(d / "Faults.shp"), "Basement faults", actor="tester", citation="test")
+    ws.add_layer(str(d / "Top_A.shp"), "Wolfcamp top", actor="tester", formation="Wolfcamp", role="top", citation="test")
+    ws.add_layer(str(d / "Picks.shp"), "Picks", actor="tester", citation="test")
+    ws.add_stress_map(str(d / "wsm.csv"), actor="tester", citation="test WSM")
+    layer_view0 = SM.overview(ws)["view"]
+    a = E.selftest(str(d)); b = E.selftest_events(str(d))
+    wa = ws.add_well_file(a["path"], display="Well A", actor="tester"); wb = ws.add_well_file(b["path"], display="Well B", actor="tester")
+    wc = ws.add_well_file(a["path"], display="Well C", actor="tester")
+    ws.set_well(wa["id"], surface={"lat": 31.41, "lon": -104.12, "datum": "NAD27"}, actor="tester")
+    ws.set_well(wb["id"], surface={"lat": 31.43, "lon": -104.08, "datum": "NAD83"}, actor="tester")
+    o = SM.overview(ws)
+    wl = {w["id"]: w for w in o["wells"]}
+    view = o["view"]["bbox"]
+    fine = SM.layer_view(ws, "Basement-faults", [-105, 30, -103, 32], 0.0)
+    coarse = SM.layer_view(ws, "Basement-faults", [-105, 30, -103, 32], 0.01)
+    raw = SM._layer(ws, "Basement-faults")
+    src_pts = {(round(float(x), 5), round(float(y), 5)) for f in raw["feats"] for pp in f["parts"] for x, y in pp}
+    moved = [p for f in coarse["features"] for pp in f["parts"] for p in pp if (p[0], p[1]) not in src_pts]
+    ends_kept = all(f["parts"][0][0] == fine["features"][k]["parts"][0][0] and f["parts"][0][-1] == fine["features"][k]["parts"][0][-1] for k, f in enumerate(coarse["features"]))
+    pts = SM.layer_view(ws, "Picks", [-105, 30, -103, 32], 0.0, max_points=1000)
+    wh = SM.what_here(ws, 31.42, -104.10)
+    sv = SM.stress_view(ws, [-104.3, 31.2, -103.9, 31.6])
+    c2 = {
+        "frame": "WGS84" in o["frame"] and o["view"]["why"] == "the placed wells" and empty_view["why"].startswith("nothing in the workspace")
+                 and layer_view0["why"].startswith("the area most of the layers cover (the median extent of 3 of the 3)"),
+        "wells": wl[wa["id"]]["placed"] and 30.0 < wl[wa["id"]]["shift_m"] < 90.0 and wl[wa["id"]]["declared"]["datum"] == "NAD27"
+                 and wl[wb["id"]]["placed"] and wl[wb["id"]]["shift_m"] == 0.0 and not wl[wc["id"]]["placed"] and "lat" not in wl[wc["id"]]
+                 and view[0] < -104.12 < view[2] and view[1] < 31.43 < view[3],
+        "layers": [(l["id"], l["kind"]) for l in o["layers"]] == [("Basement-faults", "structure"), ("Wolfcamp-top", "contours"), ("Picks", "points")]
+                  and o["layers"][0]["classes"] == ["fault"] and o["layers"][0]["n_points"] == 5 * 3001 and o["stress_map"]["n_records"] == 40,
+        "thinning": fine["vertices"] == 5 * 3001 and coarse["vertices"] < fine["vertices"] / 10 and not moved and ends_kept
+                    and all(f.get("cls") == "fault" for f in coarse["features"]),
+        "points": pts["in_view"] == 6000 and pts["shown"] == 1000 and pts["kind"] == "points",
+        "what_here": wh["answered"] >= 2 and any("Nearest mapped fault" in ln for l_ in wh["layers"] for ln in (l_["lines"] or []))
+                     and any("contours" in ln for l_ in wh["layers"] for ln in (l_["lines"] or []))
+                     and [w["id"] for w in wh["wells"]] == sorted([wa["id"], wb["id"]], key=lambda i: next(x["distance_km"] for x in wh["wells"] if x["id"] == i))
+                     and len(wh["wells"]) == 2,
+        "stress": sv["n_in_view"] == 40 and sv["records"][0]["quality"] == "A" and sv["records"][-1]["quality"] == "D" and sv["citation"] == "test WSM",
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CC2 one frame: a well declared on NAD27 moved to WGS84 by its datum shift and the shift kept with it, a well declared on NAD83 not moved, a "
+       "well with no position never placed; the map opens on the placed wells (else the area most layers cover, else Texas, said so); a layer "
+       "thinned to the view's pixel keeps its ends and moves no vertex, points sampled evenly past the limit; each layer's own statement for a spot "
+       "and the distance to every placed well; the stress records in view, best quality first"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+    op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(path):
+        req = urllib.request.Request(base_url + path, method="GET")
+        try:
+            with op.open(req, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        lreq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": "v", "password": "viewer-pass-1"}).encode())
+        lreq.add_header("Content-Type", "application/json"); lreq.add_header("X-GEA-Action", "1"); op.open(lreq, timeout=30)
+        bb = ",".join(f"{x:.5f}" for x in view)
+        st_o, ov = call("/api/map")
+        st_l, lv = call(f"/api/map/layer/Wolfcamp-top?bbox={bb}&tol=0.001")
+        st_ol, olv = call(f"/api/map/outline?bbox={bb}&tol=0.001")
+        st_s, svv = call(f"/api/map/stress?bbox={bb}")
+        st_a, at = call("/api/map/at?lat=31.42&lon=-104.10")
+        st_bad, _ = call("/api/map/layer/Wolfcamp-top?bbox=1,2,3")
+        st_nol, _ = call(f"/api/map/layer/no-such-layer?bbox={bb}")
+        st_noll, _ = call("/api/map/at?lat=x")
+    finally:
+        svc.stop()
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    help_md = (pkg / "help" / "map.md").read_text(encoding="utf-8")
+    c3 = {
+        "api": st_o == 200 and len(ov["wells"]) == 3 and st_l == 200 and lv["kind"] == "contours" and all("value" in f for f in lv["features"])
+               and st_ol == 200 and st_s == 200 and st_a == 200 and len(at["wells"]) == 2 and st_bad == 400 and st_nol == 404 and st_noll == 400,
+        "page": all(x in page_src for x in ("VIEWS.map", "['#/map', 'Map']", "/api/map/layer/", "/api/map/outline", "/api/map/stress", "/api/map/at",
+                                             "Not placed", "declare it", "data-fit", "mpRings", "ArrowUp", "'Home' || k === 'Escape'", "scale bar", "'wheel'",
+                                             "What is at", "setPointerCapture")),
+        "help": any(t["topic"] == "map" for t in H.topics()) and not H.check("map") and H.VIEW_TOPIC.get("map") == "map"
+                and "never moved" in help_md.split("will not call a measurement")[1],
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CC3 the API (the contents, a layer with its contour values, the outline, the stress records, what is at a spot; a malformed box, an unknown "
+       "layer and a missing position named) and the Map tab: pan and zoom by pointer, wheel and keys, layer toggles and fit, distance rings, a scale "
+       "bar, the not-placed wells with the way to place them, what is at a click; the help page"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -8387,6 +8531,7 @@ def main() -> int:
         section_bz_tool_library(tmp)
         section_ca_setup_checklist(tmp)
         section_cb_charts(tmp)
+        section_cc_site_map(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

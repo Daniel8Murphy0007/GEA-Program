@@ -59,6 +59,21 @@ dialog.tl-dlg::backdrop{background:rgba(0,0,0,.45)}
 .ck-act{margin-top:6px}.ck-act form{margin-top:4px}.ck-act .row label>input,.ck-act .row label>select{min-width:8em}
 .cp-ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin:6px 0}.cp-ctl .seg{display:inline-flex;border:1px solid var(--grid);border-radius:7px;overflow:hidden}.cp-ctl .seg button{border:0;border-radius:0;background:var(--surface);color:var(--ink2);padding:6px 12px}.cp-ctl .seg button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink)}
 .cp-ctl .tb button{padding:6px 10px;min-width:2.4em}
+.mp-wrap{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;align-items:start}@media (max-width:900px){.mp-wrap{grid-template-columns:1fr}}
+.mp-map{position:relative;border:1px solid var(--grid);border-radius:10px;overflow:hidden;background:var(--surface);touch-action:none;user-select:none}.mp-map:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.mp-map svg{display:block;width:100%}.mp-map text{font:11px var(--sans);fill:var(--ink2)}.mp-map .wl{font-size:12px;font-weight:600;fill:var(--ink);paint-order:stroke;stroke:var(--surface);stroke-width:3px}
+.mp-map .st{fill:none;stroke:var(--ink2);stroke-width:1.3}.mp-map .co{fill:none;stroke:var(--grid);stroke-width:.8}.mp-map .cl{fill:var(--muted);font-size:10.5px}
+.mp-map .ft{fill:none;stroke:var(--ink);stroke-width:1.3}.mp-map .fo{fill:none;stroke:var(--ink);stroke-width:1.2;stroke-dasharray:6 3}.mp-map .ot{fill:none;stroke:var(--muted);stroke-width:1}
+.mp-map .ct{fill:none;stroke:var(--s1);stroke-width:1;opacity:.85}.mp-map .ci{fill:none;stroke:var(--s3);stroke-width:1;stroke-dasharray:4 3;opacity:.85}.mp-map .cb{fill:none;stroke:var(--s2);stroke-width:1;opacity:.85}
+.mp-map .ar{fill:var(--accent);fill-opacity:.06;stroke:var(--accent);stroke-width:1}.mp-map .pt{fill:var(--muted)}
+.mp-map .sh{stroke:var(--s2);stroke-width:1.6;stroke-linecap:round}.mp-map .sh.q{stroke-width:2.4}
+.mp-map .sra{fill:none;stroke:var(--ink);stroke-width:1.4;stroke-dasharray:8 4}.mp-map .ring{fill:none;stroke:var(--accent);stroke-width:1;stroke-dasharray:3 3;opacity:.8}
+.mp-map .well{fill:var(--accent);stroke:var(--surface);stroke-width:2;cursor:pointer}.mp-map .well:hover,.mp-map .well:focus{stroke:var(--ink)}.mp-map .sta{fill:var(--s3);stroke:var(--surface);stroke-width:1.5}
+.mp-map .here{fill:none;stroke:var(--serious);stroke-width:2}
+.mp-busy svg{opacity:.6;transition:opacity .15s}
+.mp-side .card{margin:0 0 12px}.mp-side label{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--ink2);margin:3px 0}.mp-side label>input{display:inline-block;margin:0;min-width:0;width:auto;padding:0}
+.mp-sw{display:inline-block;width:18px;height:0;border-top:2px solid var(--ink);vertical-align:middle}
+.mp-read{font-size:13px;min-height:1.4em;margin:4px 0}.mp-read b{font-variant-numeric:tabular-nums}
 .cp-secs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0}.cp-secs button{flex:0 0 auto;width:auto}
 .cp-stack{position:relative;touch-action:pan-y;user-select:none;border-radius:6px}.cp-stack:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .cp-stack svg{width:100%;display:block}.cp-stack text{font:12px var(--sans);fill:var(--ink2)}.cp-stack .ttl{fill:var(--ink);font-weight:600}
@@ -463,6 +478,104 @@ async function toolLibrary() {
   const redraw = () => { if (!$('#tlGrid')) return; draw(); fleetCard(); };
   TLX.redraw = redraw; redraw();
 }
+// ---- the site map: every source with a position, in one frame ----
+VIEWS.map = async () => {
+  const o = await get('/api/map');
+  const K = {structure: 'Faults and folds', contours: 'Formation contours', areas: 'Areas', points: 'Points'};
+  const sw = l => l.kind === 'structure' ? 'border-top:2px solid var(--ink)' : l.kind === 'contours' ? `border-top:2px ${l.role === 'isopach' ? 'dashed var(--s3)' : 'solid ' + (l.role === 'base' ? 'var(--s2)' : 'var(--s1)')}` : l.kind === 'areas' ? 'border-top:6px solid color-mix(in srgb, var(--accent) 25%, transparent)' : 'border-top:4px dotted var(--muted)';
+  const show = {}; for (const l of o.layers) show[l.id] = l.status === 'OK' && (l.kind === 'structure' || l.kind === 'areas');
+  const notPlaced = o.wells.filter(w => !w.placed), placed = o.wells.filter(w => w.placed);
+  let h = `<h2>Site map</h2>` + help('map');
+  h += `<p class="small muted">Frame: ${esc(o.frame)}. Opened on ${esc(o.view.why)}. Drag to pan, wheel or + − to zoom, Home to return; click the map for what each layer says about that spot.</p>`;
+  h += `<div class="mp-wrap"><div><div class="row" style="margin:0 0 6px"><span class="tb" role="group" aria-label="Zoom and pan"><button type="button" class="secondary" data-mp="in" aria-label="Zoom in">+</button><button type="button" class="secondary" data-mp="out" aria-label="Zoom out">−</button><button type="button" class="secondary" data-mp="home">Home</button></span>
+      <label class="small">Rings around wells<select id="mpRings"><option value="">none</option><option value="1,5,10">1, 5, 10 km</option><option value="5,10,25">5, 10, 25 km</option></select></label></div>
+    <div class="mp-read" id="mpRead" aria-live="polite">Point at the map for its position.</div>
+    <div class="mp-map" id="mpMap" tabindex="0" role="application" aria-label="Site map: arrow keys pan, + and - zoom, Home returns, Enter asks what is at the centre"></div>
+    <div class="card" id="mpHere" hidden style="margin-top:12px"></div></div>
+    <div class="mp-side"><div class="card"><h3 style="margin-top:0">Wells</h3>${placed.map(w => `<div class="small">● <a href="#/wells/${esc(w.id)}">${esc(w.display)}</a> <span class="muted">${fmt(w.declared.lat, 5)}, ${fmt(w.declared.lon, 5)} ${esc(w.declared.datum)}${w.shift_m ? ` → WGS84 (${fmt(w.shift_m, 1)} m)` : ''}</span></div>`).join('') || '<p class="small muted">No well is placed yet.</p>'}
+      ${notPlaced.length ? `<p class="small" style="margin-bottom:2px"><b>Not placed</b> - no surface position declared, so not drawn:</p>${notPlaced.map(w => `<div class="small">○ ${esc(w.display)} <a href="#/setup">declare it</a></div>`).join('')}` : ''}</div>
+    <div class="card"><h3 style="margin-top:0">Shown</h3><label><input type="checkbox" id="mpBase" checked> States and counties <span class="muted">(Census, offline)</span></label>
+      ${o.stress_map ? `<label><input type="checkbox" id="mpStress"> Stress (SHmax, World Stress Map)</label>` : ''}
+      ${o.stations.length ? `<label><input type="checkbox" id="mpSta" checked> Seismic stations (${o.stations.length})</label>` : ''}
+      ${o.areas.length ? `<label><input type="checkbox" id="mpSra" checked> Response areas (${o.areas.length})</label>` : ''}
+      ${Object.keys(K).map(k => { const ls = o.layers.filter(l => l.kind === k); if (!ls.length) return ''; return `<h4 class="small" style="margin:10px 0 2px">${esc(K[k])}</h4>` + ls.map(l => `<label title="${esc((l.citation || '') + (l.shift_m ? ' · moved ' + l.shift_m + ' m from ' + l.datum : ''))}"><input type="checkbox" data-layer="${esc(l.id)}" ${show[l.id] ? 'checked' : ''} ${l.status !== 'OK' ? 'disabled' : ''}><span class="mp-sw" style="${sw(l)}"></span> ${esc(l.display)} <span class="muted">${l.status === 'OK' ? fmt(l.n_features, 0) : 'unreadable'}</span> <button type="button" class="secondary" data-fit="${esc(l.id)}" style="padding:0 6px;font-size:11px;margin-left:auto" aria-label="Zoom to ${esc(l.display)}">fit</button></label>`).join(''); }).join('')}</div></div></div>`;
+  $('#main').innerHTML = h;
+  const host = $('#mpMap'), read = $('#mpRead');
+  const V = {lon0: 0, lat0: 0, k: 1, W: 800, H: 560};
+  const fit = b => { V.W = Math.max(320, host.clientWidth || 800); V.H = Math.max(360, Math.min(720, Math.round(V.W * 0.68))); V.lon0 = (b[0] + b[2]) / 2; V.lat0 = (b[1] + b[3]) / 2;
+    const c = Math.cos(V.lat0 * Math.PI / 180); V.k = Math.min(V.W / Math.max(1e-6, (b[2] - b[0]) * c), V.H / Math.max(1e-6, b[3] - b[1])) * 0.92; };
+  const px = (lon, lat) => [(lon - V.lon0) * Math.cos(V.lat0 * Math.PI / 180) * V.k + V.W / 2, (V.lat0 - lat) * V.k + V.H / 2];
+  const geo = (x, y) => [V.lon0 + (x - V.W / 2) / (Math.cos(V.lat0 * Math.PI / 180) * V.k), V.lat0 - (y - V.H / 2) / V.k];
+  const bbox = () => { const [w, n] = geo(0, 0), [e, s] = geo(V.W, V.H); return [w, s, e, n]; };
+  const D = {layers: {}, outline: null, stress: null, here: null, seq: 0};
+  fit(o.view.bbox);
+  async function load() {
+    const my = ++D.seq, b = bbox(), pad = [(b[2] - b[0]) * 0.15, (b[3] - b[1]) * 0.15], q = [b[0] - pad[0], b[1] - pad[1], b[2] + pad[0], b[3] + pad[1]].map(v => v.toFixed(5)).join(','), tol = (1 / V.k).toFixed(7);
+    host.classList.add('mp-busy');
+    const jobs = [];
+    if ($('#mpBase').checked) jobs.push(get(`/api/map/outline?bbox=${q}&tol=${tol}`).then(r => { D.outline = r; }));
+    if ($('#mpStress') && $('#mpStress').checked) jobs.push(get(`/api/map/stress?bbox=${q}`).then(r => { D.stress = r; }));
+    for (const l of o.layers) if (show[l.id]) jobs.push(get(`/api/map/layer/${encodeURIComponent(l.id)}?bbox=${q}&tol=${tol}`).then(r => { D.layers[l.id] = r; }));
+    try { await Promise.all(jobs); } catch (e) { toast(e.message, 'err'); }
+    if (my !== D.seq || !host.isConnected) return;
+    host.classList.remove('mp-busy'); draw();
+  }
+  const path = pts => pts.map((p, i) => (i ? 'L' : 'M') + px(p[0], p[1]).map(v => v.toFixed(1)).join(' ')).join('');
+  function draw() {
+    const W = V.W, H = V.H; let g = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Map of the site's layers and wells">`;
+    if ($('#mpBase').checked && D.outline) { for (const a of D.outline.arcs) if (!a.s) g += `<path class="co" d="${path(a.p)}"/>`; for (const a of D.outline.arcs) if (a.s) g += `<path class="st" d="${path(a.p)}"/>`;
+      for (const lb of D.outline.labels) { const [x, y] = px(lb.p[0], lb.p[1]); g += `<text class="cl" x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle">${esc(lb.name)}</text>`; } }
+    for (const l of o.layers) { if (!show[l.id] || !D.layers[l.id]) continue; const r = D.layers[l.id];
+      if (r.kind === 'points') { for (const f of r.features) { const [x, y] = px(f.p[0], f.p[1]); g += `<circle class="pt" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2"><title>${esc((f.name ? f.name + ' · ' : '') + l.display)}</title></circle>`; } continue; }
+      const cls = f => r.kind === 'areas' ? 'ar' : r.kind === 'contours' ? (l.role === 'isopach' ? 'ci' : l.role === 'base' ? 'cb' : 'ct') : (f.cls === 'fault' ? 'ft' : f.cls === 'fold' ? 'fo' : 'ot');
+      for (const f of r.features) { const t = `${l.display}${f.name ? ' · ' + f.name : ''}${f.value != null ? ' · ' + fmt(f.value, 0) + (l.value_attr ? ' (' + l.value_attr + ')' : '') : ''}${f.cls ? ' · ' + f.cls : ''}`;
+        g += `<path class="${cls(f)}" d="${f.parts.map(p => path(p) + (r.kind === 'areas' ? 'Z' : '')).join('')}"><title>${esc(t)}</title></path>`; } }
+    if ($('#mpStress') && $('#mpStress').checked && D.stress) for (const s of D.stress.records) { const [x, y] = px(s.lon, s.lat), a = s.azimuth * Math.PI / 180, dx = Math.sin(a) * 7, dy = -Math.cos(a) * 7;
+      g += `<line class="sh${'AB'.includes(s.quality) ? ' q' : ''}" x1="${(x - dx).toFixed(1)}" y1="${(y - dy).toFixed(1)}" x2="${(x + dx).toFixed(1)}" y2="${(y + dy).toFixed(1)}"><title>SHmax ${fmt(s.azimuth, 0)}°, quality ${esc(s.quality)}, ${esc(s.regime || '')} ${esc(s.type || '')}</title></line>`; }
+    if ($('#mpSra') && $('#mpSra').checked) for (const a of o.areas) { const [x, y] = px(a.lon, a.lat); g += `<circle class="sra" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(a.radius_km / 111.195 * V.k).toFixed(1)}"><title>${esc(a.name)}: ${fmt(a.radius_km, 2)} km</title></circle><text x="${x.toFixed(1)}" y="${(y - a.radius_km / 111.195 * V.k - 4).toFixed(1)}" text-anchor="middle">${esc(a.name)}</text>`; }
+    const rings = ($('#mpRings').value || '').split(',').filter(Boolean).map(Number);
+    for (const w of placed) { const [x, y] = px(w.lon, w.lat); for (const km of rings) g += `<circle class="ring" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(km / 111.195 * V.k).toFixed(1)}"><title>${km} km from ${esc(w.display)}</title></circle>`; }
+    if ($('#mpSta') && $('#mpSta').checked) for (const s of o.stations) { const [x, y] = px(s.lon, s.lat); g += `<path class="sta" d="M${x.toFixed(1)} ${(y - 7).toFixed(1)}L${(x + 6).toFixed(1)} ${(y + 5).toFixed(1)}L${(x - 6).toFixed(1)} ${(y + 5).toFixed(1)}Z"><title>${esc(s.display)} (seismic station)</title></path><text x="${(x + 8).toFixed(1)}" y="${(y + 4).toFixed(1)}">${esc(s.display)}</text>`; }
+    for (const w of placed) { const [x, y] = px(w.lon, w.lat); g += `<a href="#/wells/${esc(w.id)}" aria-label="${esc(w.display)}"><circle class="well" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6"><title>${esc(w.display)}: ${fmt(w.declared.lat, 5)}, ${fmt(w.declared.lon, 5)} ${esc(w.declared.datum)}</title></circle></a><text class="wl" x="${(x + 9).toFixed(1)}" y="${(y + 4).toFixed(1)}">${esc(w.display)}</text>`; }
+    if (D.here) { const [x, y] = px(D.here.lon, D.here.lat); g += `<circle class="here" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="8"/>`; }
+    // scale bar
+    const kmPerPx = 111.195 / V.k, target = kmPerPx * 120, step = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500].find(s => s >= target) || target, len = step / kmPerPx;
+    g += `<rect x="12" y="${H - 30}" width="${(len + 16).toFixed(0)}" height="22" rx="4" fill="var(--surface)" opacity=".85"/><line x1="20" y1="${H - 14}" x2="${(20 + len).toFixed(1)}" y2="${H - 14}" stroke="var(--ink)" stroke-width="2"/><text x="20" y="${H - 18}">${step} km</text>`;
+    g += `<text x="${W - 12}" y="${H - 10}" text-anchor="end" class="cl">${esc(o.outline_source)}</text></svg>`;
+    host.innerHTML = g;
+  }
+  async function here(lon, lat) {
+    D.here = {lon, lat}; draw(); const box = $('#mpHere'); box.hidden = false; box.innerHTML = `<p class="small muted">reading every layer at ${fmt(lat, 5)}, ${fmt(lon, 5)}…</p>`;
+    try { const r = await get(`/api/map/at?lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}`); if (!box.isConnected) return;
+      box.textContent = ''; const h3 = document.createElement('h3'); h3.style.marginTop = '0'; h3.textContent = `What is at ${lat.toFixed(5)}, ${lon.toFixed(5)} (WGS84)`; box.appendChild(h3);
+      if (r.wells.length) { const p = document.createElement('p'); p.className = 'small'; p.textContent = 'Wells: ' + r.wells.map(w => `${w.display} ${w.distance_km.toFixed(2)} km${w.bearing_deg != null ? ' at ' + Math.round(w.bearing_deg) + '°' : ''}`).join('; ') + '.'; box.appendChild(p); }
+      for (const l of r.layers) { if (l.status !== 'OK') continue; const d = document.createElement('div'); d.className = 'small'; d.style.margin = '6px 0'; const b = document.createElement('b'); b.textContent = l.layer_display + ': '; d.appendChild(b); d.appendChild(document.createTextNode((l.lines || []).slice(0, 2).join(' '))); box.appendChild(d); }
+      const outside = r.layers.filter(l => l.status !== 'OK').length; if (outside) { const p = document.createElement('p'); p.className = 'small muted'; p.textContent = `${outside} layer(s) do not reach this spot or say nothing about it.`; box.appendChild(p); }
+    } catch (e) { box.textContent = e.message; } }
+  // interaction
+  const vxy = ev => { const r = host.querySelector('svg').getBoundingClientRect(); return [(ev.clientX - r.left) * V.W / r.width, (ev.clientY - r.top) * V.H / r.height]; };
+  let drag = null, t = null; const later = () => { clearTimeout(t); t = setTimeout(load, 160); };
+  host.addEventListener('pointerdown', ev => { if (ev.button !== 0) return; drag = {xy: vxy(ev), lon0: V.lon0, lat0: V.lat0, moved: false}; host.setPointerCapture(ev.pointerId); });
+  host.addEventListener('pointermove', ev => { if (!host.querySelector('svg')) return; const [x, y] = vxy(ev); const [lon, lat] = geo(x, y);
+    let near = ''; if (placed.length) { let best = null; for (const w of placed) { const dk = Math.hypot((w.lon - lon) * Math.cos(lat * Math.PI / 180), w.lat - lat) * 111.195; if (!best || dk < best[0]) best = [dk, w]; } near = ` · ${best[1].display} ${best[0].toFixed(2)} km`; }
+    read.innerHTML = `<b>${lat.toFixed(5)}, ${lon.toFixed(5)}</b> <span class="muted">WGS84</span>${esc(near)}`;
+    if (drag) { const dx = x - drag.xy[0], dy = y - drag.xy[1]; if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+      if (drag.moved) { V.lon0 = drag.lon0 - dx / (Math.cos(V.lat0 * Math.PI / 180) * V.k); V.lat0 = drag.lat0 + dy / V.k; draw(); } } });
+  host.addEventListener('pointerup', ev => { if (!drag) return; const moved = drag.moved; drag = null; if (moved) load(); else { const [x, y] = vxy(ev); const [lon, lat] = geo(x, y); if (!ev.target.closest('a')) here(lon, lat); } });
+  host.addEventListener('wheel', ev => { ev.preventDefault(); const [x, y] = vxy(ev), [lon, lat] = geo(x, y), f = ev.deltaY > 0 ? 0.8 : 1.25; V.k = Math.max(5, Math.min(2e6, V.k * f)); const [lon2, lat2] = geo(x, y); V.lon0 += lon - lon2; V.lat0 += lat - lat2; draw(); later(); }, {passive: false});
+  const zoom = f => { V.k = Math.max(5, Math.min(2e6, V.k * f)); draw(); later(); };
+  const pan = (fx, fy) => { V.lon0 += fx * V.W / (Math.cos(V.lat0 * Math.PI / 180) * V.k); V.lat0 += fy * V.H / V.k; draw(); later(); };
+  host.addEventListener('keydown', ev => { const k = ev.key;
+    if (k === 'ArrowLeft') pan(-0.125, 0); else if (k === 'ArrowRight') pan(0.125, 0); else if (k === 'ArrowUp') pan(0, 0.125); else if (k === 'ArrowDown') pan(0, -0.125);
+    else if (k === '+' || k === '=') zoom(1.5); else if (k === '-' || k === '_') zoom(1 / 1.5); else if (k === 'Home' || k === 'Escape') { fit(o.view.bbox); load(); } else if (k === 'Enter') here(V.lon0, V.lat0); else return; ev.preventDefault(); });
+  document.querySelectorAll('[data-mp]').forEach(b => b.onclick = () => { const a = b.dataset.mp; if (a === 'in') zoom(1.5); else if (a === 'out') zoom(1 / 1.5); else { fit(o.view.bbox); load(); } });
+  document.querySelectorAll('[data-layer]').forEach(c => c.onchange = () => { show[c.dataset.layer] = c.checked; if (c.checked) load(); else draw(); });
+  document.querySelectorAll('[data-fit]').forEach(b => b.onclick = ev => { ev.preventDefault(); const l = o.layers.find(x => x.id === b.dataset.fit); if (!l) return; show[l.id] = true; const cb = document.querySelector(`[data-layer="${CSS.escape(l.id)}"]`); if (cb) cb.checked = true; fit(l.bbox); load(); });
+  for (const id of ['mpBase', 'mpStress', 'mpSta', 'mpSra']) { const c = $('#' + id); if (c) c.onchange = () => load(); }
+  $('#mpRings').onchange = () => draw();
+  if (window.ResizeObserver) { let rw = host.clientWidth; new ResizeObserver(() => { if (Math.abs(host.clientWidth - rw) > 30 && host.isConnected) { rw = host.clientWidth; const b = bbox(); fit(b); load(); } }).observe(host); }
+  load();
+};
 // ---- the charts: stacked channels on one axis, a linked cursor, zoom and pan, cut from the series cache ----
 const CPG = {W: 1000, TH: 132, GAP: 10, L: 70, R: 16, AX: 30};
 function cpFmtX(S, x) {
@@ -1595,7 +1708,7 @@ function authScreen(first) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/seismic', 'Seismic'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/seismic', 'Seismic'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }

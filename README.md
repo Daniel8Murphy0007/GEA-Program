@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (386 checks)
+gea accept                     # the product gate (389 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -608,6 +608,22 @@ synthetic station speaking both versions; `gea seedlink --selftest` runs both
 against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
+
+### The site map
+
+The Map tab puts everything in the workspace that has a position in one
+WGS84 frame: the wells at their declared surface positions (a NAD27
+declaration moved by its datum shift, the shift shown), the structure layers
+- faults and folds, formation contours, areas, points - each drawn at the
+detail the view needs without a vertex moved, the World Stress Map's SHmax
+directions, the seismic stations and the Seismicity Response Areas, over the
+outline of the US states and counties. The outline ships with the program
+(US Census Bureau 2017 cartographic boundaries by way of us-atlas, with its
+provenance), so the map needs no network. A well without a declared position
+is listed as not placed and is never drawn. Drag, the wheel or the keys pan
+and zoom; click anywhere for what every layer says about that spot and the
+distance to every placed well; rings draw distance circles around the wells.
+`gea help map`.
 
 ### The charts
 
