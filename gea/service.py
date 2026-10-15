@@ -1650,6 +1650,15 @@ def make_handler(app: App):
                 if path == '/api/tools':
                     from . import tool_catalog as _TC
                     return self._json(200, _TC.catalog())
+                if path == '/api/tools/taxonomy':
+                    from . import tool_taxonomy as _TX
+                    q = qs.get('q', [''])[0]; cat = qs.get('category', [''])[0] or None
+                    return self._json(200, {'summary': _TX.summary(), 'parts': [[p, _TX.PART_TITLES[p]] for p in _TX.PARTS],
+                                            'classes': _TX.classes(cat, q), 'fleet': _TX.fleet_list(app.ws.path),
+                                            'gauge_class_map': _TX.GAUGE_CLASS_TO_TAXONOMY})
+                if path == '/api/tools/fleet':
+                    from . import tool_taxonomy as _TX
+                    return self._json(200, {'tools': _TX.fleet_list(app.ws.path)})
                 if path == '/api/catalog/map':
                     from . import catalog_map as _CM, catalog_register as _CR
                     reg = {r['entry']: r for r in _CR.register()}
@@ -1871,6 +1880,28 @@ def make_handler(app: App):
                                                                 depth_ft=(float(b['depth_ft']) if b.get('depth_ft') is not None else None), actor=user['name']))
                     except WorkspaceError as e:
                         raise ApiError(404, str(e))
+                if path == '/api/tools/fleet':
+                    App.require(user, 'operator')
+                    from . import tool_taxonomy as _TX
+                    b = body or {}
+                    try:
+                        od = float(b['od_in']) if b.get('od_in') not in (None, '') else None
+                        rec = _TX.fleet_add(app.ws.path, str(b.get('class_id') or ''), str(b.get('maker') or ''), str(b.get('model') or ''),
+                                            str(b.get('datasheet') or ''), serial=str(b.get('serial') or ''), od_in=od, note=str(b.get('note') or ''),
+                                            actor=user['name'], ratings=b.get('ratings') if isinstance(b.get('ratings'), dict) else None)
+                    except (ValueError, TypeError) as e:
+                        raise ApiError(400, str(e))
+                    app.ws.audit(user['name'], 'fleet.add', {'id': rec['id'], 'class': rec['class_id'], 'datasheet': rec['datasheet']})
+                    return self._json(200, rec)
+                if path.startswith('/api/tools/fleet/') and path.endswith('/remove'):
+                    App.require(user, 'operator')
+                    from . import tool_taxonomy as _TX
+                    try:
+                        rec = _TX.fleet_remove(app.ws.path, path[len('/api/tools/fleet/'):-len('/remove')])
+                    except ValueError as e:
+                        raise ApiError(404, str(e))
+                    app.ws.audit(user['name'], 'fleet.remove', {'id': rec['id'], 'class': rec['class_id']})
+                    return self._json(200, {'ok': True, 'removed': rec['id']})
                 if path == '/api/tools/rating':
                     from . import tool_catalog as _TC
                     b = body or {}

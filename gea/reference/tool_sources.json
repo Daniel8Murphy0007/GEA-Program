@@ -1,0 +1,3046 @@
+[
+ {
+  "id": "pdc_bit",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/p/polycrystalline_diamond_compact_bit",
+    "title": "polycrystalline diamond compact (PDC) bit | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": [
+     {
+      "what": "PDC cutter thickness",
+      "quote": "about 1/8-in thick",
+      "unit": "in"
+     },
+     {
+      "what": "PDC cutter diameter",
+      "quote": "about 1/2 to 1 in in diameter",
+      "unit": "in"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "roller_cone_bit",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/r/roller_cone_bit",
+    "title": "roller cone bit | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/well-construction/drilling/drill-bits/roller-cone-bits",
+    "title": "Roller Cone Bits | SLB",
+    "publisher": "SLB (Smith Bits product page)",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "hybrid_bit",
+  "sources": [
+   {
+    "url": "https://www.bakerhughes.com/drilling/drill-bits/kymera-hybrid-drill-bits",
+    "title": "Kymera hybrid drill bits | Baker Hughes",
+    "publisher": "Baker Hughes (product page)",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "impregnated_bit",
+  "sources": [
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/well-construction/drilling/drill-bits/specialty-bits/kinetic-diamond-impregnated-bit",
+    "title": "Kinetic Diamond-Impregnated Drill Bits | SLB",
+    "publisher": "SLB (Smith Bits product page)",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://glossary.slb.com/en/terms/d/diamond_bit",
+    "title": "diamond bit | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "bicenter_bit",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/b/bicenter_bit",
+    "title": "bicenter bit | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.offshore-mag.com/drilling-completion/article/16757422/bicenter-drill-bit-technology-used-in-slim-hole-reentry-applications",
+    "title": "Bi-center drill bit technology used in slim hole, re-entry applications",
+    "publisher": "Offshore Magazine (1999)",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "hole enlargement over casing pass-through diameter",
+      "quote": "a 15-20% increase in hole size",
+      "unit": "percent"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "core_barrel",
+  "sources": [
+   {
+    "url": "https://ihrdc.com/glossary/term/core%20barrel",
+    "title": "core barrel — definition | IHRDC Energy Glossary",
+    "publisher": "IHRDC Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://burintekh.com/products/coring/barrels/",
+    "title": "Core Barrels",
+    "publisher": "BURINTEKH Ltd (manufacturer product page)",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "well (hole) diameter",
+      "quote": "Well diameter from 93 mm to 311.2 mm.",
+      "unit": "mm"
+     },
+     {
+      "what": "core diameters offered",
+      "quote": "45; 52; 67; 80; 100; 101.6; 110; 133 mm",
+      "unit": "mm"
+     },
+     {
+      "what": "maximum core recovery per run",
+      "quote": "up to 270 meters (with standard core recovery)",
+      "unit": "m"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hole_opener",
+  "sources": [
+   {
+    "url": "https://petrowiki.spe.org/Glossary:Hole_opener",
+    "title": "Glossary:Hole opener",
+    "publisher": "SPE PetroWiki",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "underreamer",
+  "sources": [
+   {
+    "url": "https://petrowiki.spe.org/Glossary:Under_reamer",
+    "title": "Glossary:Under reamer",
+    "publisher": "SPE PetroWiki",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/well-construction/drilling/borehole-enlargement/underreamers/drilling-type-underreamer/drilling-type-underreamer-28-in-diameter-series",
+    "title": "Drilling Type Underreamer 28 in diameter series | SLB",
+    "publisher": "SLB (product page)",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "pilot hole enlargement",
+      "quote": "increased up to 75 percent depending on tool size",
+      "unit": "percent of pilot hole diameter"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "roller_reamer",
+  "sources": [
+   {
+    "url": "https://petrowiki.spe.org/Reamers",
+    "title": "Reamers",
+    "publisher": "SPE PetroWiki",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "pdm_motor",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/p/pdm",
+    "title": "PDM | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://glossary.slb.com/en/terms/m/mud_motor",
+    "title": "mud motor | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "turbodrill",
+  "sources": [
+   {
+    "url": "https://petrowiki.spe.org/Glossary:Turbine_motor",
+    "title": "Glossary:Turbine motor",
+    "publisher": "SPE PetroWiki",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/well-construction/drilling/directional-drilling/neyrfor-turbodrilling-systems/neyrfor-ttt-thru-tubing-turbodrill",
+    "title": "Neyrfor TTT Thru-Tubing Turbodrill | SLB",
+    "publisher": "SLB (product page)",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "tool outside diameters",
+      "quote": "2 1/8-in and 2 7/8-in ODs",
+      "unit": "in"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "rss_push",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/r/rotary_steerable_system",
+    "title": "rotary steerable system | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/well-construction/drilling/directional-drilling/powerdrive-x6-rotary-steerable-system",
+    "title": "Point the Bit Rotary Steerable System - Directional Drilling | SLB (on-page heading: PowerDrive X6)",
+    "publisher": "SLB (product page)",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/-/media/files/drilling/brochure/powerdrive-orbit-br",
+    "title": "PowerDrive Orbit — Rotary steerable system (brochure)",
+    "publisher": "SLB (product brochure)",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "hole size, 4.75-in tool",
+      "quote": "5¾ in to 6¾ in",
+      "unit": "in"
+     },
+     {
+      "what": "hole size, 9.625-in large-borehole tool",
+      "quote": "16 to 18⅛ in",
+      "unit": "in"
+     },
+     {
+      "what": "maximum temperature",
+      "quote": "302 degF [150 degC]",
+      "unit": "degF / degC"
+     },
+     {
+      "what": "maximum hydrostatic pressure",
+      "quote": "20,000 psi [138 MPa]",
+      "unit": "psi / MPa"
+     },
+     {
+      "what": "max collar dogleg sliding, 4.75-in tool",
+      "quote": "30°/100 ft [30°/30 m]",
+      "unit": "deg/100 ft"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "rss_point",
+  "sources": [
+   {
+    "url": "https://halliburton.com/en/products/geo-pilot-rotary-steerable-system",
+    "title": "Geo-Pilot® rotary steerable system",
+    "publisher": "Halliburton (product page)",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://iadc.org/dcpi/dc-novdec02/N2-Steer.pdf",
+    "title": "Rotary steerable drilling: faster, smoother wellbores",
+    "publisher": "IADC Drilling Contractor (Nov/Dec 2002)",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.aade.org/download_file/2847/493",
+    "title": "Implementation of a Next Generation Rotary Steerable System (AADE 01-NC-HO-25)",
+    "publisher": "AADE (conference paper)",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://glossary.slb.com/en/terms/r/rotary_steerable_system",
+    "title": "rotary steerable system | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "bent_housing",
+  "sources": [
+   {
+    "url": "https://petrowiki.spe.org/Glossary:Bent_sub",
+    "title": "Glossary:Bent sub",
+    "publisher": "SPE PetroWiki",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "whipstock",
+  "sources": [
+   {
+    "url": "https://petrowiki.spe.org/Glossary:Whipstock",
+    "title": "Glossary:Whipstock",
+    "publisher": "SPE PetroWiki",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://exhibitions.nmdc-group.com/products/whipstock-system",
+    "title": "EMDAD | Whipstock | NMDC Group",
+    "publisher": "Emdad / NMDC Group (manufacturer product page)",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "casing sizes",
+      "quote": "available for casing sizes ranging from 7\" to 20\"",
+      "unit": "in"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "agitator",
+  "sources": [
+   {
+    "url": "https://assets.nov.com/NCP4N68N/at/sqxshxw3v84rgn6jktsr697f/AgitatorX2_Flyer.pdf",
+    "title": "AgitatorX2 (flyer)",
+    "publisher": "NOV (product flyer)",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://assets.nov.com/NCP4N68N/at/9jkh5xpzxvschfwptr7rw969/AgitatorHE_OnDemand_System_Spec_Sheet.pdf",
+    "title": "AgitatorHE On-Demand System — Technical Specification",
+    "publisher": "NOV (spec sheet)",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "flow rate, 5¼-in tool",
+      "quote": "200 - 450 gpm",
+      "unit": "gpm"
+     },
+     {
+      "what": "flow rate, 7-in tool",
+      "quote": "450 - 900 gpm",
+      "unit": "gpm"
+     },
+     {
+      "what": "operating frequency when activated",
+      "quote": "8-12 Hz",
+      "unit": "Hz"
+     },
+     {
+      "what": "temperature rating",
+      "quote": "320° F",
+      "unit": "degF"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "mwd_mud_pulse",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/m/mud_pulse_telemetry",
+    "title": "mud pulse telemetry | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://petrowiki.spe.org/Measurement_while_drilling_(MWD)",
+    "title": "Measurement while drilling (MWD)",
+    "publisher": "SPE PetroWiki",
+    "kind": "definition",
+    "ranges": [
+     {
+      "what": "depth from which mud-pulse signals have been retrieved",
+      "quote": "almost 9144 m (30,000 ft)",
+      "unit": "m / ft"
+     },
+     {
+      "what": "continuous operating temperature of most MWD tools",
+      "quote": "up to 150°C",
+      "unit": "degC"
+     },
+     {
+      "what": "pressure rating of most MWD tools",
+      "quote": "up to 20,000 psi",
+      "unit": "psi"
+     }
+    ]
+   },
+   {
+    "url": "https://mlp.ldeo.columbia.edu/logdb/technology/schlumberger-lwd-tools/measurement-while-drilling-telescope-tool",
+    "title": "Measurement-While-Drilling TeleScope* Tool",
+    "publisher": "Columbia University LDEO, Division of Marine and Large Programs",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "telemetry data rate",
+      "quote": "6 to 12 bits per second",
+      "unit": "bit/s"
+     },
+     {
+      "what": "flow range",
+      "quote": "250-800 gpm",
+      "unit": "gal/min"
+     },
+     {
+      "what": "temperature rating",
+      "quote": "350° F (177° C)",
+      "unit": "degF / degC"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "mwd_em",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/t/telemetry",
+    "title": "telemetry | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://petrowiki.spe.org/Measurement_while_drilling_(MWD)",
+    "title": "Measurement while drilling (MWD)",
+    "publisher": "SPE PetroWiki",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://assets.nov.com/NCP4N68N/at/8hwhw8n38f78b5j45fhqqckc/BlackstarIIEMMWDToolSpecSheet.pdf",
+    "title": "BlackStar II EM MWD Tool (Tool Specifications)",
+    "publisher": "NOV",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "EM data rates",
+      "quote": "1, 1.5, 2, 2.4, 4, 4.8, 6.0 bits per second",
+      "unit": "bit/s"
+     },
+     {
+      "what": "operating temperature",
+      "quote": "-40 to 302°F (-40 to 150°C)",
+      "unit": "degF / degC"
+     },
+     {
+      "what": "maximum pressure",
+      "quote": "20,000 psi (137,895 kPa)",
+      "unit": "psi"
+     },
+     {
+      "what": "hole size (smallest tubular option)",
+      "quote": "4.750 to 5.875 in.",
+      "unit": "in"
+     },
+     {
+      "what": "hole size (largest tubular option)",
+      "quote": "12.5 to 14.5 in.",
+      "unit": "in"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "wired_pipe",
+  "sources": [
+   {
+    "url": "https://petrowiki.spe.org/Measurement_while_drilling_(MWD)",
+    "title": "Measurement while drilling (MWD)",
+    "publisher": "SPE PetroWiki",
+    "kind": "definition",
+    "ranges": [
+     {
+      "what": "demonstrated wired-pipe data rate",
+      "quote": "data rates in excess of 2,000,000 bits/second have been demonstrated",
+      "unit": "bit/s"
+     }
+    ]
+   },
+   {
+    "url": "https://assets.nov.com/NCP4N68N/at/tcg4gcv662wkz4xqfpwwj7/IntelliServ_Catalog.pdf",
+    "title": "IntelliServ Product Catalog",
+    "publisher": "NOV (IntelliServ)",
+    "kind": "definition",
+    "ranges": [
+     {
+      "what": "DataLink operating temperature range",
+      "quote": "-40 to 150",
+      "unit": "degC"
+     }
+    ]
+   },
+   {
+    "url": "https://assets.nov.com/NCP4N68N/at/svvpc3xx3pbtct5qsjckrqpp/12506_WBT_DH_Wired_MOCS_G2_TSUM_WEB.pdf",
+    "title": "Tool Specification: Wired MOCS G2",
+    "publisher": "NOV",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "data transmission rate over the wired network",
+      "quote": "with up to 57,600 bits/sec",
+      "unit": "bit/s"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "gyro_mwd",
+  "sources": [
+   {
+    "url": "https://petrowiki.spe.org/PEH:Specialized_Well-Logging_Topics",
+    "title": "PEH:Specialized Well-Logging Topics",
+    "publisher": "SPE PetroWiki (Petroleum Engineering Handbook)",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://petrowiki.spe.org/Measurement_while_drilling_(MWD)",
+    "title": "Measurement while drilling (MWD)",
+    "publisher": "SPE PetroWiki",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.gyrodata.com/wp-content/uploads/2019/04/GyroGuide-GWD-MWD-GR_Spec-Sheet.pdf",
+    "title": "GyroGuide Dual Sensor Product Spec Sheet",
+    "publisher": "Gyrodata (now SLB)",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "tool OD",
+      "quote": "Tool OD 1 7/8 in 47.6 mm",
+      "unit": "in / mm"
+     },
+     {
+      "what": "minimum borehole size",
+      "quote": "Minimum Borehole Size 6 1/4 in",
+      "unit": "in"
+     },
+     {
+      "what": "maximum borehole size",
+      "quote": "Maximum Borehole Size 17.5 in",
+      "unit": "in"
+     },
+     {
+      "what": "maximum temperature",
+      "quote": "Maximum Temperature (with no time constraints) 302°F 150°C",
+      "unit": "degF / degC"
+     },
+     {
+      "what": "pressure rating",
+      "quote": "Pressure 20,000 psi 138,000 kPa",
+      "unit": "psi / kPa"
+     },
+     {
+      "what": "gyro inclination range",
+      "quote": "Gyro Inclination 0 - 180°",
+      "unit": "deg"
+     }
+    ]
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/well-construction/measurements/gyro-services/dynamic-gyrocompass",
+    "title": "Dynamic Gyrocompass | SLB",
+    "publisher": "SLB",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "inclination application limit",
+      "quote": "Inclination: less than 10°",
+      "unit": "deg"
+     },
+     {
+      "what": "azimuth range and accuracy",
+      "quote": "Azimuth: 0 to 360° (±0.1°)",
+      "unit": "deg"
+     },
+     {
+      "what": "survey collection time",
+      "quote": "up to six minutes per station",
+      "unit": "min"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "magnetic_survey",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/m/multishot_survey",
+    "title": "multishot survey | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://glossary.slb.com/Terms/s/single-shot_survey.aspx",
+    "title": "single-shot survey | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://petrowiki.spe.org/PEH:Specialized_Well-Logging_Topics",
+    "title": "PEH:Specialized Well-Logging Topics",
+    "publisher": "SPE PetroWiki (Petroleum Engineering Handbook)",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://scientificdrilling.com/technology-services/wellbore-surveying/survey-systems/",
+    "title": "Scientific Drilling - Survey Systems",
+    "publisher": "Scientific Drilling International",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "EMS multishot max temperature and pressure",
+      "quote": "maximum temperature and pressure rating of 600°F (315°C) and 20,000 psi",
+      "unit": "degF / degC / psi"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "lwd_gamma",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/g/gamma_ray_log",
+    "title": "gamma ray log | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.nabors.com/wp-content/uploads/2022/03/BRCH_SpectraView_NDS_2021.pdf",
+    "title": "SpectraView LWD Spectral and Azimuthal Gamma Ray",
+    "publisher": "Nabors",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "nominal collar OD options",
+      "quote": "Nominal Collar OD, in. (mm) 4.75 (120.7) 6.75 (171.5)",
+      "unit": "in / mm"
+     },
+     {
+      "what": "max operating temperature (standard)",
+      "quote": "302 (150)",
+      "unit": "degF (degC)"
+     },
+     {
+      "what": "max operating pressure",
+      "quote": "Maximum Operating Pressure, PSI 20,000",
+      "unit": "psi"
+     },
+     {
+      "what": "gamma measurement range",
+      "quote": "0 – 1200 gAPI",
+      "unit": "gAPI"
+     }
+    ]
+   },
+   {
+    "url": "https://publications.iodp.org/proceedings/348/102/102_8.htm",
+    "title": "Proc. IODP, 348, Methods",
+    "publisher": "IODP Proceedings",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "azimuthal gamma (AGR) measurement range",
+      "quote": "0–849 gAPI",
+      "unit": "gAPI"
+     },
+     {
+      "what": "AGR accuracy",
+      "quote": "±5%",
+      "unit": "%"
+     }
+    ]
+   },
+   {
+    "url": "https://mlp.ldeo.columbia.edu/logdb/technology/schlumberger-lwd-tools/logging-while-drilling-arcvision-tool",
+    "title": "Logging-While-Drilling arcVISION* Tool",
+    "publisher": "Columbia University LDEO, Division of Marine and Large Programs",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "gamma ray range",
+      "quote": "0-250 GAPI",
+      "unit": "gAPI"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "lwd_resistivity",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/p/propagation_resistivity",
+    "title": "propagation resistivity | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://mlp.ldeo.columbia.edu/logdb/technology/schlumberger-lwd-tools/logging-while-drilling-arcvision-tool",
+    "title": "Logging-While-Drilling arcVISION* Tool",
+    "publisher": "Columbia University LDEO, Division of Marine and Large Programs",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "operating frequencies",
+      "quote": "at two frequencies: 2MHz and 400kHz",
+      "unit": "MHz / kHz"
+     },
+     {
+      "what": "attenuation resistivity range",
+      "quote": "0.2-50 Ω.m",
+      "unit": "ohm.m"
+     },
+     {
+      "what": "phase resistivity range",
+      "quote": "0.2-3,000 Ω.m",
+      "unit": "ohm.m"
+     },
+     {
+      "what": "temperature rating",
+      "quote": "300°F (149°C)",
+      "unit": "degF / degC"
+     },
+     {
+      "what": "pressure rating",
+      "quote": "25 kpsi (173 MPa)",
+      "unit": "kpsi / MPa"
+     }
+    ]
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/drilling/surface-and-downhole-logging/logging-while-drilling-services/arcvision-array-resistivity-compensated-service",
+    "title": "arcVISION Array Resistivity Compensated Service | SLB",
+    "publisher": "SLB",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "tool size range",
+      "quote": "available in a full tool size range from 3 1/8 to 9 in.",
+      "unit": "in"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "lwd_density_neutron",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/Terms/d/density_measurement.aspx",
+    "title": "density measurement | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://glossary.slb.com/en/terms/n/neutron_log",
+    "title": "neutron log | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://mlp.ldeo.columbia.edu/logdb/technology/schlumberger-lwd-tools/logging-while-drilling-ecoscope-tool",
+    "title": "Logging-While-Drilling EcoScope* Tool",
+    "publisher": "Columbia University LDEO, Division of Marine and Large Programs",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "bulk density range",
+      "quote": "Range: 1.7-3.05 g/cm³",
+      "unit": "g/cm3"
+     },
+     {
+      "what": "density accuracy",
+      "quote": "Accuracy: 0.015 g/cm³",
+      "unit": "g/cm3"
+     },
+     {
+      "what": "neutron porosity range",
+      "quote": "Range: 0-100 pu",
+      "unit": "p.u."
+     },
+     {
+      "what": "temperature rating",
+      "quote": "Temperature rating: 300° F (149° C)",
+      "unit": "degF / degC"
+     },
+     {
+      "what": "pressure rating",
+      "quote": "Pressure rating: 20 kpsi (138 MPa)",
+      "unit": "kpsi / MPa"
+     },
+     {
+      "what": "minimum bit size",
+      "quote": "Minimum bit size: 8.375 in (21.3 cm)",
+      "unit": "in"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "lwd_sonic",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/s/sonic_log",
+    "title": "sonic log | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://glossary.slb.com/en/terms/a/acoustic_log",
+    "title": "acoustic log | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://publications.iodp.org/proceedings/348/102/102_8.htm",
+    "title": "Proc. IODP, 348, Methods",
+    "publisher": "IODP Proceedings",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "compressional slowness range",
+      "quote": "compressional slowness range of 40–190+ µs/ft",
+      "unit": "us/ft"
+     },
+     {
+      "what": "shear slowness range",
+      "quote": "shear slowness range of 60–550+ µs/ft",
+      "unit": "us/ft"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "lwd_imaging",
+  "sources": [
+   {
+    "url": "https://mlp.ldeo.columbia.edu/logdb/technology/schlumberger-lwd-tools/logging-while-drilling-geovision-tool",
+    "title": "Logging-While-Drilling geoVISION* Tool",
+    "publisher": "Columbia University LDEO, Division of Marine and Large Programs",
+    "kind": "definition",
+    "ranges": [
+     {
+      "what": "resistivity image vertical resolution",
+      "quote": "2-3 in (5.08-7.62 cm)",
+      "unit": "in / cm"
+     },
+     {
+      "what": "temperature rating",
+      "quote": "300° F (149° C)",
+      "unit": "degF / degC"
+     },
+     {
+      "what": "pressure rating",
+      "quote": "18 kpsi (124 MPa)",
+      "unit": "kpsi / MPa"
+     },
+     {
+      "what": "resistivity range (deep/medium/shallow)",
+      "quote": "0.2-1,000 Ω.m",
+      "unit": "ohm.m"
+     }
+    ]
+   },
+   {
+    "url": "https://publications.iodp.org/proceedings/348/102/102_8.htm",
+    "title": "Proc. IODP, 348, Methods",
+    "publisher": "IODP Proceedings",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "image resolution",
+      "quote": "Image resolution is 10 mm",
+      "unit": "mm"
+     },
+     {
+      "what": "azimuthal bins (memory / real time)",
+      "quote": "128 discrete azimuthal bins with 16 bins available in real time",
+      "unit": "bins"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "lwd_nmr",
+  "sources": [
+   {
+    "url": "https://petrowiki.spe.org/NMR_logging_while_drilling",
+    "title": "NMR logging while drilling",
+    "publisher": "SPE PetroWiki",
+    "kind": "definition",
+    "ranges": [
+     {
+      "what": "anticipated maximum ROP (logging speed)",
+      "quote": "1 to 3 ft/min",
+      "unit": "ft/min"
+     },
+     {
+      "what": "fully polarizing wait time",
+      "quote": "3 to 12 seconds",
+      "unit": "s"
+     },
+     {
+      "what": "MagTrak vertical resolution",
+      "quote": "less than 3 in.",
+      "unit": "in"
+     }
+    ]
+   },
+   {
+    "url": "https://glossary.slb.com/terms/n/nuclear_magnetic_resonance",
+    "title": "nuclear magnetic resonance | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": [
+     {
+      "what": "typical T2 distribution span",
+      "quote": "typically from 0.3 ms to 3 s",
+      "unit": "ms / s"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "pwd",
+  "sources": [
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/drilling/surface-and-downhole-logging/logging-while-drilling-services/arcvision-array-resistivity-compensated-service",
+    "title": "arcVISION Array Resistivity Compensated Service | SLB",
+    "publisher": "SLB",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://publications.iodp.org/proceedings/348/102/102_8.htm",
+    "title": "Proc. IODP, 348, Methods",
+    "publisher": "IODP Proceedings",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://mlp.ldeo.columbia.edu/logdb/technology/schlumberger-lwd-tools/logging-while-drilling-arcvision-tool",
+    "title": "Logging-While-Drilling arcVISION* Tool",
+    "publisher": "Columbia University LDEO, Division of Marine and Large Programs",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "APWD pressure range",
+      "quote": "20 kpsi (137 MPa)",
+      "unit": "kpsi / MPa"
+     },
+     {
+      "what": "APWD accuracy",
+      "quote": "±20 psi (137 kPa)",
+      "unit": "psi"
+     },
+     {
+      "what": "APWD resolution",
+      "quote": "±1 psi (6.9 kPa)",
+      "unit": "psi"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "near_bit_sensor",
+  "sources": [
+   {
+    "url": "https://publications.iodp.org/proceedings/348/102/102_8.htm",
+    "title": "Proc. IODP, 348, Methods",
+    "publisher": "IODP Proceedings",
+    "kind": "range",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "dynamics_sub",
+  "sources": [
+   {
+    "url": "https://petrowiki.spe.org/Measurement_while_drilling_(MWD)",
+    "title": "Measurement while drilling (MWD)",
+    "publisher": "SPE PetroWiki",
+    "kind": "definition",
+    "ranges": [
+     {
+      "what": "typical MWD tool shock design rating (not a recorder sensor range)",
+      "quote": "500 G for 0.5 ms over a life of 100,000 cycles",
+      "unit": "g, ms, cycles"
+     }
+    ]
+   },
+   {
+    "url": "https://www.nabors.com/wp-content/uploads/2022/03/BRCH_SpectraView_NDS_2021.pdf",
+    "title": "SpectraView LWD Spectral and Azimuthal Gamma Ray",
+    "publisher": "Nabors",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "temperature sensor range",
+      "quote": "-40 to 190°C",
+      "unit": "degC"
+     },
+     {
+      "what": "max operating pressure",
+      "quote": "Maximum Operating Pressure, PSI 20,000",
+      "unit": "psi"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "seismic_while_drilling",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/s/seismic-while-drilling_vertical_seismic_profile",
+    "title": "seismic-while-drilling vertical seismic profile | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/drilling/surface-and-downhole-logging/logging-while-drilling-services/seismicvision-seismic-while-drilling-service",
+    "title": "Borehole Seismic Measurements While Drilling | SLB (seismicVISION seismic-while-drilling service)",
+    "publisher": "SLB",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "formation_tester_lwd",
+  "sources": [
+   {
+    "url": "https://petrowiki.spe.org/Formation_testing_while_drilling_(FTWD)",
+    "title": "Formation testing while drilling (FTWD)",
+    "publisher": "SPE PetroWiki",
+    "kind": "definition",
+    "ranges": [
+     {
+      "what": "probe-type drawdown below hydrostatic pressure",
+      "quote": "by as much as 8,000 psi below hydrostatic pressure",
+      "unit": "psi"
+     }
+    ]
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/well-construction/measurements/logging-while-drilling-services/stethoscope-formation-pressure-while-drilling-service",
+    "title": "StethoScope Ultra | SLB",
+    "publisher": "SLB",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "overbalance capability",
+      "quote": "ultradepleted reservoirs with overbalance up to 11,000 psi",
+      "unit": "psi"
+     },
+     {
+      "what": "minimum formation mobility",
+      "quote": "tight formations with mobilities as low as 0.01 mD/cP",
+      "unit": "mD/cP"
+     },
+     {
+      "what": "pretest duration",
+      "quote": "From a 1-min to a 2-h pretest",
+      "unit": "min / h"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "drill_pipe",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/d/drillpipe",
+    "title": "drillpipe | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.osha.gov/etools/oil-and-gas/glossary-of-terms",
+    "title": "Oil and Gas Well Drilling and Servicing eTool - Glossary of Terms",
+    "publisher": "OSHA Oil and Gas eTool",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "hwdp",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/h/heavyweight_drillpipe",
+    "title": "heavyweight drillpipe | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.nov.com/products/heavy-weight-drill-pipe",
+    "title": "Heavy Weight Drill Pipe | NOV",
+    "publisher": "NOV (Grant Prideco)",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "nominal joint length used for weight tables",
+      "quote": "based on 31 ft nominal length per joint",
+      "unit": "ft"
+     },
+     {
+      "what": "smallest tool joint OD x ID (Standard, 2 7/8 nominal)",
+      "quote": "3⅜ × 1½",
+      "unit": "in"
+     },
+     {
+      "what": "largest tool joint OD x ID (Spiral-Wate, 6 5/8 nominal)",
+      "quote": "8 × 5",
+      "unit": "in"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "drill_collar",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/d/drill_collar",
+    "title": "drill collar | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.nov.com/products/drill-collars",
+    "title": "Drill Collars | NOV",
+    "publisher": "NOV (Grant Prideco)",
+    "kind": "range",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "nmdc",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/l/local_magnetic_interference",
+    "title": "local magnetic interference | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://glossary.slb.com/terms/d/drill_collar",
+    "title": "drill collar | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "stabilizer",
+  "sources": [
+   {
+    "url": "https://www.osha.gov/etools/oil-and-gas/glossary-of-terms-s",
+    "title": "Oil and Gas Well Drilling and Servicing eTool - Glossary of Terms - S",
+    "publisher": "OSHA Oil and Gas eTool",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/well-construction/drilling/borehole-enlargement/integral-blade-stabilizer",
+    "title": "Integral Blade Stabilizer | SLB",
+    "publisher": "SLB",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "crossover_sub",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/Terms/c/crossover.aspx",
+    "title": "crossover | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.osha.gov/etools/oil-and-gas/glossary-of-terms-s",
+    "title": "Oil and Gas Well Drilling and Servicing eTool - Glossary of Terms - S",
+    "publisher": "OSHA Oil and Gas eTool",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "bit_sub",
+  "sources": [
+   {
+    "url": "https://www.osha.gov/etools/oil-and-gas/glossary-of-terms-b",
+    "title": "Oil and Gas Well Drilling and Servicing eTool - Glossary of Terms - B",
+    "publisher": "OSHA Oil and Gas eTool",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://glossary.slb.com/terms/s/sub",
+    "title": "sub | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "float_valve",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/f/flapper_valve",
+    "title": "flapper valve | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://f-e-t.com/drilling/drill-fluid-handling/drill-pipe-float-valves/",
+    "title": "Drill Pipe Float Valves for Drilling Operations | FET",
+    "publisher": "Forum Energy Technologies (FET)",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "factory pressure test (high/low)",
+      "quote": "pressure tested: High (7500psi) and low (300psi)",
+      "unit": "psi"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "shock_sub",
+  "sources": [
+   {
+    "url": "https://slb.com/products-and-services/innovating-in-oil-and-gas/well-construction/drilling/directional-drilling/bha-tools/shock-sub-impact-and-vibration-reduction-tool",
+    "title": "Shock Sub Impact and Vibration Reduction Tool | SLB",
+    "publisher": "SLB",
+    "kind": "definition",
+    "ranges": [
+     {
+      "what": "maximum operating temperature",
+      "quote": "can withstand temperatures up to 400 degF",
+      "unit": "degF"
+     },
+     {
+      "what": "smallest tool OD",
+      "quote": "4.75 in [121 mm]",
+      "unit": "in"
+     },
+     {
+      "what": "largest tool OD",
+      "quote": "12.0 in [305 mm]",
+      "unit": "in"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "drilling_jar",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/j/jar",
+    "title": "jar | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://assets.nov.com/NCP4N68N/at/2rc32hfxhpwzbbvsnqvrbn5m/DAHMJ_Drilling_Jar_Tech_Summary_Distribution_File-10170205-400-ENG-MKT-41-01.pdf",
+    "title": "Technical Double-Acting Hydraulic/Mechanical Drilling Jar Summary (NOV)",
+    "publisher": "NOV",
+    "kind": "range",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/well-construction/drilling/directional-drilling/bha-tools/hydra-jar-ap-double-acting-hydraulic-drilling-jar",
+    "title": "Hydra-Jar AP Hydraulic Drilling Jar | SLB",
+    "publisher": "SLB",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "impact load when run with Accelerator AP tool",
+      "quote": "up to 1 million lbf of impact",
+      "unit": "lbf"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "jar_accelerator",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/a/accelerator",
+    "title": "accelerator | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/well-construction/drilling/drilling-jars-and-impact-tools/accelerator-ap-impact-tool",
+    "title": "Accelerator AP Impact Tool | SLB",
+    "publisher": "SLB",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "maximum temperature with optional seals",
+      "quote": "ultrahigh-temperature seals are available for conditions up to 650 degF",
+      "unit": "degF"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "circulating_sub",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/Terms/c/circulation_sub.aspx",
+    "title": "circulation sub | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://assets.nov.com/NCP4N68N/at/38mmpcfbg2wpxrxbckxb9vb/MOCS_G2_Technical_Summary-Distribution-10119949-401-ENG-MKT.pdf",
+    "title": "Technical Summary MOCS G2 (Multiple Opening Circulation Sub)",
+    "publisher": "NOV",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "tool OD sizes",
+      "quote": "4¾ in 6½ in 8 in 9½ in",
+      "unit": "in"
+     },
+     {
+      "what": "maximum allowable flow rate by size",
+      "quote": "700 gpm 900 gpm 1,400 gpm 2,000 gpm",
+      "unit": "gpm"
+     },
+     {
+      "what": "maximum hydrostatic pressure",
+      "quote": "30,000 psi",
+      "unit": "psi"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "string_filter",
+  "sources": [
+   {
+    "url": "https://slb.com/products-and-services/innovating-in-oil-and-gas/completions/fluids-and-tools/wellbore-cleaning-tools/debris-recovery-tools/mudgard-workstring-filter",
+    "title": "Mudgard Workstring Filter for Debris Management | SLB",
+    "publisher": "SLB",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "float_shoe",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/f/float_shoe",
+    "title": "float shoe | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://glossary.slb.com/terms/g/guide_shoe",
+    "title": "guide shoe | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://ncsmultistage.com/solutions/well-construction/float-equipment/",
+    "title": "Float Equipment – NCS Multistage",
+    "publisher": "NCS Multistage",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "casing sizes (float collars, float shoes, guide shoes)",
+      "quote": "Available in 2 7/8″ to 20″ sizes",
+      "unit": "in"
+     },
+     {
+      "what": "pressure rating (float collars and float shoes)",
+      "quote": "5k psi – 15k psi",
+      "unit": "psi"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "float_collar",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/f/float_collar",
+    "title": "float collar | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.weatherford.com/documents/technical-specification-sheet/products-and-services/drilling/large-bore-auto-fill-ii-float-collar",
+    "title": "Large Bore Auto-Fill II Float Collar",
+    "publisher": "Weatherford",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "back pressure rating (9 5/8 to 13 3/8 in. sizes)",
+      "quote": "Back pressure rating: 9 5/8-in. to 13 3/8-in. (psi/MPa) 3,000",
+      "unit": "psi"
+     },
+     {
+      "what": "temperature rating, phenolic valves",
+      "quote": "Temperature rating: phenolic valves (°F/°C) 300° 150°",
+      "unit": "degF / degC"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "centralizer",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/c/casing_centralizer",
+    "title": "casing centralizer | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.weatherford.com/documents/technical-specification-sheet/products-and-services/drilling/welded-bow-spring-centralizer",
+    "title": "Welded Bow-Spring Centralizer",
+    "publisher": "Weatherford",
+    "kind": "range",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "cement_plug",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/w/wiper_plug",
+    "title": "wiper plug | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.weatherford.com/documents/technical-specification-sheet/products-and-services/drilling/surface-release-casing-wiper-plugs",
+    "title": "Surface-Release Casing-Wiper Plugs",
+    "publisher": "Weatherford",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "casing size range",
+      "quote": "For Casing Sizes 3-1/2 in. to 24 in.",
+      "unit": "in"
+     },
+     {
+      "what": "bottom plug rupture disk burst pressure",
+      "quote": "rated at a 400-psi (2.75-MPa) burst pressure",
+      "unit": "psi"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "stage_collar",
+  "sources": [
+   {
+    "url": "https://petrowiki.spe.org/Primary_cementing_placement_design",
+    "title": "Primary cementing placement design",
+    "publisher": "SPE PetroWiki",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://glossary.slb.com/terms/o/opening_bomb",
+    "title": "opening bomb | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.weatherford.com/documents/technical-specification-sheet/products-and-services/drilling/hydraulic-stage-tool-model-754pd-with-854bs-liner-plug-set",
+    "title": "Hydraulic Stage Tool, Model 754PD with 854BS Liner Plug Set",
+    "publisher": "Weatherford",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "well temperature rating",
+      "quote": "durable at well temperatures up to 257°F (125°C)",
+      "unit": "degF / degC"
+     },
+     {
+      "what": "shutoff plug launch pressure",
+      "quote": "Shutoff plug launch pressure (psi/MPa) 800 to 1,200",
+      "unit": "psi"
+     },
+     {
+      "what": "liner sizes for 854 plug sets",
+      "quote": "Model 854 plug sets are available for 4 1/2- to 5 1/2-in. liner sizes.",
+      "unit": "in"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "liner_hanger",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/l/liner_hanger",
+    "title": "liner hanger | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/completions/well-completions/liner-hangers/sbrd-solid-body-mechanical-set-liner-hanger",
+    "title": "SBRD Solid-Body Mechanical-Set Liner Hanger | SLB",
+    "publisher": "SLB",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.weatherford.com/documents/technical-specification-sheet/products-and-services/drilling/axiom-series-liner-hanger-system",
+    "title": "AXIOM Series Liner-Hanger System",
+    "publisher": "Weatherford",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "temperature range",
+      "quote": "a temperature range from 100 to 250°F (37.7 to 121°C)",
+      "unit": "degF / degC"
+     },
+     {
+      "what": "maximum hanging capacity",
+      "quote": "Maximum hanging capacity (lb/mt) 200,000 90.7",
+      "unit": "lb"
+     },
+     {
+      "what": "element pressure rating",
+      "quote": "Element pressure rating (psi/MPa) 5,000 34.47",
+      "unit": "psi"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "casing_scraper",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/c/casing_scraper",
+    "title": "casing scraper | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://slb.com/products-and-services/innovating-in-oil-and-gas/completions/fluids-and-tools/wellbore-cleaning-tools/casing-and-riser-cleaning-tools/switchback-scraper-versatile-casing-cleaning-tool",
+    "title": "SWITCHBACK SCRAPER Casing Cleaning | SLB",
+    "publisher": "SLB",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://assets.nov.com/NCP4N68N/at/qe8qy8-c12lko-7u8h6j/04_Casing_Scraper_Data_Sheet_10-010.pdf",
+    "title": "Casing Scraper",
+    "publisher": "NOV",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "production_packer",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/p/production_packer",
+    "title": "production packer | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://glossary.slb.com/en/terms/r/retrievable_packer",
+    "title": "retrievable packer | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.weatherford.com/documents/technical-specification-sheet/products-and-services/completions/thundercat-hydraulic-set-retrievable-production-packer",
+    "title": "ThunderCat Hydraulic-Set Retrievable Production Packer",
+    "publisher": "Weatherford",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "temperature range",
+      "quote": "From 150 to 300°F (66 to 149°C)",
+      "unit": "degF / degC"
+     },
+     {
+      "what": "high-temperature pressure rating",
+      "quote": "Packer is rated to 5,500 psi at 400°F",
+      "unit": "psi"
+     },
+     {
+      "what": "setting pressure",
+      "quote": "The packer can be set with 3,500-psi (24,132-kPa) pressure",
+      "unit": "psi"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "bridge_plug",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/b/bridge_plug",
+    "title": "bridge plug | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/completions/well-completions/packers/blueplug-max-p-bridge-plug",
+    "title": "Permanent Bridge Plug - Wireline and Tubing Bridge Plugs | SLB",
+    "publisher": "SLB",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "pressure rating",
+      "quote": "Rated up to 10,000 psi [69 MPa]",
+      "unit": "psi"
+     },
+     {
+      "what": "temperature rating",
+      "quote": "Rated up to 300 degF [149 degC]",
+      "unit": "degF"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "frac_plug",
+  "sources": [
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/completions/well-completions/frac-plugs-and-sleeves/frac-plugs",
+    "title": "Composite and Dissolvable Frac Plugs | SLB",
+    "publisher": "SLB",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/completions/well-completions/frac-plugs-and-sleeves/frac-plugs/fracxion-micro-fully-composite-frac-plug",
+    "title": "FracXion Micro Fully Composite Frac Plug | SLB",
+    "publisher": "SLB",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/completions/well-completions/frac-plugs-and-sleeves/frac-plugs/dissolvable-frac-plugs/reacxion-nano-compact-fully-dissolvable-frac-plug",
+    "title": "ReacXion Nano Compact Fully Dissolvable Frac Plugs | SLB",
+    "publisher": "SLB",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://halliburton.com/en/completions/well-completions/frac-plugs/dissolvable-frac-plug",
+    "title": "Next generation of dissolvable technology (Illusion dissolvable frac plugs)",
+    "publisher": "Halliburton",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://assets.nov.com/NCP4N68N/at/t7mzb3rbjsk455bg6bgfbgph/25-101694-SetR_Hybrid_Composite_Frac_Plug-SPST-WEB.pdf",
+    "title": "SetR Hybrid Composite Frac Plug",
+    "publisher": "NOV",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "temperature rating",
+      "quote": "250 (121.1)",
+      "unit": "degF (degC)"
+     },
+     {
+      "what": "pressure rating, 4.500 and 5.500 in. casing",
+      "quote": "10,000 (68,947)",
+      "unit": "psi (kPa)"
+     },
+     {
+      "what": "pressure rating, 6.000 in. casing",
+      "quote": "8,000 (55,158)",
+      "unit": "psi (kPa)"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "sliding_sleeve",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/s/sliding_sleeve",
+    "title": "sliding sleeve | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/completions/well-completions/completion-accessories/sliding-sleeves",
+    "title": "Sliding Sleeves, Stimulation and Production | SLB",
+    "publisher": "SLB",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/-/media/files/co/product-sheet/as-3-sliding-sleeves-ps.ashx",
+    "title": "AS-3 Series Sliding Sleeves",
+    "publisher": "SLB",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "max working pressure",
+      "quote": "7,500 psi [51,710 kPa]",
+      "unit": "psi"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "frac_sleeve",
+  "sources": [
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/completions/well-completions/frac-plugs-and-sleeves/frac-sleeves/dropshift-and-dropshift-express",
+    "title": "DropShift and DropShift Express | SLB",
+    "publisher": "SLB",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "temperature rating",
+      "quote": "Rated to 300 degF [149 degC]",
+      "unit": "degF"
+     },
+     {
+      "what": "pressure rating",
+      "quote": "Rated up to 11,000 psi [76 MPa]",
+      "unit": "psi"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "sssv",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/s/subsurface_safety_valve_sssv",
+    "title": "subsurface safety valve (SSSV) | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://slb.com/products-and-services/innovating-in-oil-and-gas/completions/well-completions/subsurface-safety-valves",
+    "title": "Oil Well Subsurface Safety Valves - Completions | SLB",
+    "publisher": "SLB",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "working pressure (wireline-retrievable Recovery)",
+      "quote": "working pressures up to 10,000 psi [69 MPa]",
+      "unit": "psi"
+     },
+     {
+      "what": "working pressure (WRHP-15 HPHT)",
+      "quote": "rated to 15,000-psi [103-MPa] working pressure",
+      "unit": "psi"
+     },
+     {
+      "what": "deepset setting depth",
+      "quote": "6,000- to 10,000-ft TVD",
+      "unit": "ft TVD"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "landing_nipple",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/l/landing_nipple",
+    "title": "landing nipple | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/completions/well-completions/completion-accessories/seating-and-landing-nipples",
+    "title": "Seating Nipples, Landing Nipples | SLB",
+    "publisher": "SLB",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://slb.com/products-and-services/innovating-in-oil-and-gas/completions/well-completions/subsurface-safety-valves/accessories/b-series-safety-valve-landing-nipples",
+    "title": "B-Series Safety Valve Landing Nipples (page heading shown as 'Recovery')",
+    "publisher": "SLB",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "gas_lift_mandrel",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/g/gas-lift_mandrel",
+    "title": "gas-lift mandrel | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://glossary.slb.com/en/terms/g/gas-lift_valve",
+    "title": "gas-lift valve | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/completions/artificial-lift/gas-lift/gas-lift-mandrels/lm-and-im-series-mandrels",
+    "title": "LM and IM Series mandrels | SLB",
+    "publisher": "SLB",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "production string size range",
+      "quote": "Available in standard sizes from 1.0 to 2 7/8 in. O.D. production string",
+      "unit": "in OD"
+     },
+     {
+      "what": "LM lug equipment size",
+      "quote": "5/8 in. O.D. tubing retrievable gas lift equipment",
+      "unit": "in OD"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "esp",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/e/electric_submersible_pump",
+    "title": "electric submersible pump | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/resource-library/oilfield-review/defining-series/defining-esp",
+    "title": "The Defining Series: Electrical Submersible Pumps",
+    "publisher": "SLB Oilfield Review",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "flow rate range",
+      "quote": "lift from 16 to 4,770 m3/d [100 to 30,000 bbl/d]",
+      "unit": "m3/d (bbl/d)"
+     },
+     {
+      "what": "motor power range",
+      "quote": "ranging from 7.5 kW to more than 750 kW",
+      "unit": "kW"
+     },
+     {
+      "what": "motor voltage range",
+      "quote": "typically range from 460 to 4,200 V at 60Hz",
+      "unit": "V"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "rod_pump",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/r/rod_pump",
+    "title": "rod pump | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://slb.com/resource-library/oilfield-review/defining-series/defining-rod-pumps",
+    "title": "The Defining Series: Rod Pump Systems",
+    "publisher": "SLB Oilfield Review",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "standard sucker rod lengths",
+      "quote": "rod lengths of 25 and 30 ft",
+      "unit": "ft"
+     },
+     {
+      "what": "pony rod lengths",
+      "quote": "lengths ranging from 20 to 140 in.",
+      "unit": "in"
+     },
+     {
+      "what": "grade D rod tensile strength",
+      "quote": "minimum and maximum tensile strengths of 790 and 970 MPa",
+      "unit": "MPa"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "pcp",
+  "sources": [
+   {
+    "url": "https://www.slb.com/resource-library/oilfield-review/defining-series/defining-pcp",
+    "title": "The Defining Series: Progressing Cavity Pumps (PCPs)",
+    "publisher": "SLB Oilfield Review",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "temperature capability",
+      "quote": "some PCPs operate reliably at temperatures up to 120°C [250°F]",
+      "unit": "degC"
+     },
+     {
+      "what": "production rate upper limit",
+      "quote": "upper production rate limit of approximately 800 m3/d [5,040 bbl/d]",
+      "unit": "m3/d (bbl/d)"
+     },
+     {
+      "what": "vertical depth limit",
+      "quote": "true vertical well depth limit of about 2,000 m [6,500 ft]",
+      "unit": "m (ft)"
+     },
+     {
+      "what": "number of cavities",
+      "quote": "PCPs typically include 2 to 12 cavities.",
+      "unit": "count"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "sand_screen",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/g/gravel_pack",
+    "title": "gravel pack | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://glossary.slb.com/terms/g/gravel-pack_screen",
+    "title": "gravel-pack screen | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://petrowiki.spe.org/Slotted_liners_and_wire_wrapped_screens",
+    "title": "Slotted liners and wire wrapped screens",
+    "publisher": "SPE PetroWiki",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "screen outside diameter",
+      "quote": "Screen diameters range from 1.5 to 7 in. in diameter (or larger).",
+      "unit": "in."
+     },
+     {
+      "what": "routine slot width",
+      "quote": "Routine slot widths are 0.030 in. or larger.",
+      "unit": "in."
+     },
+     {
+      "what": "wire-wrapped screen inflow area",
+      "quote": "The inflow area of screens varies from about 6 to 12%",
+      "unit": "%"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "icd",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/i/inflow_control_device",
+    "title": "inflow control device | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/completions/well-completions/inflow-control-devices",
+    "title": "Inflow Control Devices | SLB",
+    "publisher": "SLB (product page)",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "oil viscosity range over which ResFlow AICD 2N is effective",
+      "quote": "Effective across oil viscosities from 0.3 to 1,500 cP",
+      "unit": "cP"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "perforating_gun",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/p/perforating_gun",
+    "title": "perforating gun | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://glossary.slb.com/terms/t/tubing-conveyed_perforating",
+    "title": "tubing-conveyed perforating (TCP) | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/completions/well-completions/perforating/perforating-gun-systems/hollow-carrier/hsd-high-shot-density-perforating-gun-system",
+    "title": "HSD High Shot Density Perforating Gun System | SLB",
+    "publisher": "SLB (product page)",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "gun outside diameter",
+      "quote": "available in sizes from 1.56 to 7 in.",
+      "unit": "in."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "pdg",
+  "sources": [
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/completions/well-completions/permanent-monitoring/permanent-downhole-gauges",
+    "title": "Permanent Downhole Pressure and Temperature Gauges | SLB",
+    "publisher": "SLB (product page)",
+    "kind": "definition",
+    "ranges": [
+     {
+      "what": "gauge survivability",
+      "quote": "Survivability >20 years at rated temperature",
+      "unit": "years"
+     }
+    ]
+   },
+   {
+    "url": "https://dam.bakerhughes.com/m/4e32433c44f17de1/original/SureSENS-QPT-ELITE-permanent-downhole-gauge-slsh.pdf",
+    "title": "SureSENS QPT ELITE permanent downhole gauge",
+    "publisher": "Baker Hughes (product data sheet, PDF)",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "pressure range",
+      "quote": "15 psi to 37,500 psi",
+      "unit": "psi"
+     },
+     {
+      "what": "operating temperature",
+      "quote": "14°F to 437°F",
+      "unit": "degF (also stated as -10°C to 225°C)"
+     },
+     {
+      "what": "pressure resolution",
+      "quote": "0.0001 psi",
+      "unit": "psi"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "fiber_dts_das",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/d/distributed_temperature_log",
+    "title": "distributed temperature log | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": [
+     {
+      "what": "spatial sampling interval (DTS)",
+      "quote": "sampled approximately every 1 m",
+      "unit": "m (page also gives 3.28 ft)"
+     },
+     {
+      "what": "temperature resolution (DTS)",
+      "quote": "with a resolution of 0.1 degC",
+      "unit": "degC"
+     }
+    ]
+   },
+   {
+    "url": "https://www.bakerhughes.com/integrated-well-services/integrated-well-abandonment/completion-removal-and-well-preparation/coiled-tubing-systems-and-services/coiled-tubing-telemetry-services/sureview-dts-and-das-services",
+    "title": "SureVIEW DTS and DAS services | Baker Hughes",
+    "publisher": "Baker Hughes (product page)",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.petroleumacronyms.com/glossary/das-distributed-acoustic-sensing",
+    "title": "DAS Meaning in Oil & Gas: Distributed Acoustic Sensing",
+    "publisher": "Petroleum Acronyms (Oil & Gas Glossary)",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "plunger_lift",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/p/plunger_lift",
+    "title": "plunger lift | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://slb.com/resource-library/oilfield-review/defining-series/defining-plunger-lift",
+    "title": "The Defining Series: Plunger Lift",
+    "publisher": "SLB Oilfield Review",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "liquid production limit for candidate wells",
+      "quote": "liquid production of less than approximately 21 m3/d [130 bbl/d]",
+      "unit": "m3/d (bbl/d)"
+     },
+     {
+      "what": "minimum gas per barrel of liquid per depth",
+      "quote": "at least 11.3 m3 [400 ft3] of gas per barrel of liquid",
+      "unit": "m3 (ft3) gas per bbl liquid per 300 m [1,000 ft] depth"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "wl_gamma",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/g/gamma_ray_log",
+    "title": "gamma ray log | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://glossary.slb.com/terms/n/natural_gamma_ray_spectroscopy",
+    "title": "natural gamma ray spectroscopy | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://media.huntingplc.com/products-and-services/perforating-and-logging-systems/logging-and-perforating-instruments/production-logging-tools/hunting-logging-gamma-ray-datasheet.pdf",
+    "title": "Logging Gamma Ray Tools (Titan Division)",
+    "publisher": "Hunting Titan (product data sheet, PDF)",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "tool outside diameter",
+      "quote": "Tool sizes from 1 in. to 3-1/8 in.",
+      "unit": "in."
+     },
+     {
+      "what": "maximum temperature",
+      "quote": "up to 500ºF",
+      "unit": "degF"
+     },
+     {
+      "what": "maximum pressure",
+      "quote": "@ 20,000 psi",
+      "unit": "psi"
+     },
+     {
+      "what": "recommended logging speed",
+      "quote": "30 - 40 [9.1 - 12.2]",
+      "unit": "ft/min [m/min]"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "wl_resistivity",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/i/induction",
+    "title": "induction | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://glossary.slb.com/en/terms/a/array_laterolog",
+    "title": "array laterolog | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/-/media/files/fe/brochure/hrla-br",
+    "title": "Improving the accuracy of Rt: HRLA High-Resolution Laterolog Array Tool",
+    "publisher": "SLB (Schlumberger brochure, PDF)",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "resistivity measurement range (Rm = 1)",
+      "quote": "0.2–100,000 ohm-m",
+      "unit": "ohm-m"
+     },
+     {
+      "what": "maximum borehole diameter",
+      "quote": "Maximum borehole diameter ≤ 16 in.",
+      "unit": "in. (minimum stated as ≥ 5 in.)"
+     },
+     {
+      "what": "maximum temperature",
+      "quote": "Maximum temperature 300ºF [150ºC]",
+      "unit": "degF"
+     },
+     {
+      "what": "maximum pressure",
+      "quote": "Maximum pressure 15,000 psi",
+      "unit": "psi"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "wl_density",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/d/density_measurement",
+    "title": "density measurement | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.weatherford.com/drilling-and-evaluation/wireline-products/openhole-formation-evaluation/compact-photodensity-tool/",
+    "title": "Compact Photodensity Tool | Weatherford International",
+    "publisher": "Weatherford (product page)",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "density measurement range",
+      "quote": "Density: 1.0 to 3.0 gm/cm3 (1,000 to 3,000 kg/m3)",
+      "unit": "g/cm3"
+     },
+     {
+      "what": "density accuracy",
+      "quote": "Density: ± 0.01 gm/cm3",
+      "unit": "g/cm3"
+     },
+     {
+      "what": "maximum temperature",
+      "quote": "320°F (160°C)",
+      "unit": "degF"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "wl_neutron",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/n/neutron_porosity",
+    "title": "neutron porosity | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": [
+     {
+      "what": "thermal neutron energy detected",
+      "quote": "less than 0.4 eV",
+      "unit": "eV"
+     },
+     {
+      "what": "epithermal neutron energy detected",
+      "quote": "between about 0.4 and 10 eV",
+      "unit": "eV"
+     }
+    ]
+   },
+   {
+    "url": "https://glossary.slb.com/terms/n/neutron_log",
+    "title": "neutron log | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "wl_sonic",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/s/sonic_log",
+    "title": "sonic log | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/reservoir-characterization/surface-and-downhole-logging/wireline-openhole-logging/sonic-scanner-platform",
+    "title": "Acoustic scanning platform | SLB (Sonic Scanner)",
+    "publisher": "SLB (product page)",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "logging speed",
+      "quote": "Increased logging speed (1,097 m/h [3,600 ft/h]",
+      "unit": "m/h (ft/h)"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "wl_nmr",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/n/nuclear_magnetic_resonance",
+    "title": "nuclear magnetic resonance | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": [
+     {
+      "what": "T2 distribution time span",
+      "quote": "typically from 0.3 ms to 3 s",
+      "unit": "ms to s"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "wl_imager",
+  "sources": [
+   {
+    "url": "https://ihrdc.com/glossary/term/Borehole%20Imaging%2C%20Borehole%20Imagers",
+    "title": "borehole imaging, borehole imagers — definition | IHRDC Energy Glossary",
+    "publisher": "IHRDC Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://slb.com/products-and-services/innovating-in-oil-and-gas/reservoir-characterization/surface-and-downhole-logging/wireline-openhole-logging/fmi-fullbore-formation-microimager",
+    "title": "FMI Fullbore Formation Microimager - Well Logging | SLB",
+    "publisher": "SLB (product page)",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "image resolution",
+      "quote": "0.2-in image resolution",
+      "unit": "in."
+     },
+     {
+      "what": "borehole coverage",
+      "quote": "80% borehole coverage in 8-in boreholes",
+      "unit": "% (in 8-in hole)"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "wl_formation_tester",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/w/wireline_formation_tester",
+    "title": "wireline formation tester | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/reservoir-characterization/surface-and-downhole-logging/wireline-openhole-logging/wireline-formation-testing/mdt-forte-and-mdt-forte-ht-testers",
+    "title": "MDT Forte and MDT Forte-HT | SLB",
+    "publisher": "SLB (product page)",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "pressure rating",
+      "quote": "31,500 psi",
+      "unit": "psi"
+     },
+     {
+      "what": "temperature rating",
+      "quote": "400-degF temperature rating for 100 operating hours",
+      "unit": "degF"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "caliper",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/c/caliper_log",
+    "title": "caliper log | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://glossary.slb.com/terms/m/multifinger_caliper",
+    "title": "multifinger caliper | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": [
+     {
+      "what": "number of fingers",
+      "quote": "between about 20 and 80 fingers",
+      "unit": "fingers"
+     }
+    ]
+   },
+   {
+    "url": "https://huntingplc.com/products-services/perforating-logging-systems/logging-and-perforating-instruments/mct-multi-finger-caliper-tools",
+    "title": "Hunting | MCT-Multi-Finger Caliper Tools",
+    "publisher": "Hunting (product page)",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "number of fingers/sensors",
+      "quote": "24, 40, or 60 displacement sensors",
+      "unit": "sensors"
+     },
+     {
+      "what": "pressure rating",
+      "quote": "15,000psi / (100MPa)",
+      "unit": "psi"
+     },
+     {
+      "what": "temperature rating",
+      "quote": "350F / (175C)",
+      "unit": "degF"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "cbl",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/c/cement_bond_log",
+    "title": "cement bond log | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/-/media/files/fe/brochure/memory-slim-cblt-br",
+    "title": "Through-tubing cement bond logging - Memory Slim Cement Bond Logging Tool (brochure)",
+    "publisher": "SLB product brochure",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "tool OD",
+      "quote": "Tool OD 1.6875 in. [43 mm]",
+      "unit": "in"
+     },
+     {
+      "what": "maximum operating temperature",
+      "quote": "Max. operating temperature 300˚F [150˚C]",
+      "unit": "degF"
+     },
+     {
+      "what": "maximum pressure",
+      "quote": "Max. pressure 15,000 psi [103.4 MPa]",
+      "unit": "psi"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "plt",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/s/spinner_flowmeter",
+    "title": "spinner flowmeter | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": [
+     {
+      "what": "typical small spinner diameter",
+      "quote": "about 1.5 in. [3.8 cm] in diameter",
+      "unit": "in"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "ccl",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/c/casing_collar_locator_ccl",
+    "title": "casing collar locator (CCL) | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.welltec.com/products-services/intervention/casing-collar-locator-ccl",
+    "title": "Welltec | Casing Collar Locator (CCL)",
+    "publisher": "Welltec product page",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "tool OD",
+      "quote": "2 1/8” → 3 1/8”",
+      "unit": "in"
+     },
+     {
+      "what": "maximum well temperature",
+      "quote": "500°F",
+      "unit": "degF"
+     },
+     {
+      "what": "maximum well pressure",
+      "quote": "20,000 psi",
+      "unit": "psi"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "multifinger_caliper",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/m/multifinger_caliper",
+    "title": "multifinger caliper | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": [
+     {
+      "what": "number of fingers",
+      "quote": "between about 20 and 80 fingers",
+      "unit": "fingers"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "sidewall_coring",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/s/sidewall_core",
+    "title": "sidewall core | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": [
+     {
+      "what": "percussion core size (full recovery)",
+      "quote": "1 in. [2.5 cm] in diameter by 1 3/4 in. [4.4 cm] long",
+      "unit": "in"
+     },
+     {
+      "what": "mechanical (rotary) core size (full recovery)",
+      "quote": "0.91 in. [2.3 cm] in diameter by 2 in. [5 cm] long",
+      "unit": "in"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "vsp_tool",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/v/vertical_seismic_profile",
+    "title": "vertical seismic profile | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": [
+     {
+      "what": "typical geophone level spacing",
+      "quote": "typically on the order of 25 m [82 ft]",
+      "unit": "m"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "overshot",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/o/overshot",
+    "title": "overshot | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://glossary.slb.com/en/terms/f/fishing_tool",
+    "title": "fishing tool | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://assets.nov.com/NCP4N68N/at/6tb8f9w3rmh4bjhtnzfm9t79/1150A_Series_150_Overshot_Instruction_Manual_Supplement_Web.pdf",
+    "title": "Bowen Series 150 Overshots Supplement (Instruction Manual 1150A)",
+    "publisher": "NOV (Bowen) instruction manual",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "overshot OD range across product line",
+      "quote": "Ranging in Size from 2-5/16” OD to above 42” OD",
+      "unit": "in"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "spear",
+  "sources": [
+   {
+    "url": "https://www.osha.gov/etools/oil-and-gas/glossary-of-terms-s",
+    "title": "eTool : Oil and Gas Well Drilling and Servicing - Glossary of Terms - S | OSHA",
+    "publisher": "OSHA Oil and Gas eTool",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://glossary.slb.com/en/terms/f/fishing_tool",
+    "title": "fishing tool | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/-/media/files/fishingsidetracking/catalogs/fishing-tools-services-catalog.ashx",
+    "title": "Fishing Tools and Services (catalog 12-DT-0069)",
+    "publisher": "SLB (Schlumberger) product catalog",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "maximum fish ID engaged (Itco-type releasing spear)",
+      "quote": "Engages fish with IDs up to 20 in",
+      "unit": "in"
+     }
+    ]
+   },
+   {
+    "url": "https://assets.nov.com/NCP4N68N/at/6spr45v5tqctn7k9tjx5pb9/Bowen_Full_Circle_Releasing_Spears_Handbook.pdf",
+    "title": "Bowen Full Circle Releasing Spears (Instruction Manual 2100)",
+    "publisher": "NOV (Bowen) instruction manual",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "example spear model range (tubing)",
+      "quote": "for 2 3/8 in. thru 3 1/2 in. Tubing",
+      "unit": "in"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "junk_basket",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/j/junk_basket",
+    "title": "junk basket | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.osha.gov/etools/oil-and-gas/glossary-of-terms-j",
+    "title": "eTool : Oil and Gas Well Drilling and Servicing - Glossary of Terms - J | OSHA",
+    "publisher": "OSHA Oil and Gas eTool",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "junk_mill",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/m/mill",
+    "title": "mill | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://petrowiki.spe.org/Glossary:Tapered_mill",
+    "title": "Glossary:Tapered mill",
+    "publisher": "SPE PetroWiki",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/-/media/files/fishingsidetracking/catalogs/fishing-tools-services-catalog.ashx",
+    "title": "Fishing Tools and Services (catalog 12-DT-0069)",
+    "publisher": "SLB (Schlumberger) product catalog",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "bladed junk mill sizes",
+      "quote": "Bladed-junk mills are available in 3½-in to 28-in",
+      "unit": "in"
+     },
+     {
+      "what": "taper mill sizes",
+      "quote": "Taper mills are available in 3½-in to 17½-in",
+      "unit": "in"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "fishing_magnet",
+  "sources": [
+   {
+    "url": "https://petrowiki.spe.org/Glossary:Fishing_magnet",
+    "title": "Glossary:Fishing magnet",
+    "publisher": "SPE PetroWiki",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://assets.nov.com/NCP4N68N/at/2g5v5svxgbmqj85bntqht9s/Fishing_Magnets_Instruction_Manual.pdf",
+    "title": "Fishing Magnets, Instruction Manual 3400",
+    "publisher": "NOV (Bowen) instruction manual",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "magnet OD range",
+      "quote": "from 1 inch O.D. through 20 inches O.D.",
+      "unit": "in"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "impression_block",
+  "sources": [
+   {
+    "url": "https://www.osha.gov/etools/oil-and-gas/glossary-of-terms-i",
+    "title": "eTool : Oil and Gas Well Drilling and Servicing - Glossary of Terms - I | OSHA",
+    "publisher": "OSHA Oil and Gas eTool",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://petrowiki.spe.org/Glossary:Impression_block",
+    "title": "Glossary:Impression block",
+    "publisher": "SPE PetroWiki",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "washpipe",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/w/washover_pipe",
+    "title": "washover pipe | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "pipe_cutter",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/c/chemical_cutter",
+    "title": "chemical cutter | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.osha.gov/etools/oil-and-gas/glossary-of-terms-j",
+    "title": "eTool : Oil and Gas Well Drilling and Servicing - Glossary of Terms - J | OSHA",
+    "publisher": "OSHA Oil and Gas eTool",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://slb.com/products-and-services/innovating-in-oil-and-gas/well-intervention/remedial-services/tubing-cutting-and-pipe-recovery",
+    "title": "Tubing Cutting and Pipe Recovery | SLB",
+    "publisher": "SLB product page",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/well-intervention/remedial-services/tubing-cutting-and-pipe-recovery/powercutter-precision-tubular-cutter",
+    "title": "Tubular & Chemical Cutter - Internal Casing Cutter | SLB",
+    "publisher": "SLB product page",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "temperature rating (shaped-charge cutter)",
+      "quote": "rated to 204 degC [400 degF]",
+      "unit": "degC"
+     },
+     {
+      "what": "chemical cutter reliability limit (comparison)",
+      "quote": "at temperatures greater than 126 degC [258 degF]",
+      "unit": "degC"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "freepoint_tool",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/terms/f/free-point_indicator",
+    "title": "free-point indicator | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://dam.bakerhughes.com/m/457cc2d35f709c60/original/Sondex-free-point-indicator-slsh.pdf",
+    "title": "Free Point Indicator (Sondex product sheet)",
+    "publisher": "Baker Hughes (Sondex) product sheet",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "anchoring range (pipe ID)",
+      "quote": "Anchoring range 1.6 to 5.1 in.",
+      "unit": "in"
+     },
+     {
+      "what": "temperature rating",
+      "quote": "Temperature rating 350°F",
+      "unit": "degF"
+     },
+     {
+      "what": "pressure rating",
+      "quote": "Pressure rating 20,000 psi",
+      "unit": "psi"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "section_mill",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/m/mill",
+    "title": "mill | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": []
+   },
+   {
+    "url": "https://bakerhughes.com/sites/bakerhughes/files/2020-07/HEAVY-METAL-swarf-free-section-milling-slsh.PDF",
+    "title": "HEAVY METAL swarf-free section milling service",
+    "publisher": "Baker Hughes product sheet",
+    "kind": "definition",
+    "ranges": []
+   }
+  ]
+ },
+ {
+  "id": "tractor",
+  "sources": [
+   {
+    "url": "https://www.slb.com/products-and-services/innovating-in-oil-and-gas/well-intervention/slickline-and-wireline-intervention/wireline-tractors/tufftrac-wireline-tractor",
+    "title": "TuffTRAC Wireline Tractor | SLB",
+    "publisher": "SLB product page",
+    "kind": "range",
+    "ranges": [
+     {
+      "what": "maximum tractoring speed",
+      "quote": "maximum speed of 3,200 ft/h",
+      "unit": "ft/h"
+     },
+     {
+      "what": "logging speed while tractoring (monocable)",
+      "quote": "tractoring logging passes at up to 2,400 ft/h",
+      "unit": "ft/h"
+     },
+     {
+      "what": "borehole ID range",
+      "quote": "borehole IDs from 3.4 to 10.6 in",
+      "unit": "in"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "dst",
+  "sources": [
+   {
+    "url": "https://glossary.slb.com/en/terms/d/drillstem_test",
+    "title": "drillstem test | Energy Glossary",
+    "publisher": "SLB Energy Glossary",
+    "kind": "definition",
+    "ranges": [
+     {
+      "what": "subsequent (main) flow period duration",
+      "quote": "4 to 24 hours",
+      "unit": "h"
+     },
+     {
+      "what": "initial flow period duration",
+      "quote": "five or ten minutes",
+      "unit": "min"
+     }
+    ]
+   }
+  ]
+ }
+]

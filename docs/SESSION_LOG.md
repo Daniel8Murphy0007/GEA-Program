@@ -1895,3 +1895,46 @@ come from one pass that `record`, `gamma_log` and `md_tvd_table` share.
   section drilling on from its opening depth). BY1 updated for the removed
   fields; BY4 new. The well page shows the events, the boreholes and the
   hours kept out. Gate 377.
+
+## 2026-10-15 - The downhole tool library (v0.31.0)
+
+He asked for every downhole tool in use industry-wide in the tool library,
+with a hover and a pop-open tutorial over each; scope chosen "types plus
+your fleet": the classes with cited figures only, and the named models of
+his own fleet with their datasheets. Ship order "fix record, then library":
+v0.30.1 carried the drilling-record fix; this is the library.
+- Ninety-six classes in nine categories (`gea/tool_taxonomy.py`). Research
+  first: six parallel research passes, each class's pages found and fetched
+  in the run (SLB Energy Glossary, SPE PetroWiki, OSHA eTool, maker
+  datasheets and product pages, LDEO and IODP tool pages), a paraphrase per
+  page to check the tutorial against, and numeric figures recorded only
+  where a page stated them, as quoted. Curated: pages from Wikipedia,
+  Rigzone, drillingmanual.com, a rental listing, an acronym site and a spec
+  sheet whose tables came out scrambled were dropped; figures joined across
+  table cells ("..."), garbled fractions, an ambiguous size column, a
+  sensor offset filed under the wrong class, strength tiers read as sizes
+  and float-valve size codes were dropped. 192 pages and 196 figures remain
+  (`reference/tool_sources.json`, fetched 2026-10-14); 72 classes carry a
+  figure, the other 24 say to supply the datasheet.
+- The tutorials are the program's own words in six parts (what, where,
+  how, what it shows in the data - tied to the EDR channels where the tool
+  shows in them - what to watch, and what the program does with it) and
+  carry no digits at all: BZ1 holds that, so every number on a card is a
+  quoted, cited figure.
+- The page: a chip per class, the one-liner as a tooltip on hover and on
+  keyboard focus (hidden on touch screens, where the tap opens the
+  dialog), a native dialog opened by click, tap or Enter and closed by Esc,
+  Close or the backdrop, focus returned to the chip; find and category
+  filters; the fleet card; the gauge library rows open the PDG or fibre
+  tutorial. Driven in headless Chromium in light, dark and phone widths:
+  96 chips, hover and focus tips visible, Enter opens, Esc closes, focus
+  returns, fleet add and remove round-trip with the badge and card
+  redrawn, no page errors, no horizontal scroll at phone width.
+- The fleet: `config/fleet.json`, class and datasheet citation required,
+  duplicates turned away, audit entries `fleet.add` and `fleet.remove`;
+  operator role for changes. CLI `gea tools --action classes | tutorial |
+  fleet | fleet-add | fleet-remove`, with the console made safe for the
+  figures' fractions and degree signs.
+- Section BZ (3 checks). Gate 380. His fleet list (make and model per tool)
+  is the next input; the ergonomics leg follows (setup checklist,
+  interactive charts, site map, control-room mode).

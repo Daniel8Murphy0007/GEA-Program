@@ -38,6 +38,22 @@ pre{background:var(--page);border:1px solid var(--grid);border-radius:8px;paddin
 svg.chart{width:100%;height:260px;display:block}svg.chart text{font:11px var(--sans);fill:var(--ink2)}svg.chart .grid{stroke:var(--grid)}svg.chart .line{fill:none;stroke:var(--accent);stroke-width:1.6}svg.chart .q{r:2.2}
 .skip{position:absolute;left:-9999px}.skip:focus{left:8px;top:8px;background:var(--surface);padding:8px;z-index:10}
 details summary{cursor:pointer;color:var(--accent)}
+.tl-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin:8px 0}
+.tl-cat{margin:14px 0 4px;font-size:14px;color:var(--ink2)}
+.tl-grid{display:flex;flex-wrap:wrap;gap:6px}
+.tl-chip{position:relative;font:inherit;font-size:13px;line-height:1.3;padding:6px 11px;border:1px solid var(--grid);border-radius:999px;background:var(--surface);color:var(--ink);cursor:pointer}
+.tl-chip:hover,.tl-chip:focus-visible{border-color:var(--accent);box-shadow:0 0 0 2px var(--ring)}
+.tl-chip .tl-fl{display:inline-block;margin-left:6px;padding:0 6px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-size:11px;font-weight:600}
+.tl-tip{visibility:hidden;opacity:0;position:absolute;left:0;top:calc(100% + 6px);z-index:30;width:max-content;max-width:min(340px,82vw);padding:8px 10px;background:var(--ink);color:var(--page);border-radius:6px;font-size:12.5px;font-weight:400;line-height:1.4;text-align:left;pointer-events:none;transition:opacity .12s;box-shadow:0 4px 14px var(--ring)}
+.tl-tip .tl-hint{display:block;margin-top:4px;opacity:.75;font-size:11.5px}
+.tl-chip:hover .tl-tip,.tl-chip:focus-visible .tl-tip{visibility:visible;opacity:1}
+@media (hover:none){.tl-tip{display:none}}
+dialog.tl-dlg{width:min(780px,94vw);max-height:90vh;border:1px solid var(--grid);border-radius:12px;padding:0;background:var(--surface);color:var(--ink);box-shadow:0 12px 40px rgba(0,0,0,.35)}
+dialog.tl-dlg::backdrop{background:rgba(0,0,0,.45)}
+.tl-dlg .tl-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px 18px;border-bottom:1px solid var(--grid)}
+.tl-dlg .tl-head h3{margin:0 0 4px}.tl-dlg .tl-body{padding:6px 18px 16px;overflow:auto;max-height:calc(90vh - 90px)}
+.tl-dlg dl{margin:6px 0}.tl-dlg dt{font-weight:600;margin-top:12px;color:var(--ink2)}.tl-dlg dd{margin:3px 0 0}
+.tl-dlg table{font-size:13px}.tl-dlg .tl-src{word-break:break-all}
 nav a .b{display:inline-block;min-width:18px;padding:0 5px;margin-left:5px;border-radius:9px;background:var(--serious);color:#fff;font-size:11px;line-height:18px;text-align:center;font-weight:600}nav a .b.w{background:var(--warn)}nav a[aria-current=page] .b{background:#fff;color:var(--accent)}
 header .search{display:flex;gap:4px;align-items:center}header .search input{font:inherit;padding:6px 8px;border:1px solid var(--grid);border-radius:6px;background:var(--surface);color:var(--ink);width:200px}
 .help{background:var(--surface);border:1px dashed var(--accent);border-radius:10px;padding:10px 14px;margin:8px 0 12px;font-size:14px}.help h4{margin:0 0 4px;font-size:14px}.help p{margin:4px 0}
@@ -297,7 +313,13 @@ VIEWS.tools = async () => {
      + tile('File formats read', `${c.counts.file_ports}`, 'neutral', '#/tools')
      + tile('Live protocols spoken', `${c.counts.live_ports}`, 'neutral', '#/live') + `</div>`;
 
-  h += `<div class="card"><h3>The tool library <span class="small muted">every entry carries its source; a tool whose vendor published no numbers carries none</span></h3>`;
+  h += `<div class="card" id="tlCard"><h3>Downhole tool library <span class="small muted" id="tlCount"></span></h3>
+    <p class="small muted">Every class of downhole tool in use across the industry. Point at a tool (or Tab to it) for a one-line description; click, tap or press Enter for its tutorial. Esc closes it.</p>
+    <div class="tl-bar"><label>Find<input id="tlFind" type="search" placeholder="motor, packer, gamma…" autocomplete="off" style="width:16em"></label>
+    <label>Category<select id="tlCatSel"><option value="">All categories</option></select></label><span class="small muted" id="tlShown" aria-live="polite"></span></div>
+    <div id="tlGrid"></div></div>
+    <div class="card" id="flCard"><h3>Your fleet <span class="small muted">the tools you run, each tied to its class and to the datasheet that rates it</span></h3><div id="flBody" class="small muted">loading…</div></div>`;
+  h += `<div class="card"><h3>The gauge library <span class="small muted">the instruments this program reads and simulates; every entry carries its source; a tool whose vendor published no numbers carries none</span></h3>`;
   h += `<table><thead><tr><th>Tool</th><th>Class</th><th>Measures</th><th>Rated</th><th>Aging (%FS/yr)</th><th>Speaks</th><th>Ports</th><th>Numbers</th></tr></thead><tbody>`;
   for (const t of c.tools) {
     h += `<tr><td><b>${esc(t.name)}</b>${t.notes ? `<div class="small muted">${esc(t.notes)}</div>` : ''}</td><td class="small">${esc(t.tool_class)}</td><td class="small">${esc((t.measures || []).join(', ') || '— (an interface)')}</td>`
@@ -305,7 +327,7 @@ VIEWS.tools = async () => {
        + `<td>${t.aging_rate_pct_fs_yr != null ? fmt(t.aging_rate_pct_fs_yr, 4) : `<span class="small muted" title="${esc(t.aging_note)}">none on record</span>`}</td>`
        + `<td class="small">${esc(t.telemetry_interface)}</td><td class="small">${(t.ports || []).map(p => `<a href="#/live">${esc(p)}</a>`).join(', ') || '<span class="muted">none in this build</span>'}</td>`
        + `<td>${statusPill(t.spec_status === 'FULLY_SPECIFIED' ? 'good' : 'warn', t.spec_status === 'FULLY_SPECIFIED' ? 'published' : 'user-supplied')}</td></tr>`;
-    h += `<tr><td colspan="8" class="small muted">source: ${esc(t.source)}</td></tr>`;
+    h += `<tr><td colspan="8" class="small muted">source: ${esc(t.source)} <button type="button" class="secondary tl-open" data-tool="${esc(({QUARTZ_PT_GAUGE: 'pdg', PIEZORESISTIVE_PT_GAUGE: 'pdg', VIBRATING_WIRE_GAUGE: 'pdg', THERMOCOUPLE_STRING: 'pdg', FIBER_DTS: 'fiber_dts_das', SURFACE_INTERFACE: 'pdg'})[t.tool_class] || 'pdg')}" style="padding:2px 8px;font-size:12px;margin-left:6px">Tutorial</button></td></tr>`;
   }
   h += `</tbody></table></div>`;
 
@@ -331,6 +353,7 @@ VIEWS.tools = async () => {
     <div class="row"><button class="secondary" id="rcAdd" type="button">Add a station</button><button id="rcRun" type="button">Check the string</button></div>
     <div id="rcOut"></div></div>`;
   $('#main').innerHTML = h;
+  toolLibrary();
   const mk = (md) => { const d = document.createElement('div'); d.className = 'row'; d.style.margin = '0';
     d.innerHTML = `<label>Measured depth ft<input type="number" class="rcMd" value="${md}" style="width:8em"></label><label>Tool<select class="rcTool">${names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('')}</select></label><button class="secondary rcDel" type="button">Remove</button>`;
     d.querySelector('.rcDel').onclick = () => d.remove(); $('#rcRows').appendChild(d); };
@@ -343,6 +366,80 @@ VIEWS.tools = async () => {
       o += `<table><thead><tr><th>Depth (ft)</th><th>Tool</th><th>Temperature (°C)</th><th>Pressure (psi)</th><th>Rated</th><th>Verdict</th></tr></thead><tbody>${r.stations.map(x => `<tr><td>${fmt(x.md_ft, 0)}</td><td>${esc(x.tool)}</td><td>${fmt(x.station_temp_C, 1)}</td><td>${fmt(x.station_pressure_psi, 0)}</td><td class="small">${x.temp_rating_C != null ? fmt(x.temp_rating_C, 0) + ' °C' : '—'}${x.pressure_rating_psi != null ? ' / ' + fmt(x.pressure_rating_psi, 0) + ' psi' : ''}</td><td>${statusPill(x.ok ? 'good' : 'serious', x.ok ? 'within ratings' : (x.over_temp_rating ? 'OVER TEMPERATURE' : 'OVER PRESSURE'))}</td></tr>`).join('')}</tbody></table>`;
       $('#rcOut').innerHTML = o; } catch (e) { toast(e.message, 'err'); } };
 };
+// the downhole tool library: a chip per class; hover or focus shows the one-line, click / tap / Enter opens the tutorial
+let TLX = null;
+function tlDialog() {
+  let d = document.getElementById('tlDlg');
+  if (d) return d;
+  d = document.createElement('dialog'); d.id = 'tlDlg'; d.className = 'tl-dlg'; d.setAttribute('aria-labelledby', 'tlDlgTitle');
+  d.addEventListener('click', ev => { if (ev.target === d) d.close(); });            // a click on the backdrop closes it
+  d.addEventListener('close', () => { const back = d._opener; if (back && document.body.contains(back)) back.focus(); });
+  document.body.appendChild(d); return d;
+}
+function tlOpen(id, opener) {
+  if (!TLX) return;
+  const t = TLX.classes.find(x => x.id === id) || TLX.all[id]; if (!t) return;
+  const d = tlDialog(); d._opener = opener || document.activeElement;
+  const mine = (TLX.fleet || []).filter(f => f.class_id === t.id);
+  let b = `<div class="tl-head"><div><div class="small muted">${esc(t.category_name)}</div><h3 id="tlDlgTitle">${esc(t.name)}</h3><div class="small">${esc(t.one_line)}</div></div>
+    <button type="button" class="secondary" id="tlClose" aria-label="Close the tutorial">Close</button></div><div class="tl-body"><dl>`;
+  for (const [k, title] of TLX.parts) b += `<dt>${esc(title)}</dt><dd>${esc(t.tutorial[k])}</dd>`;
+  b += `</dl>`;
+  b += `<h4 class="small" style="margin:14px 0 4px">Published figures</h4>`;
+  if (t.figures.length) b += `<p class="small muted">${esc(t.figures_note)}.</p><table><thead><tr><th>What</th><th>As the page states it</th><th>Unit</th><th>Page</th></tr></thead><tbody>${t.figures.map(f => `<tr><td>${esc(f.what)}</td><td>“${esc(f.quote)}”</td><td class="small">${esc(f.unit || '')}</td><td class="small"><a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">${esc(f.publisher || 'source')}</a></td></tr>`).join('')}</tbody></table>`;
+  else b += `<p class="small muted">${esc(t.figures_note)}.</p>`;
+  b += `<h4 class="small" style="margin:14px 0 4px">In your fleet</h4>`;
+  b += mine.length ? `<ul class="small">${mine.map(f => `<li><b>${esc(f.maker)} ${esc(f.model)}</b>${f.serial ? ' s/n ' + esc(f.serial) : ''}${f.od_in ? ', ' + fmt(f.od_in, 3) + ' in OD' : ''} — datasheet: ${esc(f.datasheet)}</li>`).join('')}</ul>` : `<p class="small muted">None of this class yet.</p>`;
+  if (can('operator')) b += `<details><summary class="small">Add one of yours</summary><form id="tlAdd" class="row" style="margin-top:8px">
+      <label>Maker<input name="maker" required style="width:10em"></label><label>Model<input name="model" required style="width:10em"></label>
+      <label>Serial<input name="serial" style="width:8em"></label><label>OD in<input name="od_in" type="number" step="0.001" min="0" style="width:6em"></label>
+      <label style="flex:1 1 100%">Datasheet (title and revision, or its URL) — required: the fleet carries a rating only as the datasheet states it<input name="datasheet" required style="width:100%"></label>
+      <label style="flex:1 1 100%">Note<input name="note" style="width:100%"></label><button type="submit">Add to the fleet</button></form></details>`;
+  b += `<h4 class="small" style="margin:14px 0 4px">Sources <span class="muted">(fetched ${esc(TLX.summary.sources_fetched)})</span></h4><ul class="small tl-src">${t.sources.map(x => `<li>${esc(x.publisher || '')}: <a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${esc(x.title || x.url)}</a></li>`).join('')}</ul></div>`;
+  d.innerHTML = b;
+  d.querySelector('#tlClose').onclick = () => d.close();
+  const f = d.querySelector('#tlAdd');
+  if (f) f.onsubmit = async ev => { ev.preventDefault(); const v = Object.fromEntries(new FormData(f).entries());
+    try { const r = await post('/api/tools/fleet', {...v, class_id: t.id}); toast(`added ${r.maker} ${r.model} to the fleet`, 'ok'); await tlLoad(); if (TLX.redraw) TLX.redraw(); tlOpen(t.id, d._opener); } catch (e) { toast(e.message, 'err'); } };
+  if (!d.open) d.showModal();
+  d.querySelector('#tlClose').focus();
+}
+async function tlLoad() {
+  const r = await get('/api/tools/taxonomy');
+  TLX = {...r, all: Object.fromEntries(r.classes.map(c => [c.id, c])), redraw: TLX && TLX.redraw};
+  return TLX;
+}
+async function toolLibrary() {
+  try { await tlLoad(); } catch (e) { $('#tlGrid').innerHTML = `<p class="small">${esc(e.message)}</p>`; return; }
+  const sm = TLX.summary;
+  $('#tlCount').textContent = `${sm.classes} classes · ${sm.sources} pages checked · ${sm.figures} published figures, each quoted from its page`;
+  $('#tlCatSel').innerHTML = `<option value="">All categories</option>` + sm.categories.map(c => `<option value="${esc(c.id)}">${esc(c.name)} (${c.classes})</option>`).join('');
+  const draw = () => {
+    const q = ($('#tlFind').value || '').toLowerCase().split(/\s+/).filter(Boolean), cat = $('#tlCatSel').value;
+    const fleetBy = {}; for (const f of TLX.fleet || []) fleetBy[f.class_id] = (fleetBy[f.class_id] || 0) + 1;
+    const shown = TLX.classes.filter(t => (!cat || t.category === cat) && q.every(w => (t.name + ' ' + t.one_line + ' ' + t.id).toLowerCase().includes(w)));
+    let g = '';
+    for (const c of sm.categories) {
+      const ts = shown.filter(t => t.category === c.id); if (!ts.length) continue;
+      g += `<h4 class="tl-cat">${esc(c.name)}</h4><div class="tl-grid" role="list">` + ts.map(t => `<button type="button" role="listitem" class="tl-chip" data-tool="${esc(t.id)}" aria-describedby="tip-${esc(t.id)}" aria-haspopup="dialog">${esc(t.name)}${fleetBy[t.id] ? `<span class="tl-fl" title="in your fleet">${fleetBy[t.id]}</span>` : ''}<span class="tl-tip" role="tooltip" id="tip-${esc(t.id)}">${esc(t.one_line)}<span class="tl-hint">Click or press Enter for the tutorial</span></span></button>`).join('') + `</div>`;
+    }
+    $('#tlGrid').innerHTML = g || `<p class="small muted">No tool class matches.</p>`;
+    $('#tlShown').textContent = `${shown.length} shown`;
+  };
+  $('#tlFind').oninput = draw; $('#tlCatSel').onchange = draw;
+  const openFrom = ev => { const b = ev.target.closest('[data-tool]'); if (b) tlOpen(b.dataset.tool, b); };
+  $('#tlCard').onclick = openFrom; $('#flCard').onclick = openFrom;
+  for (const b of document.querySelectorAll('.tl-open')) b.onclick = openFrom;
+  const fleetCard = () => {
+  const fl = TLX.fleet || [];
+  if (!$('#flBody')) return;
+  $('#flBody').innerHTML = fl.length ? `<table><thead><tr><th>Tool</th><th>Class</th><th>Serial</th><th>OD (in)</th><th>Datasheet</th>${can('operator') ? '<th></th>' : ''}</tr></thead><tbody>${fl.map(f => `<tr><td><b>${esc(f.maker)} ${esc(f.model)}</b></td><td><button type="button" class="secondary" data-tool="${esc(f.class_id)}" style="padding:2px 8px;font-size:12px">${esc(f.class_name)}</button></td><td>${esc(f.serial || '—')}</td><td>${f.od_in ? fmt(f.od_in, 3) : '—'}</td><td class="small">${esc(f.datasheet)}</td>${can('operator') ? `<td><button type="button" class="secondary flRm" data-id="${esc(f.id)}" style="padding:2px 8px;font-size:12px">Remove</button></td>` : ''}</tr>`).join('')}</tbody></table>`
+    : `<p class="small muted">Nothing in the fleet yet. Open a tool class above and use <b>Add one of yours</b>, or at the command line: <span class="mono">gea tools --action fleet-add --workspace C:\\site --class pdm_motor --maker … --model … --datasheet …</span></p>`;
+  for (const btn of document.querySelectorAll('.flRm')) btn.onclick = async ev => { ev.stopPropagation(); try { await post(`/api/tools/fleet/${encodeURIComponent(btn.dataset.id)}/remove`, {}); toast('removed from the fleet', 'ok'); await tlLoad(); TLX.redraw(); } catch (e) { toast(e.message, 'err'); } };
+  };
+  const redraw = () => { if (!$('#tlGrid')) return; draw(); fleetCard(); };
+  TLX.redraw = redraw; redraw();
+}
 VIEWS.catalog = async () => {
   const c = await get('/api/catalog/map');
   const k = c.counts;

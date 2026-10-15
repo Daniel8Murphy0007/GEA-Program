@@ -285,6 +285,17 @@ def main(argv=None) -> int:
     p_tl.add_argument("--station", type=str, action="append", default=None, help="a station as DEPTH_FT:TOOL, e.g. 9850:quartz_pt_geoq177_16k")
     p_tl.add_argument("--surface-temp-f", type=float, default=75.0); p_tl.add_argument("--temp-gradient-f-ft", type=float, default=0.018)
     p_tl.add_argument("--surface-pressure-psi", type=float, default=14.7); p_tl.add_argument("--pressure-gradient-psi-ft", type=float, default=0.465)
+    p_tl.add_argument("--action", choices=["classes", "tutorial", "fleet", "fleet-add", "fleet-remove"], default=None,
+                      help="the downhole tool classes in use across the industry: classes (--category, --find), tutorial --class ID, and the workspace's own fleet (fleet, fleet-add, fleet-remove)")
+    p_tl.add_argument("--category", type=str, default=None, help="classes: one category (bits, drive, measure, bha, casing, completion, logging, fishing, testing)")
+    p_tl.add_argument("--find", type=str, default="", help="classes: words to look for in the name and description")
+    p_tl.add_argument("--class", dest="class_id", type=str, default=None, help="tutorial / fleet-add: the tool class id, e.g. pdm_motor")
+    p_tl.add_argument("--workspace", type=str, default=None, help="fleet actions: the workspace folder")
+    p_tl.add_argument("--maker", type=str, default=""); p_tl.add_argument("--model", type=str, default="")
+    p_tl.add_argument("--datasheet", type=str, default="", help="fleet-add: the datasheet that rates the tool - title and revision, or its URL (required)")
+    p_tl.add_argument("--serial", type=str, default=""); p_tl.add_argument("--od-in", type=float, default=None); p_tl.add_argument("--note", type=str, default="")
+    p_tl.add_argument("--id", type=str, default=None, help="fleet-remove: the fleet tool id (gea tools --action fleet lists them)")
+    p_tl.add_argument("--actor", type=str, default="cli")
     p_cc = sub.add_parser("comcat", help="USGS ComCat / any FDSN event service: --lat --lon --radius-km --start --end prints the text-format query to open; --file reads the export it returns")
     p_cc.add_argument("--lat", type=float, default=None); p_cc.add_argument("--lon", type=float, default=None); p_cc.add_argument("--radius-km", type=float, default=25.0)
     p_cc.add_argument("--start", type=str, default=None); p_cc.add_argument("--end", type=str, default=None); p_cc.add_argument("--min-mag", type=float, default=1.0)
@@ -2374,6 +2385,71 @@ def main(argv=None) -> int:
     elif a.cmd == "tools":
         import json as _json
         from . import tool_catalog as _TC
+        if a.action:
+            from . import tool_taxonomy as _TX
+            from .cli import _safe_stdout
+            _safe_stdout()                                  # the cited figures carry fractions and degree signs
+            if a.action == "classes":
+                cs = _TX.classes(a.category, a.find)
+                if a.category and a.category not in _TX.CATEGORY_NAMES:
+                    raise SystemExit(f"tools: no category {a.category!r}; one of {', '.join(_TX.CATEGORY_NAMES)}")
+                if a.json:
+                    print(_json.dumps(cs, indent=1)); return 0
+                sm = _TX.summary()
+                print(f"{len(cs)} of {sm['classes']} tool classes; {sm['sources']} pages checked (fetched {sm['sources_fetched']}); {sm['figures']} published figures, each quoted from its page")
+                last = None
+                for t in cs:
+                    if t["category"] != last:
+                        print(f"\n{t['category_name']}"); last = t["category"]
+                    print(f"  {t['id']:<24s} {t['name']}")
+                    print(f"      {t['one_line']}")
+                print("\n`gea tools --action tutorial --class ID` opens one.")
+                return 0
+            if a.action == "tutorial":
+                if not a.class_id:
+                    raise SystemExit("tools: tutorial needs --class, e.g. --class pdm_motor (gea tools --action classes lists them)")
+                try:
+                    if a.json:
+                        print(_json.dumps(_TX.tool_class(a.class_id), indent=1)); return 0
+                    print(_TX.tutorial_text(a.class_id))
+                except KeyError as e:
+                    raise SystemExit(f"tools: {e.args[0]}")
+                return 0
+            if not a.workspace:
+                raise SystemExit(f"tools: --action {a.action} needs --workspace, e.g. --workspace C:\\site")
+            from .workspace import Workspace, WorkspaceError
+            try:
+                ws = Workspace(a.workspace)
+            except WorkspaceError as e:
+                raise SystemExit(f"tools: {e}")
+            if a.action == "fleet":
+                fl = _TX.fleet_list(ws.path)
+                if a.json:
+                    print(_json.dumps(fl, indent=1)); return 0
+                if not fl:
+                    print("the fleet is empty: gea tools --action fleet-add --workspace ... --class pdm_motor --maker ... --model ... --datasheet ...")
+                for t in fl:
+                    print(f"{t['id']:<32s} {t['class_name']}  -  {t['maker']} {t['model']}" + (f" s/n {t['serial']}" if t['serial'] else '') + (f", {t['od_in']:g} in OD" if t['od_in'] else ''))
+                    print(f"      datasheet: {t['datasheet']}")
+                return 0
+            if a.action == "fleet-add":
+                try:
+                    rec = _TX.fleet_add(ws.path, a.class_id or "", a.maker, a.model, a.datasheet, serial=a.serial, od_in=a.od_in, note=a.note, actor=a.actor)
+                except ValueError as e:
+                    raise SystemExit(f"tools: {e}")
+                ws.audit(a.actor, 'fleet.add', {'id': rec['id'], 'class': rec['class_id'], 'datasheet': rec['datasheet']})
+                print(f"added {rec['id']}: {rec['maker']} {rec['model']} ({rec['class_name']}); datasheet {rec['datasheet']}")
+                return 0
+            if a.action == "fleet-remove":
+                if not a.id:
+                    raise SystemExit("tools: fleet-remove needs --id (gea tools --action fleet lists them)")
+                try:
+                    rec = _TX.fleet_remove(ws.path, a.id)
+                except ValueError as e:
+                    raise SystemExit(f"tools: {e}")
+                ws.audit(a.actor, 'fleet.remove', {'id': rec['id'], 'class': rec['class_id']})
+                print(f"removed {rec['id']}")
+                return 0
         if a.rating or a.station:
             stations = []
             for spec in (a.station or []):

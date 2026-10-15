@@ -5,6 +5,43 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.31.0] - 2026-10-15 - The downhole tool library, with a tutorial on every tool
+
+### Added
+- **Every class of downhole tool in use across the industry**
+  (`gea/tool_taxonomy.py`): ninety-six classes in nine categories - bits and
+  hole enlargement; steering and drive; measurement and telemetry while
+  drilling; drill string and BHA components; casing and cementing
+  equipment; completion and artificial lift; wireline and cased-hole
+  logging; fishing, milling and intervention; well testing.
+- **A hover and a pop-open tutorial on every tool.** On the Tools & ports
+  page each class is a chip: pointing at it, or reaching it with Tab, shows
+  its one-line description; a click, a tap or Enter opens its tutorial -
+  what it is, where it runs, how it works, what it shows in the data, what
+  to watch, and what this program does with it - with the published figures
+  and the sources. Esc, Close or a click outside puts it away and returns
+  the focus to the chip. A find box and a category filter narrow the grid;
+  on a touch screen the tap opens the tutorial directly. The gauge library
+  rows open their class's tutorial too.
+- **Cited figures only.** Every class was checked against public pages -
+  the SLB Energy Glossary, SPE PetroWiki, the OSHA oil and gas eTool, maker
+  datasheets and product pages, academic tool pages - 192 pages fetched on
+  2026-10-14 and recorded with each class (`reference/tool_sources.json`).
+  The 196 published figures are the pages' own words, with the unit and the
+  page; most are one maker's product and the card says so. The tutorial
+  prose carries no numbers at all, and a class with no published figure
+  says to supply the model's datasheet. Encyclopaedia and re-publisher
+  pages were left out, and so were figures the pages did not state in one
+  piece.
+- **The fleet**: the operator's own tools, each tied to a class and to the
+  datasheet citation that rates it, kept in the workspace
+  (`config/fleet.json`), added and removed by an operator from the tutorial
+  or `gea tools --action fleet-add | fleet | fleet-remove`, every change in
+  the audit log; a fleet tool carries a rating only as its datasheet gives
+  it. `gea tools --action classes | tutorial --class ID`; the API
+  `/api/tools/taxonomy` and `/api/tools/fleet`; `gea help tools`.
+- Section BZ (3 checks); the gate is 380.
+
 ## [v0.30.1] - 2026-10-14 - The drilling record reads its own depth before counting
 
 ### Fixed

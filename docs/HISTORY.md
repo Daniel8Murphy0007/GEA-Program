@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.31.0 - 2026-10-15 - the downhole tool library
+
+- **Every downhole tool class, with a tutorial.** Ninety-six classes in
+  nine categories on the Tools & ports page, each a chip with a one-line
+  hover and a pop-open tutorial in six parts; published figures quoted
+  from the 192 pages they cite and no number of the program's own; the
+  operator's fleet tied to the classes and the datasheets. Section BZ;
+  gate 380.
+
 ## v0.30.1 - 2026-10-14 - the drilling record reads its own depth
 
 - **Depth events before footage.** Stale openings, re-references,

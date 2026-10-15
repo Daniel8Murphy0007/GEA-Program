@@ -1,33 +1,31 @@
-v0.30.1 — THE DRILLING RECORD READS ITS OWN DEPTH BEFORE COUNTING
+v0.31.0 — THE DOWNHOLE TOOL LIBRARY, WITH A TUTORIAL ON EVERY TOOL
 
-v0.30.0 read the drilling recorder's export as delivered, and on the real
-files its arithmetic was still wrong. The third well's total depth came
-out as 25,779 feet; none of the three footages equalled total depth less
-the first depth. The record named the hole depth channel's falls and
-carried two numbers instead of deciding.
+The tool library held seven gauges: the instruments this program reads.
+A well holds far more than that. Bits and hole openers, motors and rotary
+steerable systems, MWD and LWD, collars, jars and subs, shoes and float
+collars, packers, plugs, sleeves and pumps, the wireline tools, the
+fishing tools, the test tools. This release puts every class of downhole
+tool in use across the industry on the Tools & ports page: ninety-six of
+them in nine categories.
 
-A hole depth channel lies in four ways, and each leaves a shape. A
-recorder moved from the last well opens on that well's depth and holds it
-until someone sets it. A depth set back to 1,417 feet is counted up again
-as pipe runs in, at 2,500 feet an hour with the recorder's own rate of
-penetration at zero. A depth set back 8,047 feet and then time-drilled at
-under a foot an hour for six hours is a sidetrack: the third well was
-drilled to 24,902 feet, kicked off at 16,855 and drilled again to 25,722 -
-its total depth - and the 25,779 in its file was a depth carried over
-from the well before. And a stand counted twice is taken back.
+Each class is a chip. Point at it, or Tab to it, and its one-line
+description appears. Click, tap or press Enter and its tutorial opens:
+what it is, where it runs, how it works, what it shows in the data, what
+to watch, and what this program does with it. Esc closes it and puts you
+back where you were.
 
-The record now reads every one of these before it counts a foot, names
-each as a depth event in the record and on the well page, takes total
-depth from the final borehole, and keeps the abandoned hole out of the
-gamma log and the TVD table. It also keeps out of the drilling hours the
-28.6 hours, across two wells, in which the on-bottom flag was left on
-with nothing drilled. Without a sidetrack the footage is exactly total
-depth less the first depth - 23,796.2 and 23,879.0 feet - and with one,
-31,752.2.
+Every class was checked against public pages. There are 192 of them, all
+fetched on one day and recorded with the class: the SLB Energy Glossary,
+SPE PetroWiki, the OSHA eTool, maker datasheets, academic tool pages. The
+tutorials carry no numbers of their own. The 196 figures on the cards are
+the pages' own words, with the unit and the page, and the card says when
+a figure is one maker's product rather than a limit for the class. A
+class with no published figure says to supply the datasheet.
 
-What it will not do: call a depth event more than the shape it read - the
-daily drilling report decides; name a formation or a landing point; judge
-the drilling.
+That is where the fleet comes in. Your own tools - maker, model, serial,
+the datasheet that rates them - go in beside the classes, from the
+tutorial or the command line. They are kept in the workspace and every
+change is in the audit log.
 
-Section BY gains a fourth check. The gate is 377 checks. The standalone
+Section BZ is new, three checks. The gate is 380 checks. The standalone
 guard is clean.

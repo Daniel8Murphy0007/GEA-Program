@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (377 checks)
+gea accept                     # the product gate (380 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -611,8 +611,26 @@ itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 
 ### Tools and ports
 
-The Tools & ports tab (`#/tools`, `gea tools`) is the program's two
-registers in one place: the tool library - every downhole and surface tool
+The Tools & ports tab (`#/tools`, `gea tools`) opens on the **downhole tool
+library**: every class of downhole tool in use across the industry - bits
+and hole openers, motors and rotary steerable systems, MWD and LWD, the drill
+string and its subs, casing and cementing equipment, completion and
+artificial lift, wireline and cased-hole tools, fishing and milling, test
+tools - ninety-six classes in nine categories. Point at a tool, or Tab to
+it, for a one-line description; click, tap or press Enter for its tutorial:
+what it is, where it runs, how it works, what it shows in the data, what to
+watch, and what this program does with it, with the published figures
+quoted from the pages they cite and the pages themselves. The tutorials
+carry no numbers of their own; a figure on a tool's card is the cited page's
+words, most often one maker's product, never a limit for the class. Your
+**fleet** - the tools you actually run - goes in beside the classes, each
+with its maker, model, serial and the datasheet that rates it
+(`gea tools --action fleet-add --workspace C:\site --class pdm_motor
+--maker ... --model ... --datasheet ...`, or from the tutorial), kept in the
+workspace and audited. `gea tools --action classes`, `--action tutorial
+--class drilling_jar`.
+
+Below it are the program's two registers: the gauge library - every gauge
 with its source citation, ratings, what it measures, the telemetry interface
 it declares and its datasheet aging rate where the vendor published one -
 and the ports, the file formats read and the eleven live protocols spoken,

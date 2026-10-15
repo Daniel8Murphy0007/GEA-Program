@@ -7856,6 +7856,155 @@ def section_by_edr(tmp: str) -> None:
        + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
 
 
+
+def section_bz_tool_library(tmp: str) -> None:
+    """Section BZ - the downhole tool library: every class of downhole tool in use across the industry, a one-line
+    description on hover and a tutorial that opens on a click, the published figures quoted from the pages they cite and
+    nothing more, and the operator's own fleet tied to the classes and to the datasheets that rate them."""
+    import http.cookiejar
+    import re as _re
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    from urllib.parse import urlparse
+    from . import tool_taxonomy as TX
+    from . import helplib as H
+    from .client_reports import FORBIDDEN_TERMS
+    from .tool_library import TOOL_LIBRARY
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "bz"); d.mkdir()
+
+    def _raises(fn, exc, words=""):
+        try:
+            fn()
+        except exc as e:
+            return words in str(e)
+        return False
+
+    sm = TX.summary()
+    cls = list(TX.TAXONOMY.values())
+    prose = lambda t: " ".join([t["one_line"]] + [t["tutorial"][p] for p in TX.PARTS])
+    lowtier = _re.compile(r"(wikipedia\.org|rigzone\.com|drillingmanual\.com|petroleumacronyms|turbodrill\.com)$")
+    figs = [f for t in cls for f in t["figures"]]
+    c1 = {
+        "breadth": sm["classes"] >= 90 and len(sm["categories"]) == 9 and all(c["classes"] >= 1 for c in sm["categories"])
+                   and {"pdm_motor", "rss_push", "mwd_mud_pulse", "lwd_gamma", "drilling_jar", "production_packer", "esp", "perforating_gun",
+                        "pdg", "wl_formation_tester", "cbl", "overshot", "dst"} <= set(TX.TAXONOMY),
+        "hover": all(0 < len(t["one_line"]) <= 140 for t in cls),
+        "tutorial": all(all(len(t["tutorial"][p]) > 20 for p in TX.PARTS) for t in cls) and TX.PARTS == ("what", "where", "how", "reads", "watch", "program"),
+        "no_numbers_in_prose": not any(_re.search(r"\d", prose(t)) for t in cls),
+        "words": not any(w in (t["name"] + " " + prose(t)).lower() for t in cls for w in FORBIDDEN_TERMS),
+        "sources": all(t["sources"] for t in cls) and all(urlparse(x["url"]).scheme == "https" and x.get("publisher") for t in cls for x in t["sources"])
+                   and not any(lowtier.search(urlparse(x["url"]).netloc.lower()) for t in cls for x in t["sources"])
+                   and (pkg / "reference" / "tool_sources.json").is_file() and sm["sources"] >= 150 and sm["sources_fetched"] == "2026-10-14",
+        "figures": len(figs) == sm["figures"] and len(figs) >= 150 and all(f.get("quote") and f.get("url") and f.get("publisher") and f.get("what") for f in figs)
+                   and not any("..." in f["quote"] for f in figs)
+                   and all(("not a limit for the class" in t["figures_note"]) if t["figures"] else ("supply your model's datasheet" in t["figures_note"]) for t in cls),
+        "lookup": [t["id"] for t in TX.classes("drive")][:1] == ["pdm_motor"] and {t["id"] for t in TX.classes(None, "packer")} >= {"production_packer"}
+                  and TX.classes(None, "no such tool zzz") == [],
+        "unknown": _raises(lambda: TX.tool_class("no_such_tool"), KeyError),
+        "text": all(TX.PART_TITLES[p] + ": " in TX.tutorial_text("pdm_motor") for p in TX.PARTS) and "Sources (fetched 2026-10-14)" in TX.tutorial_text("pdm_motor")
+                and "Published figures (" in TX.tutorial_text("agitator") and "8-12 Hz" in TX.tutorial_text("agitator"),
+        "gauges": all(TX.GAUGE_CLASS_TO_TAXONOMY.get(t.tool_class) in TX.TAXONOMY for t in TOOL_LIBRARY.values()),
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "BZ1 the downhole tool library: at least ninety classes in nine categories from bits to test tools, each with a one-line description for the hover "
+       "and a six-part tutorial for the pop-open; the prose carries no number at all and none of the words a client report may not; every class checked "
+       "against at least one public page (none of them an encyclopaedia or a re-publisher); every published figure is the cited page's own words with its "
+       "unit and page, never a limit for the class, and a class with none says to supply the datasheet; the classes searchable; an unknown class named; "
+       "every gauge in the gauge library opens its class's tutorial"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    wsp = str(d / "ws"); Workspace.create(wsp, "Pad 3", actor="tester")
+    e_ds = _raises(lambda: TX.fleet_add(wsp, "pdm_motor", "Acme", "M1", ""), ValueError, "datasheet")
+    e_cls = _raises(lambda: TX.fleet_add(wsp, "warp_drive", "Acme", "M1", "sheet"), ValueError, "no tool class")
+    r1 = TX.fleet_add(wsp, "pdm_motor", "Acme", "M1", "Acme M1 datasheet rev B", serial="A100", od_in=6.75)
+    e_dup = _raises(lambda: TX.fleet_add(wsp, "pdm_motor", "Acme", "M1", "Acme M1 datasheet rev B", serial="A100"), ValueError, "already")
+    users = Users(str(Path(wsp, "users.json"))); users.add("op", "operator-pass-1", "operator"); users.add("v", "viewer-pass-1", "viewer")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def session():
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+        def call(method, path, body=None):
+            req = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+            req.add_header("Content-Type", "application/json"); req.add_header("X-GEA-Action", "1")
+            try:
+                with o.open(req, timeout=60) as rr_:
+                    return rr_.status, json.loads(rr_.read())
+            except urllib.error.HTTPError as e:
+                return e.code, json.loads(e.read())
+        return call
+    try:
+        view, op = session(), session()
+        view("POST", "/api/login", {"name": "v", "password": "viewer-pass-1"}); op("POST", "/api/login", {"name": "op", "password": "operator-pass-1"})
+        st_t, tx = view("GET", "/api/tools/taxonomy")
+        st_q, txq = view("GET", "/api/tools/taxonomy?q=jar")
+        st_v, _ = view("POST", "/api/tools/fleet", {"class_id": "esp", "maker": "Acme", "model": "P2", "datasheet": "Acme P2 sheet"})
+        st_nods, nods = op("POST", "/api/tools/fleet", {"class_id": "esp", "maker": "Acme", "model": "P2", "datasheet": ""})
+        st_add, added = op("POST", "/api/tools/fleet", {"class_id": "esp", "maker": "Acme", "model": "P2", "datasheet": "Acme P2 sheet rev A", "od_in": "5.38"})
+        st_fl, fl = view("GET", "/api/tools/fleet")
+        st_rm, _ = op("POST", f"/api/tools/fleet/{r1['id']}/remove", {})
+        st_rm2, _ = op("POST", "/api/tools/fleet/nothing-here/remove", {})
+    finally:
+        svc.stop()
+    audit = Path(wsp, "records", "audit.jsonl").read_text(encoding="utf-8")
+    c2 = {
+        "fleet_rules": e_ds and e_cls and e_dup and r1["id"] == "acme-m1-a100" and r1["class_name"] == TX.TAXONOMY["pdm_motor"]["name"] and r1["od_in"] == 6.75
+                       and Path(wsp, "config", "fleet.json").is_file(),
+        "api": st_t == 200 and len(tx["classes"]) == sm["classes"] and [p[0] for p in tx["parts"]] == list(TX.PARTS) and tx["summary"]["figures"] == sm["figures"]
+               and st_q == 200 and {c["id"] for c in txq["classes"]} >= {"drilling_jar", "jar_accelerator"} and len(txq["classes"]) < 10
+               and tx["fleet"] and tx["fleet"][0]["id"] == "acme-m1-a100",
+        "roles": st_v == 403 and st_nods == 400 and "datasheet" in nods.get("error", "") and st_add == 200 and added["od_in"] == 5.38
+                 and st_fl == 200 and {t["id"] for t in fl["tools"]} == {"acme-m1-a100", "acme-p2"} and st_rm == 200 and st_rm2 == 404
+                 and [t["id"] for t in TX.fleet_list(wsp)] == ["acme-p2"],
+        "audit": '"fleet.add"' in audit and '"fleet.remove"' in audit and "Acme P2 sheet rev A" in audit,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "BZ2 the fleet: a tool of yours needs its class and its datasheet citation, and is not added twice; it is kept in the workspace's config; the API "
+       "serves the classes, the tutorial parts and the fleet to any signed-in user, adds and removes for an operator and not a viewer, says why an "
+       "addition without a datasheet is turned away, and every addition and removal is in the audit log"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    help_md = (pkg / "help" / "tools.md").read_text(encoding="utf-8")
+    r_cls = _sp.run([sys.executable, "-m", "gea", "tools", "--action", "classes"], capture_output=True, text=True)
+    r_cat = _sp.run([sys.executable, "-m", "gea", "tools", "--action", "classes", "--category", "fishing"], capture_output=True, text=True)
+    r_tut = _sp.run([sys.executable, "-m", "gea", "tools", "--action", "tutorial", "--class", "drilling_jar"], capture_output=True, text=True)
+    r_none = _sp.run([sys.executable, "-m", "gea", "tools", "--action", "tutorial"], capture_output=True, text=True)
+    r_bad = _sp.run([sys.executable, "-m", "gea", "tools", "--action", "tutorial", "--class", "warp_drive"], capture_output=True, text=True)
+    r_add = _sp.run([sys.executable, "-m", "gea", "tools", "--action", "fleet-add", "--workspace", wsp, "--class", "drilling_jar", "--maker", "Acme",
+                     "--model", "J9", "--datasheet", "Acme J9 sheet rev C"], capture_output=True, text=True)
+    r_nods = _sp.run([sys.executable, "-m", "gea", "tools", "--action", "fleet-add", "--workspace", wsp, "--class", "drilling_jar", "--maker", "Acme",
+                      "--model", "J10"], capture_output=True, text=True)
+    r_list = _sp.run([sys.executable, "-m", "gea", "tools", "--action", "fleet", "--workspace", wsp], capture_output=True, text=True)
+    r_nows = _sp.run([sys.executable, "-m", "gea", "tools", "--action", "fleet"], capture_output=True, text=True)
+    c3 = {
+        "page": all(x in page_src for x in ("Downhole tool library", "class=\"tl-chip\"", 'role="tooltip"', "aria-haspopup=\"dialog\"", ".tl-chip:focus-visible .tl-tip",
+                                             "@media (hover:none)", "showModal()", "dialog.tl-dlg::backdrop", "/api/tools/taxonomy", "/api/tools/fleet", "Add one of yours",
+                                             "Your fleet", "tl-open", "Esc closes it")),
+        "cli": r_cls.returncode == 0 and f"{sm['classes']} of {sm['classes']} tool classes" in r_cls.stdout and "Fishing, milling and intervention" in r_cls.stdout
+               and r_cat.returncode == 0 and "overshot" in r_cat.stdout and "pdm_motor" not in r_cat.stdout
+               and r_tut.returncode == 0 and "What it is: " in r_tut.stdout and "In this program: " in r_tut.stdout
+               and r_none.returncode != 0 and "--class pdm_motor" in (r_none.stderr + r_none.stdout) and "<" not in (r_none.stderr + r_none.stdout)
+               and r_bad.returncode != 0 and "no tool class 'warp_drive'" in (r_bad.stderr + r_bad.stdout),
+        "cli_fleet": r_add.returncode == 0 and "added acme-j9" in r_add.stdout and r_nods.returncode != 0 and "datasheet" in (r_nods.stderr + r_nods.stdout)
+                     and r_list.returncode == 0 and "Acme J9 sheet rev C" in r_list.stdout and r_nows.returncode != 0 and "needs --workspace" in (r_nows.stderr + r_nows.stdout),
+        "help": not H.check("tools") and "tutorial" in help_md and "fleet" in help_md and "the tutorials carry no numbers at all" in help_md.split("will not call a measurement")[1],
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "BZ3 the page and the command line: a chip per class that shows its description on hover and on keyboard focus (not on a touch screen, where a tap "
+       "opens it), a tutorial dialog that opens on click, tap or Enter and closes on Esc or the backdrop, a find box and a category filter, the fleet card, "
+       "the gauge library's Tutorial buttons; `gea tools --action classes | tutorial | fleet | fleet-add`, each refusing a missing argument by name without "
+       "a placeholder; the help page"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -7936,6 +8085,7 @@ def main() -> int:
         section_bw_catalog_map(tmp)
         section_bx_pasteable(tmp)
         section_by_edr(tmp)
+        section_bz_tool_library(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:
