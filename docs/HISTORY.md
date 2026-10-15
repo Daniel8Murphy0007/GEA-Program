@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.33.0 - 2026-10-15 - interactive charts
+
+- **Stacked channels, a linked cursor, zoom and pan from every sample.**
+  The Charts card: envelope buckets from a per-well chart cache written by
+  the refresh, gaps never bridged, time or depth for a drilling recorder
+  with its depth events and sections; drilling progress for every well on
+  the Wells page. Section CB; gate 386.
+
 ## v0.32.0 - 2026-10-15 - the setup checklist
 
 - **What a workspace still needs, read as it stands.** The Setup tab and

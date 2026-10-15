@@ -361,7 +361,7 @@ class Workspace:
             criteria_path = cand if os.path.isfile(cand) else None
         res = D.orchestrate(self.reports_dir, inp['catalog_wells'], file_wells, td_ft=td_ft, outages=outages, month=month,
                             site_name=self.manifest['name'], criteria_path=criteria_path,
-                            monitor_root=self.dir('monitor'), run_sat=run_sat)
+                            monitor_root=self.dir('monitor'), run_sat=run_sat, series_cache_root=os.path.join(self.path, 'cache', 'series'))
         self.audit(actor, 'dashboard.refresh', {'wells': len(inp['catalog_wells']) + len(file_wells), 'month': month, 'sat': run_sat},
                    inputs=inputs + ([criteria_path] if criteria_path else []))
         return res

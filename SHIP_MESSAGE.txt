@@ -1,33 +1,32 @@
-v0.32.0 — THE SETUP CHECKLIST
+v0.33.0 — INTERACTIVE CHARTS
 
-Pad 3 has three wells in it, read and reported on, and nothing yet that
-says where they are, whose they are, or that a copy of any of it exists
-off the machine. The program knew all of that - each fact was a field it
-could read - and said none of it in one place. This release adds the
-Setup tab.
+A well's page drew one channel at a time, as a fixed picture of a thinned
+copy: fifteen hundred points out of a three-million-row drilling export,
+one sample in two thousand. A connection, a jar firing, a stall lasts a
+few seconds; at that thinning it was not on the chart at all.
 
-It is read from the workspace as it stands. An item is done because what
-it asks for is there: a declared surface location and its datum, a
-reference elevation with its source, a US Well Number, a site record that
-names the client and holds every well, a backup folder off the machine, a
-current backup, the daily schedule, reports newer than their data. Each
-item carries its own form or button, and the command to paste where every
-value is already known. Where the operator has to supply a value - a
-position, an elevation, a number - the item says which values and where
-they come from, and prints no command with stand-ins in it. The tab's
-badge counts what is left; the Home page names the next item.
+The Charts card replaces it. Up to four channels stack on one axis, each
+on its own scale, and one cursor reads them all at the same moment. Drag
+across a stretch to zoom into it, wheel to zoom where you point,
+double-click to see everything again; the keyboard does the same. Every
+view is cut from every sample: each point on screen is a bucket carrying
+the minimum, the maximum and the mean of the samples in it, so a
+one-second spike survives a month-wide view, and a stretch with no
+samples is drawn empty - a gap in the recording is never bridged. Close
+enough in, the chart shows the samples themselves.
 
-A drilling record's depth events are the one thing only a person can
-check: against the daily drilling reports. That check is confirmed with a
-note, kept with the name and the time, and stops counting if the record
-changes.
+For a drilling recorder the axis switches between time and depth - the
+drilling samples by bit depth, kept off the hole a sidetrack abandoned,
+the same samples the gamma log uses. The depth events are marked where
+they happened, the string coming off bottom is ticked when zoomed in, and
+each section of the recording is one click. The Wells page now carries
+the drilling progress of every drilling-recorder well: hole depth against
+days, one colour per well, a cursor that reads them all on the same day.
 
-Building it turned up two things. Declaring a well number put it in the
-disposal block, which made any well a disposal well - every Pad 3 producer
-would have become one. The number is now the well's identity. And a
-drilling record whose gamma was flat in the kept interval was not written,
-because one message used a word the client-report guard rejects. Both are
-fixed and both are checked.
+The refresh writes each well's chart cache from the read it already
+makes, so a three-million-row file answers a zoom in a fifth of a
+second. The cache is a copy: it is rebuilt when its source changes and
+left out of backups.
 
-Section CA is new, three checks. The gate is 383 checks. The standalone
+Section CB is new, three checks. The gate is 386 checks. The standalone
 guard is clean.

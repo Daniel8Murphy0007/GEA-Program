@@ -347,8 +347,9 @@ def render(data: dict, out_dir: str, site_name: str = 'site', program_version: s
 def orchestrate(out_dir: str, catalog_wells: List[dict], file_wells: List[dict], td_ft: float = 10500.0,
                 gauge_spec=None, outages: Optional[List[str]] = None, month: Optional[str] = None,
                 site_name: str = 'site', criteria_path: Optional[str] = None, monitor_root: Optional[str] = None,
-                run_sat: bool = False) -> dict:
-    """catalog_wells: [{'entry', 'well', 'md_ft'}]; file_wells: [{'path', 'name'}]."""
+                run_sat: bool = False, series_cache_root: Optional[str] = None) -> dict:
+    """catalog_wells: [{'entry', 'well', 'md_ft'}]; file_wells: [{'path', 'name'}]. With `series_cache_root`, each file
+    well's stream is also cached for the charts, from the same read."""
     from . import (production_live_stream, ingest, Reconciler, SimulatorConfig, CATALOG, __version__ as _v)
     from .sample_record import TagCatalogue, records_from_stream
     from .client_reports import (gauge_drift_report, well_test_report, alarm_event_report, data_resilience_report,
@@ -401,16 +402,23 @@ def orchestrate(out_dir: str, catalog_wells: List[dict], file_wells: List[dict],
             continue
         with open(os.path.join(d, 'well.json'), 'w', encoding='utf-8') as f:
             json.dump({'display': name, 'source': fw['path'], 'index_kind': stream.index_kind, 'source_format': stream.source_format}, f)
+        cache_dir = os.path.join(series_cache_root, name) if series_cache_root else None
         if stream.source_format == 'edr':                         # a drilling recorder's export: the drilling record, not the gauge pipeline
             from .edr import write_record
             try:
-                write_record(stream, d, _v)
+                write_record(stream, d, _v, cache_dir=cache_dir)
                 made.setdefault(name, []).append('drilling_record')
             except Exception as ex:
                 with open(os.path.join(d, 'drilling_record_not_written.json'), 'w', encoding='utf-8') as f:
                     json.dump({'well': name, 'reason': f'{type(ex).__name__}: {ex}'}, f, indent=1)
                 made.setdefault(name, []).append('drilling_record_not_written')
             continue
+        if cache_dir:
+            try:
+                from . import series_cache as _SCH
+                _SCH.build(stream, cache_dir)
+            except Exception:
+                pass                                              # the cache is a convenience; the page builds it on first view
         if stream.index_kind != 'time_s':                      # a depth log is a survey input: run the strata survey, not the gauge pipeline
             try:
                 from .survey_cmd import run_survey

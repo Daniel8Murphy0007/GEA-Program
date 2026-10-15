@@ -490,6 +490,85 @@ class App:
         return {'well': w, 'reports': reports, 'monitor': monitor, 'alarm_events': alarms, 'approvals': approvals,
                 'files': files, 'tap_job': self.taps.get(well_id)}
 
+    # -- the charts: windows cut from the series cache -------------------------------------------------
+    CHART_DEFAULTS = ('Hook Load', 'Convertible Torque', 'Standpipe Pressure', 'Rate Of Penetration')
+
+    def chart(self, well_id: str, what: str, qs: dict) -> dict:
+        from . import series_cache as SCH
+        c = SCH.ensure(self.ws, well_id)
+        f = lambda k: (float(qs[k][0]) if qs.get(k) and qs[k][0] not in ('', 'null') else None)
+        if what == 'meta':
+            chans = [{'name': x['name'], 'unit': x['unit'], 'present': x.get('present', 0)} for x in c.meta['channels']]
+            live = [x['name'] for x in chans if x['present']]
+            dflt = [n for n in self.CHART_DEFAULTS if n in live] or live[:3]
+            events = []
+            rp = os.path.join(self._well_reports_dir(well_id), 'drilling_record.json')
+            if os.path.isfile(rp) and c.meta.get('start_time'):
+                from datetime import datetime as _dt
+                t0 = _dt.fromisoformat(c.meta['start_time'])
+                try:
+                    with open(rp, encoding='utf-8') as fh:
+                        rec = json.load(fh)
+                    for e in rec.get('depth_events') or []:
+                        events.append({'type': e['type'], 'at': e['at'], 'x': (_dt.fromisoformat(e['at']) - t0).total_seconds(),
+                                       'from_ft': e.get('from_ft'), 'to_ft': e.get('to_ft'), 'effect': e.get('effect', '')})
+                except (OSError, ValueError, KeyError):
+                    pass
+            idx = c.index
+            return {'well_id': well_id, 'n': c.meta['n'], 'index_kind': c.meta['index_kind'], 'source_format': c.meta['source_format'],
+                    'start_time': c.meta.get('start_time'), 'extent': [float(idx[0]), float(idx[-1])] if len(idx) else [0, 0],
+                    'channels': chans, 'default': dflt, 'axes': ['time', 'depth'] if c.extra('drilling') is not None else [c.meta['index_kind']],
+                    'events': events, 'sections': self._chart_sections(c)}
+        if what == 'window':
+            names = [x for x in qs.get('ch', []) if x][:6]
+            if not names:
+                raise ValueError('name one or more channels: ?ch=Hook Load&ch=Rate Of Penetration')
+            pts = int(qs.get('points', ['1200'])[0])
+            if qs.get('axis', ['time'])[0] == 'depth':
+                return SCH.depth_window(c, names, f('x0'), f('x1'), pts)
+            w = SCH.window(c, names, f('x0'), f('x1'), pts)
+            if w.get('x1') is not None and (w['x1'] - w['x0']) <= 2 * 86400:
+                w['connections'] = SCH.connections(c, w['x0'], w['x1'])
+            return w
+        if what == 'progress':
+            return {'well_id': well_id, 'progress': SCH.progress(c)}
+        raise ValueError(f'no chart view {what!r}: meta, window or progress')
+
+    @staticmethod
+    def _chart_sections(c) -> list:
+        st = c.meta.get('start_time')
+        out = []
+        for a, b in c.meta.get('sections') or []:
+            lab = f'{a / 3600:.1f} h to {b / 3600:.1f} h'
+            if st:
+                from datetime import datetime as _dt, timedelta as _td
+                t0 = _dt.fromisoformat(st)
+                lab = f"{(t0 + _td(seconds=a)).isoformat()[:16]} to {(t0 + _td(seconds=b)).isoformat()[:16]}"
+            out.append({'x0': a, 'x1': b, 'label': lab})
+        return out
+
+    def pad_progress(self) -> dict:
+        """Days against depth for every drilling-recorder well in the workspace, for one chart."""
+        from . import series_cache as SCH
+        out = []
+        for w in self.ws.wells():
+            d = SCH.cache_dir(self.ws, w['id'])
+            c = SCH.load(d, SCH.source_path(self.ws, w['id']))
+            if c is None and w['kind'] == 'file':
+                try:
+                    if self.ws.well(w['id']).get('files') and os.path.isfile(SCH.source_path(self.ws, w['id']) or ''):
+                        from .files import detect
+                        if detect(SCH.source_path(self.ws, w['id'])).get('kind') == 'edr':
+                            c = SCH.ensure(self.ws, w['id'])
+                except Exception:
+                    c = None
+            if c is None or c.extra('bottom') is None:
+                continue
+            p = SCH.progress(c)
+            if p:
+                out.append({'well_id': w['id'], 'display': w.get('display') or w['id'], **p})
+        return {'wells': out, 'how': 'the running bottom of each hole against days since its first sample; stale and re-referenced depths excluded, a sidetrack as a step back'}
+
     def series(self, well_id: str, max_points: int = 1500) -> dict:
         """The well's measured stream, down-sampled by stride for the page's trend plots
         (values, quality per sample, the unit) - read from the source, never from a cache."""
@@ -1718,6 +1797,16 @@ def make_handler(app: App):
                     except WorkspaceError as e:
                         raise ApiError(404, str(e))
                     return self._json(200, {'station': st, 'results': app.ws.seismic_results(sid)})
+                if path.startswith('/api/wells/') and '/chart/' in path:
+                    wid, _, what = path[len('/api/wells/'):].partition('/chart/')
+                    try:
+                        return self._json(200, app.chart(wid, what, qs))
+                    except WorkspaceError as e:
+                        raise ApiError(404, str(e))
+                    except (KeyError, ValueError) as e:
+                        raise ApiError(400, str(e.args[0] if e.args else e))
+                if path == '/api/pad/progress':
+                    return self._json(200, app.pad_progress())
                 if path.startswith('/api/wells/') and path.endswith('/series'):
                     return self._json(200, app.series(path[len('/api/wells/'):-len('/series')], int(qs.get('points', ['1500'])[0])))
                 if path.startswith('/api/wells/'):

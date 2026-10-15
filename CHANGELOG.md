@@ -5,6 +5,41 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.33.0] - 2026-10-15 - Interactive charts
+
+### Added
+- **The Charts card on every well's page** replaces the single-channel
+  trend: up to four channels stacked on one axis, each on its own scale,
+  with a cursor that reads every track at the same moment (the bucket's
+  mean with its minimum, maximum and sample count, or the sample itself).
+  Drag across a stretch to zoom into it; the wheel zooms where you point;
+  + and − zoom, ◀ and ▶ pan, Reset or a double-click shows everything; the
+  keyboard does the same once the chart has focus (← → cursor, + − zoom,
+  Page Up and Page Down pan, Home or Esc reset). Table shows the window as
+  rows; the frame stays on screen, dimmed, while a window loads.
+- **Every sample, not a thinned copy.** A window is cut from a chart cache
+  (`gea/series_cache.py`, `cache/series/<well>/` in the workspace): equal
+  time buckets each carrying the minimum, maximum, mean and count of the
+  samples in it - so a one-second spike survives a month-wide view - and a
+  bucket with no samples drawn empty, never bridged across a gap; the
+  samples themselves when the window is close enough. A three-million-row
+  export answers a window in about a fifth of a second.
+- **For a drilling recorder**: the axis switches between time and depth (the
+  drilling samples binned by bit depth, kept off hole a later sidetrack
+  abandoned - the gamma log's samples); the depth events are marked at
+  their times; the string coming off bottom is ticked when zoomed in; each
+  section of the recording is a button that zooms to it.
+- **Drilling progress on the Wells page**: each drilling-recorder well's
+  hole depth against days since its first sample, one colour per well in a
+  fixed order (both themes), a cursor that reads every well on that day,
+  and a table view.
+- The refresh writes each file well's chart cache from the read it already
+  makes; the first view of a well without one builds it; a cache whose
+  source file changed is rebuilt; backups leave the cache out. API
+  `/api/wells/<id>/chart/meta | window | progress`, `/api/pad/progress`.
+  `gea help charts`.
+- Section CB (3 checks); the gate is 386.
+
 ## [v0.32.0] - 2026-10-15 - The setup checklist
 
 ### Added

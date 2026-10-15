@@ -1977,3 +1977,37 @@ Pad 3's outstanding setup on one page.
   3 of 10 to 10 of 10 through the page's own forms and buttons, the Setup
   badge 7 to 0, no page errors, phone width without horizontal scroll.
 - Section CA (3 checks). Gate 383.
+
+## 2026-10-15 - Interactive charts (v0.33.0)
+
+The ergonomics leg, second item. The well page's Trends card drew one
+channel as a fixed picture of a stride-thinned copy (1,500 points of a
+three-million-row file: one sample in two thousand).
+- `gea/series_cache.py`: the refresh, which already reads each file well
+  once for its reports, writes `cache/series/<well>/` from the same read -
+  index (float64), each channel (float32), flagged samples, and for an EDR
+  well the depth pass's arrays (`edr.chart_masks`: drilling, flag-idle,
+  keep_h, keep_b, excluded, running bottom). `edr.drilling_mask` now holds
+  the one definition the record and the charts share. Windows are cut from
+  memory maps: equal time buckets by searchsorted + reduceat (min, max,
+  mean, count; empty bucket = gap), samples when they fit, depth bins by
+  bit depth over drilling & keep_b, progress from the running bottom.
+  Timed on a 2.85-million-row, 16-channel synthetic cache: full-extent
+  four-channel window 0.22 s, one-day window 0.02 s, depth window 0.11 s.
+  Checked bucket by bucket against a brute-force min/max/mean/count (CB1).
+  The cache carries its source's size and mtime and is rebuilt when they
+  differ; `backup` excludes `cache/`.
+- The page: tracks drawn at the container's own pixel width (text stays
+  12 px; a ResizeObserver redraws), envelope band + mean line in the
+  accent, event lines with labels staggered over three rows and drawn only
+  where they fit (the rest in their tooltips), connection ticks under two
+  days, section buttons, Table, aria-live readout built with textContent.
+  Drilling progress uses the categorical slots 1-3 (blue, orange, aqua),
+  which the palette reference validates all-pairs in both themes; added as
+  --s1..--s6 in the three theme scopes.
+- Driven in headless Chromium, light and dark and at phone width: brush,
+  +, Home, depth axis, section 2, table, progress readout, the catalogue
+  gauge well; no page errors after guarding renders that land after the
+  page moved on. A channel the well lacks is named (Cache.unit raised a
+  bare KeyError first - CB2 caught it).
+- Section CB (3 checks). Gate 386.

@@ -8170,6 +8170,140 @@ def section_ca_setup_checklist(tmp: str) -> None:
        "request; the help page and its view mapping"
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
+
+def section_cb_charts(tmp: str) -> None:
+    """Section CB - the interactive charts: a window cut from every sample through the series cache, an envelope that
+    keeps a one-second spike in a month-wide view and never bridges a gap, the depth axis for a drilling recorder from
+    the same samples as the gamma log, the drilling progress of every well, the page's zoom, pan, cursor and keys."""
+    import http.cookiejar
+    import os as _os
+    import urllib.request
+    import urllib.error
+    import numpy as _np
+    from . import edr as E
+    from . import series_cache as SCH
+    from . import backup as BK
+    from . import helplib as H
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "cb"); d.mkdir()
+
+    ev = E.selftest_events(str(d))
+    st = E.read(ev["path"])
+    meta = SCH.build(st, str(d / "c"), extras=E.chart_masks(st))
+    c = SCH.load(str(d / "c"), ev["path"])
+    idx = _np.asarray(c.index); rop = _np.asarray(c.channel("Rate Of Penetration"), dtype=float)
+    w = SCH.window(c, ["Rate Of Penetration", "Hole Depth"], points=300)
+    edges = _np.linspace(idx[0], idx[-1], 301); b = _np.clip(_np.searchsorted(edges, idx, "right") - 1, 0, 299)
+    brute_ok = True
+    for k in range(300):
+        m = (b == k) & ~_np.isnan(rop)
+        got = w["channels"]["Rate Of Penetration"]
+        if m.any():
+            if got["max"][k] is None or abs(got["max"][k] - rop[m].max()) > 1e-3 or abs(got["min"][k] - rop[m].min()) > 1e-3 or abs(got["mean"][k] - rop[m].mean()) > 1e-2 or got["n"][k] != int(m.sum()):
+                brute_ok = False; break
+        elif got["max"][k] is not None:
+            brute_ok = False; break
+    gaps = sum(1 for x in w["channels"]["Rate Of Penetration"]["mean"] if x is None)
+    spike = st.channels["Rate Of Penetration"].values.copy()
+    w_small = SCH.window(c, ["Rate Of Penetration"], x0=float(idx[1300]), x1=float(idx[1300]) + 300)
+    dw = SCH.depth_window(c, ["Gamma"], points=200)
+    pr = SCH.progress(c)
+    cons = SCH.connections(c, float(idx[0]), float(idx[-1]))
+    stale_size = _os.path.getsize(ev["path"])
+    with open(ev["path"], "a", encoding="utf-8") as fh:
+        fh.write("")
+    _os.utime(ev["path"], (1, 1))
+    stale = SCH.load(str(d / "c"), ev["path"])
+    c1 = {
+        "cache": meta["n"] == 34720 and {"drilling", "keep_b", "keep_h", "excluded", "bottom", "flag_idle"} <= set(meta["extras"])
+                 and len(meta["sections"]) == 2 and _os.path.isfile(str(d / "c" / "index.npy")),
+        "envelope": w["mode"] == "envelope" and len(w["x"]) == 300 and w["samples"] == 34720 and brute_ok and gaps > 200,
+        "samples": w_small["mode"] == "samples" and len(w_small["x"]) == 301 and w_small["channels"]["Rate Of Penetration"]["value"][0] is not None,
+        "depth": dw["axis"] == "Bit Depth" and dw["extent"] == [4800.0, 5750.0] and dw["samples"] == 27420
+                 and all(v is None or abs(v - 110.0) < 1e-6 for v in dw["channels"]["Gamma"]["mean"]) and "abandoned" in dw["how"],
+        "progress": pr is not None and pr["first_utc"] == "2026-07-01T00:00:00" and max(v for v in pr["bottom_max"] if v is not None) == 5750.0
+                    and abs(pr["days"][-1] - 2.4) < 0.01,
+        "connections": len(cons) == 3,
+        "stale": stale is None and stale_size == _os.path.getsize(ev["path"]),
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CB1 the series cache: every sample of a drilling recorder export with the depth pass's masks and the running bottom; a window of equal time "
+       "buckets whose minimum, maximum, mean and count equal the samples' own, a bucket with none left empty (a gap, never bridged), the samples "
+       "themselves when they fit; the depth axis the drilling samples by bit depth kept off the abandoned hole (4,800 to 5,750 ft, the gamma log's "
+       "range); the drilling progress the running bottom against days; a cache whose source changed is not used"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    w1 = ws.add_well_file(ev["path"], display="Well B", actor="tester")
+    w2 = ws.add_well_catalog("volve_f12_f14_production_excerpt", "15/9-F-12", 10000.0, actor="tester")
+    ws.refresh_dashboard(actor="tester")
+    built = _os.path.isfile(_os.path.join(wsp, "cache", "series", w1["id"], "x_drilling.npy"))
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+    o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        req = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        req.add_header("Content-Type", "application/json"); req.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(req, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    q = lambda s_: urllib.parse.quote(s_)
+    try:
+        call("POST", "/api/login", {"name": "v", "password": "viewer-pass-1"})
+        st_m, m1 = call("GET", f"/api/wells/{w1['id']}/chart/meta")
+        st_w, wt = call("GET", f"/api/wells/{w1['id']}/chart/window?ch={q('Rate Of Penetration')}&ch={q('Hole Depth')}&points=400")
+        st_z, wz = call("GET", f"/api/wells/{w1['id']}/chart/window?ch={q('Rate Of Penetration')}&x0=172800&x1=180000&points=400")
+        st_d, wd = call("GET", f"/api/wells/{w1['id']}/chart/window?ch=Gamma&axis=depth&points=200")
+        st_p, pp = call("GET", "/api/pad/progress")
+        st_g, mg = call("GET", f"/api/wells/{w2['id']}/chart/meta")
+        st_bad, bad = call("GET", f"/api/wells/{w1['id']}/chart/window?ch=Nothing")
+        st_none, none_ = call("GET", f"/api/wells/{w1['id']}/chart/window")
+        st_x, _ = call("GET", "/api/wells/no-such-well/chart/meta")
+    finally:
+        svc.stop()
+    c2 = {
+        "refresh_builds": built and not any(f.startswith("cache/") for f in BK.site_files(wsp)),
+        "meta": st_m == 200 and m1["axes"] == ["time", "depth"] and m1["n"] == 34720 and len(m1["events"]) == 4 and m1["events"][2]["type"] == "SIDETRACK"
+                and m1["events"][0]["x"] > 0 and len(m1["sections"]) == 2 and m1["default"] == ["Rate Of Penetration"],
+        "window": st_w == 200 and wt["mode"] == "envelope" and set(wt["channels"]) == {"Rate Of Penetration", "Hole Depth"} and st_z == 200
+                  and wz["mode"] == "envelope" and "connections" in wz and wz["x0"] == 172800.0,
+        "depth": st_d == 200 and wd["extent"] == [4800.0, 5750.0],
+        "progress": st_p == 200 and [x["well_id"] for x in pp["wells"]] == [w1["id"]] and pp["wells"][0]["display"] == "Well B",
+        "gauge_well": st_g == 200 and mg["axes"] == ["time_s"] and mg["n"] > 0 and mg["events"] == [],
+        "errors": st_bad == 400 and "no channel 'Nothing'" in bad.get("error", "") and st_none == 400 and "name one or more channels" in none_.get("error", "") and st_x == 404,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CB2 in a site: the refresh writes each file well's chart cache from the read it already makes, and backups leave it out; the API gives a "
+       "signed-in viewer the channels, the axes, the depth events at their times, the sections, a time window with the connections when zoomed in, "
+       "the depth window and every drilling-recorder well's progress; a gauge well's cache is built on its first view; a channel the well does not "
+       "have, no channel at all and an unknown well are named"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    help_md = (pkg / "help" / "charts.md").read_text(encoding="utf-8")
+    c3 = {
+        "page": all(x in page_src for x in ("async function chartPanel", "async function padProgress", "/chart/meta", "/chart/window", "/api/pad/progress",
+                                             'data-axis="depth"', "data-sec=", "PageUp", "'Home' || ev.key === 'Escape'", "ArrowLeft", "dblclick", "'wheel'",
+                                             "setPointerCapture", "ResizeObserver", "cp-tbl", 'aria-live="polite"', "role=\"application\"", "Drilling progress",
+                                             "#/help/charts", "cp-loading")),
+        "palette": page_src.count("--s1:") == 3 and page_src.count("--s3:") == 3,
+        "help": any(t["topic"] == "charts" for t in H.topics()) and not H.check("charts") and "never bridged" in help_md.split("will not call a measurement")[1],
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CB3 the page: up to four tracks on one axis, a cursor that reads every track at the same moment, drag to zoom, the wheel, double-click and "
+       "Reset, pan, the keys (arrows, + and -, Page Up and Page Down, Home and Esc), time or depth, the section buttons, the table view, the frame "
+       "kept while a window loads, the drilling progress chart with one colour per well in a fixed order in both themes; the help page"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -8252,6 +8386,7 @@ def main() -> int:
         section_by_edr(tmp)
         section_bz_tool_library(tmp)
         section_ca_setup_checklist(tmp)
+        section_cb_charts(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

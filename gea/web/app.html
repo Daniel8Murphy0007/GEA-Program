@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GEA-Program</title>
 <style>
-:root{color-scheme:light;--page:#f6f5f0;--surface:#fff;--ink:#141412;--ink2:#3d3c37;--muted:#77756e;--grid:#e3e1d8;--ring:rgba(0,0,0,.08);--accent:#1f5fb8;--accent-ink:#fff;--good:#1d7a4a;--warn:#a86a00;--serious:#b3261e;--track:#dfe8f7;--mono:ui-monospace,Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]){color-scheme:dark;--page:#0d0d0d;--surface:#1a1a19;--ink:#fff;--ink2:#c3c2b7;--muted:#898781;--grid:#2c2c2a;--ring:rgba(255,255,255,.10);--accent:#3987e5;--good:#5ec48f;--warn:#e2a93b;--serious:#ee6a62;--track:#1f2f44}}
-:root[data-theme=dark]{color-scheme:dark;--page:#0d0d0d;--surface:#1a1a19;--ink:#fff;--ink2:#c3c2b7;--muted:#898781;--grid:#2c2c2a;--ring:rgba(255,255,255,.10);--accent:#3987e5;--good:#5ec48f;--warn:#e2a93b;--serious:#ee6a62;--track:#1f2f44}
+:root{color-scheme:light;--page:#f6f5f0;--surface:#fff;--ink:#141412;--ink2:#3d3c37;--muted:#77756e;--grid:#e3e1d8;--ring:rgba(0,0,0,.08);--accent:#1f5fb8;--accent-ink:#fff;--good:#1d7a4a;--warn:#a86a00;--serious:#b3261e;--track:#dfe8f7;--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--mono:ui-monospace,Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){color-scheme:dark;--page:#0d0d0d;--surface:#1a1a19;--ink:#fff;--ink2:#c3c2b7;--muted:#898781;--grid:#2c2c2a;--ring:rgba(255,255,255,.10);--accent:#3987e5;--good:#5ec48f;--warn:#e2a93b;--serious:#ee6a62;--track:#1f2f44;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300}}
+:root[data-theme=dark]{color-scheme:dark;--page:#0d0d0d;--surface:#1a1a19;--ink:#fff;--ink2:#c3c2b7;--muted:#898781;--grid:#2c2c2a;--ring:rgba(255,255,255,.10);--accent:#3987e5;--good:#5ec48f;--warn:#e2a93b;--serious:#ee6a62;--track:#1f2f44;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300}
 *{box-sizing:border-box}html{font-size:100%}
 body{margin:0;background:var(--page);color:var(--ink);font:15px/1.5 var(--sans)}
 a{color:var(--accent)}a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
@@ -57,6 +57,18 @@ dialog.tl-dlg::backdrop{background:rgba(0,0,0,.45)}
 .ck-lv{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;border:1px solid var(--grid);color:var(--muted);margin-left:6px;vertical-align:2px}
 .ck-lv.required{border-color:var(--accent);color:var(--accent)}
 .ck-act{margin-top:6px}.ck-act form{margin-top:4px}.ck-act .row label>input,.ck-act .row label>select{min-width:8em}
+.cp-ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin:6px 0}.cp-ctl .seg{display:inline-flex;border:1px solid var(--grid);border-radius:7px;overflow:hidden}.cp-ctl .seg button{border:0;border-radius:0;background:var(--surface);color:var(--ink2);padding:6px 12px}.cp-ctl .seg button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink)}
+.cp-ctl .tb button{padding:6px 10px;min-width:2.4em}
+.cp-secs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0}.cp-secs button{flex:0 0 auto;width:auto}
+.cp-stack{position:relative;touch-action:pan-y;user-select:none;border-radius:6px}.cp-stack:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.cp-stack svg{width:100%;display:block}.cp-stack text{font:12px var(--sans);fill:var(--ink2)}.cp-stack .ttl{fill:var(--ink);font-weight:600}
+.cp-stack .grid{stroke:var(--grid);stroke-width:1}.cp-stack .env{fill:var(--accent);opacity:.18}.cp-stack .mean{fill:none;stroke:var(--accent);stroke-width:1.6;stroke-linejoin:round}
+.cp-stack .evt{stroke:var(--warn);stroke-width:1.2;stroke-dasharray:4 3}.cp-stack .evl{fill:var(--warn);font-size:11px;font-weight:600}.cp-stack .con{stroke:var(--muted);stroke-width:1}
+.cp-stack .cur{stroke:var(--ink);stroke-width:1;pointer-events:none}.cp-stack .brush{fill:var(--accent);opacity:.12;stroke:var(--accent);stroke-width:1;pointer-events:none}
+.cp-stack .flag{fill:var(--warn)}
+.cp-loading svg{opacity:.55;transition:opacity .15s}
+.cp-read{min-height:2.6em;display:flex;flex-wrap:wrap;gap:4px 18px;align-items:baseline;margin:4px 0;font-size:13px}.cp-read .v{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}.cp-read .k{display:inline-block;width:14px;height:0;border-top:2px solid var(--accent);vertical-align:middle;margin-right:5px}.cp-read .n{color:var(--ink2)}
+.pp-legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;margin:4px 0}.pp-legend .k{display:inline-block;width:18px;height:0;border-top:2px solid;vertical-align:middle;margin-right:6px}
 .ck-chk{display:inline-flex!important;gap:6px;align-items:center;margin-right:12px}.ck-chk>input{display:inline-block!important;margin:0!important;width:auto;padding:0;min-width:0!important}
 .ck-cli{font-family:var(--mono);font-size:12.5px;background:var(--page);border:1px solid var(--grid);border-radius:6px;padding:4px 8px;display:inline-block;margin-top:4px;user-select:all;word-break:break-all}
 .tl-dlg .tl-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px 18px;border-bottom:1px solid var(--grid)}
@@ -193,6 +205,7 @@ VIEWS.wells = async () => {
   let h = `<h2>Wells</h2><table><thead><tr><th>Well</th><th>Kind</th><th>Source</th><th>Added</th><th></th></tr></thead><tbody>`;
   for (const w of wells) h += `<tr><td><a href="#/wells/${esc(w.id)}">${esc(w.display)}</a></td><td>${esc(w.kind)}</td><td class="small mono">${esc(w.kind === 'catalog' ? w.source.entry + ' / ' + w.source.well : (w.kind === 'live' ? w.source.port + ' · ' + w.source.config : (w.source.original_path || w.files[0])))}</td><td class="small">${esc(w.added_utc)} by ${esc(w.added_by)}</td><td>${can('admin') ? `<button class="secondary danger" data-remove="${esc(w.id)}" type="button">Remove</button>` : ''}</td></tr>`;
   h += `</tbody></table>`;
+  h += `<div class="card" id="pp" hidden><h3>Drilling progress <span class="small muted">days against depth, every drilling-recorder well</span></h3><div class="pp-body"></div></div>`;
   if (can('operator')) {
     h += `<div class="card"><h3>Add a well from a file</h3><p class="small muted">Historian CSV export, LAS 2.0 log, operator table or SEG-Y. The file is copied into the workspace verbatim and hashed; your original is never touched.</p>
       <div class="row"><label>Display name<input id="fName"></label><label>File<input type="file" id="fFile"></label><label>Station MD (ft, optional)<input id="fMd" type="number" step="1"></label><button id="fAdd" type="button">Add file well</button></div></div>`;
@@ -202,7 +215,7 @@ VIEWS.wells = async () => {
       <div class="row"><label>Display name<input id="lName"></label><label>Port<select id="lPort"><option value="wits0">WITS0 (drill floor)</option><option value="witsml">WITSML 1.4 store</option><option value="etp">WITSML 2.x over ETP</option><option value="opcua">OPC UA</option><option value="mqtt">MQTT</option><option value="modbus_g6">Modbus TCP</option><option value="modbus_rtu">Modbus RTU (serial / RTU over TCP)</option><option value="dnp3">DNP3 (IEEE 1815)</option><option value="hartip">HART-IP</option><option value="piwebapi">PI Web API (historian)</option></select></label><button class="secondary" id="lExample" type="button">Load the example map</button><button id="lAdd" type="button">Add live well</button></div>
       <label>Tag map (JSON)<textarea id="lCfg" spellcheck="false"></textarea></label></div>`;
   } else h += need('operator');
-  $('#main').innerHTML = h;
+  $('#main').innerHTML = h; padProgress();
   document.querySelectorAll('[data-remove]').forEach(b => b.onclick = async () => { if (!confirm(`Remove ${b.dataset.remove} from the workspace? Its folder is kept, renamed.`)) return; try { await post(`/api/wells/${b.dataset.remove}/remove`); toast('Removed', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
   if (!can('operator')) return;
   const {entries} = await get('/api/catalog'); $('#cEntry').innerHTML = entries.map(e => `<option value="${esc(e.entry)}">${esc(e.entry)}</option>`).join('');
@@ -255,7 +268,7 @@ VIEWS.well = async (id) => {
     h += `</tbody></table></div>`; }
   if (d.monitor && d.monitor.state) { h += `<div class="card"><h3>Drift monitor</h3><p class="small">Evaluations ${(d.monitor.evaluations || []).length} · change-log entries ${(d.monitor.change_log || []).length} · open proposals: ${(d.monitor.change_log || []).filter(e => e.status === 'PROPOSED').length} (<a href="#/approvals">decide</a>)</p><details><summary>State</summary><pre>${esc(JSON.stringify(d.monitor.state, null, 1))}</pre></details></div>`; }
   // charts
-  h += `<div class="card"><h3>Trends</h3><div class="row"><label>Channel<select id="chan"></select></label><span class="small muted" id="chanNote"></span></div><div id="chart"></div></div>`;
+  h += `<div class="card" id="cp"><h3>Charts <span class="small muted" id="cpNote"></span></h3><div class="cp-body"><p class="small muted">loading the channels… (the first view of a large file prepares its chart cache)</p></div></div>`;
   // well tests
   if (R.well_test_validation) { const det = R.well_test_validation.detection;
     h += `<div class="card"><h3>Well tests <span class="small muted">${reportLinks(dir, 'well_test_validation')}</span></h3><p class="small">${det.n_accepted} accepted · ${det.n_rejected} rejected · criteria ${esc(det.criteria && det.criteria._sha256)}</p><table><thead><tr><th>Test</th><th>Window</th><th>n</th><th>Approval</th></tr></thead><tbody>`;
@@ -311,9 +324,7 @@ VIEWS.well = async (id) => {
   const ctAdd = $('#ctAdd'); if (ctAdd) ctAdd.onclick = async () => { try { const f = $('#ctFile').files[0]; const body = {tag_id: $('#ctTag').value, serial: $('#ctSerial').value, certificate_id: $('#ctId').value, lab: $('#ctLab').value, issued_utc: $('#ctIssued').value, valid_until_utc: $('#ctUntil').value, accuracy_pct_fs: $('#ctAcc').value, full_scale: $('#ctFs').value, unit: $('#ctUnit').value, uncertainty: $('#ctUnc').value, uncertainty_k: $('#ctK').value, uncertainty_probability: $('#ctProb').value, traceability: $('#ctTrace').value, conditions: $('#ctCond').value, calibrated_utc: $('#ctCal').value, method: $('#ctMethod').value, authorised_by: $('#ctAuth').value}; if (f) { body.filename = f.name; body.content_b64 = await readFile(f); } await post(`/api/wells/${id}/certificates`, body); toast('Certificate filed', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } };
   const prmSave = $('#prmSave'); if (prmSave) prmSave.onclick = async () => { const params = {}; document.querySelectorAll('[data-prm]').forEach(i => { if (i.value !== '') params[i.dataset.prm] = +i.value; }); try { await post(`/api/wells/${id}/transient-params`, {params}); toast('Parameters saved - refresh the reports to use them', 'ok'); } catch (e) { toast(e.message, 'err'); } };
   const aa = $('#ackAllWell'); if (aa) aa.onclick = async () => { aa.disabled = true; try { const j = await post('/api/alarms/ack-all', {well_id: id}); toast(`Acknowledged all (${j.status})`, j.status === 'DONE' ? 'ok' : 'err'); route(); } catch (e) { toast(e.message, 'err'); aa.disabled = false; } };
-  try { const s = await get(`/api/wells/${id}/series`); const sel = $('#chan'); sel.innerHTML = Object.keys(s.channels).map(c => `<option>${esc(c)}</option>`).join(''); $('#chanNote').textContent = `${s.n_source} source samples, every ${s.stride}${s.stride > 1 ? 'th' : ''} shown · index ${s.index_kind}${s.start_time ? ' from ' + s.start_time : ''}`;
-    const draw = () => { const c = s.channels[sel.value]; $('#chart').innerHTML = lineChart(s.index, c.values, c.quality, c.unit, sel.value); }; sel.onchange = draw; draw(); }
-  catch (e) { $('#chart').innerHTML = `<p class="muted">${esc(e.message)}</p>`; }
+  chartPanel(id);
 };
 
 VIEWS.tools = async () => {
@@ -452,6 +463,193 @@ async function toolLibrary() {
   const redraw = () => { if (!$('#tlGrid')) return; draw(); fleetCard(); };
   TLX.redraw = redraw; redraw();
 }
+// ---- the charts: stacked channels on one axis, a linked cursor, zoom and pan, cut from the series cache ----
+const CPG = {W: 1000, TH: 132, GAP: 10, L: 70, R: 16, AX: 30};
+function cpFmtX(S, x) {
+  if (S.axis === 'depth' || S.meta.index_kind === 'depth') return `${fmt(x, x < 100 ? 1 : 0)} ft`;
+  const st = S.meta.start_time;
+  if (!st) return `${fmt(x / 3600, 2)} h`;
+  const m = /^(\d{4})-(\d\d)-(\d\d)[T ](\d\d):(\d\d):(\d\d)/.exec(st); if (!m) return `${fmt(x / 3600, 2)} h`;
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) + x * 1000), p2 = n => String(n).padStart(2, '0');
+  const span = (S.x1 ?? S.meta.extent[1]) - (S.x0 ?? S.meta.extent[0]);
+  const hm = `${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`;
+  return span < 3 * 3600 ? `${p2(d.getUTCMonth() + 1)}-${p2(d.getUTCDate())} ${hm}:${p2(d.getUTCSeconds())}` : `${p2(d.getUTCMonth() + 1)}-${p2(d.getUTCDate())} ${hm}`;
+}
+function cpNiceTicks(lo, hi, n) { const span = hi - lo || 1, raw = span / n, mag = Math.pow(10, Math.floor(Math.log10(raw))), step = [1, 2, 2.5, 5, 10].map(k => k * mag).find(k => k >= raw) || raw; const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(10)); return out; }
+async function chartPanel(wellId) {
+  const host = $('#cp'); if (!host) return;
+  let meta;
+  try { meta = await get(`/api/wells/${encodeURIComponent(wellId)}/chart/meta`); }
+  catch (e) { host.querySelector('.cp-body').innerHTML = `<p class="small muted">${esc(e.message)}</p>`; return; }
+  const live = meta.channels.filter(c => c.present);
+  if (!live.length) { host.querySelector('.cp-body').innerHTML = `<p class="small muted">No channel in this well carries a value.</p>`; return; }
+  const S = {well: wellId, meta, axis: 'time', ch: meta.default.slice(0, 4), x0: null, x1: null, data: null, cur: null, seq: 0, table: false};
+  const twoAxes = meta.axes.length === 2;
+  $('#cpNote').textContent = `${fmt(meta.n, 0)} samples · ${meta.index_kind === 'depth' ? 'indexed by depth' : 'time as the recorder wrote it'}`;
+  const opt = (sel, allowNone) => (allowNone ? `<option value="">— none —</option>` : '') + live.map(c => `<option value="${esc(c.name)}" ${c.name === sel ? 'selected' : ''}>${esc(c.name)}${c.unit ? ' (' + esc(c.unit) + ')' : ''}</option>`).join('');
+  host.querySelector('.cp-body').innerHTML = `<div class="cp-ctl">
+      ${twoAxes ? `<div class="seg" role="group" aria-label="Horizontal axis"><button type="button" data-axis="time" aria-pressed="true">Time</button><button type="button" data-axis="depth" aria-pressed="false">Depth</button></div>` : ''}
+      ${[0, 1, 2, 3].map(k => `<label class="small">Track ${k + 1}<select class="cp-ch" data-k="${k}">${opt(S.ch[k], k > 0)}</select></label>`).join('')}
+      <span class="tb" role="group" aria-label="Zoom and pan"><button type="button" class="secondary" data-act="in" title="Zoom in (+)" aria-label="Zoom in">+</button><button type="button" class="secondary" data-act="out" title="Zoom out (-)" aria-label="Zoom out">−</button><button type="button" class="secondary" data-act="left" title="Pan left (Page Up)" aria-label="Pan left">◀</button><button type="button" class="secondary" data-act="right" title="Pan right (Page Down)" aria-label="Pan right">▶</button><button type="button" class="secondary" data-act="reset" title="Show everything (Home or Esc)">Reset</button><button type="button" class="secondary" data-act="table" aria-pressed="false">Table</button></span></div>
+    ${(meta.sections || []).length > 1 ? `<div class="small cp-secs" role="group" aria-label="Recorded sections"><span class="muted">Sections:</span>${meta.sections.map((s, k) => `<button type="button" class="secondary" data-sec="${k}" style="padding:2px 9px;font-size:12px" title="${esc(s.label)}">${k + 1}</button>`).join('')}<span class="muted">- the recording stops between them; a section button zooms to it</span></div>` : ''}
+    <div class="cp-read" aria-live="polite"></div>
+    <div class="cp-stack" tabindex="0" role="application" aria-label="Chart: drag across to zoom, wheel to zoom, double-click to reset; arrow keys move the cursor, + and - zoom, Page Up and Page Down pan, Home resets"></div>
+    <p class="small muted cp-note">Drag across a stretch to zoom into it · wheel to zoom where you point · double-click or Reset to see everything · keys: ← → cursor, + − zoom, PgUp PgDn pan, Home reset. <a href="#/help/charts">How the charts read the file</a></p>
+    <div class="cp-tbl"></div>`;
+  const stack = host.querySelector('.cp-stack'), read = host.querySelector('.cp-read');
+  const ext = () => S.axis === 'depth' ? (S.dext || [0, 1]) : meta.extent;
+  const span = () => (S.x1 ?? ext()[1]) - (S.x0 ?? ext()[0]);
+  const minSpan = () => S.axis === 'depth' ? 5 : (meta.index_kind === 'depth' ? 2 : 60);
+  const setRange = (a, b) => { const [lo, hi] = ext(); let w = Math.max(minSpan(), b - a); if (w >= hi - lo) { S.x0 = S.x1 = null; return; } a = Math.max(lo, Math.min(a, hi - w)); S.x0 = a; S.x1 = a + w; };
+  const zoomAt = (f, at) => { const x0 = S.x0 ?? ext()[0], w = span(), c = at ?? (S.cur ?? x0 + w / 2); setRange(c - (c - x0) * f, c - (c - x0) * f + w * f); load(); };
+  async function load() {
+    const my = ++S.seq; stack.classList.add('cp-loading');
+    const q = new URLSearchParams(); S.ch.filter(Boolean).forEach(c => q.append('ch', c)); q.set('points', String(Math.min(1600, Math.max(300, Math.round(stack.clientWidth * 1.4) || 1200))));
+    if (S.axis === 'depth') q.set('axis', 'depth'); if (S.x0 != null) { q.set('x0', S.x0); q.set('x1', S.x1); }
+    try { const d = await get(`/api/wells/${encodeURIComponent(S.well)}/chart/window?${q}`); if (my !== S.seq || !stack.isConnected) return; S.data = d; if (S.axis === 'depth' && d.extent) S.dext = d.extent; render(); }
+    catch (e) { if (my === S.seq) { stack.innerHTML = `<p class="small">${esc(e.message)}</p>`; } }
+    finally { if (my === S.seq) stack.classList.remove('cp-loading'); }
+  }
+  function render() {
+    if (!stack.isConnected) return;                       // the page moved on while the window was loading
+    const d = S.data, {TH, GAP, L, R, AX} = CPG, chs = S.ch.filter(Boolean), n = chs.length, W = S.W = Math.max(340, Math.round(stack.clientWidth || 1000));
+    const H = n * (TH + GAP) + AX, x0 = d.x0, x1 = d.x1, sx = x => L + (x - x0) / ((x1 - x0) || 1) * (W - L - R);
+    let g = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(chs.join(', '))} against ${S.axis === 'depth' ? 'bit depth' : 'time'}">`;
+    chs.forEach((name, k) => {
+      const c = d.channels[name]; if (!c) return; const top = k * (TH + GAP), y0p = top + 18, y1p = top + TH - 6;
+      const lo_ = c.min || c.value, hi_ = c.max || c.value; let lo = Infinity, hi = -Infinity;
+      for (let i = 0; i < d.x.length; i++) { if (lo_[i] != null && lo_[i] < lo) lo = lo_[i]; if (hi_[i] != null && hi_[i] > hi) hi = hi_[i]; }
+      if (!isFinite(lo)) { g += `<text x="${L}" y="${top + 14}" class="ttl">${esc(name)}</text><text x="${L + 8}" y="${top + TH / 2}">no samples in this window</text>`; return; }
+      const pad = (hi - lo) * 0.06 || Math.abs(hi) * 0.05 || 1; lo -= pad; hi += pad;
+      const sy = v => y1p - (v - lo) / (hi - lo) * (y1p - y0p);
+      for (const t of cpNiceTicks(lo, hi, 3)) { const y = sy(t); g += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"/><text x="${L - 6}" y="${(y + 4).toFixed(1)}" text-anchor="end">${fmt(t, Math.abs(t) < 10 ? 2 : (Math.abs(t) < 100 ? 1 : 0))}</text>`; }
+      g += `<text x="${L + 4}" y="${top + 13}" class="ttl">${esc(name)}${c.unit ? ' (' + esc(c.unit) + ')' : ''}</text>`;
+      if (d.mode === 'envelope') {
+        let seg = [], segs = [];
+        for (let i = 0; i < d.x.length; i++) { if (c.min[i] == null) { if (seg.length) segs.push(seg); seg = []; } else seg.push(i); } if (seg.length) segs.push(seg);
+        for (const sg of segs) { if (sg.length === 1) { const i = sg[0]; g += `<line class="mean" x1="${sx(d.x[i]).toFixed(1)}" x2="${sx(d.x[i]).toFixed(1)}" y1="${sy(c.min[i]).toFixed(1)}" y2="${sy(c.max[i]).toFixed(1)}"/>`; continue; }
+          g += `<path class="env" d="M${sg.map(i => sx(d.x[i]).toFixed(1) + ' ' + sy(c.max[i]).toFixed(1)).join('L')}L${sg.slice().reverse().map(i => sx(d.x[i]).toFixed(1) + ' ' + sy(c.min[i]).toFixed(1)).join('L')}Z"/>`;
+          g += `<path class="mean" d="M${sg.map(i => sx(d.x[i]).toFixed(1) + ' ' + sy(c.mean[i]).toFixed(1)).join('L')}"/>`; }
+        c.flagged && c.flagged.forEach((f, i) => { if (f) g += `<circle class="flag" cx="${sx(d.x[i]).toFixed(1)}" cy="${y0p - 4}" r="2.5"><title>flagged samples here</title></circle>`; });
+      } else {
+        let p = '', pen = false;
+        for (let i = 0; i < d.x.length; i++) { const v = c.value[i]; if (v == null) { pen = false; continue; } p += (pen ? 'L' : 'M') + sx(d.x[i]).toFixed(1) + ' ' + sy(v).toFixed(1); pen = true; }
+        g += `<path class="mean" d="${p}"/>`;
+        c.flagged && c.flagged.forEach((f, i) => { if (f && c.value[i] != null) g += `<circle class="flag" cx="${sx(d.x[i]).toFixed(1)}" cy="${sy(c.value[i]).toFixed(1)}" r="3"><title>flagged</title></circle>`; });
+      }
+      if (k === 0 && d.connections) for (const t of d.connections) g += `<line class="con" x1="${sx(t).toFixed(1)}" x2="${sx(t).toFixed(1)}" y1="${y1p}" y2="${y1p - 6}"><title>off bottom at ${esc(cpFmtX(S, t))}</title></line>`;
+    });
+    const bottom = n * (TH + GAP);
+    if (S.axis !== 'depth') { const lastX = [-1e9, -1e9, -1e9];
+      for (const e of meta.events || []) { if (e.x < x0 || e.x > x1) continue; const X = sx(e.x);
+        g += `<line class="evt" x1="${X.toFixed(1)}" x2="${X.toFixed(1)}" y1="2" y2="${bottom - GAP}"><title>${esc(e.type + ' at ' + e.at + ': ' + e.effect)}</title></line>`;
+        const row = [0, 1, 2].find(r => X - lastX[r] > e.type.length * 7 + 8);
+        if (row !== undefined) { lastX[row] = X; g += `<text class="evl" x="${(X + 3).toFixed(1)}" y="${28 + row * 12}">${esc(e.type)}</text>`; } } }
+    if (S.axis === 'depth' || meta.index_kind === 'depth' || !meta.start_time) { const tk = cpNiceTicks(x0, x1, Math.max(3, Math.floor(W / 160)));
+      for (const t of tk) { const X = sx(t); if (X < L + 20 || X > W - R - 20) continue; g += `<text x="${X.toFixed(1)}" y="${bottom + 12}" text-anchor="middle">${esc(S.axis === 'depth' || meta.index_kind === 'depth' ? fmt(t, t % 1 ? 1 : 0) + ' ft' : fmt(t / 3600, (x1 - x0) < 36000 ? 2 : 0) + ' h')}</text>`; } }
+    else { const nt = Math.max(3, Math.min(6, Math.floor(W / 170))); for (let k = 0; k <= nt; k++) { const t = x0 + k * (x1 - x0) / nt, X = sx(t); g += `<text x="${X.toFixed(1)}" y="${bottom + 12}" text-anchor="${k === 0 ? 'start' : (k === nt ? 'end' : 'middle')}">${esc(cpFmtX(S, t))}</text>`; } }
+    g += `<line class="cur" id="cpCur" x1="-10" x2="-10" y1="0" y2="${bottom - GAP}"/><rect class="brush" id="cpBrush" x="0" y="0" width="0" height="${bottom - GAP}" visibility="hidden"/></svg>`;
+    stack.innerHTML = g;
+    S.sx = sx; S.inv = vx => x0 + (vx - L) / (W - L - R) * (x1 - x0);
+    const note = $('#cpNote'); if (note) note.textContent = !d.samples ? `${fmt(meta.n, 0)} samples · none in this window - a gap in the recording` : `${fmt(meta.n, 0)} samples · showing ${fmt(d.samples, 0)} ${d.mode === 'envelope' ? `as ${d.x.length} buckets (min–max band and mean)` : 'samples, every one'}${S.axis === 'depth' ? ' · ' + d.how : ''}`;
+    if (S.cur == null || S.cur < x0 || S.cur > x1) S.cur = null;
+    cursor(); if (S.table) table();
+  }
+  function nearest(x) { const xs = S.data.x; let a = 0, b = xs.length - 1; while (b - a > 1) { const m = (a + b) >> 1; if (xs[m] < x) a = m; else b = m; } return Math.abs(xs[a] - x) <= Math.abs(xs[b] - x) ? a : b; }
+  function cursor() {
+    read.textContent = '';
+    const line = stack.querySelector('#cpCur'); if (!S.data || !S.data.x.length) return;
+    if (S.cur == null) { const s = document.createElement('span'); s.className = 'n'; s.textContent = 'Point at the chart for the values at that moment.'; read.appendChild(s); if (line) { line.setAttribute('x1', -10); line.setAttribute('x2', -10); } return; }
+    const i = nearest(S.cur), X = S.sx(S.data.x[i]).toFixed(1); if (line) { line.setAttribute('x1', X); line.setAttribute('x2', X); }
+    const head = document.createElement('span'); head.className = 'v'; head.textContent = cpFmtX(S, S.data.x[i]); read.appendChild(head);
+    for (const name of S.ch.filter(Boolean)) { const c = S.data.channels[name]; if (!c) continue;
+      const w = document.createElement('span'), k = document.createElement('i'), v = document.createElement('span'), nm = document.createElement('span');
+      k.className = 'k'; v.className = 'v'; nm.className = 'n';
+      if (S.data.mode === 'envelope') { const m = c.mean[i]; v.textContent = m == null ? '—' : `${fmt(m, 2)} ${c.unit || ''}`; nm.textContent = ` ${name}` + (m == null ? ' (no samples)' : ` (${fmt(c.min[i], 2)} – ${fmt(c.max[i], 2)}, ${c.n[i]} samples)`); }
+      else { const m = c.value[i]; v.textContent = m == null ? '—' : `${fmt(m, 3)} ${c.unit || ''}`; nm.textContent = ` ${name}`; }
+      w.append(k, v, nm); read.appendChild(w); }
+  }
+  function table() {
+    const d = S.data, chs = S.ch.filter(Boolean), step = Math.max(1, Math.ceil(d.x.length / 200)), box = host.querySelector('.cp-tbl');
+    const tbl = document.createElement('table'), th = document.createElement('tr');
+    [S.axis === 'depth' ? 'Bit depth' : 'Time', ...chs.map(c => `${c}${d.channels[c] && d.channels[c].unit ? ' (' + d.channels[c].unit + ')' : ''}${d.mode === 'envelope' ? ' mean [min – max]' : ''}`)].forEach(t => { const e = document.createElement('th'); e.textContent = t; th.appendChild(e); });
+    const thead = document.createElement('thead'); thead.appendChild(th); tbl.appendChild(thead); const tb = document.createElement('tbody');
+    for (let i = 0; i < d.x.length; i += step) { const tr = document.createElement('tr'); const td0 = document.createElement('td'); td0.textContent = cpFmtX(S, d.x[i]); tr.appendChild(td0);
+      for (const name of chs) { const c = d.channels[name], td = document.createElement('td'); if (!c) { td.textContent = '—'; } else if (d.mode === 'envelope') td.textContent = c.mean[i] == null ? '—' : `${fmt(c.mean[i], 2)} [${fmt(c.min[i], 2)} – ${fmt(c.max[i], 2)}]`; else td.textContent = c.value[i] == null ? '—' : fmt(c.value[i], 3); tr.appendChild(td); }
+      tb.appendChild(tr); }
+    tbl.appendChild(tb); box.textContent = ''; const cap = document.createElement('p'); cap.className = 'small muted'; cap.textContent = `The window as a table: ${Math.ceil(d.x.length / step)} rows${step > 1 ? `, every ${step}th bucket` : ''}.`; box.append(cap, tbl);
+  }
+  const vxOf = ev => { const r = stack.querySelector('svg').getBoundingClientRect(); return (ev.clientX - r.left) * (S.W || CPG.W) / r.width; };
+  let drag = null;
+  stack.addEventListener('pointerdown', ev => { if (!S.data || ev.button !== 0) return; drag = {a: vxOf(ev)}; stack.setPointerCapture(ev.pointerId); });
+  stack.addEventListener('pointermove', ev => { if (!S.data) return; const vx = vxOf(ev); if (vx < CPG.L || vx > S.W - CPG.R) return; S.cur = S.inv(vx); cursor();
+    if (drag) { const b = stack.querySelector('#cpBrush'); const a = Math.min(drag.a, vx), w = Math.abs(vx - drag.a); if (b && w > 4) { b.setAttribute('x', a); b.setAttribute('width', w); b.setAttribute('visibility', 'visible'); } } });
+  stack.addEventListener('pointerup', ev => { if (!drag) return; const vx = vxOf(ev), a = drag.a; drag = null; const b = stack.querySelector('#cpBrush'); if (b) b.setAttribute('visibility', 'hidden');
+    if (Math.abs(vx - a) > 8) { const t0 = S.inv(Math.max(CPG.L, Math.min(a, vx))), t1 = S.inv(Math.min(S.W - CPG.R, Math.max(a, vx))); setRange(t0, t1); load(); } });
+  stack.addEventListener('pointerleave', () => { if (!drag) { S.cur = null; cursor(); } });
+  stack.addEventListener('dblclick', () => { S.x0 = S.x1 = null; load(); });
+  let wheelT = null;
+  stack.addEventListener('wheel', ev => { if (!S.data) return; ev.preventDefault(); const at = S.inv(vxOf(ev)); const f = ev.deltaY > 0 ? 1.25 : 0.8; const x0 = S.x0 ?? ext()[0], w = span(); setRange(at - (at - x0) * f, at - (at - x0) * f + w * f); clearTimeout(wheelT); wheelT = setTimeout(load, 120); }, {passive: false});
+  stack.addEventListener('keydown', ev => { if (!S.data) return; const xs = S.data.x; let i = S.cur == null ? Math.floor(xs.length / 2) : nearest(S.cur);
+    if (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') { i = Math.max(0, Math.min(xs.length - 1, i + (ev.key === 'ArrowLeft' ? -1 : 1) * (ev.shiftKey ? 10 : 1))); S.cur = xs[i]; cursor(); ev.preventDefault(); }
+    else if (ev.key === '+' || ev.key === '=' || ev.key === 'Enter') { zoomAt(0.5, S.cur); ev.preventDefault(); }
+    else if (ev.key === '-' || ev.key === '_') { zoomAt(2, S.cur); ev.preventDefault(); }
+    else if (ev.key === 'PageUp' || ev.key === 'PageDown') { const x0 = S.x0 ?? ext()[0], w = span(); setRange(x0 + (ev.key === 'PageUp' ? -w / 2 : w / 2), x0 + (ev.key === 'PageUp' ? -w / 2 : w / 2) + w); load(); ev.preventDefault(); }
+    else if (ev.key === 'Home' || ev.key === 'Escape') { S.x0 = S.x1 = null; load(); ev.preventDefault(); } });
+  host.querySelectorAll('.cp-ch').forEach(sel => sel.onchange = () => { S.ch[+sel.dataset.k] = sel.value; if (!S.ch[0]) { S.ch[0] = live[0].name; sel.value = S.ch[0]; } load(); });
+  host.querySelectorAll('[data-sec]').forEach(b => b.onclick = () => { const s = meta.sections[+b.dataset.sec]; if (S.axis !== 'time') { S.axis = 'time'; host.querySelectorAll('[data-axis]').forEach(o => o.setAttribute('aria-pressed', String(o.dataset.axis === 'time'))); } S.x0 = s.x0; S.x1 = Math.max(s.x1, s.x0 + 60); load(); });
+  if (window.ResizeObserver) { let rw = stack.clientWidth; new ResizeObserver(() => { if (S.data && Math.abs(stack.clientWidth - rw) > 20) { rw = stack.clientWidth; render(); } }).observe(stack); }
+  host.querySelectorAll('[data-axis]').forEach(b => b.onclick = () => { if (S.axis === b.dataset.axis) return; S.axis = b.dataset.axis; S.x0 = S.x1 = null; S.cur = null;
+    host.querySelectorAll('[data-axis]').forEach(o => o.setAttribute('aria-pressed', String(o === b))); load(); });
+  host.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { const a = b.dataset.act, x0 = S.x0 ?? ext()[0], w = span();
+    if (a === 'in') zoomAt(0.5); else if (a === 'out') zoomAt(2);
+    else if (a === 'left' || a === 'right') { setRange(x0 + (a === 'left' ? -w / 2 : w / 2), x0 + (a === 'left' ? -w / 2 : w / 2) + w); load(); }
+    else if (a === 'reset') { S.x0 = S.x1 = null; load(); }
+    else if (a === 'table') { S.table = !S.table; b.setAttribute('aria-pressed', String(S.table)); if (S.table) table(); else host.querySelector('.cp-tbl').textContent = ''; } });
+  load();
+}
+// the pad's drilling progress: days against depth for every drilling-recorder well, one colour per well in a fixed order
+async function padProgress() {
+  const host = $('#pp'); if (!host) return;
+  let r; try { r = await get('/api/pad/progress'); } catch (e) { return; }
+  if (!r.wells.length) return; host.hidden = false;
+  const body0 = host.querySelector('.pp-body'), W = Math.max(340, Math.round(body0.clientWidth || 1000)), H = 360, L = 70, R = W < 600 ? 70 : 120, T = 14, B = 34, ws = r.wells.slice(0, 6);
+  let dmax = 0, zmin = Infinity, zmax = -Infinity;
+  for (const w of ws) { for (let i = 0; i < w.days.length; i++) { const z = w.bottom_max[i]; if (z == null) continue; dmax = Math.max(dmax, w.days[i]); zmin = Math.min(zmin, z); zmax = Math.max(zmax, z); } }
+  zmin = 0;
+  const sx = d => L + d / (dmax || 1) * (W - L - R), sy = z => T + (z - zmin) / ((zmax - zmin) || 1) * (H - T - B);
+  const body = host.querySelector('.pp-body');
+  const draw = (cur) => {
+    let g = `<div class="pp-legend" role="list">${ws.map((w, k) => `<span role="listitem"><i class="k" style="border-color:var(--s${k + 1})"></i>${esc(w.display)}</span>`).join('')}</div>`;
+    g += `<div class="cp-read pp-read" aria-live="polite"></div><div class="cp-stack" tabindex="0" role="application" aria-label="Days against depth: arrow keys move the cursor"><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Days since each well's first sample against the depth of its hole">`;
+    for (const z of cpNiceTicks(zmin, zmax, 6)) { const y = sy(z); g += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"/><text x="${L - 6}" y="${(y + 4).toFixed(1)}" text-anchor="end">${fmt(z, 0)}</text>`; }
+    for (const d of cpNiceTicks(0, dmax, 8)) { const x = sx(d); g += `<line class="grid" x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${T}" y2="${H - B}"/><text x="${x.toFixed(1)}" y="${H - B + 16}" text-anchor="middle">${fmt(d, 0)}</text>`; }
+    g += `<text x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle">days since the first sample</text><text x="14" y="${(T + H - B) / 2}" transform="rotate(-90 14 ${(T + H - B) / 2})" text-anchor="middle">depth of the hole, ft MD</text>`;
+    ws.forEach((w, k) => { let p = '', pen = false, lastI = -1;
+      for (let i = 0; i < w.days.length; i++) { const z = w.bottom_max[i]; if (z == null) { pen = false; continue; } p += (pen ? 'L' : 'M') + sx(w.days[i]).toFixed(1) + ' ' + sy(z).toFixed(1); pen = true; lastI = i; }
+      g += `<path d="${p}" fill="none" stroke="var(--s${k + 1})" stroke-width="2" stroke-linejoin="round"/>`;
+      if (lastI >= 0) g += `<text x="${(sx(w.days[lastI]) + 6).toFixed(1)}" y="${(sy(w.bottom_max[lastI]) + 4).toFixed(1)}">${esc(w.display)}</text>`; });
+    g += `<line class="cur" id="ppCur" x1="-10" x2="-10" y1="${T}" y2="${H - B}"/></svg></div>`;
+    g += `<p class="small muted">${esc(r.how)}.</p><details><summary class="small">Table</summary><div class="pp-tbl"></div></details>`;
+    body.innerHTML = g;
+    const tb = body.querySelector('.pp-tbl'), tbl = document.createElement('table'), hr = document.createElement('tr');
+    ['Day', ...ws.map(w => w.display + ' (ft)')].forEach(t => { const e = document.createElement('th'); e.textContent = t; hr.appendChild(e); }); const th = document.createElement('thead'); th.appendChild(hr); tbl.appendChild(th);
+    const tbb = document.createElement('tbody'); for (let d = 0; d <= Math.ceil(dmax); d++) { const tr = document.createElement('tr'); const c0 = document.createElement('td'); c0.textContent = String(d); tr.appendChild(c0);
+      for (const w of ws) { const c = document.createElement('td'); const z = ppAt(w, d); c.textContent = z == null ? '—' : fmt(z, 0); tr.appendChild(c); } tbb.appendChild(tr); } tbl.appendChild(tbb); tb.appendChild(tbl);
+    const stack = body.querySelector('.cp-stack'), read = body.querySelector('.pp-read'), line = body.querySelector('#ppCur');
+    let day = null;
+    const show = () => { read.textContent = ''; if (day == null) { const s = document.createElement('span'); s.className = 'n'; s.textContent = 'Point at the chart for each well\'s depth on that day.'; read.appendChild(s); line.setAttribute('x1', -10); line.setAttribute('x2', -10); return; }
+      line.setAttribute('x1', sx(day).toFixed(1)); line.setAttribute('x2', sx(day).toFixed(1));
+      const hd = document.createElement('span'); hd.className = 'v'; hd.textContent = `day ${fmt(day, 1)}`; read.appendChild(hd);
+      ws.forEach((w, k) => { const z = ppAt(w, day), s = document.createElement('span'), i = document.createElement('i'), v = document.createElement('span'), n = document.createElement('span'); i.className = 'k'; i.style.borderColor = `var(--s${k + 1})`; v.className = 'v'; v.textContent = z == null ? '—' : `${fmt(z, 0)} ft`; n.className = 'n'; n.textContent = ' ' + w.display; s.append(i, v, n); read.appendChild(s); }); };
+    stack.addEventListener('pointermove', ev => { const rc = stack.querySelector('svg').getBoundingClientRect(), vx = (ev.clientX - rc.left) * W / rc.width; if (vx < L || vx > W - R) return; day = (vx - L) / (W - L - R) * dmax; show(); });
+    stack.addEventListener('pointerleave', () => { day = null; show(); });
+    stack.addEventListener('keydown', ev => { if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return; ev.preventDefault(); day = Math.max(0, Math.min(dmax, (day ?? 0) + (ev.key === 'ArrowLeft' ? -1 : 1) * (ev.shiftKey ? 5 : 0.5))); show(); });
+    show();
+  };
+  draw();
+}
+function ppAt(w, day) { let best = null, bd = Infinity; for (let i = 0; i < w.days.length; i++) { if (w.bottom_max[i] == null) continue; const dd = Math.abs(w.days[i] - day); if (w.days[i] <= day + 1e-9 && dd < bd) { bd = dd; best = w.bottom_max[i]; } } return best; }
 // the setup checklist: what this workspace still needs, read from the workspace as it stands
 VIEWS.setup = async () => {
   const ck = await get('/api/setup/checklist'); const c = ck.counts;

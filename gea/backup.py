@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 STALE_AFTER_H = 26.0                      # a daily backup that is more than a day and change old
-EXCLUDE_TOP = ('jobs',)                   # taken selectively: schedule.json only
+EXCLUDE_TOP = ('jobs', 'cache')          # jobs taken selectively (schedule.json only); cache is rebuilt from the sources
 EXCLUDE_NAMES = ('_uploads', '__pycache__')
 LOG_NAME = 'backups.jsonl'                # records/backups.jsonl: one line per backup taken from this workspace
 

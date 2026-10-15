@@ -322,6 +322,32 @@ def _idle_flag(drilling: np.ndarray, hole: Optional[np.ndarray], rop: Optional[n
     return idle
 
 
+def drilling_mask(stream: LiveStream, de: dict) -> Tuple[np.ndarray, np.ndarray]:
+    """The samples that are drilling - the on-bottom flag set at the bottom of the hole, not excluded, not the flag
+    left on with nothing drilled - and, separately, the flag-left-on samples. One definition for the record and the charts."""
+    hole, rop, onb = _ch(stream, 'hole'), _ch(stream, 'rop'), _ch(stream, 'onb')
+    n = len(stream.index)
+    on_flag = (onb == 1.0) if onb is not None else np.zeros(n, dtype=bool)
+    excl = de['excluded']; M = de['running_bottom']
+    if hole is not None and M is not None:
+        drilling = on_flag & ~excl & ~np.isnan(hole) & (hole >= np.nan_to_num(M, nan=np.inf) - 10.0)
+    else:
+        drilling = on_flag & ~excl
+    idle = _idle_flag(drilling, hole, rop)
+    return drilling & ~idle, idle
+
+
+def chart_masks(stream: LiveStream, de: Optional[dict] = None) -> dict:
+    """What the charts need from the depth pass, as arrays the length of the stream: drilling, the samples a depth
+    table may use (by hole depth and by bit depth), the excluded samples, and the running bottom of the hole."""
+    de = de if de is not None else depth_events(stream)
+    drilling, idle = drilling_mask(stream, de)
+    keep_h, keep_b = _keep_masks(stream, de)
+    n = len(stream.index)
+    bottom = de['running_bottom'] if de['running_bottom'] is not None else np.full(n, np.nan)
+    return {'drilling': drilling, 'flag_idle': idle, 'keep_h': keep_h, 'keep_b': keep_b, 'excluded': de['excluded'], 'bottom': bottom}
+
+
 def _keep_masks(stream: LiveStream, de: dict) -> Tuple[np.ndarray, np.ndarray]:
     """Samples a depth table may use: not excluded, and not in a borehole abandoned by a later sidetrack
     (by hole depth for the TVD table, by bit depth for the gamma log)."""
@@ -358,12 +384,7 @@ def record(stream: LiveStream, de: Optional[dict] = None) -> dict:
         out['notes'].append('channels this record needs are not in the file: ' + ', '.join(missing))
     on_flag = (onb == 1.0) if onb is not None else np.zeros(n, dtype=bool)
     excl = de['excluded']; M = de['running_bottom']; inc = de['increments']
-    if hole is not None and M is not None:
-        drilling = on_flag & ~excl & ~np.isnan(hole) & (hole >= np.nan_to_num(M, nan=np.inf) - 10.0)
-    else:
-        drilling = on_flag & ~excl
-    idle = _idle_flag(drilling, hole, rop)
-    drilling = drilling & ~idle
+    drilling, idle = drilling_mask(stream, de)
     rot = drilling & (rpm > 0) if rpm is not None else drilling
     prev_end = None
     for si, (a, b) in enumerate(sections, 1):
@@ -679,10 +700,14 @@ def document(rec: dict, program_version: str):
                     data={k: v for k, v in rec.items() if k != 'lines'} | {'_records': [], '_catalogue_obj': None})
 
 
-def write_record(stream: LiveStream, out_dir: str, program_version: str) -> dict:
-    """The record beside the well's other reports: drilling_record.json / .md / .html, and the MD-TVD table as CSV."""
+def write_record(stream: LiveStream, out_dir: str, program_version: str, cache_dir: Optional[str] = None) -> dict:
+    """The record beside the well's other reports: drilling_record.json / .md / .html, and the MD-TVD table as CSV;
+    with `cache_dir`, the charts' series cache from the same read and the same depth pass."""
     from .client_reports import write
     de = depth_events(stream)
+    if cache_dir:
+        from . import series_cache as SCH
+        SCH.build(stream, cache_dir, extras=chart_masks(stream, de))
     rec = record(stream, de=de)
     os.makedirs(out_dir, exist_ok=True)
     paths = write(document(rec, program_version), out_dir, basename='drilling_record')

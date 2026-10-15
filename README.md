@@ -86,7 +86,7 @@ gea dashboard --catalog-well volve_f12_f14_production_excerpt:15/9-F-12:10000 --
 gea client-report --report accuracy --out client_report
 gea model-cards --out model_cards
 gea sbom --out sbom
-gea accept                     # the product gate (383 checks)
+gea accept                     # the product gate (386 checks)
 gea help drift                 # the help library, by the job (16 pages; the same text is on every dashboard page)
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
@@ -608,6 +608,23 @@ synthetic station speaking both versions; `gea seedlink --selftest` runs both
 against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
+
+### The charts
+
+A well's page carries the Charts card: up to four channels stacked on one
+horizontal axis, a cursor that reads them all at the same moment, cut from
+every sample of the well's file. Drag across a stretch to zoom into it, the
+wheel zooms where you point, double-click or Reset shows everything; the
+keyboard does the same (arrows, + and -, Page Up and Page Down, Home). A
+month-wide view keeps a one-second spike - each bucket is the minimum, the
+maximum and the mean of its samples - and a stretch with no samples is drawn
+empty, never bridged. On a drilling recorder's export the axis switches
+between time and depth (the drilling samples by bit depth, kept off hole a
+later sidetrack abandoned), the depth events are marked where they
+happened, and each section of the recording is a button. The Wells page
+carries the drilling progress of every drilling-recorder well: hole depth
+against days, one colour per well. The refresh writes a chart cache per well
+from the read it already makes; `gea help charts`.
 
 ### The setup checklist
 
