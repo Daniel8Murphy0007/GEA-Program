@@ -475,6 +475,23 @@ def main(argv=None) -> int:
     p_ck.add_argument("--note", type=str, default="", help="--confirm: what it was checked against (required)")
     p_ck.add_argument("--actor", type=str, default="cli")
 
+    p_tj = sub.add_parser("trajectory", help="attach a well's directional survey (WITSML trajectory or a table of MD, Inc, Azi), kept verbatim beside the well, so the 3D tab can draw its path")
+    p_tj.add_argument("--workspace", type=str, required=True)
+    p_tj.add_argument("--well", type=str, required=True)
+    p_tj.add_argument("--file", type=str, required=True)
+    p_tj.add_argument("--azimuth-reference", type=str, required=True, choices=("grid", "true", "magnetic"))
+    p_tj.add_argument("--grid", type=str, default=None, help="grid azimuths: the grid, e.g. TX_CENTRAL or UTM14N")
+    p_tj.add_argument("--declination", type=float, default=None, help="magnetic azimuths: the declination used, degrees east positive")
+    p_tj.add_argument("--md-unit", type=str, default="ft", choices=("ft", "m"))
+    p_tj.add_argument("--depth-reference", type=str, default=None, help="KB, DF or GL: must match the well's declared reference elevation")
+    p_tj.add_argument("--source", type=str, required=True, help='where the survey came from, e.g. "RRC imaged records, directional survey"')
+    p_tj.add_argument("--actor", type=str, default="cli")
+
+    p_3d = sub.add_parser("well3d", help="the 3D scene in words: each well's path, how it was checked, the surfaces and the replay (the 3D tab draws it)")
+    p_3d.add_argument("--scene", type=str, default="volve", choices=("volve", "workspace"))
+    p_3d.add_argument("--workspace", type=str, default=None)
+    p_3d.add_argument("--json", action="store_true")
+
     p_wl = sub.add_parser("wall", help="the control-room board as text: a line per well, worst first, its state and why (the same board the wall screen shows)")
     p_wl.add_argument("--workspace", type=str, default=None, help="the workspace folder, e.g. C:\\site")
     p_wl.add_argument("--json", action="store_true")
@@ -1937,6 +1954,34 @@ def main(argv=None) -> int:
         else:
             print(_SC.text(r))
         return 0 if r["ready"] else 2
+    elif a.cmd in ("trajectory", "well3d"):
+        import json as _json
+        from . import well3d as _W3
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        ws = None
+        if a.cmd == "trajectory" or a.scene == "workspace":
+            if not a.workspace:
+                raise SystemExit(f"{a.cmd} needs --workspace, e.g. --workspace C:\\site")
+            try:
+                ws = Workspace(a.workspace)
+            except WorkspaceError as e:
+                raise SystemExit(f"{a.cmd}: {e}")
+        if a.cmd == "trajectory":
+            try:
+                with open(a.file, "rb") as f:
+                    content = f.read()
+                r = _W3.attach_trajectory(ws, a.well, a.file, content, a.actor, a.azimuth_reference, a.md_unit, a.depth_reference, a.grid,
+                                          a.declination, a.source)
+            except (ValueError, OSError, WorkspaceError) as e:
+                raise SystemExit(f"trajectory: {e}")
+            print(f"{a.well}: {r['stations']} stations, {r['md_range_m'][0]:,.1f} to {r['md_range_m'][1]:,.1f} m MD, azimuths {r['azimuth_reference']}"
+                  + (f" ({r['grid']})" if r.get('grid') else "") + f"; kept as wells/{a.well}/trajectory/{r['file']}")
+            return 0
+        sc = _W3.scene(ws, a.scene)
+        print(_json.dumps(sc, indent=1) if a.json else _W3.text(sc))
+        return 0
     elif a.cmd in ("wall", "handover"):
         import json as _json
         from . import control_room as _CR

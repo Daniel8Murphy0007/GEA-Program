@@ -5,6 +5,59 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.36.0] - 2026-10-16 - The well in 3D
+
+### Added
+- **The 3D tab** (`gea/well3d.py`, `#/3d`): each well's path from its
+  directional survey by the minimum-curvature method (between stations the
+  path follows the same arc, never a chord), set below sea level from the
+  declared rig floor, among the mapped formations - interpreted horizon
+  surfaces as delivered, or a formation-top map's contour lines at their
+  elevations - with the well's picks on it. WebGL written for the page, no
+  library: drag to turn, shift-drag to pan, the wheel or a pinch to zoom,
+  the arrows, + − and Home on the keyboard; vertical exaggeration 1-5×;
+  surfaces toggled and see-through; point at a well or a pick for its
+  measured depth, depth below sea level, offset from the slot, inclination
+  and formation.
+- **Colour along the path from what was measured there**: the formation
+  (the mapped surface above each depth, from the well's own picks),
+  inclination and dogleg severity from the survey, or a drilling recorder's
+  gamma, rate of penetration and weight on bit binned by bit depth.
+- **The replay**: the bit moving down the hole, the hole drilled so far in
+  full colour and the rest faded - from a drilling recorder's bit depth
+  (every sample by stride, none averaged, on the recorder's own clock), or
+  from the time stamps of survey stations measured while drilling (a
+  station copied in from an earlier section, or a resurvey run in one go,
+  is not a record of drilling and is not used).
+- **The Volve field ships as the worked example** (`reference/volve_*`,
+  built by `tools/build_volve_3d.py` from public copies at pinned commits,
+  hashed in `reference/volve_3d.provenance.json`): the original WITSML
+  surveys of 15/9-F-4, F-5 and F-10, the field's 408 formation picks and
+  five depth-converted horizons (Ty, Shetland, the base Cretaceous, Hugin
+  top and base) at every fourth line, no point moved. Checked against
+  itself: the paths reproduce the survey companies' own positions to under
+  a centimetre and land on Equinor's picks to under 0.3 m; the frame is ED50
+  zone 31N (the slots land within 0.1 m of the operator's log headers); each
+  surface sits a few metres from its picks at the median. 15/9-F-4's 2016
+  survey says true north but agrees with the picks only read as grid - it is
+  read as grid and the page says so. Released by Equinor ASA and the former
+  Volve partners under Equinor's licence (commercial use, no sale), with the
+  attribution on the page.
+- **A workspace well's survey**: `gea trajectory` or the form on the tab
+  keeps a WITSML trajectory or an MD/Inc/Azi table verbatim beside the well,
+  with its azimuth reference stated (grid with the grid named, true, or
+  magnetic with the declination) and its source; audited. A well without a
+  surface position, a reference elevation or a survey is listed with what
+  it needs, never drawn; until one can be, the workspace's formation-top
+  contour layers are drawn on their own (Pad 3's ten EIA tops, about
+  100,000 vertices), an isopach or a value field that does not say it is an
+  elevation listed with why it is not. `gea well3d --scene volve|workspace` prints a
+  scene and its checks. The International 1924 ellipsoid joins the
+  geodesy.
+- API `/api/3d/scenes`, `/api/3d/scene/<id>`, `/api/wells/<id>/trajectory`.
+  `gea help well3d`.
+- Section CE (3 checks); the gate is 395.
+
 ## [v0.35.0] - 2026-10-15 - The control room
 
 ### Added

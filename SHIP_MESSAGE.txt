@@ -1,32 +1,38 @@
-v0.35.0 — THE CONTROL ROOM
+v0.36.0 — THE WELL IN 3D
 
-A monitor on the doghouse wall has to be read from across the room by
-someone who is busy, and it has to say so when it is wrong. This release
-adds the Control room tab and the wall it opens.
+A well is a line through the ground, and until now the program only ever
+showed it as numbers against depth. This release adds the 3D tab.
 
-One tile per well, the worst first. Each says its state in a shape and a
-word - Serious, Watch, Good, No data - so it reads on a washed-out screen
-and without colour, then why in plain words, then the numbers that matter:
-the alarms, the gauges, and for a drilling recorder the bottom, the bit,
-the rate of penetration and the hours on bottom. The rule a tile is judged
-by is written on the help page and nowhere bent: an unacknowledged P1 or P2
-alarm, a gauge off with no explanation, a live feed down or long silent is
-Serious; anything else active, explained or late is Watch. A recorded well
-is described at the end of its record and is never called stale.
+Each well's path is drawn from its directional survey by the minimum-
+curvature method - between survey stations it follows the same arc, never
+a straight chord - below sea level from the well's declared rig floor, and
+set among the mapped formations: interpreted horizon surfaces as they were
+delivered, or a formation-top map's contour lines at their elevations. The
+picks sit on the path. The wells can be coloured by the formation they are
+in, by inclination or dogleg severity, or by a drilling recorder's gamma,
+rate of penetration or weight on bit along the bit's depth. Turn it, pan it,
+zoom it, stretch the depth, see through the surfaces, point at anything for
+its numbers.
 
-The wall refreshes itself every thirty seconds and shows how old its last
-answer is. When the service stops answering, a notice goes across the
-screen with the age of everything below it and every tile greys; a wall
-whose sign-in has ended shows nothing old at all. F is full screen, the
-screen is kept awake where the browser allows it, and when the wells do not
-fit the pages turn, the worst first.
+The replay moves the bit down the hole - the hole drilled so far in full
+colour, the rest faded - from the recorder's bit depth, every sample on the
+recorder's own clock, or from the times of the survey stations measured
+while drilling.
 
-The shift handover sits beside it. The outgoing operator writes what is
-open, what is being watched and what was done; the note is signed, keeps
-the board as it stood, and stays on the wall until the incoming operator
-acknowledges it. Both go in the audit log. A wall pass lets a screen show
-the wall and nothing else, with no one's account signed in; the code is
-shown once and can be revoked.
+The Volve field in the Norwegian North Sea ships with the program as the
+worked example: the original surveys of three wells, the field's 408
+formation picks and five mapped horizons, released by Equinor. They were
+checked against each other before anything was drawn: the paths reproduce
+the survey companies' own positions to under a centimetre and land on
+Equinor's picks to under a third of a metre; the coordinates are ED50 UTM
+zone 31N, confirmed against the operator's log headers to a tenth of a
+metre. One survey says true north but fits the picks only as grid north,
+and the page says so.
 
-Section CD is new, three checks. The gate is 392 checks. The standalone
+A workspace well is drawn once it has a position, an elevation and its
+survey; `gea trajectory` attaches one, kept byte for byte, with its azimuth
+reference stated. Nothing is drawn between wells: no rock or fluid property
+is measured there.
+
+Section CE is new, three checks. The gate is 395 checks. The standalone
 guard is clean.

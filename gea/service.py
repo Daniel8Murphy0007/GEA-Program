@@ -1902,6 +1902,15 @@ def make_handler(app: App):
                         except WorkspaceError as e:
                             raise ApiError(404, str(e))
                     raise ApiError(404, 'no such map route')
+                if path == '/api/3d/scenes':
+                    from . import well3d as W3
+                    return self._json(200, {'scenes': W3.scenes(app.ws)})
+                if path.startswith('/api/3d/scene/'):
+                    from . import well3d as W3
+                    try:
+                        return self._json(200, W3.scene(app.ws, path[len('/api/3d/scene/'):]))
+                    except KeyError as e:
+                        raise ApiError(404, str(e.args[0]))
                 if path == '/api/pad/progress':
                     return self._json(200, app.pad_progress())
                 if path.startswith('/api/wells/') and path.endswith('/series'):
@@ -2177,6 +2186,22 @@ def make_handler(app: App):
                             raise ApiError(400, str(e))
                     finally:
                         shutil.rmtree(tmp_dir, ignore_errors=True)
+                if path.startswith('/api/wells/') and path.endswith('/trajectory'):
+                    from . import well3d as W3
+                    import base64 as _b64
+                    App.require(user, 'operator')
+                    wid = path[len('/api/wells/'):-len('/trajectory')]
+                    try:
+                        content = _b64.b64decode(str(body.get('content_b64', '')), validate=True)
+                    except ValueError:
+                        raise ApiError(400, 'content_b64 is not base64')
+                    if not content:
+                        raise ApiError(400, 'the survey file is empty')
+                    dec = body.get('declination_deg')
+                    return self._json(200, App._cr(W3.attach_trajectory, app.ws, wid, str(body.get('filename') or 'survey.csv'), content, user['name'],
+                                                   str(body.get('azimuth_reference', '')), str(body.get('md_unit') or 'ft'),
+                                                   body.get('depth_reference') or None, body.get('grid') or None,
+                                                   (float(dec) if dec not in (None, '') else None), str(body.get('source', ''))))
                 if path.startswith('/api/wells/') and path.endswith('/declare'):
                     App.require(user, 'operator')
                     wid = path[len('/api/wells/'):-len('/declare')]

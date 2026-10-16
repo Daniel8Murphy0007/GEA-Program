@@ -2078,3 +2078,51 @@ The ergonomics leg, fourth and last item.
   1600x900 under a pass with the service stopped mid-run, and phone width:
   no page errors.
 - Section CD (3 checks). Gate 392.
+
+## 2026-10-16 - The well in 3D (v0.36.0)
+
+Daniel asked for a simulation tab: the drill string in 3D with rock
+densities, formations, fluid ratios and the mud log. Agreed scope: a replay
+of what was measured, not a simulation - paths from surveys, the mapped
+formations, picks, colour from measurements, the bit over time; no property
+drawn between wells.
+- Research first. Only GitHub is reachable from the build machines (the
+  Equinor data village, the DOE geothermal repository, Zenodo, Hugging Face
+  and the university mirror are refused by the proxy). Public copies found
+  and pinned: f0nzie/volve-drilling (WITSML for 15/9-F-4, F-7, F-9 - all
+  2016 plug-and-abandonment logs, string near surface - and F-4's
+  definitive gyro survey), maribickpostanes/Interactive-Well-Trajectory-Plot
+  (F-5's four section surveys, 2007-2008), viandika/volve_horizon_trajectory
+  (F-10's survey, six horizon exports), yohanesnuwara/MLGeo (the field's
+  well picks). The preprocessed drilling-depth CSVs and parquet stores that
+  exist are labelled CC BY-NC-SA by their adapters and were not used.
+- Licence: Equinor's 2020 terms (read from Equinor's PDF) allow commercial
+  use and adaptation with attribution and a notice; the data may not be
+  sold. The 2018 release had been CC BY-NC-SA.
+- Checks made before building: the picks' eastings and northings are ED50
+  zone 31N (two slots unproject within 0.1 m of the LAS headers, ~148 m off
+  as WGS84); the horizons are depth, not time (they tie to TVDSS); minimum
+  curvature here reproduces each file's TVD and displacements to <1 cm; the
+  paths land on the picks to <0.3 m; F-4's "true north" file fits the picks
+  only as grid (14 m otherwise); F-4's stations share one time stamp; the
+  seabed export mixes a time block.
+- `gea/well3d.py`: readers (WITSML 1.4 trajectory, MD/Inc/Azi tables),
+  minimum curvature with on-arc interpolation, the Volve scene (surfaces as
+  inline/crossline grids with a fitted affine, worst miss 6 mm), the
+  workspace scene (local transverse Mercator on the wells' centre; survey
+  azimuths turned by the named grid's convergence or the declination;
+  formation-top contour layers at their elevations; the recorder's bit depth
+  by stride; channels via the series cache's depth bins), the survey attach.
+- The page: WebGL 1 by hand - lit meshes for surfaces, tubes for wells,
+  octahedra for picks and the bit, a fade shader beyond the bit's depth; a
+  2D overlay for the box, depth ticks, north and labels; hover picking by
+  projected distance; tables under the view carry every number. Driven in
+  headless Chromium (SwiftShader) light, dark and phone: no page errors.
+- Pad 3 read on his machine (preview, read-only): no well placed yet, so its
+  ten EIA formation-top layers are drawn alone - 99,819 vertices, 1.9 MB,
+  6 s on first read; the EIA Wolfcamp top (ZLEVEL, no unit in its name), the
+  ten isopachs and the fault layers are listed as not drawn, with why.
+- Pad 3's recorder exports carry gamma and an interpolated TVD but no
+  inclination or azimuth: its wells need their directional surveys (the
+  Railroad Commission's imaged well records are the public place to look).
+- Section CE (3 checks). Gate 395.

@@ -1,0 +1,197 @@
+{
+ "entry": "volve_3d",
+ "kind": "REAL_FIELD_EXCERPT_FOR_THE_3D_VIEW",
+ "field": "Volve, Norwegian North Sea (blocks 15/9), operated by Statoil/Equinor, decommissioned 2016",
+ "publisher": "Equinor ASA, with the former Volve licence partners ExxonMobil Exploration and Production Norway AS and Bayerngas Norge AS",
+ "license": "Equinor's 'Terms and conditions for licence to data - Volve' (2020): use, copy and adapt for non-commercial and commercial purposes; Equinor and the former partners attributed and a notice referring to the terms included when shared; the licensed material may not be sold; no use that suggests endorsement. (The 2018 release carried CC BY-NC-SA 4.0; Equinor replaced it.)",
+ "license_url": "https://cdn.equinor.com/files/h61q9gi9/global/de6532f6134b9a953f6c41bac47a0c055a3712d3.pdf?equinor-hrs-terms-and-conditions-for-licence-to-data-volve.pdf=",
+ "attribution": "Contains data from the Volve field released by Equinor ASA and the former Volve licence partners ExxonMobil Exploration and Production Norway AS and Bayerngas Norge AS.",
+ "access": "The release itself (Equinor's data village) was not reachable from the build machine; the files were taken from public GitHub copies, each at a pinned commit, hashed as fetched. Byte identity with the original release is not claimed; the checks below are what tie the copies to the field and to each other.",
+ "crs": "ED50 / UTM zone 31N (International 1924 ellipsoid), metres - as delivered; depths below mean sea level, positive down",
+ "checks": [
+  "the slot eastings and northings of 15/9-F-1 C and 15/9-F-11 B, unprojected on ED50 zone 31N, land 0.02 m and 0.09 m from the latitudes and longitudes in those wells' own LAS headers (and about 148 m away if read as WGS84) - the frame is ED50 zone 31N",
+  "the minimum-curvature path computed from each trajectory file's measured depths, inclinations and azimuths reproduces the TVD and displacements written in the file to under a centimetre (15/9-F-4, -F-5, -F-10)",
+  "the paths land on Equinor's own formation picks, which carry eastings, northings and depths, to under 0.3 m",
+  "the horizons are in depth below sea level (they tie to the picks' TVDSS, not to their two-way times): median miss 2 to 6 m by surface at the 23-28 wells picked for each, larger at a few wells the interpretation did not honour (listed per surface in the scene)"
+ ],
+ "findings": [
+  "15/9-F-4's definitive survey (Baker Hughes, gyro, 2016) says true north; Equinor's picks on F-4 agree with it to 0.1 m read as grid azimuths and miss by up to 14 m with the 0.95 degree convergence applied. The scene reads it as grid and says so.",
+  "15/9-F-4's 2016 survey stamps every station with one time (a resurvey): it is not a record of drilling and is not replayed.",
+  "The seabed horizon in the same copy is two blocks, the second in two-way time; it is not used.",
+  "No copy of the real-time drilling logs from the wells' drilling (2007-2009) was found under an open licence; the 2016 logs that are copied are plug-and-abandonment work with the string near surface. The Volve replay therefore follows the survey stations' own times."
+ ],
+ "sources": {
+  "traj_F-4": {
+   "repository": "https://github.com/f0nzie/volve-drilling",
+   "commit": "3698c43d4adc0ee11ffa8fd5f876fa961c9c846d",
+   "path": "witsml/Norway-Statoil-NO 15_$47$_9-F-4/1/trajectory/1.xml",
+   "url": "https://raw.githubusercontent.com/f0nzie/volve-drilling/3698c43d4adc0ee11ffa8fd5f876fa961c9c846d/witsml/Norway-Statoil-NO%2015_%2447%24_9-F-4/1/trajectory/1.xml",
+   "bytes": 105291,
+   "sha256": "5cabe2a1751828791b7cc669349b5ec6f01e7ea223ed5448a768cb2998f15aba"
+  },
+  "traj_F-5_36in": {
+   "repository": "https://github.com/maribickpostanes/Interactive-Well-Trajectory-Plot",
+   "commit": "6231dc346f6a6f38be21404005d930d7d3abbc89",
+   "path": "4.xml",
+   "url": "https://raw.githubusercontent.com/maribickpostanes/Interactive-Well-Trajectory-Plot/6231dc346f6a6f38be21404005d930d7d3abbc89/4.xml",
+   "bytes": 23542,
+   "sha256": "b33d44a09ed776de47ba5c31c5ed0e93f1330fdc9297dd6b5338bd2d8386a379"
+  },
+  "traj_F-5_17.5in": {
+   "repository": "https://github.com/maribickpostanes/Interactive-Well-Trajectory-Plot",
+   "commit": "6231dc346f6a6f38be21404005d930d7d3abbc89",
+   "path": "1.xml",
+   "url": "https://raw.githubusercontent.com/maribickpostanes/Interactive-Well-Trajectory-Plot/6231dc346f6a6f38be21404005d930d7d3abbc89/1.xml",
+   "bytes": 94850,
+   "sha256": "594d10eaf39fb32d52e331f2abae0b11f9e2bf94b14519c8ab74e060f5123229"
+  },
+  "traj_F-5_12.25in": {
+   "repository": "https://github.com/maribickpostanes/Interactive-Well-Trajectory-Plot",
+   "commit": "6231dc346f6a6f38be21404005d930d7d3abbc89",
+   "path": "2.xml",
+   "url": "https://raw.githubusercontent.com/maribickpostanes/Interactive-Well-Trajectory-Plot/6231dc346f6a6f38be21404005d930d7d3abbc89/2.xml",
+   "bytes": 185688,
+   "sha256": "53491d5cc358e789cd623315d462ae4572f75871294e7beecf0b27489a0b6adc"
+  },
+  "traj_F-5_8.5in": {
+   "repository": "https://github.com/maribickpostanes/Interactive-Well-Trajectory-Plot",
+   "commit": "6231dc346f6a6f38be21404005d930d7d3abbc89",
+   "path": "3.xml",
+   "url": "https://raw.githubusercontent.com/maribickpostanes/Interactive-Well-Trajectory-Plot/6231dc346f6a6f38be21404005d930d7d3abbc89/3.xml",
+   "bytes": 237904,
+   "sha256": "07ee7ddaa1f553f364d86c7a4cb25f03318c89cd42e2fc7466fe5fbbafe5ed61"
+  },
+  "traj_F-10": {
+   "repository": "https://github.com/viandika/volve_horizon_trajectory",
+   "commit": "3f79910a685257159662426235934b089d61df05",
+   "path": "witsml/Norway-StatoilHydro-15_$47$_9-F-10/trajectory/1.xml",
+   "url": "https://raw.githubusercontent.com/viandika/volve_horizon_trajectory/3f79910a685257159662426235934b089d61df05/witsml/Norway-StatoilHydro-15_%2447%24_9-F-10/trajectory/1.xml",
+   "bytes": 1175176,
+   "sha256": "11e653b84eab32c3cfe838ad5840d8ee23c53596e21d982bda682d14343e6608"
+  },
+  "well_picks": {
+   "repository": "https://github.com/yohanesnuwara/MLGeo",
+   "commit": "3b089e0e50fc69207b84616c6cb364b5c5ca2960",
+   "path": "well_logs/Volve_well_picks_modified.csv",
+   "url": "https://raw.githubusercontent.com/yohanesnuwara/MLGeo/3b089e0e50fc69207b84616c6cb364b5c5ca2960/well_logs/Volve_well_picks_modified.csv",
+   "bytes": 36016,
+   "sha256": "53ed9f062d53a584d05ad9388763a1844ecb5a580e216752dff86fad15e6e1a6"
+  },
+  "hz_Ty": {
+   "repository": "https://github.com/viandika/volve_horizon_trajectory",
+   "commit": "3f79910a685257159662426235934b089d61df05",
+   "path": "horizon/Ty.csv",
+   "url": "https://raw.githubusercontent.com/viandika/volve_horizon_trajectory/3f79910a685257159662426235934b089d61df05/horizon/Ty.csv",
+   "bytes": 17127830,
+   "sha256": "521b606b722fd9531839e239d1a2709cfb1a001d808c4673da05e22fb7121065"
+  },
+  "hz_SHETLAND": {
+   "repository": "https://github.com/viandika/volve_horizon_trajectory",
+   "commit": "3f79910a685257159662426235934b089d61df05",
+   "path": "horizon/SHETLAND.csv",
+   "url": "https://raw.githubusercontent.com/viandika/volve_horizon_trajectory/3f79910a685257159662426235934b089d61df05/horizon/SHETLAND.csv",
+   "bytes": 16546631,
+   "sha256": "3db1e224b1530458da2a2e7f2f6c88f442d28a19a46500635251152ca45b6ee6"
+  },
+  "hz_BCU": {
+   "repository": "https://github.com/viandika/volve_horizon_trajectory",
+   "commit": "3f79910a685257159662426235934b089d61df05",
+   "path": "horizon/BCU.csv",
+   "url": "https://raw.githubusercontent.com/viandika/volve_horizon_trajectory/3f79910a685257159662426235934b089d61df05/horizon/BCU.csv",
+   "bytes": 16377412,
+   "sha256": "0051c5f2f8daafd349a7f5497d5947324b95b2bc85c7ca3ca0439fe8b52b181d"
+  },
+  "hz_Hugin_Fm_Top": {
+   "repository": "https://github.com/viandika/volve_horizon_trajectory",
+   "commit": "3f79910a685257159662426235934b089d61df05",
+   "path": "horizon/Hugin_Fm_Top.csv",
+   "url": "https://raw.githubusercontent.com/viandika/volve_horizon_trajectory/3f79910a685257159662426235934b089d61df05/horizon/Hugin_Fm_Top.csv",
+   "bytes": 8575041,
+   "sha256": "6bb2f7902f80beb9fd28ce177dc3a2aa3916d3dd4f4b33da9a72ee42f23bbd0b"
+  },
+  "hz_Hugin_Base": {
+   "repository": "https://github.com/viandika/volve_horizon_trajectory",
+   "commit": "3f79910a685257159662426235934b089d61df05",
+   "path": "horizon/Hugin_Base.csv",
+   "url": "https://raw.githubusercontent.com/viandika/volve_horizon_trajectory/3f79910a685257159662426235934b089d61df05/horizon/Hugin_Base.csv",
+   "bytes": 13244504,
+   "sha256": "49f01696f493f0b07881729be318d5277eb43219387e628b41ea4c40d017d7ec"
+  }
+ },
+ "outputs": {
+  "volve_traj_F-4.xml.gz": {
+   "from": "traj_F-4",
+   "how": "verbatim, gzip-compressed",
+   "sha256_uncompressed": "5cabe2a1751828791b7cc669349b5ec6f01e7ea223ed5448a768cb2998f15aba",
+   "sha256": "1f596ea1512023a24f2e4c6041fe367c512708ecbc40f1d88052f6ae630820c9"
+  },
+  "volve_traj_F-5_36in.xml.gz": {
+   "from": "traj_F-5_36in",
+   "how": "verbatim, gzip-compressed",
+   "sha256_uncompressed": "b33d44a09ed776de47ba5c31c5ed0e93f1330fdc9297dd6b5338bd2d8386a379",
+   "sha256": "20b97830ec7a581af292151cb2f8a35dd71727ee983679fe8cc0fbe8d71bdc0e"
+  },
+  "volve_traj_F-5_17.5in.xml.gz": {
+   "from": "traj_F-5_17.5in",
+   "how": "verbatim, gzip-compressed",
+   "sha256_uncompressed": "594d10eaf39fb32d52e331f2abae0b11f9e2bf94b14519c8ab74e060f5123229",
+   "sha256": "ca43a64658b68319a7b081d59ae0a8c0fa12555800a2968008a065cc3faacb3d"
+  },
+  "volve_traj_F-5_12.25in.xml.gz": {
+   "from": "traj_F-5_12.25in",
+   "how": "verbatim, gzip-compressed",
+   "sha256_uncompressed": "53491d5cc358e789cd623315d462ae4572f75871294e7beecf0b27489a0b6adc",
+   "sha256": "9d1cc1a0c5b4092b7725e75115e3e7d868f5a267a187a3a159d3422943a10ffb"
+  },
+  "volve_traj_F-5_8.5in.xml.gz": {
+   "from": "traj_F-5_8.5in",
+   "how": "verbatim, gzip-compressed",
+   "sha256_uncompressed": "07ee7ddaa1f553f364d86c7a4cb25f03318c89cd42e2fc7466fe5fbbafe5ed61",
+   "sha256": "2f1edd95306e12ca2452c1e2bf67654395521cdfbcea83318ed933bae3c8c317"
+  },
+  "volve_traj_F-10.xml.gz": {
+   "from": "traj_F-10",
+   "how": "verbatim, gzip-compressed",
+   "sha256_uncompressed": "11e653b84eab32c3cfe838ad5840d8ee23c53596e21d982bda682d14343e6608",
+   "sha256": "960287f00ef31924fc926fe97652162b0bf5ee672453eec8000f8ddff7a3be80"
+  },
+  "volve_well_picks.csv": {
+   "from": "well_picks",
+   "how": "verbatim",
+   "sha256": "53ed9f062d53a584d05ad9388763a1844ecb5a580e216752dff86fad15e6e1a6"
+  },
+  "volve_surfaces.json.gz": {
+   "from": [
+    "hz_Ty",
+    "hz_SHETLAND",
+    "hz_BCU",
+    "hz_Hugin_Fm_Top",
+    "hz_Hugin_Base"
+   ],
+   "how": "subsampled to every 4th inline and crossline",
+   "points": {
+    "Ty": [
+     241541,
+     15116
+    ],
+    "SHETLAND": [
+     233358,
+     14610
+    ],
+    "BCU": [
+     230971,
+     14472
+    ],
+    "Hugin_Fm_Top": [
+     184066,
+     11499
+    ],
+    "Hugin_Base": [
+     186756,
+     11706
+    ]
+   },
+   "sha256": "5786b29bd9185702323429415472cc2c8e164d9a78ba67dba052d6589a00bcbf"
+  }
+ }
+}

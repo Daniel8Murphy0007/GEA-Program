@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.36.0 - 2026-10-16 - the well in 3D
+
+- **Surveys made into paths, among the formations, replayed.** Minimum
+  curvature checked against a known arc and the survey companies' own
+  positions; the Volve field shipped (three surveys, 408 picks, five
+  horizons) and checked against itself; a workspace well's survey attached
+  with its azimuth reference stated; the bit replayed from the recorder or
+  the survey stations' own times. Section CE; gate 395.
+
 ## v0.35.0 - 2026-10-15 - the control room
 
 - **A wall screen and the shift handover.** A tile per well, worst first,

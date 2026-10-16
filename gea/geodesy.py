@@ -48,6 +48,7 @@ ELLIPSOIDS: Dict[str, Tuple[float, float]] = {
     'GRS80': (6378137.0, 298.257222101),
     'CLARKE1866': (6378206.4, 294.9786982),
     'BESSEL': (6377397.155, 299.1528128),        # Bessel 1841: the DHDN ellipsoid the German Gauss-Krueger grids sit on
+    'INTL1924': (6378388.0, 297.0),              # International 1924 (Hayford): the ED50 ellipsoid the North Sea UTM grids sit on
 }
 
 # datum -> ellipsoid, the three-parameter shift to WGS84 (metres, geocentric), and what that shift is worth

@@ -609,6 +609,23 @@ against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
 
+### The well in 3D
+
+The 3D tab draws each well's path from its directional survey by the
+minimum-curvature method, below sea level from its declared rig floor, among
+the mapped formations - interpreted horizon surfaces, or a formation-top
+map's contours at their elevations - with its picks on it. Colour the wells
+by formation, inclination, dogleg severity, or a drilling recorder's gamma,
+rate of penetration or weight on bit along the bit depth; replay the bit
+going down the hole from the recorder's bit depth or the survey stations'
+own times. Turn, pan and zoom by pointer, touch or keys. The Volve field
+(Equinor's open data: three original surveys, the field's formation picks,
+five mapped horizons) ships as the worked example, checked against itself.
+Until then the workspace's formation-top contours are drawn on their own.
+A workspace well is drawn once it has a position, a reference elevation and
+a survey: `gea trajectory` attaches one, verbatim, with its azimuth
+reference stated. `gea well3d`, `gea help well3d`.
+
 ### The control room
 
 The Control room tab opens the wall: a screen read from across the room, one

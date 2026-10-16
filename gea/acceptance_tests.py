@@ -8613,6 +8613,183 @@ def section_cd_control_room(tmp: str) -> None:
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+
+def section_ce_well3d(tmp: str) -> None:
+    """Section CE - the well in 3D: the minimum-curvature method against a known arc and against the survey companies'
+    own positions, the shipped Volve excerpt checked against itself (frame, picks, surfaces, provenance), a workspace
+    well drawn from an attached survey among its formation-top contours with its recorder replay, the API and the tab."""
+    import base64 as _b64
+    import gzip as _gz
+    import hashlib as _hl
+    import http.cookiejar
+    import math as _m
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    from . import edr as E
+    from . import geodesy as G
+    from . import helplib as H
+    from . import shapefile as SF
+    from . import well3d as W
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ce"); d.mkdir()
+
+    R = 1000.0
+    q = W.min_curvature([0.0, _m.pi * R / 2], [0.0, 90.0], [0.0, 0.0])
+    p_arc = W.Path([0.0, _m.pi * R / 2], [0.0, 90.0], [0.0, 0.0], 0.0, 0.0, 0.0)
+    mid = p_arc.at(_m.pi * R / 4)
+    tr4 = W.read_witsml_trajectory(_gz.decompress((pkg / "reference" / "volve_traj_F-4.xml.gz").read_bytes()).decode())[0]
+    tr10 = W.read_witsml_trajectory(_gz.decompress((pkg / "reference" / "volve_traj_F-10.xml.gz").read_bytes()).decode())[0]
+    f5 = [t for n in ("36in", "17.5in", "12.25in", "8.5in") for t in W.read_witsml_trajectory(_gz.decompress((pkg / "reference" / f"volve_traj_F-5_{n}.xml.gz").read_bytes()).decode())]
+    rep5, _ = W.replay_from_stations(f5)
+    rep4, note4 = W.replay_from_stations([tr4])
+    csv_ok = "MD (ft),Inc (deg),Azi (deg)\n0,0,0\n1000,0,0\n2000,10,90\n3000,30,90\n4000,45,95\n5750,60,100\n"
+    refused = []
+    for bad in ("Depth,Angle\n0,0\n", "MD,Inc,Azi\n0,0,0\n0,1,2\n", "MD,Inc,Azi\n0,0,0\n100,x,2\n", "MD,Inc,Azi\n0,0,0\n100,200,2\n"):
+        try:
+            W.read_survey_csv(bad)
+        except ValueError:
+            refused.append(True)
+    st_csv = W.read_survey_csv(csv_ok, "ft")
+    c1 = {
+        "arc": abs(q["n"][1] - R) < 1e-9 and abs(q["v"][1] - R) < 1e-9 and abs(mid[1] - R * (1 - _m.cos(_m.pi / 4))) < 1e-6
+               and abs(mid[2] - R * _m.sin(_m.pi / 4)) < 1e-6 and abs(q["dls"][1] - 90.0 / (_m.pi * R / 2) * 30.0) < 1e-9,
+        "units": tr4["azi_ref"] == "true north" and abs(tr4["stations"][40]["incl"] - _m.degrees(0.446106147512686)) < 1e-9 and tr10["grid_cor_deg"] == -0.95
+                 and len(tr4["stations"]) == 87 and abs(st_csv[-1]["md"] - 5750 * 0.3048) < 1e-9,
+        "company": all(x is not None and x < 0.01 for x in (W.file_position_miss(tr4["stations"]), W.file_position_miss(tr10["stations"]),
+                                                            W.file_position_miss(f5[-1]["stations"]))),
+        "csv": len(refused) == 4,
+        "replay": rep5 is not None and len(rep5["t"]) == 100 and rep5["t"][0].startswith("2007-11-16") and rep5["t"][-1].startswith("2008-07-29")
+                  and rep4 is None and "1 distinct time" in note4 and all(m0 <= m1 or t0 < t1 for (t0, m0), (t1, m1) in zip(zip(rep5["t"], rep5["md"]), zip(rep5["t"][1:], rep5["md"][1:]))),
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CE1 the minimum-curvature method: a quarter circle of 1,000 m radius ends 1,000 m out and 1,000 m down, and its middle lies on the arc "
+       "(292.9 m out, 707.1 m down), not on a chord; the WITSML reader takes radians and degrees alike; the paths computed from the Volve files "
+       "reproduce the TVD and displacements the survey companies wrote in them to under a centimetre; a survey table without its columns, with a "
+       "repeated depth or a bad row refused; the replay only from stations measured while drilling (F-5: 100 steps, Nov 2007 to Jul 2008; F-4's "
+       "one-time resurvey not replayed)"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    sc = W.volve_scene()
+    wl = {w["id"]: w for w in sc["wells"]}
+    picks = W.volve_picks()
+    dms = lambda dd, mm, ss: dd + mm / 60 + ss / 3600
+    frame = []
+    for wn, la, lo in (("NO 15/9-F-1 C", dms(58, 26, 29.907), dms(1, 53, 14.708)), ("NO 15/9-F-11 B", dms(58, 26, 29.960), dms(1, 53, 14.870))):
+        sb = next(p for p in picks if p["WELL"] == wn and p["PICKS"] == "Seabed")
+        a = G.unproject(float(sb["EASTING"]), float(sb["NORTHING"]), G.utm(31, True, "INTL1924"))
+        b = G.unproject(float(sb["EASTING"]), float(sb["NORTHING"]), G.utm(31, True, "WGS84"))
+        frame.append((G.geodesic_m(a[0], a[1], la, lo)["distance_m"], G.geodesic_m(b[0], b[1], la, lo)["distance_m"]))
+    prov = json.loads((pkg / "reference" / "volve_3d.provenance.json").read_text(encoding="utf-8"))
+    hashes_ok = all(_hl.sha256((pkg / "reference" / k).read_bytes()).hexdigest() == v["sha256"] for k, v in prov["outputs"].items())
+    pts = prov["outputs"]["volve_surfaces.json.gz"]["points"]
+    c2 = {
+        "frame": all(a < 0.1 and 140 < b < 160 for a, b in frame) and "ED50" in sc["frame"]["crs"],
+        "picks": all(wl[k]["pick_miss_max_m"] < 0.3 and abs(wl[k]["ref_elev_m"] - 54.9) < 1e-6 for k in ("F-4", "F-5", "F-10"))
+                 and abs(wl["F-10"]["td_md"] - 5300.07) < 0.01 and len(sc["picks_only"]) == 31,
+        "azimuth": wl["F-4"]["azimuth"]["applied"] == "as grid" and "14 m" in wl["F-4"]["azimuth"]["note"] and wl["F-5"]["azimuth"]["file_reference"] == "grid north",
+        "surfaces": len(sc["surfaces"]) == 5 and all(s["affine_miss_m"] < 0.01 and s["tie_median_m"] < 7.0 and len(s["ties"]) >= 23 for s in sc["surfaces"])
+                    and all(pts[s["id"]] == [s["n_source_points"], s["n_points"]] for s in sc["surfaces"])
+                    and [s["id"] for s in sc["surfaces"]] == ["Ty", "SHETLAND", "BCU", "Hugin_Fm_Top", "Hugin_Base"],
+        "provenance": hashes_ok and "commercial purposes" in prov["license"] and "may not be sold" in prov["license"] and len(prov["sources"]) == 12
+                      and all(len(v["commit"]) == 40 for v in prov["sources"].values()) and "Equinor ASA" in sc["attribution"] and "not sold" in sc["attribution"],
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CE2 the Volve excerpt checked against itself: its eastings and northings are ED50 zone 31N (the slots unproject within 0.1 m of the "
+       "operator's own log headers, about 150 m off if read as WGS84); the three paths land on Equinor's picks to under 0.3 m from a 54.9 m rig "
+       "floor; 15/9-F-4's azimuths read as grid, with the 14 m it would miss by otherwise stated; five surfaces drawn as delivered, every fourth "
+       "line, each within a few metres of its picks at the median; every shipped file hashed in its provenance with the pinned public copy it "
+       "came from, the licence (commercial use, no sale) and the attribution on the page"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    ev = E.selftest_events(str(d))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    wb = ws.add_well_file(ev["path"], display="Well B", actor="tester"); wc = ws.add_well_file(ev["path"], display="Well C", actor="tester")
+    ws.set_well(wb["id"], surface={"lat": 31.42, "lon": -104.10, "datum": "NAD83", "elevation": {"ft": 3000.0, "datum": "KB", "source": "test plat"}}, actor="tester")
+    lat1, lon1 = 31.42, -104.10
+    kmlon = 1.0 / (111.195 * _m.cos(_m.radians(lat1)))
+    SF.write(str(d / "Top_A"), "PolyLine", [([[(lon1 + (i - 1.5) * kmlon + 0.0005 * k, lat1 - 0.05 + 0.001 * k) for k in range(100)]], {"ElevTop_ft": -1500.0 - 100.0 * i}) for i in range(4)],
+             [("ElevTop_ft", "F", 10, 1)], SF.NAD83_GEOGCS)
+    SF.write(str(d / "Faults"), "PolyLine", [([[(lon1 - 0.02 + 0.001 * j, lat1) for j in range(40)]], {"TYPE": "normal fault"})], [("TYPE", "C", 20, 0)], SF.NAD83_GEOGCS)
+    ws.add_layer(str(d / "Top_A.shp"), "Top A", actor="tester", formation="A", role="top", citation="test")
+    ws.add_layer(str(d / "Faults.shp"), "Faults", actor="tester", citation="test")
+    sc0 = W.workspace_scene(ws)                                   # no survey yet: the formation tops alone
+    att_refused = 0
+    for kw in ({"azimuth_reference": ""}, {"azimuth_reference": "grid"}, {"azimuth_reference": "magnetic"}, {"azimuth_reference": "true", "source": " "}):
+        k = {"azimuth_reference": "true", "source": "s", **kw}
+        try:
+            W.attach_trajectory(ws, wb["id"], "s.csv", csv_ok.encode(), "tester", k["azimuth_reference"], "ft", None, None, None, k["source"])
+        except ValueError:
+            att_refused += 1
+    ws.refresh_dashboard(actor="tester")
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        st_l, ls = call(V, "GET", "/api/3d/scenes")
+        st_v, vs = call(V, "GET", "/api/3d/scene/volve")
+        st_n, _ = call(V, "GET", "/api/3d/scene/nope")
+        body = {"filename": "survey.csv", "content_b64": _b64.b64encode(csv_ok.encode()).decode(), "azimuth_reference": "grid", "grid": "TX_CENTRAL",
+                "md_unit": "ft", "source": "test survey"}
+        st_pv, _ = call(V, "POST", f"/api/wells/{wb['id']}/trajectory", body)
+        st_b64, _ = call(O, "POST", f"/api/wells/{wb['id']}/trajectory", {**body, "content_b64": "%%%"})
+        st_at, at = call(O, "POST", f"/api/wells/{wb['id']}/trajectory", body)
+        st_w, wsc = call(V, "GET", "/api/3d/scene/workspace")
+    finally:
+        svc.stop()
+    kept = (Path(wsp, "wells", wb["id"], "trajectory", "survey.csv").read_bytes() == csv_ok.encode())
+    audit = [e["action"] for e in ws.audit_log(500)]
+    cli = _sp.run([sys.executable, "-m", "gea", "well3d", "--scene", "workspace", "--workspace", wsp], capture_output=True, text=True, cwd=str(pkg.parent))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    help_md = (pkg / "help" / "well3d.md").read_text(encoding="utf-8")
+    w0 = (wsc.get("wells") or [{}])[0]
+    c3 = {
+        "attach": att_refused == 4 and st_pv == 403 and st_b64 == 400 and st_at == 200 and at["stations"] == 6 and at["grid"] == "TX_CENTRAL" and kept
+                  and at["sha256"] == _hl.sha256(csv_ok.encode()).hexdigest() and "well.trajectory" in audit,
+        "scene": st_l == 200 and [s["id"] for s in ls["scenes"]] == ["workspace", "volve"] and st_v == 200 and len(vs["wells"]) == 3 and st_n == 404
+                 and st_w == 200 and len(wsc["wells"]) == 1 and abs(w0["td_md"] - 1752.6) < 0.01 and "TX_CENTRAL grid north" in w0["azimuth"]["applied"]
+                 and w0["replay"]["kind"] == "drilling recorder" and "Gamma" in w0["channels"] and not w0["replay"]["t"][0].endswith("Z")
+                 and [n["id"] for n in wsc["not_placed"]] == [wc["id"]] and wsc["layers"][0]["lines"][0]["z"] == round(1500 * 0.3048, 1)
+                 and any(n["display"] == "Faults" and "no depth" in n["why"] for n in wsc["layers_not_drawn"]),
+        "tops_alone": sc0["wells"] == [] and [l["name"] for l in sc0["layers"]] == ["Top A"] and sc0["frame"]["area"] == "the placed wells"
+                      and {n["id"]: n["why"] for n in sc0["not_placed"]}[wb["id"]] == "no directional survey attached",
+        "cli": cli.returncode == 0 and "Well B: 6 stations" in cli.stdout and "contour lines at their elevations" in cli.stdout,
+        "page": all(x in page_src for x in ("VIEWS['3d']", "['#/3d', '3D']", "getContext('webgl'", "OES_element_index_uint", "w3Tube", "w3SurfMesh",
+                                             "/api/3d/scene/", "w3Play", "the recorder's clock", "ArrowLeft", "see-through", "/trajectory`", "w3Hit")),
+        "help": any(t["topic"] == "well3d" for t in H.topics()) and not H.check("well3d") and H.VIEW_TOPIC.get("3d") == "well3d"
+                and "a well with no survey" in help_md.split("will not call a measurement")[1],
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CE3 a workspace well in 3D: a survey attached only with its azimuth reference stated (a grid named, a declination given) and its source, "
+       "kept byte for byte and audited; the path turned from TX_CENTRAL grid north by the convergence there, set below sea level from the "
+       "declared rig floor among the formation-top contours at their elevations (a fault trace listed as having no depth; the tops drawn alone "
+       "before any survey), the recorder's bit depth replayed on its own clock and its gamma along the path; a well without a position listed, not drawn; the API, the CLI and the 3D "
+       "tab (WebGL by hand, the replay, turn and zoom by pointer and keys); the help page"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -8698,6 +8875,7 @@ def main() -> int:
         section_cb_charts(tmp)
         section_cc_site_map(tmp)
         section_cd_control_room(tmp)
+        section_ce_well3d(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

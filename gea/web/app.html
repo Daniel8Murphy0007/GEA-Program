@@ -124,6 +124,12 @@ body.wallmode{--wbg:#fff;--wink:#000;--wmut:#2b2b2b;--wline:#000;--wsr:#b00020;-
 .wl-ev{display:flex;flex-wrap:wrap;gap:4px 18px}
 .wl-out{margin:40px auto;max-width:900px;padding:24px;border:4px solid var(--wsr);font-size:28px;font-weight:800}
 @media (max-width:640px){.wl-hand .p b{display:block}body.wallmode{font-size:16px}.wl-site,.wl-clock{font-size:24px}.wl-head h3{font-size:22px}.wl-state{font-size:20px}.wl-m dd{font-size:20px}}
+.w3-wrap{position:relative}.w3-stage{position:relative;height:min(68vh,720px);min-height:340px;border:1px solid var(--grid);border-radius:10px;overflow:hidden;background:var(--surface);touch-action:none}
+.w3-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}#w3O{pointer-events:none}#w3C:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
+.w3-leg{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin:8px 0}.w3-sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.w3-tg{display:inline-flex;align-items:center;gap:4px;font-size:13px;color:var(--ink2)}.w3-tg>input{min-width:0!important;margin:0}
+.w3-ramp{display:inline-flex;align-items:center;gap:6px}.w3-ramp .w3-bar{display:inline-block;width:140px;height:10px;border-radius:5px;background:linear-gradient(90deg,#86b6ef,#3987e5,#1c5cab,#0d366b)}
+.w3-read{min-height:2.6em;font-size:14px;margin:4px 0 8px}.w3-bar label>select{min-width:9em}
 @media print{header,nav,#toasts,button,.btn,.help,.skip,.row.card,input,select,textarea{display:none !important}body{background:#fff;color:#000;font-size:12px}main{max-width:none;padding:0}.card,.tile{box-shadow:none;border-color:#999;break-inside:avoid}a{color:#000;text-decoration:none}table{font-size:11px}svg.chart{height:200px}h2::after{content:" — printed " attr(data-printed);font-size:11px;color:#555}}
 .apr{min-width:260px;max-width:100%;overflow-wrap:anywhere}
 .kv{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;font-size:14px}.kv dt{color:var(--muted)}.kv dd{margin:0}
@@ -1727,6 +1733,196 @@ VIEWS.welcome = async () => {
 const watching = {};
 function watch(id, done) { if (watching[id]) return; watching[id] = true; const tick = async () => { try { const j = await get('/api/jobs/' + id); if (j.status === 'QUEUED' || j.status === 'RUNNING') return setTimeout(tick, 2000); delete watching[id]; toast(`${j.label}: ${j.status}`, j.status === 'DONE' ? 'ok' : 'err'); if (done) done(j); } catch (e) { delete watching[id]; } }; setTimeout(tick, 1500); }
 
+// ---------- the well in 3D: surveys made into paths, the mapped formations, the replay --------------------
+// WebGL by hand (no library): surfaces as lit meshes, each well a tube, picks and the bit as markers; labels, axes and
+// the north arrow on a 2D canvas laid over it. Depth is below sea level, positive down; the vertical exaggeration
+// stretches it on screen only. Every number on the page comes from the scene the service built.
+const W3 = {sc: null, gl: null, prog: null, lprog: null, meshes: [], lines: [], cam: null, exag: 2, colorBy: 'Formation', show: {}, rep: {well: null, i: 0, timer: null, speed: 1},
+  hover: null, drag: null, raf: 0, box: null, ov: null, cvs: null, sceneId: null};
+function w3Css(name) { return getComputedStyle(document.body).getPropertyValue(name).trim() || '#888'; }
+function w3Hex(h) { h = String(h).replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h, 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; }
+const W3_SLOTS = ['--s1', '--s2', '--s3', '--s4', '--s5', '--s6'];
+const W3_RAMP = ['#86b6ef', '#6da7ec', '#5598e7', '#3987e5', '#2a78d6', '#256abf', '#1c5cab', '#184f95', '#104281', '#0d366b'];   // one hue, light to dark
+function w3Ramp(t) { if (t === null || t === undefined || isNaN(t)) return w3Hex(w3Css('--muted')); t = Math.max(0, Math.min(1, t)); const k = t * (W3_RAMP.length - 1), i = Math.floor(k), f = k - i; const a = w3Hex(W3_RAMP[i]), b = w3Hex(W3_RAMP[Math.min(i + 1, W3_RAMP.length - 1)]); return a.map((v, j) => v + (b[j] - v) * f); }
+// depth in the scene's units for the reader: metres for a catalogue scene, the viewer's units for the workspace
+function w3L(m, d = 1) { if (m === null || m === undefined) return '—'; const ft = W3.sc && W3.sc.kind === 'workspace' && (PREFS.units || SITE.units || 'field') !== 'si'; const v = ft ? m / 0.3048 : m; return `${v.toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d})} ${ft ? 'ft' : 'm'}`; }
+// ---- matrices (column-major, as WebGL wants them) ----
+function m4mul(a, b) { const o = new Float32Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = s; } return o; }
+function m4persp(fov, asp, n, f) { const t = 1 / Math.tan(fov / 2), o = new Float32Array(16); o[0] = t / asp; o[5] = t; o[10] = (f + n) / (n - f); o[11] = -1; o[14] = 2 * f * n / (n - f); return o; }
+function m4look(e, c, u) { const z = norm3([e[0] - c[0], e[1] - c[1], e[2] - c[2]]), x = norm3(cross3(u, z)), y = cross3(z, x); return new Float32Array([x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -dot3(x, e), -dot3(y, e), -dot3(z, e), 1]); }
+function cross3(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+function dot3(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+function norm3(a) { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; }
+// scene metres (east, north, depth) -> GL (x east, y up, z south), centred and with the vertical exaggeration
+function w3P(x, y, z) { const b = W3.box; return [x - b.cx, -(z - b.cz) * W3.exag, -(y - b.cy)]; }
+function w3Shader(gl, vs, fs) { const p = gl.createProgram(); for (const [t, s] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)); gl.attachShader(p, sh); } gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); return p; }
+const W3_VS = `attribute vec3 aP; attribute vec3 aN; attribute vec3 aC; attribute float aM; uniform mat4 uM; varying vec3 vN; varying vec3 vC; varying float vM; void main(){ gl_Position = uM * vec4(aP,1.0); vN = aN; vC = aC; vM = aM; }`;
+const W3_FS = `precision mediump float; varying vec3 vN; varying vec3 vC; varying float vM; uniform vec3 uL; uniform float uA; uniform float uMd; uniform vec3 uG; uniform float uLit;
+void main(){ float d = abs(dot(normalize(vN), uL)); vec3 c = uLit > 0.5 ? vC * (0.42 + 0.58 * d) : vC; if (vM > uMd) c = mix(c, uG, 0.78); gl_FragColor = vec4(c, uA); }`;
+function w3Buf(gl, pos, nor, col, md, idx) { const mk = (d, t = gl.ARRAY_BUFFER) => { const b = gl.createBuffer(); gl.bindBuffer(t, b); gl.bufferData(t, d, gl.STATIC_DRAW); return b; };
+  return {p: mk(new Float32Array(pos)), n: mk(new Float32Array(nor)), c: mk(new Float32Array(col)), m: mk(new Float32Array(md)), i: idx ? mk(new Uint32Array(idx), gl.ELEMENT_ARRAY_BUFFER) : null, count: idx ? idx.length : pos.length / 3}; }
+function w3Free(gl, o) { for (const k of ['p', 'n', 'c', 'm', 'i']) if (o[k]) gl.deleteBuffer(o[k]); }
+// a surface: the grid as delivered, two triangles per cell whose four nodes were all picked
+function w3SurfMesh(s, col) {
+  const pos = [], nor = [], cc = [], md = [], idx = [], at = new Int32Array(s.ni * s.nj).fill(-1);
+  for (let a = 0; a < s.ni; a++) for (let b = 0; b < s.nj; b++) { const z = s.z[a * s.nj + b]; if (z === null) continue; const x = s.affine_x[0] + s.affine_x[1] * a + s.affine_x[2] * b, y = s.affine_y[0] + s.affine_y[1] * a + s.affine_y[2] * b;
+    at[a * s.nj + b] = pos.length / 3; pos.push(...w3P(x, y, z)); nor.push(0, 0, 0); cc.push(...col); md.push(-1e9); }
+  for (let a = 0; a < s.ni - 1; a++) for (let b = 0; b < s.nj - 1; b++) { const q = [at[a * s.nj + b], at[(a + 1) * s.nj + b], at[(a + 1) * s.nj + b + 1], at[a * s.nj + b + 1]]; if (q.some(v => v < 0)) continue; idx.push(q[0], q[1], q[2], q[0], q[2], q[3]); }
+  for (let t = 0; t < idx.length; t += 3) { const [i, j, k] = [idx[t], idx[t + 1], idx[t + 2]]; const p = i2 => [pos[i2 * 3], pos[i2 * 3 + 1], pos[i2 * 3 + 2]]; const n = cross3(p(j).map((v, q) => v - p(i)[q]), p(k).map((v, q) => v - p(i)[q])); for (const v of [i, j, k]) for (let q = 0; q < 3; q++) nor[v * 3 + q] += n[q]; }
+  return {pos, nor, cc, md, idx};
+}
+// a well: a tube along the dense path, each ring coloured from what was measured at its depth
+function w3Tube(xs, ys, zs, mds, cols, r, seg = 8) {
+  const P = xs.map((x, i) => w3P(x, ys[i], zs[i])), pos = [], nor = [], cc = [], md = [], idx = [];
+  let prevN = null;
+  for (let i = 0; i < P.length; i++) { const a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)]; const t = norm3([b[0] - a[0], b[1] - a[1], b[2] - a[2]]);
+    let n = prevN ? norm3(cross3(cross3(t, prevN), t)) : norm3(cross3(t, Math.abs(t[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])); if (!isFinite(n[0])) n = [1, 0, 0]; prevN = n; const bn = cross3(t, n);
+    for (let k = 0; k < seg; k++) { const ang = k / seg * Math.PI * 2, d = [n[0] * Math.cos(ang) + bn[0] * Math.sin(ang), n[1] * Math.cos(ang) + bn[1] * Math.sin(ang), n[2] * Math.cos(ang) + bn[2] * Math.sin(ang)];
+      pos.push(P[i][0] + d[0] * r, P[i][1] + d[1] * r, P[i][2] + d[2] * r); nor.push(...d); cc.push(...cols[i]); md.push(mds[i]); } }
+  for (let i = 0; i < P.length - 1; i++) for (let k = 0; k < seg; k++) { const a = i * seg + k, b = i * seg + (k + 1) % seg, c = a + seg, d = b + seg; idx.push(a, c, b, b, c, d); }
+  return {pos, nor, cc, md, idx};
+}
+function w3Oct(cx, cy, cz, s, col, out) { const c = w3P(cx, cy, cz), v = [[s, 0, 0], [-s, 0, 0], [0, s, 0], [0, -s, 0], [0, 0, s], [0, 0, -s]], f = [[0, 2, 4], [2, 1, 4], [1, 3, 4], [3, 0, 4], [2, 0, 5], [1, 2, 5], [3, 1, 5], [0, 3, 5]];
+  for (const t of f) { const p = t.map(i => [c[0] + v[i][0], c[1] + v[i][1], c[2] + v[i][2]]); const n = norm3(cross3(p[1].map((x, q) => x - p[0][q]), p[2].map((x, q) => x - p[0][q]))); for (const q of p) { out.pos.push(...q); out.nor.push(...n); out.cc.push(...col); out.md.push(-1e9); out.idx.push(out.idx.length); } } }
+// the formation a measured depth is in, from the well's picks: the colour of the mapped surface on top of it
+function w3Formation(w, md) { let last = null; for (const p of w.picks) if (p.surface && p.md <= md) last = p.surface; return last; }
+function w3SurfIndex() { const m = {}; (W3.sc.surfaces || []).forEach((s, i) => m[s.id] = i); return m; }
+function w3ChanAt(ch, md) { const a = ch.md, v = ch.v; if (!a || !a.length) return null; let lo = 0, hi = a.length - 1; if (md <= a[0]) return v[0]; if (md >= a[hi]) return v[hi]; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (a[m] <= md) lo = m; else hi = m; } if (v[lo] === null || v[hi] === null) return v[lo] ?? v[hi]; return v[lo] + (v[hi] - v[lo]) * (md - a[lo]) / ((a[hi] - a[lo]) || 1); }
+function w3Range() { if (W3.colorBy === 'Formation') return null; let lo = Infinity, hi = -Infinity; for (const w of W3.sc.wells) { const ch = w.channels[W3.colorBy]; if (!ch) continue; for (const v of ch.v) if (v !== null && isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } } return isFinite(lo) ? [lo, hi] : null; }
+function w3Build() {
+  const gl = W3.gl, sc = W3.sc; for (const m of W3.meshes) w3Free(gl, m.b); for (const m of W3.lines) w3Free(gl, m.b); W3.meshes = []; W3.lines = [];
+  const si = w3SurfIndex(), slot = i => w3Hex(w3Css(W3_SLOTS[i % W3_SLOTS.length])), grey = w3Hex(w3Css('--muted'));
+  (sc.surfaces || []).forEach((s, i) => { if (W3.show['s:' + s.id] === false) return; const g = w3SurfMesh(s, slot(i)); W3.meshes.push({kind: 'surface', id: s.id, b: w3Buf(gl, g.pos, g.nor, g.cc, g.md, g.idx), alpha: W3.show.seeThrough ? 0.55 : 1}); });
+  const rng = w3Range(), r = Math.max(4, W3.box.span / 450);
+  for (const w of sc.wells) { if (W3.show['w:' + w.id] === false) continue; const p = w.path, ch = w.channels[W3.colorBy];
+    const cols = p.md.map(md => { if (W3.colorBy === 'Formation') { const f = w3Formation(w, md); return f !== null && f !== undefined && si[f] !== undefined ? slot(si[f]) : grey; } const v = ch ? w3ChanAt(ch, md) : null; return rng ? w3Ramp(v === null ? null : (v - rng[0]) / ((rng[1] - rng[0]) || 1)) : grey; });
+    const g = w3Tube(p.x, p.y, p.z, p.md, cols, r); W3.meshes.push({kind: 'well', id: w.id, b: w3Buf(gl, g.pos, g.nor, g.cc, g.md, g.idx), alpha: 1}); }
+  if (W3.show.picks !== false) { const o = {pos: [], nor: [], cc: [], md: [], idx: []}; for (const w of sc.wells) { if (W3.show['w:' + w.id] === false) continue; for (const p of w.picks) w3Oct(p.x, p.y, p.z, r * 2.6, p.surface !== undefined && si[p.surface] !== undefined ? slot(si[p.surface]) : w3Hex(w3Css('--ink2')), o); }
+    if (W3.show.others) for (const ow of sc.picks_only || []) for (const p of ow.picks) w3Oct(p.x, p.y, p.z, r * 1.6, grey, o);
+    if (o.pos.length) W3.meshes.push({kind: 'picks', b: w3Buf(gl, o.pos, o.nor, o.cc, o.md, o.idx), alpha: 1}); }
+  (sc.layers || []).forEach((l, i) => { if (W3.show['l:' + l.id] === false) return; const pos = [], c = slot(i), cc = [], nor = [], md = []; for (const ln of l.lines) for (let k = 0; k < ln.x.length - 1; k++) { pos.push(...w3P(ln.x[k], ln.y[k], ln.z), ...w3P(ln.x[k + 1], ln.y[k + 1], ln.z)); cc.push(...c, ...c); nor.push(0, 1, 0, 0, 1, 0); md.push(-1e9, -1e9); } if (pos.length) W3.lines.push({id: l.id, b: w3Buf(gl, pos, nor, cc, md, null)}); });
+  w3Legend(rng);
+}
+function w3Bit() { const R = W3.rep, w = R.well && W3.sc.wells.find(x => x.id === R.well); if (!w || !w.replay) return null; const md = w.replay.md[R.i]; let x, y, z; const p = w.path; let k = 0; while (k < p.md.length - 1 && p.md[k + 1] < md) k++; const f = Math.max(0, Math.min(1, (md - p.md[k]) / ((p.md[k + 1] - p.md[k]) || 1))); x = p.x[k] + (p.x[Math.min(k + 1, p.md.length - 1)] - p.x[k]) * f; y = p.y[k] + (p.y[Math.min(k + 1, p.md.length - 1)] - p.y[k]) * f; z = p.z[k] + (p.z[Math.min(k + 1, p.md.length - 1)] - p.z[k]) * f; return {w, md, x, y, z, t: w.replay.t[R.i]}; }
+function w3Mvp() { const c = W3.cam, cv = W3.cvs, asp = cv.width / Math.max(1, cv.height); const e = [c.t[0] + c.d * Math.cos(c.p) * Math.sin(c.y), c.t[1] + c.d * Math.sin(c.p), c.t[2] + c.d * Math.cos(c.p) * Math.cos(c.y)]; W3.eye = e; return m4mul(m4persp(0.8, asp, c.d / 200, c.d * 20), m4look(e, c.t, [0, 1, 0])); }
+function w3Draw() {
+  W3.raf = 0; const gl = W3.gl; if (!gl || !W3.cvs.isConnected) return; const cv = W3.cvs, dpr = window.devicePixelRatio || 1, wpx = cv.clientWidth, hpx = cv.clientHeight;
+  if (cv.width !== Math.round(wpx * dpr) || cv.height !== Math.round(hpx * dpr)) { cv.width = Math.round(wpx * dpr); cv.height = Math.round(hpx * dpr); W3.ov.width = cv.width; W3.ov.height = cv.height; }
+  gl.viewport(0, 0, cv.width, cv.height); const bg = w3Hex(w3Css('--surface')); gl.clearColor(bg[0], bg[1], bg[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
+  const M = w3Mvp(); W3.mvp = M; const pr = W3.prog; gl.useProgram(pr); gl.uniformMatrix4fv(gl.getUniformLocation(pr, 'uM'), false, M); gl.uniform3fv(gl.getUniformLocation(pr, 'uL'), norm3([0.4, 0.85, 0.35])); gl.uniform3fv(gl.getUniformLocation(pr, 'uG'), bg);
+  const bit = w3Bit(); const draw = (m, mode) => { for (const [k, n] of [['p', 'aP'], ['n', 'aN'], ['c', 'aC'], ['m', 'aM']]) { const loc = gl.getAttribLocation(pr, n); gl.bindBuffer(gl.ARRAY_BUFFER, m.b[k]); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, k === 'm' ? 1 : 3, gl.FLOAT, false, 0, 0); }
+    gl.uniform1f(gl.getUniformLocation(pr, 'uA'), m.alpha ?? 1); gl.uniform1f(gl.getUniformLocation(pr, 'uMd'), m.kind === 'well' && bit && bit.w.id === m.id ? bit.md : 1e12); gl.uniform1f(gl.getUniformLocation(pr, 'uLit'), mode === gl.LINES ? 0 : 1);
+    if (m.b.i) { gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.b.i); gl.drawElements(mode, m.b.count, gl.UNSIGNED_INT, 0); } else gl.drawArrays(mode, 0, m.b.count); };
+  for (const m of W3.meshes) if (m.alpha >= 1) draw(m, gl.TRIANGLES);
+  for (const l of W3.lines) draw({...l, alpha: 1}, gl.LINES);
+  if (bit) { const o = {pos: [], nor: [], cc: [], md: [], idx: []}; w3Oct(bit.x, bit.y, bit.z, Math.max(4, W3.box.span / 450) * 5, w3Hex(w3Css('--s2')), o); const b = w3Buf(gl, o.pos, o.nor, o.cc, o.md, o.idx); draw({b, alpha: 1}, gl.TRIANGLES); w3Free(gl, b); }
+  const tr = W3.meshes.filter(m => m.alpha < 1); if (tr.length) { gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); for (const m of tr) draw(m, gl.TRIANGLES); gl.depthMask(true); gl.disable(gl.BLEND); }
+  w3Overlay(bit);
+}
+function w3Req() { if (!W3.raf) W3.raf = requestAnimationFrame(w3Draw); }
+function w3Scr(x, y, z) { const p = w3P(x, y, z), M = W3.mvp; const X = M[0] * p[0] + M[4] * p[1] + M[8] * p[2] + M[12], Y = M[1] * p[0] + M[5] * p[1] + M[9] * p[2] + M[13], Wc = M[3] * p[0] + M[7] * p[1] + M[11] * p[2] + M[15]; if (Wc <= 0) return null; const cv = W3.cvs; return [(X / Wc * 0.5 + 0.5) * cv.clientWidth, (1 - (Y / Wc * 0.5 + 0.5)) * cv.clientHeight]; }
+function w3Overlay(bit) {
+  const ov = W3.ov, c = ov.getContext('2d'), dpr = window.devicePixelRatio || 1; c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, ov.width, ov.height); const ink = w3Css('--ink'), sf = w3Css('--surface'), mut = w3Css('--muted');
+  const txt = (s, x, y, al = 'left', col = ink, bold = false) => { c.font = `${bold ? 600 : 400} 12px ${w3Css('--sans') || 'sans-serif'}`; c.textAlign = al; c.lineWidth = 3; c.strokeStyle = sf; c.strokeText(s, x, y); c.fillStyle = col; c.fillText(s, x, y); };
+  const b = W3.box;   // the box: the corners at the top and bottom of the scene, a depth scale on one edge
+  c.strokeStyle = mut; c.lineWidth = 1; const corners = [[b.x0, b.y0], [b.x1, b.y0], [b.x1, b.y1], [b.x0, b.y1]];
+  for (const z of [b.z0, b.z1]) { c.beginPath(); corners.forEach(([x, y], i) => { const s = w3Scr(x, y, z); if (s) (i ? c.lineTo(s[0], s[1]) : c.moveTo(s[0], s[1])); }); const s0 = w3Scr(b.x0, b.y0, z); if (s0) c.lineTo(s0[0], s0[1]); c.stroke(); }
+  for (const [x, y] of corners) { const a = w3Scr(x, y, b.z0), d = w3Scr(x, y, b.z1); if (a && d) { c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(d[0], d[1]); c.stroke(); } }
+  const uu = W3.sc.kind === 'workspace' && (PREFS.units || SITE.units || 'field') !== 'si' ? 0.3048 : 1, step = w3Nice((b.z1 - b.z0) / uu / 5) * uu; for (let z = Math.ceil(b.z0 / step) * step; z <= b.z1; z += step) { const s = w3Scr(b.x0, b.y0, z); if (s) txt(Math.abs(z) < 0.5 ? 'sea level' : (z < 0 ? `${w3L(-z, 0)} above` : w3L(z, 0)), s[0] - 6, s[1] + 4, 'right', mut); }
+  const n0 = w3Scr(b.cx, b.cy, b.z0), n1 = w3Scr(b.cx, b.cy + (b.y1 - b.y0) * 0.25, b.z0); if (n0 && n1) { c.strokeStyle = ink; c.lineWidth = 2; c.beginPath(); c.moveTo(n0[0], n0[1]); c.lineTo(n1[0], n1[1]); c.stroke(); txt('N', n1[0], n1[1] - 4, 'center', ink, true); }
+  for (const w of W3.sc.wells) { if (W3.show['w:' + w.id] === false) continue; const s = w3Scr(w.path.x[0], w.path.y[0], w.path.z[0]); if (s) txt(w.name.replace(/^NO /, ''), s[0], s[1] - 8, 'center', ink, true); }
+  if (W3.show.labels) for (const w of W3.sc.wells) for (const p of w.picks) { if (!p.surface) continue; const s = w3Scr(p.x, p.y, p.z); if (s) txt(p.name, s[0] + 8, s[1] + 4, 'left', ink); }
+  (W3.sc.surfaces || []).forEach((s, si) => { if (W3.show['s:' + s.id] === false) return; const a = s.ni - 1, bb = Math.floor(s.nj * (si + 1) / ((W3.sc.surfaces.length || 1) + 1)); let z = null, aa = a; while (aa > 0 && (z = s.z[aa * s.nj + bb]) === null) aa--; if (z === null) return; const x = s.affine_x[0] + s.affine_x[1] * aa + s.affine_x[2] * bb, y = s.affine_y[0] + s.affine_y[1] * aa + s.affine_y[2] * bb; const sc_ = w3Scr(x, y, z); if (sc_) txt(s.name, sc_[0] + 6, sc_[1], 'left', ink); });
+  if (bit) { const s = w3Scr(bit.x, bit.y, bit.z); if (s) txt(`bit ${w3L(bit.md, 0)} MD`, s[0] + 12, s[1] - 10, 'left', ink, true); }
+  if (W3.hover && W3.hover.s) { c.fillStyle = ink; c.beginPath(); c.arc(W3.hover.s[0], W3.hover.s[1], 4, 0, Math.PI * 2); c.fill(); }
+}
+function w3Nice(v) { const p = Math.pow(10, Math.floor(Math.log10(v || 1))), f = v / p; return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p; }
+function w3Legend(rng) {
+  const el = $('#w3Leg'); if (!el) return; const sw = c => `<span class="w3-sw" style="background:var(${c})"></span>`;
+  let h = (W3.sc.surfaces || []).map((s, i) => `<label class="w3-tg">${sw(W3_SLOTS[i % 6])}<input type="checkbox" data-w3s="${esc(s.id)}" ${W3.show['s:' + s.id] === false ? '' : 'checked'}> ${esc(s.name)}</label>`).join('');
+  h += (W3.sc.layers || []).map((l, i) => `<label class="w3-tg">${sw(W3_SLOTS[i % 6])}<input type="checkbox" data-w3l="${esc(l.id)}" ${W3.show['l:' + l.id] === false ? '' : 'checked'}> ${esc(l.name)}</label>`).join('');
+  if (W3.colorBy === 'Formation') h += `<span class="small muted">Wells coloured by the mapped surface above each depth (from the well's picks); grey above the first.</span>`;
+  else if (rng) h += `<span class="w3-ramp"><span class="small">${esc(fmt(rng[0], 2))}</span><span class="w3-bar"></span><span class="small">${esc(fmt(rng[1], 2))} ${esc(Object.values(W3.sc.wells.map(w => w.channels[W3.colorBy]).filter(Boolean))[0]?.unit || '')}</span></span><span class="small muted">${esc(W3.colorBy)} along the wells, light to dark; grey where nothing was measured.</span>`;
+  el.innerHTML = h;
+  el.querySelectorAll('[data-w3s]').forEach(x => x.onchange = () => { W3.show['s:' + x.dataset.w3s] = x.checked; w3Build(); w3Req(); });
+  el.querySelectorAll('[data-w3l]').forEach(x => x.onchange = () => { W3.show['l:' + x.dataset.w3l] = x.checked; w3Build(); w3Req(); });
+}
+function w3Fit() { const b = W3.box; W3.cam = {t: [0, 0, 0], d: Math.max(b.x1 - b.x0, b.y1 - b.y0, (b.z1 - b.z0) * W3.exag) * 1.25, y: 0.75, p: 0.42}; }
+function w3Box() { const xs = [], ys = [], zs = []; const add = (x, y, z) => { if (x !== null && y !== null && z !== null && isFinite(x)) { xs.push(x); ys.push(y); zs.push(z); } };
+  for (const w of W3.sc.wells) { add(w.path.x[0], w.path.y[0], Math.min(0, w.path.z[0])); w.path.x.forEach((x, i) => add(x, w.path.y[i], w.path.z[i])); }
+  for (const s of W3.sc.surfaces || []) for (const [a, b] of [[0, 0], [s.ni - 1, 0], [0, s.nj - 1], [s.ni - 1, s.nj - 1]]) add(s.affine_x[0] + s.affine_x[1] * a + s.affine_x[2] * b, s.affine_y[0] + s.affine_y[1] * a + s.affine_y[2] * b, (s.z_range || [0])[0]);
+  for (const s of W3.sc.surfaces || []) zs.push(s.z_range[1]);
+  for (const l of W3.sc.layers || []) for (const ln of l.lines) ln.x.forEach((x, i) => add(x, ln.y[i], ln.z));
+  const mn = a => a.reduce((p, v) => Math.min(p, v), Infinity), mx = a => a.reduce((p, v) => Math.max(p, v), -Infinity);
+  const b = {x0: mn(xs), x1: mx(xs), y0: mn(ys), y1: mx(ys), z0: Math.min(0, mn(zs)), z1: mx(zs)}; b.cx = (b.x0 + b.x1) / 2; b.cy = (b.y0 + b.y1) / 2; b.cz = (b.z0 + b.z1) / 2; b.span = Math.max(b.x1 - b.x0, b.y1 - b.y0, b.z1 - b.z0); W3.box = b; }
+// what is under the pointer: the nearest drawn path point or pick within 12 px
+function w3Hit(px, py) { let best = null; const ck = (s, item) => { if (!s) return; const d = Math.hypot(s[0] - px, s[1] - py); if (d < 12 && (!best || d < best.d)) best = {d, s, ...item}; };
+  for (const w of W3.sc.wells) { if (W3.show['w:' + w.id] === false) continue; const p = w.path; for (let i = 0; i < p.md.length; i++) ck(w3Scr(p.x[i], p.y[i], p.z[i]), {kind: 'path', w, i}); if (W3.show.picks !== false) for (const q of w.picks) ck(w3Scr(q.x, q.y, q.z), {kind: 'pick', w, q}); }
+  if (W3.show.others && W3.show.picks !== false) for (const ow of W3.sc.picks_only || []) for (const q of ow.picks) ck(w3Scr(q.x, q.y, q.z), {kind: 'other', ow, q});
+  return best; }
+function w3Read(h) {
+  const el = $('#w3Read'); if (!el) return; if (!h) { el.innerHTML = '<span class="muted">Point at a well or a pick for its numbers.</span>'; return; }
+  if (h.kind === 'path') { const w = h.w, p = w.path, md = p.md[h.i], st = w.stations; let k = 0; while (k < st.md.length - 1 && st.md[k + 1] < md) k++; const f = w3Formation(w, md), s = (W3.sc.surfaces || []).find(x => x.id === f);
+    const ch = W3.colorBy !== 'Formation' && w.channels[W3.colorBy] ? w3ChanAt(w.channels[W3.colorBy], md) : null;
+    el.innerHTML = `<b>${esc(w.name)}</b> · MD ${w3L(md)} · ${w3L(p.z[h.i])} below sea level · ${w3L(p.x[h.i] - p.x[0], 0)} east, ${w3L(p.y[h.i] - p.y[0], 0)} north of the slot · inclination ${fmt(st.incl[k], 1)}° at the station above (${w3L(st.md[k], 0)})${s ? ` · below the ${esc(s.name)} (pick)` : ''}${ch !== null ? ` · ${esc(W3.colorBy)} ${fmt(ch, 2)} ${esc(w.channels[W3.colorBy].unit)}` : ''}`; return; }
+  if (h.kind === 'pick') { const q = h.q; el.innerHTML = `<b>${esc(q.name)}</b> on ${esc(h.w.name)} · MD ${w3L(q.md)} · ${w3L(q.z)} below sea level on the path${q.tvdss_pick !== null && q.tvdss_pick !== undefined ? ` (the pick says ${w3L(q.tvdss_pick)})` : ''}${q.miss_m !== undefined ? ` · the path passes ${w3L(q.miss_m, 2)} from the pick's own position` : ''}${q.surface_minus_pick_m !== undefined && q.surface_minus_pick_m !== null ? ` · the mapped surface here is ${w3L(Math.abs(q.surface_minus_pick_m), 1)} ${q.surface_minus_pick_m > 0 ? 'deeper' : 'shallower'} than the pick` : ''}`; return; }
+  el.innerHTML = `<b>${esc(h.q.name)}</b> on ${esc(h.ow.well)} · MD ${w3L(h.q.md)} · ${w3L(h.q.z)} below sea level · <span class="muted">a pick only: no survey for this wellbore in the excerpt</span>`;
+}
+function w3RepSet(i) { const R = W3.rep, w = W3.sc.wells.find(x => x.id === R.well); if (!w || !w.replay) return; R.i = Math.max(0, Math.min(w.replay.t.length - 1, i)); const s = $('#w3Slider'); if (s) s.value = R.i; const b = w3Bit(); $('#w3RepTxt').innerHTML = b ? `${/(Z|[+-]\d\d:?\d\d)$/.test(b.t) ? tz(b.t) : esc(b.t.replace('T', ' ')) + " (the recorder's clock)"} · bit at ${w3L(b.md, 1)} MD, ${w3L(b.z, 1)} below sea level · step ${R.i + 1} of ${w.replay.t.length}` : ''; w3Req(); }
+function w3Stop() { clearInterval(W3.rep.timer); W3.rep.timer = null; const b = $('#w3Play'); if (b) { b.textContent = 'Play'; b.setAttribute('aria-pressed', 'false'); } }
+VIEWS['3d'] = async (arg) => {
+  w3Stop(); const list = (await get('/api/3d/scenes')).scenes; const want = arg || W3.sceneId || (list.find(s => s.kind === 'workspace' && s.wells) ? 'workspace' : 'volve'); W3.sceneId = want;
+  const sc = await get('/api/3d/scene/' + encodeURIComponent(want)); W3.sc = sc; W3.rep = {well: null, i: 0, timer: null, speed: 1}; W3.hover = null;
+  const chans = [...new Set(sc.wells.flatMap(w => Object.keys(w.channels)))]; const hasPicks = sc.wells.some(w => w.picks.length); W3.colorBy = hasPicks ? 'Formation' : (chans[0] || 'Inclination'); W3.exag = !sc.wells.length && (sc.layers || []).length ? 20 : 2;
+  const reps = sc.wells.filter(w => w.replay);
+  let h = `<h2>The well in 3D</h2><div class="row card w3-bar"><label>Scene<select id="w3Scene">${list.map(s => `<option value="${esc(s.id)}" ${s.id === want ? 'selected' : ''}>${esc(s.title)}${s.kind === 'workspace' ? ` (${s.wells} with a survey)` : ''}</option>`).join('')}</select></label>
+    <label ${sc.wells.length ? '' : 'hidden'}>Colour the wells by<select id="w3Col">${hasPicks ? '<option>Formation</option>' : ''}${chans.map(c => `<option ${c === W3.colorBy ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
+    <label>Vertical exaggeration<select id="w3Ex">${[1, 2, 3, 5, 10, 20, 50].map(v => `<option value="${v}" ${v === W3.exag ? 'selected' : ''}>${v}×</option>`).join('')}</select></label>
+    <span ${sc.wells.length ? '' : 'hidden'}><label class="w3-tg"><input type="checkbox" id="w3Picks" checked> picks</label> <label class="w3-tg"><input type="checkbox" id="w3Others"> other wellbores' picks</label> <label class="w3-tg"><input type="checkbox" id="w3Labels"> pick names</label></span><label class="w3-tg" ${(sc.surfaces || []).length ? '' : 'hidden'}><input type="checkbox" id="w3See" ${(sc.surfaces || []).length && sc.wells.length ? 'checked' : ''}> see-through surfaces</label>
+    <button type="button" class="secondary" id="w3Reset" title="Home">Reset view</button></div>`;
+  h += `<div class="w3-wrap"><div class="w3-stage"><canvas id="w3C" tabindex="0" aria-label="3D view of ${esc(sc.title)}: drag to turn, shift-drag to pan, wheel to zoom; arrows turn, plus and minus zoom, Home resets"></canvas><canvas id="w3O" aria-hidden="true"></canvas></div><div class="w3-leg" id="w3Leg"></div><p class="w3-read" id="w3Read" aria-live="polite"></p></div>`;
+  h += reps.length ? `<div class="row card"><label>Replay<select id="w3RepW"><option value="">—</option>${reps.map(w => `<option value="${esc(w.id)}">${esc(w.name)} (${w.replay.t.length} steps, ${esc(w.replay.kind)})</option>`).join('')}</select></label><button type="button" id="w3Play" aria-pressed="false" disabled>Play</button><label>Speed<select id="w3Spd"><option value="1">1×</option><option value="4">4×</option><option value="16">16×</option></select></label><input type="range" id="w3Slider" min="0" max="0" value="0" style="flex:1;min-width:180px" aria-label="Replay step" disabled><span id="w3RepTxt" class="small"></span></div>` : '';
+  h += `<div class="w3-msg" id="w3Msg"></div>`;
+  if (sc.wells.length) h += `<h3>Wells</h3><table><thead><tr><th>Well</th><th>Stations</th><th>Total depth</th><th>Below sea level</th><th>Azimuths</th><th>Checked</th><th>Replay</th></tr></thead><tbody>${sc.wells.map(w => `<tr><td>${esc(w.name)}<br><span class="small muted">${esc(w.source)}</span></td><td>${w.n_stations}</td><td>${w3L(w.td_md)} MD</td><td>${w3L(w.td_z)}</td><td class="apr">${esc(w.azimuth.applied)}${w.azimuth.note ? `<br><span class="small">${esc(w.azimuth.note)}</span>` : ''}</td><td class="small">${w.file_position_miss_m !== null && w.file_position_miss_m !== undefined ? `the file's own positions to ${w.file_position_miss_m < 0.001 ? 'under a millimetre' : w.file_position_miss_m + ' m'}` : ''}${w.pick_miss_max_m !== null && w.pick_miss_max_m !== undefined ? `<br>the picks to ${w.pick_miss_max_m} m` : ''}</td><td class="small">${w.replay ? `${w.replay.t.length} steps, ${esc(w.replay.how)}` : esc(w.replay_note || 'no recorder bit depth')}</td></tr>`).join('')}</tbody></table>`;
+  if ((sc.not_placed || []).length) h += `<p class="small"><b>Not drawn:</b> ${sc.not_placed.map(n => `${esc(n.display)} (${esc(n.why)})`).join('; ')}. <a href="#/setup">Setup</a> declares positions and elevations; a survey is attached with <span class="mono">gea trajectory</span> or below.</p>`;
+  if ((sc.surfaces || []).length) h += `<h3>Surfaces</h3><table><thead><tr><th>Surface</th><th>Points drawn</th><th>Depth range</th><th>Against the picks</th></tr></thead><tbody>${sc.surfaces.map(s => `<tr><td>${esc(s.name)}</td><td>${s.n_points.toLocaleString()} of ${(s.n_source_points || 0).toLocaleString()} (every ${s.step}th inline and crossline)</td><td>${w3L(s.z_range[0], 0)} to ${w3L(s.z_range[1], 0)}</td><td>${s.ties.length} picks: median ${w3L(s.tie_median_m, 1)}, largest ${w3L(s.tie_max_m, 1)}</td></tr>`).join('')}</tbody></table>`;
+  if ((sc.layers_not_drawn || []).length) h += `<details><summary>Layers not drawn in 3D (${sc.layers_not_drawn.length})</summary><ul class="small">${sc.layers_not_drawn.map(n => `<li>${esc(n.display)}: ${esc(n.why)}</li>`).join('')}</ul></details>`;
+  h += `<p class="small muted">${sc.frame ? `Frame: ${esc(sc.frame.crs)}. ${sc.frame.check ? esc(sc.frame.check.charAt(0).toUpperCase() + sc.frame.check.slice(1)) + '. ' : ''}` : ''}Not drawn: ${(sc.not_drawn || []).map(esc).join('; ')}.</p>${sc.attribution ? `<p class="small">${esc(sc.attribution)}</p>` : ''}`;
+  if (sc.kind === 'workspace' && can('operator')) h += `<form class="card" id="w3Att"><h3>Attach a directional survey</h3><p class="small">A WITSML trajectory, or a table with measured depth, inclination and azimuth columns. Kept verbatim beside the well. The azimuth reference is the operator's statement - say which.</p><div class="row"><label>Well<select id="w3AW">${(await get('/api/wells')).wells.map(w => `<option value="${esc(w.id)}">${esc(w.display || w.id)}</option>`).join('')}</select></label><label>File<input type="file" id="w3AF" accept=".csv,.txt,.xml,.tsv"></label><label>Azimuths are<select id="w3AR"><option value="grid">grid north</option><option value="true">true north</option><option value="magnetic">magnetic north</option></select></label><label>Grid<input id="w3AG" placeholder="TX_CENTRAL or UTM14N"></label><label>Declination°<input id="w3AD" type="number" step="0.01"></label><label>MD unit<select id="w3AU"><option>ft</option><option>m</option></select></label><label>Source<input id="w3AS" placeholder="RRC imaged records, directional survey" required></label><button type="submit">Attach</button></div></form>`;
+  $('#main').innerHTML = h;
+  W3.cvs = $('#w3C'); W3.ov = $('#w3O');
+  try { W3.gl = W3.cvs.getContext('webgl', {antialias: true}); if (!W3.gl) throw new Error('this browser offers no WebGL'); if (!W3.gl.getExtension('OES_element_index_uint')) throw new Error('this browser lacks 32-bit mesh indices'); W3.prog = w3Shader(W3.gl, W3_VS, W3_FS); }
+  catch (e) { W3.gl = null; $('#w3Msg').innerHTML = `<div class="card">The 3D view needs WebGL: ${esc(e.message)}. The tables below carry every number.</div>`; }
+  if (!sc.wells.length && (sc.layers || []).length) $('#w3Msg').innerHTML = `<p class="small">No well can be drawn yet (listed under the view with what each needs); the formation tops are drawn over ${esc(sc.frame.area)}, every contour at its elevation, with the depth stretched ${W3.exag}×.</p>`;
+  if (!sc.wells.length && !(sc.layers || []).length) { $('#w3Msg').innerHTML = `<div class="card"><b>Nothing to draw in this workspace yet.</b> A well is drawn once it has a surface position, a reference elevation and a directional survey (Texas surveys are often filed with the Railroad Commission's imaged well records). The Volve scene shows what the tab does.</div>`; }
+  W3.show = {picks: true, others: false, labels: false, seeThrough: !!(sc.surfaces || []).length && sc.wells.length > 0}; w3Box(); w3Fit(); w3Read(null);
+  if (W3.gl && (sc.wells.length || (sc.layers || []).length)) { w3Build(); w3Req(); } else w3Legend(null);
+  $('#w3Scene').onchange = e => { location.hash = '#/3d/' + e.target.value; };
+  $('#w3Col').onchange = e => { W3.colorBy = e.target.value; if (W3.gl) { w3Build(); w3Req(); } };
+  $('#w3Ex').onchange = e => { W3.exag = +e.target.value; if (W3.gl) { w3Build(); w3Req(); } };
+  for (const [id, k] of [['#w3Picks', 'picks'], ['#w3Others', 'others'], ['#w3Labels', 'labels'], ['#w3See', 'seeThrough']]) $(id).onchange = e => { W3.show[k] = e.target.checked; if (W3.gl) { w3Build(); w3Req(); } };
+  $('#w3Reset').onclick = () => { w3Fit(); w3Req(); };
+  const cv = W3.cvs;
+  cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); W3.drag = {x: e.clientX, y: e.clientY, pan: e.shiftKey || e.button === 2, id: e.pointerId}; });
+  cv.addEventListener('pointermove', e => { if (!W3.gl) return; if (W3.drag && W3.drag.id === e.pointerId) { const dx = e.clientX - W3.drag.x, dy = e.clientY - W3.drag.y; W3.drag.x = e.clientX; W3.drag.y = e.clientY; const c = W3.cam;
+      if (W3.drag.pan) { const k = c.d / cv.clientHeight; const r = [Math.cos(c.y), 0, -Math.sin(c.y)]; c.t = [c.t[0] - r[0] * dx * k, c.t[1] + dy * k, c.t[2] - r[2] * dx * k]; } else { c.y -= dx * 0.008; c.p = Math.max(-1.45, Math.min(1.45, c.p + dy * 0.008)); }
+      w3Req(); return; }
+    const r = cv.getBoundingClientRect(); const hit = w3Hit(e.clientX - r.left, e.clientY - r.top); W3.hover = hit; w3Read(hit); w3Req(); });
+  cv.addEventListener('pointerup', () => { W3.drag = null; }); cv.addEventListener('contextmenu', e => e.preventDefault());
+  cv.addEventListener('wheel', e => { e.preventDefault(); W3.cam.d *= Math.exp(e.deltaY * 0.0012); w3Req(); }, {passive: false});
+  cv.addEventListener('keydown', e => { const c = W3.cam; const k = e.key; let used = true;
+    if (k === 'ArrowLeft') c.y += 0.08; else if (k === 'ArrowRight') c.y -= 0.08; else if (k === 'ArrowUp') c.p = Math.min(1.45, c.p + 0.06); else if (k === 'ArrowDown') c.p = Math.max(-1.45, c.p - 0.06);
+    else if (k === '+' || k === '=') c.d *= 0.85; else if (k === '-') c.d /= 0.85; else if (k === 'Home') w3Fit(); else if (k === ' ' && $('#w3Play') && !$('#w3Play').disabled) $('#w3Play').click(); else used = false;
+    if (used) { e.preventDefault(); w3Req(); } });
+  let pinch = null; cv.addEventListener('touchmove', e => { if (e.touches.length === 2) { e.preventDefault(); const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); if (pinch) { W3.cam.d *= pinch / d; w3Req(); } pinch = d; } }, {passive: false}); cv.addEventListener('touchend', () => { pinch = null; });
+  const rw = $('#w3RepW'); if (rw) { rw.onchange = () => { w3Stop(); W3.rep.well = rw.value || null; const w = sc.wells.find(x => x.id === rw.value); const sl = $('#w3Slider'); sl.disabled = !w; $('#w3Play').disabled = !w; if (w) { sl.max = w.replay.t.length - 1; w3RepSet(0); } else { $('#w3RepTxt').textContent = ''; w3Req(); } };
+    $('#w3Slider').oninput = e => { w3Stop(); w3RepSet(+e.target.value); };
+    $('#w3Spd').onchange = e => { W3.rep.speed = +e.target.value; };
+    $('#w3Play').onclick = () => { if (W3.rep.timer) return w3Stop(); const w = sc.wells.find(x => x.id === W3.rep.well); if (!w) return; if (W3.rep.i >= w.replay.t.length - 1) w3RepSet(0); $('#w3Play').textContent = 'Pause'; $('#w3Play').setAttribute('aria-pressed', 'true');
+      W3.rep.timer = setInterval(() => { if (!W3.cvs.isConnected) return w3Stop(); if (W3.rep.i >= w.replay.t.length - 1) return w3Stop(); w3RepSet(W3.rep.i + Math.max(1, Math.round(W3.rep.speed * Math.max(1, w.replay.t.length / 400)))); }, 120); }; }
+  const af = $('#w3Att'); if (af) af.onsubmit = async ev => { ev.preventDefault(); const f = $('#w3AF').files[0]; if (!f) return toast('Choose the survey file', 'err'); try { const r = await post(`/api/wells/${encodeURIComponent($('#w3AW').value)}/trajectory`, {filename: f.name, content_b64: await readFile(f), azimuth_reference: $('#w3AR').value, grid: $('#w3AG').value || null, declination_deg: $('#w3AD').value === '' ? null : +$('#w3AD').value, md_unit: $('#w3AU').value, source: $('#w3AS').value}); toast(`Survey attached: ${r.stations} stations`, 'ok'); route(); } catch (e) { toast(e.message, 'err'); } };
+  if (W3.ro) W3.ro.disconnect(); W3.ro = new ResizeObserver(() => w3Req()); W3.ro.observe(cv);
+};
 // ---------- the control room: the wall board and the shift handover ---------------------------------
 // The wall reads /api/wall every refresh_s seconds. It says how old its last answer is, and when the service stops
 // answering it says so across the screen and greys every tile: old numbers are never shown as current.
@@ -1881,7 +2077,7 @@ function authScreen(first) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/seismic', 'Seismic'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/seismic', 'Seismic'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w'], '#/control': b => [b.handover_unacked, 'w']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }
@@ -1894,6 +2090,7 @@ async function _route() {
   const parts = (location.hash || '#/').split('?')[0].slice(2).split('/').filter(Boolean);
   const view = parts[0] || 'home', arg = parts.slice(1).join('/');
   if (view !== 'wall') wallStop();
+  if (view !== '3d' && typeof w3Stop === 'function') w3Stop();
   try {
     if (view === 'wells' && arg) await VIEWS.well(decodeURIComponent(arg));
     else if (view === 'seismic' && arg) await VIEWS.seismic_station(decodeURIComponent(arg));
@@ -1925,7 +2122,7 @@ $('#logoutBtn').onclick = async () => { await post('/api/logout'); me = null; bo
 window.addEventListener('hashchange', route);
 // theme: the account preference (Your preferences) unless this browser overrides it with the header button; otherwise the system
 let themeLocal = null; try { themeLocal = localStorage.getItem('gea-theme'); } catch (e) {}
-function applyTheme() { const t = themeLocal || (PREFS.theme && PREFS.theme !== 'auto' ? PREFS.theme : null); if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; const dark = t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; $('#themeBtn').textContent = dark ? 'Light theme' : 'Dark theme'; $('#themeBtn').setAttribute('aria-pressed', String(dark)); }
+function applyTheme() { if (typeof W3 !== 'undefined' && W3.gl && W3.cvs && W3.cvs.isConnected) setTimeout(() => { w3Build(); w3Req(); }, 0); const t = themeLocal || (PREFS.theme && PREFS.theme !== 'auto' ? PREFS.theme : null); if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; const dark = t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; $('#themeBtn').textContent = dark ? 'Light theme' : 'Dark theme'; $('#themeBtn').setAttribute('aria-pressed', String(dark)); }
 $('#themeBtn').onclick = () => { const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; themeLocal = dark ? 'light' : 'dark'; try { localStorage.setItem('gea-theme', themeLocal); } catch (e) {} applyTheme(); };
 applyTheme();
 boot().catch(e => { $('#main').innerHTML = `<div class="card"><h2>The service did not answer</h2><p>${esc(e.message)}</p></div>`; });
