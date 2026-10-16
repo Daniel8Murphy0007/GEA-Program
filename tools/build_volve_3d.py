@@ -14,7 +14,7 @@ pinned commit, and hashed as fetched:
   15/9-F-4 (the definitive MWD trajectory, 87 stations to 3,510 m MD), 15/9-F-5 (the four section files,
   36 in to 8.5 in, Nov 2007 - Jul 2008), 15/9-F-10 (the 8.5 in section file, 479 stations to 5,300 m MD);
 - the field's formation picks (Volve_well_picks_modified.csv: 408 picks on 34 wellbores with MD, TVD,
-  TVDSS, two-way time, easting and northing), VERBATIM;
+  TVDSS, two-way time, easting and northing), VERBATIM (gzip-compressed, so its CRLF line ends survive git);
 - five depth-converted interpreted horizons (Ty, Shetland Group, the base Cretaceous unconformity, Hugin top,
   Hugin base) as inline/crossline points every 12.5 m - SUBSAMPLED here to every fifth inline and crossline
   (62.5 m), no point moved, Z kept to the centimetre. The seabed file in the same copy carries two blocks,
@@ -125,8 +125,11 @@ def main() -> int:
         (REF / name).write_bytes(data)
         outs[name] = {'from': key, 'how': 'verbatim, gzip-compressed', 'sha256_uncompressed': hashlib.sha256(raw).hexdigest()}
     picks = fetch('well_picks', cache)
-    (REF / 'volve_well_picks.csv').write_bytes(picks)
-    outs['volve_well_picks.csv'] = {'from': 'well_picks', 'how': 'verbatim'}
+    # gzip-compressed like the surveys: the delivered file has CRLF line ends, and a text file in the repository is stored
+    # with LF (.gitattributes), so a checkout would no longer be the bytes that were hashed. Compressed, nothing touches them.
+    (REF / 'volve_well_picks.csv.gz').write_bytes(gzip.compress(picks, compresslevel=9, mtime=0))
+    outs['volve_well_picks.csv.gz'] = {'from': 'well_picks', 'how': 'verbatim (CRLF line ends as delivered), gzip-compressed',
+                                       'sha256_uncompressed': hashlib.sha256(picks).hexdigest()}
     surf = []
     for key, name, pick in SURFACES:
         rows = list(csv.reader(io.StringIO(fetch(key, cache).decode('utf-8'))))

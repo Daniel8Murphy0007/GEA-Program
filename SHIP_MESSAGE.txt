@@ -31,8 +31,16 @@ and the page says so.
 
 A workspace well is drawn once it has a position, an elevation and its
 survey; `gea trajectory` attaches one, kept byte for byte, with its azimuth
-reference stated. Nothing is drawn between wells: no rock or fluid property
-is measured there.
+reference stated. Until then the workspace's formation-top contours are
+drawn on their own. Nothing is drawn between wells: no rock or fluid
+property is measured there.
+
+The first push of this release failed its gate on every GitHub runner and
+published nothing: the Volve picks file had Windows line ends, the
+repository stores text with Unix ones, and the checkout no longer matched
+the file's recorded hash. The picks now ship compressed like the surveys,
+and the gate refuses any package file with Windows line ends, so a local
+pass can no longer hide a checkout failure.
 
 Section CE is new, three checks. The gate is 395 checks. The standalone
 guard is clean.

@@ -8686,6 +8686,15 @@ def section_ce_well3d(tmp: str) -> None:
     prov = json.loads((pkg / "reference" / "volve_3d.provenance.json").read_text(encoding="utf-8"))
     hashes_ok = all(_hl.sha256((pkg / "reference" / k).read_bytes()).hexdigest() == v["sha256"] for k, v in prov["outputs"].items())
     pts = prov["outputs"]["volve_surfaces.json.gz"]["points"]
+    # the repository stores every text file with LF line ends (.gitattributes: text=auto eol=lf), so a package file holding
+    # CRLF would reach a checkout - and the published wheel - as different bytes from the ones hashed here
+    crlf = []
+    for dp, dn, fn in os.walk(pkg):
+        dn[:] = [x for x in dn if x not in ("__pycache__", "catalog_operator")]
+        for f_ in fn:
+            b_ = Path(dp, f_).read_bytes()
+            if b"\0" not in b_[:8000] and b"\r\n" in b_:
+                crlf.append(os.path.relpath(os.path.join(dp, f_), pkg))
     c2 = {
         "frame": all(a < 0.1 and 140 < b < 160 for a, b in frame) and "ED50" in sc["frame"]["crs"],
         "picks": all(wl[k]["pick_miss_max_m"] < 0.3 and abs(wl[k]["ref_elev_m"] - 54.9) < 1e-6 for k in ("F-4", "F-5", "F-10"))
@@ -8694,6 +8703,7 @@ def section_ce_well3d(tmp: str) -> None:
         "surfaces": len(sc["surfaces"]) == 5 and all(s["affine_miss_m"] < 0.01 and s["tie_median_m"] < 7.0 and len(s["ties"]) >= 23 for s in sc["surfaces"])
                     and all(pts[s["id"]] == [s["n_source_points"], s["n_points"]] for s in sc["surfaces"])
                     and [s["id"] for s in sc["surfaces"]] == ["Ty", "SHETLAND", "BCU", "Hugin_Fm_Top", "Hugin_Base"],
+        "line_ends": not crlf and all(k.endswith(".gz") or b"\r\n" not in (pkg / "reference" / k).read_bytes() for k in prov["outputs"]),
         "provenance": hashes_ok and "commercial purposes" in prov["license"] and "may not be sold" in prov["license"] and len(prov["sources"]) == 12
                       and all(len(v["commit"]) == 40 for v in prov["sources"].values()) and "Equinor ASA" in sc["attribution"] and "not sold" in sc["attribution"],
     }
@@ -8703,7 +8713,7 @@ def section_ce_well3d(tmp: str) -> None:
        "operator's own log headers, about 150 m off if read as WGS84); the three paths land on Equinor's picks to under 0.3 m from a 54.9 m rig "
        "floor; 15/9-F-4's azimuths read as grid, with the 14 m it would miss by otherwise stated; five surfaces drawn as delivered, every fourth "
        "line, each within a few metres of its picks at the median; every shipped file hashed in its provenance with the pinned public copy it "
-       "came from, the licence (commercial use, no sale) and the attribution on the page"
+       "came from (and no package file with CRLF line ends, which a checkout would change from the bytes hashed), the licence (commercial use, no sale) and the attribution on the page"
        + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
 
     ev = E.selftest_events(str(d))

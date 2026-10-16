@@ -58,6 +58,21 @@ session-by-session working record is `docs/SESSION_LOG.md`.
   `gea help well3d`.
 - Section CE (3 checks); the gate is 395.
 
+### Fixed before release
+- **The first push of this release failed its gate on every GitHub runner,
+  and nothing was published.** The Volve formation picks were shipped as
+  the CSV exactly as delivered, with CRLF line ends, and hashed that way.
+  The repository stores every text file with LF line ends
+  (`.gitattributes`), so the commit normalised the file: a checkout - the
+  runners', and every wheel built from one - carried different bytes from
+  the ones hashed, and section CE's provenance check refused them (a Windows
+  working copy converts back to CRLF, which is why the gate passed before
+  pushing). The picks now ship gzip-compressed
+  (`reference/volve_well_picks.csv.gz`), like the surveys, so no line-ending
+  rule can touch them; the provenance records both hashes. Section CE also
+  refuses any file in the package that holds CRLF line ends, so a local pass
+  can no longer hide a checkout failure.
+
 ## [v0.35.0] - 2026-10-15 - The control room
 
 ### Added

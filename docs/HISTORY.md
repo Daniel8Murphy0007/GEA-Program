@@ -11,7 +11,9 @@ claim the gate does not re-verify on every run.
   positions; the Volve field shipped (three surveys, 408 picks, five
   horizons) and checked against itself; a workspace well's survey attached
   with its azimuth reference stated; the bit replayed from the recorder or
-  the survey stations' own times. Section CE; gate 395.
+  the survey stations' own times. Section CE; gate 395. The first push
+  failed on the runners (a CRLF picks file normalised by git) and was
+  re-prepared with the picks compressed and a CRLF check in the gate.
 
 ## v0.35.0 - 2026-10-15 - the control room
 

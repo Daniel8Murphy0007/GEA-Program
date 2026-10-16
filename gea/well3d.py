@@ -290,7 +290,7 @@ def _ref(name: str) -> bytes:
 
 
 def volve_picks() -> List[dict]:
-    return list(csv.DictReader(io.StringIO(_ref('volve_well_picks.csv').decode('utf-8'))))
+    return list(csv.DictReader(io.StringIO(_ref('volve_well_picks.csv.gz').decode('utf-8'))))
 
 
 def volve_surfaces() -> dict:

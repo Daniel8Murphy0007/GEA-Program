@@ -155,10 +155,11 @@
    "sha256_uncompressed": "11e653b84eab32c3cfe838ad5840d8ee23c53596e21d982bda682d14343e6608",
    "sha256": "960287f00ef31924fc926fe97652162b0bf5ee672453eec8000f8ddff7a3be80"
   },
-  "volve_well_picks.csv": {
+  "volve_well_picks.csv.gz": {
    "from": "well_picks",
-   "how": "verbatim",
-   "sha256": "53ed9f062d53a584d05ad9388763a1844ecb5a580e216752dff86fad15e6e1a6"
+   "how": "verbatim (CRLF line ends as delivered), gzip-compressed",
+   "sha256_uncompressed": "53ed9f062d53a584d05ad9388763a1844ecb5a580e216752dff86fad15e6e1a6",
+   "sha256": "3cfe17d07f14f20a7b6faa72353950f9f9d5ffd71b263f68f8a755d6e58b3858"
   },
   "volve_surfaces.json.gz": {
    "from": [

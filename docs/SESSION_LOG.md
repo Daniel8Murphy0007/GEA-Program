@@ -2126,3 +2126,29 @@ drawn between wells.
   inclination or azimuth: its wells need their directional surveys (the
   Railroad Commission's imaged well records are the public place to look).
 - Section CE (3 checks). Gate 395.
+
+## 2026-10-16 - The first v0.36.0 push failed; re-prepared (v0.36.0)
+
+v0.36.0 was pushed (commit d3a8307, tag v0.36.0) and all four workflows
+failed: ci on main and on the tag, Release to PyPI (at its product gate,
+before any upload) and the kit build. Nothing reached PyPI and no GitHub
+release was made. Daniel's ruling: an unpublished version is not burned -
+v0.36.0 is re-prepared with the fix, and he removes the failed tag before
+the ship (the one tag ever moved, at his instruction); commit d3a8307 stays
+in the history.
+- The job logs need a signed-in account; the annotations said only that
+  `python -m gea accept` exited 1 on both Pythons. A fresh clone of the
+  tagged commit in the cloud showed the cause: `gea/reference/
+  volve_well_picks.csv` hashed e33b57ea... in the checkout against the
+  53ed9f06... recorded in its provenance. The file came from its source with
+  CRLF line ends; `.gitattributes` (`* text=auto eol=lf`) stored it as LF;
+  the Windows working copy turns it back into CRLF, so the gate passed on
+  Daniel's machine and in the cloud tree, and failed on every runner.
+  `git ls-files --eol` showed it as the only package file with i/lf w/crlf.
+- Fix: the picks ship gzip-compressed (binary, untouched by git), as the
+  surveys already did; `tools/build_volve_3d.py` writes it and records the
+  hash of the uncompressed bytes beside the file's. The old CSV is moved
+  out of the tree. Section CE now also fails on any CRLF file in the
+  package - the condition that let a local pass hide a checkout failure.
+- The fresh clone of d3a8307 was run through the whole gate as the runners
+  run it, to see every section a checkout fails, not only the first.
