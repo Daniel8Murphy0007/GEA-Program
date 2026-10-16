@@ -1,27 +1,28 @@
-v0.37.0 — ECONOMICS
+v0.38.0 — THE CLIENT WELL REPORT
 
-A well's cost is the number every operator manages and no recorder writes
-down. This release adds the Economics tab, and keeps the two kinds of
-number in it apart.
+One printable document per well, and one for the pad, assembled from what
+the workspace already holds. Nothing in it is computed anew: it gathers,
+draws, and says where each number came from.
 
-What was measured: each well's days on its drilling record, the feet it
-drilled, feet per day and hours on bottom, on the recorder's own clock.
+For each well: the well number, site, client, surface location and
+reference elevation as declared, with their sources; the drilling record's
+total depth, footage, days and hours on bottom; every depth event, what the
+record did with it, and who checked it against the daily drilling reports;
+depth against days; what each mapped layer says at the location; the well
+path from its survey in plan and section, with the mapped tops as depth
+bands; the declared cost with every rate and item, and the oil and gas
+prices while the well was drilled. The pad report sets the wells side by
+side on one chart and lists what each report still lacks.
 
-What is declared: the operator's day rates over the dates they applied,
-the one-off items, the AFE - each with where it came from, each in the
-audit log. The cost is those rates over the record's time plus the items,
-per well and per section, with cost per foot, per day and the difference
-from the AFE. While the rates leave any of the time uncovered the cost is
-shown and marked incomplete, and it is not divided by the footage: a
-partial cost spread over the whole well would understate it.
+A part the workspace cannot supply yet is not drawn as zero: the report
+names it and says what would supply it. On Pad 3 today every well's report
+asks for the same four things - a person's check of the depth events, the
+surface location, the directional survey and the day rates.
 
-Beside them, the market: the U.S. Energy Information Administration's daily
-spot prices for WTI crude at Cushing and Henry Hub gas ship with the
-program, public domain, and refresh on request; a rig count or any other
-series comes in from a file with its source stated. Each series has its own
-chart with the wells' drilling windows shaded, and each well shows what the
-prices were while it was drilled. The page calls the prices context, not
-cause, and computes no correlation across fewer than ten wells.
+The drawings are SVG made from the report's own numbers, inline in the HTML
+and beside it as files, with captions and text for a reader who cannot see
+them; printed, none is split across pages. The month-end packet now carries
+the well and pad reports.
 
-Section CF is new, three checks. The gate is 398 checks. The standalone
+Section CG is new, three checks. The gate is 401 checks. The standalone
 guard is clean.

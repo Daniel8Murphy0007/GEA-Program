@@ -2917,7 +2917,7 @@ def section_am_report_samples(tmp: str) -> None:
             "model_card_strata_property_estimator.html", "gauge_drift_report_monitored_SYNTHETIC.html", "alarm_event_report_SYNTHETIC.html",
             "data_resilience_report_SYNTHETIC.html", "sla_report_SYNTHETIC.html", "sat_protocol.html", "seismic_station_report_SYNTHETIC.html", "seismic_track_report_SYNTHETIC.html",
             "seismic_dataset_report_SYNTHETIC.html", "seismic_field_report_SYNTHETIC.html", "site_report_SYNTHETIC.html",
-            "sra_packet_SYNTHETIC.html"}
+            "sra_packet_SYNTHETIC.html", "well_report_SYNTHETIC.html", "pad_report_SYNTHETIC.html"}
     have = {p.name for p in d.glob("*.html")}
     md = (d / "SAMPLES.md").read_text(encoding="utf-8") if (d / "SAMPLES.md").exists() else ""
     texts = {n: (d / n).read_text(encoding="utf-8", errors="replace") for n in sorted(have & want)}
@@ -8970,6 +8970,173 @@ def section_cf_economics(tmp: str) -> None:
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_cg_well_report(tmp: str) -> None:
+    """Section CG - the client well report: one document per well and one for the pad, assembled from the drilling record,
+    the depth events and their check, the declared location and the mapped structure there, the survey's path, and the
+    declared cost against the market; drawings made from the report's own numbers; each missing part named with what
+    would supply it, never drawn as zero; the vocabulary guard; the month-end packet, the API, the CLI, the pages."""
+    import http.cookiejar
+    import math as _m
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    import xml.etree.ElementTree as _ET
+    from . import client_reports as CR
+    from . import economics as EC
+    from . import edr as E
+    from . import helplib as H
+    from . import month_end as ME
+    from . import setup_checklist as SC
+    from . import shapefile as SF
+    from . import well3d as W
+    from . import well_report as WR
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "cg"); d.mkdir()
+    ev = E.selftest_events(str(d))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    wb = ws.add_well_file(ev["path"], display="Well B", actor="tester"); wc = ws.add_well_file(ev["path"], display="Well C", actor="tester")
+    ws.set_well(wb["id"], surface={"lat": 31.42, "lon": -104.10, "datum": "NAD83", "elevation": {"ft": 3000.0, "datum": "KB", "source": "test plat"}},
+                identity={"api_number": "42-389-12345"}, actor="tester")
+    lat1, lon1 = 31.42, -104.10
+    kmlon = 1.0 / (111.195 * _m.cos(_m.radians(lat1)))
+    SF.write(str(d / "Top_A"), "PolyLine", [([[(lon1 + (i - 1.5) * kmlon + 0.0005 * k, lat1 - 0.05 + 0.001 * k) for k in range(100)]], {"ElevTop_ft": -1500.0 - 100.0 * i}) for i in range(4)],
+             [("ElevTop_ft", "F", 10, 1)], SF.NAD83_GEOGCS)
+    ws.add_layer(str(d / "Top_A.shp"), "Top A", actor="tester", formation="A", role="top", citation="test")
+    csv_ok = "MD (ft),Inc (deg),Azi (deg)\n0,0,0\n1000,0,0\n2000,10,90\n3000,30,90\n4000,45,95\n5750,60,100\n"
+    W.attach_trajectory(ws, wb["id"], "s.csv", csv_ok.encode(), "tester", "true", "ft", None, None, None, "test survey")
+    ws.add_site("Pad 3", wells=[wb["id"], wc["id"]], client="Test Client", actor="tester")
+    ws.refresh_dashboard(actor="tester")
+    rec = json.loads(Path(ws.reports_dir, "wells", wb["id"], "drilling_record.json").read_text(encoding="utf-8"))
+    EC.set_rate(ws, wb["id"], "tester", 30000, "rig spread", "contract")
+    EC.add_item(ws, wb["id"], "tester", 18000, "bit", "invoice", 1)
+    EC.set_afe(ws, wb["id"], "tester", 150000, "AFE 1")
+    SC.confirm(ws, f"events:{wb['id']}", "tester", "daily drilling reports 1-5")
+    r = WR.write_well(ws, wb["id"], "0.0-test", actor="tester")
+    wdir = Path(ws.reports_dir, "wells", wb["id"])
+    md = (wdir / "well_report.md").read_text(encoding="utf-8"); ht = (wdir / "well_report.html").read_text(encoding="utf-8")
+    js = json.loads((wdir / "well_report.json").read_text(encoding="utf-8"))
+    figs = sorted(Path(p).name for p in r["paths"].get("figures", []))
+    parsed = 0
+    for f in figs:
+        try:
+            _ET.fromstring((wdir / f).read_text(encoding="utf-8")); parsed += 1
+        except _ET.ParseError:
+            pass
+    st = W.trajectory_of(ws, wb["id"])["stations"]
+    p = W.Path([x["md"] for x in st], [x["incl"] for x in st], [x["azi"] for x in st], 0.0, 0.0, 0.0, 0.0)
+    tvd_ft = float(p.tvd[-1]) / 0.3048
+    fb = next(w for w in EC.economics(ws)["wells"] if w["well_id"] == wb["id"])
+    c1 = {
+        "complete": r["missing"] == [] and js["missing"] == [] and js["report_id"] == r["report_id"] and "42-389-12345" in md and "Test Client" in md
+                    and "KB 3,000.0 ft (test plat)" in md,
+        "record": f"{rec['total_depth_md_ft']:,.1f} ft" in md and f"{rec['feet_drilled']:,.1f} ft" in md and rec["source"] in md
+                  and md.count("\n| STALE OPENING |") + md.count("\n| RE-REFERENCE |") + md.count("\n| SIDETRACK |") + md.count("\n| CORRECTION |") == len(rec["depth_events"])
+                  and "Checked by tester" in md and "daily drilling reports 1-5" in md,
+        "figures": figs == sorted(["well_report_progress.svg", "well_report_plan.svg", "well_report_section.svg", "well_report_wti.svg", "well_report_henry_hub.svg"])
+                   and parsed == 5 and ht.count("<figure") == 5 and ht.count("<figcaption") == 5 and md.count("![") == 5 and "@media print" in ht and "break-inside:avoid" in ht,
+        "path": f"{tvd_ft:,.1f}" in md and f"reaches {tvd_ft:,.0f} ft true vertical depth" in md and "6 stations, azimuths true" in md,
+        "tops": "| A | 4,500 to 4,600 | -1,600 and -1,500 | Top A |" in md and "Between the -1,600 ft and -1,500 ft contours" in md,
+        "cost": f"${fb['cost']['usd']:,.0f}" in md and f"${fb['cost']['per_ft']:,.2f}" in md and "over the whole record" in md and "$18,000.00 bit (section 1)" in md
+                and f"{fb['market']['wti']['mean']:,.2f}" in md,
+        "guarded": not CR.forbidden_terms(md) and not CR.forbidden_terms(ht),
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CG1 a well's report: the identity, client and declared reference with their sources; the drilling record's own total depth, footage "
+       "and every depth event with the person's check; depth against days, the plan and the vertical section from the survey (TVD to the "
+       "minimum-curvature value), the mapped top at the location as a depth band from the two contours it lies between below the declared "
+       "reference, the declared cost to the dollar of the Economics tab and the market while drilling - five drawings, each valid SVG with a "
+       "caption and words for a reader who cannot see it, none split across a printed page"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    rc = WR.write_well(ws, wc["id"], "0.0-test", actor="tester")
+    cdir = Path(ws.reports_dir, "wells", wc["id"])
+    mdc = (cdir / "well_report.md").read_text(encoding="utf-8")
+    EC.add_item(ws, wb["id"], "tester", 1, "lattice rental", "test")                          # a declared word the client register does not carry
+    guarded = False
+    try:
+        WR.write_well(ws, wb["id"], "0.0-test", actor="tester")
+    except ValueError as e:
+        guarded = "lattice" in str(e)
+    EC.remove(ws, wb["id"], "tester", "item", 1)
+    rp = WR.write_pad(ws, "0.0-test", actor="tester")
+    pmd = Path(ws.reports_dir, "pad_report.md").read_text(encoding="utf-8")
+    psvg = Path(ws.reports_dir, "pad_report_progress.svg").read_text(encoding="utf-8")
+    pk = ME.assemble(ws, "2026-09", actor="tester", refresh=False)
+    idx = json.loads((Path(pk["folder"]) / "INDEX.json").read_text(encoding="utf-8"))
+    by_name = {i["name"]: i for i in idx["items"]}
+    c2 = {
+        "missing_named": rc["missing"] == ["a person's check of the depth events", "the surface location", "the directional survey", "the cost basis (day rates)"]
+                         and "not declared" in mdc and "No directional survey is attached" in mdc and "the well is not placed" in mdc
+                         and "Cost (declared)" not in mdc and "Not yet checked by a person" in mdc and "what would supply it" in mdc
+                         and sorted(Path(x).name for x in rc["paths"]["figures"]) == ["well_report_henry_hub.svg", "well_report_progress.svg", "well_report_wti.svg"],
+        "guard": guarded and not Path(ws.reports_dir, "wells", wb["id"], "well_report.html").read_text(encoding="utf-8").lower().count("lattice"),
+        "pad": "| Well B | 2026-07-01 |" in pmd and "| Well C | 2026-07-01 |" in pmd and psvg.count("<path ") == 2 and "| Well B | nothing |" in pmd
+               and "| Well C | a person's check of the depth events; the surface location; the directional survey; the cost basis (day rates) |" in pmd,
+        "month_end": by_name[f"Well B: client well report"]["status"] == "INCLUDED" and "well_report_section.svg" in [f["file"] for f in by_name["Well B: client well report"]["files"]]
+                     and by_name["Pad report"]["status"] == "INCLUDED" and pk["errors"] == [],
+        "audit": [a["action"] for a in ws.audit_log(500)].count("report.well") >= 3 and "report.pad" in [a["action"] for a in ws.audit_log(500)],
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CG2 what a report cannot say: a well with no check of its depth events, no surface location, no survey and no cost basis gets its "
+       "record, its progress and the market, and each missing part named with what would supply it - no path, no cost, nothing drawn as "
+       "zero; a declared word the client register does not carry stops the report before it is written; the pad report puts every well side "
+       "by side on one chart with what each still lacks; the month-end packet writes and includes them with their drawings; every run audited"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                ct = rr_.headers.get("Content-Type", "")
+                raw = rr_.read()
+                return rr_.status, (json.loads(raw) if "json" in ct else raw.decode("utf-8", "replace"))
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        st_v, _ = call(V, "POST", "/api/reports/well-report", {"well_id": wb["id"]})
+        st_o, jo = call(O, "POST", "/api/reports/well-report", {"well_id": wb["id"]})
+        st_p, jp = call(O, "POST", "/api/reports/well-report", {"pad": True})
+        st_n, _ = call(O, "POST", "/api/reports/well-report", {"well_id": "nope"})
+        st_h, page = call(V, "GET", jo.get("url", "/x") if isinstance(jo, dict) else "/x")
+        st_r, ri = call(V, "GET", "/api/reports")
+    finally:
+        svc.stop()
+    cli = _sp.run([sys.executable, "-m", "gea", "well-report", "--workspace", wsp], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_bad = _sp.run([sys.executable, "-m", "gea", "well-report", "--workspace", wsp, "--well", "nope"], capture_output=True, text=True, cwd=str(pkg.parent))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c3 = {
+        "api": st_v == 403 and st_o == 200 and jo["missing"] == [] and jo["url"] == f"/reports/wells/{wb['id']}/well_report.html" and st_p == 200
+               and jp["url"] == "/reports/pad_report.html" and st_n == 404 and st_h == 200 and "<figure" in page and st_r == 200 and "pad_report.html" in ri["site"]
+               and "well_report_plan.svg" in ri["wells"][wb["id"]],
+        "cli": cli.returncode == 0 and f"{wb['id']}: " in cli.stdout and "pad: " in cli.stdout and "not in it yet" in cli.stdout.split(f"{wc['id']}: ")[1]
+               and cli_bad.returncode != 0 and "no well nope" in cli_bad.stderr,
+        "page": all(x in page_src for x in ("/api/reports/well-report", "wrRun", "data-wr", "Client well report", "Write the pad report", "Not in it yet")),
+        "help": any(t[0] == "well-report" for t in H.INDEX) and not H.check("well-report"),
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CG3 the API (a viewer reads the report, only an operator writes it; an unknown well named), the CLI (every well and the pad, or one, "
+       "or the pad alone), the buttons on the well page and the Reports page, and the help page"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -9057,6 +9224,7 @@ def main() -> int:
         section_cd_control_room(tmp)
         section_ce_well3d(tmp)
         section_cf_economics(tmp)
+        section_cg_well_report(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

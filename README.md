@@ -609,6 +609,17 @@ against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
 
+### The client well report
+
+`gea well-report` writes one printable document per well and one for the
+pad: the drilling record and its depth events with who checked them, a chart
+of depth against days, the declared location and what the mapped structure
+says there, the well path from its survey in plan and section, and the
+declared cost against the market while it was drilled - each number with
+where it came from, and what the report cannot say yet with what would
+supply it. Buttons on the well page and the Reports page; included in the
+month-end packet. `gea help well-report`.
+
 ### Economics
 
 The Economics tab puts each well's days on its drilling record, feet

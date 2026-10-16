@@ -2189,6 +2189,18 @@ def make_handler(app: App):
                             raise ApiError(400, str(e))
                     finally:
                         shutil.rmtree(tmp_dir, ignore_errors=True)
+                if path == '/api/reports/well-report':
+                    from . import well_report as WR
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    if body.get('pad'):
+                        r = WR.write_pad(app.ws, _v, actor=user['name'])
+                        return self._json(200, {'report_id': r['report_id'], 'url': '/reports/pad_report.html'})
+                    wid = str(body.get('well_id', ''))
+                    if not any(w['id'] == wid for w in app.ws.wells()):
+                        raise ApiError(404, f'no well {wid}')
+                    r = WR.write_well(app.ws, wid, _v, actor=user['name'])
+                    return self._json(200, {'report_id': r['report_id'], 'missing': r['missing'], 'url': f'/reports/wells/{wid}/well_report.html'})
                 if path.startswith('/api/economics/'):
                     from . import economics as EC
                     import base64 as _b64

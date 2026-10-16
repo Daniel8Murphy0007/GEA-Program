@@ -122,6 +122,13 @@ def assemble(ws, period: str, actor: str = 'system', refresh: bool = True, catal
          'the SLA month is written by the refresh with --month; none for this period')
     item('site', '-', 'FAT/SAT protocol', _copy_family(rep, ['fat_protocol', 'sat_protocol'], os.path.join(out, 'site')), 'no protocol written (gea fat-sat, or the refresh with --sat)')
     item('site', '-', 'Model cards and SBOM', _copy_family(rep, ['model_cards_index', 'sbom'], os.path.join(out, 'site')), 'never refreshed')
+    if any(os.path.isfile(os.path.join(rep, 'wells', w['id'], 'drilling_record.json')) for w in ws.wells()):
+        try:
+            from .well_report import write_pad
+            write_pad(ws, __version__, actor=actor)
+        except Exception as e:
+            errors.append(f'pad report: {e}')
+        item('site', '-', 'Pad report', _copy_family(rep, ['pad_report'], os.path.join(out, 'site')), 'the pad report failed to write (see errors)')
     # -- every well -------------------------------------------------------------------------------------------------
     for w in ws.wells():
         wd = os.path.join(rep, 'wells', w['id'])
@@ -133,6 +140,13 @@ def assemble(ws, period: str, actor: str = 'system', refresh: bool = True, catal
         item('well', w['id'], f"{w['display']}: data resilience", _copy_family(wd, ['data_resilience_report'], dst), 'no store-and-forward outage was given to the refresh')
         item('well', w['id'], f"{w['display']}: machine vibration", _copy_family(wd, ['vibration_report'], dst),
              'no machine record for this well (gea workspace --action vibration-report)')
+        if os.path.isfile(os.path.join(wd, 'drilling_record.json')):
+            try:
+                from .well_report import write_well
+                write_well(ws, w['id'], __version__, actor=actor)
+            except Exception as e:
+                errors.append(f"well report {w['id']}: {e}")
+            item('well', w['id'], f"{w['display']}: client well report", _copy_family(wd, ['well_report'], dst), 'the well report failed to write (see errors)')
         # certificate conformity: the register's standing, written here from the register as it stands
         reg = os.path.join(ws.path, 'wells', w['id'], 'records', 'certificates.jsonl')
         if os.path.isfile(reg):

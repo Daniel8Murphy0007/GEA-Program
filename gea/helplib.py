@@ -44,6 +44,7 @@ INDEX: List[tuple] = [
     ('dlis', 'The DLIS log', 'a well log as it is delivered (API RP66 V1), read as the standard lays it out: the frames, the channels, what was skipped; into the strata survey'),
     ('historian', 'The historian pull', 'an operator\'s gauge history out of the PI System through PI Web API, read-only, every value with its archive time and flags'),
     ('map', 'The site map', 'everything with a position in one frame: the placed wells, the structure layers, the stress directions, the stations and response areas over the state and county outline; what every layer says about any spot'),
+    ('well-report', 'The client well report', 'one printable document per well and one for the pad: the drilling record, depth events, progress chart, location and structure, well path and cost, each number with its source'),
     ('economics', 'Economics', 'each well\'s days, footage and cost by the operator\'s own declared rates, against the EIA oil and gas spot prices while it was drilled, and any series the site imports'),
     ('well3d', 'The well in 3D', 'each well\'s path from its directional survey, set among the mapped formation surfaces and contours with its picks, coloured by what was measured along it, and the drill string replayed from the record; the Volve field shipped as the worked example'),
     ('charts', 'The charts', 'a well\'s channels stacked on one axis with a linked cursor, zoom and pan from every sample, time or depth for a drilling recorder, the depth events marked, and the drilling progress of every well'),

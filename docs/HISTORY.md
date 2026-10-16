@@ -4,6 +4,16 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.38.0 - 2026-10-16 - the client well report
+
+- **One document per well, one for the pad, every number with its source.**
+  The drilling record and its depth events with the person's check, depth
+  against days, the location and the mapped structure there, the survey's
+  path in plan and section with the mapped tops as depth bands, the
+  declared cost and the market - drawn as SVG from the report's own
+  numbers; what a report cannot say yet is named with what would supply
+  it. In the month-end packet. Section CG; gate 401.
+
 ## v0.37.0 - 2026-10-16 - economics
 
 - **Time and footage measured, cost declared, prices as context.** Each

@@ -475,6 +475,12 @@ def main(argv=None) -> int:
     p_ck.add_argument("--note", type=str, default="", help="--confirm: what it was checked against (required)")
     p_ck.add_argument("--actor", type=str, default="cli")
 
+    p_wr = sub.add_parser("well-report", help="the client well report: one printable document per well (drilling record, depth events, progress chart, location and structure, well path, cost and the market) and one for the pad")
+    p_wr.add_argument("--workspace", type=str, required=True)
+    p_wr.add_argument("--well", type=str, default=None, help="one well's report (the default is every well and the pad)")
+    p_wr.add_argument("--pad", action="store_true", help="the pad report only")
+    p_wr.add_argument("--actor", type=str, default="cli")
+
     p_ec = sub.add_parser("economics", help="each well's time, footage and declared cost against the market while it was drilled; declare rates, items and an AFE; refresh or import price series")
     p_ec.add_argument("--workspace", type=str, required=True)
     p_ec.add_argument("--json", action="store_true")
@@ -2008,6 +2014,26 @@ def main(argv=None) -> int:
             raise SystemExit(f"economics: {e.args[0] if e.args else e}")
         e = _EC.economics(ws)
         print(_json.dumps(e, indent=1) if a.json else _EC.text(e))
+        return 0
+    elif a.cmd == "well-report":
+        from . import well_report as _WR
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        try:
+            ws = Workspace(a.workspace)
+        except WorkspaceError as e:
+            raise SystemExit(f"well-report: {e}")
+        ids = [w["id"] for w in ws.wells()]
+        if a.well and a.well not in ids:
+            raise SystemExit(f"well-report: no well {a.well} (the wells are: {', '.join(ids) or 'none'})")
+        todo = [] if a.pad else ([a.well] if a.well else ids)
+        for wid in todo:
+            r = _WR.write_well(ws, wid, __version__, actor=a.actor)
+            print(f"{wid}: {r['paths']['html']}" + (f"\n  not in it yet: {'; '.join(r['missing'])}" if r["missing"] else ""))
+        if a.pad or not a.well:
+            r = _WR.write_pad(ws, __version__, actor=a.actor)
+            print(f"pad: {r['paths']['html']}")
         return 0
     elif a.cmd in ("trajectory", "well3d"):
         import json as _json

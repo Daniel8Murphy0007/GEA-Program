@@ -5,6 +5,41 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.38.0] - 2026-10-16 - The client well report
+
+### Added
+- **The client well report** (`gea/well_report.py`): one printable document
+  per well, assembled from what the workspace already holds - the US Well
+  Number, site, client, declared surface location and reference elevation,
+  each with its source; the drilling record's own total depth, footage, days
+  and hours on bottom; every depth event with what the record did with it
+  and the person who checked it against the daily drilling reports; a chart
+  of depth against days; what each mapped layer says at the surface
+  location; the well path from its directional survey in plan and vertical
+  section (minimum curvature, the station table with dogleg), with each
+  mapped top drawn as a depth band from the two contours the location lies
+  between below the declared reference; the declared cost with every rate
+  and item and its source, and the EIA prices while the well was drilled.
+  A part the workspace cannot supply yet is left out and named, with what
+  would supply it - never drawn as zero.
+- **The pad report**: every well side by side, their progress on one chart
+  (a fixed colour per well and a key), the cost table, and what each well's
+  report still lacks.
+- **Drawings in client reports**: a report section can carry figures - SVG
+  made by the program from the numbers in the report's own tables, written
+  beside the report and inline in the HTML, each with a caption and the
+  words a reader who cannot see it gets; printed, no drawing is split across
+  two pages. The rendered text passes the same vocabulary check as every
+  client report.
+- The month-end packet writes and includes the well report for every well
+  with a drilling record, and the pad report.
+- `gea well-report --workspace W` (every well and the pad; `--well ID`;
+  `--pad`). API `POST /api/reports/well-report` (the operator role). A
+  "Client well report" card on each drilling well's page and a "Client well
+  reports" card on the Reports page. `gea help well-report`. The report
+  samples gain `well_report_SYNTHETIC.html` and `pad_report_SYNTHETIC.html`.
+- Section CG (3 checks); the gate is 401.
+
 ## [v0.37.0] - 2026-10-16 - Economics
 
 ### Added

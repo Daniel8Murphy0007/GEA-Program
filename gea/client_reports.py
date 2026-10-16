@@ -91,11 +91,22 @@ class Table:
 
 
 @dataclass
+class Figure:
+    """A drawing the report carries: SVG made by the program from the numbers in the report's own tables, with a caption
+    and the words a reader who cannot see it gets instead."""
+    name: str                       # the file stem it is written under, beside the report
+    svg: str
+    caption: str
+    alt: str
+
+
+@dataclass
 class Section:
     number: str
     title: str
     paragraphs: List[str] = field(default_factory=list)
     tables: List[Table] = field(default_factory=list)
+    figures: List[Figure] = field(default_factory=list)
 
 
 @dataclass
@@ -910,6 +921,11 @@ def render_markdown(doc: Document) -> str:
         for p in s.paragraphs:
             L.append(p)
             L.append('')
+        for fg in s.figures:
+            L.append(f'![{fg.alt}]({fg.name}.svg)')
+            L.append('')
+            L.append(f'*{fg.caption}*')
+            L.append('')
         for t in s.tables:
             if t.caption:
                 L.append(f'*{t.caption}*')
@@ -932,7 +948,9 @@ _CSS = ('body{font-family:Segoe UI,Arial,sans-serif;margin:2rem auto;max-width:1
         'font-size:.85rem;width:100%}th,td{border:1px solid #d0d0d0;padding:.3rem .5rem;text-align:left;'
         'vertical-align:top}th{background:#f2f2f2}caption{text-align:left;font-style:italic;padding:.2rem 0}'
         '.front td:first-child{font-weight:600;width:14rem}.result-bad{color:#a40000;font-weight:700}'
-        '.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}')
+        '.result-ok{color:#0a6b1f;font-weight:700}footer{margin-top:2rem;font-size:.8rem;color:#555}'
+        'figure{margin:1rem 0}figure svg{max-width:100%;height:auto;display:block}figcaption{font-size:.8rem;font-style:italic;color:#444}'
+        '@media print{body{margin:0;max-width:none}h2{break-after:avoid}table,figure{break-inside:avoid}}')
 
 
 def render_html(doc: Document) -> str:
@@ -950,6 +968,8 @@ def render_html(doc: Document) -> str:
         H.append(f'<h2>{e(s.number)}. {e(s.title)}</h2>')
         for p in s.paragraphs:
             H.append(f'<p>{e(p)}</p>')
+        for fg in s.figures:
+            H.append(f'<figure role="img" aria-label="{e(fg.alt)}">{fg.svg}<figcaption>{e(fg.caption)}</figcaption></figure>')
         for t in s.tables:
             H.append('<table>')
             if t.caption:
@@ -1888,6 +1908,12 @@ def write(doc: Document, out_dir: str, basename: str = 'gauge_drift_report') -> 
         f.write(md)
     with open(paths['html'], 'w', encoding='utf-8', newline='') as f:
         f.write(ht)
+    for s in doc.sections:
+        for fg in s.figures:
+            fp = os.path.join(out_dir, fg.name + '.svg')
+            with open(fp, 'w', encoding='utf-8', newline='') as f:
+                f.write(fg.svg)
+            paths.setdefault('figures', []).append(fp)
     machine = {k: v for k, v in doc.data.items() if not k.startswith('_')}
     with open(paths['json'], 'w', encoding='utf-8') as f:
         json.dump(machine, f, indent=1, default=str)

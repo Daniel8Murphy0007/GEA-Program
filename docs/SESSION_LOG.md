@@ -2184,3 +2184,40 @@ own rates, with the oil and gas prices and the rig count as background.
   288 ft/day; 30693545 55.5 days, 572 ft/day. No cost until his rates are
   declared.
 - Section CF (3 checks). Gate 398.
+
+## 2026-10-16 - The client well report (v0.38.0)
+
+Daniel asked for the client well report: one document per well that puts
+together everything the program now knows about it.
+- Research first, in the program itself: the report gathers and does not
+  recompute. The drilling record (`drilling_record.json`) gives the numbers
+  and the depth events; the Setup checklist gives who checked the events
+  (`events:<well>`); the well's declarations give the US Well Number, the
+  surface location and the reference elevation, the site gives the client;
+  the map's `what_here` gives each layer's statement at the location; the
+  attached survey gives the path; Economics gives the declared cost and the
+  market window. The chart cache's running bottom draws the progress when
+  it is built; otherwise each section's opening and deepest depth.
+- `client_reports.py`: a `Figure` (SVG, caption, alternative text) a
+  section can carry - written beside the report and inline in the HTML, the
+  Markdown linking the file, print CSS keeping each drawing on one page.
+- `gea/well_report.py`: the per-well and pad documents; four drawings made
+  from the report's own numbers - depth against days (one colour per well
+  in a fixed order, with a key), the plan view (one scale on both axes,
+  north up), the vertical section along the bottom-hole azimuth with each
+  mapped top as a band from the two contours the location lies between
+  below the declared reference, and each price series with the drilling
+  window shaded. A missing part is named in the report with what would
+  supply it; the pad report lists them per well.
+- The month-end packet writes and includes them. CLI `gea well-report`, API
+  `POST /api/reports/well-report`, cards on the well page and the Reports
+  page, `gea help well-report`, two new report samples (SYNTHETIC).
+- Rendered in headless Chromium: the tables, the five drawings, the print
+  layout.
+- Pad 3 on his machine (preview, read-only, written outside the site): all
+  three wells' reports and the pad report build in about a second each from
+  the chart caches; each lists the same four things it lacks - a person's
+  check of the depth events, the surface location, the directional survey
+  and the day rates - which are the open items on his list. WTI while
+  drilling 81.49 / 81.58 / 80.70 USD/bbl.
+- Section CG (3 checks). Gate 401.

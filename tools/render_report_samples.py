@@ -11,7 +11,8 @@ installed anywhere: the dashboard index, the gauge drift report (a real
 catalogue well, and a monitored synthetic historian with its evaluation log),
 well-test validation, the alarm and event report, the data-resilience report,
 every model card, the accuracy statement, a monthly SLA report, the SAT
-protocol and the pressure-transient report. Each file is produced by the same
+protocol, the pressure-transient report, and the client well and pad
+reports. Each file is produced by the same
 command a site would run, named in SAMPLES.md beside it, and carries the build
 number of this checkout. Re-run before every ship so the samples never drift
 from the code; the acceptance suite checks they match.
@@ -178,6 +179,34 @@ def main(argv=None) -> int:
                  '--datum', 'WGS84', '--radius-km', '9.08', '--plan-date', '2026-02-25', '--triggering-event', 'SYNTHETIC-0001'], work)
         run(g + ['workspace', '--path', 'seis_site', '--action', 'sra-report', '--site', 'SYNTHETIC-SRA-block', '--catalog', 'SYNTHETIC_texnet.csv',
                  '--aftershocks', 'SYNTHETIC-0003'], work)
+        # the client well report: the drilling recorder's labelled synthetic export (one of each depth event) with a declared
+        # surface location, a synthetic contour map of one top, a synthetic survey and a declared day rate
+        run([PY, '-c', 'import math, json\n'
+                       'from gea import edr as E, shapefile as SF, well3d as W, economics as EC, setup_checklist as SC\n'
+                       'from gea.workspace import Workspace\n'
+                       'ev = E.selftest_events(".")\n'
+                       'ws = Workspace.create("well_site", "Report samples", actor="samples")\n'
+                       'w = ws.add_well_file(ev["path"], display="SYNTHETIC well", actor="samples")\n'
+                       'ws.set_well(w["id"], surface={"lat": 31.42, "lon": -104.10, "datum": "NAD83", "elevation": {"ft": 3000.0, "datum": "KB", "source": "SYNTHETIC plat"}}, '
+                       'identity={"api_number": "42-000-00000"}, actor="samples")\n'
+                       'k = 1.0 / (111.195 * math.cos(math.radians(31.42)))\n'
+                       'SF.write("SYNTHETIC_top", "PolyLine", [([[(-104.10 + (i - 1.5) * k + 0.0005 * j, 31.37 + 0.001 * j) for j in range(100)]], {"ElevTop_ft": -1500.0 - 100.0 * i}) for i in range(4)], '
+                       '[("ElevTop_ft", "F", 10, 1)], SF.NAD83_GEOGCS)\n'
+                       'ws.add_layer("SYNTHETIC_top.shp", "SYNTHETIC top A", actor="samples", formation="SYNTHETIC A", role="top", citation="SYNTHETIC contour map")\n'
+                       'W.attach_trajectory(ws, w["id"], "survey.csv", b"MD (ft),Inc (deg),Azi (deg)\\n0,0,0\\n1000,0,0\\n2000,10,90\\n3000,30,90\\n4000,45,95\\n5750,60,100\\n", '
+                       '"samples", "true", "ft", None, None, None, "SYNTHETIC survey")\n'
+                       'ws.add_site("SYNTHETIC pad", wells=[w["id"]], client="SYNTHETIC operator", actor="samples")\n'
+                       'ws.refresh_dashboard(actor="samples")\n'
+                       'EC.set_rate(ws, w["id"], "samples", 30000, "rig spread", "SYNTHETIC contract"); EC.add_item(ws, w["id"], "samples", 18000, "bit", "SYNTHETIC invoice", 1)\n'
+                       'EC.set_afe(ws, w["id"], "samples", 150000, "SYNTHETIC AFE")\n'
+                       'SC.confirm(ws, "events:" + w["id"], "samples", "the SYNTHETIC daily drilling reports")\n'
+                       'json.dump(w["id"], open("well_id.json", "w"))'], work)
+        run(g + ['well-report', '--workspace', 'well_site'], work)
+        _wid = json.load(open(work / 'well_id.json'))
+        SAMPLES.append(('well_report_SYNTHETIC.html', f'well_site/reports/wells/{_wid}/well_report.html',
+                        'gea well-report --workspace well_site (the labelled synthetic drilling export of gea edr --selftest with one of each depth event, '
+                        'a declared surface location, a synthetic contour map, a synthetic survey and a declared day rate)'))
+        SAMPLES.append(('pad_report_SYNTHETIC.html', 'well_site/reports/pad_report.html', 'the well-report run above (the pad report)'))
         if out.exists():
             for p in out.glob('*.html'):
                 p.unlink()
