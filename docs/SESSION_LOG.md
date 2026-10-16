@@ -2152,3 +2152,35 @@ in the history.
   package - the condition that let a local pass hide a checkout failure.
 - The fresh clone of d3a8307 was run through the whole gate as the runners
   run it, to see every section a checkout fails, not only the first.
+
+## 2026-10-16 - Economics (v0.37.0)
+
+The last of the tabs Daniel asked for: cost per foot and per day from his
+own rates, with the oil and gas prices and the rig count as background.
+- Research first. Neither the cloud nor his machine's sandbox reaches
+  eia.gov, FRED or Baker Hughes; GitHub is reachable. The Frictionless Data
+  core datasets (datasets/oil-prices, datasets/natural-gas) republish EIA's
+  daily spot tables as CSV and were updated to 14 October 2026; EIA data
+  are public domain. Pinned at c2452624 and 64843b5b, shipped
+  gzip-compressed with both hashes. They carry WTI's -36.98 of 20 April
+  2020 and Henry Hub's 23.86 of 17 February 2021, as EIA published them.
+- No openly licensed copy of the Baker Hughes rig count was found (it is
+  Baker Hughes' publication); the rig count, or any other series, comes in
+  through the import with its source stated.
+- `gea/economics.py`: series reading (a blank day left out, a repeated date
+  or a bad value refused), refresh (kept only when it reads and runs
+  later), import; the cost basis in the workspace (rates over periods that
+  may not overlap, items, AFE, each sourced and audited); the arithmetic
+  (rates integrated over the drilling record's first-to-last sample, per
+  section, cost per foot only when the rates cover all of it); the market
+  window per well; Spearman only from ten complete wells.
+- The page: one SVG chart per series (never two axes), wells' windows as
+  labelled bands, gaps over six days not bridged, a crosshair by pointer or
+  arrow keys; the wells' table; cost per foot by section with an inline bar;
+  the basis forms. Driven in headless Chromium light and phone width.
+- Pad 3 on his machine (preview, read-only): 30636033 42.4 days on the
+  record, 561 ft/day, WTI 81.49 mean while drilling (28 trading days);
+  30665733 83.0 days (its two months' gap counts: days on the record),
+  288 ft/day; 30693545 55.5 days, 572 ft/day. No cost until his rates are
+  declared.
+- Section CF (3 checks). Gate 398.

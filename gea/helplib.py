@@ -44,6 +44,7 @@ INDEX: List[tuple] = [
     ('dlis', 'The DLIS log', 'a well log as it is delivered (API RP66 V1), read as the standard lays it out: the frames, the channels, what was skipped; into the strata survey'),
     ('historian', 'The historian pull', 'an operator\'s gauge history out of the PI System through PI Web API, read-only, every value with its archive time and flags'),
     ('map', 'The site map', 'everything with a position in one frame: the placed wells, the structure layers, the stress directions, the stations and response areas over the state and county outline; what every layer says about any spot'),
+    ('economics', 'Economics', 'each well\'s days, footage and cost by the operator\'s own declared rates, against the EIA oil and gas spot prices while it was drilled, and any series the site imports'),
     ('well3d', 'The well in 3D', 'each well\'s path from its directional survey, set among the mapped formation surfaces and contours with its picks, coloured by what was measured along it, and the drill string replayed from the record; the Volve field shipped as the worked example'),
     ('charts', 'The charts', 'a well\'s channels stacked on one axis with a linked cursor, zoom and pan from every sample, time or depth for a drilling recorder, the depth events marked, and the drilling progress of every well'),
     ('control-room', 'The control room', 'the wall screen read from across the room - a tile per well, worst first, its state in a shape and a word, refreshed by itself and saying when it has stopped - and the shift handover, signed by one operator and acknowledged by the next'),
@@ -73,7 +74,7 @@ REQUIRED_LINES = ('**The command**', '**What it writes**', '**The number to chec
 VIEW_TOPIC: Dict[str, str] = {
     'home': 'start', 'wells': 'data-in', 'well': 'drift', 'live': 'patches', 'patch': 'patches', 'files': 'files', 'alarms': 'alarms',
     'approvals': 'well-tests', 'config': 'site', 'reports': 'drift', 'verify': 'start', 'survey': 'data-in', 'jobs': 'site',
-    'admin': 'site', 'prefs': 'site', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'sar': 'seismic', 'sites': 'sites', 'setup': 'setup', 'map': 'map', '3d': 'well3d', 'control': 'control-room', 'wall': 'control-room', 'audit': 'audit-update', 'tools': 'tools', 'catalog': 'catalog',
+    'admin': 'site', 'prefs': 'site', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'sar': 'seismic', 'sites': 'sites', 'setup': 'setup', 'map': 'map', '3d': 'well3d', 'economics': 'economics', 'control': 'control-room', 'wall': 'control-room', 'audit': 'audit-update', 'tools': 'tools', 'catalog': 'catalog',
 }
 
 

@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.37.0 - 2026-10-16 - economics
+
+- **Time and footage measured, cost declared, prices as context.** Each
+  well's days and feet from its drilling record; its cost from the
+  operator's rates, items and AFE with their sources, undivided while the
+  rates leave time uncovered; EIA's daily WTI and Henry Hub spot prices
+  shipped, refreshable, and any imported series beside them; no
+  correlation below ten wells. Section CF; gate 398.
+
 ## v0.36.0 - 2026-10-16 - the well in 3D
 
 - **Surveys made into paths, among the formations, replayed.** Minimum

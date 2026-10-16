@@ -1,46 +1,27 @@
-v0.36.0 — THE WELL IN 3D
+v0.37.0 — ECONOMICS
 
-A well is a line through the ground, and until now the program only ever
-showed it as numbers against depth. This release adds the 3D tab.
+A well's cost is the number every operator manages and no recorder writes
+down. This release adds the Economics tab, and keeps the two kinds of
+number in it apart.
 
-Each well's path is drawn from its directional survey by the minimum-
-curvature method - between survey stations it follows the same arc, never
-a straight chord - below sea level from the well's declared rig floor, and
-set among the mapped formations: interpreted horizon surfaces as they were
-delivered, or a formation-top map's contour lines at their elevations. The
-picks sit on the path. The wells can be coloured by the formation they are
-in, by inclination or dogleg severity, or by a drilling recorder's gamma,
-rate of penetration or weight on bit along the bit's depth. Turn it, pan it,
-zoom it, stretch the depth, see through the surfaces, point at anything for
-its numbers.
+What was measured: each well's days on its drilling record, the feet it
+drilled, feet per day and hours on bottom, on the recorder's own clock.
 
-The replay moves the bit down the hole - the hole drilled so far in full
-colour, the rest faded - from the recorder's bit depth, every sample on the
-recorder's own clock, or from the times of the survey stations measured
-while drilling.
+What is declared: the operator's day rates over the dates they applied,
+the one-off items, the AFE - each with where it came from, each in the
+audit log. The cost is those rates over the record's time plus the items,
+per well and per section, with cost per foot, per day and the difference
+from the AFE. While the rates leave any of the time uncovered the cost is
+shown and marked incomplete, and it is not divided by the footage: a
+partial cost spread over the whole well would understate it.
 
-The Volve field in the Norwegian North Sea ships with the program as the
-worked example: the original surveys of three wells, the field's 408
-formation picks and five mapped horizons, released by Equinor. They were
-checked against each other before anything was drawn: the paths reproduce
-the survey companies' own positions to under a centimetre and land on
-Equinor's picks to under a third of a metre; the coordinates are ED50 UTM
-zone 31N, confirmed against the operator's log headers to a tenth of a
-metre. One survey says true north but fits the picks only as grid north,
-and the page says so.
+Beside them, the market: the U.S. Energy Information Administration's daily
+spot prices for WTI crude at Cushing and Henry Hub gas ship with the
+program, public domain, and refresh on request; a rig count or any other
+series comes in from a file with its source stated. Each series has its own
+chart with the wells' drilling windows shaded, and each well shows what the
+prices were while it was drilled. The page calls the prices context, not
+cause, and computes no correlation across fewer than ten wells.
 
-A workspace well is drawn once it has a position, an elevation and its
-survey; `gea trajectory` attaches one, kept byte for byte, with its azimuth
-reference stated. Until then the workspace's formation-top contours are
-drawn on their own. Nothing is drawn between wells: no rock or fluid
-property is measured there.
-
-The first push of this release failed its gate on every GitHub runner and
-published nothing: the Volve picks file had Windows line ends, the
-repository stores text with Unix ones, and the checkout no longer matched
-the file's recorded hash. The picks now ship compressed like the surveys,
-and the gate refuses any package file with Windows line ends, so a local
-pass can no longer hide a checkout failure.
-
-Section CE is new, three checks. The gate is 395 checks. The standalone
+Section CF is new, three checks. The gate is 398 checks. The standalone
 guard is clean.

@@ -1902,6 +1902,9 @@ def make_handler(app: App):
                         except WorkspaceError as e:
                             raise ApiError(404, str(e))
                     raise ApiError(404, 'no such map route')
+                if path == '/api/economics':
+                    from . import economics as EC
+                    return self._json(200, EC.economics(app.ws))
                 if path == '/api/3d/scenes':
                     from . import well3d as W3
                     return self._json(200, {'scenes': W3.scenes(app.ws)})
@@ -2186,6 +2189,32 @@ def make_handler(app: App):
                             raise ApiError(400, str(e))
                     finally:
                         shutil.rmtree(tmp_dir, ignore_errors=True)
+                if path.startswith('/api/economics/'):
+                    from . import economics as EC
+                    import base64 as _b64
+                    App.require(user, 'operator')
+                    act = path[len('/api/economics/'):]
+                    wid = str(body.get('well_id', ''))
+                    if act == 'rate':
+                        return self._json(200, App._cr(EC.set_rate, app.ws, wid, user['name'], body.get('usd_per_day'), str(body.get('what', '')),
+                                                       str(body.get('source', '')), body.get('from') or None, body.get('to') or None))
+                    if act == 'item':
+                        return self._json(200, App._cr(EC.add_item, app.ws, wid, user['name'], body.get('usd'), str(body.get('what', '')),
+                                                       str(body.get('source', '')), body.get('section')))
+                    if act == 'afe':
+                        return self._json(200, App._cr(EC.set_afe, app.ws, wid, user['name'], body.get('usd'), str(body.get('source', ''))))
+                    if act == 'remove':
+                        return self._json(200, App._cr(EC.remove, app.ws, wid, user['name'], str(body.get('kind', '')), int(body.get('index') or 0)))
+                    if act == 'refresh':
+                        return self._json(200, {'series': EC.refresh_prices(app.ws, user['name'])})
+                    if act == 'import':
+                        try:
+                            content = _b64.b64decode(str(body.get('content_b64', '')), validate=True)
+                        except ValueError:
+                            raise ApiError(400, 'content_b64 is not base64')
+                        return self._json(200, App._cr(EC.import_series, app.ws, user['name'], str(body.get('name', '')), str(body.get('unit', '')),
+                                                       str(body.get('source', '')), content, body.get('date_column') or None, body.get('value_column') or None))
+                    raise ApiError(404, 'no such economics action')
                 if path.startswith('/api/wells/') and path.endswith('/trajectory'):
                     from . import well3d as W3
                     import base64 as _b64

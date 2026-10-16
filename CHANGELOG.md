@@ -5,6 +5,39 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.37.0] - 2026-10-16 - Economics
+
+### Added
+- **The Economics tab** (`gea/economics.py`, `#/economics`): each well's
+  days on its drilling record, feet drilled, feet per day and hours on
+  bottom - measured, on the recorder's own clock - beside what it cost by the
+  operator's declared basis: day rates in USD over stated periods (open at
+  either end, never overlapping), one-off items tied to a section or not,
+  and the AFE, each with its source. Cost is the rates integrated over the
+  record's time plus the items; cost per foot, per day and per hour on
+  bottom, by well and by section, and the difference from the AFE. While
+  the rates leave any of the record's time uncovered the cost is shown,
+  marked incomplete, and not divided by the footage.
+- **The market while each well was drilled**: the U.S. Energy Information
+  Administration's daily spot prices - WTI at Cushing (RWTC) and Henry Hub
+  gas (RNGWHHD) - ship with the program (`reference/eia_*`, public domain,
+  built by `tools/build_eia_prices.py` from the Frictionless Data copies at
+  pinned commits, hashed), and refresh into the workspace on request; a copy
+  that does not read, or ends earlier than the one held, is refused. Any
+  other series (a rig count, a regional price) is imported from a CSV of
+  dates and values with its name, unit and source, kept byte for byte. One
+  chart per series on its own axis, the wells' drilling windows shaded, a
+  crosshair by pointer or arrow keys; each well's mean, low and high while
+  it was drilled.
+- **A correlation only where it means something**: a rank correlation
+  between cost per foot and WTI across wells is computed from ten wells
+  with a complete cost; below that the page says it is noise.
+- `gea economics --workspace` prints it all; `--rate`, `--item`, `--afe`,
+  `--refresh-prices`, `--import-series`. API `/api/economics` and
+  `/api/economics/{rate,item,afe,remove,refresh,import}` (declaring needs
+  the operator role). `gea help economics`.
+- Section CF (3 checks); the gate is 398.
+
 ## [v0.36.0] - 2026-10-16 - The well in 3D
 
 ### Added

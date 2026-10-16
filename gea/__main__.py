@@ -475,6 +475,24 @@ def main(argv=None) -> int:
     p_ck.add_argument("--note", type=str, default="", help="--confirm: what it was checked against (required)")
     p_ck.add_argument("--actor", type=str, default="cli")
 
+    p_ec = sub.add_parser("economics", help="each well's time, footage and declared cost against the market while it was drilled; declare rates, items and an AFE; refresh or import price series")
+    p_ec.add_argument("--workspace", type=str, required=True)
+    p_ec.add_argument("--json", action="store_true")
+    p_ec.add_argument("--well", type=str, default=None, help="the well a rate, item or AFE is for")
+    p_ec.add_argument("--rate", type=float, default=None, help="a day rate, USD/day, over --from/--to (open when left out)")
+    p_ec.add_argument("--item", type=float, default=None, help="a one-off cost, USD (a bit, a cement job), optionally --section N")
+    p_ec.add_argument("--afe", type=float, default=None, help="the well's AFE, USD")
+    p_ec.add_argument("--what", type=str, default="", help="what the rate or item pays for")
+    p_ec.add_argument("--section", type=int, default=None)
+    p_ec.add_argument("--from", dest="date_from", type=str, default=None, help="rate start, ISO date or date-time on the recorder's clock")
+    p_ec.add_argument("--to", dest="date_to", type=str, default=None, help="rate end")
+    p_ec.add_argument("--source", type=str, default="", help="where the number came from (contract, invoice, AFE number)")
+    p_ec.add_argument("--refresh-prices", action="store_true", help="fetch the latest EIA spot-price copies into the workspace")
+    p_ec.add_argument("--import-series", type=str, default=None, help="a CSV of dates and values to keep beside the prices (a rig count)")
+    p_ec.add_argument("--name", type=str, default="")
+    p_ec.add_argument("--unit", type=str, default="")
+    p_ec.add_argument("--actor", type=str, default="cli")
+
     p_tj = sub.add_parser("trajectory", help="attach a well's directional survey (WITSML trajectory or a table of MD, Inc, Azi), kept verbatim beside the well, so the 3D tab can draw its path")
     p_tj.add_argument("--workspace", type=str, required=True)
     p_tj.add_argument("--well", type=str, required=True)
@@ -1954,6 +1972,43 @@ def main(argv=None) -> int:
         else:
             print(_SC.text(r))
         return 0 if r["ready"] else 2
+    elif a.cmd == "economics":
+        import json as _json
+        from . import economics as _EC
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        try:
+            ws = Workspace(a.workspace)
+        except WorkspaceError as e:
+            raise SystemExit(f"economics: {e}")
+        try:
+            if a.rate is not None:
+                r = _EC.set_rate(ws, a.well or "", a.actor, a.rate, a.what, a.source, a.date_from, a.date_to)
+                print(f"{a.well}: {r['usd_per_day']:,.2f} USD/day {r['what']} from {r['from'] or 'open'} to {r['to'] or 'open'}")
+                return 0
+            if a.item is not None:
+                r = _EC.add_item(ws, a.well or "", a.actor, a.item, a.what, a.source, a.section)
+                print(f"{a.well}: {r['usd']:,.2f} USD {r['what']}")
+                return 0
+            if a.afe is not None:
+                r = _EC.set_afe(ws, a.well or "", a.actor, a.afe, a.source)
+                print(f"{a.well}: AFE {r['usd']:,.2f} USD ({r['source']})")
+                return 0
+            if a.refresh_prices:
+                for r in _EC.refresh_prices(ws, a.actor):
+                    print(f"{r['id']}: {r['status']}" + (f" to {r['as_of']} ({r['rows']} days)" if r.get('as_of') else f" - {r.get('why', '')}"))
+                return 0
+            if a.import_series:
+                with open(a.import_series, "rb") as f:
+                    r = _EC.import_series(ws, a.actor, a.name, a.unit, a.source, f.read())
+                print(f"{r['name']}: {r['rows']} values, {r['first']} to {r['as_of']} ({r['unit']})")
+                return 0
+        except (ValueError, KeyError, OSError, WorkspaceError) as e:
+            raise SystemExit(f"economics: {e.args[0] if e.args else e}")
+        e = _EC.economics(ws)
+        print(_json.dumps(e, indent=1) if a.json else _EC.text(e))
+        return 0
     elif a.cmd in ("trajectory", "well3d"):
         import json as _json
         from . import well3d as _W3

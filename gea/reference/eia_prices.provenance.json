@@ -1,0 +1,51 @@
+{
+ "entry": "eia_prices",
+ "kind": "PUBLIC_DOMAIN_PRICE_SERIES",
+ "publisher": "U.S. Energy Information Administration (EIA)",
+ "license": "Public domain: U.S. government publications are not subject to copyright (EIA, Copyrights and Reuse). The GitHub copies are published under the Open Data Commons Public Domain Dedication and License / the Unlicense.",
+ "attribution": "Source: U.S. Energy Information Administration, spot prices (series RWTC and RNGWHHD).",
+ "access": "EIA itself was not reachable from the build machine; the daily tables were taken from the Frictionless Data core datasets on GitHub, which re-publish them as CSV, at pinned commits, verbatim and hashed as fetched.",
+ "checks": [
+  "the WTI series carries the negative settlement of 20 April 2020 (-36.98) and the Henry Hub series the winter-storm spike of 17 February 2021 (23.86), as EIA published them"
+ ],
+ "series": {
+  "wti": {
+   "name": "WTI crude oil, Cushing OK, spot",
+   "unit": "USD/bbl",
+   "eia_series": "RWTC",
+   "eia_url": "https://www.eia.gov/dnav/pet/hist/RWTCD.htm",
+   "file": "eia_wti_daily.csv.gz",
+   "source": {
+    "repository": "https://github.com/datasets/oil-prices",
+    "commit": "c24526249395d1df291d2a6a63a510939cf65556",
+    "path": "data/wti-daily.csv",
+    "url": "https://raw.githubusercontent.com/datasets/oil-prices/c24526249395d1df291d2a6a63a510939cf65556/data/wti-daily.csv"
+   },
+   "refresh_url": "https://raw.githubusercontent.com/datasets/oil-prices/main/data/wti-daily.csv",
+   "rows": 9523,
+   "first": "1986-01-02",
+   "last": "2026-10-14",
+   "sha256_uncompressed": "08e3029c618fdcba5da53b64b9911e49788da658d9ff361210575ab5064f854e",
+   "sha256": "b53998fc85dabf011a62a2ca0f02fd01d41f4420af53a25459e740b693b3566a"
+  },
+  "henry_hub": {
+   "name": "Henry Hub natural gas, spot",
+   "unit": "USD/MMBtu",
+   "eia_series": "RNGWHHD",
+   "eia_url": "https://www.eia.gov/dnav/ng/hist/rngwhhdd.htm",
+   "file": "eia_henry_hub_daily.csv.gz",
+   "source": {
+    "repository": "https://github.com/datasets/natural-gas",
+    "commit": "64843b5bb8ed967f4af563eac2c1782380e2f2e0",
+    "path": "data/daily.csv",
+    "url": "https://raw.githubusercontent.com/datasets/natural-gas/64843b5bb8ed967f4af563eac2c1782380e2f2e0/data/daily.csv"
+   },
+   "refresh_url": "https://raw.githubusercontent.com/datasets/natural-gas/main/data/daily.csv",
+   "rows": 5709,
+   "first": "1997-01-07",
+   "last": "2026-10-14",
+   "sha256_uncompressed": "1739bbe305b49b44a1015a876f736b97aff71bdac6111893232c76f1c15c4bfd",
+   "sha256": "160a6249d60ff4fd9002c3c5c38b217e5b8b348510628045891533934e1c5b63"
+  }
+ }
+}

@@ -8800,6 +8800,176 @@ def section_ce_well3d(tmp: str) -> None:
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+
+def section_cf_economics(tmp: str) -> None:
+    """Section CF - economics: the shipped EIA spot prices checked against their provenance and against two days EIA
+    published, series refreshed and imported only when they read, a well's cost from declared rates done by hand and
+    left undivided when the rates leave time uncovered, the market while the well was drilled, the API, the CLI, the tab."""
+    import base64 as _b64
+    import gzip as _gz
+    import hashlib as _hl
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    from datetime import datetime as _dt
+    from . import economics as EC
+    from . import edr as E
+    from . import helplib as H
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "cf"); d.mkdir()
+
+    prov = json.loads((pkg / "reference" / "eia_prices.provenance.json").read_text(encoding="utf-8"))
+    hashes = all(_hl.sha256((pkg / "reference" / s["file"]).read_bytes()).hexdigest() == s["sha256"]
+                 and _hl.sha256(_gz.decompress((pkg / "reference" / s["file"]).read_bytes())).hexdigest() == s["sha256_uncompressed"]
+                 and len(s["source"]["commit"]) == 40 for s in prov["series"].values())
+    wd, wv, _ = EC.read_series(None, "wti")
+    hd, hv, _ = EC.read_series(None, "henry_hub")
+    refused = 0
+    for bad in ("Date,Price\n2020-01-01,1\n2020-01-01,2\n", "Date,Price\n2020-01-01,1\n2020-01-02,x\n", "Date,Price\n2020-13-01,1\n2020-01-02,2\n", "Date,Price\n"):
+        try:
+            EC._parse_series(bad)
+        except ValueError:
+            refused += 1
+    bd, bv, _ = EC._parse_series("Date,Price\n2020-01-03,3\n2020-01-01,1\n2020-01-02,\n")
+    ev = E.selftest_events(str(d))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    wb = ws.add_well_file(ev["path"], display="Well B", actor="tester"); wc = ws.add_well_file(ev["path"], display="Well C", actor="tester")
+    later = ("Date,Price\n" + "".join(f"{x},{y}\n" for x, y in zip(wd, wv)) + "2099-01-01,50.0\n").encode()
+    hh_short = "Date,Price\n2001-01-02,9.0\n2001-01-03,9.5\n".encode()
+    calls = {}
+
+    def fake(u):
+        calls[u] = True
+        if "oil-prices" in u:
+            return later
+        if "natural-gas" in u:
+            return hh_short
+        raise OSError("no network")
+    ref = EC.refresh_prices(ws, "tester", fetch=fake)
+    ref_status = {r["id"]: r["status"] for r in ref}
+    imp_refused = 0
+    for kw in ({"name": "", "unit": "rigs", "source": "s"}, {"name": "Rigs", "unit": "", "source": "s"}, {"name": "Rigs", "unit": "rigs", "source": ""}, {"name": "wti", "unit": "x", "source": "s"}):
+        try:
+            EC.import_series(ws, "tester", kw["name"], kw["unit"], kw["source"], b"Date,Count\n2026-06-26,300\n2026-07-03,301\n")
+        except ValueError:
+            imp_refused += 1
+    imp = EC.import_series(ws, "tester", "Permian rig count", "rigs", "test", b"Week,Rigs\n2026-06-26,300\n2026-07-03,301\n2026-07-10,299\n")
+    c1 = {
+        "shipped": hashes and prov["series"]["wti"]["eia_series"] == "RWTC" and prov["series"]["henry_hub"]["eia_series"] == "RNGWHHD"
+                   and "public domain" in prov["license"].lower() and wv[wd.index("2020-04-20")] == -36.98 and hv[hd.index("2021-02-17")] == 23.86
+                   and len(wd) == prov["series"]["wti"]["rows"] and wd == sorted(wd),
+        "parse": refused == 4 and bd == ["2020-01-01", "2020-01-03"] and bv == [1.0, 3.0],
+        "refresh": ref_status == {"wti": "REFRESHED", "henry_hub": "NOT REFRESHED"} and EC.read_series(ws, "wti")[0][-1] == "2099-01-01"
+                   and EC.read_series(ws, "henry_hub")[2]["kind"] == "shipped" and len(calls) == 2,
+        "import": imp_refused == 4 and imp["id"] == "permian_rig_count" and imp["rows"] == 3 and imp["date_column"] == "Week" and imp["value_column"] == "Rigs"
+                  and Path(wsp, "economics", "series", "permian_rig_count.csv").read_bytes().startswith(b"Week,Rigs"),
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CF1 the price series: EIA's daily WTI (RWTC) and Henry Hub (RNGWHHD) spot prices shipped with their provenance and hashes, carrying the "
+       "-36.98 of 20 April 2020 and the 23.86 of 17 February 2021 as EIA published them; a series with a repeated or bad date or a bad number "
+       "refused, a blank day left out; a refreshed copy kept only when it reads and runs later than the one held; an imported series kept byte "
+       "for byte with its name, unit and source"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    ws.refresh_dashboard(actor="tester")
+    rec = json.loads(Path(ws.reports_dir, "wells", wb["id"], "drilling_record.json").read_text(encoding="utf-8"))
+    t0, t1 = _dt.fromisoformat(rec["start"]), _dt.fromisoformat(rec["end"])
+    days = (t1 - t0).total_seconds() / 86400.0
+    mid = "2026-07-02T12:00:00"
+    EC.set_rate(ws, wb["id"], "tester", 30000, "rig spread", "contract", rec["start"], mid)
+    part = EC.economics(ws)
+    pb = next(w for w in part["wells"] if w["well_id"] == wb["id"])
+    bad = 0
+    for args in ((30000, "rig", "c", "2026-07-02", "2026-07-05"), (30000, "", "c", None, None), (30000, "rig", "", None, None), (-5, "rig", "c", "2027-01-01", None),
+                 (30000, "rig", "c", "2027-01-02", "2027-01-01")):
+        try:
+            EC.set_rate(ws, wb["id"], "tester", *args)
+        except ValueError:
+            bad += 1
+    EC.set_rate(ws, wb["id"], "tester", 32000, "rig spread", "contract", mid, None)
+    EC.add_item(ws, wb["id"], "tester", 18000, "bit", "invoice", 1)
+    EC.set_afe(ws, wb["id"], "tester", 150000, "AFE 1")
+    full = EC.economics(ws)
+    fb = next(w for w in full["wells"] if w["well_id"] == wb["id"])
+    first = (_dt.fromisoformat(mid) - t0).total_seconds() / 86400.0
+    by_hand = round(30000 * first + 32000 * (days - first) + 18000, 2)
+    win = [v for x, v in zip(wd, wv) if rec["start"][:10] <= x <= rec["end"][:10]]
+    c2 = {
+        "partial": pb["cost"]["complete"] is False and pb["cost"]["per_ft"] is None and "cover" in pb["cost"]["why_incomplete"]
+                   and abs(pb["cost"]["usd"] - round(30000 * first, 2)) < 0.01,
+        "refused": bad == 5,
+        "by_hand": fb["cost"]["complete"] and abs(fb["cost"]["usd"] - by_hand) < 0.01 and abs(fb["cost"]["per_ft"] - round(by_hand / rec["feet_drilled"], 2)) < 0.01
+                   and abs(fb["cost"]["vs_afe_pct"] - round(100 * (by_hand - 150000) / 150000, 1)) < 0.05 and fb["days"] == round(days, 2),
+        "sections": all(s["complete"] for s in fb["sections"]) and fb["sections"][0]["cost_usd"] > 18000,
+        "market": fb["market"]["wti"]["n"] == len(win) and abs(fb["market"]["wti"]["mean"] - round(sum(win) / len(win), 3)) < 1e-9
+                  and full["chart"]["wells"][0]["from"] == rec["start"][:10] and "permian_rig_count" in full["chart"]["series"],
+        "correlation": "spearman_cost_per_ft_vs_wti" not in full["correlation"] and full["correlation"]["n_wells"] == 1
+                       and abs(EC._spearman([1, 2, 3, 4], [10, 20, 30, 40]) - 1) < 1e-12 and abs(EC._spearman([1, 2, 3, 4], [4, 3, 2, 1]) + 1) < 1e-12,
+        "audit": all(a in [x["action"] for x in ws.audit_log(500)] for a in ("economics.rate", "economics.item", "economics.afe", "economics.prices.refresh", "economics.series.import")),
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CF2 a well's cost: two day rates and a bit over the drilling record's own time come to the dollar the hand sum gives, with cost per foot "
+       "and the difference from the AFE; while the rates leave time uncovered the cost is shown, marked incomplete and not divided by the footage; "
+       "overlapping periods, a rate with no source or no purpose, a negative rate and a period that ends before it starts refused; the WTI mean "
+       "while drilling equal to the days EIA published in that window; no correlation across fewer than ten wells; every declaration audited"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        st_g, eg = call(V, "GET", "/api/economics")
+        st_vr, _ = call(V, "POST", "/api/economics/rate", {"well_id": wc["id"], "usd_per_day": 1000, "what": "rig", "source": "s"})
+        st_or, _ = call(O, "POST", "/api/economics/rate", {"well_id": wc["id"], "usd_per_day": 25000, "what": "rig spread", "source": "contract"})
+        st_bad, _ = call(O, "POST", "/api/economics/rate", {"well_id": wc["id"], "usd_per_day": "x", "what": "rig", "source": "s"})
+        st_imp, imp2 = call(O, "POST", "/api/economics/import", {"name": "Midland WTI", "unit": "USD/bbl", "source": "test", "content_b64": _b64.b64encode(b"Date,Price\n2026-07-01,70\n2026-07-02,71\n").decode()})
+        st_rm, _ = call(O, "POST", "/api/economics/remove", {"well_id": wc["id"], "kind": "rate", "index": 0})
+        st_rm2, _ = call(O, "POST", "/api/economics/remove", {"well_id": wc["id"], "kind": "rate", "index": 0})
+        st_ac, _ = call(O, "POST", "/api/economics/nope", {})
+    finally:
+        svc.stop()
+    cli = _sp.run([sys.executable, "-m", "gea", "economics", "--workspace", wsp], capture_output=True, text=True, cwd=str(pkg.parent))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    help_md = (pkg / "help" / "economics.md").read_text(encoding="utf-8")
+    c3 = {
+        "api": st_g == 200 and len(eg["wells"]) == 2 and st_vr == 403 and st_or == 200 and st_bad == 400 and st_imp == 200 and imp2["id"] == "midland_wti"
+               and st_rm == 200 and st_rm2 == 404 and st_ac == 404,
+        "cli": cli.returncode == 0 and "USD/ft" in cli.stdout and "incomplete" not in cli.stdout.split("Well B")[1].split("Well C")[0] and "U.S. Energy Information Administration" in cli.stdout,
+        "page": all(x in page_src for x in ("VIEWS.economics", "['#/economics', 'Economics']", "ecChart", "ec-hit", "ArrowLeft", "/api/economics/rate",
+                                             "/api/economics/import", "/api/economics/refresh", "incomplete", "a gap of more than six days is not bridged")),
+        "help": any(t["topic"] == "economics" for t in H.topics()) and not H.check("economics") and H.VIEW_TOPIC.get("economics") == "economics"
+                and "fewer than ten wells" in help_md.split("will not call a measurement")[1],
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CF3 the API (a viewer reads, only an operator declares; a bad number, an unknown action and a second removal of the same rate named), "
+       "the CLI and the Economics tab: one chart per series on its own axis with the wells' drilling windows shaded and a crosshair by pointer or "
+       "arrows, the wells' cost table, the cost-basis forms, refresh and import; the help page"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -8886,6 +9056,7 @@ def main() -> int:
         section_cc_site_map(tmp)
         section_cd_control_room(tmp)
         section_ce_well3d(tmp)
+        section_cf_economics(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

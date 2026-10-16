@@ -609,6 +609,17 @@ against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
 
+### Economics
+
+The Economics tab puts each well's days on its drilling record, feet
+drilled and feet per day beside what it cost by the operator's own declared
+day rates, items and AFE - cost per foot, per day and by section, never
+divided while the rates leave time uncovered - and sets each well against
+the U.S. Energy Information Administration's daily WTI and Henry Hub spot
+prices while it was drilled. The prices ship with the program and refresh
+on request; any other series (a rig count) is imported with its source.
+`gea economics`, `gea help economics`.
+
 ### The well in 3D
 
 The 3D tab draws each well's path from its directional survey by the
