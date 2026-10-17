@@ -516,6 +516,12 @@ def main(argv=None) -> int:
     p_3d.add_argument("--workspace", type=str, default=None)
     p_3d.add_argument("--json", action="store_true")
 
+    p_sm = sub.add_parser("simulation", help="the simulation in words: the scenes (Volve 15/9-F-4 with its logs and interpretation, Volve F-5 and F-10 on the survey clock, every drilling-recorder well), and what the record says at a depth (the Simulation tab replays it)")
+    p_sm.add_argument("--workspace", type=str, default=None)
+    p_sm.add_argument("--scene", type=str, default=None, help="e.g. volve-f4, or well:Well-30636033")
+    p_sm.add_argument("--at", type=float, default=None, help="a measured depth, in the scene's unit (m for Volve, ft for a workspace well)")
+    p_sm.add_argument("--json", action="store_true")
+
     p_wl = sub.add_parser("wall", help="the control-room board as text: a line per well, worst first, its state and why (the same board the wall screen shows)")
     p_wl.add_argument("--workspace", type=str, default=None, help="the workspace folder, e.g. C:\\site")
     p_wl.add_argument("--json", action="store_true")
@@ -2034,6 +2040,31 @@ def main(argv=None) -> int:
         if a.pad or not a.well:
             r = _WR.write_pad(ws, __version__, actor=a.actor)
             print(f"pad: {r['paths']['html']}")
+        return 0
+    elif a.cmd == "simulation":
+        import json as _json
+        from . import simulation as _SIM
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        ws = None
+        if a.workspace:
+            try:
+                ws = Workspace(a.workspace)
+            except WorkspaceError as e:
+                raise SystemExit(f"simulation: {e}")
+        if not a.scene:
+            for s_ in _SIM.scenes(ws):
+                print(f"{s_['id']:<28} {s_['title']}  ({s_['note']})")
+            return 0
+        try:
+            sim = _SIM.scene(ws, a.scene)
+        except KeyError as e:
+            raise SystemExit(f"simulation: {e.args[0] if e.args else e}")
+        if a.json:
+            print(_json.dumps(sim if a.at is None else _SIM.at(sim, a.at * (0.3048 if sim.get('depth_unit') == 'ft' else 1.0)), default=str))
+        else:
+            print(_SIM.text(sim, a.at))
         return 0
     elif a.cmd in ("trajectory", "well3d"):
         import json as _json

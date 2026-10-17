@@ -9137,6 +9137,156 @@ def section_cg_well_report(tmp: str) -> None:
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_ch_simulation(tmp: str) -> None:
+    """Section CH - the simulation: Volve 15/9-F-4's logs and their interpretation shipped verbatim and checked against
+    themselves, read back at a depth to the value in the file; the bit on the clock each record carries (stepped along
+    measured depth where none was recorded, on the survey stations' times, on a drilling recorder's own clock) with the
+    hole never behind the bit; a workspace well's path from its survey or from the recorder's MD-TVD pairs; the API, the
+    CLI, the tab and its help page."""
+    import gzip as _gz
+    import hashlib as _hl
+    import http.cookiejar
+    import subprocess as _sp
+    import tempfile as _tf
+    import urllib.request
+    import urllib.error
+    from . import edr as E
+    from . import helplib as H
+    from . import ports as PT
+    from . import simulation as SIM
+    from . import well3d as W
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ch"); d.mkdir()
+    prov = json.loads((pkg / "reference" / "volve_f4_logs.provenance.json").read_text(encoding="utf-8"))
+    hashes = all(_hl.sha256((pkg / "reference" / f["file"]).read_bytes()).hexdigest() == f["sha256"]
+                 and _hl.sha256(_gz.decompress((pkg / "reference" / f["file"]).read_bytes())).hexdigest() == f["sha256_uncompressed"]
+                 and len(f["source"]["commit"]) == 40 for f in prov["files"].values())
+    files = {}
+    for k, f in prov["files"].items():
+        p = d / (k + ".las"); p.write_bytes(_gz.decompress((pkg / "reference" / f["file"]).read_bytes())); files[k] = PT.read_las(str(p))
+    itp, lwd = files["interpretation"], files["lwd"]
+
+    def ch(st, n):
+        v = np.asarray(st.channels[n].values, dtype=float).copy(); v[v <= -999] = np.nan; return v
+    mins = sum(np.nan_to_num(ch(itp, n)) for n in ("VQFM", "VCLA", "VCLC", "VDOL", "VPYR", "VSID", "VANH", "VEVA", "VCOA"))
+    phit, swt, vuhy = ch(itp, "PHIT"), ch(itp, "SWT"), ch(itp, "VUHY")
+    sim = SIM.scene(None, "volve-f4")
+    col = sim["columns"][0]
+    sums = [sum(x or 0 for x in r) for r in col["f"]]
+    a = SIM.at(sim, 3300.0)
+    md_l, gr = np.asarray(lwd.index, dtype=float), ch(lwd, "GRMA")
+    gr_hand = float(np.interp(3300.0, md_l, gr))
+    md_i = np.asarray(itp.index, dtype=float)
+    rp = sim["scene"]["wells"][0]["replay"]
+    c1 = {
+        "shipped": hashes and "may not be sold" in prov["license"] and "Equinor" in prov["attribution"] and len(lwd.index) == 3636 and len(itp.index) == 3531
+                   and abs(float(lwd.index[0]) - 2955.95) < 1e-6,
+        "self_consistent": float(np.nanmax(np.abs(mins + phit - 1))) < 2e-3 and float(np.nanmax(np.abs(vuhy - phit * (1 - swt)))) < 1e-3,
+        "volumes": col["parts"][:2] == ["Water (in the pores)", "Hydrocarbon (in the pores)"] and min(sums) > 0.995 and max(sums) < 1.005
+                   and abs(a["columns"]["Rock and fluid volumes"]["Hydrocarbon (in the pores)"] - float(vuhy[int(np.argmin(np.abs(md_i - 3300.0)))])) < 2e-3,
+        "read_back": abs(a["tracks"]["Gamma ray"]["value"] - gr_hand) < 0.01 * max(1.0, abs(gr_hand)) and a["formation"] == "Hugin Fm. VOLVE"
+                     and {"gr", "rhob", "nphi", "rt", "phit", "sw", "k"} <= {t["id"] for t in sim["tracks"]},
+        "depth_clock": sim["clock"]["kind"] == "measured depth" and len(rp["md"]) == SIM.DEPTH_STEPS and rp["md"][0] == 0.0 and abs(rp["md"][-1] - 3510.0) < 0.01
+                       and all(t is None for t in rp["t"]) and "no drilling times" in sim["clock"]["note"],
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CH1 Volve 15/9-F-4's logging-while-drilling record and Schlumberger's interpretation of it shipped verbatim with their hashes, the "
+       "licence and the attribution; the interpretation's mineral volumes and total porosity summing to one and its hydrocarbon volume "
+       "equal to the porosity times one less the water saturation; the volume column summing to one; the gamma ray read back at 3,300 m as "
+       "the file has it, in the Hugin formation; the bit stepped along measured depth because the survey carries no drilling times"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    f5 = SIM.scene(None, "volve-f5"); f5w = next(w for w in W.volve_scene()["wells"] if w["id"] == "F-5")
+    r5 = f5["scene"]["wells"][0]["replay"]
+    ev = E.selftest_events(str(d))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    wb = ws.add_well_file(ev["path"], display="Well B", actor="tester"); wc = ws.add_well_file(ev["path"], display="Well C", actor="tester")
+    ws.set_well(wb["id"], surface={"lat": 31.42, "lon": -104.10, "datum": "NAD83", "elevation": {"ft": 3000.0, "datum": "KB", "source": "test plat"}}, actor="tester")
+    csv_ok = "MD (ft),Inc (deg),Azi (deg)\n0,0,0\n1000,0,0\n2000,10,90\n3000,30,90\n4000,45,95\n5750,60,100\n"
+    W.attach_trajectory(ws, wb["id"], "s.csv", csv_ok.encode(), "tester", "true", "ft", None, None, None, "test survey")
+    ws.refresh_dashboard(actor="tester")
+    rec = json.loads(Path(ws.reports_dir, "wells", wc["id"], "drilling_record.json").read_text(encoding="utf-8"))
+    not_built = None
+    import shutil as _sh
+    _sh.rmtree(Path(wsp, "cache", "series", wc["id"]), ignore_errors=True)       # no chart cache yet: the read-only path says so
+    try:
+        SIM.scene(ws, "well:" + wc["id"], build_cache=False)
+    except KeyError as e:
+        not_built = str(e)
+    sb, sc_ = SIM.scene(ws, "well:" + wb["id"]), SIM.scene(ws, "well:" + wc["id"])
+    rc = sc_["scene"]["wells"][0]["replay"]
+    holes = [h for h in rc["hole"] if h is not None]
+    bad = None
+    try:
+        SIM.scene(ws, "nope")
+    except KeyError as e:
+        bad = str(e)
+    pc = sc_["scene"]["wells"][0]["path"]
+    mt = rec["md_tvd"]
+    c2 = {
+        "survey_clock": f5["clock"]["kind"] == "recorded" and r5["t"] == f5w["replay"]["t"] and r5["md"] == f5w["replay"]["md"]
+                        and all(b >= a_ for a_, b in zip(r5["hole"], r5["hole"][1:])) and all(h >= m - 1e-6 for h, m in zip(r5["hole"], r5["md"])),
+        "recorder_clock": sc_["clock"]["kind"] == "recorded" and rc["t"][0].startswith("2026-07-01") and not rc["t"][0].endswith("Z")
+                          and abs(max(holes) - rec["total_depth_md_ft"] * 0.3048) < 0.5 and all(b >= a_ - 1e-6 for a_, b in zip(holes, holes[1:]))
+                          and not_built is not None and "chart cache" in not_built,
+        "tracks": {t["name"] for t in sc_["tracks"]} >= {"Gamma", "Rate of penetration"} and sc_["depth_unit"] == "ft"
+                  and any("density" in n for n in sc_["not_measured"]),
+        "paths": sb["path_how"].startswith("the directional survey") and sb["scene"]["z_ref"] == "sea level"
+                 and sc_["path_how"].startswith("the drilling recorder's own MD-TVD pairs") and sc_["scene"]["z_ref"].startswith("the rig floor")
+                 and (mt.get("status") != "OK" or abs(pc["z"][pc["md"].index(next(m for m in pc["md"] if abs(m - mt["rows"][-1]["md_ft"] * 0.3048) < 0.01))] - mt["rows"][-1]["tvd_ft"] * 0.3048) < 0.01)
+                 and all(y == 0.0 for y in pc["y"]) and sc_["scene"]["no_north"] is True and sb["scene"]["no_north"] is False,
+        "unknown": bad is not None and "nope" in bad,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CH2 the clock: 15/9-F-5's bit on its survey stations' own times as the 3D tab replays them; a drilling-recorder well's bit and "
+       "bottom of the hole on the recorder's own clock (not called UTC), the hole never behind the bit and reaching the record's total "
+       "depth; its channels by bit depth, and density, porosity and fluids named as not measured; its path from the attached survey, or "
+       "from the recorder's MD-TVD pairs in one vertical plane below the rig floor when nothing places it; an unknown scene named"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+    o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+    rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": "v", "password": "viewer-pass-1"}).encode())
+    rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+
+    def getj(path):
+        try:
+            with o.open(base_url + path, timeout=120) as r_:
+                return r_.status, json.loads(r_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        s_l, li = getj("/api/sim/scenes")
+        s_f, jf = getj("/api/sim/scene/volve-f4")
+        s_w, jw = getj("/api/sim/scene/well%3A" + wb["id"])
+        s_n, _ = getj("/api/sim/scene/nope")
+    finally:
+        svc.stop()
+    cli = _sp.run([sys.executable, "-m", "gea", "simulation"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_at = _sp.run([sys.executable, "-m", "gea", "simulation", "--scene", "volve-f4", "--at", "3300"], capture_output=True, text=True, cwd=str(pkg.parent))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c3 = {
+        "api": s_l == 200 and [x["id"] for x in li["scenes"]][:3] == ["volve-f4", "volve-f5", "volve-f10"] and "well:" + wb["id"] in [x["id"] for x in li["scenes"]]
+               and s_f == 200 and jf["columns"][0]["name"] == "Rock and fluid volumes" and s_w == 200 and jw["well_id"] == wb["id"] and s_n == 404,
+        "cli": cli.returncode == 0 and "volve-f4" in cli.stdout and cli_at.returncode == 0 and "in Hugin Fm. VOLVE" in cli_at.stdout and "Hydrocarbon (in the pores)" in cli_at.stdout,
+        "page": all(x in page_src for x in ("VIEWS.simulation", "['#/simulation', 'Simulation']", "simPanel", "simSeek", "show the log below the bit", "uCut",
+                                             "/api/sim/scene/", "a gap in the record", "W3.simBit")),
+        "help": any(t[0] == "simulation" for t in H.INDEX) and not H.check("simulation") and H.VIEW_TOPIC.get("simulation") == "simulation",
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CH3 the API (the scenes, a Volve well and a workspace well by name, an unknown one 404), the CLI (the list, and what the record says "
+       "at a depth), the Simulation tab - the 3D view's own renderer with the hole drilled so far and the string inside it, the mud-log panel "
+       "growing with the hole, the readout, a click taking the bit to the depth - and its help page"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -9225,6 +9375,7 @@ def main() -> int:
         section_ce_well3d(tmp)
         section_cf_economics(tmp)
         section_cg_well_report(tmp)
+        section_ch_simulation(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

@@ -1914,6 +1914,16 @@ def make_handler(app: App):
                         return self._json(200, W3.scene(app.ws, path[len('/api/3d/scene/'):]))
                     except KeyError as e:
                         raise ApiError(404, str(e.args[0]))
+                if path == '/api/sim/scenes':
+                    from . import simulation as SIM
+                    return self._json(200, {'scenes': SIM.scenes(app.ws)})
+                if path.startswith('/api/sim/scene/'):
+                    from . import simulation as SIM
+                    import urllib.parse as _up
+                    try:
+                        return self._json(200, SIM.scene(app.ws, _up.unquote(path[len('/api/sim/scene/'):])))
+                    except KeyError as e:
+                        raise ApiError(404, str(e.args[0]))
                 if path == '/api/pad/progress':
                     return self._json(200, app.pad_progress())
                 if path.startswith('/api/wells/') and path.endswith('/series'):

@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.39.0 - 2026-10-17 - simulation
+
+- **The well drilled again, on its own clock, beside its mud log.** The bit
+  in 3D among the formations with the string in the hole; the panel of
+  formations, rock and fluid volumes and logs growing with the hole; Volve
+  15/9-F-4's logs and Schlumberger's interpretation shipped and checked
+  against themselves; drilling-recorder wells on the recorder's clock.
+  Section CH; gate 404.
+
 ## v0.38.0 - 2026-10-16 - the client well report
 
 - **One document per well, one for the pad, every number with its source.**

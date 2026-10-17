@@ -5,6 +5,46 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.39.0] - 2026-10-17 - Simulation
+
+### Added
+- **The Simulation tab** (`gea/simulation.py`, `#/simulation`): one well
+  drilled again on the screen. The bit runs down the well's path in 3D among
+  the mapped formations - the 3D tab's own renderer, the hole drilled so far
+  see-through with the drill string inside it, the path beyond the bottom
+  of the hole ghosted - on the clock the well was drilled by, while a
+  mud-log panel beside it grows with the hole: the formations as the picks
+  name them, the rock and fluid volumes, up to six log and drilling tracks,
+  the bit and the bottom of the hole. A readout gives what the record
+  carries at the bit, or at any depth under the pointer; a click on the
+  panel takes the bit to the moment it first reached that depth. Play at
+  1x (the whole record in two minutes) to 64x, step, scrub; the depth
+  window from 50 m to the whole well; the log below the bit hidden until it
+  is drilled, or shown.
+- **Volve 15/9-F-4 with its logs and their interpretation**: the
+  logging-while-drilling record of its 8.5 in reservoir section (gamma ray,
+  bulk density, neutron porosity, photoelectric factor, resistivities, rate
+  of penetration) and Schlumberger's petrophysical interpretation of it for
+  StatoilHydro (mineral volumes and total porosity summing to one, the
+  water saturation of the uninvaded zone, the hydrocarbon volume, the
+  permeability), shipped verbatim and gzip-compressed with their hashes,
+  licence and attribution (`reference/volve_f4_*`, built by
+  `tools/build_volve_logs.py` from a pinned public copy of the Volve
+  release). Its survey carries no drilling times, so its bit is stepped
+  along measured depth, and the page says so.
+- **On the clock each record carries**: Volve 15/9-F-5 and F-10 on their
+  survey stations' own times; every workspace well with a drilling record
+  on its recorder's own clock (the bit depth, and the bottom of the hole
+  from the depth pass), its channels binned by bit depth while drilling and
+  its gamma index lithology; its path from an attached survey, or from the
+  recorder's own MD-TVD pairs in one vertical plane whose azimuth the
+  record does not give. Between two samples close in time the bit moves
+  evenly; across a gap in the record it waits.
+- `gea simulation` lists the scenes; `--scene volve-f4 --at 3300` prints
+  what the record says at a depth; `--json`. API `/api/sim/scenes` and
+  `/api/sim/scene/<id>`. `gea help simulation`.
+- Section CH (3 checks); the gate is 404.
+
 ## [v0.38.0] - 2026-10-16 - The client well report
 
 ### Added

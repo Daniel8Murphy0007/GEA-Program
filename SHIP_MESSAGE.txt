@@ -1,28 +1,29 @@
-v0.38.0 — THE CLIENT WELL REPORT
+v0.39.0 — SIMULATION
 
-One printable document per well, and one for the pad, assembled from what
-the workspace already holds. Nothing in it is computed anew: it gathers,
-draws, and says where each number came from.
+A new tab, Simulation, drills a well again on the screen.
 
-For each well: the well number, site, client, surface location and
-reference elevation as declared, with their sources; the drilling record's
-total depth, footage, days and hours on bottom; every depth event, what the
-record did with it, and who checked it against the daily drilling reports;
-depth against days; what each mapped layer says at the location; the well
-path from its survey in plan and section, with the mapped tops as depth
-bands; the declared cost with every rate and item, and the oil and gas
-prices while the well was drilled. The pad report sets the wells side by
-side on one chart and lists what each report still lacks.
+The bit runs down the well's path in 3D among the mapped formations, with
+the drill string inside the hole drilled so far, on the clock the well was
+drilled by. Beside it a mud-log panel grows with the hole: the formation,
+the rock and fluid volumes, the logs and the drilling parameters at each
+depth. A readout says what the record carries at the bit, or at any depth
+under the pointer, and a click on the panel takes the bit to the moment it
+first reached that depth.
 
-A part the workspace cannot supply yet is not drawn as zero: the report
-names it and says what would supply it. On Pad 3 today every well's report
-asks for the same four things - a person's check of the depth events, the
-surface location, the directional survey and the day rates.
+Volve 15/9-F-4 ships with the logs of its reservoir section and
+Schlumberger's interpretation of them: the minerals and the porosity, the
+water and the hydrocarbon in the pores, the permeability. Its survey was
+run in one go and carries no drilling times, so its bit is stepped along
+measured depth and the page says so. Volve F-5 and F-10 play on their
+survey stations' own times. Every well with a drilling record plays on its
+recorder's own clock, with its channels by depth; on Pad 3 all three wells
+do, each built in under three seconds.
 
-The drawings are SVG made from the report's own numbers, inline in the HTML
-and beside it as files, with captions and text for a reader who cannot see
-them; printed, none is split across pages. The month-end packet now carries
-the well and pad reports.
+Nothing here is modelled: every value drawn is one the well's own record
+carries. A drilling recorder does not measure density, porosity or the
+fluids, and the page names what it does not show. A path drawn from the
+recorder's MD-TVD pairs lies in one vertical plane whose direction the
+record does not give, until the survey is attached.
 
-Section CG is new, three checks. The gate is 401 checks. The standalone
+Section CH is new, three checks. The gate is 404 checks. The standalone
 guard is clean.

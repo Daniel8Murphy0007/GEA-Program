@@ -2221,3 +2221,35 @@ together everything the program now knows about it.
   and the day rates - which are the open items on his list. WTI while
   drilling 81.49 / 81.58 / 80.70 USD/bbl.
 - Section CG (3 checks). Gate 401.
+
+## 2026-10-17 - Simulation (v0.39.0)
+
+Daniel asked for the simulation view and a tab of its own: the drill string
+in 3D on its runtime path, the rock densities, the formations and the oil,
+water and gas, collated with the mud log.
+- Research first, from GitHub (the only reachable host). The Volve release's
+  real-time WITSML logs on the public copies (f0nzie/volve-drilling, F-4,
+  F-7, F-9) turned out to be sessions from 2016 with the hole already at
+  total depth - not drilling; they were not used. What was
+  found: 15/9-F-4's logging-while-drilling record of the 8.5 in section and
+  Schlumberger's EcoView interpretation of it for StatoilHydro (2008), on
+  hasifsyazwan/AI-Well-Log-Assistant-for-Volve-Field at fbf2c0ff - mineral
+  volumes summing with the total porosity to one, SWT, and a hydrocarbon
+  volume equal to PHIT x (1 - SWT). F-4's survey and picks already ship.
+  Its survey stations carry one time stamp (a resurvey), so its bit is
+  stepped along measured depth; F-5 and F-10 keep their station times.
+- `gea/simulation.py`: the scenes (Volve F-4 with tracks and the volume
+  column from the shipped LAS files read by the program's own reader; F-5
+  and F-10 on the survey clock; workspace drilling wells with the bit and
+  the running bottom on the recorder's clock, channels by bit depth from the
+  chart cache, the gamma index lithology, the path from the survey or the
+  recorder's MD-TVD pairs); `at()` for what the record says at a depth.
+- The tab reuses the 3D tab's WebGL renderer (a cut uniform so the string
+  is drawn only to the bit, the hole see-through, the path below the bottom
+  ghosted) beside a canvas mud-log panel; the volume colours are the
+  palette's six slots in order, checked with the palette validator in light
+  and dark. Driven in headless Chromium: light, dark, phone width, playing.
+- Pad 3 on his machine (preview, read-only): all three wells build from
+  their chart caches in 1.5 to 2.6 s, 0.38 MB each, nine channels by depth,
+  the gamma index lithology, the path from MD-TVD (no survey yet).
+- Section CH (3 checks). Gate 404.

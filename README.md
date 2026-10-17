@@ -609,6 +609,18 @@ against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
 
+### Simulation
+
+The Simulation tab drills a well again on the screen: the bit runs down its
+path in 3D among the mapped formations, on the clock it was drilled by,
+while a mud-log panel beside it grows with the hole - the formations, the
+rock and fluid volumes, the logs and the drilling parameters - and a
+readout says what the record carries at the bit. Volve 15/9-F-4 ships with
+its logging-while-drilling record and Schlumberger's interpretation of it
+(mineral volumes, porosity, water saturation, hydrocarbon volume); every
+well with a drilling record plays on its recorder's own clock.
+`gea simulation`, `gea help simulation`.
+
 ### The client well report
 
 `gea well-report` writes one printable document per well and one for the

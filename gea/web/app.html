@@ -129,7 +129,12 @@ body.wallmode{--wbg:#fff;--wink:#000;--wmut:#2b2b2b;--wline:#000;--wsr:#b00020;-
 .w3-leg{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin:8px 0}.w3-sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-1px}
 .w3-tg{display:inline-flex;align-items:center;gap:4px;font-size:13px;color:var(--ink2)}.w3-tg>input{min-width:0!important;margin:0}
 .w3-ramp{display:inline-flex;align-items:center;gap:6px}.w3-ramp .w3-bar{display:inline-block;width:140px;height:10px;border-radius:5px;background:linear-gradient(90deg,#86b6ef,#3987e5,#1c5cab,#0d366b)}
-.w3-read{min-height:2.6em;font-size:14px;margin:4px 0 8px}.w3-bar label>select{min-width:9em}
+.w3-read{min-height:2.6em;font-size:14px;margin:4px 0 8px}
+.sim-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:12px;align-items:start}@media (max-width:900px){.sim-grid{grid-template-columns:minmax(0,1fr)}}
+.sim-stage{height:min(70vh,700px)}.sim-panel{position:relative;height:min(70vh,700px);min-height:340px;overflow-x:auto;overflow-y:hidden;border:1px solid var(--grid);border-radius:10px;background:var(--surface)}.sim-panel canvas{display:block;cursor:crosshair}
+.sim-tr label>select{min-width:5em}.sim-read{margin-top:12px}.sim-rh{font-size:15px;margin-bottom:2px}.sim-comp{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:8px 0}
+.sim-bar{display:inline-flex;width:min(320px,100%);height:14px;border-radius:4px;overflow:hidden;gap:1px;background:var(--surface)}.sim-bar>span{display:block;height:100%}
+.sim-tab{width:auto;min-width:min(420px,100%)}.sim-tab td{padding:3px 10px 3px 0;border:0}.sim-tab td.num{text-align:right;font-variant-numeric:tabular-nums}.w3-bar label>select{min-width:9em}
 .ec-ch{margin:10px 0 14px}.ec-ct{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline}.ec-rd{color:var(--ink2);font-family:var(--mono)}.ec-ch svg.chart{height:auto;aspect-ratio:900/230}.ec-ch svg text.ec-wl{font-size:11px;fill:var(--ink2)}.ec-ch svg:focus-visible{outline:3px solid var(--accent)}
 .ec-bar{display:inline-block;height:10px;border-radius:0 4px 4px 0;background:var(--s1);vertical-align:-1px;margin-right:6px}
 @media print{header,nav,#toasts,button,.btn,.help,.skip,.row.card,input,select,textarea{display:none !important}body{background:#fff;color:#000;font-size:12px}main{max-width:none;padding:0}.card,.tile{box-shadow:none;border-color:#999;break-inside:avoid}a{color:#000;text-decoration:none}table{font-size:11px}svg.chart{height:200px}h2::after{content:" — printed " attr(data-printed);font-size:11px;color:#555}}
@@ -1767,8 +1772,8 @@ function norm3(a) { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / 
 function w3P(x, y, z) { const b = W3.box; return [x - b.cx, -(z - b.cz) * W3.exag, -(y - b.cy)]; }
 function w3Shader(gl, vs, fs) { const p = gl.createProgram(); for (const [t, s] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)); gl.attachShader(p, sh); } gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); return p; }
 const W3_VS = `attribute vec3 aP; attribute vec3 aN; attribute vec3 aC; attribute float aM; uniform mat4 uM; varying vec3 vN; varying vec3 vC; varying float vM; void main(){ gl_Position = uM * vec4(aP,1.0); vN = aN; vC = aC; vM = aM; }`;
-const W3_FS = `precision mediump float; varying vec3 vN; varying vec3 vC; varying float vM; uniform vec3 uL; uniform float uA; uniform float uMd; uniform vec3 uG; uniform float uLit;
-void main(){ float d = abs(dot(normalize(vN), uL)); vec3 c = uLit > 0.5 ? vC * (0.42 + 0.58 * d) : vC; if (vM > uMd) c = mix(c, uG, 0.78); gl_FragColor = vec4(c, uA); }`;
+const W3_FS = `precision mediump float; varying vec3 vN; varying vec3 vC; varying float vM; uniform vec3 uL; uniform float uA; uniform float uMd; uniform vec3 uG; uniform float uLit; uniform float uCut;
+void main(){ if (vM > uCut) discard; float d = abs(dot(normalize(vN), uL)); vec3 c = uLit > 0.5 ? vC * (0.42 + 0.58 * d) : vC; if (vM > uMd) c = mix(c, uG, 0.78); gl_FragColor = vec4(c, uA); }`;
 function w3Buf(gl, pos, nor, col, md, idx) { const mk = (d, t = gl.ARRAY_BUFFER) => { const b = gl.createBuffer(); gl.bindBuffer(t, b); gl.bufferData(t, d, gl.STATIC_DRAW); return b; };
   return {p: mk(new Float32Array(pos)), n: mk(new Float32Array(nor)), c: mk(new Float32Array(col)), m: mk(new Float32Array(md)), i: idx ? mk(new Uint32Array(idx), gl.ELEMENT_ARRAY_BUFFER) : null, count: idx ? idx.length : pos.length / 3}; }
 function w3Free(gl, o) { for (const k of ['p', 'n', 'c', 'm', 'i']) if (o[k]) gl.deleteBuffer(o[k]); }
@@ -1813,7 +1818,7 @@ function w3Build() {
   (sc.layers || []).forEach((l, i) => { if (W3.show['l:' + l.id] === false) return; const pos = [], c = slot(i), cc = [], nor = [], md = []; for (const ln of l.lines) for (let k = 0; k < ln.x.length - 1; k++) { pos.push(...w3P(ln.x[k], ln.y[k], ln.z), ...w3P(ln.x[k + 1], ln.y[k + 1], ln.z)); cc.push(...c, ...c); nor.push(0, 1, 0, 0, 1, 0); md.push(-1e9, -1e9); } if (pos.length) W3.lines.push({id: l.id, b: w3Buf(gl, pos, nor, cc, md, null)}); });
   w3Legend(rng);
 }
-function w3Bit() { const R = W3.rep, w = R.well && W3.sc.wells.find(x => x.id === R.well); if (!w || !w.replay) return null; const md = w.replay.md[R.i]; let x, y, z; const p = w.path; let k = 0; while (k < p.md.length - 1 && p.md[k + 1] < md) k++; const f = Math.max(0, Math.min(1, (md - p.md[k]) / ((p.md[k + 1] - p.md[k]) || 1))); x = p.x[k] + (p.x[Math.min(k + 1, p.md.length - 1)] - p.x[k]) * f; y = p.y[k] + (p.y[Math.min(k + 1, p.md.length - 1)] - p.y[k]) * f; z = p.z[k] + (p.z[Math.min(k + 1, p.md.length - 1)] - p.z[k]) * f; return {w, md, x, y, z, t: w.replay.t[R.i]}; }
+function w3Bit() { if (W3.simBit) return W3.simBit(); const R = W3.rep, w = R.well && W3.sc.wells.find(x => x.id === R.well); if (!w || !w.replay) return null; const md = w.replay.md[R.i]; let x, y, z; const p = w.path; let k = 0; while (k < p.md.length - 1 && p.md[k + 1] < md) k++; const f = Math.max(0, Math.min(1, (md - p.md[k]) / ((p.md[k + 1] - p.md[k]) || 1))); x = p.x[k] + (p.x[Math.min(k + 1, p.md.length - 1)] - p.x[k]) * f; y = p.y[k] + (p.y[Math.min(k + 1, p.md.length - 1)] - p.y[k]) * f; z = p.z[k] + (p.z[Math.min(k + 1, p.md.length - 1)] - p.z[k]) * f; return {w, md, x, y, z, t: w.replay.t[R.i]}; }
 function w3Mvp() { const c = W3.cam, cv = W3.cvs, asp = cv.width / Math.max(1, cv.height); const e = [c.t[0] + c.d * Math.cos(c.p) * Math.sin(c.y), c.t[1] + c.d * Math.sin(c.p), c.t[2] + c.d * Math.cos(c.p) * Math.cos(c.y)]; W3.eye = e; return m4mul(m4persp(0.8, asp, c.d / 200, c.d * 20), m4look(e, c.t, [0, 1, 0])); }
 function w3Draw() {
   W3.raf = 0; const gl = W3.gl; if (!gl || !W3.cvs.isConnected) return; const cv = W3.cvs, dpr = window.devicePixelRatio || 1, wpx = cv.clientWidth, hpx = cv.clientHeight;
@@ -1821,10 +1826,11 @@ function w3Draw() {
   gl.viewport(0, 0, cv.width, cv.height); const bg = w3Hex(w3Css('--surface')); gl.clearColor(bg[0], bg[1], bg[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
   const M = w3Mvp(); W3.mvp = M; const pr = W3.prog; gl.useProgram(pr); gl.uniformMatrix4fv(gl.getUniformLocation(pr, 'uM'), false, M); gl.uniform3fv(gl.getUniformLocation(pr, 'uL'), norm3([0.4, 0.85, 0.35])); gl.uniform3fv(gl.getUniformLocation(pr, 'uG'), bg);
   const bit = w3Bit(); const draw = (m, mode) => { for (const [k, n] of [['p', 'aP'], ['n', 'aN'], ['c', 'aC'], ['m', 'aM']]) { const loc = gl.getAttribLocation(pr, n); gl.bindBuffer(gl.ARRAY_BUFFER, m.b[k]); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, k === 'm' ? 1 : 3, gl.FLOAT, false, 0, 0); }
-    gl.uniform1f(gl.getUniformLocation(pr, 'uA'), m.alpha ?? 1); gl.uniform1f(gl.getUniformLocation(pr, 'uMd'), m.kind === 'well' && bit && bit.w.id === m.id ? bit.md : 1e12); gl.uniform1f(gl.getUniformLocation(pr, 'uLit'), mode === gl.LINES ? 0 : 1);
+    gl.uniform1f(gl.getUniformLocation(pr, 'uA'), m.alpha ?? 1); gl.uniform1f(gl.getUniformLocation(pr, 'uMd'), m.kind === 'well' && bit && bit.w.id === m.id ? (bit.hole ?? bit.md) : 1e12); gl.uniform1f(gl.getUniformLocation(pr, 'uCut'), m.cut ?? 1e12); gl.uniform1f(gl.getUniformLocation(pr, 'uLit'), mode === gl.LINES ? 0 : 1);
     if (m.b.i) { gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.b.i); gl.drawElements(mode, m.b.count, gl.UNSIGNED_INT, 0); } else gl.drawArrays(mode, 0, m.b.count); };
   for (const m of W3.meshes) if (m.alpha >= 1) draw(m, gl.TRIANGLES);
   for (const l of W3.lines) draw({...l, alpha: 1}, gl.LINES);
+  if (W3.simPost) W3.simPost(draw, bit);
   if (bit) { const o = {pos: [], nor: [], cc: [], md: [], idx: []}; w3Oct(bit.x, bit.y, bit.z, Math.max(4, W3.box.span / 450) * 5, w3Hex(w3Css('--s2')), o); const b = w3Buf(gl, o.pos, o.nor, o.cc, o.md, o.idx); draw({b, alpha: 1}, gl.TRIANGLES); w3Free(gl, b); }
   const tr = W3.meshes.filter(m => m.alpha < 1); if (tr.length) { gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); for (const m of tr) draw(m, gl.TRIANGLES); gl.depthMask(true); gl.disable(gl.BLEND); }
   w3Overlay(bit);
@@ -1838,8 +1844,8 @@ function w3Overlay(bit) {
   c.strokeStyle = mut; c.lineWidth = 1; const corners = [[b.x0, b.y0], [b.x1, b.y0], [b.x1, b.y1], [b.x0, b.y1]];
   for (const z of [b.z0, b.z1]) { c.beginPath(); corners.forEach(([x, y], i) => { const s = w3Scr(x, y, z); if (s) (i ? c.lineTo(s[0], s[1]) : c.moveTo(s[0], s[1])); }); const s0 = w3Scr(b.x0, b.y0, z); if (s0) c.lineTo(s0[0], s0[1]); c.stroke(); }
   for (const [x, y] of corners) { const a = w3Scr(x, y, b.z0), d = w3Scr(x, y, b.z1); if (a && d) { c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(d[0], d[1]); c.stroke(); } }
-  const uu = W3.sc.kind === 'workspace' && (PREFS.units || SITE.units || 'field') !== 'si' ? 0.3048 : 1, step = w3Nice((b.z1 - b.z0) / uu / 5) * uu; for (let z = Math.ceil(b.z0 / step) * step; z <= b.z1; z += step) { const s = w3Scr(b.x0, b.y0, z); if (s) txt(Math.abs(z) < 0.5 ? 'sea level' : (z < 0 ? `${w3L(-z, 0)} above` : w3L(z, 0)), s[0] - 6, s[1] + 4, 'right', mut); }
-  const n0 = w3Scr(b.cx, b.cy, b.z0), n1 = w3Scr(b.cx, b.cy + (b.y1 - b.y0) * 0.25, b.z0); if (n0 && n1) { c.strokeStyle = ink; c.lineWidth = 2; c.beginPath(); c.moveTo(n0[0], n0[1]); c.lineTo(n1[0], n1[1]); c.stroke(); txt('N', n1[0], n1[1] - 4, 'center', ink, true); }
+  const uu = W3.sc.kind === 'workspace' && (PREFS.units || SITE.units || 'field') !== 'si' ? 0.3048 : 1, step = w3Nice((b.z1 - b.z0) / uu / 5) * uu; for (let z = Math.ceil(b.z0 / step) * step; z <= b.z1; z += step) { const s = w3Scr(b.x0, b.y0, z); if (s) txt(Math.abs(z) < 0.5 ? (W3.sc.z_ref || 'sea level').replace(/ \(.*$/, '') : (z < 0 ? `${w3L(-z, 0)} above` : w3L(z, 0)), s[0] - 6, s[1] + 4, 'right', mut); }
+  const n0 = w3Scr(b.cx, b.cy, b.z0), n1 = w3Scr(b.cx, b.cy + (b.y1 - b.y0) * 0.25, b.z0); if (n0 && n1 && !W3.sc.no_north) { c.strokeStyle = ink; c.lineWidth = 2; c.beginPath(); c.moveTo(n0[0], n0[1]); c.lineTo(n1[0], n1[1]); c.stroke(); txt('N', n1[0], n1[1] - 4, 'center', ink, true); }
   for (const w of W3.sc.wells) { if (W3.show['w:' + w.id] === false) continue; const s = w3Scr(w.path.x[0], w.path.y[0], w.path.z[0]); if (s) txt(w.name.replace(/^NO /, ''), s[0], s[1] - 8, 'center', ink, true); }
   if (W3.show.labels) for (const w of W3.sc.wells) for (const p of w.picks) { if (!p.surface) continue; const s = w3Scr(p.x, p.y, p.z); if (s) txt(p.name, s[0] + 8, s[1] + 4, 'left', ink); }
   (W3.sc.surfaces || []).forEach((s, si) => { if (W3.show['s:' + s.id] === false) return; const a = s.ni - 1, bb = Math.floor(s.nj * (si + 1) / ((W3.sc.surfaces.length || 1) + 1)); let z = null, aa = a; while (aa > 0 && (z = s.z[aa * s.nj + bb]) === null) aa--; if (z === null) return; const x = s.affine_x[0] + s.affine_x[1] * aa + s.affine_x[2] * bb, y = s.affine_y[0] + s.affine_y[1] * aa + s.affine_y[2] * bb; const sc_ = w3Scr(x, y, z); if (sc_) txt(s.name, sc_[0] + 6, sc_[1], 'left', ink); });
@@ -1881,7 +1887,7 @@ function w3Read(h) {
 function w3RepSet(i) { const R = W3.rep, w = W3.sc.wells.find(x => x.id === R.well); if (!w || !w.replay) return; R.i = Math.max(0, Math.min(w.replay.t.length - 1, i)); const s = $('#w3Slider'); if (s) s.value = R.i; const b = w3Bit(); $('#w3RepTxt').innerHTML = b ? `${/(Z|[+-]\d\d:?\d\d)$/.test(b.t) ? tz(b.t) : esc(b.t.replace('T', ' ')) + " (the recorder's clock)"} · bit at ${w3L(b.md, 1)} MD, ${w3L(b.z, 1)} below sea level · step ${R.i + 1} of ${w.replay.t.length}` : ''; w3Req(); }
 function w3Stop() { clearInterval(W3.rep.timer); W3.rep.timer = null; const b = $('#w3Play'); if (b) { b.textContent = 'Play'; b.setAttribute('aria-pressed', 'false'); } }
 VIEWS['3d'] = async (arg) => {
-  w3Stop(); const list = (await get('/api/3d/scenes')).scenes; const want = arg || W3.sceneId || (list.find(s => s.kind === 'workspace' && s.wells) ? 'workspace' : 'volve'); W3.sceneId = want;
+  w3Stop(); W3.simBit = null; W3.simPost = null; const list = (await get('/api/3d/scenes')).scenes; const want = arg || W3.sceneId || (list.find(s => s.kind === 'workspace' && s.wells) ? 'workspace' : 'volve'); W3.sceneId = want;
   const sc = await get('/api/3d/scene/' + encodeURIComponent(want)); W3.sc = sc; W3.rep = {well: null, i: 0, timer: null, speed: 1}; W3.hover = null;
   const chans = [...new Set(sc.wells.flatMap(w => Object.keys(w.channels)))]; const hasPicks = sc.wells.some(w => w.picks.length); W3.colorBy = hasPicks ? 'Formation' : (chans[0] || 'Inclination'); W3.exag = !sc.wells.length && (sc.layers || []).length ? 20 : 2;
   const reps = sc.wells.filter(w => w.replay);
@@ -1932,6 +1938,170 @@ VIEWS['3d'] = async (arg) => {
       W3.rep.timer = setInterval(() => { if (!W3.cvs.isConnected) return w3Stop(); if (W3.rep.i >= w.replay.t.length - 1) return w3Stop(); w3RepSet(W3.rep.i + Math.max(1, Math.round(W3.rep.speed * Math.max(1, w.replay.t.length / 400)))); }, 120); }; }
   const af = $('#w3Att'); if (af) af.onsubmit = async ev => { ev.preventDefault(); const f = $('#w3AF').files[0]; if (!f) return toast('Choose the survey file', 'err'); try { const r = await post(`/api/wells/${encodeURIComponent($('#w3AW').value)}/trajectory`, {filename: f.name, content_b64: await readFile(f), azimuth_reference: $('#w3AR').value, grid: $('#w3AG').value || null, declination_deg: $('#w3AD').value === '' ? null : +$('#w3AD').value, md_unit: $('#w3AU').value, source: $('#w3AS').value}); toast(`Survey attached: ${r.stations} stations`, 'ok'); route(); } catch (e) { toast(e.message, 'err'); } };
   if (W3.ro) W3.ro.disconnect(); W3.ro = new ResizeObserver(() => w3Req()); W3.ro.observe(cv);
+};
+// ---------- the simulation: the well drilled again - the bit in 3D on its own clock, the mud log growing beside it -------
+const SIM = {sim: null, p: 0, timer: null, speed: 1, span: null, ahead: false, tracks: [], hover: null, tms: null, cv: null};
+const SIM_DUR = 120;   // seconds on screen for the whole record at 1x
+function simStop() { clearInterval(SIM.timer); SIM.timer = null; const b = $('#simPlay'); if (b) { b.textContent = 'Play'; b.setAttribute('aria-pressed', 'false'); } }
+function simFtFor(sim) { return !!sim && sim.kind === 'workspace' && (PREFS.units || SITE.units || 'field') !== 'si'; }
+function simFt() { return simFtFor(SIM.sim); }
+function simU() { return simFt() ? 'ft' : 'm'; }
+function simD(m, d = 1) { if (m === null || m === undefined || !isFinite(m)) return '—'; const v = simFt() ? m / 0.3048 : m; return v.toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d}); }
+function simNum(v) { if (v === null || v === undefined || !isFinite(v)) return '—'; const a = Math.abs(v); return v.toLocaleString(undefined, {maximumFractionDigits: a >= 1000 ? 0 : a >= 100 ? 1 : a >= 1 ? 2 : 3}); }
+// the clock: milliseconds when the record has times, else the replay's own index (stepped along measured depth)
+function simClock() { const r = SIM.sim.scene.wells[0].replay; if (r.t && r.t[0]) { SIM.tms = r.t.map(t => Date.parse(/(Z|[+-]\d\d:?\d\d)$/.test(t) ? t : t + 'Z')); const d = []; for (let i = 1; i < SIM.tms.length; i++) d.push(SIM.tms[i] - SIM.tms[i - 1]); d.sort((a, b) => a - b); SIM.gap = (d[Math.floor(d.length / 2)] || 1) * 3; } else SIM.tms = null; }
+// the bit at the clock's position: between two samples close in time it moves evenly; across a gap in the record it waits where it was
+function simState() { const r = SIM.sim.scene.wells[0].replay, n = r.md.length; if (!SIM.tms) { const k = SIM.p * (n - 1), i = Math.min(n - 2, Math.floor(k)), f = k - i; const md = r.md[i] + (r.md[i + 1] - r.md[i]) * f; return {md, hole: md, i, t: null}; }
+  const T = SIM.tms, t = T[0] + SIM.p * (T[n - 1] - T[0]); let lo = 0, hi = n - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (T[m] <= t) lo = m; else hi = m; }
+  const dt = T[hi] - T[lo], f = dt > 0 && dt <= SIM.gap ? Math.max(0, Math.min(1, (t - T[lo]) / dt)) : (t >= T[hi] ? 1 : 0);
+  const md = r.md[lo] + (r.md[hi] - r.md[lo]) * f, hole = Math.max(r.hole[lo], f >= 1 ? r.hole[hi] : r.hole[lo], md); return {md, hole: Math.max(hole, 0), i: lo, t, gap: dt > SIM.gap && f === 0 && t > T[lo]}; }
+function simAt(md) { const w = SIM.sim.scene.wells[0], p = w.path; let k = 0; while (k < p.md.length - 2 && p.md[k + 1] < md) k++; const f = Math.max(0, Math.min(1, (md - p.md[k]) / ((p.md[k + 1] - p.md[k]) || 1))); const L = a => a[k] + (a[k + 1] - a[k]) * f; return {x: L(p.x), y: L(p.y), z: L(p.z)}; }
+function simVal(tr, md) { if (!tr.md.length || md < tr.md[0] || md > tr.md[tr.md.length - 1]) return null; return w3ChanAt({md: tr.md, v: tr.v}, md); }
+function simComp(c, md) { let lo = 0, hi = c.top.length - 1; if (!c.top.length || md < c.top[0] || md >= c.base[hi]) return null; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (c.top[m] <= md) lo = m; else hi = m; } const k = c.top[hi] <= md ? hi : lo; return md < c.base[k] ? c.f[k] : null; }
+function simForm(md) { let f = null; for (const x of SIM.sim.formations) if (x.top <= md && (x.base === null || md < x.base)) f = x; return f; }
+function simTimeTxt(st) { if (!st.t) return `stepped along measured depth`; const r = SIM.sim.scene.wells[0].replay, z = /(Z|[+-]\d\d:?\d\d)$/.test(r.t[0]); return z ? tz(new Date(st.t).toISOString()) : new Date(st.t).toISOString().slice(0, 16).replace('T', ' ') + " (the recorder's clock)"; }
+// the mud-log panel: depth down the page, a window round the bit; what lies below the bottom of the hole is not drawn until it is drilled
+function simPanel() {
+  const cv = SIM.cv; if (!cv || !cv.isConnected) return; const sim = SIM.sim, st = simState(), dpr = window.devicePixelRatio || 1;
+  const cols = [{k: 'depth', w: 58}, ...(sim.formations.length ? [{k: 'form', w: 118}] : []), ...sim.columns.map(c => ({k: 'col', c, w: 92})), ...SIM.tracks.map(t => ({k: 'tr', t, w: 112}))];
+  const W = cols.reduce((a, c) => a + c.w, 0), wrap = cv.parentElement, H = wrap.clientHeight; cv.style.width = Math.max(W, wrap.clientWidth) + 'px'; cv.style.height = H + 'px';
+  if (cv.width !== Math.round(Math.max(W, wrap.clientWidth) * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(Math.max(W, wrap.clientWidth) * dpr); cv.height = Math.round(H * dpr); }
+  const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, cv.width, cv.height);
+  const css = n => w3Css(n), ink = css('--ink'), ink2 = css('--ink2'), mut = css('--muted'), grid = css('--grid'), sf = css('--surface'), font = css('--sans') || 'sans-serif';
+  const HT = 44, td = sim.td_md || 1, span = SIM.span || td; let d0 = Math.max(0, st.md - span / 2); let d1 = d0 + span; if (d1 > td) { d1 = td; d0 = Math.max(0, td - span); }
+  SIM.win = {d0, d1, HT, H, cols};
+  const sy = d => HT + (d - d0) / ((d1 - d0) || 1) * (H - HT - 6), cut = SIM.ahead ? Infinity : st.hole;
+  const text = (s, x, y, al = 'left', col = ink, w = 400, sz = 11) => { c.font = `${w} ${sz}px ${font}`; c.textAlign = al; c.fillStyle = col; c.fillText(s, x, y); };
+  const clipTxt = (s, maxw) => { c.font = `400 10px ${font}`; if (c.measureText(s).width <= maxw) return s; while (s.length > 2 && c.measureText(s + '…').width > maxw) s = s.slice(0, -1); return s + '…'; };
+  // depth ticks across every column
+  const uu = simFt() ? 0.3048 : 1, step = w3Nice((d1 - d0) / uu / 8) * uu; c.strokeStyle = grid; c.lineWidth = 1;
+  for (let d = Math.ceil(d0 / step) * step; d <= d1; d += step) { const y = Math.round(sy(d)) + 0.5; c.beginPath(); c.moveTo(cols[0].w - 6, y); c.lineTo(W, y); c.stroke(); text(simD(d, 0), cols[0].w - 8, y + 4, 'right', mut, 400, 10); }
+  let x = 0;
+  for (const col of cols) {
+    const x0 = x, w = col.w; x += w; c.strokeStyle = grid; c.beginPath(); c.moveTo(x0 + 0.5, 0); c.lineTo(x0 + 0.5, H); c.stroke();
+    if (col.k === 'depth') continue;
+    if (col.k === 'form') {
+      const si = {}; (sim.scene.surfaces || []).forEach((s, i) => si[s.id] = i);
+      sim.formations.forEach((f, i) => { const a = Math.max(HT, sy(f.top)), b = Math.min(H - 6, sy(f.base ?? td)); if (b <= a || f.top > cut) return; const bb = Math.min(b, sy(Math.min(f.base ?? td, cut)));
+        c.fillStyle = i % 2 ? css('--page') : sf; c.fillRect(x0 + 1, a, w - 2, bb - a); c.strokeStyle = mut; c.beginPath(); c.moveTo(x0 + 1, Math.round(a) + 0.5); c.lineTo(x0 + w - 1, Math.round(a) + 0.5); c.stroke();
+        if (f.surface !== undefined && f.surface !== null && si[f.surface] !== undefined) { c.fillStyle = css(W3_SLOTS[si[f.surface] % 6]); c.fillRect(x0 + 4, a + 3, 4, Math.max(2, Math.min(bb - a - 6, 14))); }
+        if (bb - a >= 12) text(clipTxt(f.name, w - 18), x0 + 12, a + 12, 'left', ink, 400, 10); });
+      continue; }
+    if (col.k === 'col') { const cc = col.c;
+      // one bar per pixel row: the rows that fall in it averaged, each part its slot colour, a 1px surface gap between parts
+      const fills = cc.parts.map((_, i) => css(W3_SLOTS[i % 6])); const pxTop = Math.ceil(HT), pxBot = Math.floor(Math.min(H - 6, sy(Math.min(d1, cut))));
+      for (let py = pxTop; py < pxBot; py += 2) { const md = d0 + (py + 1 - HT) / (H - HT - 6) * (d1 - d0); const f = simComp(cc, md); if (!f) continue; let xx = x0 + 3; const ww = w - 6;
+        f.forEach((v, i) => { if (!v || v <= 0) return; const seg = v * ww; if (seg >= 0.5) { c.fillStyle = fills[i]; c.fillRect(xx, py, Math.max(0.5, seg - (seg > 2 ? 1 : 0)), 2); } xx += seg; }); }
+      continue; }
+    // a log track: its own scale across the column, one 2px line, the value at the bit in the header
+    const t = col.t, lg = t.scale === 'log', r = t.range, tx = v => { if (v === null || v === undefined || !isFinite(v)) return null; let q = lg ? (Math.log10(Math.max(v, 1e-9)) - Math.log10(r[0])) / (Math.log10(r[1]) - Math.log10(r[0])) : (v - r[0]) / ((r[1] - r[0]) || 1); q = Math.max(-0.02, Math.min(1.02, q)); return x0 + 4 + q * (w - 8); };
+    c.save(); c.beginPath(); c.rect(x0 + 1, HT, w - 2, Math.max(0, Math.min(H - 6, sy(Math.min(d1, cut))) - HT)); c.clip();
+    c.strokeStyle = css('--s1'); c.lineWidth = 2; c.lineJoin = 'round'; c.beginPath(); let on = false;
+    const a = t.md, v = t.v; let i0 = 0; while (i0 < a.length - 1 && a[i0 + 1] < d0) i0++;
+    const stride = Math.max(1, Math.floor((a.length * (d1 - d0) / ((a[a.length - 1] - a[0]) || 1)) / (H * 1.5)));
+    for (let i = i0; i < a.length && a[i] <= d1 + stride * 2; i += stride) { const X = tx(v[i]); if (X === null) { on = false; continue; } const Y = sy(a[i]); if (on) c.lineTo(X, Y); else c.moveTo(X, Y); on = true; }
+    c.stroke(); c.restore();
+  }
+  // the bottom of the hole and the bit, across the panel
+  const yh = sy(st.hole), yb = sy(st.md);
+  if (st.hole >= d0 && st.hole <= d1) { c.strokeStyle = ink2; c.setLineDash([4, 3]); c.lineWidth = 1; c.beginPath(); c.moveTo(cols[0].w, Math.round(yh) + 0.5); c.lineTo(W, Math.round(yh) + 0.5); c.stroke(); c.setLineDash([]); }
+  if (st.md >= d0 && st.md <= d1) { c.strokeStyle = css('--s2'); c.lineWidth = 2; c.beginPath(); c.moveTo(0, yb); c.lineTo(W, yb); c.stroke(); c.fillStyle = css('--s2'); c.beginPath(); c.moveTo(0, yb - 6); c.lineTo(9, yb); c.lineTo(0, yb + 6); c.fill(); }
+  if (SIM.hover !== null && SIM.hover >= d0 && SIM.hover <= d1) { const y = Math.round(sy(SIM.hover)) + 0.5; c.strokeStyle = ink; c.lineWidth = 1; c.beginPath(); c.moveTo(cols[0].w, y); c.lineTo(W, y); c.stroke(); }
+  // the headers, over a clean band so no tick runs through them
+  c.fillStyle = sf; c.fillRect(0, 0, W, HT - 2);
+  x = 0; for (const col of cols) { const x0 = x; x += col.w; c.strokeStyle = grid; c.beginPath(); c.moveTo(x0 + 0.5, 0); c.lineTo(x0 + 0.5, HT); c.stroke();
+    if (col.k === 'depth') text(`MD (${simU()})`, x0 + col.w - 8, 16, 'right', ink2, 600, 11);
+    else if (col.k === 'form') { text('Formation', x0 + 6, 16, 'left', ink2, 600, 11); text('as the picks name it', x0 + 6, 30, 'left', mut, 400, 10); }
+    else if (col.k === 'col') { text(clipTxt(col.c.name, col.w - 10), x0 + 6, 16, 'left', ink2, 600, 11); text(clipTxt('fraction of the volume', col.w - 10), x0 + 6, 30, 'left', mut, 400, 10); }
+    else { const t = col.t; text(clipTxt(t.name, col.w - 10), x0 + 6, 16, 'left', ink2, 600, 11); text(clipTxt(`${simNum(t.range[0])} – ${simNum(t.range[1])} ${t.unit}${t.scale === 'log' ? ', log' : ''}`, col.w - 10), x0 + 6, 30, 'left', mut, 400, 10); } }
+  c.strokeStyle = grid; c.beginPath(); c.moveTo(0, HT - 1.5); c.lineTo(W, HT - 1.5); c.stroke();
+}
+// the readout: what the record says at the bit (or at the depth under the pointer)
+function simRead() {
+  const sim = SIM.sim, st = simState(), md = SIM.hover ?? st.md, at = simAt(md), f = simForm(md), el = $('#simRead'); if (!el) return;
+  const rows = sim.tracks.map(t => [t.name, simVal(t, md), t.unit]).filter(r => r[1] !== null);
+  const comp = sim.columns.map(cc => [cc, simComp(cc, md)]);
+  el.innerHTML = `<div class="sim-rh"><b>${SIM.hover !== null ? 'At the pointer' : 'At the bit'}</b> · ${simD(md)} ${simU()} MD · ${simD(at.z)} ${simU()} below ${esc(sim.scene.z_ref || 'the reference')}${f ? ` · <b>${esc(f.name)}</b>` : ''}</div>
+    <div class="small muted">${esc(simTimeTxt(st))} · bottom of the hole ${simD(st.hole)} ${simU()}${st.gap ? ' · <b>a gap in the record</b>: nothing was recorded here, so the bit waits' : ''}</div>
+    ${comp.map(([cc, v]) => `<div class="sim-comp"><span class="small">${esc(cc.name)}</span>${v ? `<span class="sim-bar" role="img" aria-label="${esc(cc.parts.map((p, i) => `${p} ${Math.round((v[i] || 0) * 100)}%`).join(', '))}">${cc.parts.map((p, i) => (v[i] || 0) > 0.004 ? `<span style="width:${(v[i] * 100).toFixed(1)}%;background:var(${W3_SLOTS[i % 6]})" title="${esc(p)} ${Math.round(v[i] * 100)}%"></span>` : '').join('')}</span><span class="small">${cc.parts.map((p, i) => (v[i] || 0) >= 0.005 ? `${esc(p.replace(/ \(in the pores\)/, ''))} ${Math.round(v[i] * 100)}%` : '').filter(Boolean).join(' · ')}</span>` : '<span class="small muted">not measured at this depth</span>'}</div>`).join('')}
+    <table class="sim-tab"><tbody>${rows.map(r => `<tr><td>${esc(r[0])}</td><td class="num">${simNum(r[1])}</td><td class="small muted">${esc(r[2])}</td></tr>`).join('') || '<tr><td class="muted small">No track carries a value at this depth.</td></tr>'}</tbody></table>`;
+}
+function simSet(p) { SIM.p = Math.max(0, Math.min(1, p)); const s = $('#simSlider'); if (s) s.value = Math.round(SIM.p * 1000); const st = simState(); $('#simClockTxt').textContent = `${simTimeTxt(st)} · bit ${simD(st.md)} ${simU()} MD`; simPanel(); simRead(); w3Req(); }
+// seek to the moment the bit first reached a depth
+function simSeek(md) { const r = SIM.sim.scene.wells[0].replay; const i = r.md.findIndex(v => v >= md); const k = i < 0 ? r.md.length - 1 : i; if (!SIM.tms) return simSet(k / (r.md.length - 1)); const T = SIM.tms; simSet((T[k] - T[0]) / ((T[T.length - 1] - T[0]) || 1)); }
+// the camera on the simulated well rather than on the whole field
+function simFit() { const p = SIM.sim.scene.wells[0].path; const mn = a => Math.min(...a), mx = a => Math.max(...a); const z0 = Math.min(0, mn(p.z));
+  const c = w3P((mn(p.x) + mx(p.x)) / 2, (mn(p.y) + mx(p.y)) / 2, (z0 + mx(p.z)) / 2); const ext = Math.max(mx(p.x) - mn(p.x), mx(p.y) - mn(p.y), (mx(p.z) - z0) * W3.exag, 200);
+  W3.cam = {t: c, d: ext * 1.35, y: 0.75, p: 0.32}; }
+function simLegend() { const sim = SIM.sim, el = $('#simLeg'); if (!el) return; el.innerHTML = sim.columns.map(cc => `<span class="small"><b>${esc(cc.name)}</b>:</span>${cc.parts.map((p, i) => `<span class="w3-tg"><span class="w3-sw" style="background:var(${W3_SLOTS[i % 6]})"></span>${esc(p)}</span>`).join('')}`).join('<br>'); }
+VIEWS.simulation = async (arg) => {
+  simStop(); w3Stop(); const list = (await get('/api/sim/scenes')).scenes; const want = arg || SIM.id || (list.find(s => s.kind === 'workspace') || list[0]).id; SIM.id = want;
+  let sim; try { sim = await get('/api/sim/scene/' + encodeURIComponent(want)); } catch (e) { $('#main').innerHTML = `<h2>Simulation</h2><div class="card">${esc(e.message)}</div>`; return; }
+  SIM.sim = sim; SIM.p = 0; SIM.hover = null; simClock(); const w = sim.scene.wells[0];
+  // the path coloured by a track: the 3D view's own colouring, from the tracks themselves
+  w.channels = {}; for (const t of sim.tracks) w.channels[t.name] = {unit: t.unit, md: t.md, v: t.v};
+  const logs = sim.tracks.filter(t => t.group !== 'path'), pref = ['gr', 'rhob', 'nphi', 'rt', 'phit', 'sw'].map(id => logs.find(t => t.id === id)).filter(Boolean);
+  SIM.tracks = (pref.length >= 4 ? pref : (logs.length ? logs : sim.tracks)).slice(0, 6);
+  const td = sim.td_md, ft = simFtFor(sim), opts = ft ? [3000, 1000, 300, 100] : [1000, 500, 150, 50];
+  const spans = [[null, 'the whole well'], ...opts.map(v => [ft ? v * 0.3048 : v, `${v.toLocaleString()} ${ft ? 'ft' : 'm'}`])].filter(s => s[0] === null || s[0] < td);
+  SIM.span = spans.length > 2 ? spans[2][0] : null; SIM.ahead = false;
+  const hasPicks = w.picks && w.picks.length;
+  let h = `<h2>Simulation</h2><div class="row card w3-bar"><label>Well<select id="simScene">${list.map(s => `<option value="${esc(s.id)}" ${s.id === want ? 'selected' : ''}>${esc(s.title)}</option>`).join('')}</select></label>
+    <label>Colour the path by<select id="simCol">${hasPicks ? '<option>Formation</option>' : ''}${sim.tracks.map(t => `<option ${!hasPicks && t === sim.tracks[0] ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
+    <label>Depth window<select id="simSpan">${spans.map(s => `<option value="${s[0] ?? ''}" ${s[0] === SIM.span ? 'selected' : ''}>${esc(s[1])}</option>`).join('')}</select></label>
+    <label class="w3-tg"><input type="checkbox" id="simAhead"> show the log below the bit</label>
+    <label>Vertical exaggeration<select id="simEx">${[1, 2, 3, 5, 10].map(v => `<option value="${v}" ${v === 2 ? 'selected' : ''}>${v}×</option>`).join('')}</select></label></div>`;
+  h += `<div class="row card sim-tr"><button type="button" id="simPlay" aria-pressed="false">Play</button><button type="button" class="secondary" id="simBack" title="Back one step" aria-label="Back one step">◀</button><button type="button" class="secondary" id="simFwd" title="Forward one step" aria-label="Forward one step">▶</button>
+    <label>Speed<select id="simSpd">${[1, 4, 16, 64].map(v => `<option value="${v}">${v}×</option>`).join('')}</select></label><input type="range" id="simSlider" min="0" max="1000" value="0" aria-label="Position in the record" style="flex:1;min-width:180px"><span class="small" id="simClockTxt" aria-live="off"></span></div>`;
+  h += `<div class="sim-grid"><div><div class="w3-stage sim-stage"><canvas id="w3C" tabindex="0" aria-label="The well in 3D: drag to turn, shift-drag to pan, wheel to zoom"></canvas><canvas id="w3O" aria-hidden="true"></canvas></div><div class="w3-leg" id="w3Leg"></div></div>
+    <div><div class="sim-panel" id="simWrap"><canvas id="simC" role="img" aria-label="Mud-log panel: depth down the page, the formations, the volumes and the logs, the bit as an orange line, the bottom of the hole dashed"></canvas></div><div class="w3-leg" id="simLeg"></div></div></div>
+    <div class="card sim-read" id="simRead" aria-live="polite"></div>`;
+  h += `<details class="card"><summary>Tracks in the panel (up to six at once)</summary><div class="row">${sim.tracks.map(t => `<label class="w3-tg"><input type="checkbox" data-simt="${esc(t.id)}" ${SIM.tracks.includes(t) ? 'checked' : ''}> ${esc(t.name)} <span class="small muted">${esc(t.unit)}</span></label>`).join('')}</div></details>`;
+  h += `<div class="card small"><p><b>The clock</b>: ${esc(sim.clock.note)}.${SIM.tms ? ` At 1× the whole record plays in ${SIM_DUR / 60} minutes; between two samples close in time the bit moves evenly, and across a gap in the record it waits where it was.` : ''}</p>
+    ${sim.path_how ? `<p><b>The path</b>: ${esc(sim.path_how)}.</p>` : ''}
+    ${sim.columns.map(cc => `<p><b>${esc(cc.name)}</b>: ${esc(cc.how)}. <span class="muted">${esc(cc.source)}.</span></p>`).join('')}
+    <p><b>The tracks</b>: ${sim.tracks.map(t => `${esc(t.name)} (${esc(t.source)})`).join('; ')}.</p>
+    <p><b>Not shown</b>: ${sim.not_measured.map(esc).join('; ')}.</p>${sim.sources.filter(s => s.attribution).map(s => `<p class="muted">${esc(s.attribution)}</p>`).join('')}</div>`;
+  $('#main').innerHTML = h;
+  // the 3D stage: the 3D tab's renderer, with the bit and the hole from the simulation's clock
+  W3.sc = sim.scene; W3.rep = {well: null, i: 0, timer: null, speed: 1}; W3.hover = null; W3.cvs = $('#w3C'); W3.ov = $('#w3O'); W3.exag = 2; W3.colorBy = hasPicks ? 'Formation' : (sim.tracks[0] || {}).name || 'Formation';
+  W3.show = {picks: true, others: false, labels: false, seeThrough: !!(sim.scene.surfaces || []).length};
+  W3.simBit = () => { const st = simState(), p = simAt(st.md); return {w, md: st.md, hole: st.hole, x: p.x, y: p.y, z: p.z, t: null}; };
+  W3.simPost = (draw, bit) => { if (!bit || !W3.strBuf) return; draw({b: W3.strBuf, alpha: 1, cut: bit.md}, W3.gl.TRIANGLES); };
+  const build = () => { w3Build(); for (const m of W3.meshes) if (m.kind === 'well') m.alpha = 0.45;   // the hole see-through, so the string shows inside it
+    if (W3.strBuf) w3Free(W3.gl, W3.strBuf); const p = w.path, col = w3Hex(w3Css('--ink2')); const g = w3Tube(p.x, p.y, p.z, p.md, p.md.map(() => col), Math.max(4, W3.box.span / 450) * 0.42, 6); W3.strBuf = w3Buf(W3.gl, g.pos, g.nor, g.cc, g.md, g.idx); };
+  try { W3.gl = W3.cvs.getContext('webgl', {antialias: true}); if (!W3.gl) throw new Error('this browser offers no WebGL'); if (!W3.gl.getExtension('OES_element_index_uint')) throw new Error('this browser lacks 32-bit mesh indices'); W3.prog = w3Shader(W3.gl, W3_VS, W3_FS); W3.strBuf = null; }
+  catch (e) { W3.gl = null; $('.sim-stage').innerHTML = `<div class="card">The 3D view needs WebGL: ${esc(e.message)}. The panel and the readout carry every number.</div>`; }
+  w3Box(); simFit(); if (W3.gl) { build(); w3Req(); } simLegend();
+  SIM.cv = $('#simC'); simSet(0);
+  // a well logged only deep down opens where its logs begin; Play runs on from there, the slider reaches the surface
+  if (!SIM.tms && sim.columns.length && sim.columns[0].top.length && sim.columns[0].top[0] > 0.3 * td) simSeek(sim.columns[0].top[0] - 25);
+  $('#simScene').onchange = e => { location.hash = '#/simulation/' + encodeURIComponent(e.target.value); };
+  $('#simCol').onchange = e => { W3.colorBy = e.target.value; if (W3.gl) { build(); w3Req(); } };
+  $('#simEx').onchange = e => { W3.exag = +e.target.value; simFit(); if (W3.gl) { build(); w3Req(); } };
+  $('#simSpan').onchange = e => { SIM.span = e.target.value === '' ? null : +e.target.value; simPanel(); };
+  $('#simAhead').onchange = e => { SIM.ahead = e.target.checked; simPanel(); };
+  document.querySelectorAll('[data-simt]').forEach(cb => cb.onchange = () => { const on = [...document.querySelectorAll('[data-simt]:checked')].map(x => x.dataset.simt); if (on.length > 6) { cb.checked = false; return toast('Six tracks at once fit the panel', 'err'); } SIM.tracks = sim.tracks.filter(t => on.includes(t.id)); simPanel(); });
+  $('#simSlider').oninput = e => { simStop(); simSet(+e.target.value / 1000); };
+  $('#simSpd').onchange = e => { SIM.speed = +e.target.value; };
+  const n = w.replay.md.length, stepP = () => SIM.tms ? 1 / 400 : 1 / (n - 1);
+  $('#simBack').onclick = () => { simStop(); simSet(SIM.p - stepP()); }; $('#simFwd').onclick = () => { simStop(); simSet(SIM.p + stepP()); };
+  $('#simPlay').onclick = () => { if (SIM.timer) return simStop(); if (SIM.p >= 1) simSet(0); $('#simPlay').textContent = 'Pause'; $('#simPlay').setAttribute('aria-pressed', 'true');
+    SIM.timer = setInterval(() => { if (!SIM.cv || !SIM.cv.isConnected) return simStop(); if (SIM.p >= 1) return simStop(); simSet(SIM.p + 0.1 / SIM_DUR * SIM.speed); }, 100); };
+  // the panel: the pointer reads a depth; a click takes the bit to the moment it first reached it
+  const pd = ev => { const r = SIM.cv.getBoundingClientRect(), y = ev.clientY - r.top, wv = SIM.win; if (!wv || y < wv.HT) return null; return wv.d0 + (y - wv.HT) / (wv.H - wv.HT - 6) * (wv.d1 - wv.d0); };
+  SIM.cv.addEventListener('pointermove', ev => { SIM.hover = pd(ev); simPanel(); simRead(); });
+  SIM.cv.addEventListener('pointerleave', () => { SIM.hover = null; simPanel(); simRead(); });
+  SIM.cv.addEventListener('click', ev => { const d = pd(ev); if (d !== null) { simStop(); SIM.hover = null; simSeek(d); } });
+  // the 3D stage's own handlers: turn, pan, zoom, keys
+  const cv = W3.cvs; if (W3.gl) {
+    cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); W3.drag = {x: e.clientX, y: e.clientY, pan: e.shiftKey || e.button === 2, id: e.pointerId}; });
+    cv.addEventListener('pointermove', e => { if (W3.drag && W3.drag.id === e.pointerId) { const dx = e.clientX - W3.drag.x, dy = e.clientY - W3.drag.y; W3.drag.x = e.clientX; W3.drag.y = e.clientY; const c = W3.cam;
+      if (W3.drag.pan) { const k = c.d / cv.clientHeight; const r = [Math.cos(c.y), 0, -Math.sin(c.y)]; c.t = [c.t[0] - r[0] * dx * k, c.t[1] + dy * k, c.t[2] - r[2] * dx * k]; } else { c.y -= dx * 0.008; c.p = Math.max(-1.45, Math.min(1.45, c.p + dy * 0.008)); } w3Req(); } });
+    cv.addEventListener('pointerup', () => { W3.drag = null; }); cv.addEventListener('contextmenu', e => e.preventDefault());
+    cv.addEventListener('wheel', e => { e.preventDefault(); W3.cam.d *= Math.exp(e.deltaY * 0.0012); w3Req(); }, {passive: false});
+    cv.addEventListener('keydown', e => { const c = W3.cam, k = e.key; let used = true; if (k === 'ArrowLeft') c.y += 0.08; else if (k === 'ArrowRight') c.y -= 0.08; else if (k === 'ArrowUp') c.p = Math.min(1.45, c.p + 0.06); else if (k === 'ArrowDown') c.p = Math.max(-1.45, c.p - 0.06); else if (k === '+' || k === '=') c.d *= 0.85; else if (k === '-') c.d /= 0.85; else if (k === 'Home') simFit(); else if (k === ' ') $('#simPlay').click(); else used = false; if (used) { e.preventDefault(); w3Req(); } }); }
+  if (SIM.ro) SIM.ro.disconnect(); SIM.ro = new ResizeObserver(() => { simPanel(); w3Req(); }); SIM.ro.observe($('#simWrap')); if (W3.gl) SIM.ro.observe(cv);
 };
 // ---------- economics: each well's time, footage and declared cost, against the market while it was drilled -------
 function ecMoney(v, d = 0) { return v === null || v === undefined ? '—' : '$' + Number(v).toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d}); }
@@ -2154,7 +2324,7 @@ function authScreen(first) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/economics', 'Economics'], ['#/seismic', 'Seismic'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/economics', 'Economics'], ['#/seismic', 'Seismic'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w'], '#/control': b => [b.handover_unacked, 'w']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }
@@ -2168,6 +2338,7 @@ async function _route() {
   const view = parts[0] || 'home', arg = parts.slice(1).join('/');
   if (view !== 'wall') wallStop();
   if (view !== '3d' && typeof w3Stop === 'function') w3Stop();
+  if (view !== 'simulation' && typeof simStop === 'function') simStop();
   try {
     if (view === 'wells' && arg) await VIEWS.well(decodeURIComponent(arg));
     else if (view === 'seismic' && arg) await VIEWS.seismic_station(decodeURIComponent(arg));

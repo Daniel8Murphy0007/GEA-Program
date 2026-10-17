@@ -1,0 +1,46 @@
+{
+ "entry": "volve_f4_logs",
+ "kind": "PUBLIC_WELL_LOGS",
+ "well": "15/9-F-4",
+ "field": "Volve",
+ "interval_m_md": [
+  2955.95,
+  3509.92
+ ],
+ "license": "Equinor's 'Terms and conditions for licence to data - Volve' (2020): use, copy and adapt for non-commercial and commercial purposes; Equinor and the former partners attributed and a notice referring to the terms included when shared; the licensed material may not be sold; no use that suggests endorsement.",
+ "attribution": "Contains data from the Volve field released by Equinor ASA and the former Volve licence partners (ExxonMobil Exploration and Production Norway AS, Bayerngas Norge AS) under the Equinor Open Data Licence; the data are not sold. 15/9-F-4 logs: Schlumberger, for StatoilHydro, 2008.",
+ "access": "Taken from a public GitHub copy of the Volve release at a pinned commit, verbatim, hashed as fetched.",
+ "checks": [
+  "the interpretation's mineral volumes and its total porosity sum to one at every depth (to 1e-4)",
+  "its hydrocarbon volume equals the total porosity times one less the water saturation (to 1e-4)",
+  "the two files carry the same well and the same depth step (0.1524 m)"
+ ],
+ "files": {
+  "lwd": {
+   "what": "logging-while-drilling record, 8.5 in section (LAS 2.0)",
+   "file": "volve_f4_lwd.las.gz",
+   "source": {
+    "repository": "https://github.com/hasifsyazwan/AI-Well-Log-Assistant-for-Volve-Field",
+    "commit": "fbf2c0ffc638c3bb8112091cba0c1eae8a75aef8",
+    "path": "data/F-4/basic.las",
+    "url": "https://raw.githubusercontent.com/hasifsyazwan/AI-Well-Log-Assistant-for-Volve-Field/fbf2c0ffc638c3bb8112091cba0c1eae8a75aef8/data/F-4/basic.las"
+   },
+   "bytes": 770479,
+   "sha256_uncompressed": "38f5f87c3764867fd759a00ba9c121300e29c26fc17c1ffbf76acdb8eabbad06",
+   "sha256": "03900ed4777dce4ad5118ba03ad73e4c8eb1ef4fbfc377974e194ebbbe58136a"
+  },
+  "interpretation": {
+   "what": "petrophysical interpretation of that record (Schlumberger EcoView for StatoilHydro, LAS 3.0)",
+   "file": "volve_f4_interpretation.las.gz",
+   "source": {
+    "repository": "https://github.com/hasifsyazwan/AI-Well-Log-Assistant-for-Volve-Field",
+    "commit": "fbf2c0ffc638c3bb8112091cba0c1eae8a75aef8",
+    "path": "data/F-4/interpretation.las",
+    "url": "https://raw.githubusercontent.com/hasifsyazwan/AI-Well-Log-Assistant-for-Volve-Field/fbf2c0ffc638c3bb8112091cba0c1eae8a75aef8/data/F-4/interpretation.las"
+   },
+   "bytes": 3105091,
+   "sha256_uncompressed": "7fd1b3cc99fb60c5340570c7bc5dc97054d87d326d3303846f1fab0b204568b4",
+   "sha256": "9f3f35fda0f4368ff0271a13395506a427b8abce3197f75af769d87bd8a34528"
+  }
+ }
+}
