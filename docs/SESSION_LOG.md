@@ -2295,3 +2295,37 @@ stability; and motor specifications in the tool catalogue.
   across hole sections and strings, and the page says so until the runs are
   declared.
 - Section CI (3 checks). Gate 407.
+
+## 2026-10-17 - The declarations sheet (v0.41.0)
+
+- Asked: what is left; then build the declarations import with the Genco
+  follow-ups and the motor leftovers while the daily-report and invoice
+  samples for the cross-check are gathered.
+- `gea/declarations.py`: one CSV of bracket-headed tables; parse, plan
+  (NEW / CHANGE / SAME, or an error with its row), apply through each
+  declaration's own function; the workspace template filled with what is
+  declared. A non-sheet file is named as one in a single line, not one
+  error per row. Money and positions written back exactly (a float is
+  written as it is held, never rounded to six figures).
+- `gea/penetrator.py`: the ratings from `reference/penetrator_ratings.json`
+  or a fleet tool's datasheet; the installation record and the drive and
+  site; the check line by line. The current check reads the drive's
+  maximum output against the penetrator's full-load current and, when it
+  is over, says to set the drive's current limit - the rule is the
+  program's, stated.
+- Genco documents (IP-06, IP-20, IP-40) supplied by the operator: only the
+  IP-40 Appendix A ratings and the titles' Division 2 are kept, with the
+  document, revision and section; no procedure text. The PMM note is
+  written from public sources (World Oil June 2024, Baker Hughes authors;
+  Levare's field-service page) and cites IP-40 for the safety notes.
+- Motors: the handbook read a third time through the web reader for every
+  sheet's flow, rev/gal, differentials, torque and weight on bit - all 41
+  agreed. The 6 5/8 in 5/6 8.4 sheet prints 300-700 gpm where the summary
+  table prints 350-700; the sheet is kept and the difference noted. The
+  8 in x 7 3/4 in 7/8 5.9 sheet was read twice and added; a 7 in 8/9 4.3
+  sheet missing from the first transcription was found and read twice.
+  43 motors.
+- The Completion tab and the Setup card driven in headless Chromium: light,
+  dark, phone width, no horizontal scroll, no console errors.
+- Section CJ (3 checks). Gate 410.
+

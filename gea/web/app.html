@@ -828,6 +828,7 @@ VIEWS.setup = async () => {
     <div class="ck-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${c.required}" aria-valuenow="${c.required_done}" aria-label="Required setup done"><span style="width:${(100 * c.required_done / Math.max(1, c.required)).toFixed(0)}%"></span></div>
     <p class="small muted">Recommended ${c.recommended_done} of ${c.recommended} · optional ${c.optional_done} of ${c.optional}. ${esc(ck.statement)}</p>
     <div class="row">${ck.next ? `<button type="button" id="ckNext">Go to the next item</button>` : ''}<label class="small ck-chk"><input type="checkbox" id="ckShowDone" ${showDone ? 'checked' : ''}> Show done items</label></div></div>`;
+  h += dcCard();
   const groups = [];
   for (const it of ck.items) { const g = it.scope === 'site' ? 'Workspace' : (it.well_name || it.well); let G = groups.find(x => x.name === g); if (!G) groups.push(G = {name: g, items: []}); G.items.push(it); }
   for (const G of groups) {
@@ -839,8 +840,32 @@ VIEWS.setup = async () => {
   $('#main').innerHTML = h;
   $('#ckShowDone').onchange = ev => { try { localStorage.setItem('gea-ck-done', ev.target.checked ? '1' : '0'); } catch (e) {} route(); };
   if ($('#ckNext')) $('#ckNext').onclick = () => { const el = document.getElementById('ck-' + ck.next); if (el) { el.scrollIntoView({behavior: 'smooth', block: 'center'}); const f = el.querySelector('input,select,button,a'); if (f) setTimeout(() => f.focus(), 300); } };
-  ckBind(ck);
+  ckBind(ck); dcBind();
 };
+// ---------- the declarations sheet: everything declared about the pad in one CSV, planned row by row before any write ----------
+const DC = {text: '', name: '', plan: null};
+function dcCard() {
+  const P = DC.plan;
+  let h = `<div class="card" id="dcCard"><h3>The declarations sheet <span class="small muted">every well's number, position and elevation, the rates and AFE, the fleet, the drill-string runs, the ESP penetrator and drive - one spreadsheet</span></h3>
+    <p class="small">Download the sheet: it already holds what this workspace has declared, with a line under each table saying what it takes. Fill in the blanks in a spreadsheet, save it as CSV, and check it here. Nothing is written until the check is clean and you press Write. <a href="#/help/declare">How the sheet is laid out</a>.</p>
+    <div class="row"><button type="button" class="secondary" id="dcGet">Download the sheet</button>
+    ${can('operator') ? `<label>Sheet (CSV)<input type="file" id="dcFile" accept=".csv,text/csv"></label><button type="button" id="dcCheck" ${DC.text ? '' : 'disabled'}>Check the sheet</button>` : need('operator')}</div>`;
+  if (P) {
+    const c = P.counts, k = {NEW: 'good', CHANGE: 'warn', SAME: 'neutral'};
+    h += `<p aria-live="polite"><b>${esc(DC.name)}</b>: ${c.NEW} new, ${c.CHANGE} change${c.CHANGE === 1 ? '' : 's'}, ${c.SAME} already declared${P.errors.length ? ` · <span class="serious">${P.errors.length} error${P.errors.length === 1 ? ': nothing is written until it is fixed' : 's: nothing is written until they are fixed'}</span>` : ''}${P.applied ? ` · <span class="good">written: ${P.written.length} row${P.written.length === 1 ? '' : 's'}</span>` : ''}</p>`;
+    if (P.errors.length) h += `<ul class="small dc-err">${P.errors.map(e => `<li>${esc(e)}</li>`).join('')}</ul>`;
+    if (P.steps.length) h += `<div style="overflow-x:auto"><table class="small"><thead><tr><th>Row</th><th>Plan</th><th>Table</th><th>Well</th><th>What</th></tr></thead><tbody>${P.steps.map(st => `<tr><td>${st.row}</td><td>${statusPill(k[st.action] || 'neutral', st.action)}</td><td class="mono">[${esc(st.table)}]</td><td>${esc(st.well || '')}</td><td>${esc(st.what)}</td></tr>`).join('')}</tbody></table></div>`;
+    if (!P.errors.length && !P.applied && (c.NEW + c.CHANGE) && can('operator')) h += `<div class="row"><button type="button" id="dcApply">Write ${c.NEW + c.CHANGE} row${c.NEW + c.CHANGE === 1 ? '' : 's'}</button></div>`;
+  }
+  return h + `</div>`;
+}
+function dcBind() {
+  $('#dcGet') && ($('#dcGet').onclick = async () => { try { const r = await get('/api/declare/template'); const b = new Blob([r.csv], {type: 'text/csv'}); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = r.filename; a.click(); setTimeout(() => URL.revokeObjectURL(u), 1000); } catch (e) { toast(e.message, 'err'); } });
+  $('#dcFile') && ($('#dcFile').onchange = ev => { const f = ev.target.files[0]; if (!f) return; const fr = new FileReader(); fr.onload = () => { DC.text = String(fr.result); DC.name = f.name; DC.plan = null; $('#dcCheck').disabled = false; }; fr.readAsText(f); });
+  const run = async (apply) => { try { DC.plan = await post('/api/declare', {text: DC.text, apply}); if (apply && DC.plan.applied) { toast(`Written: ${DC.plan.written.length} row(s)`, 'ok'); await refreshBadges(); } route(); } catch (e) { toast(e.message, 'err'); } };
+  $('#dcCheck') && ($('#dcCheck').onclick = () => run(false));
+  $('#dcApply') && ($('#dcApply').onclick = () => run(true));
+}
 function ckItemHtml(it, isNext) {
   const done = it.status === 'DONE', a = it.action || {};
   let h = `<div class="ck-item ${done ? 'done' : 'todo'}${isNext ? ' next' : ''}" id="ck-${esc(it.id)}"><div class="ck-mark" aria-hidden="true">${done ? '✓' : '○'}</div><div>`;
@@ -2268,6 +2293,63 @@ VIEWS.drillstring = async (arg) => {
   $('#dsEdit') && ($('#dsEdit').onclick = () => dsForm(P, P.well_id, run));
   $('#dsDel') && ($('#dsDel').onclick = async () => { try { await post('/api/drillstring/remove', {run_id: run.id}); toast('Run removed', 'ok'); DS.run = null; route(); } catch (e) { toast(e.message, 'err'); } });
 };
+// ---------- completion: the ESP wellhead penetrator, its installation record, and the drive and site against its ratings ----------
+const CP = {well: ''};
+function cpV(v) { if (v === null || v === undefined || v === '') return '—'; if (Array.isArray(v)) return v.map(x => x === null || x === undefined ? '?' : x).join(' to '); if (typeof v === 'object') return Object.entries(v).map(([k, x]) => `${k} ${x}`).join(', '); return String(v); }
+function cpKind(s) { return ({WITHIN: 'good', RECORDED: 'neutral', OUTSIDE: 'serious', 'NOT DECLARED': 'warn', 'NOT RATED': 'warn', 'NOT STATED': 'warn', INCOMPLETE: 'warn'})[s] || 'neutral'; }
+VIEWS.completion = async (arg) => {
+  const P = await get('/api/penetrator'); CP.data = P;
+  const wid = arg || CP.well || (P.wells.find(w => w.install) || P.wells[0] || {}).well_id || ''; CP.well = wid;
+  let h = `<h2>Completion</h2>` + help('completion');
+  h += `<div class="tiles">` + P.wells.map(w => tile(w.display, w.status === 'NOT DECLARED' ? 'no record' : w.status, cpKind(w.status), '#/completion/' + encodeURIComponent(w.well_id), w.penetrator ? w.penetrator.model : 'no penetrator declared')).join('') + `</div>`;
+  const W = P.wells.find(w => w.well_id === wid);
+  if (W) {
+    h += `<div class="card"><h3>${esc(W.display)} <span class="small">${statusPill(cpKind(W.status), W.status)}</span></h3>`;
+    if (W.penetrator) h += `<p class="small"><b>${esc(W.penetrator.maker)} ${esc(W.penetrator.model)}</b> — ratings from ${esc(W.penetrator.document)}, ${esc(W.penetrator.section)}.</p>`;
+    if (W.rows.length) h += `<div style="overflow-x:auto"><table><thead><tr><th>Check</th><th>Declared</th><th>Rated / limit</th><th>Status</th><th>Why</th></tr></thead><tbody>${W.rows.map(r => { const u = r.unit ? ' ' + ({megohm: 'MΩ', F: '°F'}[r.unit] || r.unit) : ''; return `<tr><td><b>${esc(r.item)}</b></td><td class="small">${esc(cpV(r.declared))}${r.declared != null && r.declared !== '' ? esc(u) : ''}</td><td class="small">${esc(cpV(r.rated))}${r.rated != null && typeof r.rated !== 'string' ? esc(u) : ''}</td><td>${statusPill(cpKind(r.status), r.status)}</td><td class="small">${esc(r.why)}</td></tr>`; }).join('')}</tbody></table></div>`;
+    for (const n of W.notes || []) h += `<p class="small muted">${esc(n)}.</p>`;
+    const I = W.install, D = W.drive;
+    if (I) h += `<p class="small muted">Installed ${esc(I.installed || '(date not given)')} by ${esc(I.installer || '(installer not given)')}; recorded by ${esc(I.declared_by)} on ${tz(I.declared_utc)}.${D ? ` Drive and site: ${esc(D.source)}, declared by ${esc(D.declared_by)}.` : ''}</p>`;
+    if (can('operator')) h += `<div class="row"><button type="button" id="cpIns">${I ? 'Change the installation record' : 'Record the installation'}</button><button type="button" class="secondary" id="cpDrv">${D ? 'Change the drive and site' : 'Declare the drive and site'}</button>${I ? `<button type="button" class="secondary" id="cpRmI">Remove the installation record</button>` : ''}${D ? `<button type="button" class="secondary" id="cpRmD">Remove the drive</button>` : ''}</div><div id="cpForm"></div>`;
+    else h += need('operator');
+    h += `</div>`;
+  } else h += `<div class="card">No wells yet: add a well on Setup, then record its penetrator here.</div>`;
+  h += `<div class="card cp-pmm" role="note"><h3>Permanent magnet motors</h3>${P.pmm_safety.text.map(t => `<p class="small">${esc(t)}</p>`).join('')}<p class="small muted">Sources: ${P.pmm_safety.sources.map(s => s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.publisher)}</a>` : esc(s.publisher + ', ' + s.title)).join('; ')}.</p></div>`;
+  h += `<div class="card"><h3>Wellhead penetrators <span class="small muted">the ratings each maker's document prints</span></h3><p class="small muted">${esc(P.how)}</p><div style="overflow-x:auto"><table><thead><tr><th>Penetrator</th><th>Voltage / current</th><th>Frequency, phases</th><th>Pressure</th><th>Hazardous area</th><th>Ambient, altitude</th><th>Document</th></tr></thead><tbody>${P.penetrators.map(x => { const r = x.ratings || {};
+      return `<tr><td><b>${esc(x.model)}</b><br><span class="mono small muted">${esc(x.id)}</span>${x.pmm ? '<br><span class="small">for PMM installation</span>' : ''}${x.certified_installer_required ? '<br><span class="small">certified installer required</span>' : ''}</td><td class="small">${r.max_volts ? `${r.max_volts.toLocaleString()} V max<br>${r.max_amps_fla} A FLA max` : '—'}</td><td class="small">${r.freq_hz ? `${r.freq_hz[0]}–${r.freq_hz[1]} Hz` : '—'}${r.phases ? `, ${r.phases} phase` : ''}</td><td class="small">${r.working_psi_api ? `${r.working_psi_api.toLocaleString()} psi API<br>${(r.proof_test_psi || 0).toLocaleString()} psi proof` : '—'}</td><td class="small">${esc([...(r.divisions || []), ...(r.zones || [])].join('; ') || '—')}${r.division_group ? `<br>group ${esc(r.division_group)}${r.zone_group ? ' / ' + esc(r.zone_group) : ''}${r.temp_class ? ', ' + esc(r.temp_class) : ''}` : ''}</td><td class="small">${r.ambient_f ? `${r.ambient_f[0]} to ${r.ambient_f[1]} °F` : '—'}${r.altitude_max_m ? `<br>${r.altitude_max_m.toLocaleString()} m max` : ''}</td><td class="small">${esc(x.document)}, ${esc(x.section)}</td></tr>`; }).join('')}
+      ${P.fleet.map(t => `<tr><td><b>${esc(t.maker)} ${esc(t.model)}</b><br><span class="mono small muted">${esc(t.id)}</span><br><span class="small">your fleet</span></td><td colspan="5" class="small">${esc(Object.entries(t.ratings || {}).map(([k, v]) => k + ' ' + v).join('; ') || 'no ratings entered')}</td><td class="small">${esc(t.datasheet)}</td></tr>`).join('')}</tbody></table></div>
+      <p class="small muted">A document that prints no rating leaves it empty: add the model to <a href="#/tools">your fleet</a> with its datasheet and ratings. The <a href="#/setup">declarations sheet</a> takes the installation record and the drive for every well at once.</p></div>`;
+  $('#main').innerHTML = h;
+  if (!W || !can('operator')) return;
+  const after = async (msg) => { toast(msg, 'ok'); route(); };
+  const I = W.install || {}, D = W.drive || {}, ir = I.insulation_megohm || {};
+  const opt = (list, v) => list.map(x => `<option ${x === v ? 'selected' : ''}>${esc(x)}</option>`).join('');
+  const num = (n, l, v, w = '7em', step = 'any') => `<label>${l}<input name="${n}" type="number" step="${step}" value="${v ?? ''}" style="width:${w}"></label>`;
+  $('#cpIns').onclick = () => { $('#cpForm').innerHTML = `<form id="cpFi" class="card"><h4>Installation record</h4><div class="row">
+      <label>Penetrator<select name="penetrator" required>${[...P.penetrators.map(x => [x.id, x.model]), ...P.fleet.map(t => [t.id, t.maker + ' ' + t.model])].map(([id, n]) => `<option value="${esc(id)}" ${id === I.penetrator ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
+      <label>Installed<input name="installed" type="date" value="${esc(I.installed || '')}"></label><label>Installer<input name="installer" value="${esc(I.installer || '')}"></label>
+      <label>Certified by the maker<select name="certified"><option value="">not stated</option><option value="yes" ${I.installer_certified === true ? 'selected' : ''}>yes</option><option value="no" ${I.installer_certified === false ? 'selected' : ''}>no</option></select></label><label>Certificate<input name="certificate" value="${esc(I.certificate || '')}" style="width:9em"></label>
+      <label>Motor<select name="motor_type"><option value="">not stated</option>${opt(P.motor_types, I.motor_type)}</select></label></div><div class="row">
+      ${num('gauge_distance_in', 'Gauge distance (in)', I.gauge_distance_in)}${num('ir_A', 'Insulation A (MΩ)', ir.A)}${num('ir_B', 'B (MΩ)', ir.B)}${num('ir_C', 'C (MΩ)', ir.C)}${num('ir_test_volts', 'Test voltage (V)', I.ir_test_volts)}
+      ${num('ir_min_megohm', 'Acceptance minimum (MΩ)', I.ir_min_megohm)}<label>Its source<input name="ir_min_source" value="${esc(I.ir_min_source || '')}" placeholder="your standard"></label></div><div class="row">
+      ${num('void_test_psi', 'Void test (psi)', I.void_test_psi)}${num('void_test_minutes', 'For (min)', I.void_test_minutes)}<label>Held<select name="void_held"><option value="">not stated</option><option value="yes" ${I.void_held === true ? 'selected' : ''}>yes</option><option value="no" ${I.void_held === false ? 'selected' : ''}>no</option></select></label>
+      <label style="flex:1 1 16em">Note<input name="note" value="${esc(I.note || '')}" style="width:100%"></label></div><div class="row"><button type="submit">Save</button><button type="button" class="secondary" id="cpX">Cancel</button></div></form>`;
+    $('#cpX').onclick = () => { $('#cpForm').innerHTML = ''; };
+    $('#cpFi').onsubmit = async ev => { ev.preventDefault(); const f = new FormData(ev.target), b = {well_id: W.well_id, insulation: {}};
+      for (const [k, v] of f.entries()) { if (k.startsWith('ir_') && k.length === 4) { if (v !== '') b.insulation[k.slice(3)] = +v; } else if (v !== '') b[k] = v; }
+      try { await post('/api/penetrator/install', b); after('Installation recorded'); } catch (e) { toast(e.message, 'err'); } }; };
+  $('#cpDrv').onclick = () => { $('#cpForm').innerHTML = `<form id="cpFd" class="card"><h4>ESP drive, motor and site</h4><div class="row"><label>Drive maker<input name="maker" value="${esc(D.maker || '')}"></label><label>Model<input name="model" value="${esc(D.model || '')}"></label>
+      ${num('max_volts', 'Max output (V)', D.max_volts)}${num('max_amps', 'Max output (A)', D.max_amps)}${num('freq_min_hz', 'Min frequency (Hz)', D.freq_min_hz)}${num('freq_max_hz', 'Max frequency (Hz)', D.freq_max_hz)}${num('phases', 'Phases', D.phases, '5em', '1')}</div><div class="row">
+      ${num('motor_volts', 'Motor nameplate (V)', D.motor_volts)}${num('motor_amps', 'Motor nameplate (A)', D.motor_amps)}
+      <label>Wellhead area<select name="area"><option value="">not stated</option>${opt(P.areas, D.area)}</select></label><label>Gas group<input name="gas_group" value="${esc(D.gas_group || '')}" placeholder="D or IIA" style="width:6em"></label><label>Temperature class<input name="temp_class" value="${esc(D.temp_class || '')}" placeholder="T3" style="width:5em"></label>
+      ${num('ambient_min_f', 'Ambient min (°F)', D.ambient_min_f)}${num('ambient_max_f', 'Ambient max (°F)', D.ambient_max_f)}</div><div class="row"><label style="flex:1 1 24em">Source<input name="source" required value="${esc(D.source || '')}" placeholder="drive datasheet; motor nameplate; area classification drawing" style="width:100%"></label></div>
+      <div class="row"><button type="submit">Save</button><button type="button" class="secondary" id="cpX">Cancel</button></div></form>`;
+    $('#cpX').onclick = () => { $('#cpForm').innerHTML = ''; };
+    $('#cpFd').onsubmit = async ev => { ev.preventDefault(); const f = new FormData(ev.target), b = {well_id: W.well_id}; for (const [k, v] of f.entries()) if (v !== '') b[k] = v;
+      try { await post('/api/penetrator/drive', b); after('Drive declared'); } catch (e) { toast(e.message, 'err'); } }; };
+  $('#cpRmI') && ($('#cpRmI').onclick = async () => { try { await post('/api/penetrator/remove', {well_id: W.well_id, what: 'install'}); after('Installation record removed'); } catch (e) { toast(e.message, 'err'); } });
+  $('#cpRmD') && ($('#cpRmD').onclick = async () => { try { await post('/api/penetrator/remove', {well_id: W.well_id, what: 'drive'}); after('Drive removed'); } catch (e) { toast(e.message, 'err'); } });
+};
 // ---------- economics: each well's time, footage and declared cost, against the market while it was drilled -------
 function ecMoney(v, d = 0) { return v === null || v === undefined ? '—' : '$' + Number(v).toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d}); }
 function ecNum(v, d = 0) { return v === null || v === undefined ? '—' : Number(v).toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d}); }
@@ -2489,7 +2571,7 @@ function authScreen(first) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/economics', 'Economics'], ['#/seismic', 'Seismic'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/seismic', 'Seismic'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w'], '#/control': b => [b.handover_unacked, 'w']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }

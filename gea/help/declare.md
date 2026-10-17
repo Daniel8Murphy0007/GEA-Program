@@ -1,0 +1,13 @@
+# The declarations sheet
+
+> Everything the operator declares about a pad, in one spreadsheet: who each well is and where, its reference elevation, its directional survey, the day rates, the one-off costs and the AFE, the fleet, the drill-string runs, and the ESP penetrator and drive. Every row is checked against the workspace before anything is written, and the same sheet can be imported again and again.
+
+**The command**: on the Setup tab, **Download the sheet** gives this workspace's sheet - every table with its header and a line saying what it takes, already filled with what is declared - and **Check the sheet** reads a sheet saved as CSV and plans each row: NEW, CHANGE (it replaces what is declared) or SAME (already declared exactly so). One error and nothing is written; with no error, **Write** (the operator role) writes the NEW and CHANGE rows. From a terminal: `gea declare --workspace C:\site --template pad3.csv` writes the sheet; `gea declare --workspace C:\site --file pad3.csv` checks it; add `--apply` to write. A directional survey is named by its file beside the sheet, so surveys are imported from the terminal (or attached on the well page).
+
+**The layout**: one table after another. A table starts with a row whose first cell is its name in brackets - `[wells]`, `[fleet]`, `[rates]`, `[items]`, `[afe]`, `[surveys]`, `[runs]`, `[components]`, `[penetrators]`, `[esp_drives]` - and whose other cells name its columns in any order; its rows leave the first cell empty. A row starting with `#` is a comment. A well is named by its id or its name. A run's components are listed in `[components]` under the run's name, from the bit up; a motor names its catalogue id, or gives its own figures (`motor_rev_per_gal` ... `motor_source`). Fleet ratings are `key=value` pairs separated by `;`, lists with `/`.
+
+**What it writes**: through the same functions the forms and commands use, so each declaration is audited the same way under the importing user, and one `declarations.import` line records the import. It adds and replaces; it never removes: a rate that overlaps one already declared, or a fleet tool already there with another datasheet, is an error to resolve where it lives first.
+
+**The number to check**: a template downloaded and imported unchanged plans nothing but SAME; after a write, the Setup checklist shows the wells' position, elevation and number declared, the Economics tab the rates and AFE, the Drill String tab the runs, the Completion tab the penetrators.
+
+**What this page will not call a measurement**: anything on the sheet - every row is the operator's declaration with its source, and the program checks only that it parses, is complete and does not contradict what is declared.

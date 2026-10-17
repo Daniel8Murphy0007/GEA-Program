@@ -4,6 +4,17 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.41.0 - 2026-10-17 - the declarations sheet
+
+- **What the operator declares, in one sheet, checked before it is
+  written.** Wells' identity, position and elevation, surveys, rates, items
+  and AFEs, the fleet, drill-string runs, ESP penetrators and drives;
+  planned NEW / CHANGE / SAME row by row, nothing written on an error, the
+  template round-tripping. The Completion tab: the ESP wellhead
+  penetrator's installation record and the drive, motor and wellhead
+  against its maker's ratings; the PMM safety note. 43 motors. Section CJ;
+  gate 410.
+
 ## v0.40.0 - 2026-10-17 - drill string
 
 - **What was run, how much it has been used, how the motor behaved.** Runs

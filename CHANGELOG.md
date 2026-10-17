@@ -5,6 +5,47 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.41.0] - 2026-10-17 - The declarations sheet
+
+### Added
+- **The declarations sheet** (`gea/declarations.py`, the Setup tab, `gea
+  declare`): one CSV of small tables - `[wells]` (API number, permit name,
+  operator, position and datum, reference elevation with its source),
+  `[fleet]`, `[rates]`, `[items]`, `[afe]`, `[surveys]` (a file beside the
+  sheet), `[runs]` with their `[components]` from the bit up (a catalogued
+  motor or the motor's own figures), `[penetrators]` and `[esp_drives]`.
+  Every row is checked against the workspace and planned NEW, CHANGE or
+  SAME; one error and nothing is written; with `--apply` (or Write on the
+  Setup card) each row goes through the function its own command uses,
+  audited under the importer. The import adds and replaces, never removes.
+- **The sheet for a workspace** (`gea declare --template`, Download the
+  sheet): every table with its header and a line saying what it takes,
+  filled with what is already declared; imported unchanged it plans only
+  SAME.
+- **The Completion tab** (`gea/penetrator.py`, `#/completion`, `gea
+  penetrator`): each ESP well's penetrator installation record (installer
+  and certification, motor type, gauge distance, insulation per conductor
+  with the test voltage and the site's own acceptance minimum, void test)
+  and its ESP drive, motor nameplate and wellhead checked against the
+  penetrator's ratings line by line - WITHIN, OUTSIDE, NOT RATED, NOT
+  DECLARED, NOT STATED. Altitude comes from the well's declared elevation.
+- **Penetrator ratings** (`reference/penetrator_ratings.json`): the Genco
+  GPS-5 (IP-40, Rev. 0, Appendix A: 5,000 V, 300 A FLA, 3 phase, 10-100 Hz,
+  10,000 psi proof, 5,000 psi API, Class I Division 1 and 2 Group D, Zone 1
+  and 2 IIA T5, -30 to 110 F, 2,000 m), the GPS-5D and GPS-3 with the
+  Division 2 of their titles. Ratings and statements of use only; none of
+  the instructions' procedure text. A fleet tool of the new class carries
+  its own datasheet's ratings.
+- **The permanent magnet motor safety note**, with its sources (World Oil,
+  June 2024; Levare), on the Completion tab and in a PMM well's check.
+- **A tool-library class**, the wellhead electrical penetrator (97
+  classes), with its tutorial and sources.
+- **Two downhole motors** read from the maker's sheets (7 in 8/9 4.3 and
+  8 in x 7 3/4 in 7/8 5.9), each twice; every other motor's flow, rev/gal,
+  differentials, torque and weight on bit read a third time and agreed.
+  43 motors.
+- Help pages `declare` and `penetrator`; section CJ (3 checks).
+
 ## [v0.40.0] - 2026-10-17 - Drill string
 
 ### Added

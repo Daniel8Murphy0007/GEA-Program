@@ -1920,6 +1920,12 @@ def make_handler(app: App):
                         return self._json(200, DS.page(app.ws, (qs.get('well') or [None])[0]))
                     except KeyError as e:
                         raise ApiError(404, str(e.args[0]))
+                if path == '/api/declare/template':
+                    from . import declarations as DC
+                    return self._json(200, {'csv': DC.template(app.ws), 'filename': 'declarations.csv'})
+                if path == '/api/penetrator':
+                    from . import penetrator as PN
+                    return self._json(200, PN.page(app.ws))
                 if path == '/api/tools/motors':
                     from . import drill_string as DS
                     return self._json(200, DS.catalogue())
@@ -2208,6 +2214,31 @@ def make_handler(app: App):
                             raise ApiError(400, str(e))
                     finally:
                         shutil.rmtree(tmp_dir, ignore_errors=True)
+                if path == '/api/declare':
+                    from . import declarations as DC
+                    App.require(user, 'operator')
+                    t_ = (body or {}).get('text')
+                    if not isinstance(t_, str) or not t_.strip():
+                        raise ApiError(400, 'send the sheet as text (CSV)')
+                    return self._json(200, DC.apply(app.ws, t_, user['name'], '', write=bool((body or {}).get('apply'))))
+                if path.startswith('/api/penetrator/'):
+                    from . import penetrator as PN
+                    App.require(user, 'operator')
+                    act = path[len('/api/penetrator/'):]
+                    b_ = dict(body or {})
+                    wid = str(b_.pop('well_id', ''))
+                    if act == 'install':
+                        pid = str(b_.pop('penetrator', ''))
+                        keep = ('installed', 'installer', 'certified', 'certificate', 'motor_type', 'gauge_distance_in', 'insulation', 'ir_test_volts',
+                                'ir_min_megohm', 'ir_min_source', 'void_test_psi', 'void_test_minutes', 'void_held', 'note')
+                        return self._json(200, App._cr(PN.save_install, app.ws, user['name'], wid, pid, **{k: b_[k] for k in keep if k in b_}))
+                    if act == 'drive':
+                        keep = ('maker', 'model', 'max_volts', 'max_amps', 'freq_min_hz', 'freq_max_hz', 'phases', 'motor_volts', 'motor_amps', 'area',
+                                'gas_group', 'temp_class', 'ambient_min_f', 'ambient_max_f', 'source')
+                        return self._json(200, App._cr(PN.save_drive, app.ws, user['name'], wid, **{k: b_[k] for k in keep if k in b_}))
+                    if act == 'remove':
+                        return self._json(200, App._cr(PN.remove, app.ws, user['name'], wid, str(b_.get('what', ''))))
+                    raise ApiError(404, 'no such penetrator action')
                 if path.startswith('/api/drillstring/'):
                     from . import drill_string as DS
                     App.require(user, 'operator')

@@ -524,6 +524,21 @@ def main(argv=None) -> int:
     p_ds.add_argument("--actor", type=str, default="cli")
     p_ds.add_argument("--json", action="store_true")
 
+    p_dc = sub.add_parser("declare", help="the declarations sheet: wells' identity, position and elevation, surveys, rates, items and AFEs, fleet tools, drill-string runs, ESP penetrators and drives - one CSV, checked against the workspace before anything is written")
+    p_dc.add_argument("--workspace", type=str, required=True)
+    p_dc.add_argument("--file", type=str, default=None, help="the sheet (CSV); every row is planned NEW, CHANGE or SAME and nothing is written without --apply")
+    p_dc.add_argument("--apply", action="store_true", help="write the NEW and CHANGE rows (only when the sheet has no error)")
+    p_dc.add_argument("--template", type=str, default=None, help="write the sheet for this workspace, filled with what is already declared, to this path")
+    p_dc.add_argument("--actor", type=str, default="cli")
+    p_dc.add_argument("--json", action="store_true")
+
+    p_pn = sub.add_parser("penetrator", help="the ESP wellhead penetrator: the penetrators the program knows with their ratings, the permanent magnet motor safety note, and each well's installation record and drive checked against the ratings")
+    p_pn.add_argument("--workspace", type=str, default=None)
+    p_pn.add_argument("--well", type=str, default=None)
+    p_pn.add_argument("--remove", type=str, default=None, choices=("install", "drive"), help="remove the well's installation record or its drive")
+    p_pn.add_argument("--actor", type=str, default="cli")
+    p_pn.add_argument("--json", action="store_true")
+
     p_sm = sub.add_parser("simulation", help="the simulation in words: the scenes (Volve 15/9-F-4 with its logs and interpretation, Volve F-5 and F-10 on the survey clock, every drilling-recorder well), and what the record says at a depth (the Simulation tab replays it)")
     p_sm.add_argument("--workspace", type=str, default=None)
     p_sm.add_argument("--scene", type=str, default=None, help="e.g. volve-f4, or well:Well-30636033")
@@ -2073,6 +2088,61 @@ def main(argv=None) -> int:
         except (ValueError, KeyError, OSError, WorkspaceError) as e:
             raise SystemExit(f"drillstring: {e.args[0] if e.args else e}")
         print(_json.dumps(p, default=str) if a.json else _DS.text(p))
+        return 0
+    elif a.cmd == "declare":
+        import json as _json
+        from . import declarations as _DC
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        try:
+            ws = Workspace(a.workspace)
+        except WorkspaceError as e:
+            raise SystemExit(f"declare: {e}")
+        if a.template:
+            with open(a.template, "w", encoding="utf-8", newline="") as f:
+                f.write(_DC.template(ws))
+            print(f"wrote {a.template}: fill in the blanks, then gea declare --workspace {a.workspace} --file {a.template}")
+            return 0
+        if not a.file:
+            raise SystemExit("declare: give --file <sheet.csv> (or --template <out.csv> to start one)")
+        try:
+            with open(a.file, encoding="utf-8-sig") as f:
+                text_ = f.read()
+        except OSError as e:
+            raise SystemExit(f"declare: {e}")
+        p = _DC.apply(ws, text_, a.actor, os.path.dirname(os.path.abspath(a.file)), write=a.apply)
+        print(_json.dumps(p, default=str) if a.json else _DC.text(p))
+        return 1 if p["errors"] else 0
+    elif a.cmd == "penetrator":
+        import json as _json
+        from . import penetrator as _PN
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        ws = None
+        if a.workspace:
+            try:
+                ws = Workspace(a.workspace)
+            except WorkspaceError as e:
+                raise SystemExit(f"penetrator: {e}")
+        try:
+            if a.remove:
+                if ws is None or not a.well:
+                    raise SystemExit("penetrator: --remove needs --workspace and --well")
+                _PN.remove(ws, a.actor, a.well, a.remove)
+                print(f"removed the {a.remove} record of {a.well}")
+                return 0
+            if a.well:
+                if ws is None:
+                    raise SystemExit("penetrator: --well needs --workspace")
+                c = _PN.check(ws, a.well)
+                print(_json.dumps(c, default=str) if a.json else _PN.text_check(c))
+                return 0
+            p = _PN.page(ws)
+        except (ValueError, KeyError, OSError) as e:
+            raise SystemExit(f"penetrator: {e.args[0] if e.args else e}")
+        print(_json.dumps(p, default=str) if a.json else _PN.text(p))
         return 0
     elif a.cmd == "simulation":
         import json as _json

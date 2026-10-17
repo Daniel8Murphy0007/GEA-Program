@@ -609,6 +609,29 @@ against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
 
+### The declarations sheet
+
+Everything the operator declares about a pad comes in from one spreadsheet:
+each well's API number, position and reference elevation, its directional
+survey, the day rates, one-off costs and AFE, the fleet, the drill-string
+runs and their components, and the ESP penetrator and drive. Every row is
+checked against the workspace and planned NEW, CHANGE or SAME before
+anything is written; one error and nothing is. The sheet the program writes
+for a workspace is already filled with what is declared, so a site fills in
+the blanks. On the Setup tab, or `gea declare --template`, `gea declare
+--file`, `gea help declare`.
+
+### Completion - the ESP wellhead penetrator
+
+The Completion tab keeps each ESP well's penetrator installation record -
+the installer and their certification, the motor, the gauge distance, the
+insulation readings, the void test - and checks the well's ESP drive, motor
+nameplate and wellhead against the penetrator's ratings as its maker's
+document prints them, one line each: voltage, current, frequency, phases,
+hazardous area, gas group, temperature class, ambient range and altitude.
+It carries the permanent magnet motor safety note with its sources.
+`gea penetrator`, `gea help penetrator`.
+
 ### Drill string
 
 The Drill String tab holds each run's string from the bit up - drawn as a
@@ -618,7 +641,7 @@ its declared service interval. The downhole motor tracker charts the
 differential against the maker's limits, the stalls, the motor's and the
 bit's speed and a torque estimate, and judges the motor's stability from
 the slow oscillations of the torque and the differential, block by block.
-The tool catalogue carries 41 downhole motors with the maker's figures.
+The tool catalogue carries 43 downhole motors with the maker's figures.
 `gea drillstring`, `gea tools --action motors`, `gea help drillstring`.
 
 ### Simulation
@@ -746,7 +769,7 @@ library**: every class of downhole tool in use across the industry - bits
 and hole openers, motors and rotary steerable systems, MWD and LWD, the drill
 string and its subs, casing and cementing equipment, completion and
 artificial lift, wireline and cased-hole tools, fishing and milling, test
-tools - ninety-six classes in nine categories. Point at a tool, or Tab to
+tools - ninety-seven classes in nine categories. Point at a tool, or Tab to
 it, for a one-line description; click, tap or press Enter for its tutorial:
 what it is, where it runs, how it works, what it shows in the data, what to
 watch, and what this program does with it, with the published figures

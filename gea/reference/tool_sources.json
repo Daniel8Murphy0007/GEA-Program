@@ -3042,5 +3042,26 @@
     ]
    }
   ]
+ },
+ {
+  "id": "wellhead_penetrator",
+  "sources": [
+   {
+    "url": "https://patents.google.com/patent/US11761268",
+    "title": "US11761268B2 - Wellhead penetrator for electrical connections",
+    "publisher": "Google Patents (Innovex Downhole Solutions)",
+    "kind": "definition",
+    "fetched": "2026-10-17",
+    "ranges": []
+   },
+   {
+    "url": "https://read.nxtbook.com/gulf_energy_information/world_oil/june_2024/sf_artificial_lift_mcmanus_ba.html",
+    "title": "New technology allays permanent magnet motor safety concerns, enables better ESP performance (World Oil, June 2024)",
+    "publisher": "World Oil (J. McManus and D. Meadows, Baker Hughes)",
+    "kind": "practice",
+    "fetched": "2026-10-17",
+    "ranges": []
+   }
+  ]
  }
 ]

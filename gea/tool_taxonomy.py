@@ -504,6 +504,14 @@ _T = [
      "Motor current, intake pressure and temperature from the pump's own downhole sensor; flow at surface.",
      "Gas, sand and heat shorten its life; intake pressure and motor temperature from the downhole sensor are the watch. The pump sensor is a downhole gauge the program can read.",
      "The pump's downhole sensor is a gauge stream like any other: intake pressure and temperature into the program's drift and well-test checks."),
+    ('wellhead_penetrator', 'completion', 'Wellhead electrical penetrator (ESP feed-through)',
+     'The pressure-sealed electrical passage that carries an ESP\'s power cable through the tubing hanger and wellhead to the surface cable.',
+     "A connector system that takes the pump's power conductors through the tubing hanger and the wellhead while holding the well's pressure: a mandrel with seals in the hanger, a pressure-tight passage through the tubing head adaptor, and a junction or union at surface where the surface cable joins.",
+     "At the wellhead of every well lifted by an electric submersible pump, between the downhole power cable and the surface cable that runs to the drive; the hazardous-area classification of the wellhead is the one it must be rated for.",
+     "The conductors are terminated in a sealed mandrel that seats in the hanger port; the void between the hanger and the adaptor flange is sealed and pressure tested before the well goes on; a union and conduit carry the conductors on to the junction box. Its maker rates it for voltage, current, frequency, phases, pressure, temperature and hazardous area.",
+     "Nothing of its own: the penetrator is passive. A failing one shows as falling insulation resistance on the motor circuit, a ground fault trip at the drive, or pressure in the void.",
+     "The drive and motor must stay inside the penetrator's ratings (voltage, current, frequency); its hazardous-area rating must match the wellhead's classification; the void must hold its test. A permanent magnet motor generates voltage whenever fluid turns the pump, so its cable and penetrator are treated as live during installation, pulling and interventions.",
+     "The program keeps the installation record (the installer, the measured gauge distance, the insulation readings, the void test) and checks the declared drive, motor and site against the penetrator's published ratings: `gea penetrator`, and the Completion tab."),
     ('rod_pump', 'completion', 'Sucker rod pump',
      'A plunger pump at the bottom of the tubing, driven up and down by a rod string from a surface pumping unit.',
      "A downhole plunger-and-barrel pump with standing and travelling valves, worked by a string of sucker rods from a surface pumping unit.",
@@ -779,6 +787,7 @@ def _build() -> Dict[str, dict]:
         out[tid] = {'id': tid, 'category': cat, 'category_name': CATEGORY_NAMES[cat], 'name': name, 'one_line': one,
                     'tutorial': {'what': what, 'where': where, 'how': how, 'reads': reads, 'watch': watch, 'program': prog},
                     'sources': [{k: s.get(k) for k in ('url', 'title', 'publisher', 'kind')} for s in sources],
+                    'fetched': max([s.get('fetched') or SOURCES_FETCHED for s in sources] or [SOURCES_FETCHED]),
                     'figures': figures,
                     'figures_note': ("each figure is the cited page's own, quoted as read on " + SOURCES_FETCHED
                                      + "; most are one maker's product, not a limit for the class") if figures
@@ -836,7 +845,7 @@ def tutorial_text(tid: str) -> str:
         lines.append('')
         lines.append('Published figures: ' + t['figures_note'] + '.')
     lines.append('')
-    lines.append('Sources (fetched ' + SOURCES_FETCHED + '):')
+    lines.append('Sources (fetched ' + t.get('fetched', SOURCES_FETCHED) + '):')
     for s in t['sources']:
         lines.append(f"  - {s['publisher']}: {s['title']} - {s['url']}")
     return '\n'.join(lines)

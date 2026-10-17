@@ -5,11 +5,13 @@
  "title": "Motor Handbook, First Edition, April 2021, Version 2.1",
  "url": "https://patenergy.com/assets/filesystems/general/docs/Mud-Motor-Handbook.pdf",
  "fetched": "2026-10-17",
- "how": "Transcribed from the handbook's individual motor spec sheets, field by field, and read a second time independently; the two readings agreed on every figure kept here. One motor whose second reading was not taken (8 in x 7 3/4 in 7/8 5.9) is left out. The PDF could not be fetched byte for byte from the build machine, so no file hash is given: check a figure against the maker's sheet before relying on it.",
+ "how": "Transcribed from the handbook's individual motor spec sheets, field by field, and read a second time independently; the two readings agreed on every figure kept here. On 2026-10-17 every sheet's flow range, rev/gal, differentials, torque and weight on bit were read a third time against the catalogue and agreed, and the two sheets missing from the first edition of this catalogue (7 in 8/9 4.3 and 8 in x 7 3/4 in 7/8 5.9) were each read twice and added. The PDF could not be fetched byte for byte from the build machine, so no file hash is given: check a figure against the maker's sheet before relying on it.",
  "notes": [
   "Max Torque is the sheet's maximum torque; the program takes it as the torque at the maximum differential and the slope between them as torque per psi of differential - an estimate, stated as one wherever it is used.",
   "The sheets print performance \"with water at operating temperature\"; the handbook derates the differential with temperature.",
-  "Speed is rev/gal times the flow at no load; the handbook's printed speed ranges do not always equal that product."
+  "Speed is rev/gal times the flow at no load; the handbook's printed speed ranges do not always equal that product.",
+  "Where the handbook's summary table and a motor's own sheet differ (the 6 5/8 in 5/6 8.4 flow range: sheet 300-700 gpm, summary 350-700 gpm; the 5 5/8 in 7/8 12.0 differential and torque), the catalogue keeps the sheet's figure.",
+  "The 8 in x 7 3/4 in 7/8 5.9 sheet prints two bit-to-bend values under three column labels; they are read as adjustable 83 and fixed standard 73, the layout of the 7 in x 7 3/4 in sheets."
  ],
  "motors": [
   {
@@ -637,6 +639,30 @@
    "bit_to_bend_in": "fixed standard 58.5"
   },
   {
+   "id": "msd-7-89-4.3",
+   "name": "7\" 8/9 lobe, 4.3 stage (mud lube)",
+   "nominal_od": "7",
+   "od_in": 7.1875,
+   "lobes": "8/9",
+   "rotor_lobes": 8,
+   "stator_lobes": 9,
+   "stages": 4.3,
+   "lube": "mud lube",
+   "flow_gpm": [
+    400,
+    700
+   ],
+   "rev_per_gal": 0.15,
+   "max_operating_diff_psi": 650,
+   "max_diff_psi": 1400,
+   "max_torque_ft_lb": 22828,
+   "max_operating_wob_lb": 55000,
+   "bit_size_in": "8 1/2 - 8 3/4",
+   "bit_box": "4 1/2 Reg",
+   "top_sub": "4 1/2 IF",
+   "bit_to_bend_in": "fixed standard 58.5"
+  },
+  {
    "id": "msd-7-x-7-3-4-hybrid-56-9.4",
    "name": "7\" x 7 3/4\" hybrid 5/6 lobe, 9.4 stage (seal lube)",
    "nominal_od": "7 x 7 3/4 hybrid",
@@ -774,6 +800,30 @@
    "max_operating_diff_psi": 500,
    "max_diff_psi": 665,
    "max_torque_ft_lb": 18474,
+   "max_operating_wob_lb": 60000,
+   "bit_size_in": "9 7/8 - 12 1/2",
+   "bit_box": "6 5/8 Reg",
+   "top_sub": "6 5/8 Reg",
+   "bit_to_bend_in": "adjustable 83, fixed standard 73"
+  },
+  {
+   "id": "msd-8-x-7-3-4-hybrid-78-5.9",
+   "name": "8\" x 7 3/4\" hybrid 7/8 lobe, 5.9 stage (seal lube)",
+   "nominal_od": "8 x 7 3/4 hybrid",
+   "od_in": 8.0,
+   "lobes": "7/8",
+   "rotor_lobes": 7,
+   "stator_lobes": 8,
+   "stages": 5.9,
+   "lube": "seal lube",
+   "flow_gpm": [
+    400,
+    900
+   ],
+   "rev_per_gal": 0.16,
+   "max_operating_diff_psi": 750,
+   "max_diff_psi": 1390,
+   "max_torque_ft_lb": 21870,
    "max_operating_wob_lb": 60000,
    "bit_size_in": "9 7/8 - 12 1/2",
    "bit_box": "6 5/8 Reg",

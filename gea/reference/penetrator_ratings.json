@@ -1,0 +1,75 @@
+{
+ "entry": "penetrator_ratings",
+ "kind": "MAKER_DOCUMENT_FIGURES",
+ "how": "Read from the maker's installation instructions supplied by the operator on 2026-10-17. Only the ratings and statements of use each document prints are kept here, with the document, its revision and the section they are printed in; none of the instructions' procedure text is reproduced. A document that prints no rating leaves it empty: get the model's datasheet before relying on it.",
+ "penetrators": [
+  {
+   "id": "genco-gps-5",
+   "maker": "Genco Systems Inc.",
+   "model": "GPS-5 wellhead penetrator system (installation with a permanent magnet motor)",
+   "document": "Genco Systems Instruction IP-40, Rev. 0, approved 2025-05-01",
+   "section": "Appendix A - Documentation",
+   "intended_use": "electrical wellhead penetrator system for hazardous locations with a permanent magnet motor",
+   "pmm": true,
+   "certified_installer_required": true,
+   "ratings": {
+    "max_volts": 5000,
+    "max_amps_fla": 300,
+    "phases": 3,
+    "freq_hz": [10, 100],
+    "proof_test_psi": 10000,
+    "working_psi_api": 5000,
+    "divisions": ["Class I, Division 1", "Class I, Division 2"],
+    "division_group": "D",
+    "zones": ["Class I, Zone 1", "Class I, Zone 2"],
+    "zone_group": "IIA",
+    "temp_class": "T5",
+    "ambient_f": [-30, 110],
+    "altitude_max_m": 2000,
+    "humidity_max_pct": 100,
+    "overvoltage_category": "OVC3",
+    "pollution_degree": 2,
+    "enclosure": "Type 4",
+    "location": "indoor or outdoor"
+   }
+  },
+  {
+   "id": "genco-gps-5d",
+   "maker": "Genco Systems Inc.",
+   "model": "GPS-5D penetrator system (flat leaded pump cable)",
+   "document": "Genco Systems Instruction IP-20, Rev. B",
+   "section": "title block",
+   "intended_use": "wellhead penetrator for flat leaded pump cable",
+   "pmm": null,
+   "certified_installer_required": null,
+   "ratings": {
+    "divisions": ["Class I, Division 2"]
+   }
+  },
+  {
+   "id": "genco-gps-3",
+   "maker": "Genco Systems Inc.",
+   "model": "GPS-3 penetrator system (flat leaded cable)",
+   "document": "Genco Systems Instruction IP-06, Rev. 0, approved 2024-01-01",
+   "section": "title block",
+   "intended_use": "wellhead penetrator for flat leaded cable",
+   "pmm": null,
+   "certified_installer_required": null,
+   "ratings": {
+    "divisions": ["Class I, Division 2"]
+   }
+  }
+ ],
+ "pmm_safety": {
+  "text": [
+   "A permanent magnet motor's rotor is magnetised whether or not the motor is powered. When fluid moving through the pump turns the shaft, the motor works as a generator and puts voltage on the power cable - up to about its rated voltage at its rated speed - with the drive switched off.",
+   "That can happen while the pump is run in or pulled, when fluid falls back through the pump after a shutdown, during an intervention or troubleshooting, and in a kick; after a fallback it can take a long time to settle.",
+   "Treat the cable, the penetrator and the junction box of a PMM well as live: ground and short the cable at the reel before work, wear rated insulating gloves when it must be handled ungrounded, follow the isolation procedure, and mark the wellhead as a PMM well. API RP 11S9 is the industry's recommended practice for PMM systems."
+  ],
+  "sources": [
+   {"publisher": "World Oil (J. McManus and D. Meadows, Baker Hughes)", "title": "New technology allays permanent magnet motor safety concerns, enables better ESP performance, June 2024", "url": "https://read.nxtbook.com/gulf_energy_information/world_oil/june_2024/sf_artificial_lift_mcmanus_ba.html", "fetched": "2026-10-17"},
+   {"publisher": "Levare", "title": "Field Service - Permanent Magnet Motor Safety", "url": "https://levare.com/products-and-services/field-service", "fetched": "2026-10-17"},
+   {"publisher": "Genco Systems Inc.", "title": "Instruction IP-40, Rev. 0: safety notes for installation with a permanent magnet motor", "url": null, "fetched": "2026-10-17"}
+  ]
+ }
+}

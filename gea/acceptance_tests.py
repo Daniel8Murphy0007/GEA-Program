@@ -9309,8 +9309,8 @@ def section_ci_drill_string(tmp: str) -> None:
     ms = cat["motors"]
     m64, m89 = DS.motor_spec("msd-6-3-4-78-6.4"), DS.motor_spec("msd-8-3-8-89-4.0")
     c1 = {
-        "catalogue": len(ms) == 41 and len({m["id"] for m in ms}) == 41 and cat["publisher"].startswith("MS Directional") and cat["url"].startswith("https://")
-                     and cat["fetched"] == "2026-10-17" and TC.catalog()["counts"]["motors"] == 41,
+        "catalogue": len(ms) == 43 and len({m["id"] for m in ms}) == 43 and cat["publisher"].startswith("MS Directional") and cat["url"].startswith("https://")
+                     and cat["fetched"] == "2026-10-17" and TC.catalog()["counts"]["motors"] == 43,
         "sane": all(m["flow_gpm"][0] < m["flow_gpm"][1] and 0 < m["rev_per_gal"] < 2 and m["max_operating_diff_psi"] <= m["max_diff_psi"]
                     and m["stator_lobes"] == m["rotor_lobes"] + 1 and m["max_torque_ft_lb"] > 0 and m["od_in"] > 4 for m in ms),
         "as_printed": (m64["rev_per_gal"], m64["flow_gpm"], m64["max_operating_diff_psi"], m64["max_diff_psi"], m64["max_torque_ft_lb"]) == (0.28, [300, 600], 1000, 1820, 14360)
@@ -9323,7 +9323,7 @@ def section_ci_drill_string(tmp: str) -> None:
         c1["unknown"] = True
     failed1 = [k for k, v in c1.items() if not v]
     ok(not failed1,
-       "CI1 the downhole motor catalogue: 41 power sections with the maker's flow range, revolutions per gallon, maximum operating and "
+       "CI1 the downhole motor catalogue: 43 power sections with the maker's flow range, revolutions per gallon, maximum operating and "
        "maximum differential, maximum torque and weight on bit as its spec sheets print them, the handbook and the date it was read; "
        "every lobe count one more on the stator than the rotor; counted in the tool catalogue; an unknown motor named"
        + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
@@ -9430,7 +9430,7 @@ def section_ci_drill_string(tmp: str) -> None:
     cli_m = _sp.run([sys.executable, "-m", "gea", "tools", "--action", "motors"], capture_output=True, text=True, cwd=str(pkg.parent))
     page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
     c3.update({
-        "api": s_g == 200 and len(pg["runs"]) == 2 and pg["runs"][0]["track"]["usage"]["circulating_hours"] == 16.0 and s_m == 200 and len(mm["motors"]) == 41
+        "api": s_g == 200 and len(pg["runs"]) == 2 and pg["runs"][0]["track"]["usage"]["circulating_hours"] == 16.0 and s_m == 200 and len(mm["motors"]) == 43
                and s_vp == 403 and s_op == 200 and s_bad == 400 and s_nw == 404 and s_rm == 200 and s_rm2 == 404 and s_uw == 404 and s_ac == 404,
         "cli": cli.returncode == 0 and "stability: CHANGED" in cli.stdout and "DUE: Positive displacement mud motor" in cli.stdout
                and cli_m.returncode == 0 and "msd-6-3-4-78-6.4" in cli_m.stdout,
@@ -9444,6 +9444,262 @@ def section_ci_drill_string(tmp: str) -> None:
        "from 0.10 to 0.20 Hz found as moved, red noise rising to the band's edge not called a peak, a short record too few blocks to "
        "compare; the API (a viewer reads, only an operator declares; a bad class, an unknown well, a second removal and an unknown action "
        "named), the CLI, the Drill String tab with its build diagram, the motor table on the Tools tab, and the help page"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
+def section_cj_declarations(tmp: str) -> None:
+    """Section CJ - the declarations sheet and the ESP penetrator: the penetrator ratings as the maker's documents print
+    them; an installation record and a drive checked line by line, each way a line can fail found; the sheet planned row
+    by row against the workspace, one error writing nothing, the write going through each declaration's own function,
+    the same sheet again planning only SAME, the template round-tripping; the two motors added to the catalogue; the API,
+    the CLI, the Setup card, the Completion tab and the help pages."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    from . import declarations as DC
+    from . import drill_string as DS
+    from . import economics as EC
+    from . import helplib as H
+    from . import penetrator as PN
+    from . import tool_taxonomy as TX
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "cj"); d.mkdir()
+    wsp = str(d / "ws")
+    ws = Workspace.create(wsp, "Pad CJ")
+    w1 = ws.add_well_file(str(pkg / "sample_well_profile.csv"), display="ESP-1")
+    w2 = ws.add_well_file(str(pkg / "sample_well_profile.csv"), display="ESP-2")
+
+    # -- CJ1 the penetrator: ratings and the check --------------------------------------------------------------
+    g5 = PN.resolve(None, "genco-gps-5")
+    r5 = g5["ratings"]
+    c1 = {
+        "ratings": (r5["max_volts"], r5["max_amps_fla"], r5["phases"], r5["freq_hz"], r5["proof_test_psi"], r5["working_psi_api"], r5["ambient_f"], r5["altitude_max_m"])
+                   == (5000, 300, 3, [10, 100], 10000, 5000, [-30, 110], 2000)
+                   and r5["divisions"] == ["Class I, Division 1", "Class I, Division 2"] and r5["zone_group"] == "IIA" and r5["temp_class"] == "T5"
+                   and g5["pmm"] is True and g5["certified_installer_required"] is True and "IP-40" in g5["document"] and "Appendix A" in g5["section"],
+        "div2_only": PN.resolve(None, "genco-gps-5d")["ratings"] == {"divisions": ["Class I, Division 2"]} and "IP-20" in PN.resolve(None, "genco-gps-5d")["document"]
+                     and "IP-06" in PN.resolve(None, "genco-gps-3")["document"],
+        "no_procedure_text": all(len(json.dumps(p)) < 1500 for p in PN.penetrators()) and "Hot Gloves" not in (pkg / "reference" / "penetrator_ratings.json").read_text(encoding="utf-8"),
+        "pmm_note": len(PN.pmm_note()["text"]) == 3 and "generator" in PN.pmm_note()["text"][0] and any((s.get("url") or "").startswith("https://read.nxtbook.com") for s in PN.pmm_note()["sources"]),
+        "taxonomy": TX.tool_class("wellhead_penetrator")["category"] == "completion" and "Sources (fetched 2026-10-17)" in TX.tutorial_text("wellhead_penetrator")
+                    and "Sources (fetched 2026-10-14)" in TX.tutorial_text("pdm_motor"),
+    }
+    bad = {}
+    for k, kw in (("motor", dict(motor_type="diesel")), ("phase", dict(insulation={"D": 5})), ("negative", dict(insulation={"A": -1})),
+                  ("min_source", dict(ir_min_megohm=500)), ("yesno", dict(void_held="maybe")), ("date", dict(installed="last week"))):
+        try:
+            PN.install_record(ws, w1["id"], "genco-gps-5", **kw); bad[k] = False
+        except ValueError:
+            bad[k] = True
+    for k, kw in (("source", dict()), ("area", dict(area="Zone 9", source="s")), ("freq", dict(freq_min_hz=90, freq_max_hz=30, source="s")),
+                  ("group", dict(gas_group="Q", source="s"))):
+        try:
+            PN.drive_record(ws, w1["id"], **kw); bad["drive_" + k] = False
+        except ValueError:
+            bad["drive_" + k] = True
+    try:
+        PN.install_record(ws, w1["id"], "nope"); bad["unknown"] = False
+    except KeyError:
+        bad["unknown"] = True
+    c1["refused"] = all(bad.values())
+    PN.save_install(ws, "tester", w1["id"], "genco-gps-5", installed="2026-09-01", installer="J. Doe", certified="yes", certificate="GSC-1", motor_type="pmm",
+                    gauge_distance_in=31.25, insulation={"A": 2000, "B": 1800, "C": 2200}, ir_test_volts=5000, void_test_psi=5000, void_test_minutes=15, void_held="yes")
+    part = PN.check(ws, w1["id"])
+    PN.save_drive(ws, "tester", w1["id"], maker="D", model="V", max_volts=4800, max_amps=280, freq_min_hz=30, freq_max_hz=90, phases=3, motor_volts=3200,
+                  motor_amps=95, area="CL 1 Div 1", gas_group="D", temp_class="T3", ambient_min_f=10, ambient_max_f=105, source="datasheet")
+    ws.set_well(w1["id"], surface={"lat": 31.9, "lon": -102.1, "datum": "NAD83", "elevation": {"ft": 2900, "datum": "KB", "source": "W-2"}}, actor="tester")
+    good = PN.check(ws, w1["id"])
+    st = {r["item"]: r for r in good["rows"]}
+    PN.save_drive(ws, "tester", w1["id"], maker="D", model="V", max_volts=5200, max_amps=320, freq_min_hz=5, freq_max_hz=120, phases=3, motor_volts=3200,
+                  motor_amps=95, area="Class I, Zone 0", gas_group="IIC", temp_class="T6", ambient_min_f=-40, ambient_max_f=105, source="datasheet")
+    PN.save_install(ws, "tester", w1["id"], "genco-gps-5", certified="no", motor_type="PMM", gauge_distance_in=31.25, insulation={"A": 2000, "B": 300, "C": 2200},
+                    ir_min_megohm=500, ir_min_source="site standard 4", void_test_psi=6000, void_held="yes")
+    out = PN.check(ws, w1["id"])
+    so = {r["item"]: r["status"] for r in out["rows"]}
+    PN.save_install(ws, "tester", w2["id"], "genco-gps-5d", motor_type="PMM", void_test_psi=3000, void_held="no")
+    PN.save_drive(ws, "tester", w2["id"], area="Class I, Division 1", source="drawing")
+    d2 = {r["item"]: r["status"] for r in PN.check(ws, w2["id"])["rows"]}
+    c1.update({
+        "incomplete": part["status"] == "INCOMPLETE" and {r["item"]: r["status"] for r in part["rows"]}["drive output voltage"] == "NOT DECLARED",
+        "within": good["status"] == "WITHIN" and st["altitude"]["declared"] == round(2900 * 0.3048, 1) and st["hazardous area"]["status"] == "WITHIN"
+                  and st["temperature class"]["status"] == "WITHIN" and st["void test"]["status"] == "WITHIN" and st["insulation"]["status"] == "RECORDED"
+                  and any("PMM safety note" in n for n in good["notes"]),
+        "outside": out["status"] == "OUTSIDE" and all(so[k] == "OUTSIDE" for k in ("certified installer", "insulation", "void test", "drive output voltage",
+                                                                                      "drive output current", "drive frequency", "hazardous area", "gas group",
+                                                                                      "temperature class", "ambient temperature"))
+                   and "set its current limit at or below 300 A" in next(r["why"] for r in out["rows"] if r["item"] == "drive output current"),
+        "div2_pen": d2["hazardous area"] == "OUTSIDE" and d2["motor"] == "NOT STATED" and d2["void test"] == "OUTSIDE" and d2["drive output voltage"] == "NOT RATED"
+                    and d2["certified installer"] == "NOT STATED",
+        "audit": sum(a["action"].startswith("penetrator.") for a in ws.audit_log(500)) >= 6,
+    })
+    PN.remove(ws, "tester", w2["id"], "drive")
+    try:
+        PN.remove(ws, "tester", w2["id"], "drive"); c1["remove"] = False
+    except KeyError:
+        c1["remove"] = "drive" not in PN.records(ws)[w2["id"]]
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CJ1 the ESP wellhead penetrator: the GPS-5's ratings as its maker's IP-40 Appendix A prints them, the GPS-5D and GPS-3 with only "
+       "the Division 2 of their titles, none of the instructions' procedure text; the PMM safety note with its sources; the penetrator a "
+       "class of the tool library; a bad motor, conductor, reading, date or classification refused; the check INCOMPLETE until the drive "
+       "is declared, WITHIN when every line is, and each of ten lines found OUTSIDE when it is; a Division 2 penetrator at a Division 1 "
+       "wellhead OUTSIDE, its unprinted ratings NOT RATED and its silence on PMM NOT STATED"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- CJ2 the sheet ------------------------------------------------------------------------------------------
+    (d / "survey.csv").write_text("MD,Inc,Azi\n0,0,0\n1000,2,45\n2000,5,50\n", encoding="utf-8")
+    sheet = "\n".join([
+        "# Pad CJ declarations",
+        "[wells],well,api_number,well_name,operator,lat,lon,datum,elevation_ft,elevation_datum,elevation_source",
+        ",ESP-2,42-317-41234,Test 2H,Op LLC,31.95,-102.15,NAD83,2910,KB,W-2 completion report",
+        "[fleet],class_id,maker,model,serial,od_in,datasheet,note,ratings",
+        ',wellhead_penetrator,Acme,P-9,SN1,,Acme DS-9 rev A,,"max_volts=4160; max_amps_fla=250; freq_hz=10-90; divisions=Class I, Division 2"',
+        "[rates],well,what,usd_per_day,from,to,source",
+        ',ESP-2,rig spread,"28,500",2026-01-01,2026-02-01,contract sched B',
+        ",ESP-2,rig spread,29000,2026-02-01,,contract sched B amd 1",
+        "[items],well,what,usd,section,source",
+        ",ESP-2,8.5 in PDC bit,18000.5,3,invoice 77",
+        "[afe],well,usd,source",
+        ",ESP-2,4512345.67,AFE 26-114",
+        "[surveys],well,file,azimuth_reference,grid,declination_deg,md_unit,depth_reference,source",
+        ",ESP-2,survey.csv,true,,,ft,KB,operator MWD report",
+        "[runs],well,run,start,end,depth_in_ft,depth_out_ft,note",
+        ",ESP-2,Run 1,2026-01-03T06:00,2026-01-06T12:00,1500,9800,",
+        ",ESP-2,Run 2,2026-01-07T06:00,,9800,,",
+        "[components],well,run,class_id,maker,model,serial,od_in,length_ft,motor_id,service_limit,service_basis,service_source,motor_rev_per_gal,motor_flow_min_gpm,motor_flow_max_gpm,motor_lobes,motor_source",
+        ",ESP-2,Run 1,pdc_bit,Bitco,X616,B1,8.5,1,,,,,,,,,",
+        ",ESP-2,Run 1,pdm_motor,,,M77,,28,msd-8-x-7-3-4-hybrid-78-5.9,200,circulating_hours,rental contract,,,,,",
+        ",ESP-2,Run 2,pdc_bit,Bitco,X616,B2,8.5,,,,,,,,,,",
+        ",ESP-2,Run 2,pdm_motor,Other,OM-1,M9,6.75,,,,,,0.29,300,600,7/8,OM-1 sheet",
+        "[penetrators],well,penetrator,installed,installer,certified,motor,gauge_distance_in,ir_a_megohm,ir_b_megohm,ir_c_megohm,void_test_psi,void_held",
+        ",ESP-2,acme-p-9-sn1,2026-09-02,K. Roe,yes,induction,30.5,1500,1600,1700,4000,yes",
+        "[esp_drives],well,maker,model,max_volts,max_amps,freq_min_hz,freq_max_hz,phases,area,source",
+        ',ESP-2,DriveCo,VSD 520,4000,240,30,85,3,"Class I, Division 2",VSD 520 datasheet; site drawing E-1',
+    ]) + "\n"
+    p0 = DC.apply(ws, sheet, "importer", str(d))
+    nothing = not DC.plan(ws, sheet, str(d))["errors"] and not EC.costs(ws)["wells"].get(w2["id"]) and not DS.runs(ws, w2["id"])
+    errsheet = sheet.replace(",ESP-2,rig spread,29000,2026-02-01,", ",ESP-2,rig spread,29000,2026-01-15,").replace("[afe],well,usd,source", "[afe],well,usd,source,colour") \
+        + "[runs],well,run\n,ESP-9,Run 9\n,ESP-2,Run 1\n" + "Pad,stray\n[nope],x\n"
+    pe = DC.apply(ws, errsheet, "importer", str(d), write=True)
+    clean_after_error = not EC.costs(ws)["wells"].get(w2["id"]) and not DS.runs(ws, w2["id"]) and not pe["written"]
+    pw = DC.apply(ws, sheet, "importer", str(d), write=True)
+    again = DC.plan(ws, sheet, str(d))
+    tpl = DC.template(ws)
+    tp = DC.plan(ws, tpl, str(d))
+    w2r = ws.well(w2["id"])
+    cw = EC.costs(ws)["wells"][w2["id"]]
+    rs = DS.runs(ws, w2["id"])
+    ec = " | ".join(pe["errors"])
+    c2 = {
+        "plan": p0["counts"] == {"NEW": 10, "CHANGE": 1, "SAME": 0} and not p0["errors"] and not p0["applied"] and nothing,
+        "errors": all(x in ec for x in ("the period overlaps the rate on row", "has no column colour", "no well 'ESP-9'", "is on the sheet twice",
+                                          "the first column holds a table name", "no table [nope]")) and clean_after_error,
+        "written": pw["applied"] and len(pw["written"]) == 11 and w2r["identity"]["api_number"] == "42-317-41234" and w2r["surface"]["elevation"]["ft"] == 2910
+                   and w2r["trajectory"]["stations"] == 3 and len(cw["rates"]) == 2 and cw["rates"][0]["usd_per_day"] == 28500 and cw["afe"]["usd"] == 4512345.67
+                   and cw["items"][0]["usd"] == 18000.5 and [r["name"] for r in rs] == ["Run 1", "Run 2"]
+                   and rs[0]["components"][1]["motor"]["id"] == "msd-8-x-7-3-4-hybrid-78-5.9" and rs[1]["components"][1]["motor"]["rev_per_gal"] == 0.29
+                   and PN.records(ws)[w2["id"]]["install"]["penetrator"] == "acme-p-9-sn1" and PN.records(ws)[w2["id"]]["drive"]["area"] == "Class I, Division 2",
+        "fleet_pen": {r["item"]: r for r in PN.check(ws, w2["id"])["rows"]}["drive frequency"]["status"] == "WITHIN"
+                     and {r["item"]: r for r in PN.check(ws, w2["id"])["rows"]}["drive output voltage"]["rated"] == 4160,
+        "same": again["counts"] == {"NEW": 0, "CHANGE": 0, "SAME": 11} and not again["errors"],
+        "template": not tp["errors"] and tp["counts"]["NEW"] == 0 and tp["counts"]["CHANGE"] == 0 and tp["counts"]["SAME"] >= 10 and "[esp_drives]" in tpl
+                    and "4512345.67" in tpl and tpl.count("[") >= 10,
+        "audited": any(a["action"] == "declarations.import" and a["actor"] == "importer" for a in ws.audit_log(500))
+                   and any(a["action"] == "economics.rate" and a["actor"] == "importer" for a in ws.audit_log(500))
+                   and any(a["action"] == "fleet.add" and a["actor"] == "importer" for a in ws.audit_log(500)),
+    }
+    changed = sheet.replace(",ESP-2,4512345.67,AFE 26-114", ",ESP-2,4600000,AFE 26-114 rev 1")
+    pc = DC.plan(ws, changed, str(d))
+    c2["change"] = pc["counts"]["CHANGE"] == 1 and next(s_ for s_ in pc["steps"] if s_["table"] == "afe")["action"] == "CHANGE"
+    by_name = DC.plan(ws, "[afe],well,usd,source\n,ESP-1,1000,a\n", "")
+    c2["by_name"] = by_name["counts"]["NEW"] == 1 and by_name["steps"][0]["well"] == w1["id"]
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CJ2 the declarations sheet: eleven rows over ten tables planned (ten NEW, the installation recorded above a CHANGE) and nothing written until asked; an overlapping rate, an unknown "
+       "column, well or table, a run twice and a stray first cell each named by its row, and with one error nothing written; written, every "
+       "declaration lands where its own command puts it - the well's number, position and elevation, its survey, two rates, an item, the AFE, "
+       "the fleet penetrator whose ratings then drive the check, two runs with a catalogued and a declared motor, the installation and the "
+       "drive - audited under the importer; the same sheet again all SAME; the template it writes round-trips; a changed AFE a CHANGE"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- CJ3 the motors, the API, the CLI, the pages ------------------------------------------------------------
+    cat = DS.catalogue()
+    m7, m8 = DS.motor_spec("msd-7-89-4.3"), DS.motor_spec("msd-8-x-7-3-4-hybrid-78-5.9")
+    c3 = {
+        "motors": len(cat["motors"]) == 43 and (m7["rev_per_gal"], m7["flow_gpm"], m7["max_diff_psi"], m7["max_torque_ft_lb"], m7["max_operating_wob_lb"], m7["lube"])
+                  == (0.15, [400, 700], 1400, 22828, 55000, "mud lube")
+                  and (m8["rev_per_gal"], m8["flow_gpm"], m8["max_operating_diff_psi"], m8["max_diff_psi"], m8["max_torque_ft_lb"], m8["max_operating_wob_lb"], m8["od_in"])
+                  == (0.16, [400, 900], 750, 1390, 21870, 60000, 8.0)
+                  and "third time" in cat["how"] and any("keeps the sheet's figure" in n for n in cat["notes"]),
+    }
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_t, tj = call(V, "GET", "/api/declare/template")
+        s_p, pj = call(V, "GET", "/api/penetrator")
+        s_vd, _ = call(V, "POST", "/api/declare", {"text": tj.get("csv", "")})
+        s_od, oj = call(O, "POST", "/api/declare", {"text": tj.get("csv", "")})
+        s_sv, sv = call(O, "POST", "/api/declare", {"text": sheet})
+        s_e, _ = call(O, "POST", "/api/declare", {"text": ""})
+        s_vi, _ = call(V, "POST", "/api/penetrator/install", {"well_id": w1["id"], "penetrator": "genco-gps-5"})
+        s_oi, _ = call(O, "POST", "/api/penetrator/install", {"well_id": w1["id"], "penetrator": "genco-gps-5", "motor_type": "PMM", "insulation": {"A": 900}})
+        s_bi, _ = call(O, "POST", "/api/penetrator/install", {"well_id": w1["id"], "penetrator": "nope"})
+        s_bd, _ = call(O, "POST", "/api/penetrator/drive", {"well_id": w1["id"], "max_volts": 4000})
+        s_od2, _ = call(O, "POST", "/api/penetrator/drive", {"well_id": w1["id"], "max_volts": 4000, "source": "ds"})
+        s_rm, _ = call(O, "POST", "/api/penetrator/remove", {"well_id": w2["id"], "what": "drive"})
+        s_rm2, _ = call(O, "POST", "/api/penetrator/remove", {"well_id": w2["id"], "what": "drive"})
+        s_ac, _ = call(O, "POST", "/api/penetrator/nope", {})
+    finally:
+        svc.stop()
+    wells_p = {x["well_id"]: x for x in pj.get("wells", [])}
+    sheet_path = d / "pad.csv"
+    sheet_path.write_text(sheet.replace("ESP-2", "ESP-1").replace("Run ", "Lateral ").replace("acme-p-9-sn1", "genco-gps-5"), encoding="utf-8")
+    cli_t = _sp.run([sys.executable, "-m", "gea", "declare", "--workspace", wsp, "--template", str(d / "t.csv")], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_p = _sp.run([sys.executable, "-m", "gea", "declare", "--workspace", wsp, "--file", str(sheet_path)], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_e = _sp.run([sys.executable, "-m", "gea", "declare", "--workspace", wsp, "--file", str(d / "survey.csv")], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_n = _sp.run([sys.executable, "-m", "gea", "penetrator"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_w = _sp.run([sys.executable, "-m", "gea", "penetrator", "--workspace", wsp, "--well", w1["id"]], capture_output=True, text=True, cwd=str(pkg.parent))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c3.update({
+        "api": s_t == 200 and "[penetrators]" in tj["csv"] and s_p == 200 and len(pj["penetrators"]) == 3 and wells_p[w2["id"]]["install"]["penetrator"] == "acme-p-9-sn1"
+               and s_vd == 403 and s_od == 200 and oj["counts"]["NEW"] == 0 and not oj["errors"] and s_sv == 200 and any("carries no files" in e for e in sv["errors"])
+               and s_e == 400 and s_vi == 403 and s_oi == 200 and s_bi == 404 and s_bd == 400 and s_od2 == 200 and s_rm == 200 and s_rm2 == 404 and s_ac == 404,
+        "cli": cli_t.returncode == 0 and (d / "t.csv").is_file() and cli_p.returncode == 0 and "nothing written yet" in cli_p.stdout and "NEW" in cli_p.stdout
+               and cli_e.returncode == 1 and "this is not a declarations sheet" in cli_e.stdout
+               and cli_n.returncode == 0 and "genco-gps-5" in cli_n.stdout and "Permanent magnet motors" in cli_n.stdout
+               and cli_w.returncode == 0 and "ESP-1:" in cli_w.stdout and "drive output voltage" in cli_w.stdout,
+        "page": all(x in page_src for x in ("VIEWS.completion", "['#/completion', 'Completion']", "id=\"dcCard\"", "/api/declare/template", "Check the sheet",
+                                             "/api/penetrator/install", "Permanent magnet motors", "Record the installation", "Declare the drive and site")),
+        "help": all(any(t[0] == k for t in H.INDEX) and not H.check(k) for k in ("declare", "penetrator")) and H.VIEW_TOPIC.get("completion") == "penetrator",
+    })
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CJ3 the two motors missing from the catalogue (7 in 8/9 4.3 and 8 in x 7 3/4 in 7/8 5.9) added as their sheets print them and the "
+       "rest read a third time; the API (anyone signed in downloads the sheet and reads the Completion tab, only an operator checks or writes "
+       "one; a sheet through the browser names its survey as carrying no file; an unknown penetrator, a drive with no source, a second removal "
+       "and an unknown action named), the CLI (template, check, a file that is not a sheet, the penetrators, a well's check), the Setup card, "
+       "the Completion tab and the two help pages"
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
@@ -9537,6 +9793,7 @@ def main() -> int:
         section_cg_well_report(tmp)
         section_ch_simulation(tmp)
         section_ci_drill_string(tmp)
+        section_cj_declarations(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

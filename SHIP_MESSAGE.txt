@@ -1,34 +1,32 @@
-v0.40.0 — DRILL STRING
+v0.41.0 — THE DECLARATIONS SHEET
 
-A new tab, Drill String, follows what was run in the hole and how hard it
-was worked.
+Everything an operator declares about a pad now comes in from one
+spreadsheet, and a new tab, Completion, checks each ESP well's wellhead
+penetrator against its maker's ratings.
 
-A run is declared from the bit up: each component a class from the tool
-library with its maker, model, serial, outside diameter and length, and the
-stretch of the drilling record it covers. The tab draws it as a build
-diagram, and from the drilling record it measures each component's hours in
-the hole, circulating, rotating and drilling, the footage, the gallons, and
-for a motor its revolutions. A serialised component is followed across runs
-and wells against the service interval declared for it, with its source:
-OK, NEAR or DUE.
+The declarations sheet holds small tables one after another: each well's
+API number, position and reference elevation, its directional survey, the
+day rates, one-off costs and AFE, the fleet, the drill-string runs with
+their components from the bit up, and the ESP penetrator and drive. Every
+row is checked against the workspace and planned as new, a change, or
+already declared before anything is written; one error and nothing is.
+The sheet the program writes for a workspace is already filled with what
+is declared, so a site fills in the blanks and imports it again. It is on
+the Setup tab, and at the command line as gea declare.
 
-The motor tracker charts the differential on bottom against the maker's
-maximum operating and maximum differential, the hours above the first, the
-stalls, the motor's and the bit's speed, a torque estimate from the maker's
-slope, and the rotor's turning and whirl frequencies. Its stability comes
-from the frequencies a one-second record carries: block by block, the slow
-oscillations of the surface torque and the differential (stick-slip lives
-there), their distinct frequency and their strength, the spectrum at the
-start of the run against the end, and a stated rule for what counts as a
-change.
+The Completion tab keeps each ESP well's penetrator installation record -
+the installer and their certification, the motor, the gauge distance, the
+insulation readings, the void test - and checks the ESP drive, the motor
+nameplate and the wellhead against the penetrator's ratings, one line
+each: voltage, current, frequency, phases, hazardous area, gas group,
+temperature class, ambient range and altitude. The Genco GPS-5 ratings
+are those its maker's document prints; the GPS-5D and GPS-3 carry the
+Division 2 of their titles until their datasheets are added. The tab
+carries the permanent magnet motor safety note with its sources, and the
+tool library gains the wellhead penetrator class.
 
-The tool catalogue now carries 41 downhole motors with the maker's
-published figures, from MS Directional's Motor Handbook, each figure read
-twice and compared. They are on the Tools tab, and a run can name one.
+The motor catalogue now holds 43 motors: two sheets added, each read
+twice, and every other motor's figures read a third time and agreed.
 
-On Pad 3 all three wells show their whole records today, in under two
-seconds each; the motor figures and the per-run view follow once the runs
-are declared.
-
-Section CI is new, three checks. The gate is 407 checks. The standalone
+Section CJ is new, three checks. The gate is 410 checks. The standalone
 guard is clean.
