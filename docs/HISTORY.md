@@ -4,6 +4,16 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.40.0 - 2026-10-17 - drill string
+
+- **What was run, how much it has been used, how the motor behaved.** Runs
+  declared from the bit up and drawn as a build diagram; usage from the
+  drilling record summed per serial against declared service intervals;
+  the motor's differential, stalls, speeds and torque estimate against the
+  maker's figures, and the stability of the slow oscillations by Welch's
+  method with a stated rule; 41 motors in the tool catalogue. Section CI;
+  gate 407.
+
 ## v0.39.0 - 2026-10-17 - simulation
 
 - **The well drilled again, on its own clock, beside its mud log.** The bit

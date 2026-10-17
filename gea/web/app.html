@@ -44,9 +44,9 @@ details summary{cursor:pointer;color:var(--accent)}
 .tl-chip{position:relative;font:inherit;font-size:13px;line-height:1.3;padding:6px 11px;border:1px solid var(--grid);border-radius:999px;background:var(--surface);color:var(--ink);cursor:pointer}
 .tl-chip:hover,.tl-chip:focus-visible{border-color:var(--accent);box-shadow:0 0 0 2px var(--ring)}
 .tl-chip .tl-fl{display:inline-block;margin-left:6px;padding:0 6px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-size:11px;font-weight:600}
-.tl-tip{visibility:hidden;opacity:0;position:absolute;left:0;top:calc(100% + 6px);z-index:30;width:max-content;max-width:min(340px,82vw);padding:8px 10px;background:var(--ink);color:var(--page);border-radius:6px;font-size:12.5px;font-weight:400;line-height:1.4;text-align:left;pointer-events:none;transition:opacity .12s;box-shadow:0 4px 14px var(--ring)}
+.tl-tip{display:none;visibility:hidden;opacity:0;position:absolute;left:0;top:calc(100% + 6px);z-index:30;width:max-content;max-width:min(340px,82vw);padding:8px 10px;background:var(--ink);color:var(--page);border-radius:6px;font-size:12.5px;font-weight:400;line-height:1.4;text-align:left;pointer-events:none;transition:opacity .12s;box-shadow:0 4px 14px var(--ring)}
 .tl-tip .tl-hint{display:block;margin-top:4px;opacity:.75;font-size:11.5px}
-.tl-chip:hover .tl-tip,.tl-chip:focus-visible .tl-tip{visibility:visible;opacity:1}
+.tl-chip:hover .tl-tip,.tl-chip:focus-visible .tl-tip{display:block;visibility:visible;opacity:1}
 @media (hover:none){.tl-tip{display:none}}
 dialog.tl-dlg{width:min(780px,94vw);max-height:90vh;border:1px solid var(--grid);border-radius:12px;padding:0;background:var(--surface);color:var(--ink);box-shadow:0 12px 40px rgba(0,0,0,.35)}
 dialog.tl-dlg::backdrop{background:rgba(0,0,0,.45)}
@@ -130,6 +130,10 @@ body.wallmode{--wbg:#fff;--wink:#000;--wmut:#2b2b2b;--wline:#000;--wsr:#b00020;-
 .w3-tg{display:inline-flex;align-items:center;gap:4px;font-size:13px;color:var(--ink2)}.w3-tg>input{min-width:0!important;margin:0}
 .w3-ramp{display:inline-flex;align-items:center;gap:6px}.w3-ramp .w3-bar{display:inline-block;width:140px;height:10px;border-radius:5px;background:linear-gradient(90deg,#86b6ef,#3987e5,#1c5cab,#0d366b)}
 .w3-read{min-height:2.6em;font-size:14px;margin:4px 0 8px}
+.ds-grid{display:grid;grid-template-columns:minmax(0,440px) minmax(0,1fr);gap:12px;align-items:start}@media (max-width:900px){.ds-grid{grid-template-columns:minmax(0,1fr)}}
+.ds-dia{width:100%;max-width:440px;height:auto;display:block}.ds-src{overflow-wrap:anywhere}.ds-dl{font-size:11px;fill:var(--ink)}.ds-dl.muted{fill:var(--muted)}.ds-ref{font-size:11px;fill:var(--ink2)}
+.ds-life{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.ds-lb{display:inline-block;width:110px;height:8px;border-radius:4px;background:var(--track);overflow:hidden}.ds-lb>span{display:block;height:100%;border-radius:4px}
+.ds-leg{display:inline-flex;flex-wrap:wrap;gap:4px 12px;margin-left:8px}.ds-crow{margin:8px 0;padding:8px 10px}.ds-cbtn{display:inline-flex;gap:6px;margin-left:auto}.ds-ch{margin:10px 0}
 .sim-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:12px;align-items:start}@media (max-width:900px){.sim-grid{grid-template-columns:minmax(0,1fr)}}
 .sim-stage{height:min(70vh,700px)}.sim-panel{position:relative;height:min(70vh,700px);min-height:340px;overflow-x:auto;overflow-y:hidden;border:1px solid var(--grid);border-radius:10px;background:var(--surface)}.sim-panel canvas{display:block;cursor:crosshair}
 .sim-tr label>select{min-width:5em}.sim-read{margin-top:12px}.sim-rh{font-size:15px;margin-bottom:2px}.sim-comp{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:8px 0}
@@ -393,7 +397,8 @@ VIEWS.tools = async () => {
   h += `<div class="tiles">` + tile('Tools in the library', `${c.counts.tools}`, 'neutral', '#/tools', `${c.counts.fully_specified} with published numbers`)
      + tile('Parameters user-supplied', `${c.counts.user_supplied}`, c.counts.user_supplied ? 'warn' : 'good', '#/tools', 'no vendor numbers on the fetched pages')
      + tile('File formats read', `${c.counts.file_ports}`, 'neutral', '#/tools')
-     + tile('Live protocols spoken', `${c.counts.live_ports}`, 'neutral', '#/live') + `</div>`;
+     + tile('Live protocols spoken', `${c.counts.live_ports}`, 'neutral', '#/live')
+     + tile('Downhole motors', `${c.counts.motors ?? '—'}`, 'neutral', '#/drillstring', 'power sections with the maker\'s figures') + `</div>`;
 
   h += `<div class="card" id="tlCard"><h3>Downhole tool library <span class="small muted" id="tlCount"></span></h3>
     <p class="small muted">Every class of downhole tool in use across the industry. Point at a tool (or Tab to it) for a one-line description; click, tap or press Enter for its tutorial. Esc closes it.</p>
@@ -412,6 +417,12 @@ VIEWS.tools = async () => {
     h += `<tr><td colspan="8" class="small muted">source: ${esc(t.source)} <button type="button" class="secondary tl-open" data-tool="${esc(({QUARTZ_PT_GAUGE: 'pdg', PIEZORESISTIVE_PT_GAUGE: 'pdg', VIBRATING_WIRE_GAUGE: 'pdg', THERMOCOUPLE_STRING: 'pdg', FIBER_DTS: 'fiber_dts_das', SURFACE_INTERFACE: 'pdg'})[t.tool_class] || 'pdg')}" style="padding:2px 8px;font-size:12px;margin-left:6px">Tutorial</button></td></tr>`;
   }
   h += `</tbody></table></div>`;
+  // the downhole motors: the maker's published power-section figures, as its spec sheets give them
+  try { const M = await get('/api/tools/motors');
+    h += `<div class="card" id="mtCard"><h3>Downhole motors <span class="small muted">${M.motors.length} power sections · ${esc(M.publisher)}, ${esc(M.title)}</span></h3>
+      <p class="small muted">${esc(M.how)} <a href="${esc(M.url)}" target="_blank" rel="noopener">The handbook</a>. The speed is revolutions per gallon times the flow, at no load. A run on the <a href="#/drillstring">Drill String</a> tab names one of these, or the operator's own sheet.</p>
+      <div class="row"><label>Outside diameter<select id="mtOd"><option value="">All</option>${[...new Set(M.motors.map(m => m.nominal_od))].map(o => `<option>${esc(o)}</option>`).join('')}</select></label></div>
+      <div style="overflow-x:auto"><table id="mtTab"><thead><tr><th>Motor</th><th>Body OD (in)</th><th>Lobes</th><th>Stages</th><th>Flow (gal/min)</th><th>rev/gal</th><th>No-load speed (rpm)</th><th>Max operating ΔP (psi)</th><th>Max ΔP (psi)</th><th>Max torque (ft-lb)</th><th>Max WOB (lb)</th><th>Bit (in)</th><th>Bit box / top sub</th></tr></thead><tbody>${M.motors.map(m => `<tr data-od="${esc(m.nominal_od)}"><td class="small"><b>${esc(m.name)}</b><br><span class="mono small muted">${esc(m.id)}</span></td><td>${fmt(m.od_in, 3)}</td><td>${esc(m.lobes)}</td><td>${m.stages}</td><td>${m.flow_gpm[0]}–${m.flow_gpm[1]}</td><td>${m.rev_per_gal.toFixed(2)}</td><td>${Math.round(m.rev_per_gal * m.flow_gpm[0])}–${Math.round(m.rev_per_gal * m.flow_gpm[1])}</td><td>${m.max_operating_diff_psi.toLocaleString()}</td><td>${m.max_diff_psi.toLocaleString()}</td><td>${m.max_torque_ft_lb.toLocaleString()}</td><td>${m.max_operating_wob_lb.toLocaleString()}</td><td class="small">${esc(m.bit_size_in)}</td><td class="small">${esc(m.bit_box)} / ${esc(m.top_sub)}</td></tr>`).join('')}</tbody></table></div></div>`; } catch (e) {}
 
   if (c.unmatched && c.unmatched.length) {
     h += `<div class="card"><h3>Tools no live port in this build speaks</h3><table><thead><tr><th>Tool</th><th>It declares</th></tr></thead><tbody>${c.unmatched.map(u => `<tr><td>${esc(u.tool)}</td><td class="small">${esc(u.telemetry_interface)}</td></tr>`).join('')}</tbody></table><p class="small muted">Named rather than hidden: a reading from one of these comes in as a file, or through a port the site adds.</p></div>`;
@@ -435,6 +446,7 @@ VIEWS.tools = async () => {
     <div class="row"><button class="secondary" id="rcAdd" type="button">Add a station</button><button id="rcRun" type="button">Check the string</button></div>
     <div id="rcOut"></div></div>`;
   $('#main').innerHTML = h;
+  const mtOd = $('#mtOd'); if (mtOd) mtOd.onchange = () => document.querySelectorAll('#mtTab tbody tr').forEach(tr => { tr.hidden = !!mtOd.value && tr.dataset.od !== mtOd.value; });
   toolLibrary();
   const mk = (md) => { const d = document.createElement('div'); d.className = 'row'; d.style.margin = '0';
     d.innerHTML = `<label>Measured depth ft<input type="number" class="rcMd" value="${md}" style="width:8em"></label><label>Tool<select class="rcTool">${names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('')}</select></label><button class="secondary rcDel" type="button">Remove</button>`;
@@ -2103,6 +2115,159 @@ VIEWS.simulation = async (arg) => {
     cv.addEventListener('keydown', e => { const c = W3.cam, k = e.key; let used = true; if (k === 'ArrowLeft') c.y += 0.08; else if (k === 'ArrowRight') c.y -= 0.08; else if (k === 'ArrowUp') c.p = Math.min(1.45, c.p + 0.06); else if (k === 'ArrowDown') c.p = Math.max(-1.45, c.p - 0.06); else if (k === '+' || k === '=') c.d *= 0.85; else if (k === '-') c.d /= 0.85; else if (k === 'Home') simFit(); else if (k === ' ') $('#simPlay').click(); else used = false; if (used) { e.preventDefault(); w3Req(); } }); }
   if (SIM.ro) SIM.ro.disconnect(); SIM.ro = new ResizeObserver(() => { simPanel(); w3Req(); }); SIM.ro.observe($('#simWrap')); if (W3.gl) SIM.ro.observe(cv);
 };
+// ---------- the drill string: the string from the bit up, its usage and service life, the motor and its stability --------
+const DS = {data: null, run: null, charts: {}};
+function dsMs(t) { return Date.parse(/(Z|[+-]\d\d:?\d\d)$/.test(t) ? t : t + 'Z'); }
+function dsT(t) { return t ? String(t).slice(0, 16).replace('T', ' ') : '—'; }
+function dsN(v, d = 0) { return v === null || v === undefined || !isFinite(v) ? '—' : Number(v).toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d}); }
+// one chart, one axis: the series against the recorder's clock (or any x), labelled reference lines, a crosshair that reads every series
+function dsChart(id, title, unit, xs, series, opt = {}) {
+  const W = 900, H = opt.h || 220, L = 64, R = 16, T = 14, B = 30, isT = !opt.xnum;
+  const X = xs.map(x => isT ? dsMs(x) : x); const okX = X.filter(isFinite); if (!okX.length) return `<p class="muted small">${esc(title)}: nothing to draw.</p>`;
+  let x0 = Math.min(...okX), x1 = Math.max(...okX); if (x1 === x0) x1 = x0 + 1;
+  const vals = series.flatMap(s => s.v).filter(v => v !== null && v !== undefined && isFinite(v) && (!opt.log || v > 0)).concat((opt.refs || []).map(r => r.v));
+  if (!vals.length) return `<p class="muted small">${esc(title)}: no values in this span.</p>`;
+  let lo = opt.zero ? 0 : Math.min(...vals), hi = Math.max(...vals);
+  if (opt.log) { lo = Math.log10(Math.min(...vals)); hi = Math.log10(hi); }
+  const pad = (hi - lo) * 0.08 || Math.abs(hi) * 0.1 || 1; if (!opt.zero) lo -= pad; hi += pad;
+  const fx = v => opt.log ? Math.log10(v) : v;
+  const sx = x => L + (x - x0) / (x1 - x0) * (W - L - R), sy = v => T + (1 - (fx(v) - lo) / ((hi - lo) || 1)) * (H - T - B);
+  let g = '';
+  if (opt.log) { for (let e = Math.floor(lo); e <= Math.ceil(hi); e++) { const v = Math.pow(10, e); if (Math.log10(v) < lo || Math.log10(v) > hi) continue; g += `<line x1="${L}" x2="${W - R}" y1="${sy(v).toFixed(1)}" y2="${sy(v).toFixed(1)}" stroke="var(--grid)"/><text x="${L - 6}" y="${(sy(v) + 4).toFixed(1)}" text-anchor="end">${v >= 1 ? dsN(v) : v.toExponential(0)}</text>`; } }
+  else { const st = w3Nice((hi - lo) / 4); for (let v = Math.ceil(lo / st) * st; v <= hi; v += st) g += `<line x1="${L}" x2="${W - R}" y1="${sy(v).toFixed(1)}" y2="${sy(v).toFixed(1)}" stroke="var(--grid)"/><text x="${L - 6}" y="${(sy(v) + 4).toFixed(1)}" text-anchor="end">${dsN(v, st < 1 ? (st < 0.01 ? 3 : 2) : 0)}</text>`; }
+  if (isT) { const span = x1 - x0, step = span > 20 * 864e5 ? 7 * 864e5 : span > 4 * 864e5 ? 864e5 : span > 864e5 ? 6 * 36e5 : span > 6 * 36e5 ? 2 * 36e5 : 36e5; for (let t = Math.ceil(x0 / step) * step; t <= x1; t += step) { const x = sx(t); g += `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${H - B}" y2="${H - B + 4}" stroke="var(--muted)"/><text x="${x.toFixed(1)}" y="${H - 10}" text-anchor="middle">${new Date(t).toISOString().slice(step >= 864e5 ? 5 : 5, step >= 864e5 ? 10 : 16).replace('T', ' ')}</text>`; } }
+  else { const st = w3Nice((x1 - x0) / 6); for (let v = Math.ceil(x0 / st) * st; v <= x1; v += st) g += `<text x="${sx(v).toFixed(1)}" y="${H - 10}" text-anchor="middle">${dsN(v, st < 1 ? 2 : 0)}</text>`; }
+  for (const r of opt.refs || []) { const y = sy(r.v).toFixed(1); g += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="var(--ink2)" stroke-dasharray="5 4"/><text x="${W - R - 4}" y="${(+y - 5).toFixed(1)}" text-anchor="end" class="ds-ref">${esc(r.label)}</text>`; }
+  series.forEach((s, k) => { let d = '', on = false, prev = null; s.v.forEach((v, i) => { const ok = v !== null && v !== undefined && isFinite(v) && isFinite(X[i]) && (!opt.log || v > 0); const gap = prev !== null && isT && X[i] - prev > (opt.gapMs || 3 * 36e5); if (!ok || gap) on = false; if (ok) { d += (on ? 'L' : 'M') + sx(X[i]).toFixed(1) + ' ' + sy(v).toFixed(1); on = true; prev = X[i]; } });
+    if (opt.dots) s.v.forEach((v, i) => { if (v !== null && v !== undefined && isFinite(v) && (!opt.log || v > 0)) g += `<circle cx="${sx(X[i]).toFixed(1)}" cy="${sy(v).toFixed(1)}" r="4" fill="var(${s.slot || W3_SLOTS[k % 6]})" stroke="var(--surface)" stroke-width="2"/>`; });
+    else g += `<path d="${d}" fill="none" stroke="var(${s.slot || W3_SLOTS[k % 6]})" stroke-width="2" stroke-linejoin="round"/>`; });
+  DS.charts[id] = {X, xs, series, sx, sy, L, R, T, B, W, H, unit, isT, x0, x1};
+  const leg = series.length > 1 ? `<span class="ds-leg">${series.map((s, k) => `<span class="w3-tg"><span class="w3-sw" style="background:var(${s.slot || W3_SLOTS[k % 6]})"></span>${esc(s.name)}</span>`).join('')}</span>` : '';
+  const desc = `${title}: ${series.map(s => { const v = s.v.filter(x => x !== null && isFinite(x)); return v.length ? `${s.name} from ${dsN(Math.min(...v), 2)} to ${dsN(Math.max(...v), 2)} ${unit}` : `${s.name}: none`; }).join('; ')}`;
+  return `<div class="ds-ch" data-ds="${esc(id)}"><div class="ec-ct"><b>${esc(title)}</b> <span class="muted small">${esc(unit)}</span> ${leg} <span class="ec-rd small" id="dsR-${esc(id)}"></span></div><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(desc)}" tabindex="0"><title>${esc(desc)}</title>${g}<line class="ec-x" x1="0" x2="0" y1="${T}" y2="${H - B}" stroke="var(--ink2)" visibility="hidden"/><rect class="ec-hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/></svg></div>`;
+}
+function dsBind() {
+  document.querySelectorAll('.ds-ch').forEach(el => { const c = DS.charts[el.dataset.ds]; if (!c) return; const svg = el.querySelector('svg'), hit = el.querySelector('.ec-hit'), ln = el.querySelector('.ec-x'), rd = el.querySelector('.ec-rd');
+    const show = k => { const x = c.sx(c.X[k]); ln.setAttribute('x1', x); ln.setAttribute('x2', x); ln.setAttribute('visibility', 'visible'); rd.textContent = `${c.isT ? dsT(c.xs[k]) : dsN(c.xs[k], 3)}: ` + c.series.map(s => `${s.name} ${dsN(s.v[k], Math.abs(s.v[k] || 0) < 10 ? 3 : 0)}`).join(' · ') + ` ${c.unit}`; };
+    const near = cx => { const xv = c.x0 + (cx - c.L) / (c.W - c.L - c.R) * (c.x1 - c.x0); let k = 0, b = Infinity; c.X.forEach((x, i) => { const d = Math.abs(x - xv); if (d < b) { b = d; k = i; } }); return k; };
+    hit.addEventListener('pointermove', ev => { const r = svg.getBoundingClientRect(); show(near((ev.clientX - r.left) / r.width * c.W)); });
+    hit.addEventListener('pointerleave', () => { ln.setAttribute('visibility', 'hidden'); rd.textContent = ''; });
+    let ki = c.X.length - 1; svg.addEventListener('keydown', ev => { if (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') { ev.preventDefault(); ki = Math.max(0, Math.min(c.X.length - 1, ki + (ev.key === 'ArrowLeft' ? -1 : 1))); show(ki); } }); });
+}
+// the build diagram: the string from the bit up, each piece drawn to its outside diameter, the lengths compressed so a short sub stays readable
+function dsDiagram(comps) {
+  const W = 440, rowMin = 34, rowMax = 120, x0 = 150, maxOd = Math.max(...comps.map(c => c.od_in || 0), 1), scaleW = 92 / maxOd;
+  const lens = comps.map(c => c.length_ft || null); const lk = lens.filter(Boolean); const lmax = lk.length ? Math.max(...lk) : 1;
+  const hts = comps.map(c => c.length_ft ? Math.max(rowMin, Math.min(rowMax, rowMin + (rowMax - rowMin) * Math.sqrt(c.length_ft / lmax))) : rowMin);
+  const H = hts.reduce((a, b) => a + b, 0) + 40; let y = H - 20; let g = '', cum = 0;
+  comps.forEach((c, i) => { const h = hts[i], w = Math.max(14, (c.od_in || maxOd * 0.6) * scaleW); y -= h; const isM = !!c.motor, isBit = c.class_id.endsWith('_bit') || c.class_id === 'bicenter_bit';
+    const fill = isBit ? 'var(--s4)' : isM ? 'var(--s2)' : c.class_id.startsWith('mwd') || c.class_id.startsWith('lwd') || c.class_id === 'gyro_mwd' ? 'var(--s1)' : c.class_id.includes('jar') ? 'var(--s5)' : c.class_id === 'stabilizer' ? 'var(--s3)' : 'var(--muted)';
+    if (isBit) g += `<path d="M${x0 - w / 2} ${y} H${x0 + w / 2} V${y + h * 0.55} L${x0} ${y + h - 2} L${x0 - w / 2} ${y + h * 0.55} Z" fill="${fill}" stroke="var(--surface)" stroke-width="2"/>`;
+    else g += `<rect x="${(x0 - w / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${(h - 2).toFixed(1)}" rx="3" fill="${fill}" stroke="var(--surface)" stroke-width="2"/>`;
+    if (c.class_id === 'stabilizer') for (const s of [-1, 1]) g += `<rect x="${(x0 + s * (w / 2) - (s > 0 ? 0 : 6)).toFixed(1)}" y="${(y + h * 0.25).toFixed(1)}" width="6" height="${(h * 0.5).toFixed(1)}" rx="2" fill="${fill}"/>`;
+    if (isM) g += `<line x1="${x0 - w / 2 + 4}" x2="${x0 + w / 2 - 4}" y1="${(y + h * 0.78).toFixed(1)}" y2="${(y + h * 0.7).toFixed(1)}" stroke="var(--surface)" stroke-width="2"/>`;
+    g += `<text x="${x0 + 58}" y="${(y + h / 2 - 2).toFixed(1)}" class="ds-dl"><tspan font-weight="600">${esc(c.class_name.replace(/ \(.*\)$/, ''))}</tspan></text><text x="${x0 + 58}" y="${(y + h / 2 + 12).toFixed(1)}" class="ds-dl muted">${esc([c.od_in ? c.od_in + ' in' : '', c.length_ft ? c.length_ft + ' ft' : '', c.serial ? 's/n ' + c.serial : ''].filter(Boolean).join(' · '))}</text>`;
+    cum += c.length_ft || 0; g += `<text x="${x0 - 60}" y="${(y + 4).toFixed(1)}" text-anchor="end" class="ds-dl muted">${c.length_ft ? dsN(cum, 1) + ' ft' : ''}</text>`; });
+  g += `<text x="${x0 - 60}" y="${H - 16}" text-anchor="end" class="ds-dl muted">bit</text><text x="${x0}" y="14" text-anchor="middle" class="ds-dl muted">to the drill pipe</text>`;
+  return `<svg class="ds-dia" viewBox="0 0 ${W} ${H}" role="img" aria-label="The string from the bit up: ${esc(comps.map(c => c.class_name).join(', '))}"><title>Build diagram</title>${g}</svg><p class="small muted">From the bit up; widths are the outside diameters, heights compressed by the lengths; the distance above the bit at each joint, where the lengths are declared.</p>`;
+}
+function dsLife(e) { const l = e.life; if (!l) return '<span class="small muted">no interval declared</span>'; const p = Math.min(100, l.used_pct), k = l.status === 'DUE' ? 'serious' : l.status === 'NEAR' ? 'warn' : 'good';
+  return `<div class="ds-life"><span class="ds-lb"><span style="width:${p}%;background:var(--${k})"></span></span> ${statusPill(k, l.status)} <span class="small">${dsN(l.used, 1)} of ${dsN(l.limit, 0)} ${esc(l.basis.replace(/_/g, ' '))} (${dsN(l.used_pct, 0)} %)</span></div>`; }
+function dsTrack(tr, motorName) {
+  if (!tr || tr.why) return `<div class="card small">${esc((tr || {}).why || 'nothing tracked')}</div>`;
+  const u = tr.usage || {}, ms = tr.motor_stats || {}, m = ms.motor, hz = ms.hourly || {t: []}, st = tr.stability || {}; let h = '';
+  h += `<div class="tiles">` + tile('Hours in the hole', dsN(u.hours_in_hole, 1), 'neutral', '#/drillstring', `${dsT(tr.start)} to ${dsT(tr.end)}`) + tile('Circulating', dsN(u.circulating_hours, 1) + ' h', 'neutral', '#/drillstring', `${dsN(u.gallons)} gal pumped`)
+     + tile('Drilling', dsN(u.drilling_hours, 1) + ' h', 'neutral', '#/drillstring', `${dsN(u.rotating_hours, 1)} h rotating`) + tile('Footage', dsN(u.footage_ft) + ' ft', 'neutral', '#/drillstring', tr.depth_from_ft != null ? `${dsN(tr.depth_from_ft)} to ${dsN(tr.depth_to_ft)} ft` : '')
+     + (u.revolutions != null ? tile('Motor revolutions', dsN(u.revolutions), 'neutral', '#/drillstring', `${m.rev_per_gal} rev/gal × the gallons`) : '') + `</div><p class="small muted">${esc(u.how)}; on ${esc(tr.clock)}.</p>`;
+  h += `<h3>The motor${motorName ? ' — ' + esc(motorName) : ''}</h3>`;
+  if (!m) h += `<p class="small">No motor is named for this span, so its speed, revolutions, torque and stalls are not computed: the differential and the stability below are the record's own. Declare a run with its motor to see them.</p>`;
+  else h += `<p class="small muted ds-src">${esc(m.source)}: ${m.rev_per_gal} rev/gal, ${dsN(m.flow_gpm[0])}–${dsN(m.flow_gpm[1])} gal/min, maximum operating differential ${dsN(m.max_operating_diff_psi)} psi, maximum ${dsN(m.max_diff_psi)} psi${m.max_torque_ft_lb ? `, maximum torque ${dsN(m.max_torque_ft_lb)} ft-lb` : ''}.</p>`;
+  const d = ms.diff_on_bottom_psi;
+  if (d) h += `<div class="tiles">` + tile('Differential on bottom', dsN(d.p50) + ' psi', 'neutral', '#/drillstring', `median; 95th percentile ${dsN(d.p95)}, max ${dsN(d.max)}`)
+     + (ms.hours_above_max_operating != null ? tile('Above the maximum operating', dsN(ms.hours_above_max_operating, 2) + ' h', ms.hours_above_max_operating > 0 ? 'warn' : 'good', '#/drillstring', `${dsN(m.max_operating_diff_psi)} psi`) : '')
+     + (ms.stalls ? tile('Stalls', String(ms.stalls.length), ms.stalls.length ? 'serious' : 'good', '#/drillstring', `at or above ${dsN(m.max_diff_psi)} psi`) : '') + `</div>`;
+  const refs = m ? [{v: m.max_operating_diff_psi, label: 'maximum operating'}, {v: m.max_diff_psi, label: 'maximum'}].filter(r => r.v) : [];
+  if (hz.t.length) {
+    h += dsChart('dp', 'Differential pressure on bottom, by the hour', 'psi', hz.t, [{name: 'mean', v: hz.diff_psi}, {name: '95th percentile', v: hz.diff_p95_psi}], {refs});
+    if (m) { h += dsChart('rpm', 'Speed, by the hour', 'rpm', hz.t, [{name: 'motor (no load)', v: hz.motor_rpm}, {name: 'rotary', v: hz.surface_rpm}, {name: 'bit', v: hz.bit_rpm}], {zero: true}) + `<p class="small muted">${esc(ms.how_speed || '')}.</p>`;
+      if (ms.how_torque) h += dsChart('tq', 'Motor torque, estimated from the differential', 'ft-lb', hz.t, [{name: 'estimate', v: hz.torque_est_ft_lb}], {zero: true, refs: m.max_torque_ft_lb ? [{v: m.max_torque_ft_lb, label: 'maximum torque'}] : []}) + `<p class="small muted">${esc(ms.how_torque)}.</p>`;
+      if (ms.how_whirl) h += dsChart('fq', "The motor's own frequencies, by the hour", 'Hz', hz.t, [{name: 'rotor turning', v: hz.rotor_hz}, {name: 'rotor whirl', v: hz.whirl_hz}], {zero: true}) + `<p class="small muted">${esc(ms.how_whirl)}.</p>`; }
+    h += dsChart('flow', 'Pump output while circulating, by the hour', 'gal/min', hz.t, [{name: 'flow', v: hz.flow_gpm}], {zero: true, refs: m && m.flow_gpm[1] ? [{v: m.flow_gpm[0], label: 'motor minimum'}, {v: m.flow_gpm[1], label: 'motor maximum'}] : []});
+  }
+  if (ms.histogram) { const H_ = ms.histogram, mids = H_.edges_psi.slice(0, -1).map((e, i) => (e + H_.edges_psi[i + 1]) / 2);
+    h += `<div class="ds-ch-wrap">${dsHist(H_, refs)}</div>`; }
+  if (ms.stalls && ms.stalls.length) h += `<details class="card"><summary>${ms.stalls.length} stall(s) — ${esc(ms.stall_rule)}</summary><table><thead><tr><th>At (the recorder's clock)</th><th>Seconds</th><th>Peak (psi)</th><th>Depth (ft)</th></tr></thead><tbody>${ms.stalls.map(s => `<tr><td>${dsT(s.at)}</td><td>${s.seconds}</td><td>${dsN(s.peak_psi)}</td><td>${dsN(s.depth_ft)}</td></tr>`).join('')}</tbody></table></details>`;
+  // stability
+  const v = st.verdict || {}; const kind = v.status === 'CHANGED' ? 'warn' : v.status === 'STEADY' ? 'good' : 'neutral';
+  h += `<h3>Stability ${statusPill(kind, v.status || '—')}</h3><ul class="small">${(v.lines || []).map(l => `<li>${esc(l)}</li>`).join('')}</ul><p class="small muted">${esc(st.how || '')}. ${esc(st.rule || '')}.</p>`;
+  const bl = st.blocks || [];
+  if (bl.length) { const bt = bl.map(b => b.t);
+    h += dsChart('osc', 'Oscillation index, block by block', 'band RMS / mean', bt, [{name: 'surface torque', v: bl.map(b => (b.torque || {}).index ?? null)}, {name: 'differential', v: bl.map(b => (b.diff || {}).index ?? null)}], {dots: true, zero: true, gapMs: 1e15});
+    h += dsChart('ofq', 'Distinct oscillation frequency, block by block', 'Hz', bt, [{name: 'surface torque', v: bl.map(b => (b.torque || {}).f_hz ?? null)}, {name: 'differential', v: bl.map(b => (b.diff || {}).f_hz ?? null)}], {dots: true, gapMs: 1e15}) + `<p class="small muted">A block shows a dot where its strongest frequency is a peak inside the band standing ${st.peak_ratio} times above the band's median; none where the spectrum is broad or still rising at the band's edge.</p>`; }
+  const sp = st.spectra || {};
+  for (const [k, lab] of [['torque', 'surface torque'], ['diff', 'differential pressure']]) if (sp[k]) h += dsChart('sp' + k, `Spectrum of the ${lab}: the first third of the blocks against the last`, 'per Hz', sp.f_hz, [{name: 'first third', v: sp[k].first}, {name: 'last third', v: sp[k].last}], {xnum: true, log: true});
+  return h;
+}
+function dsHist(H_, refs) {
+  const W = 900, Hh = 200, L = 64, R = 16, T = 14, B = 30, e = H_.edges_psi, hv = H_.hours, top = Math.max(...hv.map(x => x || 0), 1e-6), x1 = e[e.length - 1];
+  const sx = v => L + v / x1 * (W - L - R), sy = v => T + (1 - v / (top * 1.08)) * (Hh - T - B); let g = '';
+  const st = w3Nice(top / 4); for (let v = 0; v <= top * 1.08; v += st) g += `<line x1="${L}" x2="${W - R}" y1="${sy(v).toFixed(1)}" y2="${sy(v).toFixed(1)}" stroke="var(--grid)"/><text x="${L - 6}" y="${(sy(v) + 4).toFixed(1)}" text-anchor="end">${dsN(v, st < 1 ? 1 : 0)}</text>`;
+  const xs = w3Nice(x1 / 8); for (let v = 0; v <= x1; v += xs) g += `<text x="${sx(v).toFixed(1)}" y="${Hh - 10}" text-anchor="middle">${dsN(v)}</text>`;
+  hv.forEach((v, i) => { if (!v) return; const a = sx(e[i]) + 1, b = sx(e[i + 1]) - 1, y = sy(v); g += `<path d="M${a.toFixed(1)} ${Hh - B} V${(y + 3).toFixed(1)} Q${a.toFixed(1)} ${y.toFixed(1)} ${(a + 3).toFixed(1)} ${y.toFixed(1)} H${(b - 3).toFixed(1)} Q${b.toFixed(1)} ${y.toFixed(1)} ${b.toFixed(1)} ${(y + 3).toFixed(1)} V${Hh - B} Z" fill="var(--s1)"><title>${dsN(e[i])}–${dsN(e[i + 1])} psi: ${dsN(v, 2)} h</title></path>`; });
+  for (const r of refs) { const x = sx(r.v).toFixed(1); g += `<line x1="${x}" x2="${x}" y1="${T}" y2="${Hh - B}" stroke="var(--ink2)" stroke-dasharray="5 4"/><text x="${(+x - 4).toFixed(1)}" y="${T + 10}" text-anchor="end" class="ds-ref">${esc(r.label)}</text>`; }
+  return `<div class="ec-ct"><b>Hours on bottom by differential</b> <span class="muted small">h per 100 psi</span></div><svg class="chart" viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Hours on bottom in each 100 psi of differential pressure"><title>Hours on bottom by differential</title>${g}</svg>`;
+}
+function dsCompRow(c, i, P) {
+  const opts = P.categories.map(cat => `<optgroup label="${esc(cat)}">${(DS.classes || []).filter(x => x.category === cat).map(x => `<option value="${esc(x.id)}" ${x.id === c.class_id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</optgroup>`).join('');
+  const isM = c.class_id === 'pdm_motor' || c.class_id === 'turbodrill';
+  return `<div class="ds-crow card" data-i="${i}"><div class="row"><b class="small">${i + 1}${i === 0 ? ' (at the bit)' : ''}</b><label>Class<select data-f="class_id">${opts}</select></label>
+    ${isM ? `<label>Motor<select data-f="motor_id"><option value="">— the motor's own figures below —</option>${P.motors.map(m => `<option value="${esc(m.id)}" ${m.id === c.motor_id ? 'selected' : ''}>${esc(m.name)} · ${m.rev_per_gal} rev/gal</option>`).join('')}</select></label>` : ''}
+    <label>Maker<input data-f="maker" value="${esc(c.maker || '')}" style="width:9em"></label><label>Model<input data-f="model" value="${esc(c.model || '')}" style="width:9em"></label><label>Serial<input data-f="serial" value="${esc(c.serial || '')}" style="width:7em"></label>
+    <label>OD (in)<input data-f="od_in" type="number" step="0.001" value="${esc(c.od_in ?? '')}" style="width:6em"></label><label>Length (ft)<input data-f="length_ft" type="number" step="0.01" value="${esc(c.length_ft ?? '')}" style="width:6em"></label></div>
+    ${isM && !c.motor_id ? `<div class="row"><label>rev/gal<input data-m="rev_per_gal" type="number" step="0.001" value="${esc((c.motor || {}).rev_per_gal ?? '')}" style="width:6em"></label><label>Lobes<input data-m="lobes" placeholder="7/8" value="${esc((c.motor || {}).lobes ?? '')}" style="width:4em"></label><label>Max operating ΔP (psi)<input data-m="max_operating_diff_psi" type="number" value="${esc((c.motor || {}).max_operating_diff_psi ?? '')}" style="width:7em"></label><label>Max ΔP (psi)<input data-m="max_diff_psi" type="number" value="${esc((c.motor || {}).max_diff_psi ?? '')}" style="width:7em"></label><label>Max torque (ft-lb)<input data-m="max_torque_ft_lb" type="number" value="${esc((c.motor || {}).max_torque_ft_lb ?? '')}" style="width:7em"></label><label>Spec sheet<input data-m="source" value="${esc((c.motor || {}).source ?? '')}" placeholder="maker, title, revision" style="width:14em"></label></div>` : ''}
+    <div class="row"><label>Service interval<input data-f="service_limit" type="number" step="any" value="${esc(c.service_limit ?? '')}" style="width:7em"></label><label>counted in<select data-f="service_basis">${P.life_bases.map(b => `<option value="${b}" ${b === (c.service_basis || 'circulating_hours') ? 'selected' : ''}>${b.replace(/_/g, ' ')}</option>`).join('')}</select></label><label>from<input data-f="service_source" value="${esc(c.service_source || '')}" placeholder="the manual, the rental contract" style="width:14em"></label>
+    <span class="ds-cbtn"><button type="button" class="secondary" data-act="up" aria-label="Move up the string">▲</button><button type="button" class="secondary" data-act="down" aria-label="Move toward the bit">▼</button><button type="button" class="secondary" data-act="del">Remove</button></span></div></div>`;
+}
+function dsForm(P, wid, edit) {
+  DS.edit = edit ? JSON.parse(JSON.stringify(edit.components.map(c => ({...c, motor_id: c.motor && c.motor.id ? c.motor.id : '', service_limit: c.service ? c.service.limit : '', service_basis: c.service ? c.service.basis : 'circulating_hours', service_source: c.service ? c.service.source : '', motor: c.motor && !c.motor.id ? {...c.motor, lobes: c.motor.rotor_lobes ? `${c.motor.rotor_lobes}/${c.motor.stator_lobes}` : ''} : null})))) : [{class_id: 'pdc_bit'}, {class_id: 'pdm_motor'}, {class_id: 'mwd_mud_pulse'}];
+  const el = $('#dsForm'); const draw = () => { el.querySelector('#dsRows').innerHTML = DS.edit.map((c, i) => dsCompRow(c, i, P)).join(''); bind(); };
+  const read = () => el.querySelectorAll('.ds-crow').forEach(r => { const c = DS.edit[+r.dataset.i]; r.querySelectorAll('[data-f]').forEach(x => { c[x.dataset.f] = x.value; }); const mm = r.querySelectorAll('[data-m]'); if (mm.length) { c.motor = c.motor || {}; mm.forEach(x => { c.motor[x.dataset.m] = x.value; }); } });
+  const bind = () => { el.querySelectorAll('.ds-crow').forEach(r => { const i = +r.dataset.i; r.querySelector('[data-f="class_id"]').onchange = () => { read(); draw(); }; const ms = r.querySelector('[data-f="motor_id"]'); if (ms) ms.onchange = () => { read(); draw(); };
+    r.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { read(); const a = b.dataset.act; if (a === 'del') DS.edit.splice(i, 1); else { const j = a === 'up' ? i + 1 : i - 1; if (j >= 0 && j < DS.edit.length) [DS.edit[i], DS.edit[j]] = [DS.edit[j], DS.edit[i]]; } draw(); }); }); };
+  el.innerHTML = `<h3>${edit ? 'Edit the run' : 'Declare a run'}</h3><p class="small muted">The components from the bit up, as they went in the hole. The span is on the drilling recorder's clock; left empty it is the whole record. A service interval needs its source.</p>
+    <div class="row"><label>Name<input id="dsName" value="${esc(edit ? edit.name : '')}" placeholder="Run 3 - lateral"></label><label>Start<input id="dsStart" value="${esc(edit && edit.start || '')}" placeholder="2026-06-02T14:00"></label><label>End<input id="dsEnd" value="${esc(edit && edit.end || '')}" placeholder="2026-06-09T06:30"></label><label>Depth in (ft)<input id="dsDin" type="number" value="${esc(edit && edit.depth_in_ft || '')}" style="width:7em"></label><label>Depth out (ft)<input id="dsDout" type="number" value="${esc(edit && edit.depth_out_ft || '')}" style="width:7em"></label></div>
+    <div id="dsRows"></div><div class="row"><button type="button" class="secondary" id="dsAdd">Add a component above</button><button type="button" id="dsSave">${edit ? 'Save the run' : 'Declare the run'}</button><button type="button" class="secondary" id="dsCancel">Cancel</button></div>`;
+  draw();
+  $('#dsAdd').onclick = () => { read(); DS.edit.push({class_id: 'drill_collar'}); draw(); };
+  $('#dsCancel').onclick = () => { el.hidden = true; };
+  $('#dsSave').onclick = async () => { read(); const comps = DS.edit.map(c => { const o = {...c}; if (o.motor_id) delete o.motor; else if (o.motor) { o.motor = {...o.motor}; } return o; });
+    try { const r = await post('/api/drillstring/run', {well_id: wid, name: $('#dsName').value, start: $('#dsStart').value, end: $('#dsEnd').value, depth_in_ft: $('#dsDin').value || null, depth_out_ft: $('#dsDout').value || null, components: comps, run_id: edit ? edit.id : null}); toast(`Run declared: ${r.name}`, 'ok'); DS.run = r.id; route(); } catch (e) { toast(e.message, 'err'); } };
+  el.hidden = false; el.scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+VIEWS.drillstring = async (arg) => {
+  const wid = arg || DS.well || ''; let P; try { P = await get('/api/drillstring' + (wid ? '?well=' + encodeURIComponent(wid) : '')); } catch (e) { if (wid) { DS.well = ''; location.hash = '#/drillstring'; return; } throw e; }
+  DS.data = P; DS.well = P.well_id; DS.charts = {}; if (!DS.classes) { try { DS.classes = (await get('/api/tools/taxonomy')).classes; } catch (e) { DS.classes = []; } }
+  let h = `<h2>Drill string</h2><div class="row card"><label>Well<select id="dsWell">${P.wells.map(w => `<option value="${esc(w.id)}" ${w.id === P.well_id ? 'selected' : ''}>${esc(w.display)} (${w.runs} run${w.runs === 1 ? '' : 's'})</option>`).join('') || '<option>no drilling record yet</option>'}</select></label>
+    ${P.runs.length ? `<label>Run<select id="dsRun">${P.runs.map(r => `<option value="${esc(r.id)}" ${r.id === DS.run ? 'selected' : ''}>${esc(r.name)} · ${dsT((r.track || {}).start)}</option>`).join('')}</select></label>` : ''}
+    ${can('operator') && P.well_id ? `<button type="button" id="dsNew">Declare a run</button>` : ''}</div><div class="card" id="dsForm" hidden></div>`;
+  if (!P.wells.length) h += `<div class="card">The drill string is tracked from a drilling record: add a drilling-recorder export on Setup, and its runs are declared here.</div>`;
+  const run = P.runs.find(r => r.id === DS.run) || P.runs[0];
+  if (run) { DS.run = run.id; const mot = run.components.find(c => c.motor);
+    h += `<div class="ds-grid"><div class="card"><h3>${esc(run.name)}</h3>${dsDiagram(run.components)}</div><div class="card"><h3>From the bit up</h3><div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Component</th><th>Serial</th><th>OD (in)</th><th>Length (ft)</th><th>Service life (all runs)</th></tr></thead><tbody>${run.components.map((c, i) => { const key = c.fleet_id || (c.serial ? `${c.class_id}|${c.maker}|${c.model}|${c.serial}` : `${run.id}#${i}`); const e = P.tracking.find(x => x.key === key);
+      return `<tr><td>${i + 1}</td><td><b>${esc(c.class_name)}</b><br><span class="small">${esc([c.maker, c.model].filter(Boolean).join(' '))}</span>${c.service ? `<br><span class="small muted">interval: ${esc(c.service.source)}</span>` : ''}</td><td class="mono small">${esc(c.serial || '—')}</td><td>${dsN(c.od_in, 3)}</td><td>${dsN(c.length_ft, 2)}</td><td>${e ? dsLife(e) : ''}${e && e.runs.length > 1 ? `<div class="small muted">${e.runs.length} runs</div>` : ''}</td></tr>`; }).join('')}</tbody></table></div>
+      <p class="small muted">Declared by ${esc(run.declared_by)} on ${tz(run.declared_utc)}${run.depth_in_ft != null ? ` · in at ${dsN(run.depth_in_ft)} ft` : ''}${run.depth_out_ft != null ? `, out at ${dsN(run.depth_out_ft)} ft` : ''}.</p>
+      ${can('operator') ? `<div class="row"><button type="button" class="secondary" id="dsEdit">Edit the run</button><button type="button" class="secondary" id="dsDel">Remove the run</button></div>` : ''}</div></div>`;
+    h += `<div class="card">${dsTrack(run.track, mot ? mot.motor.name : '')}</div>`; }
+  else if (P.unassigned) h += `<div class="card"><h3>No run declared for this well <span class="small muted">the whole record, without a motor named</span></h3>${P.unassigned.note ? `<p class="small">${esc(P.unassigned.note)}.</p>` : ''}${dsTrack(P.unassigned, '')}</div>`;
+  if (P.tracking.length) h += `<div class="card"><h3>Every component, across every run</h3><div style="overflow-x:auto"><table><thead><tr><th>Component</th><th>Serial</th><th>Runs</th><th>Circulating (h)</th><th>Drilling (h)</th><th>Rotating (h)</th><th>In the hole (h)</th><th>Footage (ft)</th><th>Revolutions</th><th>Service life</th></tr></thead><tbody>${P.tracking.map(e => `<tr><td><b>${esc(e.class_name)}</b><br><span class="small">${esc([e.maker, e.model].filter(Boolean).join(' '))}</span></td><td class="mono small">${esc(e.serial || '—')}</td><td class="small">${e.runs.map(r => esc(r.name)).join('<br>')}</td><td>${dsN(e.totals.circulating_hours, 1)}</td><td>${dsN(e.totals.drilling_hours, 1)}</td><td>${dsN(e.totals.rotating_hours, 1)}</td><td>${dsN(e.totals.hours_in_hole, 1)}</td><td>${dsN(e.totals.footage_ft)}</td><td>${e.class_id === 'pdm_motor' || e.class_id === 'turbodrill' ? dsN(e.totals.revolutions) : '—'}</td><td>${dsLife(e)}</td></tr>`).join('')}</tbody></table></div><p class="small muted">A serialised component is followed across runs and wells by its class, maker, model and serial (or its fleet entry); one without a serial is counted in its own run only. The interval is the latest declared.</p></div>`;
+  h += `<p class="small muted">Motor figures: ${esc(P.catalogue.publisher)}, ${esc(P.catalogue.title)} — the <a href="#/tools">Tools</a> tab lists all ${P.motors.length}.</p>`;
+  $('#main').innerHTML = h; dsBind();
+  $('#dsWell') && ($('#dsWell').onchange = e => { DS.run = null; location.hash = '#/drillstring/' + encodeURIComponent(e.target.value); });
+  $('#dsRun') && ($('#dsRun').onchange = e => { DS.run = e.target.value; route(); });
+  $('#dsNew') && ($('#dsNew').onclick = () => dsForm(P, P.well_id, null));
+  $('#dsEdit') && ($('#dsEdit').onclick = () => dsForm(P, P.well_id, run));
+  $('#dsDel') && ($('#dsDel').onclick = async () => { try { await post('/api/drillstring/remove', {run_id: run.id}); toast('Run removed', 'ok'); DS.run = null; route(); } catch (e) { toast(e.message, 'err'); } });
+};
 // ---------- economics: each well's time, footage and declared cost, against the market while it was drilled -------
 function ecMoney(v, d = 0) { return v === null || v === undefined ? '—' : '$' + Number(v).toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d}); }
 function ecNum(v, d = 0) { return v === null || v === undefined ? '—' : Number(v).toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d}); }
@@ -2324,7 +2489,7 @@ function authScreen(first) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/economics', 'Economics'], ['#/seismic', 'Seismic'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/economics', 'Economics'], ['#/seismic', 'Seismic'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w'], '#/control': b => [b.handover_unacked, 'w']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }

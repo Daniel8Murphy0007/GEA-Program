@@ -5,6 +5,50 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.40.0] - 2026-10-17 - Drill string
+
+### Added
+- **The Drill String tab** (`gea/drill_string.py`, `#/drillstring`): each run
+  the operator declares - the string from the bit up, every component a
+  class of the tool library with its maker, model, serial, outside diameter
+  and length, the stretch of the drilling record it covers on the
+  recorder's own clock - drawn as a build diagram (widths to the outside
+  diameters, the distance above the bit at each joint) beside its table.
+- **Service life and tracking**: from the drilling record over each run's
+  span, the hours in the hole, circulating, rotating and drilling, the
+  footage and the gallons pumped, and a motor's revolutions; summed per
+  serial (or fleet entry) across every run of every well against the
+  service interval declared for it, counted in the basis the operator
+  names, with its source - OK, NEAR or DUE.
+- **The downhole motor tracker**: the differential on bottom against the
+  maker's maximum operating and maximum differential, hour by hour and as
+  hours on bottom per 100 psi; the hours above the first; the stalls (at or
+  above the maximum while pumping, two seconds or longer); the motor's
+  no-load speed (revolutions per gallon times the flow) and the bit's (the
+  rotary's plus the motor's); a torque estimate from the maker's slope; the
+  rotor's turning and whirl frequencies, for a dynamics sub to confirm.
+- **Stability from the frequencies the record carries**: the surface torque
+  and the differential, block by block of about two hours of drilling,
+  through Welch's method in 0.03-0.45 Hz - the distinct oscillation
+  frequency (a peak inside the band four times above its median) and the
+  oscillation index (the band's RMS over the mean) charted across the run,
+  the spectrum of its first third against its last, and a stated rule that
+  calls a moved frequency or a changed amplitude a change.
+- **Downhole motors in the tool catalogue**: 41 power sections with the
+  maker's flow range, revolutions per gallon, maximum operating and maximum
+  differential, maximum torque, weight on bit, bit sizes and connections,
+  from MS Directional's Motor Handbook (April 2021), each figure transcribed
+  twice and compared (`reference/mud_motor_specs.json`); a table on the
+  Tools tab, `gea tools --action motors`, `/api/tools/motors`.
+- `gea drillstring --workspace` prints it; `--declare run.json`,
+  `--remove RUN`. API `/api/drillstring` and
+  `/api/drillstring/{run,remove}` (declaring needs the operator role).
+  `gea help drillstring`.
+- Section CI (3 checks); the gate is 407.
+
+### Fixed
+- The Tools tab's hidden tool tips no longer widen the page.
+
 ## [v0.39.0] - 2026-10-17 - Simulation
 
 ### Added

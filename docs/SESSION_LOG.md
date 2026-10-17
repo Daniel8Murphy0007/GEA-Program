@@ -2253,3 +2253,45 @@ water and gas, collated with the mud log.
   their chart caches in 1.5 to 2.6 s, 0.38 MB each, nine channels by depth,
   the gamma index lithology, the path from MD-TVD (no survey yet).
 - Section CH (3 checks). Gate 404.
+
+## 2026-10-17 - Drill string (v0.40.0)
+
+Daniel asked for a Drill String tab: a build diagram of the subs and tools in
+the string with their service life, usage and tracking; a downhole motor
+tracker charting its operating statistics and its frequency changes for its
+stability; and motor specifications in the tool catalogue.
+- Research first. The program had three tool registers (the gauge library,
+  the 96-class taxonomy, the operator's fleet) and nothing that followed a
+  tool's use; the drilling records carry pump output, differential pressure,
+  rotary speed and surface torque once a second. No motor figures shipped.
+  Motor specifications: MS Directional's Motor Handbook (First Edition, April
+  2021, Version 2.1, on patenergy.com) - the build machines cannot fetch it,
+  so it was read through the web reader twice, independently, field by field;
+  41 power sections on which both readings agreed are shipped, one that was
+  read once is left out, and no hash is claimed. An anonymous set of spec
+  sheets (no maker printed) was not used.
+- On Pad 3 (preview, read-only): one-second records, 583,732 drilling samples
+  on 30636033; drilling flow 350 to 905 gal/min, differential median about
+  400 psi, 95th percentile about 1,000; surface torque oscillating at 0.06 to
+  0.2 Hz (5 to 17 s) - the stick-slip band - and the differential's spectrum
+  red, rising to the band's edge, which the peak rule now refuses to call a
+  peak.
+- `gea/drill_string.py`: runs declared from the bit up (classes from the tool
+  library, a catalogued motor or the operator's own sheet with its source,
+  service intervals with their basis and source), usage from the chart cache
+  over each run's span, tracking per serial across runs, the motor's
+  statistics hour by hour, stalls, and the stability by Welch's method with
+  the program's stated rule; a labelled synthetic motor run for the gate.
+- The tab: the build diagram, the components with their life bars, the usage
+  tiles, the motor's charts (one axis each, the maker's limits as labelled
+  lines), the hours on bottom by differential, the stability charts and the
+  spectra, every component across every run, the declare/edit form. The Tools
+  tab gains the motor table. Driven in headless Chromium: light, dark, phone
+  width, no horizontal scroll (the Tools tab's hidden tips had widened it;
+  fixed).
+- Pad 3, whole records (no run declared yet): 1.0 to 1.7 s each; 30636033
+  232 h circulating, 162 h drilling, 23,796 ft, 7.07 million gallons; the
+  stability across the whole record says CHANGED for all three - expected
+  across hole sections and strings, and the page says so until the runs are
+  declared.
+- Section CI (3 checks). Gate 407.

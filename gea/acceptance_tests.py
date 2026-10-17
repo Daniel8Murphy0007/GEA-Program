@@ -9287,6 +9287,166 @@ def section_ch_simulation(tmp: str) -> None:
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_ci_drill_string(tmp: str) -> None:
+    """Section CI - the drill string: the downhole motor catalogue as the maker's sheets give it; a run declared from the
+    bit up and refused when a part of it is unsourced or impossible; its usage, the motor's revolutions, speed, stalls and
+    torque estimate equal to the hand sums over a labelled synthetic run; components followed across runs to their
+    service interval; the stability rule finding a growing oscillation and a moved frequency and not calling red noise a
+    peak; the API, the CLI, the tab and the help page."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    from datetime import datetime, timedelta
+    from . import drill_string as DS
+    from . import helplib as H
+    from . import tool_catalog as TC
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ci"); d.mkdir()
+    cat = DS.catalogue()
+    ms = cat["motors"]
+    m64, m89 = DS.motor_spec("msd-6-3-4-78-6.4"), DS.motor_spec("msd-8-3-8-89-4.0")
+    c1 = {
+        "catalogue": len(ms) == 41 and len({m["id"] for m in ms}) == 41 and cat["publisher"].startswith("MS Directional") and cat["url"].startswith("https://")
+                     and cat["fetched"] == "2026-10-17" and TC.catalog()["counts"]["motors"] == 41,
+        "sane": all(m["flow_gpm"][0] < m["flow_gpm"][1] and 0 < m["rev_per_gal"] < 2 and m["max_operating_diff_psi"] <= m["max_diff_psi"]
+                    and m["stator_lobes"] == m["rotor_lobes"] + 1 and m["max_torque_ft_lb"] > 0 and m["od_in"] > 4 for m in ms),
+        "as_printed": (m64["rev_per_gal"], m64["flow_gpm"], m64["max_operating_diff_psi"], m64["max_diff_psi"], m64["max_torque_ft_lb"]) == (0.28, [300, 600], 1000, 1820, 14360)
+                      and (m89["rev_per_gal"], m89["max_diff_psi"], m89["max_torque_ft_lb"], m89["max_operating_wob_lb"]) == (0.09, 1158, 32935, 70000)
+                      and "Motor Handbook" in m64["source"],
+    }
+    try:
+        DS.motor_spec("nope"); c1["unknown"] = False
+    except KeyError:
+        c1["unknown"] = True
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CI1 the downhole motor catalogue: 41 power sections with the maker's flow range, revolutions per gallon, maximum operating and "
+       "maximum differential, maximum torque and weight on bit as its spec sheets print them, the handbook and the date it was read; "
+       "every lobe count one more on the stator than the rotor; counted in the tool catalogue; an unknown motor named"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    syn = DS.synthetic_motor_record(str(d))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    w = ws.add_well_file(syn["path"], display="SYNTHETIC motor well", actor="tester")
+    ws.refresh_dashboard(actor="tester")
+    comps = [{"class_id": "pdc_bit", "maker": "Acme", "model": "X616", "serial": "B1", "od_in": 8.75, "length_ft": 1.2},
+             {"class_id": "pdm_motor", "motor_id": "msd-6-3-4-78-6.4", "serial": "M100", "length_ft": 30, "service_limit": 20, "service_basis": "circulating_hours", "service_source": "rental contract"},
+             {"class_id": "mwd_mud_pulse", "maker": "Acme", "model": "MWD", "serial": "W7", "od_in": 6.75, "length_ft": 32},
+             {"class_id": "drilling_jar", "maker": "Acme", "model": "Jar", "serial": "J2", "od_in": 6.5, "length_ft": 31, "service_limit": 300, "service_basis": "rotating_hours", "service_source": "shop rule"}]
+    refused = 0
+    for bad in ([{"class_id": "packer"}], [{"class_id": "pdc_bit", "service_limit": 10}], [{"class_id": "drilling_jar", "service_limit": 10, "service_basis": "revolutions", "service_source": "s"}],
+                [{"class_id": "pdm_motor", "motor": {"rev_per_gal": 0.3}}], [{"class_id": "pdm_motor", "motor": {"rev_per_gal": 0.3, "lobes": "seven", "source": "s"}}], []):
+        try:
+            DS.save_run(ws, "tester", w["id"], "bad", bad)
+        except ValueError:
+            refused += 1
+    for args in (("nope", "r", comps), (w["id"], "r", comps, "2026-08-01T10:00", "2026-08-01T09:00")):
+        try:
+            DS.save_run(ws, "tester", *args)
+        except (ValueError, KeyError):
+            refused += 1
+    r1 = DS.save_run(ws, "tester", w["id"], "Run 1", comps)
+    half = (datetime.fromisoformat(syn["start"]) + timedelta(hours=8)).isoformat()
+    r2 = DS.save_run(ws, "tester", w["id"], "Run 2 (second half)", [comps[1]], start=half)
+    tr = DS.run_view(ws, r1)["track"]; u = tr["usage"]; st = tr["motor_stats"]; h = st["hourly"]
+    gal = syn["gallons"]
+    trk = {e["serial"]: e for e in DS.tracking(ws)}
+    c2 = {
+        "refused": refused == 8,
+        "usage": u["circulating_hours"] == 16.0 and u["drilling_hours"] == 16.0 and abs(u["gallons"] - gal) < 1 and abs(u["footage_ft"] - 960.0) < 1.0
+                 and abs(u["revolutions"] - round(0.28 * gal)) < 2,
+        "motor": h["motor_rpm"][0] == 140.0 and h["bit_rpm"][0] == 190.0 and abs(h["whirl_hz"][0] - round(140 / 60 * 7, 3)) < 1e-6
+                 and abs(st["torque_slope_ft_lb_per_psi"] - round(14360 / 1820, 3)) < 1e-9 and 4600 < h["torque_est_ft_lb"][0] < 4900,
+        "stall": len(st["stalls"]) == 1 and st["stalls"][0]["at"] == syn["stall_at"] and st["stalls"][0]["seconds"] == 20 and st["stalls"][0]["peak_psi"] == 1900
+                 and 0.0 < st["hours_above_max_operating"] <= 0.01 and st["diff_on_bottom_psi"]["p50"] == 600.0,
+        "tracking": trk["M100"]["totals"]["circulating_hours"] == 24.0 and len(trk["M100"]["runs"]) == 2 and trk["M100"]["life"]["status"] == "DUE"
+                    and trk["J2"]["life"]["status"] == "OK" and trk["J2"]["totals"]["revolutions"] == 0.0 and "life" not in trk["B1"],
+        "audit": [a["action"] for a in ws.audit_log(200)].count("drillstring.run.declare") == 2,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CI2 a run from the bit up: an unknown class, a service interval with no source, revolutions for a jar, a motor's own figures with "
+       "no spec sheet or a malformed lobe count, an empty string, an unknown well and a run that ends before it starts refused; over a "
+       "labelled synthetic run the circulating hours, the gallons, the footage and the motor's revolutions equal the hand sums, its no-load "
+       "speed is revolutions per gallon times the flow and the bit's the rotary's plus that, the whirl seven times the rotor's turning, the "
+       "torque estimated from the maker's slope, the one stall found at its second; a motor followed across two runs to its interval"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    stab = tr["stability"]
+    tq_rows = [b["torque"] for b in stab["blocks"]]
+    n = 8 * 7200
+    tt = np.arange(n, dtype=float)
+    rng = np.random.default_rng(3)
+    moved = DS._stability(tt, np.ones(n, bool), 9.0 + 0.6 * np.where(tt < n / 2, np.sin(2 * np.pi * 0.10 * tt), np.sin(2 * np.pi * 0.20 * tt)) + rng.normal(0, 0.05, n),
+                          None, datetime(2026, 1, 1))
+    walk = DS._stability(tt, np.ones(n, bool), 9.0 + np.cumsum(rng.normal(0, 0.02, n)), None, datetime(2026, 1, 1))
+    short = DS._stability(tt[:3 * 3600], np.ones(3 * 3600, bool), 9.0 + rng.normal(0, 0.05, 3 * 3600), None, datetime(2026, 1, 1))
+    c3 = {
+        "grows": stab["verdict"]["status"] == "CHANGED" and stab["verdict"]["changed"] == ["surface torque oscillation"] and len(stab["blocks"]) == 8
+                 and all(abs(r["f_hz"] - 0.1016) < 0.002 for r in tq_rows) and 3.5 < tq_rows[-1]["index"] / tq_rows[0]["index"] < 4.5
+                 and abs(tq_rows[0]["index"] - 0.25 / np.sqrt(2) / 9.0) < 0.003,
+        "moves": moved["verdict"]["status"] == "CHANGED" and "surface torque frequency" in moved["verdict"]["changed"]
+                 and abs(moved["blocks"][0]["torque"]["f_hz"] - 0.1016) < 0.002 and abs(moved["blocks"][-1]["torque"]["f_hz"] - 0.20) < 0.004,
+        "red_noise": sum(1 for b in walk["blocks"] if b["torque"]["f_hz"]) <= 1,
+        "short": short["verdict"]["status"] == "TOO FEW BLOCKS",
+    }
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_g, pg = call(V, "GET", "/api/drillstring?well=" + w["id"])
+        s_m, mm = call(V, "GET", "/api/tools/motors")
+        s_vp, _ = call(V, "POST", "/api/drillstring/run", {"well_id": w["id"], "name": "x", "components": comps})
+        s_op, rr = call(O, "POST", "/api/drillstring/run", {"well_id": w["id"], "name": "Run 3", "components": comps[:1]})
+        s_bad, _ = call(O, "POST", "/api/drillstring/run", {"well_id": w["id"], "name": "x", "components": [{"class_id": "packer"}]})
+        s_nw, _ = call(O, "POST", "/api/drillstring/run", {"well_id": "nope", "name": "x", "components": comps})
+        s_rm, _ = call(O, "POST", "/api/drillstring/remove", {"run_id": rr.get("id", "")})
+        s_rm2, _ = call(O, "POST", "/api/drillstring/remove", {"run_id": rr.get("id", "")})
+        s_uw, _ = call(V, "GET", "/api/drillstring?well=nope")
+        s_ac, _ = call(O, "POST", "/api/drillstring/nope", {})
+    finally:
+        svc.stop()
+    cli = _sp.run([sys.executable, "-m", "gea", "drillstring", "--workspace", wsp], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_m = _sp.run([sys.executable, "-m", "gea", "tools", "--action", "motors"], capture_output=True, text=True, cwd=str(pkg.parent))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c3.update({
+        "api": s_g == 200 and len(pg["runs"]) == 2 and pg["runs"][0]["track"]["usage"]["circulating_hours"] == 16.0 and s_m == 200 and len(mm["motors"]) == 41
+               and s_vp == 403 and s_op == 200 and s_bad == 400 and s_nw == 404 and s_rm == 200 and s_rm2 == 404 and s_uw == 404 and s_ac == 404,
+        "cli": cli.returncode == 0 and "stability: CHANGED" in cli.stdout and "DUE: Positive displacement mud motor" in cli.stdout
+               and cli_m.returncode == 0 and "msd-6-3-4-78-6.4" in cli_m.stdout,
+        "page": all(x in page_src for x in ("VIEWS.drillstring", "['#/drillstring', 'Drill string']", "dsDiagram", "Declare a run", "Oscillation index, block by block",
+                                             "Distinct oscillation frequency", "id=\"mtCard\"", "/api/tools/motors", "Every component, across every run")),
+        "help": any(t[0] == "drillstring" for t in H.INDEX) and not H.check("drillstring") and H.VIEW_TOPIC.get("drillstring") == "drillstring",
+    })
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CI3 the stability: a torque oscillation at 0.10 Hz growing fourfold found as a change at its frequency and amplitude, one that moves "
+       "from 0.10 to 0.20 Hz found as moved, red noise rising to the band's edge not called a peak, a short record too few blocks to "
+       "compare; the API (a viewer reads, only an operator declares; a bad class, an unknown well, a second removal and an unknown action "
+       "named), the CLI, the Drill String tab with its build diagram, the motor table on the Tools tab, and the help page"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -9376,6 +9536,7 @@ def main() -> int:
         section_cf_economics(tmp)
         section_cg_well_report(tmp)
         section_ch_simulation(tmp)
+        section_ci_drill_string(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

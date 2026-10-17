@@ -1,29 +1,34 @@
-v0.39.0 — SIMULATION
+v0.40.0 — DRILL STRING
 
-A new tab, Simulation, drills a well again on the screen.
+A new tab, Drill String, follows what was run in the hole and how hard it
+was worked.
 
-The bit runs down the well's path in 3D among the mapped formations, with
-the drill string inside the hole drilled so far, on the clock the well was
-drilled by. Beside it a mud-log panel grows with the hole: the formation,
-the rock and fluid volumes, the logs and the drilling parameters at each
-depth. A readout says what the record carries at the bit, or at any depth
-under the pointer, and a click on the panel takes the bit to the moment it
-first reached that depth.
+A run is declared from the bit up: each component a class from the tool
+library with its maker, model, serial, outside diameter and length, and the
+stretch of the drilling record it covers. The tab draws it as a build
+diagram, and from the drilling record it measures each component's hours in
+the hole, circulating, rotating and drilling, the footage, the gallons, and
+for a motor its revolutions. A serialised component is followed across runs
+and wells against the service interval declared for it, with its source:
+OK, NEAR or DUE.
 
-Volve 15/9-F-4 ships with the logs of its reservoir section and
-Schlumberger's interpretation of them: the minerals and the porosity, the
-water and the hydrocarbon in the pores, the permeability. Its survey was
-run in one go and carries no drilling times, so its bit is stepped along
-measured depth and the page says so. Volve F-5 and F-10 play on their
-survey stations' own times. Every well with a drilling record plays on its
-recorder's own clock, with its channels by depth; on Pad 3 all three wells
-do, each built in under three seconds.
+The motor tracker charts the differential on bottom against the maker's
+maximum operating and maximum differential, the hours above the first, the
+stalls, the motor's and the bit's speed, a torque estimate from the maker's
+slope, and the rotor's turning and whirl frequencies. Its stability comes
+from the frequencies a one-second record carries: block by block, the slow
+oscillations of the surface torque and the differential (stick-slip lives
+there), their distinct frequency and their strength, the spectrum at the
+start of the run against the end, and a stated rule for what counts as a
+change.
 
-Nothing here is modelled: every value drawn is one the well's own record
-carries. A drilling recorder does not measure density, porosity or the
-fluids, and the page names what it does not show. A path drawn from the
-recorder's MD-TVD pairs lies in one vertical plane whose direction the
-record does not give, until the survey is attached.
+The tool catalogue now carries 41 downhole motors with the maker's
+published figures, from MS Directional's Motor Handbook, each figure read
+twice and compared. They are on the Tools tab, and a run can name one.
 
-Section CH is new, three checks. The gate is 404 checks. The standalone
+On Pad 3 all three wells show their whole records today, in under two
+seconds each; the motor figures and the per-run view follow once the runs
+are declared.
+
+Section CI is new, three checks. The gate is 407 checks. The standalone
 guard is clean.

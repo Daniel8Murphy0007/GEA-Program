@@ -1914,6 +1914,15 @@ def make_handler(app: App):
                         return self._json(200, W3.scene(app.ws, path[len('/api/3d/scene/'):]))
                     except KeyError as e:
                         raise ApiError(404, str(e.args[0]))
+                if path == '/api/drillstring':
+                    from . import drill_string as DS
+                    try:
+                        return self._json(200, DS.page(app.ws, (qs.get('well') or [None])[0]))
+                    except KeyError as e:
+                        raise ApiError(404, str(e.args[0]))
+                if path == '/api/tools/motors':
+                    from . import drill_string as DS
+                    return self._json(200, DS.catalogue())
                 if path == '/api/sim/scenes':
                     from . import simulation as SIM
                     return self._json(200, {'scenes': SIM.scenes(app.ws)})
@@ -2199,6 +2208,18 @@ def make_handler(app: App):
                             raise ApiError(400, str(e))
                     finally:
                         shutil.rmtree(tmp_dir, ignore_errors=True)
+                if path.startswith('/api/drillstring/'):
+                    from . import drill_string as DS
+                    App.require(user, 'operator')
+                    act = path[len('/api/drillstring/'):]
+                    if act == 'run':
+                        b_ = body or {}
+                        return self._json(200, App._cr(DS.save_run, app.ws, user['name'], str(b_.get('well_id', '')), str(b_.get('name', '')),
+                                                       b_.get('components') or [], b_.get('start') or None, b_.get('end') or None, b_.get('depth_in_ft'),
+                                                       b_.get('depth_out_ft'), str(b_.get('note', '')), b_.get('run_id') or None))
+                    if act == 'remove':
+                        return self._json(200, App._cr(DS.remove_run, app.ws, user['name'], str((body or {}).get('run_id', ''))))
+                    raise ApiError(404, 'no such drill string action')
                 if path == '/api/reports/well-report':
                     from . import well_report as WR
                     from . import __version__ as _v

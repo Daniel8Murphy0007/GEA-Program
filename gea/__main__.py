@@ -285,8 +285,8 @@ def main(argv=None) -> int:
     p_tl.add_argument("--station", type=str, action="append", default=None, help="a station as DEPTH_FT:TOOL, e.g. 9850:quartz_pt_geoq177_16k")
     p_tl.add_argument("--surface-temp-f", type=float, default=75.0); p_tl.add_argument("--temp-gradient-f-ft", type=float, default=0.018)
     p_tl.add_argument("--surface-pressure-psi", type=float, default=14.7); p_tl.add_argument("--pressure-gradient-psi-ft", type=float, default=0.465)
-    p_tl.add_argument("--action", choices=["classes", "tutorial", "fleet", "fleet-add", "fleet-remove"], default=None,
-                      help="the downhole tool classes in use across the industry: classes (--category, --find), tutorial --class ID, and the workspace's own fleet (fleet, fleet-add, fleet-remove)")
+    p_tl.add_argument("--action", choices=["classes", "tutorial", "fleet", "fleet-add", "fleet-remove", "motors"], default=None,
+                      help="the downhole tool classes in use across the industry: classes (--category, --find), tutorial --class ID, the workspace's own fleet (fleet, fleet-add, fleet-remove), and the downhole motor specifications (motors)")
     p_tl.add_argument("--category", type=str, default=None, help="classes: one category (bits, drive, measure, bha, casing, completion, logging, fishing, testing)")
     p_tl.add_argument("--find", type=str, default="", help="classes: words to look for in the name and description")
     p_tl.add_argument("--class", dest="class_id", type=str, default=None, help="tutorial / fleet-add: the tool class id, e.g. pdm_motor")
@@ -515,6 +515,14 @@ def main(argv=None) -> int:
     p_3d.add_argument("--scene", type=str, default="volve", choices=("volve", "workspace"))
     p_3d.add_argument("--workspace", type=str, default=None)
     p_3d.add_argument("--json", action="store_true")
+
+    p_ds = sub.add_parser("drillstring", help="the drill string: each declared run's components from the bit up, their usage from the drilling record and their service life; the downhole motor's statistics and the stability of its oscillations")
+    p_ds.add_argument("--workspace", type=str, required=True)
+    p_ds.add_argument("--well", type=str, default=None)
+    p_ds.add_argument("--declare", type=str, default=None, help="a JSON file declaring a run: {well_id, name, start, end, components:[{class_id, maker, model, serial, od_in, length_ft, motor_id | motor{...}, service_limit, service_basis, service_source}]}")
+    p_ds.add_argument("--remove", type=str, default=None, help="a run id to remove")
+    p_ds.add_argument("--actor", type=str, default="cli")
+    p_ds.add_argument("--json", action="store_true")
 
     p_sm = sub.add_parser("simulation", help="the simulation in words: the scenes (Volve 15/9-F-4 with its logs and interpretation, Volve F-5 and F-10 on the survey clock, every drilling-recorder well), and what the record says at a depth (the Simulation tab replays it)")
     p_sm.add_argument("--workspace", type=str, default=None)
@@ -2041,6 +2049,31 @@ def main(argv=None) -> int:
             r = _WR.write_pad(ws, __version__, actor=a.actor)
             print(f"pad: {r['paths']['html']}")
         return 0
+    elif a.cmd == "drillstring":
+        import json as _json
+        from . import drill_string as _DS
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        try:
+            ws = Workspace(a.workspace)
+        except WorkspaceError as e:
+            raise SystemExit(f"drillstring: {e}")
+        try:
+            if a.declare:
+                with open(a.declare, encoding="utf-8") as f:
+                    d = _json.load(f)
+                r = _DS.save_run(ws, a.actor, d.get("well_id", ""), d.get("name", ""), d.get("components") or [], d.get("start"), d.get("end"),
+                                 d.get("depth_in_ft"), d.get("depth_out_ft"), d.get("note", ""), d.get("run_id"))
+                print(f"declared {r['id']}: {r['name']} on {r['well_id']}, {len(r['components'])} component(s)")
+                return 0
+            if a.remove:
+                _DS.remove_run(ws, a.actor, a.remove); print(f"removed {a.remove}"); return 0
+            p = _DS.page(ws, a.well)
+        except (ValueError, KeyError, OSError, WorkspaceError) as e:
+            raise SystemExit(f"drillstring: {e.args[0] if e.args else e}")
+        print(_json.dumps(p, default=str) if a.json else _DS.text(p))
+        return 0
     elif a.cmd == "simulation":
         import json as _json
         from . import simulation as _SIM
@@ -2641,6 +2674,10 @@ def main(argv=None) -> int:
             from . import tool_taxonomy as _TX
             from .cli import _safe_stdout
             _safe_stdout()                                  # the cited figures carry fractions and degree signs
+            if a.action == "motors":
+                from . import drill_string as _DS
+                print(_json.dumps(_DS.catalogue(), indent=1) if a.json else _DS.motor_text())
+                return 0
             if a.action == "classes":
                 cs = _TX.classes(a.category, a.find)
                 if a.category and a.category not in _TX.CATEGORY_NAMES:

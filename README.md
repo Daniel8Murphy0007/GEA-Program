@@ -609,6 +609,18 @@ against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
 
+### Drill string
+
+The Drill String tab holds each run's string from the bit up - drawn as a
+build diagram - and follows every component's hours, footage and, for a
+motor, revolutions from the drilling record across runs and wells against
+its declared service interval. The downhole motor tracker charts the
+differential against the maker's limits, the stalls, the motor's and the
+bit's speed and a torque estimate, and judges the motor's stability from
+the slow oscillations of the torque and the differential, block by block.
+The tool catalogue carries 41 downhole motors with the maker's figures.
+`gea drillstring`, `gea tools --action motors`, `gea help drillstring`.
+
 ### Simulation
 
 The Simulation tab drills a well again on the screen: the bit runs down its

@@ -123,12 +123,17 @@ def unmatched() -> List[dict]:
     return [{'tool': t['name'], 'telemetry_interface': t['telemetry_interface']} for t in tools() if not t['ports']]
 
 
+def _motor_count() -> int:
+    from .drill_string import motor_specs
+    return len(motor_specs())
+
+
 def catalog() -> dict:
     ts, ps = tools(), ports()
     return {'tools': ts, 'ports': ps, 'unmatched': unmatched(),
             'counts': {'tools': len(ts), 'fully_specified': sum(1 for t in ts if t['spec_status'] == FULLY_SPECIFIED),
                        'user_supplied': sum(1 for t in ts if t['spec_status'] == PARAMETERS_USER_SUPPLIED),
-                       'file_ports': len(ps['files']), 'live_ports': len(ps['live'])},
+                       'file_ports': len(ps['files']), 'live_ports': len(ps['live']), 'motors': _motor_count()},
             'statement': ('Every tool and every port here is a declaration with its source, not a measurement. A tool whose vendor '
                           'published no numbers carries none and says so; a port that needs the site\'s own details names them.')}
 
