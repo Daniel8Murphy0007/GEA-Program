@@ -365,7 +365,7 @@ def evidence_pack(ws: Workspace, out_path: str, actor: str, include_audit: bool 
         if os.path.isfile(path):
             items.append((path, arc))
     for dp, dn, fn in os.walk(ws.reports_dir):
-        dn[:] = [d for d in dn if d not in ('imported',)]
+        dn[:] = [d for d in dn if d not in ('imported', 'history', 'dossiers')]          # the history and the dossiers have their own index and ledger, kept below
         for n in fn:
             p = os.path.join(dp, n)
             add(p, 'reports/' + os.path.relpath(p, ws.reports_dir).replace(os.sep, '/'))
@@ -377,6 +377,8 @@ def evidence_pack(ws: Workspace, out_path: str, actor: str, include_audit: bool 
         for n in fn:
             p = os.path.join(dp, n)
             add(p, 'monitor/' + os.path.relpath(p, os.path.join(ws.path, 'monitor')).replace(os.sep, '/'))
+    add(os.path.join(ws.reports_dir, 'history', 'index.jsonl'), 'reports/history/index.jsonl')
+    add(os.path.join(ws.reports_dir, 'dossiers', 'ledger.jsonl'), 'reports/dossiers/ledger.jsonl')
     add(os.path.join(ws.path, 'workspace.json'), 'workspace.json')
     add(os.path.join(ws.path, 'patches.json'), 'patches.json')
     add(os.path.join(ws.path, 'records', 'imported.jsonl'), 'records/imported.jsonl')

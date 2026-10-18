@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.43.0 - 2026-10-18 - report history and the signed dossier
+
+- **Nothing written is lost, and anything sent can be checked.** Every
+  client report kept by version with its hashes; a well's or the pad's
+  record signed with the site's Ed25519 key in one dossier, with a
+  standalone checker inside; the audit log hash-chained into each dossier
+  and the dossiers chained to each other. Section CL; gate 416.
+
 ## v0.42.0 - 2026-10-18 - operations and seismicity
 
 - **Each well's operations against the earthquakes around it.** Events by

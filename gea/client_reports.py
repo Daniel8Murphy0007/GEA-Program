@@ -1925,4 +1925,9 @@ def write(doc: Document, out_dir: str, basename: str = 'gauge_drift_report') -> 
         write_catalogue_csv(doc.data['_catalogue_obj'], paths['catalogue_csv'])
     else:
         paths.pop('catalogue_csv')
+    try:                                                    # inside a workspace, keep the version this one replaces
+        from . import report_history as _RH
+        _RH.record(out_dir, basename, paths, getattr(doc, 'report_id', ''), getattr(doc, 'title', ''))
+    except OSError:
+        pass                                                # a full disk loses the copy, never the report
     return paths

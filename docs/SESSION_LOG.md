@@ -2358,3 +2358,32 @@ stability; and motor specifications in the tool catalogue.
   amber to blue so it does not sit beside the during-window orange.
 - Section CK (3 checks). Gate 413.
 
+## 2026-10-18 - Report history and the signed dossier (v0.43.0)
+
+- Asked: where the reports go (C:\site\reports; each press replaced the
+  last), then to build report history and the signed dossier together.
+- Report history hooks the one function every client report is written
+  through: when the folder is inside a workspace's reports folder (and not
+  its history, dossiers or month-end packets), each file written is copied
+  to a dated folder and indexed with its SHA-256. Nothing is pruned unless
+  asked.
+- The signing decision taken as proposed: Ed25519, a key made on the site's
+  machine on first use, never sent. Written from RFC 8032's reference
+  (section 6) in extended coordinates with the standard library alone, so
+  the checker can ride inside the dossier; checked against the RFC's three
+  test vectors (read from rfc-editor.org), and during the build against an
+  independent implementation on twenty random keys (not in the gate, which
+  stays standalone). About 3 ms to sign.
+- The audit log was not chained, and rotates; rather than change its format,
+  each dossier chains the log's lines in order across the rotated segments
+  and records the head and the count, so a later check finds an earlier line
+  changed. The key is kept outside `config` because the evidence pack walks
+  `config`.
+- The checker is the RFC functions followed by the checker module, run in a
+  bare `python -I` in an empty folder by the gate.
+- Pad 3: two of its earlier pad reports were lost to the overwrite; from this
+  version every one is kept.
+- The Reports tab's two new cards driven in headless Chromium: light, dark,
+  phone width, no horizontal scroll, no console errors.
+- Section CL (3 checks). Gate 416.
+

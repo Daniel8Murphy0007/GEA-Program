@@ -609,6 +609,19 @@ against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
 
+### Report history and the signed dossier
+
+Every client report a workspace writes is kept, version by version, under
+`reports\history\` with each file's SHA-256, so pressing a report button
+again no longer loses the last one; the Reports tab lists every version.
+The signed dossier puts a well's - or the pad's - reports, declarations,
+audit log and source-record hashes in one zip, signed with the site's own
+Ed25519 key (made on the site's machine, never sent anywhere), with a
+checker inside that anyone can run with plain Python: VALID when the
+signature and every file's hash hold, and inside the workspace a check that
+the source records and the audit log still match what was signed.
+`gea dossier`, `gea reports-history`, `gea help dossier`.
+
 ### Operations and seismicity
 
 The Operations & Seismicity tab sets each well's drilling, completion and

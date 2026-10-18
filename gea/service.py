@@ -1940,6 +1940,9 @@ def make_handler(app: App):
                         return self._json(200, OS.page(app.ws, (qs.get('scene') or ['workspace'])[0], over or None))
                     except KeyError as e:
                         raise ApiError(404, str(e.args[0]))
+                if path == '/api/dossier':
+                    from . import dossier as DZ
+                    return self._json(200, DZ.page(app.ws))
                 if path == '/api/penetrator':
                     from . import penetrator as PN
                     return self._json(200, PN.page(app.ws))
@@ -2264,6 +2267,40 @@ def make_handler(app: App):
                         return self._json(200, App._cr(OS.set_settings, app.ws, user['name'], b_.get('protocol') or None, b_.get('radius_km'), b_.get('screen_km'),
                                                        b_.get('post_days'), b_.get('mc')))
                     raise ApiError(404, 'no such operations and seismicity action')
+                if path in ('/api/dossier/sign', '/api/dossier/verify'):
+                    from . import dossier as DZ
+                    from . import __version__ as _v
+                    import base64 as _b64
+                    App.require(user, 'viewer')
+                    b_ = dict(body or {})
+                    if path == '/api/dossier/sign':
+                        App.require(user, 'operator')
+                        return self._json(200, App._cr(DZ.build, app.ws, user['name'], _v, b_.get('well_id') or None, bool(b_.get('include_sources'))))
+                    if b_.get('path'):
+                        rel = os.path.normpath(str(b_['path'])).replace('\\', '/')
+                        if rel.startswith('..') or os.path.isabs(rel) or not rel.startswith('dossiers/'):
+                            raise ApiError(400, 'bad path')
+                        full = os.path.join(app.ws.reports_dir, rel)
+                        if not os.path.isfile(full):
+                            raise ApiError(404, 'no such dossier')
+                        return self._json(200, DZ.verify(full, app.ws))
+                    try:
+                        content = _b64.b64decode(str(b_.get('content_b64') or ''), validate=True)
+                    except ValueError:
+                        raise ApiError(400, 'the dossier must be sent as base64')
+                    if not content:
+                        raise ApiError(400, 'send a dossier, or the path of one this site signed')
+                    import tempfile as _tf
+                    td = _tf.mkdtemp()
+                    try:
+                        p_ = os.path.join(td, 'dossier.zip')
+                        with open(p_, 'wb') as fh:
+                            fh.write(content)
+                        r_ = DZ.verify(p_, app.ws)
+                        r_['dossier'] = str(b_.get('filename') or 'uploaded dossier')
+                        return self._json(200, r_)
+                    finally:
+                        shutil.rmtree(td, ignore_errors=True)
                 if path.startswith('/api/penetrator/'):
                     from . import penetrator as PN
                     App.require(user, 'operator')

@@ -1,29 +1,26 @@
-v0.42.0 — OPERATIONS AND SEISMICITY
+v0.43.0 — REPORT HISTORY AND THE SIGNED DOSSIER
 
-A new tab, Operations & Seismicity, sets each well's drilling, completion
-and disposal against the earthquake catalogue around it.
+Two things this release adds: no report is lost when the next one is
+written, and a well's record can be sent as one file that anyone can check.
 
-Every event within 20 km of a well appears on a time line by its distance
-from the well, sized by magnitude, and is named as during an operation,
-in the months after one, or outside. When a drilling record covers the
-moment, the page says what the rig was doing and how deep the hole was.
-Each event is read against a regulator's protocol - British Columbia,
-Alberta, Oklahoma, Ohio or Texas, each with its document - for the level
-it would reach and the action that level requires. The rate of
-earthquakes near the well while it works is compared with the rest of
-the record by an exact test, and the page says plainly that a
-coincidence in time and place is not a cause.
+Report history. A report is written to a fixed name, so the latest is
+always where a reader expects it - and until now each new one replaced the
+last. Every client report written in a workspace is now also kept in a
+dated folder under reports/history, with each file's SHA-256 in an index.
+The Reports tab lists every report's versions with links to each file.
 
-Catalogue exports are attached with the window and circle they were
-queried for; the tab draws the ComCat query around the wells for the site
-to run, since the program does not reach the service itself. Operation
-windows are declared with their source, here or in the declarations
-sheet, which gains two tables.
+The signed dossier. One zip holds a well's - or the pad's - reports, the
+declarations behind them, the audit log and the hashes of the source
+records, with a manifest of every file's SHA-256 signed with the site's own
+Ed25519 key. The key is made on the site's machine the first time and never
+leaves it; its fingerprint is on the Reports tab for the site to give its
+clients. Inside every dossier is a checker that runs with plain Python and
+nothing else: it says VALID when the signature and every file's hash hold.
+Inside the workspace the check also says whether the source records and the
+audit log still match what was signed, and each dossier names the one
+before it, so a site's dossiers form one chain. A valid signature shows the
+files are unchanged since signing; the page says plainly that it does not
+show they are correct.
 
-The Mahoning Valley in Ohio ships as a worked example from the public
-record: the 2011 Youngstown earthquakes against the Northstar 1 injection
-year, and the 2014 Poland Township earthquakes against a stimulation,
-with the USGS catalogue from 1990 to 2026.
-
-Section CK is new, three checks. The gate is 413 checks. The standalone
+Section CL is new, three checks. The gate is 416 checks. The standalone
 guard is clean.

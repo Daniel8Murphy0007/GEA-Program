@@ -146,6 +146,7 @@ body.wallmode{--wbg:#fff;--wink:#000;--wmut:#2b2b2b;--wline:#000;--wsr:#b00020;-
 .kv{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;font-size:14px}.kv dt{color:var(--muted)}.kv dd{margin:0}
 @media (max-width:640px){main{padding:12px}label>input,label>select{min-width:0;width:100%}table{display:block;overflow-x:auto;white-space:nowrap}.row{align-items:stretch}.row>*{width:100%}header h1{font-size:16px}pre{max-width:100%}.apr{min-width:0}.kv{grid-template-columns:1fr}}
 .os-ch text{font:11px var(--sans);fill:var(--muted)}.os-ch .os-lb{fill:var(--ink2)}.os-key{display:flex;flex-wrap:wrap;gap:14px;margin:4px 0 10px}.os-key i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}.os-key i.band{border-radius:2px;background:var(--ink);opacity:.18;width:16px}.os-zoom{gap:6px;margin:6px 0}.os-zoom button{padding:2px 10px;font-size:12px}.os-ev{cursor:default}
+.dz-bad{border-color:var(--serious)}.rh-list{margin:4px 0;columns:1}
 </style>
 </head>
 <body>
@@ -1629,13 +1630,43 @@ VIEWS.reports = async () => {
     ${can('operator') ? `<div class="row"><button data-wr="__pad__" type="button">Write the pad report</button>${Object.keys(r.wells).map(w => `<button class="secondary" data-wr="${esc(w)}" type="button">${esc(w)}</button>`).join('')}</div>` : ''}</div>`;
   h += `<div class="card"><h3>Site</h3><p class="mono small">${r.site.map(f => `<a href="/reports/${esc(f)}" target="_blank" rel="noopener">${esc(f)}</a>`).join(' · ') || 'none yet'}</p></div>`;
   for (const [w, files] of Object.entries(r.wells)) h += `<div class="card"><h3><a href="#/wells/${esc(w)}">${esc(w)}</a></h3><p class="mono small">${files.map(f => `<a href="/reports/wells/${esc(w)}/${esc(f)}" target="_blank" rel="noopener">${esc(f)}</a>`).join(' · ')}</p></div>`;
-  $('#main').innerHTML = h;
+  h += await rpCards();
+  $('#main').innerHTML = h; rpBind();
   const meRun = $('#meRun'); if (meRun) meRun.onclick = async () => { meRun.disabled = true; try { const j = await post('/api/month-end/run', {period: $('#mePeriod').value.trim()}); toast('Month-end packet started: job ' + j.id, 'ok'); watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); meRun.disabled = false; } };
   const meSched = $('#meSched'); if (meSched) meSched.onclick = async () => { try { const e = await post('/api/month-end/schedule', {day: +$('#meDay').value, at: $('#meAt').value}); toast(`Scheduled monthly: day ${e.monthly_day} at ${e.daily_at} UTC`, 'ok'); route(); } catch (e) { toast(e.message, 'err'); } };
   document.querySelectorAll('[data-wr]').forEach(b => b.onclick = async () => { b.disabled = true; try { const k = b.dataset.wr; const j = await post('/api/reports/well-report', k === '__pad__' ? {pad: true} : {well_id: k}); toast('Written: ' + j.report_id, 'ok'); route(); } catch (e) { toast(e.message, 'err'); b.disabled = false; } });
   document.querySelectorAll('[data-run]').forEach(b => b.onclick = async () => { const k = b.dataset.run; try { let j; if (k === 'refresh') j = await post('/api/refresh', {}); else if (k === 'sla') { const m = $('#slaMonth').value; if (!m) return toast('give the month', 'err'); j = await post('/api/refresh', {month: m}); } else if (k === 'model-cards') j = await post('/api/jobs', {args: ['model-cards', '--out', o.workspace.path + '/reports'], label: 'model cards'}); else j = await post('/api/verify', {what: k}); toast('Started: job ' + j.id, 'ok'); watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); } });
 };
 
+// ---------- report history and signed dossiers (the Reports tab) ----------
+const RP = {open: {}, verify: null};
+function rpBytes(n) { return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'; }
+async function rpCards() {
+  let D; try { D = await get('/api/dossier'); } catch (e) { return ''; }
+  RP.data = D; const k = D.key, H = D.history;
+  let h = `<div class="card" id="dzCard"><h3>Signed dossiers <span class="small muted">a well's, or the pad's, reports, declarations, audit log and source hashes in one zip, signed with this site's key; anyone can check one without GEA</span></h3>`;
+  h += `<p class="small">${k ? `This site's signing key: <b class="mono">${esc(k.fingerprint)}</b> (Ed25519, made ${tz(k.created_utc)}). Give this fingerprint to your clients by email or contract, separately from the dossiers: it is how they know a dossier is yours.` : 'No signing key yet: the first dossier makes one on this machine, kept in the workspace and never sent anywhere.'}</p>`;
+  if (can('operator')) h += `<div class="row"><button type="button" class="dz-sign" data-w="">Sign a dossier for the pad</button>${D.wells.map(w => `<button type="button" class="secondary dz-sign" data-w="${esc(w.id)}">${esc(w.display)}</button>`).join('')}<label class="small ck-chk"><input type="checkbox" id="dzSrc"> embed the source records (otherwise listed by hash)</label></div>`;
+  h += `<div class="row"><label>Check a dossier someone sent you<input type="file" id="dzFile" accept=".zip"></label></div><div id="dzOut"></div>`;
+  if (D.dossiers.length) h += `<div style="overflow-x:auto"><table class="small"><thead><tr><th>Signed (UTC)</th><th>Scope</th><th>Files</th><th>Sources</th><th>Size</th><th>Dossier</th><th></th></tr></thead><tbody>${D.dossiers.map(e => `<tr><td>${tz(e.utc)}</td><td>${esc(e.display)}</td><td>${e.n_files}</td><td>${e.n_sources} ${e.sources_embedded ? 'embedded' : 'by hash'}</td><td>${rpBytes(e.bytes)}</td><td><a class="mono" href="/reports/${esc(e.path)}">${esc(e.dossier_id)}</a></td><td><button type="button" class="secondary dz-ver" data-p="${esc(e.path)}" style="padding:2px 10px;font-size:12px">Check</button></td></tr>`).join('')}</tbody></table></div>`;
+  else h += `<p class="small muted">No dossier signed yet.</p>`;
+  h += `<p class="small muted">Inside a dossier: <span class="mono">manifest.json</span> (every file with its SHA-256), <span class="mono">signature.json</span>, the files, and <span class="mono">verify_dossier.py</span> — run <span class="mono">python verify_dossier.py &lt;dossier&gt;.zip</span> anywhere with Python 3.8+. A valid signature shows the files are unchanged since signing; it does not show they are correct.</p></div>`;
+  h += `<div class="card" id="rhCard"><h3>Report history <span class="small muted">every version of every client report, kept when the next one replaces it — ${H.n_versions} version${H.n_versions === 1 ? '' : 's'}, ${rpBytes(H.bytes)}</span></h3>`;
+  if (!H.families.length) h += `<p class="small muted">Nothing yet: the next report written keeps its first version here.</p>`;
+  else h += `<div style="overflow-x:auto"><table class="small"><thead><tr><th>Report</th><th>Versions</th><th>Latest (UTC)</th><th></th></tr></thead><tbody>${H.families.map(f => `<tr><td class="mono">${esc(f.family)}</td><td>${f.n}</td><td>${tz(f.latest)}</td><td><button type="button" class="secondary rh-open" data-f="${esc(f.family)}" style="padding:2px 10px;font-size:12px">${RP.open[f.family] ? 'Hide' : 'Show'} versions</button></td></tr>${RP.open[f.family] ? `<tr><td colspan="4"><ul class="small rh-list">${f.versions.map(v => `<li>${tz(v.utc)} ${v.report_id ? `<span class="muted">${esc(v.report_id)}</span>` : ''} — ${v.files.map(x => `<a href="/reports/${esc(v.dir)}/${esc(x.name)}" target="_blank" rel="noopener">${esc(x.name.split('.').pop() === 'svg' ? x.name : x.name.split('.').pop())}</a>`).join(' · ')}</li>`).join('')}</ul></td></tr>` : ''}`).join('')}</tbody></table></div>`;
+  h += `<p class="small muted">Kept under <span class="mono">reports\\history\\</span>, each version in its own dated folder, each file's SHA-256 in <span class="mono">history\\index.jsonl</span>. Nothing is removed unless the site asks (<span class="mono">gea reports-history --prune --keep N --apply</span>).</p></div>`;
+  return h;
+}
+function rpShow(r) {
+  const ok = r.status === 'VALID';
+  $('#dzOut').innerHTML = `<div class="card ${ok ? '' : 'dz-bad'}"><h4>${statusPill(ok ? 'good' : 'serious', r.status)} <span class="small mono">${esc(String(r.dossier).split(/[\\/]/).pop())}</span></h4><ul class="small">${[...(r.checks || []), ...(r.workspace_checks || [])].map(c => `<li>${c.ok ? '✓' : '✗'} <b>${esc(c.check)}</b>: ${esc(c.detail)}</li>`).join('')}</ul>${r.fingerprint ? `<p class="small">Signer's key fingerprint: <b class="mono">${esc(r.fingerprint)}</b>${RP.data.key && RP.data.key.fingerprint === r.fingerprint ? ' — this site\'s key' : ' — not this site\'s key: compare it with the one the sender gave you'}</p>` : ''}</div>`;
+}
+function rpBind() {
+  document.querySelectorAll('.rh-open').forEach(b => b.onclick = () => { RP.open[b.dataset.f] = !RP.open[b.dataset.f]; route(); });
+  document.querySelectorAll('.dz-sign').forEach(b => b.onclick = async () => { b.disabled = true; try { const e = await post('/api/dossier/sign', {well_id: b.dataset.w || null, include_sources: $('#dzSrc') && $('#dzSrc').checked}); toast(`Signed ${e.dossier_id}: ${e.n_files} files`, 'ok'); route(); } catch (e) { toast(e.message, 'err'); b.disabled = false; } });
+  document.querySelectorAll('.dz-ver').forEach(b => b.onclick = async () => { try { rpShow(await post('/api/dossier/verify', {path: b.dataset.p})); $('#dzOut').scrollIntoView({behavior: 'smooth', block: 'nearest'}); } catch (e) { toast(e.message, 'err'); } });
+  $('#dzFile') && ($('#dzFile').onchange = async ev => { const f = ev.target.files[0]; if (!f) return; try { rpShow(await post('/api/dossier/verify', {filename: f.name, content_b64: await readFile(f)})); } catch (e) { toast(e.message, 'err'); } });
+}
 VIEWS.verify = async () => {
   const {jobs} = await get('/api/jobs?limit=200'); const last = k => jobs.find(j => j.kind === k);
   let h = `<h2>Verification</h2><p class="small muted">The same gate the program ships with, run here and kept as a job with its log. A client's own acceptance is reproducible from this page without a terminal.</p>`;

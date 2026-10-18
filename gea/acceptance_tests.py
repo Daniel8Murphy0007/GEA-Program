@@ -9910,6 +9910,212 @@ def section_ck_operations_seismicity(tmp: str) -> None:
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_cl_history_and_dossier(tmp: str) -> None:
+    """Section CL - report history and the signed dossier: Ed25519 against RFC 8032's test vectors and an independent
+    implementation's signatures; every client report written in a workspace kept by version with its hashes, none kept
+    outside one; a dossier signed, checked by its own standalone checker in a bare Python, and found INVALID when a file,
+    the manifest or the signature is changed, and VALID BUT CHANGED when the source record or an earlier audit line is;
+    the dossier chain; the API, the CLI, the Reports tab and the help pages."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    import zipfile
+    import base64 as _b64
+    import hashlib as _hl
+    from . import __version__
+    from . import client_reports as CRP
+    from . import dossier as DZ
+    from . import drill_string as DS
+    from . import ed25519 as ED
+    from . import helplib as H
+    from . import report_history as RH
+    from . import well_report as WR
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "cl"); d.mkdir()
+
+    # -- CL1 the signature -------------------------------------------------------------------------------------------
+    vec = [("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60", "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a", "",
+            "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b"),
+           ("4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb", "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c", "72",
+            "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00"),
+           ("c5aa8df43f9f837bedb7442f31dcb7b166d38535076f094b85ce3a2e0b4458f7", "fc51cd8e6218a1a38da47ed00230f0580816ed13ba3303ac5deb911548908025", "af82",
+            "6291d657deec24024827e69c3abe01a30ce548a284743a445e3680d7db5ac3ac18ff9b538d16f290ae67f760984dc6594a7c15e9716ed28dc027beceea1ec40a")]
+    rfc = all(ED.public_key(bytes.fromhex(s)).hex() == pk and ED.sign(bytes.fromhex(s), bytes.fromhex(m)).hex() == sg
+              and ED.verify(bytes.fromhex(pk), bytes.fromhex(m), bytes.fromhex(sg)) for s, pk, m, sg in vec)
+    s0, pk0, _, sg0 = vec[0]
+    tamper = (not ED.verify(bytes.fromhex(pk0), b"x", bytes.fromhex(sg0)) and not ED.verify(bytes.fromhex(vec[1][1]), b"", bytes.fromhex(sg0))
+              and not ED.verify(bytes.fromhex(pk0), b"", bytes.fromhex(sg0[:-2] + "0c")) and not ED.verify(b"\x00" * 31, b"", bytes.fromhex(sg0)))
+    rng = __import__("random").Random(43)
+    cross = True
+    for _ in range(5):                                       # random keys and messages: what is signed verifies, and nothing else does
+        seed = bytes(rng.getrandbits(8) for _ in range(32)); msg = bytes(rng.getrandbits(8) for _ in range(77))
+        sg_ = ED.sign(seed, msg)
+        cross = cross and ED.verify(ED.public_key(seed), msg, sg_) and not ED.verify(ED.public_key(seed), msg[:-1], sg_)
+    c1 = {"rfc8032": rfc, "tamper": tamper, "independent": cross, "fingerprint": ED.fingerprint(bytes.fromhex(pk0)).count(" ") == 7}
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CL1 Ed25519 in the standard library: RFC 8032's three test vectors signed and verified byte for byte; a changed message, another key, "
+       "a changed signature byte and a malformed key refused; five random keys and messages verified, and refused once shortened"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- CL2 the report history --------------------------------------------------------------------------------------
+    syn = DS.synthetic_motor_record(str(d))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad CL", actor="tester")
+    w = ws.add_well_file(syn["path"], display="SYNTHETIC well", actor="tester")
+    ws.refresh_dashboard(actor="tester")
+    r1 = WR.write_well(ws, w["id"], __version__, actor="tester")
+    r2 = WR.write_well(ws, w["id"], __version__, actor="tester")
+    WR.write_pad(ws, __version__, actor="tester")
+    fam = f"wells/{w['id']}/well_report"
+    vs = RH.entries(ws.reports_dir, fam)
+    cur = Path(ws.reports_dir, "wells", w["id"], "well_report.html").read_bytes()
+    newest = Path(ws.reports_dir, vs[0]["dir"], "well_report.html").read_bytes() if vs else b""
+    oldest = json.loads(Path(ws.reports_dir, vs[-1]["dir"], "well_report.json").read_text(encoding="utf-8")) if vs else {}
+    outside = d / "out"
+    CRP.write(CRP.Document(title="SYNTHETIC outside", report_id="OUT-1", front=[], sections=[]), str(outside), basename="x")
+    out_ok = RH.locate(str(outside)) is None and not (outside / "history").exists() and (outside / "x.html").is_file()
+    sm = RH.summary(ws.reports_dir)
+    pr = RH.prune(ws.reports_dir, 1, fam)
+    c2 = {
+        "versions": len(vs) == 2 and vs[0]["report_id"] == r2["report_id"] and vs[1]["report_id"] == r1["report_id"] and newest == cur
+                    and oldest.get("report_id", r1["report_id"]) == r1["report_id"],
+        "hashes": all(_hl.sha256(Path(ws.reports_dir, v["dir"], f["name"]).read_bytes()).hexdigest() == f["sha256"] for v in vs for f in v["files"])
+                  and any(f["name"].endswith(".svg") for f in vs[0]["files"]),
+        "families": {"pad_report", f"wells/{w['id']}/drilling_record"} <= {f["family"] for f in sm["families"]} and sm["bytes"] > 0,
+        "outside": out_ok and RH.locate(str(pkg.parent / "docs" / "report_samples")) is None,
+        "prune": not pr["applied"] and len(pr["removed"]) == 1 and len(RH.entries(ws.reports_dir, fam)) == 2,
+        "listing": "history" not in CRP.__dict__ and all(not x.startswith("history") for x in os.listdir(Path(ws.reports_dir, "wells", w["id"]))),
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CL2 report history: a well report written twice keeps both versions, newest first, by report id, the newest identical to the report at "
+       "its usual path, every file's SHA-256 in the index (the drawings too); the pad report and the drilling record kept the same way; a "
+       "report written outside a workspace keeps none; a prune names what it would remove and removes nothing until applied"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- CL3 the dossier ---------------------------------------------------------------------------------------------
+    e1 = DZ.build(ws, "tester", __version__, w["id"])
+    e2 = DZ.build(ws, "tester", __version__, None, include_sources=True)
+    z1 = Path(ws.reports_dir, e1["path"]); z2 = Path(ws.reports_dir, e2["path"])
+    v1 = DZ.verify(str(z1), ws)
+    bare = d / "bare"; bare.mkdir()
+    with zipfile.ZipFile(z1) as z:
+        names = z.namelist(); man = json.loads(z.read("manifest.json")); z.extract("verify_dossier.py", str(bare))
+    alone = _sp.run([sys.executable, "-I", str(bare / "verify_dossier.py"), str(z1)], capture_output=True, text=True, cwd=str(bare))
+    alone_src = _sp.run([sys.executable, "-I", str(bare / "verify_dossier.py"), str(z1), "--sources", str(Path(wsp, "wells", w["id"], "source"))],
+                        capture_output=True, text=True, cwd=str(bare))
+
+    def rewrite(src, dst, change):
+        with zipfile.ZipFile(src) as zi, zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED) as zo:
+            for n in zi.namelist():
+                b = zi.read(n)
+                b2 = change(n, b)
+                if b2 is not None:
+                    zo.writestr(n, b2)
+    rep_name = next(f["path"] for f in man["files"] if f["path"].endswith("well_report.html"))
+    rewrite(z1, d / "t_file.zip", lambda n, b: b.replace(b"SYNTHETIC", b"SYNTHETIX", 1) if n == rep_name else b)
+    rewrite(z1, d / "t_man.zip", lambda n, b: b.replace(b'"created_by":"tester"', b'"created_by":"someone"') if n == "manifest.json" else b)
+    rewrite(z1, d / "t_extra.zip", lambda n, b: b)
+    with zipfile.ZipFile(d / "t_extra.zip", "a") as za:
+        za.writestr("reports/extra.html", "<p>added</p>")
+    rewrite(z1, d / "t_drop.zip", lambda n, b: None if n == rep_name else b)
+    t_file, t_man, t_extra, t_drop = (DZ.verify(str(d / f"t_{k}.zip")) for k in ("file", "man", "extra", "drop"))
+    other = Workspace.create(str(d / "ws2"), "Other", actor="tester")
+    v_other = DZ.verify(str(z1), other)
+    # the workspace moves on: the source record and an earlier audit line change
+    src = next(Path(wsp, "wells", w["id"], "source").iterdir())
+    raw = src.read_bytes()
+    src.write_bytes(raw + b"\n")
+    v_src = DZ.verify(str(z1), ws)
+    src.write_bytes(raw)
+    al = Path(ws.audit_path).read_text(encoding="utf-8").splitlines(keepends=True)
+    Path(ws.audit_path).write_text("".join([al[0].replace("tester", "Tester", 1)] + al[1:]), encoding="utf-8")
+    v_aud = DZ.verify(str(z1), ws)
+    Path(ws.audit_path).write_text("".join(al), encoding="utf-8")
+    v_back = DZ.verify(str(z1), ws)
+    led = DZ.ledger(ws)
+    with zipfile.ZipFile(z2) as z:
+        man2 = json.loads(z.read("manifest.json"))
+    ck = {c["check"]: c["ok"] for c in v_aud.get("workspace_checks", [])}
+    c3 = {
+        "valid": v1["status"] == "VALID" and all(c["ok"] for c in v1["workspace_checks"]) and v1["fingerprint"] == DZ.key_info(ws)["fingerprint"],
+        "contents": {"manifest.json", "signature.json", "verify_dossier.py", "README.txt"} <= set(names) and any(n.startswith("audit/") for n in names)
+                    and any(n.startswith("declarations/wells/") for n in names) and not any(n.startswith("sources/") for n in names)
+                    and man["sources"] and man["sources"][0]["embedded"] is False and man["audit_chain"]["lines"] > 0
+                    and any(f.get("history") for f in man["files"] if f["role"] == "report") and not any("keys/" in n or "dossier_ed25519" in n for n in names),
+        "standalone": alone.returncode == 0 and alone.stdout.startswith("VALID") and alone_src.returncode == 0 and "MATCH" in alone_src.stdout,
+        "tamper": t_file["status"] == "INVALID" and not {c["check"]: c["ok"] for c in t_file["checks"]}["every file matches its hash"]
+                  and t_man["status"] == "INVALID" and not {c["check"]: c["ok"] for c in t_man["checks"]}["the signature verifies"]
+                  and t_extra["status"] == "INVALID" and "reports/extra.html" in {c["check"]: c["detail"] for c in t_extra["checks"]}["nothing unsigned rides along"]
+                  and t_drop["status"] == "INVALID",
+        "other_site": v_other["status"].startswith("VALID, BUT") and not v_other["workspace_checks"][0]["ok"],
+        "changed": v_src["status"] == "VALID, BUT THE WORKSPACE HAS CHANGED" and any(x["status"] == "DIFFERS" for x in v_src["workspace_sources"])
+                   and v_aud["status"] == "VALID, BUT THE WORKSPACE HAS CHANGED" and not ck["the audit log still holds what was chained"] and v_back["status"] == "VALID",
+        "chain": len(led) == 2 and led[1]["previous"] == led[0]["dossier_id"] and man2["previous"]["manifest_sha256"] == led[0]["manifest_sha256"]
+                 and man2["scope"]["kind"] == "pad" and man2["sources"][0]["embedded"] and any(f["role"] == "source" for f in man2["files"])
+                 and any(a["action"] == "dossier.key.create" for a in ws.audit_log(500)) and sum(a["action"] == "dossier.sign" for a in ws.audit_log(500)) == 2,
+        "evidence_pack_no_key": "dossier_ed25519" not in open(pkg / "files.py", encoding="utf-8").read(),
+    }
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None, raw=False):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                b = rr_.read()
+                return rr_.status, (b if raw else json.loads(b))
+        except urllib.error.HTTPError as e:
+            return e.code, (None if raw else json.loads(e.read()))
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_g, gj = call(V, "GET", "/api/dossier")
+        s_vs, _ = call(V, "POST", "/api/dossier/sign", {"well_id": w["id"]})
+        s_os, oj = call(O, "POST", "/api/dossier/sign", {"well_id": w["id"]})
+        s_vv, vj = call(V, "POST", "/api/dossier/verify", {"path": e1["path"]})
+        s_up, uj = call(V, "POST", "/api/dossier/verify", {"filename": "t.zip", "content_b64": _b64.b64encode((d / "t_file.zip").read_bytes()).decode()})
+        s_bad, _ = call(V, "POST", "/api/dossier/verify", {"path": "../keys/dossier_ed25519.json"})
+        s_nw, _ = call(O, "POST", "/api/dossier/sign", {"well_id": "nope"})
+        s_dl, zb = call(V, "GET", "/reports/" + e1["path"], raw=True)
+        s_hv, hb = call(V, "GET", "/reports/" + vs[0]["dir"] + "/well_report.html", raw=True)
+    finally:
+        svc.stop()
+    cli_k = _sp.run([sys.executable, "-m", "gea", "dossier", "--workspace", wsp, "--key"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_s = _sp.run([sys.executable, "-m", "gea", "dossier", "--workspace", wsp], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_v = _sp.run([sys.executable, "-m", "gea", "dossier", "--verify", str(d / "t_man.zip")], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_h = _sp.run([sys.executable, "-m", "gea", "reports-history", "--workspace", wsp, "--family", fam], capture_output=True, text=True, cwd=str(pkg.parent))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c3.update({
+        "api": s_g == 200 and gj["key"]["fingerprint"] == DZ.key_info(ws)["fingerprint"] and len(gj["dossiers"]) == 2 and gj["history"]["n_versions"] >= 3
+               and s_vs == 403 and s_os == 200 and oj["previous"] == e2["dossier_id"] and s_vv == 200 and vj["status"] == "VALID" and s_up == 200 and uj["status"] == "INVALID"
+               and s_bad == 400 and s_nw == 404 and s_dl == 200 and zb[:2] == b"PK" and s_hv == 200 and hb == newest,
+        "cli": cli_k.returncode == 0 and DZ.key_info(ws)["fingerprint"] in cli_k.stdout and cli_s.returncode == 0 and "signed " in cli_s.stdout
+               and cli_v.returncode == 1 and "the signature verifies" in cli_v.stdout and cli_h.returncode == 0 and r2["report_id"] in cli_h.stdout,
+        "page": all(x in page_src for x in ("rpCards", "Signed dossiers", "/api/dossier/sign", "/api/dossier/verify", "Report history", "Check a dossier someone sent you")),
+        "help": all(any(t[0] == k for t in H.INDEX) and not H.check(k) for k in ("report-history", "dossier")),
+    })
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CL3 the signed dossier: a well's reports, declarations, audit log and source hashes signed with a key made on first use; its own "
+       "checker run alone in a bare Python says VALID and matches the source record; a changed report, a changed manifest, a file added and "
+       "a file removed each INVALID, naming the check; another site's workspace, a changed source record and a rewritten early audit line "
+       "each VALID BUT THE WORKSPACE HAS CHANGED, and VALID again once restored; the pad's dossier with the sources embedded chained to the "
+       "well's; the key never in a dossier; the API, the CLI, the Reports tab and the help pages"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -10002,6 +10208,7 @@ def main() -> int:
         section_ci_drill_string(tmp)
         section_cj_declarations(tmp)
         section_ck_operations_seismicity(tmp)
+        section_cl_history_and_dossier(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

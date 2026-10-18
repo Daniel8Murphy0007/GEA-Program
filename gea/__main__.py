@@ -566,6 +566,25 @@ def main(argv=None) -> int:
     p_os.add_argument("--actor", type=str, default="cli")
     p_os.add_argument("--json", action="store_true")
 
+    p_dz = sub.add_parser("dossier", help="the signed dossier: a well's (or the pad's) reports, declarations, audit log and source hashes in one zip, signed with the site's Ed25519 key, with a checker anyone can run without this program")
+    p_dz.add_argument("--workspace", type=str, default=None)
+    p_dz.add_argument("--well", type=str, default=None, help="a well; without it, the pad (every well and the site reports)")
+    p_dz.add_argument("--include-sources", action="store_true", help="embed the source records (by default they are listed by hash)")
+    p_dz.add_argument("--verify", type=str, default=None, help="a dossier to check (with --workspace, also against this site)")
+    p_dz.add_argument("--sources", type=str, default="", help="with --verify: a folder holding the source records to check against their hashes")
+    p_dz.add_argument("--key", action="store_true", help="print this site's signing key fingerprint")
+    p_dz.add_argument("--list", action="store_true", help="list the dossiers this site has signed")
+    p_dz.add_argument("--actor", type=str, default="cli")
+    p_dz.add_argument("--json", action="store_true")
+
+    p_rh = sub.add_parser("reports-history", help="every version of every client report this workspace has written, kept under reports/history; --prune keeps the newest N")
+    p_rh.add_argument("--workspace", type=str, required=True)
+    p_rh.add_argument("--family", type=str, default=None, help="e.g. wells/Well-1/well_report or pad_report")
+    p_rh.add_argument("--prune", action="store_true")
+    p_rh.add_argument("--keep", type=int, default=0)
+    p_rh.add_argument("--apply", action="store_true", help="with --prune: remove (without it, list what would go)")
+    p_rh.add_argument("--json", action="store_true")
+
     p_sm = sub.add_parser("simulation", help="the simulation in words: the scenes (Volve 15/9-F-4 with its logs and interpretation, Volve F-5 and F-10 on the survey clock, every drilling-recorder well), and what the record says at a depth (the Simulation tab replays it)")
     p_sm.add_argument("--workspace", type=str, default=None)
     p_sm.add_argument("--scene", type=str, default=None, help="e.g. volve-f4, or well:Well-30636033")
@@ -2225,6 +2244,67 @@ def main(argv=None) -> int:
             print(q["url"] if q else "no well of the workspace has a surface position yet: declare one first")
             return 0
         print(_json.dumps(r, default=str) if a.json else _OS.text(r))
+        return 0
+    elif a.cmd == "dossier":
+        import json as _json
+        from . import dossier as _DZ
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        ws = None
+        if a.workspace:
+            try:
+                ws = Workspace(a.workspace)
+            except WorkspaceError as e:
+                raise SystemExit(f"dossier: {e}")
+        if a.verify:
+            r = _DZ.verify(a.verify, ws, a.sources)
+            print(_json.dumps(r, default=str) if a.json else _DZ.text(r))
+            return 0 if r["status"] == "VALID" else 1
+        if ws is None:
+            raise SystemExit("dossier: give --workspace (or --verify FILE)")
+        if a.key:
+            k = _DZ.key_info(ws)
+            print(f"Ed25519 {k['fingerprint']} (public key {k['public_key']}, made {k['created_utc']})" if k else "no signing key yet: the first dossier makes one")
+            return 0
+        if a.list:
+            for e in reversed(_DZ.ledger(ws)):
+                print(f"{e['utc']}  {e['dossier_id']}  {e['display']:<24} {e['n_files']:>4} files  {e['path']}")
+            return 0
+        try:
+            e = _DZ.build(ws, a.actor, __version__, a.well, a.include_sources)
+        except (KeyError, ValueError) as ex:
+            raise SystemExit(f"dossier: {ex.args[0] if ex.args else ex}")
+        print(f"signed {e['dossier_id']}: {e['display']}, {e['n_files']} file(s), {e['n_sources']} source record(s) {'embedded' if e['sources_embedded'] else 'by hash'}")
+        print(f"  {os.path.join(ws.reports_dir, e['path'])}")
+        print(f"  key fingerprint {e['fingerprint']}")
+        return 0
+    elif a.cmd == "reports-history":
+        import json as _json
+        from . import report_history as _RH
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        try:
+            ws = Workspace(a.workspace)
+        except WorkspaceError as e:
+            raise SystemExit(f"reports-history: {e}")
+        if a.prune:
+            if a.keep < 1:
+                raise SystemExit("reports-history: --prune needs --keep N (at least 1)")
+            r = _RH.prune(ws.reports_dir, a.keep, a.family, a.apply)
+            print(f"{'removed' if r['applied'] else 'would remove'} {len(r['removed'])} version(s), {r['bytes_freed']:,} bytes" + ("" if r['applied'] else " - add --apply to remove them"))
+            return 0
+        sm = _RH.summary(ws.reports_dir)
+        if a.json:
+            print(_json.dumps(sm, default=str)); return 0
+        print(f"{sm['n_versions']} version(s) of {len(sm['families'])} report(s), {sm['bytes']:,} bytes under {os.path.join(ws.reports_dir, 'history')}")
+        for f_ in sm["families"]:
+            if a.family and f_["family"] != a.family:
+                continue
+            print(f"  {f_['family']}: {f_['n']} version(s)")
+            for v in f_["versions"][: (50 if a.family else 3)]:
+                print(f"      {v['utc']}  {v.get('report_id') or ''}  reports/{v['dir']}")
         return 0
     elif a.cmd == "simulation":
         import json as _json

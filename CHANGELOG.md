@@ -5,6 +5,39 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.43.0] - 2026-10-18 - Report history and the signed dossier
+
+### Added
+- **Report history** (`gea/report_history.py`): every client report written
+  inside a workspace's reports folder is kept - a copy of each file it
+  wrote in `reports/history/<where>/<report>/<UTC time>/`, and a line in
+  `reports/history/index.jsonl` with the report id and each file's size and
+  SHA-256. The report at its usual path is unchanged. The Reports tab lists
+  every report's versions with links; `gea reports-history` lists them and
+  `--prune --keep N --apply` trims them on request. Reports written outside a
+  workspace keep no history.
+- **The signed dossier** (`gea/dossier.py`, `gea dossier`, the Reports
+  tab): a well's, or the pad's, reports (each with its history version),
+  declarations (identity, position, survey, rates and AFE, runs, penetrator,
+  operations, catalogues, fleet), audit log with its line-by-line hash chain,
+  and the source records by hash (or embedded), in one zip with a manifest of
+  every file's SHA-256, signed with the site's Ed25519 key; each dossier
+  names the previous one's manifest hash, so a site's dossiers form one
+  chain, recorded in `reports/dossiers/ledger.jsonl`.
+- **Ed25519 in the standard library** (`gea/ed25519.py`): RFC 8032, checked
+  against the RFC's test vectors. The site key is made on first use in
+  `keys/dossier_ed25519.json`, outside every report, export and evidence
+  pack; its fingerprint is shown on the Reports tab to give to clients.
+- **A checker anyone can run** (`verify_dossier.py`, inside every dossier):
+  Python 3.8+ alone - the signature, every file's hash, nothing unsigned
+  riding along, and with `--sources` the source records. Inside the
+  workspace, `gea dossier --verify` and the tab add this site's key and
+  ledger, the source records as they are now, and the audit log still
+  holding the lines the dossier chained.
+- The evidence pack leaves out the history and dossier folders and carries
+  their index and ledger. Help pages `report-history` and `dossier`; section
+  CL (3 checks).
+
 ## [v0.42.0] - 2026-10-18 - Operations and seismicity
 
 ### Added
