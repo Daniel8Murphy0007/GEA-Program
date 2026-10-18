@@ -609,6 +609,20 @@ against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
 
+### Operations and seismicity
+
+The Operations & Seismicity tab sets each well's drilling, completion and
+disposal windows against the earthquake catalogue around it: every event
+within the screening distance by its distance and time, whether it fell
+during an operation or in the months after, what the rig was doing when a
+drilling record covers it, the level a regulator's protocol would reach
+(British Columbia, Alberta, Oklahoma, Ohio, Texas, each with its
+document), and the exact test of whether the rate near the well is higher
+while it works than in the rest of the record. The Mahoning Valley, Ohio -
+the 2011 Youngstown sequence against the Northstar 1 injection year, the
+2014 Poland Township events against a stimulation - ships as a worked
+example from the public record. `gea seismicity`, `gea help opseis`.
+
 ### The declarations sheet
 
 Everything the operator declares about a pad comes in from one spreadsheet:

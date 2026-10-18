@@ -49,6 +49,7 @@ INDEX: List[tuple] = [
     ('drillstring', 'Drill string', "each run's string from the bit up, every component's usage against its service interval, and the downhole motor's statistics and stability"),
     ('declare', 'The declarations sheet', 'everything the operator declares about a pad in one spreadsheet - identity, position, elevation, surveys, rates, AFE, fleet, runs, penetrators and drives - checked row by row before anything is written'),
     ('penetrator', 'Completion - the ESP penetrator', "the wellhead penetrator's ratings from its maker's documents, each well's installation record, and the ESP drive, motor and site checked against them; the permanent magnet motor safety note"),
+    ('opseis', 'Operations and seismicity', "each well's drilling, completion and disposal windows against the earthquake catalogue around it: the events during and after each, the levels a regulator's protocol would reach, the rate during operations against the rest of the record; the Mahoning Valley worked example"),
     ('economics', 'Economics', 'each well\'s days, footage and cost by the operator\'s own declared rates, against the EIA oil and gas spot prices while it was drilled, and any series the site imports'),
     ('well3d', 'The well in 3D', 'each well\'s path from its directional survey, set among the mapped formation surfaces and contours with its picks, coloured by what was measured along it, and the drill string replayed from the record; the Volve field shipped as the worked example'),
     ('charts', 'The charts', 'a well\'s channels stacked on one axis with a linked cursor, zoom and pan from every sample, time or depth for a drilling recorder, the depth events marked, and the drilling progress of every well'),
@@ -79,7 +80,7 @@ REQUIRED_LINES = ('**The command**', '**What it writes**', '**The number to chec
 VIEW_TOPIC: Dict[str, str] = {
     'home': 'start', 'wells': 'data-in', 'well': 'drift', 'live': 'patches', 'patch': 'patches', 'files': 'files', 'alarms': 'alarms',
     'approvals': 'well-tests', 'config': 'site', 'reports': 'drift', 'verify': 'start', 'survey': 'data-in', 'jobs': 'site',
-    'admin': 'site', 'prefs': 'site', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'sar': 'seismic', 'sites': 'sites', 'setup': 'setup', 'map': 'map', '3d': 'well3d', 'simulation': 'simulation', 'drillstring': 'drillstring', 'completion': 'penetrator', 'economics': 'economics', 'control': 'control-room', 'wall': 'control-room', 'audit': 'audit-update', 'tools': 'tools', 'catalog': 'catalog',
+    'admin': 'site', 'prefs': 'site', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'sar': 'seismic', 'sites': 'sites', 'setup': 'setup', 'map': 'map', '3d': 'well3d', 'simulation': 'simulation', 'drillstring': 'drillstring', 'completion': 'penetrator', 'opseis': 'opseis', 'economics': 'economics', 'control': 'control-room', 'wall': 'control-room', 'audit': 'audit-update', 'tools': 'tools', 'catalog': 'catalog',
 }
 
 

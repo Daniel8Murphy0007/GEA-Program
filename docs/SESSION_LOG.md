@@ -2329,3 +2329,32 @@ stability; and motor specifications in the tool catalogue.
   dark, phone width, no horizontal scroll, no console errors.
 - Section CJ (3 checks). Gate 410.
 
+## 2026-10-18 - Operations and seismicity (v0.42.0)
+
+- Asked: keep building. The one open item that needed no data from the site
+  was linking operations to seismicity.
+- Research: the protocols read from the regulators' documents where they
+  could be (British Columbia's Kiskatinaw order, Alberta's SO2, Oklahoma's
+  2016 notice, Texas's 2022 response plan); Ohio's 2014 conditions only
+  through law-firm summaries, marked secondary. The 20 km screen and the
+  three-month window from Atkinson et al. (2016).
+- The worked example: neither build machine reaches the USGS service, so
+  ComCat was read through the web reader as text and as CSV for 1990-2026
+  within 30 km of the Mahoning Valley and the two compared - 21 events,
+  none before 2011. Northstar 1's injection dates from Kim (2013) (the
+  state's inspection record has 23 December 2010 for the first injection;
+  the paper's 29 December is used); positions from the state's well
+  records via WellWiki, two decimals. Poland-CLL2's stimulation window
+  starts at the state's inspection of 5 March 2014 (its true start is not
+  in the sources read) and ends with the regulator's halt on 10 March.
+- The magnitude of record matters: ComCat's largest Poland event is ML
+  2.44 where the regulator and Skoumal et al. give M 3.0, so Oklahoma's
+  2.5 level is not reached by the catalogue; the page says so.
+- `gea/op_seismicity.py`: the frame, the protocols, the rate test, the
+  rig's state from the series cache, the scenes; catalogues and operations
+  in `seismicity/`; the sheet's `[operations]` and `[catalogs]`.
+- The tab driven in headless Chromium: light, dark, phone width, no
+  horizontal scroll, no console errors. The after-window colour moved from
+  amber to blue so it does not sit beside the during-window orange.
+- Section CK (3 checks). Gate 413.
+

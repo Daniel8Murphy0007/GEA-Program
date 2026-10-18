@@ -1,0 +1,22 @@
+#EventID|Time|Latitude|Longitude|Depth/km|Author|Catalog|Contributor|ContributorID|MagType|Magnitude|MagAuthor|EventLocationName
+ld60004308|2011-03-17T10:53:11.670|41.126|-80.6056667|3.54|ld|ld|ld|ld60004308|ml|2.1|ld|2 km WSW of Maplewood Park, Ohio
+ld60007303|2011-08-22T08:00:32.640|41.1303333|-80.7081667|5|ld|ld|ld|ld60007303|ml|1.87|ld|2 km SSW of Girard, Ohio
+ld60009603|2011-09-26T01:06:10.840|41.115|-80.6823333|5|ld|ld|ld|ld60009603|ml|2.12|ld|3 km WNW of Youngstown, Ohio
+ld60009803|2011-09-30T00:52:38.710|41.1346667|-80.6845|5|ld|ld|ld|ld60009803|ml|2.44|ld|2 km SSE of Girard, Ohio
+ld60010908|2011-10-20T22:41:10.820|41.1253333|-80.704|6.39|ld|ld|ld|ld60010908|ml|2.04|ld|3 km S of Girard, Ohio
+ld60012603|2011-11-25T06:47:28.250|41.124|-80.6771667|5|ld|ld|ld|ld60012603|ml|1.79|ld|3 km NW of Youngstown, Ohio
+ld60013703|2011-12-24T06:24:58.810|41.1225|-80.7046667|5|ld|ld|ld|ld60013703|ml|2.37|ld|3 km S of Girard, Ohio
+ld60029101|2011-12-31T20:05:01.060|41.1215|-80.6843333|5|ld|ld|ld|ld60029101|ml|4|ld|3 km NW of Youngstown, Ohio
+ld60014118|2012-01-13T22:29:35.120|41.1245|-80.6923333|5.79|ld|ld|ld|ld60014118|ml|1.74|ld|3 km SSE of Girard, Ohio
+ld60034308|2014-03-10T06:26:45.900|41.0103333|-80.5433333|2.54|ld|ld|ld|ld60034308|ml|2.44|ld|2 km SSW of Lowellville, Ohio
+ld60034403|2014-03-10T06:42:44.280|41.0088333|-80.555|5|ld|ld|ld|ld60034403|ml|1.97|ld|3 km SSW of Lowellville, Ohio
+ld60034408|2014-03-10T15:03:47.610|41.0096667|-80.53|5|ld|ld|ld|ld60034408|ml|2.16|ld|2 km S of Lowellville, Ohio
+ld60065316|2014-03-10T15:44:06.780|41.009|-80.5316667|5|ld|ld|ld|ld60065316|ml|2.42|ld|2 km S of Lowellville, Ohio
+ld60034503|2014-03-11T07:01:13.340|41.0025|-80.5336667|5.22|ld|ld|ld|ld60034503|ml|1.86|ld|3 km S of Lowellville, Ohio
+ld60078511|2014-08-31T21:34:10.940|41.196|-80.7765|2.56|ld|ld|ld|ld60078511|ml|1.98|ld|Ohio
+ld60112616|2016-04-25T04:05:25.280|41|-80.46|3|ld|ld|ld|ld60112616|ml|2.04|ld|3 km NE of Bessemer, Pennsylvania
+ld60047603|2016-04-25T08:16:55.120|40.9888333|-80.3863333|3|ld|ld|ld|ld60047603|ml|1.76|ld|1 km W of Oakland, Pennsylvania
+ld60047703|2016-04-25T09:03:02.690|41.0258333|-80.512|3|ld|ld|ld|ld60047703|ml|1.85|ld|2 km ESE of Lowellville, Ohio
+ld60112636|2016-04-25T14:54:26.660|41.0031667|-80.4505|3|ld|ld|ld|ld60112636|ml|2.12|ld|4 km NE of Bessemer, Pennsylvania
+ld60112721|2016-04-26T02:10:23.290|41.0008333|-80.4646667|3|ld|ld|ld|ld60112721|ml|1.86|ld|3 km NE of Bessemer, Pennsylvania
+us6000p7j0|2024-11-25T05:36:04.376|40.937|-80.6673|5.159|us|us|us|us6000p7j0|ml|1.8|us|5 km NNE of Columbiana, Ohio

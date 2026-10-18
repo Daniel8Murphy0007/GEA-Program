@@ -539,6 +539,33 @@ def main(argv=None) -> int:
     p_pn.add_argument("--actor", type=str, default="cli")
     p_pn.add_argument("--json", action="store_true")
 
+    p_os = sub.add_parser("seismicity", help="operations and seismicity: each well's drilling, completion and disposal windows against the earthquake catalogue around it - the events during and after each, the levels a regulator's protocol would reach, and the rate during operations against the rest of the record; the Mahoning Valley worked example")
+    p_os.add_argument("--workspace", type=str, default=None)
+    p_os.add_argument("--scene", type=str, default=None, choices=("workspace", "mahoning"), help="your wells (the default with --workspace) or the public worked example")
+    p_os.add_argument("--protocol", type=str, default=None, help="a protocol id (--protocols lists them)")
+    p_os.add_argument("--radius-km", type=float, default=None, help="the association radius (default 5 km)")
+    p_os.add_argument("--screen-km", type=float, default=None, help="the screening distance (default 20 km)")
+    p_os.add_argument("--post-days", type=float, default=None, help="the association window after an operation ends (default 90 days)")
+    p_os.add_argument("--mc", type=float, default=None, help="the completeness magnitude counted in the rate (default the catalogue's minimum)")
+    p_os.add_argument("--set", action="store_true", help="keep --protocol, --radius-km, --screen-km, --post-days and --mc as this workspace's settings")
+    p_os.add_argument("--protocols", action="store_true", help="list the protocols and their levels")
+    p_os.add_argument("--query", action="store_true", help="print the ComCat query for the workspace's wells (run it where the catalogue service is reachable)")
+    p_os.add_argument("--attach", type=str, default=None, help="a catalogue export to attach (with --start --end --min-magnitude --lat --lon --catalog-radius-km --source)")
+    p_os.add_argument("--start", type=str, default=None)
+    p_os.add_argument("--end", type=str, default=None)
+    p_os.add_argument("--min-magnitude", type=float, default=None)
+    p_os.add_argument("--lat", type=float, default=None)
+    p_os.add_argument("--lon", type=float, default=None)
+    p_os.add_argument("--catalog-radius-km", type=float, default=None)
+    p_os.add_argument("--source", type=str, default="")
+    p_os.add_argument("--declare-op", action="store_true", help="declare an operation window (with --well --kind --start [--end] --source)")
+    p_os.add_argument("--well", type=str, default=None)
+    p_os.add_argument("--kind", type=str, default=None, choices=("drilling", "completion", "disposal", "injection", "other"))
+    p_os.add_argument("--remove-op", type=str, default=None)
+    p_os.add_argument("--remove-catalog", type=str, default=None)
+    p_os.add_argument("--actor", type=str, default="cli")
+    p_os.add_argument("--json", action="store_true")
+
     p_sm = sub.add_parser("simulation", help="the simulation in words: the scenes (Volve 15/9-F-4 with its logs and interpretation, Volve F-5 and F-10 on the survey clock, every drilling-recorder well), and what the record says at a depth (the Simulation tab replays it)")
     p_sm.add_argument("--workspace", type=str, default=None)
     p_sm.add_argument("--scene", type=str, default=None, help="e.g. volve-f4, or well:Well-30636033")
@@ -2143,6 +2170,61 @@ def main(argv=None) -> int:
         except (ValueError, KeyError, OSError) as e:
             raise SystemExit(f"penetrator: {e.args[0] if e.args else e}")
         print(_json.dumps(p, default=str) if a.json else _PN.text(p))
+        return 0
+    elif a.cmd == "seismicity":
+        import json as _json
+        from . import op_seismicity as _OS
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if a.protocols:
+            for p_ in _OS.protocols()["protocols"]:
+                print(f"{p_['id']}: {p_['name']} - within {p_['radius_km'] if p_['radius_km'] is not None else 'the permit distance'} km of {p_['radius_from']}; covers {', '.join(p_['applies_to'])}")
+                for lv in p_["levels"]:
+                    print(f"    M {lv['m']:g}{' (' + lv['condition'] + ')' if lv.get('condition') else ''}: {lv['action']}")
+                print(f"    {p_['document']} - {p_['url']}{' (a secondary summary)' if p_['source_kind'] == 'secondary' else ''}")
+            return 0
+        ws = None
+        if a.workspace:
+            try:
+                ws = Workspace(a.workspace)
+            except WorkspaceError as e:
+                raise SystemExit(f"seismicity: {e}")
+        try:
+            if a.attach:
+                if ws is None:
+                    raise SystemExit("seismicity: --attach needs --workspace")
+                with open(a.attach, "rb") as f:
+                    r = _OS.attach_catalog(ws, a.actor, os.path.basename(a.attach), f.read(), a.start, a.end, a.min_magnitude, a.lat, a.lon, a.catalog_radius_km, a.source)
+                print(f"attached {r['file']}: {r['n_events']} event(s), {r['start']} to {r['end']}, M >= {r['min_magnitude']:g}")
+                return 0
+            if a.declare_op:
+                if ws is None or not a.well or not a.kind:
+                    raise SystemExit("seismicity: --declare-op needs --workspace, --well and --kind")
+                r = _OS.save_operation(ws, a.actor, a.well, a.kind, a.start, a.end, a.source)
+                print(f"declared {r['id']}: {r['kind']} on {r['well_id']}, {r['start']} to {r['end'] or 'open'}")
+                return 0
+            if a.remove_op:
+                _OS.remove_operation(ws, a.actor, a.remove_op); print(f"removed {a.remove_op}"); return 0
+            if a.remove_catalog:
+                _OS.remove_catalog(ws, a.actor, a.remove_catalog); print(f"removed {a.remove_catalog}"); return 0
+            over = {k: v for k, v in (("protocol", a.protocol), ("radius_km", a.radius_km), ("screen_km", a.screen_km), ("post_days", a.post_days), ("mc", a.mc)) if v is not None}
+            if a.set:
+                if ws is None:
+                    raise SystemExit("seismicity: --set needs --workspace")
+                s_ = _OS.set_settings(ws, a.actor, over.get("protocol"), over.get("radius_km"), over.get("screen_km"), over.get("post_days"), over.get("mc"))
+                print("settings: " + ", ".join(f"{k} {v}" for k, v in s_.items()))
+                return 0
+            if over.get("protocol"):
+                _OS.protocol(over["protocol"])
+            r = _OS.page(ws, a.scene or ("workspace" if ws is not None else "mahoning"), over or None)
+        except (ValueError, KeyError, OSError) as e:
+            raise SystemExit(f"seismicity: {e.args[0] if e.args else e}")
+        if a.query:
+            q = r.get("query")
+            print(q["url"] if q else "no well of the workspace has a surface position yet: declare one first")
+            return 0
+        print(_json.dumps(r, default=str) if a.json else _OS.text(r))
         return 0
     elif a.cmd == "simulation":
         import json as _json

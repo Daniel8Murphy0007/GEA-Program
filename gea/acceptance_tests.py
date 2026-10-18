@@ -7310,7 +7310,7 @@ def section_bu_comcat(tmp: str) -> None:
         "url": url == "https://earthquake.usgs.gov/fdsnws/event/1/query?format=text&starttime=2011-03-01&endtime=2012-03-01&latitude=41.1000&longitude=-80.6800&maxradiuskm=25&minmagnitude=1.5&orderby=time-asc",
         "cli": r_file.returncode == 0 and "largest: M 4.0 ml 2011-12-31T20:05:01Z at 41.1215, -80.6843" in r_file.stdout and "1.68 km" in r_file.stdout
                and r_url.returncode == 0 and "maxradiuskm=30&minmagnitude=2.5" in r_url.stdout and r_bad.returncode == 1 and "not an FDSN text export" in r_bad.stdout,
-        "help_and_fixtures": "gea comcat" in help_md and (fx / "README.md").read_text(encoding="utf-8").count("earthquake.usgs.gov/fdsnws/event/1/query") == 2,
+        "help_and_fixtures": "gea comcat" in help_md and (fx / "README.md").read_text(encoding="utf-8").count("earthquake.usgs.gov/fdsnws/event/1/query") == 3,
     }
     failed1 = [k for k, v in c1.items() if not v]
     ok(not failed1,
@@ -9703,6 +9703,213 @@ def section_cj_declarations(tmp: str) -> None:
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_ck_operations_seismicity(tmp: str) -> None:
+    """Section CK - operations and seismicity: the Mahoning Valley worked example from the public record (the 2011
+    Youngstown sequence against Northstar 1's injection year, the 2014 Poland Township events against the Poland-CLL2
+    stimulation, the ComCat catalogue 1990-2026), the protocols each event reaches by the catalogue's magnitude, the
+    exact conditional rate test against its hand value; a labelled synthetic pad; a workspace with a drilling record,
+    an attached catalogue and declared operations; the sheet, the API, the CLI, the tab and the help page."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    import base64 as _b64
+    from math import comb
+    from . import declarations as DC
+    from . import drill_string as DS
+    from . import helplib as H
+    from . import op_seismicity as OS
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ck"); d.mkdir()
+
+    # -- CK1 the worked example ------------------------------------------------------------------------------------
+    ex = OS.page(None, "mahoning")
+    W = {w["id"]: w for w in ex["wells"]}
+    ns, pl = W["northstar-1"], W["poland-cll2"]
+    ev_ns = {e["event_id"]: e for e in ns["events"]}
+    ev_pl = {e["event_id"]: e for e in pl["events"]}
+    share = 457.0 / (457.0 + 12982.0)
+    by_prot = {}
+    for pid in ("ohio-odnr-2014", "oklahoma-occ-2016", "alberta-aer-so2-2015", "texas-rrc-2022", "bc-ksmma-2021"):
+        r_ = OS.page(None, "mahoning", {"protocol": pid})
+        by_prot[pid] = sorted((e["event_id"], e["protocol"]["highest"]["m"]) for w in r_["wells"] for e in w["protocol_events"])
+    c1 = {
+        "catalogue": ex["n_events"] == 21 and ex["catalog"]["start"] == "1990-01-01" and ex["catalog"]["min_magnitude"] == 1.0 and (pkg / "fixtures" / "comcat_mahoning_1990-2026.txt").is_file()
+                     and "comcat_mahoning_1990-2026.txt" in (pkg / "fixtures" / "README.md").read_text(encoding="utf-8"),
+        "northstar": ns["rate"]["n_operations"] == 8 and ns["rate"]["n_background"] == 0 and ns["rate"]["days_operations"] == 457.0 and ns["rate"]["status"] == "HIGHER DURING OPERATIONS"
+                     and abs(ns["rate"]["p_value"] - share ** 8) / share ** 8 < 1e-4 and ns["rate"]["ratio"] is None and ns["rate"]["background_upper_95_per_year"] == round(3 / 12982.0 * 365.25, 4)
+                     and ev_ns["ld60029101"]["relation"] == "AFTER" and ev_ns["ld60029101"]["days_after_end"] == 0.8 and ev_ns["ld60029101"]["distance_km"] < 1.0
+                     and ev_ns["ld60004308"]["relation"] == "DURING" and not ev_ns["ld60004308"]["within_radius"] and ev_ns["ld60014118"]["relation"] == "AFTER",
+        "poland": pl["rate"]["n_operations"] == 5 and pl["rate"]["n_background"] == 1 and sum(e["relation"] == "DURING" for e in pl["associated"]) == 4
+                  and ev_pl["ld60034503"]["relation"] == "AFTER" and ev_pl["ld60047703"]["relation"] == "OUTSIDE" and pl["rate"]["p_value"] < 1e-9
+                  and abs(pl["rate"]["p_value"] / sum(comb(6, k) * (96 / 13439) ** k * (1 - 96 / 13439) ** (6 - k) for k in (5, 6)) - 1) < 1e-4,
+        "coverage": ns["coverage"]["inside"] and pl["coverage"]["inside"],
+        "protocols": by_prot["ohio-odnr-2014"] == sorted((x, 1.0) for x in ("ld60034308", "ld60034403", "ld60034408", "ld60065316", "ld60034503"))
+                     and by_prot["oklahoma-occ-2016"] == [] and by_prot["alberta-aer-so2-2015"] == sorted((x, 2.0) for x in ("ld60034308", "ld60034408", "ld60065316"))
+                     and by_prot["texas-rrc-2022"] == [("ld60029101", 3.5)] and len(by_prot["bc-ksmma-2021"]) == 5,
+        "record_magnitude": any("2.44" in n and "3.0" in n for n in ex["notes"]) and max(e["magnitude"] for e in pl["associated"]) == 2.44,
+        "sources": all(p["url"].startswith("https://") and p["document"] for p in ex["protocols"]) and len(ex["protocols"]) == 5
+                   and [p["source_kind"] for p in ex["protocols"] if p["id"] == "ohio-odnr-2014"] == ["secondary"] and "Atkinson" in ex["sources"]["screen"]
+                   and "Kim" in ns["operations"][0]["source"] and "Skoumal" in pl["operations"][0]["source"],
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CK1 the worked example from the public record: ComCat 1990-2026 within 30 km of the Mahoning Valley, 21 events; Northstar 1's eight "
+       "events within 5 km in its injection year and the 90 days after against none in the rest, the probability equal to the share of time to "
+       "the eighth power, the M 4.0 0.8 days after shut-in; Poland-CLL2's four during its stimulation, one the next day, one in 2016 outside; "
+       "Ohio's 1.0 reached by all five, Oklahoma's 2.5 by none at the catalogue's ML 2.44 (the regulator's M 3.0 named), Alberta's 2.0 by "
+       "three, Texas's 3.5 by the M 4.0 after disposal; every protocol with its document, Ohio's marked secondary"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- CK2 the arithmetic -----------------------------------------------------------------------------------------
+    syn = OS.analyse(OS.synthetic_scene())
+    sp = {w["id"]: w for w in syn["wells"]}["pad-1"]
+    ev = {e["event_id"]: e for e in sp["events"]}
+    quiet = OS.synthetic_scene()
+    quiet["events"] = [e for e in quiet["events"] if e["event_id"].startswith("bg")]
+    qr = {w["id"]: w for w in OS.analyse(quiet)["wells"]}["pad-1"]["rate"]
+    one = OS.synthetic_scene()
+    one["events"] = [e for e in one["events"] if e["event_id"].startswith("bg")] + [e for e in one["events"] if e["event_id"] == "op0"]
+    onr = {w["id"]: w for w in OS.analyse(one)["wells"]}["pad-1"]["rate"]
+    two = OS.synthetic_scene()
+    two["wells"].append({"id": "pad-2", "display": "SYNTHETIC pad 2", "lat": 32.005, "lon": -102.0, "operations": [{"kind": "completion", "start": "2024-05-03", "end": "2024-05-06", "source": "s"}]})
+    tw = {w["id"]: w for w in OS.analyse(two)["wells"]}
+    c2 = {
+        "binomial": abs(OS.binom_tail(3, 10, 0.2) - sum(comb(10, k) * 0.2 ** k * 0.8 ** (10 - k) for k in range(3, 11))) < 1e-12 and OS.binom_tail(0, 5, 0.3) == 1.0
+                    and OS.binom_tail(6, 5, 0.3) == 0.0 and OS.binom_tail(2, 4, 0.0) == 0.0,
+        "synthetic": sp["rate"]["n_operations"] == 12 and sp["rate"]["status"] == "HIGHER DURING OPERATIONS" and "far" not in ev and ev["op5"]["protocol"]["highest"]["m"] == 3.0
+                     and ev["op4"]["protocol"]["highest"]["m"] == 2.0 and [c["m"] for c in ev["op4"]["protocol"]["conditional"]] == [2.2]
+                     and sp["cluster"] and len(sp["cluster"][0]["events"]) >= 5 and all(e["relation"] == "DURING" and e["operation"]["kind"] == "completion" for e in sp["associated"]),
+        "unplaced": {w["id"]: w for w in syn["wells"]}["unplaced"]["placed"] is False and "surface position" in {w["id"]: w for w in syn["wells"]}["unplaced"]["notes"][0],
+        "not_distinguished": qr["n_operations"] == 0 and qr["status"] == "NOT DISTINGUISHED" and onr["status"] == "NOT DISTINGUISHED" and onr["n_operations"] == 1,
+        "also": any(x["well"] == "SYNTHETIC pad 2" for e in tw["pad-1"]["events"] for x in e["also"]) and any(x["well"] == "SYNTHETIC pad 1" for e in tw["pad-2"]["events"] for x in e["also"]),
+        "radius": {w["id"]: w for w in OS.analyse({**OS.synthetic_scene(), "settings": {**OS.DEFAULTS, "radius_km": 1.0}})["wells"]}["pad-1"]["rate"]["n_operations"] == 6,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CK2 the arithmetic: the binomial tail against the sum by hand; over a labelled synthetic pad twelve events in its completion found "
+       "higher than a twenty-year background, an event 30 km away left out, British Columbia's levels with the after-restart ones only "
+       "conditional, its five-in-72-hours cluster found; a background alone, and one event in the window, NOT DISTINGUISHED; an event near "
+       "two wells' operations named on both; a 1 km radius counting six; a well without a position named"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- CK3 a workspace -------------------------------------------------------------------------------------------
+    synr = DS.synthetic_motor_record(str(d))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad CK", actor="tester")
+    we = ws.add_well_file(synr["path"], display="SYNTHETIC EDR well", actor="tester")
+    wf = ws.add_well_file(str(pkg / "sample_well_profile.csv"), display="SYNTHETIC frac well", actor="tester")
+    ws.set_well(we["id"], surface={"lat": 32.0, "lon": -102.0, "datum": "NAD83"}, actor="tester")
+    lines = ["#EventID|Time|Latitude|Longitude|Depth/km|Author|Catalog|Contributor|ContributorID|MagType|Magnitude|MagAuthor|EventLocationName",
+             "tx1|2026-08-01T05:00:00|32.005|-102.004|4|tx|tx|tx|tx1|ml|1.9|tx|syn",
+             "tx2|2026-08-04T05:00:00|32.012|-102.012|4|tx|tx|tx|tx2|ml|2.6|tx|syn",
+             "tx3|2026-08-05T05:00:00|32.013|-102.011|4|tx|tx|tx|tx3|ml|3.1|tx|syn",
+             "tx4|2020-02-01T05:00:00|32.10|-102.10|4|tx|tx|tx|tx4|ml|2.0|tx|syn"]
+    (d / "cat.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (d / "notcat.txt").write_text("hello\nworld\n", encoding="utf-8")
+    bad = {}
+    for k, fn in (("kind", lambda: OS.save_operation(ws, "t", wf["id"], "fracking", "2026-08-03", None, "s")),
+                  ("order", lambda: OS.save_operation(ws, "t", wf["id"], "completion", "2026-08-03", "2026-08-01", "s")),
+                  ("source", lambda: OS.save_operation(ws, "t", wf["id"], "completion", "2026-08-03", None, "")),
+                  ("start", lambda: OS.save_operation(ws, "t", wf["id"], "completion", "", None, "s")),
+                  ("notcat", lambda: OS.attach_catalog(ws, "t", "notcat.txt", (d / "notcat.txt").read_bytes(), "2016-01-01", "2026-10-18", 1, 32, -102, 40, "s")),
+                  ("circle", lambda: OS.attach_catalog(ws, "t", "cat.txt", (d / "cat.txt").read_bytes(), "2016-01-01", "2026-10-18", 1, None, -102, 40, "s")),
+                  ("window", lambda: OS.attach_catalog(ws, "t", "cat.txt", (d / "cat.txt").read_bytes(), "2026-10-18", "2016-01-01", 1, 32, -102, 40, "s")),
+                  ("settings", lambda: OS.set_settings(ws, "t", radius_km=30, screen_km=10)),
+                  ("protocol", lambda: OS.set_settings(ws, "t", protocol_id="nope"))):
+        try:
+            fn(); bad[k] = False
+        except (ValueError, KeyError):
+            bad[k] = True
+    sheet = ("[wells],well,lat,lon,datum\n,SYNTHETIC frac well,32.01,-102.01,NAD83\n"
+             "[operations],well,kind,start,end,source\n,SYNTHETIC frac well,completion,2026-08-03,2026-08-08T12:00,stage log\n"
+             "[catalogs],file,start,end,min_magnitude,lat,lon,radius_km,source\n,cat.txt,2016-01-01,2026-10-18,1.0,32.0,-102.0,40,SYNTHETIC catalogue\n")
+    p1 = DC.apply(ws, sheet, "importer", str(d), write=True)
+    p2 = DC.plan(ws, sheet, str(d))
+    tp = DC.plan(ws, DC.template(ws), str(d))
+    OS.set_settings(ws, "tester", protocol_id="bc-ksmma-2021", post_days=30)
+    pg = OS.page(ws)
+    WW = {w["id"]: w for w in pg["wells"]}
+    ee = {e["event_id"]: e for e in WW[we["id"]]["events"]}
+    ef = {e["event_id"]: e for e in WW[wf["id"]]["events"]}
+    c3 = {
+        "refused": all(bad.values()),
+        "sheet": p1["applied"] and p1["counts"] == {"NEW": 3, "CHANGE": 0, "SAME": 0} and p2["counts"] == {"NEW": 0, "CHANGE": 0, "SAME": 3}
+                 and not tp["errors"] and tp["counts"]["NEW"] == 0 and tp["counts"]["CHANGE"] == 0 and len(OS.operations(ws)) == 1 and OS.catalogs(ws)[0]["n_events"] == 4,
+        "rig": ee["tx1"]["relation"] == "DURING" and ee["tx1"]["operation"]["kind"] == "drilling" and ee["tx1"]["rig"]["state"] == "drilling"
+               and abs(ee["tx1"]["rig"]["bottom_ft"] - 8300.0) < 1.0 and WW[we["id"]]["operations"][0]["source"].startswith("the drilling record"),
+        "frac": ef["tx3"]["relation"] == "DURING" and ef["tx3"]["protocol"]["highest"]["m"] == 3.0 and ef["tx1"]["relation"] == "OUTSIDE"
+                and any(x["kind"] == "drilling" for x in ef["tx1"]["also"]) and pg["settings"]["post_days"] == 30,
+        "query": pg["query"]["url"].startswith("https://earthquake.usgs.gov/fdsnws/event/1/query?format=text") and pg["query"]["start"] == "1990-01-01",
+        "audit": all(a in [x["action"] for x in ws.audit_log(500)] for a in ("seismicity.operation.declare", "seismicity.catalog.attach", "seismicity.settings")),
+    }
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_w, wj = call(V, "GET", "/api/opseis")
+        s_m, mj = call(V, "GET", "/api/opseis?scene=mahoning&protocol=texas-rrc-2022&radius_km=10")
+        s_x, _ = call(V, "GET", "/api/opseis?scene=nope")
+        s_n, _ = call(V, "GET", "/api/opseis?radius_km=abc")
+        s_vo, _ = call(V, "POST", "/api/opseis/operation", {"well_id": wf["id"], "kind": "disposal", "start": "2026-09-01", "source": "s"})
+        s_oo, oo = call(O, "POST", "/api/opseis/operation", {"well_id": wf["id"], "kind": "disposal", "start": "2026-09-01", "source": "s"})
+        s_ob, _ = call(O, "POST", "/api/opseis/operation", {"well_id": "nope", "kind": "disposal", "start": "2026-09-01", "source": "s"})
+        s_or, _ = call(O, "POST", "/api/opseis/operation/remove", {"op_id": oo.get("id", "")})
+        s_or2, _ = call(O, "POST", "/api/opseis/operation/remove", {"op_id": oo.get("id", "")})
+        s_oc, _ = call(O, "POST", "/api/opseis/catalog", {"filename": "cat2.txt", "content_b64": _b64.b64encode((d / "cat.txt").read_bytes()).decode(), "start": "2016-01-01",
+                                                         "end": "2026-10-18", "min_magnitude": 1, "lat": 32, "lon": -102, "radius_km": 40, "source": "s"})
+        s_ocb, _ = call(O, "POST", "/api/opseis/catalog", {"filename": "x.txt", "content_b64": "!!", "start": "2016-01-01"})
+        s_rc, _ = call(O, "POST", "/api/opseis/catalog/remove", {"file": "cat2.txt"})
+        s_st, _ = call(O, "POST", "/api/opseis/settings", {"radius_km": 4})
+        s_ac, _ = call(O, "POST", "/api/opseis/nope", {})
+    finally:
+        svc.stop()
+    cli_p = _sp.run([sys.executable, "-m", "gea", "seismicity", "--protocols"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_m = _sp.run([sys.executable, "-m", "gea", "seismicity", "--scene", "mahoning"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_q = _sp.run([sys.executable, "-m", "gea", "seismicity", "--workspace", wsp, "--query"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_w = _sp.run([sys.executable, "-m", "gea", "seismicity", "--workspace", wsp], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_b = _sp.run([sys.executable, "-m", "gea", "seismicity", "--workspace", wsp, "--declare-op", "--well", wf["id"], "--kind", "completion", "--start", "2026-09-09"],
+                    capture_output=True, text=True, cwd=str(pkg.parent))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c3.update({
+        "api": s_w == 200 and len(wj["wells"]) == 2 and wj["scene"] == "workspace" and s_m == 200 and mj["protocol"]["id"] == "texas-rrc-2022" and mj["settings"]["radius_km"] == 10
+               and s_x == 404 and s_n == 400 and s_vo == 403 and s_oo == 200 and s_ob == 404 and s_or == 200 and s_or2 == 404 and s_oc == 200 and s_ocb == 400
+               and s_rc == 200 and s_st == 200 and OS.settings(ws)["radius_km"] == 4 and s_ac == 404,
+        "cli": cli_p.returncode == 0 and "bc-ksmma-2021" in cli_p.stdout and "(after a restart)" in cli_p.stdout and cli_m.returncode == 0 and "Northstar 1" in cli_m.stdout
+               and "probability 1.8e-12" in cli_m.stdout and cli_q.returncode == 0 and cli_q.stdout.startswith("https://earthquake.usgs.gov/")
+               and cli_w.returncode == 0 and "rig: drilling at 8300 ft" in cli_w.stdout and cli_b.returncode != 0 and "source" in (cli_b.stderr + cli_b.stdout),
+        "page": all(x in page_src for x in ("VIEWS.opseis", "['#/opseis', 'Operations & seismicity']", "osChart", "/api/opseis/catalog", "/api/opseis/operation",
+                                             "What this page will not call a measurement", "km from the well", "the whole catalogue")),
+        "help": any(t[0] == "opseis" for t in H.INDEX) and not H.check("opseis") and H.VIEW_TOPIC.get("opseis") == "opseis",
+    })
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CK3 a workspace: an unknown kind, an end before the start, no source, no start, a file that is no catalogue, a catalogue without its "
+       "circle or with its window backwards, a screen narrower than the radius and an unknown protocol refused; the sheet's operations and "
+       "catalogues written and then SAME, the template round-tripping; the drilling record's span a drilling window and the rig drilling at "
+       "8,300 ft when an event struck; a completion's M 3.1 at British Columbia's 3.0; the ComCat query drawn around the wells; the API, the "
+       "CLI, the tab and the help page"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -9794,6 +10001,7 @@ def main() -> int:
         section_ch_simulation(tmp)
         section_ci_drill_string(tmp)
         section_cj_declarations(tmp)
+        section_ck_operations_seismicity(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

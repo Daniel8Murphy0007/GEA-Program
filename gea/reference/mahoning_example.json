@@ -1,0 +1,48 @@
+{
+ "entry": "mahoning_example",
+ "kind": "PUBLIC_RECORD_WORKED_EXAMPLE",
+ "title": "The Mahoning Valley, Ohio: one disposal well, one completion, the public catalogue 1990-2026",
+ "how": "Two operations from the public record and the USGS catalogue around them, read 2026-10-18. Positions are the state well records' as republished by WellWiki, to two decimal places (about a kilometre); the operations' dates are the published paper's and the regulator's inspections'. Where a date is uncertain it is said so beside it. Nothing here is a finding of this program; it is the record, set in one frame.",
+ "protocol": "ohio-odnr-2014",
+ "catalog": {
+  "file": "comcat_mahoning_1990-2026.txt",
+  "start": "1990-01-01",
+  "end": "2026-10-18",
+  "min_magnitude": 1.0,
+  "circle": {"lat": 41.065, "lon": -80.605, "radius_km": 30.0},
+  "source": "USGS ComCat, FDSN event service text, 1990-01-01 to 2026-10-18, M >= 1.0 within 30 km of 41.065 N 80.605 W; read twice (text and CSV) and compared"
+ },
+ "wells": [
+  {
+   "id": "northstar-1",
+   "display": "Northstar 1 (disposal)",
+   "api_number": "34-099-23127",
+   "operator": "North Star Disposal Services (D & L Energy before 2010-09-09)",
+   "lat": 41.12, "lon": -80.68, "datum": "WGS84",
+   "position_source": "WellWiki 34-099-23127 (Ohio well records), 41.12, -80.68 - two decimals",
+   "detail": "a vertical Class II disposal well, total depth 9,192 ft (2,802 m) into Precambrian granite",
+   "operations": [
+    {"kind": "disposal", "start": "2010-12-29", "end": "2011-12-30T23:59",
+     "source": "Kim, W.-Y. (2013), Induced seismicity associated with fluid injection into a deep well in Youngstown, Ohio, J. Geophys. Res. Solid Earth 118, 3506-3518, doi:10.1002/jgrb.50247: injection commenced 29 December 2010 and ended 30 December 2011 at the regulator's request (the state's inspection record gives the first injection as 23 December 2010)"}
+   ]
+  },
+  {
+   "id": "poland-cll2",
+   "display": "Poland-CLL2 (completion)",
+   "api_number": "34-099-23199",
+   "operator": "Hilcorp Energy Company",
+   "lat": 41.01, "lon": -80.53, "datum": "WGS84",
+   "position_source": "WellWiki 34-099-23199 (Ohio well records), 41.01, -80.53 - two decimals",
+   "detail": "a horizontal Utica well, total depth 12,931 ft, Poland Township",
+   "operations": [
+    {"kind": "completion", "start": "2014-03-05", "end": "2014-03-10T23:59",
+     "source": "the state's inspection of 5 March 2014 records the location being fractured (the stimulation's own start is not in the sources read, so the window starts no later than this); the regulator halted it on 10 March 2014 (the hour is not given, so the day is taken to its end). Skoumal, Brudzinski and Currie (2015, BSSA 105) tie 77 earthquakes of 4-12 March 2014 to six stages of it"}
+   ]
+  }
+ ],
+ "notes": [
+  "The Ohio permit conditions this example reads by default were announced in April 2014, after the Poland Township sequence and in answer to it; the Northstar 1 well was a disposal well, which those conditions do not cover.",
+  "The catalogue's largest Poland Township event is ML 2.44 (Lamont-Doherty); the published and regulator figure for the largest of that sequence is M 3.0. A protocol is read against its own magnitude of record; this one gives the ComCat figure.",
+  "No event in this catalogue precedes 2011: the 1990s and 2000s are quiet at M 1.0 in ComCat here, but the network then was sparser and smaller events may be missing - the background is a floor, not a measured rate."
+ ]
+}

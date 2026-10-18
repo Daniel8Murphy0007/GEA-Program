@@ -1,0 +1,95 @@
+{
+ "entry": "seismicity_protocols",
+ "kind": "REGULATOR_PROTOCOL_SUMMARIES",
+ "how": "Each protocol as its source states it, read 2026-10-18: the operations it covers, the distance it counts an earthquake within, and each magnitude level with the action it requires. Where the regulator's own document was read it is cited; where only a summary of it was found, the summary is cited and marked secondary. The program shows which level an earthquake would reach; it never decides that an operation caused it, and a site's own permit conditions govern over anything here.",
+ "protocols": [
+  {
+   "id": "bc-ksmma-2021",
+   "name": "British Columbia - Kiskatinaw Seismic Monitoring and Mitigation Area",
+   "jurisdiction": "British Columbia (Kiskatinaw area)",
+   "document": "BC Oil and Gas Commission Order 18-90-001 (Amendment #2), Kiskatinaw Seismic Monitoring and Mitigation Area Special Project Order, 16 April 2021, with its guidance",
+   "url": "https://www.bc-er.ca/files/reports/Seismicity-and-Fracturing/KSMMA-Order-and-Guidance-combined.pdf",
+   "source_kind": "regulator",
+   "applies_to": ["completion"],
+   "radius_km": 5.0,
+   "radius_from": "the well trajectory",
+   "magnitude_of_record": "the Commission's earthquake catalogue",
+   "monitoring": "an accelerometer within 3 km of the trajectory; a real-time array with a magnitude of completeness of 1.5 within 5 km",
+   "levels": [
+    {"m": 1.5, "action": "notify the Commission within 24 hours"},
+    {"m": 2.0, "action": "initiate the seismic mitigation plan"},
+    {"m": 2.2, "condition": "after a restart", "action": "pause the causing well for 12 hours"},
+    {"m": 2.7, "condition": "after a restart", "action": "suspend every well on the pad for at least 5 calendar days"},
+    {"m": 3.0, "action": "suspend hydraulic fracturing on the pad immediately, for at least 5 calendar days"}
+   ],
+   "cluster": {"n": 5, "m": 2.5, "hours": 72, "action": "five or more events felt or of magnitude 2.5 or more within 72 hours: the Commission may require a 24-hour pause, a technical conference and a revised completion program"}
+  },
+  {
+   "id": "alberta-aer-so2-2015",
+   "name": "Alberta - Subsurface Order No. 2 (Duvernay, Fox Creek)",
+   "jurisdiction": "Alberta (the Duvernay zone in the order's area)",
+   "document": "Alberta Energy Regulator, Subsurface Order No. 2, 19 February 2015",
+   "url": "https://static.aer.ca/prd/documents/orders/subsurface-orders/SO2.pdf",
+   "source_kind": "regulator",
+   "applies_to": ["completion"],
+   "radius_km": 5.0,
+   "radius_from": "any affected well",
+   "magnitude_of_record": "local magnitude (ML)",
+   "monitoring": "sufficient to detect a 2.0 ML event within 5 km of any affected well; an induced seismicity plan on site before completion",
+   "levels": [
+    {"m": 2.0, "action": "report immediately to the AER and carry out the induced seismicity plan"},
+    {"m": 4.0, "action": "report immediately; cease hydraulic fracturing at the affected well and return it to a safe state; resume only with the AER's written consent"}
+   ]
+  },
+  {
+   "id": "oklahoma-occ-2016",
+   "name": "Oklahoma - completion operations near anomalous seismicity",
+   "jurisdiction": "Oklahoma",
+   "document": "Oklahoma Corporation Commission, Oil and Gas Conservation Division, notice to operators: action following anomalous seismic activity apparently not related to injection into the Arbuckle (version stamp OGCD_v_20161223)",
+   "url": "https://aem-prod.oklahoma.gov/content/dam/ok/en/occ/documents/og/web-notice-to-operators-20161223-combined.pdf",
+   "source_kind": "regulator",
+   "applies_to": ["completion"],
+   "radius_km": 2.0,
+   "radius_from": "the located seismic event",
+   "magnitude_of_record": "the Oklahoma Geological Survey's magnitude",
+   "monitoring": "not stated in the notice",
+   "levels": [
+    {"m": 2.5, "action": "the Commission reviews the completion notices within 2 km and calls the operator; the operator applies its own mitigation and may continue"},
+    {"m": 3.0, "action": "pause stimulation for at least 6 hours; a technical conference with the Commission before resuming on a revised procedure"},
+    {"m": 3.5, "action": "suspend stimulation; a technical conference within 48 hours; resume only on an agreed revised procedure"}
+   ]
+  },
+  {
+   "id": "ohio-odnr-2014",
+   "name": "Ohio - permit conditions for horizontal wells near faults or seismicity",
+   "jurisdiction": "Ohio (new permits within 3 miles of a known fault or of seismic activity above magnitude 2.0)",
+   "document": "Ohio Department of Natural Resources permit conditions announced April 2014, as summarised by Vorys (April 2014) and Babst Calland",
+   "url": "https://energyenvironmentalblog.vorys.com/2014/04/articles/energy/oh-permit-conditions-and-seismic-activity",
+   "source_kind": "secondary",
+   "applies_to": ["completion"],
+   "radius_km": null,
+   "radius_from": "the permit's own conditions (the summaries name no distance for the trigger)",
+   "magnitude_of_record": "the permit's seismic monitors",
+   "monitoring": "sensitive seismic monitors on the site",
+   "levels": [
+    {"m": 1.0, "action": "pause completion while the cause is investigated; if a probable connection to hydraulic fracturing is found, all completion operations are suspended"}
+   ]
+  },
+  {
+   "id": "texas-rrc-2022",
+   "name": "Texas - Response Plan to Seismic Events",
+   "jurisdiction": "Texas",
+   "document": "Railroad Commission of Texas, Oil and Gas Division, Response Plan to Seismic Events in Texas, 31 January 2022",
+   "url": "https://www.rrc.texas.gov/media/buhgzt0o/2022-01-31_seismic_response_sog_final.pdf",
+   "source_kind": "regulator",
+   "applies_to": ["disposal", "completion"],
+   "radius_km": 9.08,
+   "radius_from": "the seismic event of significance (a larger radius around deep wells)",
+   "magnitude_of_record": "USGS and/or TexNet",
+   "monitoring": "the TexNet network",
+   "levels": [
+    {"m": 3.5, "action": "a seismic event of significance: data requests to disposal operators, inspections, a possible Seismic Response Area with a curtailment plan; for hydraulic fracturing, voluntary: pause 24 hours or skip stages within 9.08 km"}
+   ]
+  }
+ ]
+}

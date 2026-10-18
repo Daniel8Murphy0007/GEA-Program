@@ -53,6 +53,11 @@ TABLES: Dict[str, dict] = {
                             'service_basis', 'service_source', 'fleet_id', 'note') + MOTOR_COLS,
                    'need': ('well', 'run', 'class_id'),
                    'about': "each run's components from the bit up, in order: the class, maker, model, serial, OD, length, the motor's catalogue id (`gea tools --action motors`) or - for a motor not in the catalogue - its own figures (motor_*) with their source, the service interval with its basis and source"},
+    'operations': {'cols': ('well', 'kind', 'start', 'end', 'source', 'note'), 'need': ('well', 'kind', 'start', 'source'),
+                   'about': "operation windows for Operations & Seismicity: drilling, completion, disposal, injection or other, the start and end in UTC (blank end: still going), and the record it comes from"},
+    'catalogs': {'cols': ('file', 'start', 'end', 'min_magnitude', 'lat', 'lon', 'radius_km', 'source'),
+                 'need': ('file', 'start', 'end', 'min_magnitude', 'lat', 'lon', 'radius_km', 'source'),
+                 'about': "earthquake catalogue exports (USGS ComCat text or a TexNet CSV, a path beside this sheet) with the window, minimum magnitude and circle they were queried for"},
     'penetrators': {'cols': ('well', 'penetrator', 'installed', 'installer', 'certified', 'certificate', 'motor', 'gauge_distance_in', 'ir_a_megohm',
                              'ir_b_megohm', 'ir_c_megohm', 'ir_test_volts', 'ir_min_megohm', 'ir_min_source', 'void_test_psi', 'void_test_minutes',
                              'void_held', 'note'),
@@ -63,8 +68,8 @@ TABLES: Dict[str, dict] = {
                    'need': ('well', 'source'),
                    'about': "the ESP drive's output limits and the motor nameplate, the wellhead's hazardous-area classification (e.g. Class I, Division 1), gas group, temperature class and the site's ambient range"},
 }
-ORDER = ('wells', 'fleet', 'rates', 'items', 'afe', 'surveys', 'runs', 'components', 'penetrators', 'esp_drives')
-APPLY_ORDER = ('wells', 'fleet', 'rates', 'items', 'afe', 'surveys', 'runs', 'penetrators', 'esp_drives')
+ORDER = ('wells', 'fleet', 'rates', 'items', 'afe', 'surveys', 'runs', 'components', 'penetrators', 'esp_drives', 'operations', 'catalogs')
+APPLY_ORDER = ('wells', 'fleet', 'rates', 'items', 'afe', 'surveys', 'runs', 'penetrators', 'esp_drives', 'operations', 'catalogs')
 
 
 class SheetError(ValueError):
@@ -482,6 +487,44 @@ def plan(ws, text: str, base_dir: str = '') -> dict:
                 lambda actor, wid=wid, kw=kw: PN.save_drive(ws, actor, wid, **kw))
         guard('esp_drives', rec, b)
 
+    from . import op_seismicity as OS
+    ops_have = OS.operations(ws)
+    seen_ops = set()
+    for rec in tables.get('operations', []):
+        def b(rec=rec):
+            wid = _well_id(ws, rec['well'], wells)
+            new = OS.operation_record(ws, wid, rec.get('kind', ''), rec.get('start'), rec.get('end'), rec.get('source', ''), rec.get('note', ''))
+            key = (wid, new['kind'], new['start'])
+            if key in seen_ops:
+                raise SheetError(f"the {new['kind']} operation starting {new['start']} on {wid} is on the sheet twice")
+            seen_ops.add(key)
+            old = next((o for o in ops_have if (o['well_id'], o['kind'], o['start']) == key), None)
+            if old and (old['end'], old['source'], old['note']) == (new['end'], new['source'], new['note']):
+                add('operations', rec['_row'], wid, 'SAME', f"{new['kind']} from {new['start']} already declared")
+                return
+            add('operations', rec['_row'], wid, 'CHANGE' if old else 'NEW', f"{new['kind']} {new['start']} to {new['end'] or 'open'} ({new['source']})",
+                lambda actor, wid=wid, rec=rec, oid=(old or {}).get('id'): OS.save_operation(ws, actor, wid, rec.get('kind', ''), rec.get('start'), rec.get('end'),
+                                                                                              rec.get('source', ''), rec.get('note', ''), oid))
+        guard('operations', rec, b)
+    cats_have = {c['file']: c for c in OS.catalogs(ws)}
+    for rec in tables.get('catalogs', []):
+        def b(rec=rec):
+            p = rec['file'].strip()
+            path = p if os.path.isabs(p) else os.path.join(base_dir or '.', p)
+            if not os.path.isfile(path):
+                raise SheetError(f'no catalogue file {p!r} beside the sheet' + ('' if base_dir else ' (a sheet sent through the browser carries no files: attach catalogues on the Operations & Seismicity tab or from the command line)'))
+            with open(path, 'rb') as f:
+                content = f.read()
+            new = OS.catalog_record(os.path.basename(p), content, rec['start'], rec['end'], rec['min_magnitude'], rec['lat'], rec['lon'], rec['radius_km'], rec['source'])
+            old = cats_have.get(new['file'])
+            if old and all(old.get(k) == new[k] for k in ('sha256', 'start', 'end', 'min_magnitude', 'circle', 'source')):
+                add('catalogs', rec['_row'], None, 'SAME', f"{new['file']} already attached")
+                return
+            add('catalogs', rec['_row'], None, 'CHANGE' if old else 'NEW', f"{new['file']}: {new['n_events']} event(s), {new['start']} to {new['end']}, M >= {new['min_magnitude']:g}",
+                lambda actor, p=p, content=content, rec=rec: OS.attach_catalog(ws, actor, os.path.basename(p), content, rec['start'], rec['end'], rec['min_magnitude'],
+                                                                               rec['lat'], rec['lon'], rec['radius_km'], rec['source']))
+        guard('catalogs', rec, b)
+
     steps.sort(key=lambda s: (APPLY_ORDER.index(s['table']), s['row']))
     counts = {k: sum(1 for s in steps if s['action'] == k) for k in ('NEW', 'CHANGE', 'SAME')}
     return {'steps': steps, 'errors': sorted(errs, key=lambda e: int(re.match(r'row (\d+)', e).group(1)) if re.match(r'row (\d+)', e) else 0),
@@ -619,4 +662,11 @@ def template(ws) -> str:
         d = rec.get('drive')
         if d:
             w.writerow(['', wid] + [_g(d.get(k)) if d.get(k) is not None else '' for k in TABLES['esp_drives']['cols'][1:]])
+    from . import op_seismicity as OS
+    head('operations')
+    for o in OS.operations(ws):
+        w.writerow(['', o['well_id'], o['kind'], o['start'], o['end'] or '', o['source'], o.get('note', '')])
+    head('catalogs')
+    for c in OS.catalogs(ws):
+        w.writerow(['# ' + c['file'] + ' is attached (' + str(c['n_events']) + ' events); list it here only to replace it'])
     return buf.getvalue()

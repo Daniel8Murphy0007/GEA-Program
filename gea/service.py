@@ -1923,6 +1923,23 @@ def make_handler(app: App):
                 if path == '/api/declare/template':
                     from . import declarations as DC
                     return self._json(200, {'csv': DC.template(app.ws), 'filename': 'declarations.csv'})
+                if path == '/api/opseis':
+                    from . import op_seismicity as OS
+                    over = {}
+                    for k_ in ('radius_km', 'screen_km', 'post_days', 'mc'):
+                        v_ = (qs.get(k_) or [''])[0]
+                        if v_:
+                            try:
+                                over[k_] = float(v_)
+                            except ValueError:
+                                raise ApiError(400, f'{k_} must be a number')
+                    pr_ = (qs.get('protocol') or [''])[0]
+                    if pr_:
+                        over['protocol'] = pr_
+                    try:
+                        return self._json(200, OS.page(app.ws, (qs.get('scene') or ['workspace'])[0], over or None))
+                    except KeyError as e:
+                        raise ApiError(404, str(e.args[0]))
                 if path == '/api/penetrator':
                     from . import penetrator as PN
                     return self._json(200, PN.page(app.ws))
@@ -2221,6 +2238,32 @@ def make_handler(app: App):
                     if not isinstance(t_, str) or not t_.strip():
                         raise ApiError(400, 'send the sheet as text (CSV)')
                     return self._json(200, DC.apply(app.ws, t_, user['name'], '', write=bool((body or {}).get('apply'))))
+                if path.startswith('/api/opseis/'):
+                    from . import op_seismicity as OS
+                    import base64 as _b64
+                    App.require(user, 'operator')
+                    act = path[len('/api/opseis/'):]
+                    b_ = dict(body or {})
+                    if act == 'operation':
+                        return self._json(200, App._cr(OS.save_operation, app.ws, user['name'], str(b_.get('well_id', '')), str(b_.get('kind', '')), b_.get('start'),
+                                                       b_.get('end'), str(b_.get('source', '')), str(b_.get('note', '')), b_.get('op_id') or None))
+                    if act == 'operation/remove':
+                        return self._json(200, App._cr(OS.remove_operation, app.ws, user['name'], str(b_.get('op_id', ''))))
+                    if act == 'catalog':
+                        try:
+                            content = _b64.b64decode(str(b_.get('content_b64') or ''), validate=True)
+                        except ValueError:
+                            raise ApiError(400, 'the catalogue must be sent as base64')
+                        if not content:
+                            raise ApiError(400, 'send the catalogue file')
+                        return self._json(200, App._cr(OS.attach_catalog, app.ws, user['name'], str(b_.get('filename', 'catalog.txt')), content, b_.get('start'), b_.get('end'),
+                                                       b_.get('min_magnitude'), b_.get('lat'), b_.get('lon'), b_.get('radius_km'), str(b_.get('source', ''))))
+                    if act == 'catalog/remove':
+                        return self._json(200, App._cr(OS.remove_catalog, app.ws, user['name'], str(b_.get('file', ''))))
+                    if act == 'settings':
+                        return self._json(200, App._cr(OS.set_settings, app.ws, user['name'], b_.get('protocol') or None, b_.get('radius_km'), b_.get('screen_km'),
+                                                       b_.get('post_days'), b_.get('mc')))
+                    raise ApiError(404, 'no such operations and seismicity action')
                 if path.startswith('/api/penetrator/'):
                     from . import penetrator as PN
                     App.require(user, 'operator')

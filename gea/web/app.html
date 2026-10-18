@@ -145,6 +145,7 @@ body.wallmode{--wbg:#fff;--wink:#000;--wmut:#2b2b2b;--wline:#000;--wsr:#b00020;-
 .apr{min-width:260px;max-width:100%;overflow-wrap:anywhere}
 .kv{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;font-size:14px}.kv dt{color:var(--muted)}.kv dd{margin:0}
 @media (max-width:640px){main{padding:12px}label>input,label>select{min-width:0;width:100%}table{display:block;overflow-x:auto;white-space:nowrap}.row{align-items:stretch}.row>*{width:100%}header h1{font-size:16px}pre{max-width:100%}.apr{min-width:0}.kv{grid-template-columns:1fr}}
+.os-ch text{font:11px var(--sans);fill:var(--muted)}.os-ch .os-lb{fill:var(--ink2)}.os-key{display:flex;flex-wrap:wrap;gap:14px;margin:4px 0 10px}.os-key i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}.os-key i.band{border-radius:2px;background:var(--ink);opacity:.18;width:16px}.os-zoom{gap:6px;margin:6px 0}.os-zoom button{padding:2px 10px;font-size:12px}.os-ev{cursor:default}
 </style>
 </head>
 <body>
@@ -2293,6 +2294,95 @@ VIEWS.drillstring = async (arg) => {
   $('#dsEdit') && ($('#dsEdit').onclick = () => dsForm(P, P.well_id, run));
   $('#dsDel') && ($('#dsDel').onclick = async () => { try { await post('/api/drillstring/remove', {run_id: run.id}); toast('Run removed', 'ok'); DS.run = null; route(); } catch (e) { toast(e.message, 'err'); } });
 };
+// ---------- operations and seismicity: each well's operations against the earthquake catalogue around it ----------
+const OSV = {scene: '', over: {}, zoom: {}};
+function osT(s) { return Date.parse(String(s).length <= 10 ? s + 'T00:00:00Z' : (/(Z|[+-]\d\d:?\d\d)$/.test(s) ? s : s + 'Z')); }
+function osN3(v) { if (v == null) return '—'; const x = Number(v); return x >= 100 ? Math.round(x).toLocaleString() : String(Number(x.toPrecision(3))); }
+function osKind(r) { return ({DURING: 's2', AFTER: 's1', OUTSIDE: 'muted'})[r] || 'muted'; }
+function osChart(w, P, t0, t1, id) {
+  const W = 900, H = 250, L = 52, R = 14, T = 22, B = 30, scr = P.settings.screen_km, rad = P.settings.radius_km;
+  const sx = t => L + (t - t0) / ((t1 - t0) || 1) * (W - L - R), sy = d => T + d / scr * (H - T - B);
+  let g = '';
+  for (const o of w.operations) { const a = osT(o.start), b = o.end ? osT(o.end) : t1, bp = b + P.settings.post_days * 864e5; if (bp < t0 || a > t1) continue;
+    const xa = Math.max(L, sx(a)), xb = Math.max(xa + 3, Math.min(W - R, sx(b))), xp = Math.max(xb, Math.min(W - R, sx(bp)));
+    g += `<rect x="${xa.toFixed(1)}" y="${T}" width="${(xb - xa).toFixed(1)}" height="${H - T - B}" fill="var(--ink)" opacity=".10"/><rect x="${xb.toFixed(1)}" y="${T}" width="${(xp - xb).toFixed(1)}" height="${H - T - B}" fill="var(--ink)" opacity=".04"/><text x="${Math.min(xa + 3, W - R - 60).toFixed(1)}" y="${T - 7}" class="os-lb">${esc(o.kind)}</text>`; }
+  g += `<line x1="${L}" x2="${W - R}" y1="${sy(rad).toFixed(1)}" y2="${sy(rad).toFixed(1)}" stroke="var(--muted)" stroke-dasharray="4 3"/><text x="${W - R - 4}" y="${(sy(rad) - 4).toFixed(1)}" text-anchor="end" class="os-lb">${rad} km</text>`;
+  for (let d = 0; d <= scr; d += scr > 10 ? 5 : 2) g += `<line x1="${L}" x2="${W - R}" y1="${sy(d).toFixed(1)}" y2="${sy(d).toFixed(1)}" stroke="var(--grid)"/><text x="${L - 6}" y="${(sy(d) + 4).toFixed(1)}" text-anchor="end">${d}</text>`;
+  const span = t1 - t0, yrs = span > 3 * 365 * 864e5;
+  const tk = new Date(t0); if (yrs) { tk.setUTCMonth(0, 1); tk.setUTCHours(0, 0, 0, 0); } else { tk.setUTCHours(0, 0, 0, 0); }
+  const stepY = Math.max(1, Math.ceil(span / 864e5 / 365 / 9)), stepD = Math.max(1, Math.ceil(span / 864e5 / 9));
+  for (let i = 0; i < 40; i++) { const x = sx(tk.getTime()); if (tk.getTime() > t1) break; if (x >= L && x <= W - R - 20) g += `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${H - B}" y2="${H - B + 4}" stroke="var(--muted)"/><text x="${x.toFixed(1)}" y="${H - 10}" text-anchor="middle">${yrs ? tk.getUTCFullYear() : tk.toISOString().slice(5, 10)}</text>`;
+    if (yrs) tk.setUTCFullYear(tk.getUTCFullYear() + stepY); else tk.setUTCDate(tk.getUTCDate() + stepD); }
+  const ev = w.events.filter(e => { const t = osT(e.time); return t >= t0 && t <= t1; }).sort((a, b) => b.magnitude - a.magnitude);
+  for (const e of ev) { const r = Math.max(4, 2.5 + 2.4 * e.magnitude);
+    g += `<circle class="os-ev" data-id="${esc(e.event_id)}" cx="${sx(osT(e.time)).toFixed(1)}" cy="${sy(e.distance_km).toFixed(1)}" r="${r.toFixed(1)}" fill="var(--${osKind(e.relation)})" fill-opacity="${e.relation === 'OUTSIDE' ? .55 : .85}" stroke="var(--surface)" stroke-width="2"><title>${esc(`M ${e.magnitude} ${e.mag_type} · ${e.time.slice(0, 16)} · ${e.distance_km} km · ${e.relation}${e.operation ? ' ' + e.operation.kind : ''}`)}</title></circle>`; }
+  const desc = `${w.display}: ${ev.length} event(s) within ${scr} km between ${new Date(t0).toISOString().slice(0, 10)} and ${new Date(t1).toISOString().slice(0, 10)}, distance from the well against time, sized by magnitude`;
+  return `<svg class="chart os-ch" id="${esc(id)}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(desc)}"><title>${esc(desc)}</title><text x="8" y="${T + 4}" class="os-lb" transform="rotate(-90 8 ${T + 4})" text-anchor="end">km from the well</text>${g}</svg>`;
+}
+VIEWS.opseis = async (arg) => {
+  if (arg) OSV.scene = arg;
+  const q = new URLSearchParams({scene: OSV.scene || 'workspace', ...OSV.over});
+  let P; try { P = await get('/api/opseis?' + q); } catch (e) { if (OSV.scene !== 'mahoning') { OSV.scene = 'mahoning'; return VIEWS.opseis(); } throw e; }
+  OSV.scene = P.scene; OSV.data = P;
+  const st = P.settings, pr = P.protocol;
+  let h = `<h2>Operations &amp; seismicity</h2>` + help('opseis');
+  h += `<div class="card row os-ctl"><label>Scene<select id="osScene">${P.scenes.map(s => `<option value="${esc(s.id)}" ${s.id === P.scene ? 'selected' : ''}>${esc(s.title)}</option>`).join('')}</select></label>
+    <label>Protocol<select id="osProt">${P.protocols.map(p => `<option value="${esc(p.id)}" ${pr && p.id === pr.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>
+    <label>Association radius (km)<input id="osR" type="number" step="0.5" min="0.5" value="${st.radius_km}" style="width:6em"></label>
+    <label>After an operation (days)<input id="osD" type="number" step="1" min="0" value="${st.post_days}" style="width:6em"></label>
+    <label>Completeness (M)<input id="osM" type="number" step="0.1" value="${st.mc ?? ''}" style="width:5em"></label><button type="button" class="secondary" id="osGo">Apply</button>
+    ${P.scene === 'workspace' && can('operator') ? `<button type="button" class="secondary" id="osKeep" title="Keep these as this workspace's settings">Keep as the workspace's</button>` : ''}</div>`;
+  if (P.how) h += `<p class="small muted">${esc(P.how)}</p>`;
+  const c = P.catalog || {};
+  h += `<p class="small">${c.start ? `Catalogue: ${esc(c.source || '')} — ${esc(c.start)} to ${esc(c.end)}, M ≥ ${c.min_magnitude}, ${P.n_events} event${P.n_events === 1 ? '' : 's'}.` : '<b>No catalogue attached yet.</b> Attach one below.'} Events are screened to ${st.screen_km} km and associated within ${st.radius_km} km, during an operation or within ${st.post_days} days after it (${esc(P.sources.screen)}).</p>`;
+  h += `<div class="small os-key" aria-hidden="true"><span><i style="background:var(--s2)"></i>during an operation</span><span><i style="background:var(--s1)"></i>after one (association window)</span><span><i style="background:var(--muted)"></i>outside</span><span><i class="band"></i>operation, then its association window</span><span>circle area ∝ magnitude</span></div>`;
+  for (const w of P.wells) {
+    h += `<div class="card"><h3>${esc(w.display)}</h3>`;
+    if (!w.placed) { h += `<p class="small">${w.notes.map(esc).join(' ')}</p></div>`; continue; }
+    const r = w.rate || {}, lg = w.largest, pe = w.protocol_events || [];
+    const hi = pe.reduce((m, e) => !m || e.protocol.highest.m > m.protocol.highest.m ? e : m, null);
+    h += `<div class="tiles">` + tile('Associated events', String((w.associated || []).length), (w.associated || []).length ? 'warn' : 'good', '#/opseis', `within ${st.radius_km} km, during or after an operation`)
+       + tile('Rate during operations', r.status || '—', r.status === 'HIGHER DURING OPERATIONS' ? 'serious' : 'neutral', '#/opseis', r.p_value != null ? `p = ${r.p_value < 0.001 ? Number(r.p_value).toExponential(1) : Number(r.p_value).toPrecision(2)}` : (r.detail || ''))
+       + tile('Largest within ' + st.screen_km + ' km', lg ? 'M ' + lg.magnitude : '—', 'neutral', '#/opseis', lg ? `${lg.time.slice(0, 10)}, ${lg.distance_km} km, ${lg.relation.toLowerCase()}` : 'no event')
+       + (pr && !w.operations.some(o => pr.applies_to.includes(o.kind)) ? tile('Protocol', 'not covered', 'neutral', '#/opseis', `${pr.name.split(' - ')[0]} covers ${pr.applies_to.join(' and ')}; this well's operations are ${[...new Set(w.operations.map(o => o.kind))].join(', ') || 'none'}`)
+       : tile(pr ? 'Protocol: highest level' : 'Protocol', hi ? 'M ' + hi.protocol.highest.m : 'none reached', hi ? 'warn' : 'good', '#/opseis', hi ? hi.protocol.highest.action : (pr ? pr.name : ''))) + `</div>`;
+    if (r.detail) h += `<p class="small">${esc(r.detail)}${r.ratio != null ? `. Rate ${osN3(r.rate_operations_per_year)} a year inside against ${osN3(r.rate_background_per_year)} outside: ${osN3(r.ratio)} times.` : (r.background_upper_95_per_year != null ? `. No event outside: ${osN3(r.rate_operations_per_year)} a year inside against below ${osN3(r.background_upper_95_per_year)} outside (95 %).` : '')}</p>`;
+    const zid = OSV.zoom[w.id] ?? -1, ops = w.operations;
+    let t0 = c.start ? osT(c.start) : Math.min(...w.events.map(e => osT(e.time))), t1 = c.end ? osT(c.end) : Date.now();
+    if (zid >= 0 && ops[zid]) { const a = osT(ops[zid].start), b = ops[zid].end ? osT(ops[zid].end) : t1, d_ = Math.max(b - a, 864e5); t0 = a - Math.max(d_, 2 * 864e5); t1 = b + Math.max(2 * d_, 4 * 864e5); }
+    h += `<div class="row small os-zoom">View: <button type="button" class="${zid < 0 ? '' : 'secondary'} os-z" data-w="${esc(w.id)}" data-z="-1">the whole catalogue</button>${ops.map((o, i) => `<button type="button" class="${zid === i ? '' : 'secondary'} os-z" data-w="${esc(w.id)}" data-z="${i}">${esc(o.kind)} ${esc(o.start.slice(0, 10))}</button>`).join('')}</div>`;
+    h += isFinite(t0) && isFinite(t1) ? osChart(w, P, t0, t1, 'osC-' + w.id) : '<p class="small muted">No catalogue span to draw.</p>';
+    h += `<details class="os-ops"><summary class="small">Operations (${ops.length})</summary><ul class="small">${ops.map(o => `<li><b>${esc(o.kind)}</b> ${esc(o.start)} to ${esc(o.end || 'open')} — ${esc(o.source)}${o.id && P.scene === 'workspace' && can('operator') ? ` <button type="button" class="secondary os-rmop" data-id="${esc(o.id)}" style="padding:1px 8px;font-size:12px">remove</button>` : ''}</li>`).join('')}</ul></details>`;
+    const shown = w.events.filter(e => e.within_radius || e.relation !== 'OUTSIDE');
+    if (shown.length) h += `<div style="overflow-x:auto"><table class="small"><thead><tr><th>Time (UTC)</th><th>M</th><th>Distance (km)</th><th>Depth (km)</th><th>Relation</th><th>Rig / other wells</th><th>${pr ? esc(pr.name.split(' - ')[0]) + ' protocol' : 'Protocol'}</th></tr></thead><tbody>${shown.map(e => `<tr><td class="mono">${esc(e.time.slice(0, 16).replace('T', ' '))}</td><td>${e.magnitude} <span class="muted">${esc(e.mag_type)}</span></td><td>${e.distance_km}${e.within_radius ? '' : ' <span class="muted">(beyond ' + st.radius_km + ')</span>'}</td><td>${e.depth_km ?? '—'}</td><td>${statusPill(e.relation === 'DURING' ? 'serious' : e.relation === 'AFTER' ? 'warn' : 'neutral', e.relation)}${e.operation ? ' ' + esc(e.operation.kind) : ''}${e.days_after_end != null ? ` +${e.days_after_end} d` : ''}</td><td>${e.rig ? esc(e.rig.state) + (e.rig.bottom_ft ? ` at ${e.rig.bottom_ft} ft` : '') : '—'}${(e.also || []).map(x => `<br><span class="muted">also ${esc(x.relation.toLowerCase())} ${esc(x.kind)} of ${esc(x.well)}</span>`).join('')}</td><td>${e.protocol ? `<b>M ${e.protocol.highest.m}</b>: ${esc(e.protocol.highest.action)}${e.protocol.conditional.map(x => `<br><span class="muted">${esc(x.condition)}, M ${x.m}: ${esc(x.action)}</span>`).join('')}` : '—'}</td></tr>`).join('')}</tbody></table></div>`;
+    for (const cl of w.cluster || []) h += `<p class="small"><b>Cluster</b> from ${esc(cl.from.slice(0, 16))}: ${cl.events.length} events — ${esc(pr.cluster.action)}.</p>`;
+    for (const n of w.notes) h += `<p class="small muted">${esc(n)}.</p>`;
+    h += `</div>`;
+  }
+  for (const n of P.notes || []) h += `<p class="small muted">${esc(n)}</p>`;
+  if (pr) h += `<div class="card"><h3>${esc(pr.name)} <span class="small muted">${pr.source_kind === 'secondary' ? 'a secondary summary' : 'the regulator\'s document'}</span></h3><p class="small">Covers ${esc(pr.applies_to.join(' and '))}; counts an earthquake within ${pr.radius_km != null ? pr.radius_km + ' km' : 'the permit\'s distance'} of ${esc(pr.radius_from)}; magnitude of record: ${esc(pr.magnitude_of_record)}. Monitoring: ${esc(pr.monitoring)}.</p>
+    <table class="small"><thead><tr><th>M</th><th>Action</th></tr></thead><tbody>${pr.levels.map(l => `<tr><td>${l.m}${l.condition ? `<br><span class="muted">${esc(l.condition)}</span>` : ''}</td><td>${esc(l.action)}</td></tr>`).join('')}${pr.cluster ? `<tr><td>cluster</td><td>${esc(pr.cluster.action)}</td></tr>` : ''}</tbody></table>
+    <p class="small muted"><a href="${esc(pr.url)}" target="_blank" rel="noopener">${esc(pr.document)}</a>. ${esc(P.protocols_how)}</p></div>`;
+  if (P.scene === 'workspace') {
+    h += `<div class="card"><h3>Catalogues</h3>${(P.catalogs || []).length ? `<ul class="small">${P.catalogs.map(k => `<li><b>${esc(k.file)}</b> — ${k.n_events} events, ${esc(k.start)} to ${esc(k.end)}, M ≥ ${k.min_magnitude}, ${k.circle.radius_km} km around ${k.circle.lat}, ${k.circle.lon} — ${esc(k.source)}${can('operator') ? ` <button type="button" class="secondary os-rmcat" data-f="${esc(k.file)}" style="padding:1px 8px;font-size:12px">remove</button>` : ''}</li>`).join('')}</ul>` : '<p class="small">None yet.</p>'}
+      ${P.query ? `<p class="small">This program cannot reach the catalogue service. Open this query where it can be reached (a browser), save the page as a .txt file, and attach it here with the window and circle the query names: <a class="mono" href="${esc(P.query.url)}" target="_blank" rel="noopener" style="word-break:break-all">${esc(P.query.url)}</a></p>` : '<p class="small">Declare the wells\' surface positions first (Setup, or the declarations sheet): the query is drawn around them.</p>'}
+      ${can('operator') ? `<form id="osCat" class="row"><label>Catalogue file<input type="file" name="file" required accept=".txt,.csv"></label><label>From<input name="start" required value="${esc(P.query ? P.query.start : '')}" placeholder="1990-01-01" style="width:8em"></label><label>To<input name="end" required value="${esc(P.query ? P.query.end : '')}" style="width:8em"></label><label>Min M<input name="min_magnitude" type="number" step="0.1" required value="${P.query ? P.query.min_magnitude : ''}" style="width:5em"></label><label>Centre lat<input name="lat" type="number" step="any" required value="${P.query ? P.query.centre[0] : ''}" style="width:7em"></label><label>lon<input name="lon" type="number" step="any" required value="${P.query ? P.query.centre[1] : ''}" style="width:7em"></label><label>Radius (km)<input name="radius_km" type="number" step="any" required value="${P.query ? P.query.radius_km : ''}" style="width:6em"></label><label style="flex:1 1 16em">Source<input name="source" required placeholder="USGS ComCat, queried ${new Date().toISOString().slice(0, 10)}" style="width:100%"></label><button type="submit">Attach</button></form>` : need('operator')}</div>`;
+    if (can('operator')) h += `<div class="card"><h3>Declare an operation <span class="small muted">a completion, disposal or injection window, or drilling a well without a drilling record</span></h3><form id="osOp" class="row"><label>Well<select name="well_id">${P.wells.map(w => `<option value="${esc(w.id)}">${esc(w.display)}</option>`).join('')}</select></label><label>Kind<select name="kind">${['completion', 'disposal', 'injection', 'drilling', 'other'].map(k => `<option>${k}</option>`).join('')}</select></label><label>Start (UTC)<input name="start" required placeholder="2026-05-01 or 2026-05-01T06:00" style="width:12em"></label><label>End<input name="end" placeholder="blank: still going" style="width:12em"></label><label style="flex:1 1 16em">Source<input name="source" required placeholder="completion report, stage log" style="width:100%"></label><button type="submit">Declare</button></form><p class="small muted">A well with a drilling record already carries its drilling window from the record, and each event during it shows what the rig was doing.</p></div>`;
+  }
+  h += `<div class="card"><h3>What this page will not call a measurement</h3><ul class="small">${P.not_a_measurement.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
+  $('#main').innerHTML = h;
+  const read = () => { const o = {}; if ($('#osProt').value) o.protocol = $('#osProt').value; for (const [k, id] of [['radius_km', '#osR'], ['post_days', '#osD'], ['mc', '#osM']]) if ($(id).value !== '') o[k] = $(id).value; return o; };
+  $('#osScene').onchange = ev => { OSV.scene = ev.target.value; OSV.over = {}; OSV.zoom = {}; route(); };
+  $('#osGo').onclick = () => { OSV.over = read(); route(); };
+  $('#osKeep') && ($('#osKeep').onclick = async () => { try { await post('/api/opseis/settings', read()); OSV.over = {}; toast('Kept as the workspace\'s settings', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+  document.querySelectorAll('.os-z').forEach(b => b.onclick = () => { OSV.zoom[b.dataset.w] = +b.dataset.z; route(); });
+  document.querySelectorAll('.os-rmop').forEach(b => b.onclick = async () => { try { await post('/api/opseis/operation/remove', {op_id: b.dataset.id}); toast('Operation removed', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+  document.querySelectorAll('.os-rmcat').forEach(b => b.onclick = async () => { try { await post('/api/opseis/catalog/remove', {file: b.dataset.f}); toast('Catalogue removed', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+  $('#osCat') && ($('#osCat').onsubmit = async ev => { ev.preventDefault(); const f = new FormData(ev.target), file = f.get('file');
+    try { const b = {filename: file.name, content_b64: await readFile(file)}; for (const k of ['start', 'end', 'min_magnitude', 'lat', 'lon', 'radius_km', 'source']) b[k] = f.get(k); await post('/api/opseis/catalog', b); toast('Catalogue attached', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+  $('#osOp') && ($('#osOp').onsubmit = async ev => { ev.preventDefault(); const f = new FormData(ev.target), b = {}; for (const [k, v] of f.entries()) if (v !== '') b[k] = v;
+    try { await post('/api/opseis/operation', b); toast('Operation declared', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+};
 // ---------- completion: the ESP wellhead penetrator, its installation record, and the drive and site against its ratings ----------
 const CP = {well: ''};
 function cpV(v) { if (v === null || v === undefined || v === '') return '—'; if (Array.isArray(v)) return v.map(x => x === null || x === undefined ? '?' : x).join(' to '); if (typeof v === 'object') return Object.entries(v).map(([k, x]) => `${k} ${x}`).join(', '); return String(v); }
@@ -2571,7 +2661,7 @@ function authScreen(first) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/seismic', 'Seismic'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w'], '#/control': b => [b.handover_unacked, 'w']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }

@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.42.0 - 2026-10-18 - operations and seismicity
+
+- **Each well's operations against the earthquakes around it.** Events by
+  distance and time, during or after drilling, completion and disposal;
+  the rig's state from the drilling record; the levels of five regulators'
+  protocols; the exact conditional rate test. The Mahoning Valley worked
+  example from the public record. Section CK; gate 413.
+
 ## v0.41.0 - 2026-10-17 - the declarations sheet
 
 - **What the operator declares, in one sheet, checked before it is

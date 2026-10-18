@@ -8,6 +8,12 @@ Small, verbatim, public-domain extracts kept so the gate can prove a reader on r
 - `comcat_youngstown_2011-2012.txt` - the same service, fetched 2026-10-12:
   `https://earthquake.usgs.gov/fdsnws/event/1/query?format=text&starttime=2011-03-01&endtime=2012-03-01&latitude=41.1&longitude=-80.68&maxradiuskm=25&minmagnitude=1.5&orderby=time-asc`
   (9 events within 25 km of Youngstown, Ohio: the 2011 sequence that ended with the M 4.0 of 2011-12-31; contributor ld = Lamont-Doherty). Public domain.
+- `comcat_mahoning_1990-2026.txt` - the same service, read 2026-10-18 through the web reader as text and again as CSV, the two
+  readings compared event by event and agreeing on every id, time, position, depth and magnitude (no byte-for-byte fetch, so no hash):
+  `https://earthquake.usgs.gov/fdsnws/event/1/query?format=text&starttime=1990-01-01&endtime=2026-10-18&latitude=41.065&longitude=-80.605&maxradiuskm=30&minmagnitude=1&orderby=time-asc`
+  (21 events M >= 1.0 within 30 km of the Mahoning Valley, Ohio, 1990 to 2026: none before 2011; the 2011 Youngstown sequence; the
+  March 2014 Poland Township sequence; the April 2016 events by Bessemer, Pennsylvania; one in 2024). The Operations & Seismicity
+  worked example. Public domain.
 - `ne_110m_coastline.json` - Natural Earth 1:110m coastline (`ne_110m_coastline`), fetched 2026-10-13 from
   `https://github.com/nvkelso/natural-earth-vector` (geojson/ne_110m_coastline.geojson, md5 0b8f91e9d9c4fb607e61e121b5ac48fa):
   134 lines, 5,127 points after rounding to 0.01 degree and dropping consecutive duplicates. Public domain (Natural Earth).

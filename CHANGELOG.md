@@ -5,6 +5,46 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.42.0] - 2026-10-18 - Operations and seismicity
+
+### Added
+- **The Operations & Seismicity tab** (`gea/op_seismicity.py`,
+  `#/opseis`, `gea seismicity`): each well's operation windows against the
+  earthquake catalogue around it. Every event within the screening
+  distance (20 km) with its distance from the well and its relation -
+  DURING an operation, AFTER one (within the association window, 90 days
+  by default), OUTSIDE - on a time line by distance, sized by magnitude,
+  with a zoom on each operation; an event near two wells' operations named
+  on both.
+- **The rig at the time**: a well with a drilling record carries the
+  record's span as a drilling window, and an event during it shows what
+  the rig was doing (drilling, circulating, not pumping) and the hole's
+  depth then.
+- **Protocols** (`reference/seismicity_protocols.json`): British
+  Columbia's Kiskatinaw order (2021), Alberta's Subsurface Order No. 2
+  (2015), Oklahoma's completion notice (2016), Ohio's 2014 permit
+  conditions (a secondary summary, marked so) and Texas's Response Plan to
+  Seismic Events (2022), each level with its action and the document; an
+  event's highest level reached by the catalogue's magnitude, the
+  after-restart levels conditional, British Columbia's cluster rule.
+- **The rate test**: events at or above the completeness within the
+  association radius, inside the operation windows against outside them
+  over the catalogue's window, by the exact conditional test for two
+  Poisson rates; the ratio, or with no background event its 95 % upper
+  bound.
+- **Catalogues and operations**: catalogue exports (FDSN text such as
+  ComCat, or a TexNet CSV) attached with the window, minimum magnitude and
+  circle they were queried for, kept verbatim with their SHA-256; the
+  ComCat query drawn around the wells for the site to run; operation
+  windows declared with their source; the declarations sheet gains
+  `[operations]` and `[catalogs]`.
+- **The worked example**: the Mahoning Valley, Ohio - ComCat 1990-2026
+  within 30 km (21 events, read twice and compared), Northstar 1's
+  injection year (Kim 2013) and the Poland-CLL2 stimulation of March 2014
+  (the state's inspection and the regulator's halt), positions from the
+  state's well records.
+- Help page `opseis`; section CK (3 checks).
+
 ## [v0.41.0] - 2026-10-17 - The declarations sheet
 
 ### Added
