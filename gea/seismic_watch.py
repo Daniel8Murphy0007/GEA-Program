@@ -113,7 +113,9 @@ def active(ws, now: datetime) -> dict:
         s = w.get('surface') or {}
         if s.get('lat') is not None:
             p = GD.to_wgs84(s['lat'], s['lon'], 0.0, s.get('datum') or 'WGS84')
-            wells[w['id']] = {'id': w['id'], 'display': w.get('display') or w['id'], 'lat': p['lat'], 'lon': p['lon']}
+            L = OS.lateral_of(ws, w, p['lat'], p['lon'])
+            wells[w['id']] = {'id': w['id'], 'display': w.get('display') or w['id'], 'lat': p['lat'], 'lon': p['lon'],
+                              'reach_km': (L or {}).get('reach_km') or 0.0}
     naive = now.replace(tzinfo=None)
     ops = []
     for o in OS.operations(ws):
@@ -126,7 +128,7 @@ def active(ws, now: datetime) -> dict:
     if use:
         la = sum(w['lat'] for w in use) / len(use)
         lo = sum(w['lon'] for w in use) / len(use)
-        spread = max(OS.km(la, lo, w['lat'], w['lon']) for w in use)
+        spread = max(OS.km(la, lo, w['lat'], w['lon']) + w['reach_km'] for w in use)    # the laterals' reach counts
         circle = {'lat': round(la, 5), 'lon': round(lo, 5), 'radius_km': round(spread + float(st['screen_km']), 2)}
     return {'operations': ops, 'wells_placed': len(wells), 'circle': circle,
             'earliest_start': min((o['start'] for o in ops), default=None)}
@@ -274,12 +276,15 @@ def poll(ws, notifier=None, now: Optional[datetime] = None, fetch: Optional[Call
                 live = events[ev['event_id']]
                 base = {'well_id': w['id'], 'well': w['display'], 'event_id': ev['event_id'], 'magnitude': ev['magnitude'], 'mag_type': ev['mag_type'],
                         'time_utc': ev['time'], 'distance_km': ev['distance_km'], 'relation': ev['relation'], 'operation': (ev.get('operation') or {}).get('kind'),
-                        'place': ev.get('place'), 'status': live.get('status'), 'rig': (ev.get('rig') or {}).get('state')}
+                        'place': ev.get('place'), 'status': live.get('status'), 'rig': (ev.get('rig') or {}).get('state'),
+                        'distance_basis': ev.get('distance_basis'), 'nearest_md_ft': ev.get('nearest_md_ft')}
+                frm = (f"the lateral of {w['display']} (nearest at {ev['nearest_md_ft']:,.0f} ft MD)" if ev.get('distance_basis') == 'lateral' and ev.get('nearest_md_ft') is not None
+                       else w['display'])
                 k_ev = f"{ev['event_id']}:{w['id']}"
                 if k_ev not in seen_ev:
                     seen_ev.add(k_ev)
                     raised.append(AL.raise_alert(ws, notifier, {'event': 'seismic.event', 'key': f'seismic.event:{k_ev}', **base,
-                                                                'detail': f"M {ev['magnitude']:g} {ev['mag_type']} {ev['distance_km']:g} km from {w['display']}, {ev['relation'].lower()} its {base['operation']}"}, now))
+                                                                'detail': f"M {ev['magnitude']:g} {ev['mag_type']} {ev['distance_km']:g} km from {frm}, {ev['relation'].lower()} its {base['operation']}"}, now))
                 pr = ev.get('protocol')
                 if pr:
                     m = pr['highest']['m']
@@ -287,7 +292,7 @@ def poll(ws, notifier=None, now: Optional[datetime] = None, fetch: Optional[Call
                         alerted[k_ev] = m
                         raised.append(AL.raise_alert(ws, notifier, {'event': 'seismic.protocol', 'key': f'seismic.protocol:{k_ev}:{m:g}', **base,
                                                                     'protocol': prot.get('name'), 'level_m': m, 'action': pr['highest']['action'],
-                                                                    'detail': f"M {ev['magnitude']:g} {ev['distance_km']:g} km from {w['display']} reaches {prot.get('name')} level M {m:g}: {pr['highest']['action']}"}, now))
+                                                                    'detail': f"M {ev['magnitude']:g} {ev['distance_km']:g} km from {frm} reaches {prot.get('name')} level M {m:g}: {pr['highest']['action']}"}, now))
         st['events_alerted'] = sorted(seen_ev)
         _store(_dir(ws, 'live', 'state.json'), st)
         return {'polled': True, 'ok': True, 'how': how, 'url': url, 'in_circle': len(feats), 'new': new, 'alerts': raised}

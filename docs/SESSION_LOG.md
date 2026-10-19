@@ -2407,3 +2407,31 @@ stability; and motor specifications in the tool catalogue.
   horizontal scroll, no console errors.
 - Section CM (3 checks). Gate 419.
 
+## 2026-10-19 - The lateral, the printable reports, the daily summary and the key (v0.45.0)
+
+- Asked: proceed with the four smaller items (the trusted timestamp left for
+  later).
+- The lateral reuses the 3D view's own path code (minimum curvature, the
+  arc between stations, the azimuth turned to the frame by the grid
+  convergence or the declination), in a transverse Mercator frame on each
+  well's own surface position, so a point's east and north are exact metres
+  from the slot. Checked against a hand-built lateral: an event placed 500 m
+  north of it by the inverse projection reads 0.500 km.
+- The distance is in plan, the way the protocols draw their circles; the
+  straight-line distance to the hypocentre is given beside it.
+- The PDF writer is new and small: PDF 1.4, the base-14 fonts with Adobe's
+  AFM widths for line breaking, WinAnsi text, FlateDecode streams, an xref
+  table; the program's own SVG (rect, line, path, circle, text) redrawn as
+  PDF operators with opacity mixed toward the white page. No creation time
+  is stamped, so a report rewritten unchanged hashes the same. Checked with
+  qpdf and rendered with pdftoppm during the build; the gate reads each PDF
+  back with its own reader (xref offsets, fonts, page text).
+- The summary runs from the same background poller as the watch, once a day
+  at its hour; the email body is the summary's own text.
+- Rotation: the old key signs a canonical statement naming the new, the new
+  signs it too, and the old seed is overwritten with the new key file. The
+  standalone checker follows the chain and requires it to end at the
+  dossier's signer, so a dossier signed with a retired key after its
+  retirement fails even outside the workspace.
+- Section CN (5 checks). Gate 424.
+

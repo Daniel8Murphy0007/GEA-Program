@@ -10,7 +10,11 @@ script and a README. The check:
 2. every file the manifest lists is in the zip, with the size and SHA-256 the manifest gives;
 3. nothing else in the zip claims to be covered (this script and the README are not, and say so);
 4. with --sources, each source file the manifest lists by hash (the drilling records, which a dossier may hold by
-   hash alone) is found in that folder and hashed.
+   hash alone) is found in that folder and hashed;
+5. when the site has changed its signing key, the dossier carries `keys/rotations.json`: each statement that
+   handed the signature from one key to the next, signed by the retired key and by its successor. Each signature
+   is checked, the chain must end at the key that signed this dossier, and the fingerprints along it are printed,
+   so a client who was given an earlier fingerprint can follow the chain to this one.
 
 A valid signature shows the files are byte-for-byte those the key's holder signed. Who holds the key is a separate
 question: compare the fingerprint printed here with the one the site gave you, by a channel other than this file.
@@ -85,6 +89,44 @@ def check(zip_path: str, sources_dir: str = '') -> dict:
         listed = {f['path'] for f in man.get('files', [])} | {'manifest.json', 'signature.json'}
         extra = sorted(n for n in names - listed if not n.endswith('/') and n not in UNCOVERED)
         add('nothing unsigned rides along', not extra, 'only this script and the README are outside the signature' if not extra else 'not covered by the signature: ' + ', '.join(extra[:10]))
+        if 'keys/rotations.json' in names:
+            chain = []
+            try:
+                rots = json.loads(z.read('keys/rotations.json').decode('utf-8')).get('rotations', [])
+            except ValueError:
+                rots = None
+            if rots is None:
+                add('the key rotations verify', False, 'keys/rotations.json does not read')
+            else:
+                good_all = True
+                for r_ in rots:
+                    st = r_.get('statement') or {}
+                    b = json.dumps(st, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode('ascii')
+                    old = st.get('old') or {}
+                    new = st.get('new') or {}
+                    try:
+                        ok_new = _ed_verify(bytes.fromhex(new.get('public_key', '')), b, bytes.fromhex(r_.get('new_signature') or ''))
+                    except ValueError:
+                        ok_new = False
+                    if r_.get('old_signature') and old.get('public_key'):
+                        try:
+                            ok_old = _ed_verify(bytes.fromhex(old['public_key']), b, bytes.fromhex(r_['old_signature']))
+                        except ValueError:
+                            ok_old = False
+                    else:
+                        ok_old = None                            # the old key was lost: the step rests on the site's word
+                    good_all = good_all and ok_new and ok_old is not False
+                    chain.append({'utc': st.get('utc'), 'old': old.get('fingerprint') or st.get('old_fingerprint'), 'new': new.get('fingerprint'),
+                                  'reason': st.get('reason', ''), 'signed_by_old': ok_old, 'signed_by_new': ok_new})
+                ends = bool(chain) and (rots[-1].get('statement') or {}).get('new', {}).get('public_key') == sig.get('public_key')
+                links = all(chain[i]['new'] == chain[i + 1]['old'] for i in range(len(chain) - 1))
+                out['key_chain'] = chain
+                add('the key rotations verify', good_all and ends and links,
+                    (f"{len(chain)} rotation(s), each signed by the new key" + ('' if all(c['signed_by_old'] for c in chain) else
+                     '; one or more not signed by the retired key (it was lost), so that step rests on the site\'s word')
+                     + ', ending at the key that signed this dossier') if good_all and ends and links else
+                    ('a rotation statement does not verify' if not good_all else
+                     'the chain does not end at the key that signed this dossier' if not ends else 'the rotations do not follow one another'))
         srcs = man.get('sources', [])
         if sources_dir:
             rows = []
@@ -114,9 +156,14 @@ def text(r: dict) -> str:
         L.append(f"  {'ok ' if c['ok'] else 'NO '} {c['check']}: {c['detail']}")
     for s_ in r.get('sources') or []:
         L.append(f"      {s_['status']:<8} {s_['path']}")
+    for c in r.get('key_chain') or []:
+        L.append(f"  key rotation {c['utc']}: {c['old']} -> {c['new']} ({c['reason']}); "
+                 + ('signed by both keys' if c['signed_by_old'] and c['signed_by_new'] else
+                    'signed by the new key only: the old one was lost' if c['signed_by_old'] is None and c['signed_by_new'] else 'NOT VALID'))
     if r.get('fingerprint'):
         L.append(f"  signer's key fingerprint: {r['fingerprint']}")
-        L.append("  compare it with the fingerprint the site gave you separately; a valid signature by an unknown key proves nothing about who signed")
+        L.append("  compare it with the fingerprint the site gave you separately; a valid signature by an unknown key proves nothing about who signed"
+                 + ("; or, if the site gave you an earlier fingerprint, find it in the rotations above" if r.get('key_chain') else ''))
     return '\n'.join(L)
 
 

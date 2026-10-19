@@ -1889,8 +1889,11 @@ def guard_text(text: str, what: str = 'a client deliverable') -> str:
     return text
 
 
+LAST_PDF_ERROR: Optional[str] = None
+
+
 def write(doc: Document, out_dir: str, basename: str = 'gauge_drift_report') -> dict:
-    """Write markdown, HTML, the machine JSON, the records CSV and the tag
+    """Write markdown, HTML, the printable PDF (`pdf_report`), the machine JSON, the records CSV and the tag
     catalogue CSV. Returns the paths. Raises if the rendered report contains
     any internal-register term."""
     os.makedirs(out_dir, exist_ok=True)
@@ -1908,6 +1911,17 @@ def write(doc: Document, out_dir: str, basename: str = 'gauge_drift_report') -> 
         f.write(md)
     with open(paths['html'], 'w', encoding='utf-8', newline='') as f:
         f.write(ht)
+    global LAST_PDF_ERROR
+    try:                                                    # the printable copy, from the same document
+        from . import pdf_report as _PDF
+        pdf = _PDF.render(doc)
+        paths['pdf'] = os.path.join(out_dir, basename + '.pdf')
+        with open(paths['pdf'], 'wb') as f:
+            f.write(pdf)
+        LAST_PDF_ERROR = None
+    except Exception as e:                                  # a layout fault costs the printable copy, never the report
+        paths.pop('pdf', None)
+        LAST_PDF_ERROR = f'{basename}: {type(e).__name__}: {e}'
     for s in doc.sections:
         for fg in s.figures:
             fp = os.path.join(out_dir, fg.name + '.svg')

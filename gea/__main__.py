@@ -584,8 +584,20 @@ def main(argv=None) -> int:
     p_dz.add_argument("--sources", type=str, default="", help="with --verify: a folder holding the source records to check against their hashes")
     p_dz.add_argument("--key", action="store_true", help="print this site's signing key fingerprint")
     p_dz.add_argument("--list", action="store_true", help="list the dossiers this site has signed")
+    p_dz.add_argument("--rotate-key", action="store_true", help="retire this site's signing key and start a new one, signed over by the old (give --reason)")
+    p_dz.add_argument("--reason", type=str, default="", help="with --rotate-key: why the key is retired")
+    p_dz.add_argument("--key-history", action="store_true", help="the site's keys, current and retired, and the rotations between them")
     p_dz.add_argument("--actor", type=str, default="cli")
     p_dz.add_argument("--json", action="store_true")
+
+    p_ps = sub.add_parser("pad-summary", help="the daily pad summary: what changed since the last one, what is due, what is still missing - one page, kept in report history; the service writes it each day and sends it through the notification rules")
+    p_ps.add_argument("--workspace", type=str, required=True)
+    p_ps.add_argument("--send", action="store_true", help="also hand it to the notification rules (the event pad.summary)")
+    p_ps.add_argument("--at", type=str, default=None, help="the daily time the service writes it, HH:MM UTC")
+    p_ps.add_argument("--on", action="store_true", help="the service writes it each day")
+    p_ps.add_argument("--off", action="store_true", help="the service does not")
+    p_ps.add_argument("--actor", type=str, default="cli")
+    p_ps.add_argument("--json", action="store_true")
 
     p_rh = sub.add_parser("reports-history", help="every version of every client report this workspace has written, kept under reports/history; --prune keeps the newest N")
     p_rh.add_argument("--workspace", type=str, required=True)
@@ -2297,6 +2309,23 @@ def main(argv=None) -> int:
             k = _DZ.key_info(ws)
             print(f"Ed25519 {k['fingerprint']} (public key {k['public_key']}, made {k['created_utc']})" if k else "no signing key yet: the first dossier makes one")
             return 0
+        if a.rotate_key:
+            try:
+                r_ = _DZ.rotate_key(ws, a.actor, a.reason)
+            except ValueError as ex:
+                raise SystemExit(f"dossier: {ex}")
+            print(f"retired {r_['old']['fingerprint']}; the new key is {r_['new']['fingerprint']}")
+            print("  the rotation is signed by both keys and rides in every later dossier; give the new fingerprint to your clients")
+            return 0
+        if a.key_history:
+            h_ = _DZ.key_history(ws)
+            if a.json:
+                print(_json.dumps(h_, default=str)); return 0
+            for k in h_["keys"]:
+                print(f"{k['fingerprint']}  made {k.get('created_utc') or '?'}  " + (f"retired {k['retired_utc']} ({k.get('reason', '')}) -> {k.get('successor')}" if k.get("retired_utc") else "CURRENT"))
+            if not h_["keys"]:
+                print("no key history yet")
+            return 0
         if a.list:
             for e in reversed(_DZ.ledger(ws)):
                 print(f"{e['utc']}  {e['dossier_id']}  {e['display']:<24} {e['n_files']:>4} files  {e['path']}")
@@ -2308,6 +2337,36 @@ def main(argv=None) -> int:
         print(f"signed {e['dossier_id']}: {e['display']}, {e['n_files']} file(s), {e['n_sources']} source record(s) {'embedded' if e['sources_embedded'] else 'by hash'}")
         print(f"  {os.path.join(ws.reports_dir, e['path'])}")
         print(f"  key fingerprint {e['fingerprint']}")
+        return 0
+    elif a.cmd == "pad-summary":
+        import json as _json
+        from . import pad_summary as _PS
+        from .cli import _safe_stdout
+        from .notify import Notifier
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        try:
+            ws = Workspace(a.workspace)
+        except WorkspaceError as e:
+            raise SystemExit(f"pad-summary: {e}")
+        if a.at or a.on or a.off:
+            try:
+                s_ = _PS.set_settings(ws, a.actor, enabled=(True if a.on else False if a.off else None), at=a.at)
+            except ValueError as e:
+                raise SystemExit(f"pad-summary: {e}")
+            print(f"daily pad summary {'on' if s_['enabled'] else 'off'} at {s_['at']} UTC, sent through the notification rules: {'yes' if s_['send'] else 'no'}")
+            return 0
+        n_ = None
+        if a.send:
+            n_ = Notifier(ws.path); n_.reload()
+        r = _PS.write(ws, __version__, a.actor, n_, send=bool(a.send))
+        if a.json:
+            print(_json.dumps(r, default=str)); return 0
+        print(f"wrote {r['report_id']} (since {r['since']}): {r['paths']['html']}")
+        if r['paths'].get('pdf'):
+            print(f"  printable: {r['paths']['pdf']}")
+        if a.send:
+            print(f"  sent: {', '.join(str(d['channel']) + (' ok' if d['ok'] else ' FAILED') for d in r['delivered']) or 'no notification rule for pad.summary'}")
         return 0
     elif a.cmd == "reports-history":
         import json as _json

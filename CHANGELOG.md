@@ -5,6 +5,47 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.45.0] - 2026-10-19 - The lateral, the printable reports, the daily summary and the key
+
+### Added
+- **Distance from the lateral** (`gea/op_seismicity.py`): a well with a
+  directional survey is measured from its path, not its pad - the survey's
+  stations by minimum curvature, a point every 25 m of measured depth on the
+  arc, the azimuths turned to true north at the well (grid convergence, or
+  the declared magnetic declination), and each earthquake's distance in plan
+  to the nearest point, with the measured depth there, the distance to the
+  hypocentre (when the reference elevation and the depth are known) and the
+  distance from the pad beside it. The protocol radius, the association
+  radius and the rate test use it; a well without a survey is measured from
+  its pad and says so. The watch circle and the catalogue query reach as far
+  as the laterals. Alerts name the lateral and the measured depth.
+- **The printable PDF** (`gea/pdf_report.py`): every client report written
+  through `client_reports.write` is also written as a PDF beside its HTML -
+  US Letter, the PDF base fonts (nothing embedded), the report's SVG
+  drawings redrawn as vector paths and text, tables continued across pages
+  with the header repeated, "page n of N" on every page; the same bytes for
+  the same report. Standard library only (zlib). Kept in report history;
+  linked first on every report.
+- **The daily pad summary** (`gea/pad_summary.py`, `gea pad-summary`, the
+  Reports tab): one page - what changed since the last (the audit log by
+  action, the alerts, the report versions, the earthquakes first seen),
+  what is due (open alert conditions, components near or past their
+  interval, operations under way or starting within seven days, the watch,
+  the backup, the last dossier) and what is still missing (the setup
+  checklist's items to do). Written by the service each day at its hour
+  (11:00 UTC by default) and sent as the new event `pad.summary` through the
+  notification rules, whose email carries the summary's text.
+- **Signing-key rotation** (`gea dossier --rotate-key --reason`,
+  `--key-history`, the Reports tab, the administrator role): a new key; a
+  statement naming it signed by the old key and the new, then the old seed
+  destroyed. Dossiers signed with a retired key before its retirement still
+  check out; one signed with it afterwards is not the site's. Every later
+  dossier carries `keys/rotations.json` under its signature, and the
+  standalone checker verifies each rotation and prints the chain. A key file
+  found missing at signing is recorded as a rotation the old key did not
+  sign. Help page `pad-summary`; `dossier`, `opseis` and `report-history`
+  updated; section CN (5 checks).
+
 ## [v0.44.0] - 2026-10-19 - The earthquake watch and the alerts
 
 ### Added

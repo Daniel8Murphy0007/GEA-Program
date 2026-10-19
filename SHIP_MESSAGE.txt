@@ -1,26 +1,27 @@
-v0.44.0 — THE EARTHQUAKE WATCH AND THE ALERTS
+v0.45.0 — THE LATERAL, THE PRINTABLE REPORTS, THE DAILY SUMMARY AND THE KEY
 
-The program now watches while a well works, and says so when something
-needs a person.
+Four smaller finishes.
 
-The live earthquake watch. While an operation is under way at a well with
-a position, the program reads the USGS earthquake catalogue from the
-site's machine every few minutes - the real-time feed USGS asks automated
-programs to use, and the catalogue service for any gap. An earthquake
-near the well during or after the operation is an alert; one that reaches
-the chosen regulator's protocol level is an alert naming the level and
-its action, and a later revision of its magnitude to a higher level is a
-new one. A watch that cannot reach the catalogue for three intervals says
-so - a silent watch is not a quiet one. The watch card on the Operations
-& Seismicity tab turns it on or off, sets the interval, and polls on
-demand.
+The lateral. An earthquake near a well with a directional survey is now
+measured from the nearest point of the well's path - its lateral - not
+from the pad, with the measured depth of that point and the distance to
+the earthquake's depth beside it. A protocol radius is read against the
+well bore, which is what the regulators mean; a toe two miles from its pad
+no longer hides an earthquake beside it. A well without a survey is still
+measured from its pad, and says so.
 
-The alerts. The same machinery covers what nobody watches by hand: a
-drill-string component whose declared service interval is used up, an
-ESP penetrator check outside its rating, and a signed dossier the
-workspace no longer matches - each raised once when it begins and once
-when it clears. Every alert is listed on the Alarms tab, and sent by email
-or webhook through the notification rules the site sets up.
+The printable reports. Every client report is also written as a PDF beside
+its HTML - the drawings redrawn, long tables continued across pages, page
+numbers - and kept in report history with the rest.
 
-Section CM is new, three checks. The gate is 419 checks. The standalone
+The daily pad summary. Each morning, one page: what changed since the last
+one, what is due, what is still missing. Kept in history, and sent by email
+through the notification rules once a rule for pad.summary is set up.
+
+The signing key. The dossier key can be retired and replaced: the old key
+signs the hand-over to the new one, dossiers it signed before still check
+out, and every later dossier carries the hand-over so a client who knows
+the old fingerprint can follow it to the new.
+
+Section CN is new, five checks. The gate is 424 checks. The standalone
 guard is clean.

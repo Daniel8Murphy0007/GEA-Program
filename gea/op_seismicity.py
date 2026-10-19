@@ -12,7 +12,10 @@ says what it cannot:
   CSV), each with the window, the minimum magnitude and the circle it was queried for - the program cannot reach a
   catalogue service itself, so it gives the query URL to run elsewhere;
 - the frame: every event within the screening distance of a well (20 km by default, the screening radius Atkinson
-  et al. 2016 used), its distance from the well's surface position, and its relation to the well's operations:
+  et al. 2016 used), its distance from the well - for a well with a directional survey attached, from the nearest
+  point of the surveyed path in plan (the lateral, not the pad), with the measured depth of that point and the
+  straight-line distance to the hypocentre beside it; from the surface position for a well without one - and its
+  relation to the well's operations:
   DURING one, AFTER one (within the association window that follows - 90 days by default, about the three months
   of the same study), or OUTSIDE;
 - the protocol: for an event within the association radius during or after an operation the protocol covers, the
@@ -26,7 +29,7 @@ says what it cannot:
 
 What this will not call a measurement: a cause. A coincidence in time and place is what the record shows; the
 test treats events as independent (an aftershock sequence counts as many), the catalogue's completeness is
-declared, not measured, and the distance is from the surface location, not the lateral.
+declared, not measured, and a well without a survey is measured from its surface location, not its lateral.
 """
 from __future__ import annotations
 
@@ -81,6 +84,83 @@ def km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     dp, dl = p2 - p1, math.radians(lon2 - lon1)
     a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
     return 2 * r * math.asin(min(1.0, math.sqrt(a)))
+
+
+# -- the lateral: the surveyed path in plan, around the well's surface position ------------------------------------
+LATERAL_STEP_M = 25.0
+_LAT_CACHE: Dict[tuple, dict] = {}
+
+
+def lateral_of(ws, w: dict, lat: float, lon: float) -> Optional[dict]:
+    """The well's surveyed path in a transverse Mercator frame on its own surface position (metres east and north of
+    it, depth below sea level when the reference elevation is declared), a point every 25 m of measured depth on the
+    minimum-curvature arc; the survey's azimuths turned to that frame's north (true, grid with its convergence, or
+    magnetic with the declared declination). None for a well without a survey."""
+    if not w.get('trajectory'):
+        return None
+    from . import well3d as W3
+    t = w['trajectory']
+    fp = os.path.join(ws.path, 'wells', w['id'], 'trajectory', t.get('file', ''))
+    try:
+        key = (fp, os.path.getmtime(fp), round(lat, 7), round(lon, 7), json.dumps(t, sort_keys=True, default=str),
+               json.dumps((w.get('surface') or {}).get('elevation'), sort_keys=True, default=str))
+    except OSError:
+        return None
+    if key in _LAT_CACHE:
+        return _LAT_CACHE[key]
+    try:
+        tj = W3.trajectory_of(ws, w['id'])
+    except (OSError, ValueError, KeyError):
+        return None
+    st = [x for x in (tj or {}).get('stations') or [] if x.get('incl') is not None and x.get('azi') is not None]
+    if len(st) < 2:
+        return None
+    rot, how = W3._rot_to_local(tj['meta'], lat, lon, lon)
+    el = ((w.get('surface') or {}).get('elevation') or {}).get('ft')
+    elev_m = float(el) * W3.FT if el not in (None, '') else None
+    p = W3.Path([x['md'] for x in st], [x['incl'] for x in st], [x['azi'] for x in st], 0.0, 0.0, elev_m or 0.0, rot)
+    dn = p.dense(LATERAL_STEP_M)
+    reach = max(math.hypot(x, y) for x, y in zip(dn['x'], dn['y']))
+    if len(_LAT_CACHE) > 64:
+        _LAT_CACHE.clear()
+    _LAT_CACHE[key] = {'lat0': lat, 'lon0': lon, 'x': dn['x'], 'y': dn['y'], 'z': dn['z'] if elev_m is not None else None, 'md_m': dn['md'],
+            'reach_km': round(reach / 1000.0, 3), 'td_md_ft': round(float(p.md[-1]) / W3.FT, 1), 'azimuth': how,
+            'source': tj['meta'].get('source') or tj['meta'].get('file') or '', 'n_stations': len(st)}
+    return _LAT_CACHE[key]
+
+
+def _seg_nearest(px, py, x, y):
+    """The nearest point of the polyline (x, y) to (px, py): (distance, segment index, fraction along it)."""
+    import numpy as np
+    ax, ay = np.asarray(x[:-1]), np.asarray(y[:-1])
+    dx, dy = np.asarray(x[1:]) - ax, np.asarray(y[1:]) - ay
+    L2 = dx * dx + dy * dy
+    t = np.where(L2 > 0, ((px - ax) * dx + (py - ay) * dy) / np.where(L2 > 0, L2, 1.0), 0.0).clip(0.0, 1.0)
+    d = np.hypot(ax + t * dx - px, ay + t * dy - py)
+    i = int(np.argmin(d))
+    return float(d[i]), i, float(t[i])
+
+
+def from_lateral(lat_: dict, lat: float, lon: float, depth_km=None) -> dict:
+    """An event's distance from the lateral: in plan to the nearest point of the path, the measured depth there, and
+    (with the event's depth and the well's elevation) the straight-line distance to the nearest point of the path."""
+    from . import geodesy as GD
+    import numpy as np
+    fr = GD._tm(lat_['lat0'], lat_['lon0'], 1.0, 0.0, 0.0, 'WGS84')
+    q = GD.project(lat, lon, fr)
+    px, py = q['easting_m'], q['northing_m']
+    x, y, md = lat_['x'], lat_['y'], lat_['md_m']
+    if len(x) < 2:
+        d = math.hypot(px - x[0], py - y[0]); i, f = 0, 0.0
+    else:
+        d, i, f = _seg_nearest(px, py, x, y)
+    m = md[i] + f * (md[min(i + 1, len(md) - 1)] - md[i])
+    out = {'plan_km': d / 1000.0, 'md_ft': round(m / 0.3048, 0)}
+    if lat_.get('z') is not None and depth_km is not None:
+        z = np.asarray(lat_['z']); X, Y = np.asarray(x), np.asarray(y)
+        h = np.sqrt((X - px) ** 2 + (Y - py) ** 2 + (z - float(depth_km) * 1000.0) ** 2)
+        out['hypocentral_km'] = round(float(h.min()) / 1000.0, 2)
+    return out
 
 
 # -- the protocols ---------------------------------------------------------------------------------------
@@ -330,8 +410,19 @@ def analyse(scene: dict) -> dict:
                 row['notes'].append(f"the {R:g} km association circle reaches outside the catalogue's {circ['radius_km']:g} km query circle: events there are not in it")
             elif not row['coverage']['screen_inside']:
                 row['notes'].append(f"the {SCR:g} km screening circle reaches outside the catalogue's query circle: the screen is partial there")
+        L = w.get('lateral')
+        reach = (L or {}).get('reach_km') or 0.0
+        if L:
+            row['distance_from'] = {'basis': 'lateral', 'detail': f"the nearest point of the surveyed path in plan ({L['n_stations']} stations to {L['td_md_ft']:,.0f} ft MD, {L['azimuth']}; {L['source']})",
+                                    'reach_km': L['reach_km']}
+        else:
+            row['distance_from'] = {'basis': 'surface', 'detail': 'the surface position: no directional survey attached, so a lateral is not known'}
         for e in events:
-            d = km(w['lat'], w['lon'], e['lat'], e['lon'])
+            d0 = km(w['lat'], w['lon'], e['lat'], e['lon'])
+            if d0 > SCR + reach:
+                continue
+            fl = from_lateral(L, e['lat'], e['lon'], e.get('depth_km')) if L else None
+            d = fl['plan_km'] if fl else d0
             if d > SCR:
                 continue
             t = _dt(e['time'])
@@ -348,8 +439,13 @@ def analyse(scene: dict) -> dict:
             ev = {'event_id': e['event_id'], 'time': e['time'], 'magnitude': e['magnitude'], 'mag_type': e.get('mag_type') or '',
                   'contributor': e.get('contributor') or '', 'lat': e['lat'], 'lon': e['lon'], 'depth_km': e.get('depth_km'),
                   'place': e.get('place') or '', 'distance_km': round(d, 2), 'within_radius': d <= R, 'relation': rel,
+                  'distance_basis': 'lateral' if fl else 'surface', 'distance_surface_km': round(d0, 2),
                   'operation': ({'kind': op['kind'], 'start': op['start'], 'end': op.get('end')} if op else None), 'days_after_end': lag,
                   'counted': d <= R and (mc is None or e['magnitude'] >= mc - 1e-9)}
+            if fl:
+                ev['nearest_md_ft'] = fl['md_ft']
+                if 'hypocentral_km' in fl:
+                    ev['hypocentral_km'] = fl['hypocentral_km']
             if w.get('state_at') and rel == 'DURING':
                 try:
                     ev['rig'] = w['state_at'](t)
@@ -435,7 +531,10 @@ def analyse(scene: dict) -> dict:
             'not_a_measurement': ['a cause: a coincidence in time and place is what the record shows, not that an operation caused an earthquake',
                                   "the catalogue's completeness: the minimum magnitude is the query's (or the site's declared value), not measured, and a sparse network misses small events",
                                   'independence: the test counts every event, so an aftershock sequence weighs as many events',
-                                  "the distance: from the well's surface position; a lateral's toe can be kilometres away",
+                                  ("the distance: from the nearest point of each surveyed path in plan; the path is as surveyed, so it is as good as the survey and its azimuth reference"
+                                   if all((w.get('distance_from') or {}).get('basis') == 'lateral' for w in wells_out if w.get('placed'))
+                                   and any(w.get('placed') for w in wells_out) else
+                                   "the distance: from the surveyed path in plan for a well with a survey attached, from the surface position for one without; a lateral's toe can be kilometres from its pad"),
                                   "a protocol's verdict: the levels an event reaches by the catalogue's magnitude, which may differ from the regulator's magnitude of record"]}
 
 
@@ -503,6 +602,7 @@ def workspace_scene(ws) -> dict:
         if s.get('lat') is not None:
             p = GD.to_wgs84(s['lat'], s['lon'], 0.0, s.get('datum') or 'WGS84')
             row.update({'lat': p['lat'], 'lon': p['lon'], 'position_source': f"declared, {s.get('datum')}"})
+            row['lateral'] = lateral_of(ws, w, p['lat'], p['lon'])
         row['operations'] = [{'kind': o['kind'], 'start': o['start'], 'end': o['end'], 'source': o['source'], 'id': o['id']} for o in operations(ws, w['id'])]
         e = _edr_state(ws, w['id'])
         if e:
@@ -543,7 +643,7 @@ def page(ws, scene_id: str = 'workspace', settings_over: Optional[dict] = None) 
         if placed:
             la = sum(w['lat'] for w in placed) / len(placed)
             lo = sum(w['lon'] for w in placed) / len(placed)
-            spread = max(km(la, lo, w['lat'], w['lon']) for w in placed)
+            spread = max(km(la, lo, w['lat'], w['lon']) + ((w.get('lateral') or {}).get('reach_km') or 0.0) for w in placed)
             today = datetime.utcnow().date().isoformat()
             starts = [o['start'] for w in sc['wells'] for o in w['operations']]
             st0 = (min(starts)[:4] + '-01-01') if starts else '2000-01-01'
@@ -552,6 +652,7 @@ def page(ws, scene_id: str = 'workspace', settings_over: Optional[dict] = None) 
                             'start': '1990-01-01', 'end': today, 'min_magnitude': 1.0, 'operations_from': st0}
     for w in res['wells']:
         w.pop('state_at', None)
+        w.pop('lateral', None)
     if sc['id'] == 'workspace':
         from . import seismic_watch as SW
         res['watch'] = SW.status(ws)
@@ -573,6 +674,8 @@ def text(res: dict) -> str:
         if not w['placed']:
             L += ['  ' + n for n in w['notes']]
             continue
+        if w.get('distance_from'):
+            L.append(f"  distances from {w['distance_from']['detail']}")
         for o in w['operations']:
             L.append(f"  {o['kind']:<10} {o['start']} to {o.get('end') or 'open'} - {o['source']}")
         r = w.get('rate') or {}
@@ -587,6 +690,7 @@ def text(res: dict) -> str:
             pr = e.get('protocol')
             L.append(f"  {e['time'][:16]}  M {e['magnitude']:.2f} {e['mag_type']:<3} {e['distance_km']:5.2f} km  {e['relation']:<7}"
                      + (f" {e['operation']['kind']}" if e['operation'] else '')
+                     + (f"  (lateral, nearest at {e['nearest_md_ft']:,.0f} ft MD)" if e.get('distance_basis') == 'lateral' else '')
                      + (f" +{e['days_after_end']:g} d" if e['days_after_end'] is not None else '')
                      + (f"  rig: {e['rig']['state']}" + (f" at {e['rig']['bottom_ft']:g} ft" if e['rig'].get('bottom_ft') else '') if e.get('rig') else '')
                      + ('' if e['within_radius'] else f"  (beyond {st['radius_km']:g} km)")

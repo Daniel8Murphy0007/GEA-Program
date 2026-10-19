@@ -68,7 +68,7 @@ EXAMPLE = {
 }
 EVENTS = ('alarm.activated', 'alarm.shelved', 'job.failed', 'patch.down', 'patch.up', 'approval.pending', 'file.imported', 'test',
           'seismic.protocol', 'seismic.event', 'seismic.watch_down', 'seismic.watch_up', 'motor.due', 'penetrator.outside', 'dossier.changed',
-          'condition.cleared')
+          'condition.cleared', 'pad.summary')
 _LOCK = threading.Lock()
 
 
@@ -183,12 +183,17 @@ def _subject(ev: dict) -> str:
         return f"[GEA] penetrator check OUTSIDE its rating on {w}"
     if k == 'dossier.changed':
         return f"[GEA] the workspace no longer matches dossier {ev.get('dossier_id', '')}"
+    if k == 'pad.summary':
+        return f"[GEA] daily pad summary {ev.get('site', '')}: {ev.get('detail', '')}".strip()
     if k == 'condition.cleared':
         return f"[GEA] cleared: {ev.get('cleared', '')} {('on ' + w) if w else ''}".strip()
     return f"[GEA] {k}"
 
 
 def _body(ev: dict) -> str:
+    if ev.get('event') == 'pad.summary' and ev.get('text'):
+        return (f"{ev['text']}\n\nThe printable copy: {ev.get('report', '')} in the workspace (report {ev.get('report_id', '')}).\n\n"
+                'This message was sent by the GEA-Program notification rules.')
     lines = [f"{k}: {v}" for k, v in ev.items() if k not in ('event',)]
     return f"Event: {ev['event']}\n" + '\n'.join(lines) + '\n\nThis message was sent by the GEA-Program notification rules.'
 

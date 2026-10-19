@@ -609,6 +609,21 @@ against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
 
+### The lateral, the printable reports, the daily summary and the key
+
+An earthquake near a well with a directional survey is measured from the
+nearest point of its lateral, not from the pad - with the measured depth
+there and the distance to the hypocentre - so a protocol radius is read
+against the well bore a regulator means. Every client report is also
+written as a PDF beside its HTML (the drawings redrawn, long tables
+continued across pages) and kept in report history. Each morning the
+program writes a one-page pad summary - what changed, what is due, what is
+still missing - and sends it through the notification rules (`gea
+pad-summary`). The dossier signing key can be retired and replaced: the old
+key signs the hand-over, earlier dossiers still check out, and later ones
+carry the rotation so a client can follow it (`gea dossier --rotate-key`).
+`gea help pad-summary`.
+
 ### The earthquake watch and the alerts
 
 While a well operates, the program reads the USGS earthquake catalogue

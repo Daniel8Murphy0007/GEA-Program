@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.45.0 - 2026-10-19 - the lateral, the printable reports, the daily summary and the key
+
+- **Four smaller finishes.** Earthquakes measured from the nearest point of
+  each surveyed lateral; every client report also a PDF, kept in history;
+  a one-page pad summary each morning, sent through the notification rules;
+  the dossier signing key retired and replaced with the old key signing the
+  hand-over. Section CN; gate 424.
+
 ## v0.44.0 - 2026-10-19 - the earthquake watch and the alerts
 
 - **The record watched while it happens.** The USGS catalogue read every

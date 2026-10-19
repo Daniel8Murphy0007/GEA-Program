@@ -325,6 +325,11 @@ class App:
                 _SW.tick(self)
             except Exception:
                 pass
+            try:                                              # the daily pad summary, once a day at its hour
+                from . import pad_summary as _PS
+                _PS.tick(self)
+            except Exception:
+                pass
             self._poll_stop.wait(every_s)
 
     def stop_background(self) -> None:
@@ -1952,6 +1957,9 @@ def make_handler(app: App):
                 if path == '/api/dossier':
                     from . import dossier as DZ
                     return self._json(200, DZ.page(app.ws))
+                if path == '/api/pad-summary':
+                    from . import pad_summary as PS
+                    return self._json(200, PS.status(app.ws))
                 if path == '/api/penetrator':
                     from . import penetrator as PN
                     return self._json(200, PN.page(app.ws))
@@ -2285,6 +2293,22 @@ def make_handler(app: App):
                         app.ws.audit(user['name'], 'seismicity.watch.poll', {k: r_.get(k) for k in ('ok', 'how', 'in_circle', 'new', 'error', 'why')})
                         return self._json(200, {'result': {k: v for k, v in r_.items() if k != 'alerts'}, 'alerts': r_.get('alerts', []), 'status': SW.status(app.ws)})
                     raise ApiError(404, 'no such operations and seismicity action')
+                if path == '/api/dossier/rotate':
+                    from . import dossier as DZ
+                    App.require(user, 'admin')
+                    r_ = App._cr(DZ.rotate_key, app.ws, user['name'], str((body or {}).get('reason') or ''))
+                    return self._json(200, {'old': r_['old'], 'new': r_['new'], 'statement_sha256': r_['rotation']['statement_sha256'],
+                                            'signed_by_old': bool(r_['rotation']['old_signature'])})
+                if path in ('/api/pad-summary', '/api/pad-summary/settings'):
+                    from . import pad_summary as PS
+                    from . import __version__ as _v
+                    b_ = dict(body or {})
+                    if path == '/api/pad-summary/settings':
+                        App.require(user, 'admin')
+                        return self._json(200, App._cr(PS.set_settings, app.ws, user['name'], b_.get('enabled'), b_.get('at'), b_.get('send')))
+                    App.require(user, 'operator')
+                    r_ = App._cr(PS.write, app.ws, _v, user['name'], app.notifier, None, bool(b_.get('send')))
+                    return self._json(200, {k: v for k, v in r_.items() if k != 'paths'})
                 if path in ('/api/dossier/sign', '/api/dossier/verify'):
                     from . import dossier as DZ
                     from . import __version__ as _v

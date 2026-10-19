@@ -40,6 +40,7 @@ from . import ed25519 as ED
 from . import dossier_verify as DV
 
 KEY_FILE = os.path.join('keys', 'dossier_ed25519.json')
+KEY_HISTORY = os.path.join('keys', 'dossier_key_history.json')      # public keys and rotation statements only
 STATEMENT = ('Signed with the site key named below: the files listed here are byte-for-byte those the program held when it signed, at the '
              'time stated. A valid signature shows they have not changed since; it does not show that they are correct.')
 _LOCK = threading.Lock()
@@ -71,26 +72,118 @@ def key_info(ws) -> Optional[dict]:
     return {'public_key': k['public_key'], 'fingerprint': k['fingerprint'], 'created_utc': k['created_utc'], 'algorithm': 'Ed25519'}
 
 
+def _canon(obj) -> bytes:
+    return json.dumps(obj, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode('ascii')
+
+
+def key_history(ws) -> dict:
+    """The site's former keys (public halves only) and the rotation statements that retired them, oldest first."""
+    p = os.path.join(ws.path, KEY_HISTORY)
+    if not os.path.isfile(p):
+        return {'schema': 1, 'keys': [], 'rotations': []}
+    with open(p, encoding='utf-8') as f:
+        return json.load(f)
+
+
+def _save_history(ws, h: dict) -> None:
+    p = os.path.join(ws.path, KEY_HISTORY)
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    with open(p + '.tmp', 'w', encoding='utf-8') as f:
+        json.dump(h, f, indent=1)
+    os.replace(p + '.tmp', p)
+
+
+def _new_key_file(ws) -> dict:
+    seed = os.urandom(32)
+    pub = ED.public_key(seed)
+    rec = {'algorithm': 'Ed25519', 'seed': seed.hex(), 'public_key': pub.hex(), 'fingerprint': ED.fingerprint(pub), 'created_utc': _utc(),
+           'note': 'The site signing key. Whoever holds this file can sign dossiers as this site: keep it with the workspace, never send it.'}
+    p = key_path(ws)
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    with open(p + '.tmp', 'w', encoding='utf-8') as f:
+        json.dump(rec, f, indent=1)
+    try:
+        os.chmod(p + '.tmp', 0o600)
+    except OSError:
+        pass
+    os.replace(p + '.tmp', p)
+    return rec
+
+
+def _rotation(ws, actor: str, old: Optional[dict], old_seed: Optional[bytes], new: dict, new_seed: bytes, reason: str) -> dict:
+    """The statement that hands the site's signature from one key to the next, signed by the old key (when it is
+    still held) and by the new one; recorded in the key history and carried in every later dossier."""
+    st = {'kind': 'GEA signing key rotation', 'utc': _utc(), 'by': actor, 'workspace': ws.manifest.get('name') or '', 'reason': reason,
+          'old': {k: old[k] for k in ('public_key', 'fingerprint', 'created_utc')} if old else None,
+          'new': {k: new[k] for k in ('public_key', 'fingerprint', 'created_utc')},
+          'meaning': ('Every dossier signed with the new key from this time on is signed by the site that held the old key. Dossiers signed '
+                      'with the old key before this time stay as they were signed; one signed with it after this time is not the site\'s.')}
+    b = _canon(st)
+    return {'statement': st, 'statement_sha256': hashlib.sha256(b).hexdigest(),
+            'old_signature': ED.sign(old_seed, b).hex() if (old and old_seed) else None,
+            'new_signature': ED.sign(new_seed, b).hex()}
+
+
 def ensure_key(ws, actor: str) -> dict:
+    lost = None
     with _LOCK:
         info = key_info(ws)
         if info:
             return info
-        seed = os.urandom(32)
-        pub = ED.public_key(seed)
-        rec = {'algorithm': 'Ed25519', 'seed': seed.hex(), 'public_key': pub.hex(), 'fingerprint': ED.fingerprint(pub), 'created_utc': _utc(),
-               'note': 'The site signing key. Whoever holds this file can sign dossiers as this site: keep it with the workspace, never send it.'}
-        p = key_path(ws)
-        os.makedirs(os.path.dirname(p), exist_ok=True)
-        with open(p + '.tmp', 'w', encoding='utf-8') as f:
-            json.dump(rec, f, indent=1)
-        try:
-            os.chmod(p + '.tmp', 0o600)
-        except OSError:
-            pass
-        os.replace(p + '.tmp', p)
-    ws.audit(actor, 'dossier.key.create', {'public_key': rec['public_key'], 'fingerprint': rec['fingerprint']})
+        h = key_history(ws)
+        signed_with = [e.get('fingerprint') for e in ledger(ws) if e.get('fingerprint')]
+        known = [k for k in h['keys'] if not k.get('retired_utc')]
+        if known or signed_with:                       # the site had a key and its file is gone: say so in the history
+            lost = known[-1] if known else {'public_key': None, 'fingerprint': signed_with[-1], 'created_utc': None}
+        rec = _new_key_file(ws)
+        if lost is not None:
+            rot = _rotation(ws, actor, lost if lost.get('public_key') else None, None, rec, bytes.fromhex(rec['seed']),
+                            'the key file was not found when the next dossier was signed; the former key is retired unsigned')
+            rot['statement']['old_fingerprint'] = lost['fingerprint']
+            b = _canon(rot['statement'])
+            rot['statement_sha256'] = hashlib.sha256(b).hexdigest()
+            rot['new_signature'] = ED.sign(bytes.fromhex(rec['seed']), b).hex()
+            for k in h['keys']:
+                if k['fingerprint'] == lost['fingerprint'] and not k.get('retired_utc'):
+                    k.update({'retired_utc': rot['statement']['utc'], 'reason': 'key file not found', 'successor': rec['fingerprint']})
+            if not any(k['fingerprint'] == lost['fingerprint'] for k in h['keys']):
+                h['keys'].append({'public_key': lost.get('public_key'), 'fingerprint': lost['fingerprint'], 'created_utc': lost.get('created_utc'),
+                                  'retired_utc': rot['statement']['utc'], 'reason': 'key file not found', 'successor': rec['fingerprint']})
+            h['rotations'].append(rot)
+        h['keys'].append({'public_key': rec['public_key'], 'fingerprint': rec['fingerprint'], 'created_utc': rec['created_utc'], 'retired_utc': None})
+        _save_history(ws, h)
+    ws.audit(actor, 'dossier.key.create', {'public_key': rec['public_key'], 'fingerprint': rec['fingerprint'],
+                                           **({'replaces_lost': lost['fingerprint']} if lost else {})})
     return key_info(ws)
+
+
+def rotate_key(ws, actor: str, reason: str) -> dict:
+    """Retire the site's key and start a new one. The old key signs a statement naming the new one (so a client who
+    trusts the old fingerprint can trust the new through it), the new key signs it too, and the old seed is
+    destroyed: dossiers it signed before now still check out, and nothing can be signed with it again."""
+    reason = (reason or '').strip()
+    if not reason:
+        raise ValueError('say why the key is being retired (for example: a scheduled change, the laptop was lost, the file was copied)')
+    with _LOCK:
+        old = key_info(ws)
+        if not old:
+            raise ValueError('this workspace has no signing key yet: the first dossier makes one')
+        old_seed = _seed(ws)
+        h = key_history(ws)
+        if not any(k['fingerprint'] == old['fingerprint'] for k in h['keys']):     # a key made before the history was kept
+            h['keys'].append({'public_key': old['public_key'], 'fingerprint': old['fingerprint'], 'created_utc': old['created_utc'], 'retired_utc': None})
+        rec = _new_key_file(ws)
+        rot = _rotation(ws, actor, old, old_seed, rec, bytes.fromhex(rec['seed']), reason)
+        for k in h['keys']:
+            if k['fingerprint'] == old['fingerprint']:
+                k.update({'retired_utc': rot['statement']['utc'], 'reason': reason, 'successor': rec['fingerprint']})
+        h['keys'].append({'public_key': rec['public_key'], 'fingerprint': rec['fingerprint'], 'created_utc': rec['created_utc'], 'retired_utc': None})
+        h['rotations'].append(rot)
+        _save_history(ws, h)
+        del old_seed
+    ws.audit(actor, 'dossier.key.rotate', {'old': old['fingerprint'], 'new': rec['fingerprint'], 'reason': reason,
+                                           'statement_sha256': rot['statement_sha256']})
+    return {'old': old, 'new': key_info(ws), 'rotation': rot}
 
 
 def _seed(ws) -> bytes:
@@ -261,6 +354,14 @@ def build(ws, actor: str, version: str, well_id: Optional[str] = None, include_s
                 if hv and hv['sha256'] == row['sha256']:
                     row['history'] = {'dir': hv['dir'], 'written_utc': hv['utc'], 'report_id': hv['report_id']}
             files.append(row); payload.append((arc, b))
+    kh = key_history(ws)
+    if kh['rotations']:                                  # the key's lineage, so a client who knows an earlier fingerprint can follow it
+        b = json.dumps({'schema': 1, 'rotations': kh['rotations'],
+                        'how': 'each statement is canonical JSON (sorted keys, no spaces, ASCII); old_signature is the retired key\'s Ed25519 '
+                               'signature over those bytes, new_signature the new key\'s'}, indent=1, sort_keys=True).encode('utf-8')
+        files.append({'path': 'keys/rotations.json', 'role': 'key', 'bytes': len(b), 'sha256': hashlib.sha256(b).hexdigest(),
+                      'workspace_path': KEY_HISTORY.replace(os.sep, '/')})
+        payload.append(('keys/rotations.json', b))
     sources = []
     for p, arc in g['source']:
         row = {'path': arc, 'bytes': os.path.getsize(p), 'sha256': _sha_file(p), 'embedded': bool(include_sources),
@@ -331,8 +432,17 @@ def verify(zip_path: str, ws=None, sources_dir: str = '') -> dict:
 
     def add(name, ok, detail):
         ws_checks.append({'check': name, 'ok': bool(ok), 'detail': detail})
-    add("signed with this site's key", bool(site) and site['public_key'] == man['signer']['public_key'],
-        f"this site's key is {site['fingerprint']}" if site else 'this workspace has no signing key yet')
+    pub = man['signer']['public_key']
+    former = next((k for k in key_history(ws)['keys'] if k.get('public_key') == pub and k.get('retired_utc')), None)
+    if site and site['public_key'] == pub:
+        add("signed with this site's key", True, f"this site's key is {site['fingerprint']}")
+    elif former:
+        before = str(man.get('created_utc') or '') <= former['retired_utc']
+        add("signed with this site's key", before,
+            (f"a former key of this site ({former['fingerprint']}), retired {former['retired_utc']}; this dossier was signed before that" if before else
+             f"signed {man.get('created_utc')} with a key this site retired {former['retired_utc']} ({former.get('reason', '')}): not the site's"))
+    else:
+        add("signed with this site's key", False, f"this site's key is {site['fingerprint']}" if site else 'this workspace has no signing key yet')
     e = led.get(man['dossier_id'])
     add("in this site's ledger", bool(e) and e['manifest_sha256'] == hashlib.sha256(json.dumps(man, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode('ascii')).hexdigest(),
         f"signed {e['utc']} by {e['by']}" if e else 'not in this workspace\'s ledger')
@@ -365,5 +475,12 @@ def text(r: dict) -> str:
 
 def page(ws) -> dict:
     from . import report_history as RH
-    return {'key': key_info(ws), 'dossiers': list(reversed(ledger(ws))), 'history': RH.summary(ws.reports_dir),
+    kh = key_history(ws)
+    return {'key': key_info(ws), 'key_history': {'keys': kh['keys'], 'rotations': [{'utc': r['statement']['utc'], 'by': r['statement']['by'],
+                                                                                  'reason': r['statement']['reason'],
+                                                                                  'old': (r['statement'].get('old') or {}).get('fingerprint') or r['statement'].get('old_fingerprint'),
+                                                                                  'new': r['statement']['new']['fingerprint'],
+                                                                                  'signed_by_old': bool(r.get('old_signature')),
+                                                                                  'statement_sha256': r['statement_sha256']} for r in kh['rotations']]},
+            'dossiers': list(reversed(ledger(ws))), 'history': RH.summary(ws.reports_dir),
             'wells': [{'id': w['id'], 'display': w.get('display') or w['id']} for w in ws.wells()]}

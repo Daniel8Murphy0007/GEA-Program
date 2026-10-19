@@ -7827,7 +7827,7 @@ def section_by_edr(tmp: str) -> None:
         "survey": r_svy.returncode == 0 and "stations: 835   depth 584.0 - 838.2 m (the log is indexed in feet; converted to metres for the survey)" in r_svy.stdout
                   and "gamma -> GR" in r_svy.stdout and "NOT ESTIMATED: no density" in r_svy.stdout,
         "cli": r_self.returncode == 0 and "Total depth 2,750.0 ft MD" in r_self.stdout and r_file.returncode == 0 and Path(out, "md_tvd.csv").is_file()
-               and "written: drilling_record.md, drilling_record.html, drilling_record.json, gamma_log.las, md_tvd.csv" in r_file.stdout
+               and "written: drilling_record.md, drilling_record.html, drilling_record.json, drilling_record.pdf, gamma_log.las, md_tvd.csv" in r_file.stdout
                and r_json.returncode == 0 and json.loads(r_json.stdout)["n_sections"] == 3 and r_bad.returncode != 0 and "not an EDR export" in (r_bad.stderr + r_bad.stdout)
                and r_none.returncode != 0 and "edr needs --file" in (r_none.stderr + r_none.stdout) and "<" not in (r_none.stderr + r_none.stdout).split("edr needs")[1],
         "ingest": r_hist.returncode == 1 and "Traceback" not in (r_hist.stderr + r_hist.stdout) and "which is an EDR export" in (r_hist.stderr + r_hist.stdout)
@@ -10331,6 +10331,285 @@ def section_cm_watch_and_alerts(tmp: str) -> None:
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_cn_four(tmp: str) -> None:
+    """Section CN - the distance from the lateral, the printable PDF of every client report, the daily pad summary and
+    the signing key's rotation: an earthquake measured from the nearest point of a surveyed lateral (in plan, with the
+    measured depth there and the distance to the hypocentre) where the pad is kilometres off, a protocol level reached
+    because of it, a well without a survey still measured from its pad, the watch circle reaching as far as the
+    laterals; a PDF beside each report, read back page by page, kept in history, its tables continued across pages;
+    the summary's three lists, its daily hour, its history and its delivery through a webhook rule; a key retired and
+    a new one signed over by the old, earlier dossiers still valid, a dossier signed with the retired key afterwards
+    not the site's, a lost key recorded unsigned; the API, the CLI, the tabs and the help pages."""
+    import http.cookiejar
+    import http.server
+    import math as _m
+    import subprocess as _sp
+    import threading as _th
+    import urllib.request
+    import urllib.error
+    import zipfile as _zf
+    from datetime import datetime, timedelta, timezone
+    from . import __version__
+    from . import alerts as AL
+    from . import client_reports as CR
+    from . import dossier as DZ
+    from . import edr as E
+    from . import geodesy as GD
+    from . import helplib as H
+    from . import op_seismicity as OS
+    from . import pad_summary as PS
+    from . import pdf_report as PDF
+    from . import report_history as RH
+    from . import seismic_watch as SW
+    from . import well3d as W
+    from . import well_report as WR
+    from .notify import Notifier
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "cn"); d.mkdir()
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    FT = 0.3048
+
+    # -- CN1 the distance from the lateral ---------------------------------------------------------------------------
+    ev = E.selftest_events(str(d))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad CN", actor="tester")
+    wl = ws.add_well_file(ev["path"], display="LAT-1H", actor="tester"); wv = ws.add_well_file(ev["path"], display="VERT-2", actor="tester")
+    la0, lo0 = 31.40, -104.00
+    ws.set_well(wl["id"], surface={"lat": la0, "lon": lo0, "datum": "WGS84", "elevation": {"ft": 3000.0, "datum": "KB", "source": "test plat"}}, actor="tester")
+    ws.set_well(wv["id"], surface={"lat": 31.30, "lon": -104.00, "datum": "WGS84"}, actor="tester")
+    # vertical to 8,000 ft, a 90-degree build over 1,000 ft (radius 636.62 ft), then 10,000 ft due east, true north
+    W.attach_trajectory(ws, wl["id"], "s.csv", b"MD (ft),Inc (deg),Azi (deg)\n0,0,90\n8000,0,90\n9000,90,90\n19000,90,90\n", "tester", "true", "ft", None, None, None, "test survey")
+    R_ = 1000.0 / (_m.pi / 2)
+    fr = GD._tm(la0, lo0, 1.0, 0.0, 0.0, "WGS84")
+    z_lat = (8000.0 + R_) * FT - 3000.0 * FT                         # the lateral's depth below sea level, m
+    pA = GD.unproject(5000.0 * FT, 500.0, fr)                          # 500 m north of the lateral at 5,000 ft east
+    pB = GD.unproject((10000.0 + R_) * FT + 300.0, 400.0, fr)            # 500 m beyond the toe, north-east
+    t_ev = (now - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S")
+    OS.save_operation(ws, "tester", wl["id"], "completion", (now - timedelta(days=3)).strftime("%Y-%m-%d"), None, "stage log")
+    sc = OS.workspace_scene(ws)
+    sc["events"] = [{"event_id": "A", "time": t_ev, "magnitude": 2.6, "mag_type": "ml", "lat": pA[0], "lon": pA[1], "depth_km": 2.0},
+                    {"event_id": "B", "time": t_ev, "magnitude": 3.1, "mag_type": "ml", "lat": pB[0], "lon": pB[1], "depth_km": None},
+                    {"event_id": "C", "time": t_ev, "magnitude": 1.2, "mag_type": "ml", "lat": 31.305, "lon": -104.0, "depth_km": 4.0}]
+    sc["catalog"] = {"start": (now - timedelta(days=3650)).strftime("%Y-%m-%d"), "end": now.strftime("%Y-%m-%d"), "min_magnitude": 1.0}
+    sc["settings"] = {**sc["settings"], "protocol": "oklahoma-occ-2016", "radius_km": 2.0}
+    res = OS.analyse(sc)
+    rw = {w_["display"]: w_ for w_ in res["wells"]}
+    eA = next(e for e in rw["LAT-1H"]["events"] if e["event_id"] == "A")
+    eB = next(e for e in rw["LAT-1H"]["events"] if e["event_id"] == "B")
+    eC = next(e for e in rw["VERT-2"]["events"] if e["event_id"] == "C")
+    hypo = _m.hypot(500.0, 2000.0 - z_lat) / 1000.0
+    act = SW.active(ws, now)
+    reach = OS.lateral_of(ws, ws.well(wl["id"]), la0, lo0)["reach_km"]
+    pg = OS.page(ws, "workspace")
+    c1 = {
+        "plan": abs(eA["distance_km"] - 0.5) < 0.005 and eA["distance_basis"] == "lateral" and abs(eA["nearest_md_ft"] - (9000 + 5000 - R_)) < 30
+                and abs(eA["distance_surface_km"] - _m.hypot(1.524, 0.5)) < 0.01 and abs(eA["hypocentral_km"] - hypo) < 0.02,
+        "toe": abs(eB["distance_km"] - 0.5) < 0.005 and abs(eB["nearest_md_ft"] - 19000) < 1 and eB["distance_surface_km"] > 3.4 and "hypocentral_km" not in eB,
+        "protocol": eB["within_radius"] and (eB.get("protocol") or {}).get("highest", {}).get("m") == 3.0 and eA["protocol"]["highest"]["m"] == 2.5,
+        "surface": eC["distance_basis"] == "surface" and rw["VERT-2"]["distance_from"]["basis"] == "surface" and abs(eC["distance_km"] - 0.556) < 0.01,
+        "basis": rw["LAT-1H"]["distance_from"]["basis"] == "lateral" and "19,000 ft MD" in rw["LAT-1H"]["distance_from"]["detail"] and abs(reach - ((10000 + R_) * FT) / 1000) < 0.01,
+        "circle": act["circle"] is not None and act["circle"]["radius_km"] >= reach + 20.0 - 0.01,
+        "text": "lateral, nearest at" in OS.text(res) and "distances from the nearest point" in OS.text(res),
+        "page": "lateral" not in [w_.get("lateral") for w_ in pg["wells"]] and all("lateral" not in w_ for w_ in pg["wells"]) and pg["query"]["radius_km"] > 20 + reach - 0.1,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CN1 the distance from the lateral: an earthquake 500 m off a surveyed lateral and 1.6 km from its pad is 0.50 km away, at the "
+       "measured depth of the nearest point, with the distance to its hypocentre; one beyond the toe reaches a protocol level the pad "
+       "distance would not; a well without a survey still measured from its pad; the watch circle and the query reach the laterals"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- CN2 the printable PDF -----------------------------------------------------------------------------------------
+    rw1 = WR.write_well(ws, wl["id"], __version__, actor="tester")
+    rp1 = WR.write_pad(ws, __version__, actor="tester")
+    pdfs = [rw1["paths"].get("pdf"), rp1["paths"].get("pdf")]
+    rd = [PDF.read(Path(p).read_bytes()) for p in pdfs if p]
+    long_doc = CR.Document("A long table ≥ two pages", "TEST-1", [["Report ID", "TEST-1"], ["Result", "NO CHANGE"]],
+                           [CR.Section("1", "Rows", ["° ± – — ≤ x" * 3], [CR.Table(["Row", "A long cell"], [[i, "word " * (i % 40) + "unbrokenwordthatiswiderthanthecolumnitsitsin" * (1 if i == 7 else 0)] for i in range(160)], "the caption")])], footer="footer line")
+    b1, b2 = PDF.render(long_doc), PDF.render(long_doc)
+    rl = PDF.read(b1)
+    hist_pdf = [f_["name"] for e_ in RH.entries(ws.reports_dir) for f_ in e_["files"] if f_["name"].endswith(".pdf")]
+    c2 = {
+        "written": len(rd) == 2 and all(r_["ok"] for r_ in rd) and CR.LAST_PDF_ERROR is None
+                   and all(Path(p).with_suffix(".html").is_file() for p in pdfs),
+        "content": rw1["report_id"] in rd[0]["text"][0] and "page 1 of" in rd[0]["text"][0] and "LAT-1H" in "\n".join(rd[0]["text"])
+                   and any("plan view" in t_ for t_ in rd[0]["text"]) and rp1["report_id"] in rd[1]["text"][0],
+        "fonts": set(rd[0]["fonts"]) == {"Helvetica", "Helvetica-Bold", "Helvetica-Oblique", "Helvetica-BoldOblique"},
+        "pages": rl["ok"] and rl["pages"] >= 3 and all("A long cell" in t_ for t_ in rl["text"][:-1]) and f"page {rl['pages']} of {rl['pages']}" in rl["text"][-1]
+                 and ">=" in rl["text"][0] and "°" in rl["text"][0] and "footer line" in rl["text"][-1],
+        "same": b1 == b2,
+        "history": "well_report.pdf" in hist_pdf and "pad_report.pdf" in hist_pdf,
+        "links": "['pdf','html','md','json','csv']" in (pkg / "web" / "app.html").read_text(encoding="utf-8"),
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CN2 the printable PDF: the well and pad reports each written as a PDF beside the HTML and read back - the report number, "
+       "'page 1 of', the plan view's own labels redrawn, the four base fonts; a 160-row table continued across pages with its "
+       "header on each, a word wider than its column broken, the symbols carried; the same bytes for the same report; kept in history"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- CN3 the daily pad summary -------------------------------------------------------------------------------------
+    hooks = []
+
+    class Hook(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_POST(self):
+            n = int(self.headers.get("Content-Length") or 0)
+            hooks.append(json.loads(self.rfile.read(n) or b"{}"))
+            self.send_response(200); self.end_headers()
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Hook)
+    _th.Thread(target=srv.serve_forever, daemon=True).start()
+    Path(wsp, "config", "notifications.json").write_text(json.dumps({"channels": [{"name": "hook", "kind": "webhook", "url": f"http://127.0.0.1:{srv.server_address[1]}/hook"}],
+                                                                      "rules": [{"event": "pad.summary", "channels": ["hook"]}], "quiet_s": 0}), encoding="utf-8")
+    nt = Notifier(wsp); nt.reload()
+    AL.raise_alert(ws, None, {"event": "seismic.event", "key": "seismic.event:A", "well": "LAT-1H", "detail": "M 2.6 0.5 km from the lateral of LAT-1H"}, now)
+    OS.save_operation(ws, "tester", wv["id"], "disposal", (now - timedelta(days=1)).strftime("%Y-%m-%d"), None, "an honest permit")
+    OS.save_operation(ws, "tester", wv["id"], "injection", (now + timedelta(days=2)).strftime("%Y-%m-%d"), None, "permit 2")
+    g = PS.gather(ws, now + timedelta(minutes=1), now - timedelta(hours=1))
+    t0 = now.replace(hour=10, minute=59, second=0) if now.hour < 23 else now.replace(hour=10, minute=59, second=0)
+    due_before = PS.due_now(ws, t0)
+    s1 = PS.write(ws, __version__, "tester", nt, now + timedelta(minutes=2))
+    due_after = PS.due_now(ws, (now + timedelta(minutes=2)).replace(hour=23, minute=0))
+    nxt = (now + timedelta(days=1)).replace(hour=11, minute=1, second=0)
+    due_next = PS.due_now(ws, nxt)
+    ws.audit("tester", "test.after", {})
+    s2 = PS.write(ws, __version__, "tester", nt, now + timedelta(minutes=5), send=False)
+    srv.shutdown()
+    vers = [e_ for e_ in RH.entries(ws.reports_dir) if e_["family"] == "daily/pad_summary"]
+    html_ = Path(wsp, "reports", "daily", "pad_summary.html").read_text(encoding="utf-8")
+    c3 = {
+        "lists": any(c_["action"] == "seismicity.operation" or c_["action"].startswith("seismicity.") for c_ in g["changed"]) and len(g["alerts"]) == 1
+                 and any(x["status"] == "UNDER WAY" and "completion" in x["item"] for x in g["due"]) and any(x["status"] == "STARTS SOON" for x in g["due"])
+                 and any(x["item"] == "the earthquake watch" for x in g["due"]) and any(x["item"] == "the backup" and x["status"] == "NEVER" for x in g["due"])
+                 and any(m_["level"] == "required" for m_ in g["missing"]),
+        "clean": "honest" not in html_.lower() and "(see the audit log)" in html_,
+        "files": all(Path(wsp, "reports", "daily", "pad_summary." + x).is_file() for x in ("pdf", "html", "md", "json")) and PDF.read(Path(wsp, "reports", "daily", "pad_summary.pdf").read_bytes())["ok"],
+        "history": len(vers) == 2 and s2["since"] == PS._utc(now + timedelta(minutes=2)),
+        "hour": (not due_before or now.hour >= 11) and not due_after and due_next,
+        "sent": len(hooks) == 1 and hooks[0].get("event") == "pad.summary" and "What is due" in hooks[0].get("text", "") and s1["delivered"] == [{"channel": "hook", "ok": True}] and s2["delivered"] == [],
+        "event": "pad.summary" in __import__("gea.notify", fromlist=["EVENTS"]).EVENTS,
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CN3 the daily pad summary: the actions, alerts and new versions since the last, what is under way, starting soon or due, the "
+       "watch and the backup, the checklist's missing items; a typed note a client report may not carry left out; PDF, HTML, markdown "
+       "and JSON with each day's version kept; due once a day from its hour; delivered through a webhook rule for pad.summary"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+    # -- CN4 the key's rotation ----------------------------------------------------------------------------------------
+    e1 = DZ.build(ws, "tester", __version__, wl["id"])
+    k1 = DZ.key_info(ws)
+    old_file = Path(DZ.key_path(ws)).read_text(encoding="utf-8")
+    try:
+        DZ.rotate_key(ws, "tester", "  ")
+        empty_refused = False
+    except ValueError:
+        empty_refused = True
+    time.sleep(1.1)
+    rot = DZ.rotate_key(ws, "tester", "scheduled change")
+    new_file = Path(DZ.key_path(ws)).read_text(encoding="utf-8")
+    time.sleep(1.1)
+    e2 = DZ.build(ws, "tester", __version__, wl["id"])
+    v1 = DZ.verify(os.path.join(ws.reports_dir, e1["path"]), ws)
+    v2 = DZ.verify(os.path.join(ws.reports_dir, e2["path"]), ws)
+    Path(DZ.key_path(ws)).write_text(old_file, encoding="utf-8")            # someone still holding the retired key signs with it
+    time.sleep(1.1)
+    e_bad = DZ.build(ws, "tester", __version__, wl["id"])
+    Path(DZ.key_path(ws)).write_text(new_file, encoding="utf-8")
+    v_bad = DZ.verify(os.path.join(ws.reports_dir, e_bad["path"]), ws)
+    x = d / "vx"; x.mkdir()
+    with _zf.ZipFile(os.path.join(ws.reports_dir, e2["path"])) as z_:
+        z_.extract("verify_dossier.py", x)
+        rots_in = json.loads(z_.read("keys/rotations.json"))
+    sa = _sp.run([sys.executable, "-I", str(x / "verify_dossier.py"), os.path.join(ws.reports_dir, e2["path"])], capture_output=True, text=True)
+    hist_txt = Path(wsp, DZ.KEY_HISTORY).read_text(encoding="utf-8")
+    c4 = {
+        "rotated": empty_refused and rot["old"]["fingerprint"] == k1["fingerprint"] and rot["new"]["fingerprint"] != k1["fingerprint"]
+                   and bool(rot["rotation"]["old_signature"]) and json.loads(old_file)["seed"] not in new_file + hist_txt and '"seed"' not in hist_txt,
+        "old_valid": v1["status"] == "VALID" and any("a former key of this site" in c_["detail"] and c_["ok"] for c_ in v1["workspace_checks"]),
+        "new_valid": v2["status"] == "VALID" and any(c_["check"] == "the key rotations verify" and c_["ok"] for c_ in v2["checks"])
+                     and v2["key_chain"][0]["old"] == k1["fingerprint"] and v2["key_chain"][0]["signed_by_old"] is True and len(rots_in["rotations"]) == 1,
+        "after_retired": v_bad["status"] == "INVALID" and any("not the site's" in c_["detail"] for c_ in v_bad["workspace_checks"])
+                         and any(c_["check"] == "the key rotations verify" and not c_["ok"] and "does not end at the key" in c_["detail"] for c_ in v_bad["checks"]),
+        "standalone": sa.returncode == 0 and "signed by both keys" in sa.stdout and k1["fingerprint"] in sa.stdout,
+        "page": [r_["signed_by_old"] for r_ in DZ.page(ws)["key_history"]["rotations"]] == [True] and len(DZ.page(ws)["key_history"]["keys"]) == 2,
+    }
+    os.remove(DZ.key_path(ws)); time.sleep(1.1)
+    e3 = DZ.build(ws, "tester", __version__, wl["id"])
+    v3 = DZ.verify(os.path.join(ws.reports_dir, e3["path"]), ws)
+    c4["lost"] = (v3["status"] == "VALID" and len(v3["key_chain"]) == 2 and v3["key_chain"][1]["signed_by_old"] is None
+                  and "not signed by the retired key" in next(c_["detail"] for c_ in v3["checks"] if c_["check"] == "the key rotations verify"))
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       "CN4 the key's rotation: a reason required; the old key signs the hand-over and its seed is gone; a dossier it signed before still "
+       "VALID here as a former key's, one signed after with it not the site's (its own rotations do not end at its key); the next dossier carries the rotation, which its own "
+       "checker verifies with both signatures; a lost key file recorded as a rotation the old key did not sign"
+       + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+    # -- CN5 the API, the CLI, the tabs, the help ------------------------------------------------------------------------
+    Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator"); Users(str(Path(wsp, "users.json"))).add("ad", "admin-pass-12", "admin")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                ct = rr_.headers.get("Content-Type", "")
+                b_ = rr_.read()
+                return rr_.status, (json.loads(b_) if "json" in ct else {"_ct": ct, "_len": len(b_)})
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        O, A = opener("op", "op-pass-123"), opener("ad", "admin-pass-12")
+        s_g, gj = call(O, "GET", "/api/pad-summary")
+        s_w, wj = call(O, "POST", "/api/pad-summary", {})
+        s_so, _ = call(O, "POST", "/api/pad-summary/settings", {"at": "12:30"})
+        s_sa, sj = call(A, "POST", "/api/pad-summary/settings", {"at": "12:30", "enabled": True})
+        s_sb, _ = call(A, "POST", "/api/pad-summary/settings", {"at": "25:00"})
+        s_ro, _ = call(O, "POST", "/api/dossier/rotate", {"reason": "x"})
+        s_re, _ = call(A, "POST", "/api/dossier/rotate", {"reason": ""})
+        s_ra, raj = call(A, "POST", "/api/dossier/rotate", {"reason": "API test"})
+        s_dz, dzj = call(O, "GET", "/api/dossier")
+        s_pdf, pdj = call(O, "GET", "/reports/daily/pad_summary.pdf")
+    finally:
+        svc.stop()
+    cli_ps = _sp.run([sys.executable, "-m", "gea", "pad-summary", "--workspace", wsp], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_kh = _sp.run([sys.executable, "-m", "gea", "dossier", "--workspace", wsp, "--key-history"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_rk = _sp.run([sys.executable, "-m", "gea", "dossier", "--workspace", wsp, "--rotate-key"], capture_output=True, text=True, cwd=str(pkg.parent))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    service_src = (pkg / "service.py").read_text(encoding="utf-8")
+    c5 = {
+        "api": s_g == 200 and gj["settings"]["at"] == "11:00" and s_w == 200 and wj["report_id"].startswith("DAY-") and s_so == 403 and s_sa == 200 and sj["at"] == "12:30"
+               and s_sb == 400 and s_ro == 403 and s_re == 400 and s_ra == 200 and raj["signed_by_old"] and s_dz == 200 and len(dzj["key_history"]["rotations"]) == 3
+               and s_pdf == 200 and pdj.get("_ct") == "application/pdf" and pdj["_len"] > 1000,
+        "cli": cli_ps.returncode == 0 and "printable:" in cli_ps.stdout and cli_kh.returncode == 0 and "CURRENT" in cli_kh.stdout and "retired" in cli_kh.stdout
+               and cli_rk.returncode != 0 and "say why" in cli_rk.stderr,
+        "poller": "_PS.tick(self)" in service_src,
+        "page": all(x_ in page_src for x_ in ("psCard", "Daily pad summary", "/api/pad-summary", "dzRot", "/api/dossier/rotate", "Key history", "Distances from")),
+        "help": all(any(t[0] == k for t in H.INDEX) and not H.check(k) for k in ("pad-summary", "dossier", "opseis", "report-history"))
+                and "Changing the key" in (pkg / "help" / "dossier.md").read_text(encoding="utf-8") and "lateral" in (pkg / "help" / "opseis.md").read_text(encoding="utf-8")
+                and "printable copy" in (pkg / "help" / "report-history.md").read_text(encoding="utf-8"),
+    }
+    failed5 = [k for k, v in c5.items() if not v]
+    ok(not failed5,
+       "CN5 on the API (anyone signed in reads the summary's settings; an operator writes one; only an administrator sets its hour or "
+       "rotates the key, with a reason; the PDF served as a PDF), the CLI (the summary written, the key history, a rotation without a "
+       "reason refused), the service's poller writing the summary, the cards on the Reports tab and the help pages"
+       + (f" [failed: {', '.join(failed5)}]" if failed5 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -10425,6 +10704,7 @@ def main() -> int:
         section_ck_operations_seismicity(tmp)
         section_cl_history_and_dossier(tmp)
         section_cm_watch_and_alerts(tmp)
+        section_cn_four(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:
