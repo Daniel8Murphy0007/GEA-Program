@@ -590,6 +590,24 @@ def main(argv=None) -> int:
     p_dz.add_argument("--actor", type=str, default="cli")
     p_dz.add_argument("--json", action="store_true")
 
+    p_iv = sub.add_parser("invoice-check", help="the drilling contractor's daywork invoice, day by day, against the daily drilling reports and the drilling record, at the contract's terms")
+    p_iv.add_argument("--workspace", type=str, default=None)
+    p_iv.add_argument("--well", type=str, default=None)
+    p_iv.add_argument("--template", type=str, default=None, choices=["ddr", "invoice"], help="print the headings a file needs")
+    p_iv.add_argument("--attach-ddr", type=str, default=None, help="a daily drilling report (CSV)")
+    p_iv.add_argument("--attach-invoice", type=str, default=None, help="an invoice (CSV)")
+    p_iv.add_argument("--source", type=str, default="", help="with --attach-*: where the file came from")
+    p_iv.add_argument("--terms-source", type=str, default=None, help="declare the contract's terms: where they came from")
+    p_iv.add_argument("--day-start", type=str, default="06:00")
+    p_iv.add_argument("--report-date", type=str, default="start", choices=["start", "end"])
+    for k_ in ("operating", "standby", "repair", "moving", "force-majeure"):
+        p_iv.add_argument(f"--{k_}", type=float, default=None, help=f"the {k_.replace('-', ' ')} day rate, USD")
+    p_iv.add_argument("--repair-hours-job", type=float, default=None)
+    p_iv.add_argument("--repair-hours-month", type=float, default=None)
+    p_iv.add_argument("--write", action="store_true", help="write the client report")
+    p_iv.add_argument("--actor", type=str, default="cli")
+    p_iv.add_argument("--json", action="store_true")
+
     p_ps = sub.add_parser("pad-summary", help="the daily pad summary: what changed since the last one, what is due, what is still missing - one page, kept in report history; the service writes it each day and sends it through the notification rules")
     p_ps.add_argument("--workspace", type=str, required=True)
     p_ps.add_argument("--send", action="store_true", help="also hand it to the notification rules (the event pad.summary)")
@@ -2337,6 +2355,46 @@ def main(argv=None) -> int:
         print(f"signed {e['dossier_id']}: {e['display']}, {e['n_files']} file(s), {e['n_sources']} source record(s) {'embedded' if e['sources_embedded'] else 'by hash'}")
         print(f"  {os.path.join(ws.reports_dir, e['path'])}")
         print(f"  key fingerprint {e['fingerprint']}")
+        return 0
+    elif a.cmd == "invoice-check":
+        import json as _json
+        from . import invoice_check as _IC
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if a.template:
+            print(_IC.template(a.template), end="")
+            return 0
+        if not a.workspace:
+            raise SystemExit("invoice-check: give --workspace C:\\site (or --template ddr)")
+        try:
+            ws = Workspace(a.workspace)
+            if a.terms_source is not None:
+                t_ = _IC.set_terms(ws, a.actor, a.terms_source, a.day_start, a.report_date,
+                                   {"operating": a.operating, "standby": a.standby, "repair": a.repair, "moving": a.moving, "force_majeure": a.force_majeure},
+                                   a.repair_hours_job, a.repair_hours_month)
+                print("terms kept: " + ", ".join(f"{k} {v:,.2f} USD/day" for k, v in t_["rates_usd_per_day"].items()) + f"; report day from {t_['day_start']}")
+                return 0
+            wid = a.well or (ws.wells()[0]["id"] if ws.wells() else None)
+            if wid is None:
+                raise SystemExit("invoice-check: the workspace has no wells")
+            for kind, f_ in (("ddr", a.attach_ddr), ("invoice", a.attach_invoice)):
+                if f_:
+                    with open(f_, "rb") as fh:
+                        r_ = _IC.attach(ws, a.actor, wid, kind, os.path.basename(f_), fh.read(), a.source)
+                    print(f"attached {r_['name']}: {r_['lines']} line(s)" + (f", {len(r_['errors'])} not read" if r_['errors'] else ""))
+            if a.attach_ddr or a.attach_invoice:
+                return 0
+            if a.write:
+                r_ = _IC.write_report(ws, wid, __version__, a.actor)
+                print(f"wrote {r_['report_id']} ({r_['status']}): {r_['paths']['html']}")
+                if r_['paths'].get('pdf'):
+                    print(f"  printable: {r_['paths']['pdf']}")
+                return 0
+            r = _IC.check(ws, wid)
+        except (KeyError, ValueError, OSError, WorkspaceError) as e:
+            raise SystemExit(f"invoice-check: {e.args[0] if e.args else e}")
+        print(_json.dumps(r, default=str) if a.json else _IC.text(r))
         return 0
     elif a.cmd == "pad-summary":
         import json as _json

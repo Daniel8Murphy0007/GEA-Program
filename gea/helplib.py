@@ -54,6 +54,7 @@ INDEX: List[tuple] = [
     ('report-history', 'Report history', 'every version of every client report kept in a dated folder with its SHA-256, when the next one replaces it'),
     ('pad-summary', 'The daily pad summary', 'one page each morning - what changed since the last one, what is due, what is still missing - kept in report history and sent through the notification rules'),
     ('dossier', 'The signed dossier', "a well's or the pad's reports, declarations, audit log and source hashes in one zip signed with the site's Ed25519 key, with a checker anyone can run without GEA"),
+    ('invoice-check', 'The invoice cross-check', "the drilling contractor's daywork invoice, day by day, against the daily drilling reports and the drilling record at the contract's terms: hours, rates, standby, the repair allowance, depth and footage, with the dollars each difference puts in question"),
     ('economics', 'Economics', 'each well\'s days, footage and cost by the operator\'s own declared rates, against the EIA oil and gas spot prices while it was drilled, and any series the site imports'),
     ('well3d', 'The well in 3D', 'each well\'s path from its directional survey, set among the mapped formation surfaces and contours with its picks, coloured by what was measured along it, and the drill string replayed from the record; the Volve field shipped as the worked example'),
     ('charts', 'The charts', 'a well\'s channels stacked on one axis with a linked cursor, zoom and pan from every sample, time or depth for a drilling recorder, the depth events marked, and the drilling progress of every well'),
@@ -84,7 +85,7 @@ REQUIRED_LINES = ('**The command**', '**What it writes**', '**The number to chec
 VIEW_TOPIC: Dict[str, str] = {
     'home': 'start', 'wells': 'data-in', 'well': 'drift', 'live': 'patches', 'patch': 'patches', 'files': 'files', 'alarms': 'alarms',
     'approvals': 'well-tests', 'config': 'site', 'reports': 'drift', 'verify': 'start', 'survey': 'data-in', 'jobs': 'site',
-    'admin': 'site', 'prefs': 'site', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'sar': 'seismic', 'sites': 'sites', 'setup': 'setup', 'map': 'map', '3d': 'well3d', 'simulation': 'simulation', 'drillstring': 'drillstring', 'completion': 'penetrator', 'opseis': 'opseis', 'economics': 'economics', 'control': 'control-room', 'wall': 'control-room', 'audit': 'audit-update', 'tools': 'tools', 'catalog': 'catalog',
+    'admin': 'site', 'prefs': 'site', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'sar': 'seismic', 'sites': 'sites', 'setup': 'setup', 'map': 'map', '3d': 'well3d', 'simulation': 'simulation', 'drillstring': 'drillstring', 'completion': 'penetrator', 'opseis': 'opseis', 'economics': 'economics', 'invoices': 'invoice-check', 'control': 'control-room', 'wall': 'control-room', 'audit': 'audit-update', 'tools': 'tools', 'catalog': 'catalog',
 }
 
 

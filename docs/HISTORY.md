@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.46.0 - 2026-10-19 - the invoice cross-check
+
+- **Three accounts of the same days, side by side.** The contractor's
+  invoice, the daily drilling reports and the drilling record, report day by
+  report day at the contract's declared terms; each difference with the
+  dollars it puts in question and the line it comes from. Section CO;
+  gate 427.
+
 ## v0.45.0 - 2026-10-19 - the lateral, the printable reports, the daily summary and the key
 
 - **Four smaller finishes.** Earthquakes measured from the nearest point of

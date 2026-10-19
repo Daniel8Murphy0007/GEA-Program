@@ -5,6 +5,34 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.46.0] - 2026-10-19 - The invoice cross-check
+
+### Added
+- **The invoice cross-check** (`gea/invoice_check.py`, the Invoice check
+  tab, `gea invoice-check`): the drilling contractor's daywork invoice set,
+  report day by report day, against the daily drilling reports and the
+  drilling record, at the contract's terms as the operator declares them
+  (the report day's start on the rig's clock, the operating, standby,
+  repair, moving and force majeure day rates, the repair allowance in hours
+  a job and a month - IADC U.S. Daywork Contract 4.3-4.7).
+- The checks: the report's lines add to 24 h; reported drilling (IADC code
+  2) against the record's hours on bottom; the day's end depth and footage
+  against the record's; a line coded drilling, reaming, circulating or trips
+  over a span the record shows the pumps off, the rotary still and the bit
+  still, and a repair line over a span it shows working; over 24 h billed,
+  a day billed twice, billed with no report or nothing on the record;
+  standby (code 33, or waiting on the operator's orders) billed at the
+  operating rate; repair (code 8) past the allowance at the operating rate;
+  a unit price not the contract's; quantity times price not the amount; and
+  as a question, quiet on the record beyond the hours billed at standby,
+  repair or force majeure. Each day AGREES, QUESTION or DIFFERS, each
+  finding with the dollars it puts in question and the file and row it
+  comes from; charges that are not day rates are listed, not checked.
+- The files are CSV read by their headings in any order and spelling
+  (`--template ddr | invoice` prints them); a client report with its PDF in
+  `reports/wells/<well>/invoice_check.*`. Help page `invoice-check`;
+  section CO (3 checks).
+
 ## [v0.45.0] - 2026-10-19 - The lateral, the printable reports, the daily summary and the key
 
 ### Added

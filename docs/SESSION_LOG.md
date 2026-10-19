@@ -2435,3 +2435,28 @@ stability; and motor specifications in the tool catalogue.
   retirement fails even outside the workspace.
 - Section CN (5 checks). Gate 424.
 
+## 2026-10-19 - The invoice cross-check (v0.46.0)
+
+- Asked: build the invoice cross-check, ahead of the samples (a daily
+  drilling report, an invoice, the API numbers, the report-day boundary).
+- Research: IADC's DDR operation code definitions (2019) for the codes the
+  report carries (2 drilling, 5 circulate, 6 trips, 8 repair rig, 33
+  operating status); IADC's U.S. Daywork Drilling Contract sample (2013) for
+  the rate kinds and when each applies - 4.3 operating, 4.4 repair time at
+  the operating rate up to an allowance per job and per month, 4.5 standby,
+  4.7 force majeure, 8.4 the daily report.
+- Without the samples, the reader finds its columns by heading in any order
+  and spelling, and the templates say what it needs; the report-day start
+  and whether a report is dated by the day it starts or ends are declared
+  terms, not guesses. The real formats are a reading change, not a new
+  module.
+- The record's side uses only what a recorder carries: the drilling flag,
+  pump output, rotary speed and the bit's travel; a quiet recorder on a day
+  billed at the operating rate is a question, because waiting on cement and
+  rig-up are operating time with the pumps off.
+- A labelled scene of five report days with seven planted differences, each
+  found with its dollars; the same days billed and reported as they happened
+  agree. The tab driven in headless Chromium: light, dark, phone width, no
+  horizontal scroll, no console errors.
+- Section CO (3 checks). Gate 427.
+

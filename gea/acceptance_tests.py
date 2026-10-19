@@ -10610,6 +10610,157 @@ def section_cn_four(tmp: str) -> None:
        + (f" [failed: {', '.join(failed5)}]" if failed5 else ""))
 
 
+def section_co_invoice_check(tmp: str) -> None:
+    """Section CO - the invoice cross-check: the daily drilling report and the invoice read by their headings in
+    whatever order and spelling a form uses, a file that is neither refused with the headings it needs; a labelled
+    scene of five report days with seven planted differences - a day billed twice, repair past the allowance at the
+    operating rate, a trip the record shows never happened, standby billed at the operating rate, a depth and footage
+    overstated, an amount that is not quantity times price, a day billed with no report and nothing on the record -
+    each found with the dollars it puts in question; the same days billed and reported correctly agree; the report
+    with its PDF; the API, the CLI, the tab and the help page."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    import base64 as _b64
+    from . import __version__
+    from . import client_reports as CR
+    from . import helplib as H
+    from . import invoice_check as IC
+    from . import pdf_report as PDF
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "co"); d.mkdir()
+
+    # -- CO1 reading the files ---------------------------------------------------------------------------------------
+    t_ddr, t_inv = IC.read_ddr(IC.template("ddr")), IC.read_invoice(IC.template("invoice"))
+    odd = IC.read_ddr("Rpt Date;Start Time;End Time;IADC Code;Operations;MD From;MD To\n07/01/2026;0600;1800;2 - Drilling;Drill ahead;9500;10,100\n"
+                      "07/01/2026;1800;0600;33;Standby - waiting on orders;10100;10100\nnot a date;0600;0700;2;x;1;2\n")
+    span = IC.read_invoice("Period From,Period To,Charge,Qty,UOM,Rate,Ext Amount\n2026-07-01,2026-07-03,Stand-by rate,3,day,25000,75000\n"
+                           "2026-07-04,2026-07-04,Mobilization,1,lot,50000,50000\n")
+    try:
+        IC.read_ddr("Name,Value\na,1\n")
+        refused = ""
+    except ValueError as e:
+        refused = str(e)
+    c1 = {
+        "templates": len(t_ddr["lines"]) == 2 and t_ddr["lines"][0]["code"] == 2 and t_ddr["lines"][1]["hours"] == 12 and len(t_inv["lines"]) == 2
+                     and t_inv["lines"][1]["kind"] == "standby" and t_inv["lines"][1]["hours"] == 12,
+        "odd": len(odd["lines"]) == 2 and odd["lines"][0]["date"] == "2026-07-01" and odd["lines"][0]["hours"] == 12 and odd["lines"][1]["hours"] == 12
+               and odd["lines"][0]["depth_to_ft"] == 10100 and odd["lines"][1]["standby"] and len(odd["errors"]) == 1 and "row 4" in odd["errors"][0],
+        "span": span["lines"][0]["kind"] == "standby" and span["lines"][0]["price"] == 25000 and span["lines"][0]["to"] == "2026-07-03" and span["lines"][0]["hours"] == 72
+                and span["lines"][1]["kind"] == "moving",
+        "refused": "Date column" in refused and "--template ddr" in refused,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CO1 the files read by their headings: the templates; a semicolon report with its own headings, times without colons, a code with its "
+       "name, a standby line, a row that does not read named and the rest kept; an invoice span of days at a 'Rate' that is a price; a file "
+       "that is neither refused with the headings it needs" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- CO2 the cross-check ---------------------------------------------------------------------------------------------
+    F = IC.selftest_files(str(d))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad CO", actor="tester")
+    w = ws.add_well_file(F["edr"], display="INV-1", actor="tester")
+    r_none = IC.check(ws, w["id"])
+    IC.set_terms(ws, "tester", "test daywork contract, Exhibit A", "06:00", "start", {"operating": 30000, "standby": 25000, "repair": 0}, None, 2)
+    r_nofiles = IC.check(ws, w["id"])
+    IC.attach(ws, "tester", w["id"], "ddr", "ddr.csv", F["ddr"].encode(), "test reports")
+    IC.attach(ws, "tester", w["id"], "invoice", "inv.csv", F["invoice"].encode(), "test invoice 1")
+    r = IC.check(ws, w["id"])
+    D = {x["date"]: x for x in r["days"]}
+    fd = lambda dk: {f["check"]: f for f in D[dk]["findings"]}
+    c2 = {
+        "states": r_none["status"] == "NO TERMS" and r_nofiles["status"] == "NO FILES" and r["status"] == "DIFFERS"
+                  and [D[k]["status"] for k in sorted(D)] == ["DIFFERS", "DIFFERS", "DIFFERS", "DIFFERS", "QUESTION"],
+        "day1": set(fd("2026-07-01")) == {"OVER 24 H", "BILLED TWICE"} and fd("2026-07-01")["OVER 24 H"]["usd_in_question"] == 30000
+                and abs(D["2026-07-01"]["record"]["drilling_h"] - 18) < 0.2 and D["2026-07-01"]["record"]["quiet_h"] < 0.2,
+        "day2": fd("2026-07-02")["REPAIR OVER ALLOWANCE"]["usd_in_question"] == 2500 and "14:00-16:00" in fd("2026-07-02")["LINE VS RECORD"]["detail"]
+                and fd("2026-07-02")["LINE VS RECORD"]["ref"] == "ddr.csv row 6" and "DRILLING HOURS" not in fd("2026-07-02"),
+        "day3": abs(fd("2026-07-03")["STANDBY AT OPERATING"]["usd_in_question"] - 4166.67) < 0.01 and fd("2026-07-03")["QUIET ON THE RECORD"]["severity"] == "QUESTION",
+        "day4": fd("2026-07-04")["ARITHMETIC"]["usd_in_question"] == 1000 and "7,600" in fd("2026-07-04")["DEPTH"]["detail"] and "1,200" in fd("2026-07-04")["FOOTAGE"]["detail"],
+        "day5": set(fd("2026-07-05")) == {"NO REPORT", "NOT IN THE RECORD"},
+        "totals": r["totals"]["usd_in_question"] == 37666.67 and r["totals"]["billed_checked_usd"] == 181000 and r["totals"]["billed_usd"] == 185200
+                  and [x["description"] for x in r["other_lines"]] == ["Fuel (diesel)"] and set(r["record"]["channels"]) == {"drilling flag", "pump output", "rotary", "bit depth"},
+    }
+    # the same days billed and reported as they happened
+    ws2 = Workspace.create(str(d / "ws2"), "Pad CO2", actor="tester")
+    w2 = ws2.add_well_file(F["edr"], display="INV-2", actor="tester")
+    IC.set_terms(ws2, "tester", "test daywork contract", "06:00", "start", {"operating": 30000, "standby": 25000, "repair": 0}, None, 2)
+    ddr_ok = F["ddr"].replace("2026-07-02,14:00,16:00,2,6,Trip out", "2026-07-02,14:00,16:00,2,7,Service rig").replace("6200,7600", "6200,7400")
+    inv_ok = ("Date,Rate Type,Quantity,Unit,Unit Price,Amount\n2026-07-01,Operating day rate,1,day,30000,30000\n"
+              "2026-07-02,Operating day rate,22,hour,1250,27500\n2026-07-02,Repair rate,2,hour,0,0\n"
+              "2026-07-03,Standby rate,20,hour,1041.6667,20833.33\n2026-07-03,Operating day rate,4,hour,1250,5000\n2026-07-04,Operating day rate,1,day,30000,30000\n")
+    IC.attach(ws2, "tester", w2["id"], "ddr", "ddr.csv", ddr_ok.encode(), "test reports")
+    IC.attach(ws2, "tester", w2["id"], "invoice", "inv.csv", inv_ok.encode(), "test invoice 2")
+    r2 = IC.check(ws2, w2["id"])
+    c2["clean"] = r2["status"] == "AGREES" and r2["totals"]["agrees"] == 4 and r2["totals"]["usd_in_question"] == 0 and r2["findings"] == []
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CO2 the cross-check: no terms, then no files, said so; five report days against the record - a day billed twice, 2 h of repair past "
+       "a 2 h allowance at the operating rate (2,500.00), a trip the record shows never moved, 20 h of standby billed at the operating rate "
+       "(4,166.67) with the quiet hours a question, an overstated depth and footage, an amount 1,000.00 over quantity times price, a day "
+       "billed with no report and nothing on the record; 37,666.67 in question; the fuel listed, not checked; the same days billed and "
+       "reported as they happened agree, the standby hours explaining the quiet" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- CO3 the report, the API, the CLI, the tab, the help -----------------------------------------------------------
+    rep = IC.write_report(ws, w["id"], __version__, "tester")
+    rd = PDF.read(Path(rep["paths"]["pdf"]).read_bytes())
+    html_ = Path(rep["paths"]["html"]).read_text(encoding="utf-8")
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_g, gj = call(V, "GET", "/api/invoice-check?well=" + w["id"])
+        s_bad, _ = call(V, "GET", "/api/invoice-check?well=nope")
+        s_vt, _ = call(V, "POST", "/api/invoice-check/terms", {"source": "x", "operating": 1})
+        s_ot, otj = call(O, "POST", "/api/invoice-check/terms", {"source": "contract B", "day_start": "06:00", "operating": 30000, "standby": 25000, "repair": 0, "repair_hours_per_month": 2})
+        s_ob, _ = call(O, "POST", "/api/invoice-check/terms", {"source": "contract B", "day_start": "6am", "operating": 30000})
+        s_oa, oaj = call(O, "POST", "/api/invoice-check/attach", {"well_id": w["id"], "kind": "invoice", "filename": "inv2.csv", "source": "invoice 2",
+                                                                  "content_b64": _b64.b64encode(IC.template("invoice").encode()).decode()})
+        s_ow, owj = call(O, "POST", "/api/invoice-check/write", {"well_id": w["id"]})
+        s_or, _ = call(O, "POST", "/api/invoice-check/remove", {"file": oaj.get("file", "")})
+    finally:
+        svc.stop()
+    cli_t = _sp.run([sys.executable, "-m", "gea", "invoice-check", "--template", "invoice"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_c = _sp.run([sys.executable, "-m", "gea", "invoice-check", "--workspace", wsp, "--well", w["id"]], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_w = _sp.run([sys.executable, "-m", "gea", "invoice-check", "--workspace", wsp, "--well", w["id"], "--write"], capture_output=True, text=True, cwd=str(pkg.parent))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c3 = {
+        "report": rd["ok"] and rep["status"] == "DIFFERS" and "Invoice cross-check - INV-1" in rd["text"][0] and "37,666.67" in html_ and "REPAIR OVER ALLOWANCE" in html_
+                  and not CR.forbidden_terms(html_),
+        "api": s_g == 200 and gj["check"]["totals"]["usd_in_question"] == 37666.67 and s_bad == 404 and s_vt == 403 and s_ot == 200 and otj["source"] == "contract B"
+               and s_ob == 400 and s_oa == 200 and oaj["lines"] == 2 and s_ow == 200 and owj["report_id"].startswith("INV-") and s_or == 200,
+        "cli": cli_t.returncode == 0 and "Rate Type" in cli_t.stdout and cli_c.returncode == 0 and "REPAIR OVER ALLOWANCE" in cli_c.stdout and "37,666.67" in cli_c.stdout
+               and cli_w.returncode == 0 and "printable:" in cli_w.stdout,
+        "page": all(x in page_src for x in ("VIEWS.invoices", "['#/invoices', 'Invoice check']", "/api/invoice-check/attach", "ivTerms")),
+        "help": any(t[0] == "invoice-check" for t in H.INDEX) and not H.check("invoice-check") and H.VIEW_TOPIC.get("invoices") == "invoice-check",
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CO3 the report (with its PDF) and the check on the API (anyone signed in reads it; only an operator declares terms, attaches, "
+       "removes or writes; a start hour that is not one refused), the CLI (a template, the check, the report written), the tab and the help page"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -10705,6 +10856,7 @@ def main() -> int:
         section_cl_history_and_dossier(tmp)
         section_cm_watch_and_alerts(tmp)
         section_cn_four(tmp)
+        section_co_invoice_check(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

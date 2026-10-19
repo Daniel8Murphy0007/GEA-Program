@@ -1915,6 +1915,9 @@ def make_handler(app: App):
                 if path == '/api/economics':
                     from . import economics as EC
                     return self._json(200, EC.economics(app.ws))
+                if path == '/api/invoice-check':
+                    from . import invoice_check as IC
+                    return self._json(200, App._cr(IC.page, app.ws, (qs.get('well') or [None])[0]))
                 if path == '/api/3d/scenes':
                     from . import well3d as W3
                     return self._json(200, {'scenes': W3.scenes(app.ws)})
@@ -2293,6 +2296,30 @@ def make_handler(app: App):
                         app.ws.audit(user['name'], 'seismicity.watch.poll', {k: r_.get(k) for k in ('ok', 'how', 'in_circle', 'new', 'error', 'why')})
                         return self._json(200, {'result': {k: v for k, v in r_.items() if k != 'alerts'}, 'alerts': r_.get('alerts', []), 'status': SW.status(app.ws)})
                     raise ApiError(404, 'no such operations and seismicity action')
+                if path.startswith('/api/invoice-check/'):
+                    from . import invoice_check as IC
+                    from . import __version__ as _v
+                    import base64 as _b64
+                    App.require(user, 'operator')
+                    b_ = dict(body or {})
+                    act = path[len('/api/invoice-check/'):]
+                    if act == 'terms':
+                        return self._json(200, App._cr(IC.set_terms, app.ws, user['name'], str(b_.get('source') or ''), str(b_.get('day_start') or '06:00'),
+                                                       str(b_.get('report_date') or 'start'), {k: b_.get(k) for k in IC.KINDS if b_.get(k) not in (None, '')},
+                                                       b_.get('repair_hours_per_job'), b_.get('repair_hours_per_month')))
+                    if act == 'attach':
+                        try:
+                            content = _b64.b64decode(str(b_.get('content_b64') or ''), validate=True)
+                        except ValueError:
+                            raise ApiError(400, 'the file must be sent as base64')
+                        return self._json(200, App._cr(IC.attach, app.ws, user['name'], str(b_.get('well_id') or ''), str(b_.get('kind') or ''),
+                                                       str(b_.get('filename') or ''), content, str(b_.get('source') or '')))
+                    if act == 'remove':
+                        return self._json(200, App._cr(IC.remove, app.ws, user['name'], str(b_.get('file') or '')))
+                    if act == 'write':
+                        r_ = App._cr(IC.write_report, app.ws, str(b_.get('well_id') or ''), _v, user['name'])
+                        return self._json(200, {k: v for k, v in r_.items() if k != 'paths'})
+                    raise ApiError(404, 'no such invoice cross-check action')
                 if path == '/api/dossier/rotate':
                     from . import dossier as DZ
                     App.require(user, 'admin')

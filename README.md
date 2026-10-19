@@ -609,6 +609,18 @@ against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
 
+### The invoice cross-check
+
+The drilling contractor's daywork invoice, day by day, against the daily
+drilling reports and the drilling record, at the contract's terms as the
+operator declares them: hours billed against hours reported, standby billed
+at the operating rate, rig repair past the allowance, a trip or a circulation
+the recorder never saw, a depth or footage overstated, an amount that is not
+quantity times price, a day billed with no report. Each day AGREES, is in
+QUESTION or DIFFERS, with the dollars in question and the line each comes
+from; a client report with its PDF. The **Invoice check** tab, `gea
+invoice-check`, `gea help invoice-check`.
+
 ### The lateral, the printable reports, the daily summary and the key
 
 An earthquake near a well with a directional survey is measured from the
