@@ -5,6 +5,33 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.47.0] - 2026-10-19 - Rig time
+
+### Added
+- **Rig time** (`gea/rig_state.py`, the Rig time tab, `gea rig-time`): the
+  rig state of every second of a well's drilling record - ROTARY and SLIDE
+  DRILLING, IN SLIPS (the hook load below the block weight and half again,
+  the bit still, for half a minute or more), OFF THE HOOK (the same for half
+  an hour or more), REAMING, WASHING, CIRCULATING, TRIPPING IN and OUT,
+  STATIONARY. The block weight is estimated from the hook load while the
+  block moves and the bit does not (or declared per well) and printed. A
+  string pushed into a lateral, a depth re-set and a string hung up for
+  seconds are not taken for the slips or for pipe moving.
+- **Drilling connections**, weight to weight (the last second drilling to
+  the first second drilling again) with off bottom to slips, in the slips,
+  and slips to drilling; the breaks that are not connections listed with why.
+- **Trips** of 1,000 ft or more, split where the bit turns back 500 ft:
+  speed over the pipe-handling hours (moving and in the slips), the moving
+  speed alone, the breaks inside, the stands and their slips time.
+- **Time lost** (invisible lost time): each connection's weight to weight
+  and each trip's pipe-handling hours past the target - the drilling
+  program's, declared with its source, or this pad's own best quarter -
+  summed per well and per report day, and priced at the contract's operating
+  rate when the invoice check's terms are declared. The invoice check shows
+  each report day's lost time beside the bill (not counted in question).
+- Client reports `reports/rig_time_pad.*` and `reports/wells/<well>/rig_time.*`
+  with their PDFs. Help page `rig-time`; section CP (3 checks).
+
 ## [v0.46.0] - 2026-10-19 - The invoice cross-check
 
 ### Added

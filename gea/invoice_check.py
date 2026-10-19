@@ -618,6 +618,13 @@ def check(ws, well_id: str) -> dict:
         D['status'] = 'DIFFERS' if 'DIFFERS' in sev else 'QUESTION' if 'QUESTION' in sev else 'AGREES'
         D['usd_in_question'] = round(sum(f['usd_in_question'] for f in D['findings']), 2)
         out['days'].append(D)
+    try:                                                  # the time lost against the pad's targets, beside each day (not a finding: daywork pays it)
+        from . import rig_state as RS
+        lost = RS.lost_by_day(ws, well_id)
+    except Exception:
+        lost = {}
+    for D in out['days']:
+        D['lost_time'] = lost.get(D['date'])
     out['totals'] = {'days': len(out['days']), 'agrees': sum(d['status'] == 'AGREES' for d in out['days']),
                      'question': sum(d['status'] == 'QUESTION' for d in out['days']), 'differs': sum(d['status'] == 'DIFFERS' for d in out['days']),
                      'billed_usd': round(sum(ln['amount'] or 0.0 for ln in inv), 2),
@@ -655,10 +662,13 @@ def build_report(ws, well_id: str, version: str):
     hw = r.get('how') or r.get('detail') or ''
     s1.paragraphs.append(hw[:1].upper() + hw[1:] + '.')
     s2 = CR.Section('2', 'Day by day', [], [])
-    s2.tables.append(CR.Table(['Day', 'Result', 'Billed (h)', 'Billed (USD)', 'Report (h)', 'Record: working / quiet / drilling (h)', 'USD in question'],
+    s2.tables.append(CR.Table(['Day', 'Result', 'Billed (h)', 'Billed (USD)', 'Report (h)', 'Record: working / quiet / drilling (h)', 'Time lost vs targets (h)', 'USD in question'],
                               [[d['date'], d['status'], ', '.join(f"{k.replace('_', ' ')} {v:g}" for k, v in d['billed_hours'].items()) or '-', f"{d['billed_usd']:,.2f}",
                                 f"{d['ddr_hours']:g}", (f"{d['record']['active_h']:.1f} / {d['record']['quiet_h']:.1f} / {d['record']['drilling_h']:.1f}" if d['record'] else 'not in the record'),
-                                f"{d['usd_in_question']:,.2f}"] for d in r['days']]))
+                                (f"{d['lost_time']['lost_h']:.2f}" if d.get('lost_time') else '-'), f"{d['usd_in_question']:,.2f}"] for d in r['days']]))
+    if any(d.get('lost_time') for d in r['days']):
+        s2.paragraphs.append('Time lost vs targets: the drilling connections\' weight-to-weight time and the trips\' pipe-handling time past the pad\'s targets '
+                             '(the Rig time tab). Under daywork the operator pays for it; it is shown beside the bill, not counted in question.')
     s3 = CR.Section('3', 'What differs, and what to ask', [], [])
     if r['findings']:
         s3.tables.append(CR.Table(['Day', 'Check', 'Result', 'What the three accounts say', 'USD', 'Line'],

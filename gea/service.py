@@ -1915,6 +1915,9 @@ def make_handler(app: App):
                 if path == '/api/economics':
                     from . import economics as EC
                     return self._json(200, EC.economics(app.ws))
+                if path == '/api/rig-time':
+                    from . import rig_state as RS
+                    return self._json(200, App._cr(RS.page, app.ws))
                 if path == '/api/invoice-check':
                     from . import invoice_check as IC
                     return self._json(200, App._cr(IC.page, app.ws, (qs.get('well') or [None])[0]))
@@ -2296,6 +2299,17 @@ def make_handler(app: App):
                         app.ws.audit(user['name'], 'seismicity.watch.poll', {k: r_.get(k) for k in ('ok', 'how', 'in_circle', 'new', 'error', 'why')})
                         return self._json(200, {'result': {k: v for k, v in r_.items() if k != 'alerts'}, 'alerts': r_.get('alerts', []), 'status': SW.status(app.ws)})
                     raise ApiError(404, 'no such operations and seismicity action')
+                if path in ('/api/rig-time/settings', '/api/rig-time/write'):
+                    from . import rig_state as RS
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    b_ = dict(body or {})
+                    if path.endswith('/settings'):
+                        bw = (str(b_['well_id']), b_.get('block_weight_klbf')) if b_.get('well_id') else None
+                        return self._json(200, App._cr(RS.set_settings, app.ws, user['name'], str(b_.get('source') or ''), b_.get('w2w_min'),
+                                                       b_.get('trip_in_ft_h'), b_.get('trip_out_ft_h'), bw))
+                    r_ = App._cr(RS.write_report, app.ws, _v, user['name'], b_.get('well_id') or None)
+                    return self._json(200, {'report_id': r_['report_id']})
                 if path.startswith('/api/invoice-check/'):
                     from . import invoice_check as IC
                     from . import __version__ as _v

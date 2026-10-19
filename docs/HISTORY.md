@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.47.0 - 2026-10-19 - rig time
+
+- **What the rig did with each second, and what it lost.** Rig states from
+  the recorder's own channels, connections timed weight to weight, trips by
+  speed, and the time lost against the pad's own best quarter or the
+  drilling program's targets, priced at the contract's rate. Section CP;
+  gate 430.
+
 ## v0.46.0 - 2026-10-19 - the invoice cross-check
 
 - **Three accounts of the same days, side by side.** The contractor's

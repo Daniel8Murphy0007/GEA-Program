@@ -10761,6 +10761,158 @@ def section_co_invoice_check(tmp: str) -> None:
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_cp_rig_time(tmp: str) -> None:
+    """Section CP - rig time: a recorder export with known answers - three drilling connections of 6, 9 and 15 minutes
+    weight to weight, a 3,000 ft trip out at 2,449 ft/h and in at 3,333 ft/h over their pipe-handling hours, the block's
+    40 klbf - read back to the second; the slips not taken from a light string pushed into a lateral, a depth re-set
+    not taken for pipe moving, the weight off the hook for half an hour not a connection, the slips found from the block
+    when there is no hook load; the targets as the pad's best quarter or as declared, each connection's and trip's time
+    past them, priced at the contract's operating rate and beside each day of the invoice check; the report with its
+    PDF; the API, the CLI, the tab and the help page."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    from datetime import datetime as _dtm
+    from . import __version__
+    from . import helplib as H
+    from . import invoice_check as IC
+    from . import pdf_report as PDF
+    from . import rig_state as RS
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "cp"); d.mkdir()
+    F = RS.selftest_edr(str(d))
+    E_ = F["expect"]
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad CP", actor="tester")
+    w1 = ws.add_well_file(F["path"], display="RIG-1", actor="tester")
+    r = RS.well(ws, w1["id"])
+
+    # -- CP1 the states, the connections, the trips ------------------------------------------------------------------
+    cs = r["connections"]
+    tr = {x["direction"]: x for x in r["trips"]}
+    near = lambda a, b, tol: a is not None and abs(a - b) <= tol
+    t = np.arange(0.0, 7200.0)
+    n = len(t)
+    zeros = np.zeros(n)
+    lateral = RS.classify(t, {"hookload": np.full(n, 45.0), "block": 100.0 - t * 0.01, "bit": 15000.0 + t * 1.0, "hole": np.full(n, 25000.0),
+                              "flow": zeros, "spp": None, "rpm": zeros}, np.zeros(n, bool), block_weight=40.0)
+    jump_bit = np.where(t < 3600, 9000.0, 9600.0)
+    jump = RS.classify(t, {"hookload": np.full(n, 200.0), "block": np.full(n, 50.0), "bit": jump_bit, "hole": np.full(n, 9700.0), "flow": zeros,
+                           "spp": None, "rpm": zeros}, np.zeros(n, bool), block_weight=40.0)
+    hang = RS.classify(t, {"hookload": np.full(n, 40.0), "block": np.full(n, 50.0), "bit": np.full(n, 9000.0), "hole": np.full(n, 9700.0), "flow": zeros,
+                           "spp": None, "rpm": zeros}, np.zeros(n, bool), block_weight=40.0)
+    blk = 10.0 + (t % 120.0)
+    nohl = RS.classify(t, {"hookload": None, "block": blk, "bit": np.full(n, 9000.0), "hole": np.full(n, 9700.0), "flow": zeros, "spp": None, "rpm": zeros},
+                       np.zeros(n, bool))
+    c1 = {
+        "connections": [round(c["w2w_min"]) for c in cs] == [6, 9, 15] and all(near(c["w2w_min"], e, 0.1) for c, e in zip(cs, E_["connections_w2w_min"]))
+                       and all(near(c["slips_min"], e, 0.1) for c, e in zip(cs, E_["slips_min"])) and all(near(c["pre_min"], 1.0, 0.1) and near(c["post_min"], 1.0, 0.1) for c in cs),
+        "trips": set(tr) == {"IN", "OUT"} and near(tr["OUT"]["speed_ft_h"], E_["trip_out_ft_h"], 0.02 * E_["trip_out_ft_h"])
+                 and near(tr["IN"]["speed_ft_h"], E_["trip_in_ft_h"], 0.02 * E_["trip_in_ft_h"]) and near(tr["OUT"]["feet"], 3000, 30) and tr["OUT"]["connections"] >= 29
+                 and near(tr["OUT"]["moving_speed_ft_h"], 6000, 600),
+        "states": near(r["hours"]["ROTARY DRILLING"], 2.0, 0.02) and r["hours"]["SLIDE DRILLING"] == 0 and r["hours"]["OFF THE HOOK"] == 0
+                  and near(r["footage"]["rotary_ft"], 380, 2) and near(r["footage"]["rotary_rop_ft_h"], 190, 2),
+        "block": near(r["block_weight_klbf"], E_["block_weight_klbf"], 0.01) and r["block_weight_estimated"] and near(r["slips_threshold_klbf"], 60.0, 0.01),
+        "lateral": int((lateral["state"] == RS.SLIPS).sum()) == 0 and int((lateral["state"] == RS.TIN).sum()) > 0.9 * n,
+        "jump": int((jump["state"] == RS.TIN).sum()) == 0,
+        "off_hook": int((hang["state"] == RS.OFFHOOK).sum()) == n and int((hang["state"] == RS.SLIPS).sum()) == 0,
+        "no_hookload": nohl["slips"].sum() > 0.5 * n and "no hook load" in nohl["how"][0],
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CP1 the record read to the second: three connections of 6, 9 and 15 min weight to weight with 4, 7 and 13 min in the slips; a 3,000 ft "
+       "trip out at 2,449 ft/h and in at 3,333 ft/h over their pipe-handling hours; 2.0 h drilling 380 ft; the block's 40 klbf estimated; a light "
+       "string pushed into a lateral tripping, not in the slips; a depth re-set not pipe moving; the weight off the hook for two hours OFF THE "
+       "HOOK; the slips from the block when there is no hook load" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- CP2 the targets and the time lost ----------------------------------------------------------------------------
+    w2 = ws.add_well_file(F["path"], display="RIG-2", actor="tester")
+    p0 = RS.pad(ws)
+    tg0 = p0["targets"]
+    w2w = sorted(c["w2w_min"] for w_ in p0["wells"] for c in w_["connection_list"])
+    lost0 = sum(max(0.0, x - tg0["w2w_min"]["value"]) for x in w2w) / 60.0
+    IC.set_terms(ws, "tester", "test contract", "06:00", "start", {"operating": 30000}, None, None)
+    try:
+        RS.set_settings(ws, "tester", "", 5)
+        no_source = False
+    except ValueError:
+        no_source = True
+    RS.set_settings(ws, "tester", "drilling program 2026", 5, 2800, None)
+    p1 = RS.pad(ws)
+    W1 = p1["wells"][0]
+    ti = next(x for x in W1["trips"] if x["direction"] == "IN")
+    IC.attach(ws, "tester", w1["id"], "invoice", "inv.csv", b"Date,Rate Type,Quantity,Unit,Unit Price,Amount\n2026-08-01,Operating day rate,1,day,30000,30000\n", "test")
+    ic = IC.check(ws, w1["id"])
+    c2 = {
+        "best_quarter": tg0["w2w_min"]["value"] == round(float(np.percentile(w2w, 25)), 2) and "best quarter" in tg0["w2w_min"]["how"] and tg0["trip_in_ft_h"] is None
+                        and abs(sum(w_["lost_connections_h"] for w_ in p0["wells"]) - lost0) < 0.02,
+        "declared": no_source and p1["targets"]["w2w_min"]["value"] == 5 and "drilling program 2026" in p1["targets"]["w2w_min"]["how"]
+                    and abs(W1["lost_connections_h"] - sum(c["w2w_min"] - 5 for c in W1["connection_list"]) / 60.0) < 0.01
+                    and abs(ti["lost_h"] - max(0.0, ti["hours"] - ti["feet"] / 2800.0)) < 0.001 and next(x for x in W1["trips"] if x["direction"] == "OUT")["lost_h"] is None,
+        "priced": p1["operating_usd_per_day"] == 30000 and abs(W1["lost_usd"] - W1["lost_h"] / 24.0 * 30000) < 0.006 * 30000 / 24.0,
+        "by_day": len(W1["days"]) == 1 and W1["days"][0]["date"] == "2026-08-01" and W1["days"][0]["connections"] == 3 and abs(W1["days"][0]["lost_h"] - W1["lost_h"]) < 0.02,
+        "invoice": ic["days"][0]["lost_time"] and abs(ic["days"][0]["lost_time"]["lost_h"] - W1["lost_h"]) < 0.02 and ic["days"][0]["status"] == "QUESTION",
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CP2 the targets: the pad's best quarter (the 25th percentile of its connections) when none is declared, a declared target needing its "
+       "source and then used; each connection's and trip's time past its target summed per well and per report day, priced at the contract's "
+       "operating rate, and shown beside the invoice check's day" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- CP3 the report, the API, the CLI, the tab, the help ------------------------------------------------------------
+    rp = RS.write_report(ws, __version__, "tester")
+    rw = RS.write_report(ws, __version__, "tester", w1["id"])
+    rd = PDF.read(Path(rp["paths"]["pdf"]).read_bytes())
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_g, gj = call(V, "GET", "/api/rig-time")
+        s_vs, _ = call(V, "POST", "/api/rig-time/settings", {"w2w_min": 4, "source": "x"})
+        s_os, osj = call(O, "POST", "/api/rig-time/settings", {"w2w_min": 4.5, "source": "program B"})
+        s_bad, _ = call(O, "POST", "/api/rig-time/settings", {"w2w_min": -1, "source": "program B"})
+        s_bw, bwj = call(O, "POST", "/api/rig-time/settings", {"well_id": w2["id"], "block_weight_klbf": 42})
+        s_w, wj = call(O, "POST", "/api/rig-time/write", {"well_id": w2["id"]})
+    finally:
+        svc.stop()
+    cli_t = _sp.run([sys.executable, "-m", "gea", "rig-time", "--workspace", wsp], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_w = _sp.run([sys.executable, "-m", "gea", "rig-time", "--workspace", wsp, "--write"], capture_output=True, text=True, cwd=str(pkg.parent))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c3 = {
+        "report": rd["ok"] and "Rig time - Pad CP" in rd["text"][0] and Path(rw["paths"]["pdf"]).is_file() and "weight to weight" in Path(rp["paths"]["html"]).read_text(encoding="utf-8").lower(),
+        "api": s_g == 200 and len(gj["wells"]) == 2 and gj["targets"]["w2w_min"]["value"] == 5 and s_vs == 403 and s_os == 200 and osj["targets"]["w2w_min"] == 4.5
+               and s_bad == 400 and s_bw == 200 and bwj["block_weight_klbf"][w2["id"]] == 42 and s_w == 200 and wj["report_id"].startswith("RIG-"),
+        "cli": cli_t.returncode == 0 and "drilling connections: weight to weight median 9.0 min" in cli_t.stdout and "the block weight declared, 42 klbf" in cli_t.stdout
+               and cli_w.returncode == 0 and "printable:" in cli_w.stdout,
+        "page": all(x in page_src for x in ("VIEWS.rigtime", "['#/rigtime', 'Rig time']", "/api/rig-time/settings", "rtBars", "Lost vs targets")),
+        "help": any(t_[0] == "rig-time" for t_ in H.INDEX) and not H.check("rig-time") and H.VIEW_TOPIC.get("rigtime") == "rig-time",
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CP3 the pad's report and a well's, with their PDFs; the API (anyone signed in reads it; only an operator sets a target or a block "
+       "weight, or writes a report; a target below zero refused); the CLI (the rig time, the report); the tab and the help page"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -10857,6 +11009,7 @@ def main() -> int:
         section_cm_watch_and_alerts(tmp)
         section_cn_four(tmp)
         section_co_invoice_check(tmp)
+        section_cp_rig_time(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

@@ -609,6 +609,18 @@ against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
 
+### Rig time
+
+What the rig did each second of the drilling record, read from the hook
+load, the block, the bit, the pumps and the rotary: drilling, in the slips,
+tripping, circulating, reaming, off the hook. Every drilling connection is
+timed weight to weight with its three parts, every trip by its speed over
+the pipe-handling hours with its breaks beside it, and the time each loses
+against a target - the drilling program's, or this pad's own best quarter -
+is summed per report day and priced at the contract's operating rate. The
+**Rig time** tab, `gea rig-time`, `gea help rig-time`; the invoice check
+shows each day's lost time beside the bill.
+
 ### The invoice cross-check
 
 The drilling contractor's daywork invoice, day by day, against the daily

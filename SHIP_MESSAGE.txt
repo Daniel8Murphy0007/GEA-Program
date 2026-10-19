@@ -1,26 +1,25 @@
-v0.46.0 — THE INVOICE CROSS-CHECK
+v0.47.0 — RIG TIME
 
-The contractor's invoice, the rig's report and the recorder - three
-accounts of the same days, side by side.
+What the rig did with every second, and the time it lost.
 
-A daywork invoice bills days at rates: operating, standby, repair, moving.
-The daily drilling report says what the rig did with each hour. The
-drilling record says what the pumps, the rotary and the bit actually did.
-The new Invoice check tab sets them against each other, report day by
-report day, at the contract's terms as you declare them - the day rates
-and the repair allowance - and says, for each day, whether the three
-agree, and if not, what differs and how many dollars it puts in question.
+The drilling recorder already holds the answer to the question every
+operator asks the morning after: where did the day go? The new Rig time
+tab reads it from the hook load, the block, the bit, the pumps and the
+rotary - drilling, in the slips, tripping, circulating, reaming, off the
+hook - for every second of every well.
 
-It finds a day billed twice or for more than 24 hours; standby hours
-billed at the operating rate; rig repair past the allowance at the
-operating rate; a trip or a circulation the recorder never saw; a depth
-or footage overstated; an amount that is not quantity times price; a day
-billed with no report and nothing on the record. Each finding names the
-file and row it comes from. The report prints as a PDF.
+Every drilling connection is timed weight to weight, from the last second
+drilling to the first second drilling again, with its three parts: off
+bottom to the slips, in the slips, and back to drilling. Every trip is
+timed by its speed while handling pipe, with the breaks inside it shown
+beside it. And each is set against a target - the drilling program's, or
+this pad's own best quarter, what its own crews have already done - so
+the time lost is a number of hours, per well and per report day, and in
+dollars at the contract's operating rate. The invoice check shows each
+day's lost time beside the bill.
 
-The files are read as CSV by their column headings, so your contractor's
-own layout should read once it is saved from the spreadsheet; send one
-report and one invoice and it will be fitted to them exactly.
+The rules were checked against the site's own drilling records, read on
+the site's machine, before they were fixed.
 
-Section CO is new, three checks. The gate is 427 checks. The standalone
+Section CP is new, three checks. The gate is 430 checks. The standalone
 guard is clean.

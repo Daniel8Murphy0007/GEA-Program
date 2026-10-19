@@ -1,0 +1,15 @@
+# Rig time
+
+> What the rig did each second of the drilling record, read from the hook load, the block, the bit, the pumps and the rotary: the drilling connections timed weight to weight, the trips by speed, and the time lost against targets - the operator's declared targets, or this pad's own best quarter.
+
+**The command**: the **Rig time** tab: the hours of each well by rig state, the drilling connections (weight to weight, and its three parts), each well's connections over time against the target, its trips and its report days; the targets and the block weight (the operator role); **Write the pad's report** or one well's. From a terminal: `gea rig-time --workspace C:\site` prints it; `--write` (with `--well W` for one well) writes the report; `--w2w-min 5 --trip-in 2500 --trip-out 2800 --source "drilling program"` declares targets; `--well W --block-weight 45` sets a well's block weight.
+
+**The rig states**: IN SLIPS - the hook load below the block weight and half again, with the bit still (the rule rig-state software uses; the block weight is estimated from the hook load while the block moves and the bit does not, and printed); OFF THE HOOK - the same for half an hour or more (the string hung off, or no string: rigging, casing, waiting); ROTARY and SLIDE DRILLING - the record's own drilling samples, the rotary above 10 rpm or not; REAMING and WASHING - off bottom, pumping, the bit moving, with or without the rotary; CIRCULATING - pumping, the bit still; TRIPPING IN and OUT - the pumps off, the bit moving; STATIONARY - none of these.
+
+**The connections and trips**: a drilling connection is a break of an hour or less between two stretches of drilling, with the string set in the slips and the bit kept within a stand of bottom: weight to weight from the last second drilling to the first second drilling again, made of off bottom to slips set, in the slips, and slips pulled to drilling. A trip is a run of tripping and the slips between its stands, the pumps off, split where the bit turns back 500 ft, that moves the bit 1,000 ft or more: its speed is its footage over its pipe-handling hours (moving and in the slips); the breaks inside it are reported beside it.
+
+**What it writes**: the targets and block weights in `drillstring\rig_time.json`, the audit lines `rig_time.settings` and `report.rig_time`, and the reports `reports\rig_time_pad.*` and `reports\wells\<well>\rig_time.*` (PDF, HTML, markdown, JSON). The invoice check shows each report day's time lost beside the bill.
+
+**The number to check**: a connection's weight to weight against the well's charts at its time; the block weight printed for each well against the rig's; a trip's footage over its hours.
+
+**What this page will not call a measurement**: the cause of a long connection - a survey, a washout, a crew; the record shows the time, not the reason. A target beyond what this pad has done - the best quarter is this pad's own, not a technical limit. The slips themselves - a hook load threshold sees the weight leave the hook, and a block weight that differs from the estimate moves every slips time.

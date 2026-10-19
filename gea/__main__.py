@@ -590,6 +590,18 @@ def main(argv=None) -> int:
     p_dz.add_argument("--actor", type=str, default="cli")
     p_dz.add_argument("--json", action="store_true")
 
+    p_rt = sub.add_parser("rig-time", help="what the rig did each second of the drilling record - drilling, connections, trips, the slips - and the time lost against the pad's own best")
+    p_rt.add_argument("--workspace", type=str, required=True)
+    p_rt.add_argument("--well", type=str, default=None, help="with --write: one well's report (without it, the pad's)")
+    p_rt.add_argument("--write", action="store_true", help="write the client report")
+    p_rt.add_argument("--w2w-min", type=str, default=None, help="declare the weight-to-weight connection target, minutes ('' removes it)")
+    p_rt.add_argument("--trip-in", type=str, default=None, help="declare the tripping-in target, ft/h")
+    p_rt.add_argument("--trip-out", type=str, default=None, help="declare the tripping-out target, ft/h")
+    p_rt.add_argument("--source", type=str, default="", help="where the targets came from")
+    p_rt.add_argument("--block-weight", type=str, default=None, help="with --well: the block weight in klbf where the estimate is wrong ('' removes it)")
+    p_rt.add_argument("--actor", type=str, default="cli")
+    p_rt.add_argument("--json", action="store_true")
+
     p_iv = sub.add_parser("invoice-check", help="the drilling contractor's daywork invoice, day by day, against the daily drilling reports and the drilling record, at the contract's terms")
     p_iv.add_argument("--workspace", type=str, default=None)
     p_iv.add_argument("--well", type=str, default=None)
@@ -2355,6 +2367,32 @@ def main(argv=None) -> int:
         print(f"signed {e['dossier_id']}: {e['display']}, {e['n_files']} file(s), {e['n_sources']} source record(s) {'embedded' if e['sources_embedded'] else 'by hash'}")
         print(f"  {os.path.join(ws.reports_dir, e['path'])}")
         print(f"  key fingerprint {e['fingerprint']}")
+        return 0
+    elif a.cmd == "rig-time":
+        import json as _json
+        from . import rig_state as _RS
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        try:
+            ws = Workspace(a.workspace)
+            if a.w2w_min is not None or a.trip_in is not None or a.trip_out is not None or a.block_weight is not None:
+                if a.block_weight is not None and not a.well:
+                    raise ValueError("--block-weight needs --well")
+                s_ = _RS.set_settings(ws, a.actor, a.source, a.w2w_min, a.trip_in, a.trip_out, (a.well, a.block_weight) if a.block_weight is not None else None)
+                print("targets: " + (", ".join(f"{k} {v:g}" for k, v in s_.get("targets", {}).items()) or "none declared")
+                      + "; block weights: " + (", ".join(f"{k} {v:g} klbf" for k, v in s_.get("block_weight_klbf", {}).items()) or "estimated"))
+                return 0
+            if a.write:
+                r_ = _RS.write_report(ws, __version__, a.actor, a.well)
+                print(f"wrote {r_['report_id']}: {r_['paths']['html']}")
+                if r_['paths'].get('pdf'):
+                    print(f"  printable: {r_['paths']['pdf']}")
+                return 0
+            p_ = _RS.pad(ws)
+        except (KeyError, ValueError, OSError, WorkspaceError) as e:
+            raise SystemExit(f"rig-time: {e.args[0] if e.args else e}")
+        print(_json.dumps(p_, default=str) if a.json else _RS.text(p_))
         return 0
     elif a.cmd == "invoice-check":
         import json as _json

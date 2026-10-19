@@ -2460,3 +2460,30 @@ stability; and motor specifications in the tool catalogue.
   horizontal scroll, no console errors.
 - Section CO (3 checks). Gate 427.
 
+## 2026-10-19 - Rig time (v0.47.0)
+
+- Asked: start with the rig-state analysis, the edge proposed after v0.46.
+- Research: the rig-state rules rig-state software states (Innova's Well
+  Seeker rig states guide: in slips below the block weight and half again,
+  on bottom by hole less bit depth, pumps by pressure, rotating by RPM);
+  Drilling Contractor's "Deconstructing invisible lost time" (Bakken:
+  weight-to-weight connections 6.6-13.2 min, cased-hole tripping
+  2,100-3,400 ft/h, ILT as the shortfall against a target).
+- Built against a labelled one-second export with known answers (connections
+  of 6, 9 and 15 min, a 3,000 ft trip each way at known speeds, a 40 klbf
+  block), then checked read-only against the site's own records on Daniel's
+  machine, with the module loaded from outside the clone (no figure from the
+  site is written here).
+- The site's records changed three rules: a string pushed into the lateral drops the hook
+  load near the block's weight while the bit moves (the bit must be still
+  for the slips); a string hung up and slacked off sits for seconds (the
+  slips need half a minute); and the weight off the hook for hours (rigging,
+  casing) is OFF THE HOOK, not a connection. A depth re-set faster than a
+  block travels is not pipe moving.
+- A trip's speed is over its pipe-handling hours; the breaks inside it
+  (circulating, filling pipe, picking up the BHA) are shown beside it and
+  not counted as lost.
+- The tab driven in headless Chromium: light, dark, phone width, no
+  horizontal scroll, no console errors.
+- Section CP (3 checks). Gate 430.
+
