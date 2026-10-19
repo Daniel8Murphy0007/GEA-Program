@@ -10116,6 +10116,221 @@ def section_cl_history_and_dossier(tmp: str) -> None:
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_cm_watch_and_alerts(tmp: str) -> None:
+    """Section CM - the live earthquake watch and the program's alerts: the watch idle without an operation, its first poll
+    a catalogue query over the gap and the next ones the real-time feed, the circle kept, a revision raising a higher
+    level once, the watch going quiet and coming back - all through a stand-in catalogue served over HTTP; an alert
+    delivered through a webhook rule; a service interval used up, a penetrator outside its rating and a dossier the
+    workspace no longer matches each raised once and cleared; the API, the CLI, the tabs and the help page."""
+    import http.cookiejar
+    import http.server
+    import subprocess as _sp
+    import threading as _th
+    import urllib.request
+    import urllib.error
+    from datetime import datetime, timedelta, timezone
+    from . import __version__
+    from . import alerts as AL
+    from . import dossier as DZ
+    from . import drill_string as DS
+    from . import helplib as H
+    from . import op_seismicity as OS
+    from . import penetrator as PN
+    from . import seismic_watch as SW
+    from .notify import Notifier
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "cm"); d.mkdir()
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+
+    def feat(eid, t, lat, lon, m, upd=1, typ="earthquake"):
+        return {"type": "Feature", "id": eid, "properties": {"mag": m, "magType": "ml", "time": int(t.timestamp() * 1000), "updated": upd, "place": "SYNTHETIC",
+                                                              "status": "automatic", "net": "tx", "type": typ},
+                "geometry": {"type": "Point", "coordinates": [lon, lat, 5.0]}}
+    served = {"query": [], "feed": [], "hook": [], "fail": False}
+    FEEDS = {"feed": [feat("tx1", now - timedelta(hours=20), 32.01, -102.0, 1.7), feat("tx2", now - timedelta(minutes=3), 32.005, -102.01, 2.4),
+                      feat("qb", now - timedelta(hours=2), 32.0, -102.02, 1.9, typ="quarry blast")],
+             "query": [feat("tx1", now - timedelta(hours=20), 32.01, -102.0, 1.7), feat("far", now - timedelta(hours=5), 33.5, -102.0, 3.5)]}
+
+    class Stand(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            if served["fail"]:
+                self.send_response(503); self.end_headers(); return
+            kind = "query" if "/fdsnws/" in self.path else "feed"
+            served[kind].append(self.path)
+            b = json.dumps({"type": "FeatureCollection", "features": FEEDS[kind]}).encode()
+            self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(b))); self.end_headers()
+            self.wfile.write(b)
+
+        def do_POST(self):
+            n = int(self.headers.get("Content-Length") or 0)
+            served["hook"].append(json.loads(self.rfile.read(n) or b"{}"))
+            self.send_response(200); self.end_headers()
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Stand)
+    _th.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{srv.server_address[1]}"
+
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad CM", actor="tester")
+    w = ws.add_well_file(str(pkg / "sample_well_profile.csv"), display="FRAC-1", actor="tester")
+    Path(wsp, "seismicity").mkdir(exist_ok=True)
+    Path(wsp, "seismicity", "watch.json").write_text(json.dumps({"enabled": True, "mode": "operations", "every_min": 5,
+                                                                  "feed_url": base + "/earthquakes/feed/v1.0/summary/all_day.geojson",
+                                                                  "query_url": base + "/fdsnws/event/1/query"}), encoding="utf-8")
+    Path(wsp, "config", "notifications.json").write_text(json.dumps({"channels": [{"name": "hook", "kind": "webhook", "url": base + "/hook"}],
+                                                                      "rules": [{"event": "seismic.protocol", "channels": ["hook"]}, {"event": "motor.due", "channels": ["hook"]}],
+                                                                      "quiet_s": 0}), encoding="utf-8")
+    nt = Notifier(wsp); nt.reload()
+
+    # -- CM1 the watch -----------------------------------------------------------------------------------------------
+    r_nopos = SW.poll(ws, nt, now)
+    ws.set_well(w["id"], surface={"lat": 32.0, "lon": -102.0, "datum": "NAD83"}, actor="tester")
+    r_idle = SW.poll(ws, nt, now)
+    st_idle = SW.status(ws, now)["state"]
+    OS.save_operation(ws, "tester", w["id"], "completion", (now - timedelta(days=2)).strftime("%Y-%m-%d"), None, "stage log")
+    OS.set_settings(ws, "tester", protocol_id="bc-ksmma-2021")
+    r1 = SW.poll(ws, nt, now)
+    r_soon = SW.poll(ws, nt, now + timedelta(minutes=2))
+    r2 = SW.poll(ws, nt, now + timedelta(minutes=5))
+    n_feed_r2 = len(served["feed"])
+    FEEDS["feed"][1] = feat("tx2", now - timedelta(minutes=3), 32.005, -102.01, 3.1, upd=2)
+    r3 = SW.poll(ws, nt, now + timedelta(minutes=10))
+    r3b = SW.poll(ws, nt, now + timedelta(minutes=15))
+    served["fail"] = True
+    fails = [SW.poll(ws, nt, now + timedelta(minutes=m)) for m in (20, 25, 30, 35)]
+    st_down = SW.status(ws, now + timedelta(minutes=36))["state"]
+    served["fail"] = False
+    r_back = SW.poll(ws, nt, now + timedelta(minutes=40))
+    q = served["query"][0] if served["query"] else ""
+    pg = OS.page(ws)
+    evs = {e["event_id"]: e for e in pg["wells"][0]["events"]}
+    al = AL.recent(ws, 100)
+    c1 = {
+        "idle": r_nopos["polled"] is False and r_idle["polled"] is False and "no operation under way" in r_idle["why"] and st_idle == "IDLE",
+        "query_first": r1["ok"] and r1["how"] == "query" and len(served["query"]) == 1 and "format=geojson" in q and "maxradiuskm=20.0" in q
+                       and (now - timedelta(days=2)).strftime("%Y-%m-%d") in q and r1["in_circle"] == 1,
+        "feed_next": r_soon["polled"] is False and r_soon["why"] == "not due" and r2["how"] == "feed" and r2["new"] == 2 and n_feed_r2 == 1,
+        "alerts": [a["event"] for a in r1["alerts"]] == ["seismic.event", "seismic.protocol"] and [(a["event"], a.get("level_m")) for a in r2["alerts"]] == [("seismic.event", None), ("seismic.protocol", 2.0)]
+                  and [(a["event"], a.get("level_m")) for a in r3["alerts"]] == [("seismic.protocol", 3.0)] and r3b["alerts"] == [],
+        "down_up": [len(f["alerts"]) for f in fails] == [0, 0, 1, 0] and fails[2]["alerts"][0]["event"] == "seismic.watch_down" and st_down == "NOT REACHING THE CATALOGUE"
+                   and [a["event"] for a in r_back["alerts"]] == ["seismic.watch_up"],
+        "catalogue": "live_usgs.txt" in [c["file"] for c in OS.catalogs(ws)] and set(evs) == {"tx1", "tx2"} and evs["tx2"]["magnitude"] == 3.1
+                     and evs["tx2"]["protocol"]["highest"]["m"] == 3.0 and "qb" not in evs and pg["watch"]["state"] == "WATCHING",
+        "delivered": len(served["hook"]) == 3 and all(h_.get("event") == "seismic.protocol" for h_ in served["hook"]) and "subject" in served["hook"][0]
+                     and any(a["event"] == "seismic.protocol" and a["delivered"] and a["delivered"][0]["ok"] for a in al)
+                     and any(a["event"] == "seismic.event" and not a["delivered"] for a in al),
+    }
+    SW.set_settings(ws, "tester", enabled=False)
+    c1["off"] = SW.poll(ws, nt, now + timedelta(hours=1), force=True)["why"] == "the watch is off" and SW.status(ws)["state"] == "OFF"
+    SW.set_settings(ws, "tester", enabled=True, every_min=2)
+    try:
+        SW.set_settings(ws, "tester", every_min=0.1); c1["bad_interval"] = False
+    except ValueError:
+        c1["bad_interval"] = True
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CM1 the live earthquake watch, against a stand-in catalogue served over HTTP: idle with no well placed or no operation under way; "
+       "its first poll a catalogue query over the circle from the operation's start, the next ones the real-time feed, not before the "
+       "interval; an earthquake 170 km away and a quarry blast left out; every earthquake near the operation an alert once, each protocol "
+       "level once, a revision to M 3.1 the higher level once; three intervals without an answer an alert, and the answer again another; the "
+       "live catalogue read by the tab; the protocol alerts delivered through a webhook rule; off when turned off"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- CM2 the conditions ------------------------------------------------------------------------------------------
+    syn = DS.synthetic_motor_record(str(d))
+    we = ws.add_well_file(syn["path"], display="SYNTHETIC EDR well", actor="tester")
+    comps = [{"class_id": "pdc_bit", "maker": "Acme", "model": "X616", "serial": "B1"},
+             {"class_id": "pdm_motor", "motor_id": "msd-6-3-4-78-6.4", "serial": "M100", "service_limit": 10, "service_basis": "circulating_hours", "service_source": "rental contract"}]
+    run = DS.save_run(ws, "tester", we["id"], "Run 1", comps)
+    k1 = AL.check_conditions(ws, nt, now, force=True)
+    k2 = AL.check_conditions(ws, nt, now, force=True)
+    comps[1]["service_limit"] = 100
+    DS.save_run(ws, "tester", we["id"], "Run 1", comps, run_id=run["id"])
+    k3 = AL.check_conditions(ws, nt, now, force=True)
+    PN.save_install(ws, "tester", w["id"], "genco-gps-5", void_test_psi=6000, void_held="yes")
+    k4 = AL.check_conditions(ws, nt, now, force=True)
+    PN.save_install(ws, "tester", w["id"], "genco-gps-5", void_test_psi=4000, void_held="yes")
+    k5 = AL.check_conditions(ws, nt, now, force=True)
+    ws.refresh_dashboard(actor="tester")
+    DZ.build(ws, "tester", __version__, we["id"])
+    k6 = AL.check_conditions(ws, nt, now + timedelta(minutes=1))           # the daily dossier check ran with k1: not due again yet
+    src = next(Path(wsp, "wells", we["id"], "source").iterdir())
+    raw = src.read_bytes(); src.write_bytes(raw + b"\n")
+    k7 = AL.check_conditions(ws, nt, now + timedelta(days=1, minutes=1))
+    src.write_bytes(raw)
+    k8 = AL.check_conditions(ws, nt, now + timedelta(days=2, minutes=2))
+    ev = lambda ks: [a["event"] for a in ks]
+    c2 = {
+        "motor": ev(k1) == ["motor.due"] and "M100" in k1[0]["what"] and "rental contract" in k1[0]["detail"] and ev(k2) == []
+                 and ev(k3) == ["condition.cleared"] and k3[0]["cleared"] == "motor.due" and any(h_.get("event") == "motor.due" for h_ in served["hook"]),
+        "penetrator": ev(k4) == ["penetrator.outside"] and "void test" in k4[0]["detail"] and ev(k5) == ["condition.cleared"],
+        "dossier": ev(k6) == [] and ev(k7) == ["dossier.changed"] and "source records" in k7[0]["detail"] and ev(k8) == ["condition.cleared"],
+        "state": AL.state(ws)["conditions"] == {},
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CM2 the conditions: a motor past its declared service interval an alert once, delivered by its rule, and cleared when the interval "
+       "is raised; a penetrator's void test above its rating an alert and cleared when corrected; a signed dossier whose source record "
+       "changes an alert at the next daily check, and cleared when the record is restored"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- CM3 the API, the CLI, the tabs ------------------------------------------------------------------------------
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_a, aj = call(V, "GET", "/api/alerts")
+        s_p, pj = call(V, "GET", "/api/opseis")
+        s_vw, _ = call(V, "POST", "/api/opseis/watch", {"every_min": 3})
+        s_ow, oj = call(O, "POST", "/api/opseis/watch", {"every_min": 3, "mode": "always", "enabled": True})
+        s_bw, _ = call(O, "POST", "/api/opseis/watch", {"mode": "sometimes"})
+        s_pp, ppj = call(O, "POST", "/api/opseis/watch/poll", {})
+    finally:
+        svc.stop()
+    cli_once = _sp.run([sys.executable, "-m", "gea", "seismicity", "--workspace", wsp, "--watch-once"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_off = _sp.run([sys.executable, "-m", "gea", "seismicity", "--workspace", wsp, "--watch", "off"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_al = _sp.run([sys.executable, "-m", "gea", "alerts", "--workspace", wsp, "-n", "50"], capture_output=True, text=True, cwd=str(pkg.parent))
+    srv.shutdown()
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    service_src = (pkg / "service.py").read_text(encoding="utf-8")
+    c3 = {
+        "api": s_a == 200 and aj["notifications_configured"] and len(aj["alerts"]) >= 10 and "seismic.protocol" in aj["events"] and s_p == 200 and pj["watch"]["settings"]["every_min"] == 2
+               and s_vw == 403 and s_ow == 200 and oj["settings"]["mode"] == "always" and oj["settings"]["every_min"] == 3 and s_bw == 400
+               and s_pp == 200 and ppj["result"]["ok"] and ppj["status"]["state"] == "WATCHING",
+        "cli": cli_once.returncode == 0 and "reached the catalogue" in cli_once.stdout and "watch: WATCHING" in cli_once.stdout
+               and cli_off.returncode == 0 and "watch: OFF" in cli_off.stdout and cli_al.returncode == 0 and "seismic.protocol" in cli_al.stdout and "hook" in cli_al.stdout,
+        "poller": "_SW.tick(self)" in service_src,
+        "page": all(x in page_src for x in ("swCard", "Live earthquake watch", "/api/opseis/watch/poll", "alCard", "Program alerts", "/api/alerts")),
+        "help": any(t[0] == "alerts" for t in H.INDEX) and not H.check("alerts") and "seismic.protocol" in (pkg / "help" / "notifications.md").read_text(encoding="utf-8"),
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CM3 the alerts on the API (anyone signed in reads them and the watch; only an operator sets the watch or polls it; a mode that is "
+       "not one refused), the CLI (a poll now through the catalogue, the watch off, the alerts with where each was sent), the service's "
+       "poller running the watch, the watch card and the Program alerts card, and the help page"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -10209,6 +10424,7 @@ def main() -> int:
         section_cj_declarations(tmp)
         section_ck_operations_seismicity(tmp)
         section_cl_history_and_dossier(tmp)
+        section_cm_watch_and_alerts(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

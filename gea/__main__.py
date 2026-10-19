@@ -563,8 +563,18 @@ def main(argv=None) -> int:
     p_os.add_argument("--kind", type=str, default=None, choices=("drilling", "completion", "disposal", "injection", "other"))
     p_os.add_argument("--remove-op", type=str, default=None)
     p_os.add_argument("--remove-catalog", type=str, default=None)
+    p_os.add_argument("--watch", type=str, default=None, choices=("on", "off"), help="turn the live earthquake watch on or off")
+    p_os.add_argument("--watch-every", type=float, default=None, help="the watch's interval in minutes (default 5)")
+    p_os.add_argument("--watch-mode", type=str, default=None, choices=("operations", "always"), help="poll only while an operation is under way (default), or always")
+    p_os.add_argument("--watch-once", action="store_true", help="poll the USGS catalogue now, from this machine, and say what came back")
     p_os.add_argument("--actor", type=str, default="cli")
     p_os.add_argument("--json", action="store_true")
+
+    p_al = sub.add_parser("alerts", help="the program's alerts: earthquakes near operating wells and the protocol levels they reach, the earthquake watch going quiet, components due for service, penetrator checks outside their ratings, dossiers the workspace no longer matches")
+    p_al.add_argument("--workspace", type=str, required=True)
+    p_al.add_argument("--check", action="store_true", help="check the motors, penetrators and dossiers now, sending what began or cleared through the notification rules")
+    p_al.add_argument("-n", type=int, default=30)
+    p_al.add_argument("--json", action="store_true")
 
     p_dz = sub.add_parser("dossier", help="the signed dossier: a well's (or the pad's) reports, declarations, audit log and source hashes in one zip, signed with the site's Ed25519 key, with a checker anyone can run without this program")
     p_dz.add_argument("--workspace", type=str, default=None)
@@ -2225,6 +2235,26 @@ def main(argv=None) -> int:
                 return 0
             if a.remove_op:
                 _OS.remove_operation(ws, a.actor, a.remove_op); print(f"removed {a.remove_op}"); return 0
+            if a.watch or a.watch_every is not None or a.watch_mode or a.watch_once:
+                from . import seismic_watch as _SW
+                if ws is None:
+                    raise SystemExit("seismicity: the watch needs --workspace")
+                if a.watch or a.watch_every is not None or a.watch_mode:
+                    _SW.set_settings(ws, a.actor, None if a.watch is None else a.watch == "on", a.watch_mode, a.watch_every)
+                if a.watch_once:
+                    from .notify import Notifier
+                    n_ = Notifier(ws.path); n_.reload()
+                    r_ = _SW.poll(ws, n_, force=True)
+                    if r_.get("ok"):
+                        print(f"reached the catalogue ({r_['how']}): {r_['in_circle']} earthquake(s) in the watch circle, {r_['new']} new; {len(r_['alerts'])} alert(s)")
+                        for al_ in r_["alerts"]:
+                            print(f"  {al_['event']}: {al_.get('detail', '')}")
+                    else:
+                        print(f"did not reach the catalogue: {r_.get('error') or r_.get('why')}")
+                st_ = _SW.status(ws)
+                print(f"watch: {st_['state']} - every {st_['settings']['every_min']:g} min, {st_['settings']['mode']}; last good poll {st_['last_ok_utc'] or 'never'}"
+                      + (f"; last error {st_['last_error']}" if st_.get('last_error') else ""))
+                return 0 if (not a.watch_once or r_.get("ok")) else 1
             if a.remove_catalog:
                 _OS.remove_catalog(ws, a.actor, a.remove_catalog); print(f"removed {a.remove_catalog}"); return 0
             over = {k: v for k, v in (("protocol", a.protocol), ("radius_km", a.radius_km), ("screen_km", a.screen_km), ("post_days", a.post_days), ("mc", a.mc)) if v is not None}
@@ -2305,6 +2335,30 @@ def main(argv=None) -> int:
             print(f"  {f_['family']}: {f_['n']} version(s)")
             for v in f_["versions"][: (50 if a.family else 3)]:
                 print(f"      {v['utc']}  {v.get('report_id') or ''}  reports/{v['dir']}")
+        return 0
+    elif a.cmd == "alerts":
+        import json as _json
+        from . import alerts as _AL
+        from .cli import _safe_stdout
+        from .notify import Notifier
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        try:
+            ws = Workspace(a.workspace)
+        except WorkspaceError as e:
+            raise SystemExit(f"alerts: {e}")
+        if a.check:
+            n_ = Notifier(ws.path); n_.reload()
+            r_ = _AL.check_conditions(ws, n_, force=True)
+            print(f"checked: {len(r_)} alert(s) raised or cleared")
+        rows = _AL.recent(ws, a.n)
+        if a.json:
+            print(_json.dumps(rows, default=str)); return 0
+        for r in rows:
+            sent = ", ".join(f"{d['channel']}{'' if d['ok'] else ' (failed)'}" for d in r.get("delivered") or []) or "no channel set up"
+            print(f"{r['utc']}  {r['event']:<20} {r.get('well') or '':<16} {r.get('detail', '')}  [{sent}]")
+        if not rows:
+            print("no alerts yet")
         return 0
     elif a.cmd == "simulation":
         import json as _json

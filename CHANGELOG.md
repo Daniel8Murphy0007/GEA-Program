@@ -5,6 +5,36 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.44.0] - 2026-10-19 - The earthquake watch and the alerts
+
+### Added
+- **The live earthquake watch** (`gea/seismic_watch.py`, the Operations &
+  Seismicity tab, `gea seismicity --watch-once | --watch on|off |
+  --watch-every N | --watch-mode`): from the service's background poller,
+  while a declared operation is under way at a well with a position (or
+  always, if set), every 5 minutes by default. A poll reads the USGS
+  real-time summary feed of the past day (all magnitudes) and keeps the
+  earthquakes in the circle around the operating wells; on the first poll or
+  after a gap of a day it asks the FDSN event service for the whole gap (at
+  most 30 days). Each earthquake's newest version is kept
+  (`seismicity/live/`) and written out as a catalogue the tab reads.
+- **Alerts from the watch**: `seismic.event` (an earthquake within the
+  association radius during or after an operation, once), `seismic.protocol`
+  (a protocol level reached, once per level; a revision to a higher level is
+  a new alert), `seismic.watch_down` after three intervals without an answer
+  while an operation runs, and `seismic.watch_up`.
+- **Condition alerts** (`gea/alerts.py`, `gea alerts [--check]`):
+  `motor.due` and `penetrator.outside` checked every 15 minutes,
+  `dossier.changed` (the newest dossier of each well and the pad re-checked)
+  daily, and `condition.cleared` when one ends.
+- **Every alert recorded and sent**: `records/alerts.jsonl`, listed on the
+  Alarms tab's new Program alerts card (with where each was sent, and a
+  notice when no channel is set up), and handed to the notification rules -
+  the eight new events are accepted in `notifications.json` with their own
+  subjects.
+- The rate test says NO BACKGROUND when a catalogue covers only the
+  operations. Help page `alerts`; section CM (3 checks).
+
 ## [v0.43.0] - 2026-10-18 - Report history and the signed dossier
 
 ### Added

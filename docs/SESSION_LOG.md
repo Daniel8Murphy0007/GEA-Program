@@ -2387,3 +2387,23 @@ stability; and motor specifications in the tool catalogue.
   phone width, no horizontal scroll, no console errors.
 - Section CL (3 checks). Gate 416.
 
+## 2026-10-19 - The earthquake watch and the alerts (v0.44.0)
+
+- Asked: start v0.44 with the live earthquake watch and the alerts.
+- Research: the USGS FDSN event service page (parameters, the 20,000
+  limit, and its advice that automated applications use the real-time
+  GeoJSON feeds) and the summary feed format (updated every minute; mag,
+  magType, time, updated, status, net, type; coordinates lon, lat, depth).
+  Neither build machine reaches USGS, so the watch is tested against a
+  stand-in catalogue served over HTTP through the same fetch code; the
+  site's machine makes the real call (`gea seismicity --watch-once`).
+- The watch runs in the service's existing notification poller, on its own
+  clock, so it needs no new thread and stops with the service; it does
+  nothing until an operation is under way at a placed well.
+- Alerts are recorded whether or not a channel exists, and the Alarms tab
+  says plainly when none is set up. A dossier is re-checked daily, not on
+  every tick, because it hashes the source records.
+- Both new cards driven in headless Chromium: light, dark, phone width, no
+  horizontal scroll, no console errors.
+- Section CM (3 checks). Gate 419.
+

@@ -382,6 +382,10 @@ def analyse(scene: dict) -> dict:
             if not ops or t_op <= 0:
                 rate['status'] = 'NO OPERATIONS'
                 rate['detail'] = 'no operation window falls inside the catalogue\'s span'
+            elif t_bg <= 0:
+                rate['status'] = 'NO BACKGROUND'
+                rate['detail'] = (f"the catalogue covers only the operations ({t_op:,.0f} day(s)), so there is no time outside them to compare with: "
+                                  f"attach a longer catalogue (the ComCat query below covers years)")
             elif n_op + n_bg == 0:
                 rate['status'] = 'NO EVENTS'
                 rate['detail'] = f'no event at or above M {mc:g} within {R:g} km in the catalogue\'s span'
@@ -548,6 +552,9 @@ def page(ws, scene_id: str = 'workspace', settings_over: Optional[dict] = None) 
                             'start': '1990-01-01', 'end': today, 'min_magnitude': 1.0, 'operations_from': st0}
     for w in res['wells']:
         w.pop('state_at', None)
+    if sc['id'] == 'workspace':
+        from . import seismic_watch as SW
+        res['watch'] = SW.status(ws)
     return res
 
 

@@ -24,7 +24,9 @@ from `config/notifications.json`):
 Events: alarm.activated (per alarm, with well and priority), alarm.shelved,
 job.failed, patch.down (a patch entered DOWN or DEGRADED), patch.up (back to
 CONNECTED), approval.pending (a new well test or re-fit waits for a decision),
-file.imported. `quiet_s` suppresses repeats of the same event key (for
+file.imported; and the program's own alerts (`alerts`): seismic.protocol,
+seismic.event, seismic.watch_down, seismic.watch_up, motor.due,
+penetrator.outside, dossier.changed, condition.cleared. `quiet_s` suppresses repeats of the same event key (for
 example the same patch going down again) inside that window.
 
 Secrets never live in the configuration: an SMTP password is read from the
@@ -64,7 +66,9 @@ EXAMPLE = {
     ],
     'quiet_s': 300,
 }
-EVENTS = ('alarm.activated', 'alarm.shelved', 'job.failed', 'patch.down', 'patch.up', 'approval.pending', 'file.imported', 'test')
+EVENTS = ('alarm.activated', 'alarm.shelved', 'job.failed', 'patch.down', 'patch.up', 'approval.pending', 'file.imported', 'test',
+          'seismic.protocol', 'seismic.event', 'seismic.watch_down', 'seismic.watch_up', 'motor.due', 'penetrator.outside', 'dossier.changed',
+          'condition.cleared')
 _LOCK = threading.Lock()
 
 
@@ -165,6 +169,22 @@ def _subject(ev: dict) -> str:
         return f"[GEA] {ev.get('what', 'an item')} waits for approval on {w}"
     if k == 'file.imported':
         return f"[GEA] file imported: {ev.get('name', '')}"
+    if k == 'seismic.protocol':
+        return f"[GEA] earthquake M {ev.get('magnitude')} {ev.get('distance_km')} km from {w}: protocol level M {ev.get('level_m')}"
+    if k == 'seismic.event':
+        return f"[GEA] earthquake M {ev.get('magnitude')} {ev.get('distance_km')} km from {w} during its {ev.get('operation', 'operation')}"
+    if k == 'seismic.watch_down':
+        return "[GEA] the earthquake watch is not reaching the catalogue"
+    if k == 'seismic.watch_up':
+        return "[GEA] the earthquake watch reaches the catalogue again"
+    if k == 'motor.due':
+        return f"[GEA] service interval used up: {ev.get('what', '')} on {w}".strip()
+    if k == 'penetrator.outside':
+        return f"[GEA] penetrator check OUTSIDE its rating on {w}"
+    if k == 'dossier.changed':
+        return f"[GEA] the workspace no longer matches dossier {ev.get('dossier_id', '')}"
+    if k == 'condition.cleared':
+        return f"[GEA] cleared: {ev.get('cleared', '')} {('on ' + w) if w else ''}".strip()
     return f"[GEA] {k}"
 
 

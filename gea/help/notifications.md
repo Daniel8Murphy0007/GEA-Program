@@ -2,7 +2,7 @@
 
 > Rules route events to a webhook or a mailbox; every attempt is logged; secrets stay out of the file.
 
-**The command**: Administration -> Notifications: "Load the example", edit, "Validate and commit" (it is versioned as `notifications`), "Send a test" per channel. `gea notify --example`, `gea notify --workspace C:\site --test mail`, `gea notify --workspace C:\site --log 20`. Events: alarm.activated (by priority), alarm.shelved, job.failed, patch.down, patch.up, approval.pending, file.imported.
+**The command**: Administration -> Notifications: "Load the example", edit, "Validate and commit" (it is versioned as `notifications`), "Send a test" per channel. `gea notify --example`, `gea notify --workspace C:\site --test mail`, `gea notify --workspace C:\site --log 20`. Events: alarm.activated (by priority), alarm.shelved, job.failed, patch.down, patch.up, approval.pending, file.imported; and the program's alerts - seismic.protocol, seismic.event, seismic.watch_down, seismic.watch_up, motor.due, penetrator.outside, dossier.changed, condition.cleared (see the help page on the earthquake watch and the alerts).
 
 **What it writes**: `records/notifications.jsonl` - one line per delivery attempt and per suppression (the quiet window stops repeats of the same key); the service's poller reads the alarm logs, the jobs, the patch states and the approval queue every 10 seconds and starts from a baseline at start-up, so history is never re-announced.
 

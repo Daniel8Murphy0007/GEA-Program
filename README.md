@@ -609,6 +609,20 @@ against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
 
+### The earthquake watch and the alerts
+
+While a well operates, the program reads the USGS earthquake catalogue
+every few minutes from the site's machine - the real-time feed USGS asks
+automated programs to use, and the catalogue service for any gap - and
+raises an alert when an earthquake near the well reaches the chosen
+regulator's protocol level; a revision to a higher level is a new alert,
+and a watch that cannot reach the catalogue says so. The same alerts cover
+what nobody watches by hand: a component's service interval used up, a
+penetrator check outside its rating, a signed dossier the workspace no
+longer matches. Every alert is listed on the Alarms tab and sent through
+the notification rules (email or a webhook). `gea seismicity --watch-once`,
+`gea alerts`, `gea help alerts`.
+
 ### Report history and the signed dossier
 
 Every client report a workspace writes is kept, version by version, under

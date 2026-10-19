@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.44.0 - 2026-10-19 - the earthquake watch and the alerts
+
+- **The record watched while it happens.** The USGS catalogue read every
+  few minutes while a well operates, an alert when a protocol level is
+  reached or the watch goes quiet; alerts for service intervals used up,
+  penetrators outside their ratings and dossiers the workspace no longer
+  matches; every alert recorded and sent through the notification rules.
+  Section CM; gate 419.
+
 ## v0.43.0 - 2026-10-18 - report history and the signed dossier
 
 - **Nothing written is lost, and anything sent can be checked.** Every

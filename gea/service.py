@@ -320,6 +320,11 @@ class App:
                     self.notifier._log({'event': 'poll', 'error': str(e)}, None, {'ok': False, 'error': f'{type(e).__name__}: {e}'})
                 except Exception:
                     pass
+            try:                                              # the earthquake watch and the condition alerts, each on its own clock
+                from . import seismic_watch as _SW
+                _SW.tick(self)
+            except Exception:
+                pass
             self._poll_stop.wait(every_s)
 
     def stop_background(self) -> None:
@@ -1940,6 +1945,10 @@ def make_handler(app: App):
                         return self._json(200, OS.page(app.ws, (qs.get('scene') or ['workspace'])[0], over or None))
                     except KeyError as e:
                         raise ApiError(404, str(e.args[0]))
+                if path == '/api/alerts':
+                    from . import alerts as AL
+                    return self._json(200, {'alerts': AL.recent(app.ws, 200), 'notifications_configured': bool(app.notifier.cfg),
+                                            'events': list(AL.EVENTS)})
                 if path == '/api/dossier':
                     from . import dossier as DZ
                     return self._json(200, DZ.page(app.ws))
@@ -2266,6 +2275,15 @@ def make_handler(app: App):
                     if act == 'settings':
                         return self._json(200, App._cr(OS.set_settings, app.ws, user['name'], b_.get('protocol') or None, b_.get('radius_km'), b_.get('screen_km'),
                                                        b_.get('post_days'), b_.get('mc')))
+                    if act == 'watch':
+                        from . import seismic_watch as SW
+                        App._cr(SW.set_settings, app.ws, user['name'], b_.get('enabled'), b_.get('mode') or None, b_.get('every_min'))
+                        return self._json(200, SW.status(app.ws))
+                    if act == 'watch/poll':
+                        from . import seismic_watch as SW
+                        r_ = SW.poll(app.ws, app.notifier, force=True)
+                        app.ws.audit(user['name'], 'seismicity.watch.poll', {k: r_.get(k) for k in ('ok', 'how', 'in_circle', 'new', 'error', 'why')})
+                        return self._json(200, {'result': {k: v for k, v in r_.items() if k != 'alerts'}, 'alerts': r_.get('alerts', []), 'status': SW.status(app.ws)})
                     raise ApiError(404, 'no such operations and seismicity action')
                 if path in ('/api/dossier/sign', '/api/dossier/verify'):
                     from . import dossier as DZ
