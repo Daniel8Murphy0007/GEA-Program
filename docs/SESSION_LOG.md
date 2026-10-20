@@ -2487,3 +2487,28 @@ stability; and motor specifications in the tool catalogue.
   horizontal scroll, no console errors.
 - Section CP (3 checks). Gate 430.
 
+## 2026-10-20 - One record, tied together (v0.48.0)
+
+- Asked: the structural gaps after v0.47 - the dossier, the summary and the
+  alerts reading the invoice check and rig time; the declarations sheet
+  covering the newer declarations; an Excel reader; rig time by hole
+  section - and every tab driven against the site's records.
+- The Excel reader is written against the Office Open XML parts (ECMA-376)
+  with zipfile and ElementTree; checked in the cloud against workbooks
+  written by openpyxl (not in the gate, which stays standalone) and in the
+  gate against a hand-made workbook with two sheets, inline strings, a
+  custom date format and the 1904 epoch.
+- Notification channels were kept off the declarations sheet on purpose:
+  they carry addresses and passwords, and a sheet travels.
+- The site sweep: the v0.48 package run from outside the clone on Daniel's
+  machine against a copy of the site's workspace (sources linked, read-only;
+  the copy deleted after) - 102 requests covering every route the tabs call,
+  each well's charts, the 3D and simulation scenes, the reports, the summary
+  and a dossier: every one answered 200, none carried NaN or Infinity (which
+  a browser's JSON parser refuses), the slowest a pad dossier at 5.4 s. A
+  browser could not be installed on that machine (its network allowlist
+  blocks the browser download), so the tabs themselves were driven in
+  headless Chromium in the cloud against a labelled workspace: every tab
+  and every well page, no console error.
+- Section CQ (4 checks). Gate 434.
+

@@ -5,7 +5,8 @@ A dossier is a zip:
 - `manifest.json` - the well or pad, the time, the program and its version, and every file the dossier carries
   with its size and SHA-256: the reports as they stand (with the history version each one is), the declarations
   behind them (the well's identity and position, its survey, rates and AFE, runs, penetrator, operations,
-  catalogues, the fleet), the audit log, and - by hash, or embedded when asked - the source records the reports
+  catalogues, the fleet, the contract's terms with the invoices and daily reports attached, the rig-time targets
+  and casing), the invoice cross-check and the rig time as they read at signing (`results/`), the audit log, and - by hash, or embedded when asked - the source records the reports
   were made from; the audit log's hash chain (every line chained to the one before, across its rotated segments)
   and its length; the previous dossier's id and manifest hash, so the dossiers of a workspace form one chain;
 - `signature.json` - an Ed25519 signature (RFC 8032) over the manifest's exact bytes, with the public key;
@@ -272,11 +273,15 @@ def _gather(ws, well_id: Optional[str]) -> Dict[str, List[tuple]]:
             out_list.append((os.path.join(wd, 'well.json'), f"declarations/wells/{w['id']}/well.json"))
         files_in(os.path.join(wd, 'trajectory'), f"declarations/wells/{w['id']}/trajectory")
     for rel in (('economics', 'costs.json'), ('drillstring', 'runs.json'), ('completion', 'esp.json'), ('seismicity', 'operations.json'),
-                ('seismicity', 'catalogs.json'), ('seismicity', 'settings.json'), ('config', 'fleet.json'), ('workspace.json',)):
+                ('seismicity', 'catalogs.json'), ('seismicity', 'settings.json'), ('config', 'fleet.json'), ('workspace.json',),
+                ('economics', 'invoices', 'terms.json'), ('economics', 'invoices', 'files.json'), ('drillstring', 'rig_time.json'),
+                ('drillstring', 'casing.json')):
         p = os.path.join(ws.path, *rel)
         if os.path.isfile(p):
             out_list.append((p, 'declarations/' + '/'.join(rel)))
     files_in(os.path.join(ws.path, 'seismicity', 'catalogs'), 'declarations/seismicity/catalogs')
+    for w in wells:                                        # the contractor's invoices and daily reports, as attached
+        files_in(os.path.join(ws.path, 'economics', 'invoices', w['id']), f"declarations/economics/invoices/{w['id']}")
     for p in audit_segments(ws):
         out['audit'].append((p, 'audit/' + os.path.basename(p)))
     for w in wells:
@@ -286,6 +291,32 @@ def _gather(ws, well_id: Optional[str]) -> Dict[str, List[tuple]]:
                 p = os.path.join(sd, n)
                 if os.path.isfile(p):
                     out['source'].append((p, f"sources/wells/{w['id']}/{n}"))
+    return out
+
+
+def _results(ws, well_id: Optional[str]) -> List[tuple]:
+    """The invoice cross-check of each well with invoices or reports attached, and the rig time of each well with a
+    drilling record, as JSON computed when the dossier is signed (a check that cannot run is left out, and says why)."""
+    out = []
+    wells = [well_id] if well_id else [w['id'] for w in ws.wells()]
+    try:
+        from . import invoice_check as IC
+        if IC.terms(ws):
+            for wid in wells:
+                if IC.files(ws, wid):
+                    r = IC.check(ws, wid)
+                    out.append((f'results/invoice_check/{wid}.json', json.dumps(r, indent=1, sort_keys=True, default=str).encode('utf-8')))
+    except Exception as e:
+        out.append(('results/invoice_check/not_run.txt', f'the invoice check did not run: {type(e).__name__}: {e}\n'.encode('utf-8')))
+    try:
+        from . import rig_state as RS
+        p = RS.pad(ws)
+        ws_ = [w for w in p['wells'] if w['well_id'] in wells]
+        if ws_:
+            p = {**p, 'wells': ws_}
+            out.append(('results/rig_time.json', json.dumps(p, indent=1, sort_keys=True, default=str).encode('utf-8')))
+    except Exception as e:
+        out.append(('results/rig_time_not_run.txt', f'rig time did not run: {type(e).__name__}: {e}\n'.encode('utf-8')))
     return out
 
 
@@ -354,6 +385,9 @@ def build(ws, actor: str, version: str, well_id: Optional[str] = None, include_s
                 if hv and hv['sha256'] == row['sha256']:
                     row['history'] = {'dir': hv['dir'], 'written_utc': hv['utc'], 'report_id': hv['report_id']}
             files.append(row); payload.append((arc, b))
+    for arc, b in _results(ws, well_id):                   # the checks as they read at signing
+        files.append({'path': arc, 'role': 'result', 'bytes': len(b), 'sha256': hashlib.sha256(b).hexdigest(), 'workspace_path': None})
+        payload.append((arc, b))
     kh = key_history(ws)
     if kh['rotations']:                                  # the key's lineage, so a client who knows an earlier fingerprint can follow it
         b = json.dumps({'schema': 1, 'rotations': kh['rotations'],

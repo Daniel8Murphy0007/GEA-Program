@@ -599,6 +599,9 @@ def main(argv=None) -> int:
     p_rt.add_argument("--trip-out", type=str, default=None, help="declare the tripping-out target, ft/h")
     p_rt.add_argument("--source", type=str, default="", help="where the targets came from")
     p_rt.add_argument("--block-weight", type=str, default=None, help="with --well: the block weight in klbf where the estimate is wrong ('' removes it)")
+    p_rt.add_argument("--casing", type=str, default=None, help="with --well, --shoe-md and --source: declare a casing shoe, its size in inches as written (13-3/8)")
+    p_rt.add_argument("--shoe-md", type=str, default=None, help="the shoe's measured depth, ft")
+    p_rt.add_argument("--set-time", type=str, default=None, help="when the casing was set (the recorder's clock); otherwise when the hole is 50 ft past the shoe")
     p_rt.add_argument("--actor", type=str, default="cli")
     p_rt.add_argument("--json", action="store_true")
 
@@ -2205,9 +2208,10 @@ def main(argv=None) -> int:
         if not a.file:
             raise SystemExit("declare: give --file <sheet.csv> (or --template <out.csv> to start one)")
         try:
-            with open(a.file, encoding="utf-8-sig") as f:
-                text_ = f.read()
-        except OSError as e:
+            from . import xlsx_read as _XR
+            with open(a.file, "rb") as f:
+                text_ = _XR.text_of(f.read())
+        except (OSError, ValueError, KeyError) as e:
             raise SystemExit(f"declare: {e}")
         p = _DC.apply(ws, text_, a.actor, os.path.dirname(os.path.abspath(a.file)), write=a.apply)
         print(_json.dumps(p, default=str) if a.json else _DC.text(p))
@@ -2376,6 +2380,12 @@ def main(argv=None) -> int:
         _safe_stdout()
         try:
             ws = Workspace(a.workspace)
+            if a.casing:
+                if not a.well:
+                    raise ValueError("--casing needs --well")
+                c_ = _RS.set_casing(ws, a.actor, a.well, a.casing, a.shoe_md, a.source, a.set_time)
+                print(f"casing {c_['size']} in, shoe at {c_['shoe_md_ft']:,.0f} ft MD ({c_['source']})")
+                return 0
             if a.w2w_min is not None or a.trip_in is not None or a.trip_out is not None or a.block_weight is not None:
                 if a.block_weight is not None and not a.well:
                     raise ValueError("--block-weight needs --well")

@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.48.0 - 2026-10-20 - one record, tied together
+
+- **The parts read each other.** Invoice differences as alerts and in the
+  morning summary with yesterday's rig time; the dossier carrying the
+  contract, the invoices, the targets, the casing and both checks; the
+  declarations sheet declaring all of it, from Excel too; rig time by hole
+  section. Section CQ; gate 434.
+
 ## v0.47.0 - 2026-10-19 - rig time
 
 - **What the rig did with each second, and what it lost.** Rig states from

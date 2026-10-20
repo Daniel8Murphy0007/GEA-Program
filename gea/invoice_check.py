@@ -34,7 +34,7 @@ Each day is AGREES, QUESTION or DIFFERS, and each finding carries the dollars it
 contract's rates. Nothing here is a ruling on what is owed: the contract and the parties decide; this lays the
 three accounts side by side, with every number traceable to its line.
 
-The files are read as CSV (a spreadsheet saved as CSV), by their column headings: `gea invoice-check --template
+The files are read as an Excel workbook (its first sheet) or CSV, by their column headings: `gea invoice-check --template
 ddr` and `--template invoice` print the headings it reads. The times are the rig's clock - the report's and the
 recorder's are taken to be the same clock, as both are kept on the rig.
 """
@@ -47,6 +47,7 @@ import math
 import os
 import re
 import threading
+import zipfile
 from datetime import date, datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
@@ -119,9 +120,9 @@ def _num(v, what: str, lo: float = 0.0, allow_none: bool = True) -> Optional[flo
     return x
 
 
-def set_terms(ws, actor: str, source: str, day_start: str = '06:00', report_date: str = 'start', rates: Optional[dict] = None,
-              repair_hours_per_job=None, repair_hours_per_month=None) -> dict:
-    """Declare the contract's terms. `rates`: {kind: USD per day} for the kinds in KINDS (operating needed)."""
+def terms_record(source: str, day_start: str = '06:00', report_date: str = 'start', rates: Optional[dict] = None,
+                 repair_hours_per_job=None, repair_hours_per_month=None) -> dict:
+    """The contract's terms checked, not written. `rates`: {kind: USD per day} for the kinds in KINDS (operating needed)."""
     if not (source or '').strip():
         raise ValueError('the terms need where they came from (e.g. "daywork contract with the drilling contractor, 2026-03-01, Exhibit A")')
     m = re.match(r'^(\d{1,2}):(\d{2})$', (day_start or '').strip())
@@ -140,7 +141,14 @@ def set_terms(ws, actor: str, source: str, day_start: str = '06:00', report_date
         raise ValueError('the terms need the operating day rate')
     t = {'source': source.strip(), 'day_start': f'{int(m.group(1)):02d}:{m.group(2)}', 'report_date': report_date, 'rates_usd_per_day': r,
          'repair_hours_per_job': _num(repair_hours_per_job, 'the repair hours per job'),
-         'repair_hours_per_month': _num(repair_hours_per_month, 'the repair hours per month'), 'by': actor, 'utc': _utc()}
+         'repair_hours_per_month': _num(repair_hours_per_month, 'the repair hours per month')}
+    return t
+
+
+def set_terms(ws, actor: str, source: str, day_start: str = '06:00', report_date: str = 'start', rates: Optional[dict] = None,
+              repair_hours_per_job=None, repair_hours_per_month=None) -> dict:
+    """Declare the contract's terms. `rates`: {kind: USD per day} for the kinds in KINDS (operating needed)."""
+    t = {**terms_record(source, day_start, report_date, rates, repair_hours_per_job, repair_hours_per_month), 'by': actor, 'utc': _utc()}
     _store(_dir(ws, 'terms.json'), t)
     ws.audit(actor, 'invoice.terms', {k: t[k] for k in ('source', 'day_start', 'report_date', 'rates_usd_per_day', 'repair_hours_per_job', 'repair_hours_per_month')})
     return t
@@ -334,7 +342,11 @@ def attach(ws, actor: str, well_id: str, kind: str, filename: str, content: byte
         raise ValueError("attach a 'ddr' (daily drilling report) or an 'invoice'")
     if not (source or '').strip():
         raise ValueError('say where the file came from (e.g. "contractor invoice 4471, received 2026-08-03")')
-    text = content.decode('utf-8-sig', errors='replace')
+    from . import xlsx_read as XR
+    try:
+        text = XR.text_of(content)
+    except (KeyError, ValueError, zipfile.BadZipFile) as e:
+        raise ValueError(f'the workbook does not read: {e}')
     t = terms(ws)
     parsed = read_ddr(text) if kind == 'ddr' else read_invoice(text)
     if not parsed['lines']:
@@ -353,6 +365,11 @@ def attach(ws, actor: str, well_id: str, kind: str, filename: str, content: byte
         d['files'].append(rec)
         _store(_dir(ws, 'files.json'), d)
     ws.audit(actor, 'invoice.attach', {k: rec[k] for k in ('file', 'well_id', 'kind', 'source', 'sha256', 'lines')})
+    try:                                                  # the alert check reads the new file at its next tick
+        from . import alerts as AL
+        st = AL.state(ws); st.setdefault('last', {}).pop('invoices', None); AL.save_state(ws, st)
+    except OSError:
+        pass
     return rec
 
 
@@ -368,12 +385,13 @@ def remove(ws, actor: str, file: str) -> dict:
 
 
 def _read_attached(ws, well_id: str, kind: str) -> Tuple[List[dict], List[str]]:
+    from . import xlsx_read as XR
     out, errs = [], []
     for f in files(ws, well_id):
         if f['kind'] != kind:
             continue
         with open(_dir(ws, *f['file'].split('/')), 'rb') as fh:
-            text = fh.read().decode('utf-8-sig', errors='replace')
+            text = XR.text_of(fh.read())
         r = read_ddr(text) if kind == 'ddr' else read_invoice(text)
         for ln in r['lines']:
             out.append({**ln, 'file': f['name']})

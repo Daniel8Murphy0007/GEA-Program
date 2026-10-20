@@ -5,6 +5,37 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.48.0] - 2026-10-20 - One record, tied together
+
+### Added
+- **Excel workbooks** (`gea/xlsx_read.py`, standard library only): an .xlsx
+  is read wherever a CSV is - the declarations sheet, the invoice check's
+  invoices and daily reports. Shared and inline strings, numbers, booleans,
+  a formula's saved value, dates and times from built-in and custom cell
+  formats, the 1904 epoch; the first sheet or a named one.
+- **The declarations sheet's new tables**: `[contract]` (the invoice check's
+  terms), `[rig_time]` (the targets), `[block_weights]`, `[casing]` (each
+  well's casing shoes), `[settings]` (the earthquake watch and the daily
+  summary). Notification channels stay off the sheet: they carry addresses
+  and passwords.
+- **Rig time by hole section**: declared casing shoes (the Rig time tab,
+  `gea rig-time --casing --shoe-md`, or the sheet) put each connection in
+  the section below the deepest shoe shallower than it, held to that
+  section's best quarter on the pad; a trip is CASED or OPEN by its footage
+  inside casing set before it, held to its own group's best quarter.
+- **The alert `invoice.differs`**: a well's invoice check finding a day that
+  differs, with its dollars in question - checked daily and when a file is
+  attached, and cleared when the check no longer differs.
+- **The daily summary** carries each well's invoice check and yesterday's
+  rig time (drilling hours, connections, the time lost and its cost at the
+  contract's rate).
+- **The signed dossier** carries the contract's terms, the invoices and
+  daily reports as attached, the rig-time targets and casing, and the
+  invoice check and rig time as they read at signing (`results/`).
+- Section CQ (4 checks). Every route the tabs call was exercised read-only
+  against a copy of the site's workspace on its own machine: all answered,
+  none with a value a browser cannot parse.
+
 ## [v0.47.0] - 2026-10-19 - Rig time
 
 ### Added

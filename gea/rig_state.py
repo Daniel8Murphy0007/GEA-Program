@@ -37,6 +37,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import threading
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
@@ -271,6 +272,7 @@ def trips(t: np.ndarray, st: np.ndarray, slips: np.ndarray, pumps: np.ndarray, b
             sl = _runs(slips[ia:iz + 1])
             sl_min = [float(t[ia + y - 1] - t[ia + x]) / 60.0 for x, y in sl]
             out.append({'t_start': float(t[ia]), 't_end': float(t[iz]), 'direction': 'IN' if ft > 0 else 'OUT', 'from_ft': round(float(b[ia]), 0),
+                        'hole_bottom_ft': round(float(np.nanmax(np.nan_to_num(bottom[ia:iz + 1]))), 0) if bottom is not None else None,
                         'to_ft': round(float(b[iz]), 0), 'feet': round(abs(ft), 0), 'hours': round(hrs, 3), 'elapsed_hours': round(elapsed, 3),
                         'breaks_hours': round(elapsed - hrs, 3),
                         'speed_ft_h': round(abs(ft) / hrs, 0) if hrs > 0 else None, 'moving_speed_ft_h': round(abs(ft) / mv_h, 0) if mv_h > 0 else None,
@@ -319,6 +321,7 @@ def _stats(xs: List[float]) -> Optional[dict]:
 
 
 # -- the workspace -----------------------------------------------------------------------------------------------------
+MAIN_TARGETS = ('w2w_min', 'trip_in_ft_h', 'trip_out_ft_h')
 _CH = {'hookload': 'Hook Load', 'block': 'Block Height', 'bit': 'Bit Depth', 'hole': 'Hole Depth', 'flow': 'Total Pump Output', 'spp': 'Standpipe Pressure', 'rpm': 'Rotary RPM'}
 
 
@@ -358,8 +361,109 @@ def _wells_with_record(ws) -> List[str]:
     return out
 
 
+# -- the casing: hole sections ------------------------------------------------------------------------------------------
+def _casing_path(ws) -> str:
+    return os.path.join(ws.path, 'drillstring', 'casing.json')
+
+
+def casing(ws) -> Dict[str, List[dict]]:
+    """Each well's declared casing shoes, shallowest first: {well_id: [{size, shoe_md_ft, set, source}]}."""
+    try:
+        with open(_casing_path(ws), encoding='utf-8') as f:
+            d = json.load(f).get('wells', {})
+    except (OSError, ValueError):
+        return {}
+    return {k: sorted(v, key=lambda x: x['shoe_md_ft']) for k, v in d.items()}
+
+
+def casing_record(ws, well_id: str, size: str, shoe_md_ft, source: str, set_time: Optional[str] = None) -> dict:
+    if not any(w['id'] == well_id for w in ws.wells()):
+        raise KeyError(f'no well {well_id!r}')
+    size = (size or '').strip().replace(' in', '').replace('"', '')
+    if not re.fullmatch(r'\d{1,2}(-\d{1,2}/\d{1,2}|\.\d+)?', size):
+        raise ValueError(f'the casing size is in inches as written, e.g. 13-3/8, 9-5/8 or 7, not {size!r}')
+    try:
+        md = float(str(shoe_md_ft).replace(',', ''))
+    except (TypeError, ValueError):
+        raise ValueError(f'the shoe depth is a number of feet, not {shoe_md_ft!r}')
+    if not math.isfinite(md) or md <= 0:
+        raise ValueError('the shoe depth is a measured depth in feet, more than zero')
+    if not (source or '').strip():
+        raise ValueError('a casing shoe needs where it came from (e.g. "casing tally, daily report 2026-06-12")')
+    st = None
+    if set_time not in (None, ''):
+        try:
+            st = datetime.fromisoformat(str(set_time).strip().replace(' ', 'T')).isoformat(timespec='minutes')
+        except ValueError:
+            raise ValueError(f'the set time is YYYY-MM-DD or YYYY-MM-DDTHH:MM on the recorder\'s clock, not {set_time!r}')
+    return {'size': size, 'shoe_md_ft': round(md, 1), 'set': st, 'source': source.strip()}
+
+
+def set_casing(ws, actor: str, well_id: str, size: str, shoe_md_ft, source: str, set_time: Optional[str] = None) -> dict:
+    """Declare (or replace, by size) a casing shoe of a well."""
+    rec = casing_record(ws, well_id, size, shoe_md_ft, source, set_time)
+    with _LOCK:
+        try:
+            with open(_casing_path(ws), encoding='utf-8') as f:
+                d = json.load(f)
+        except (OSError, ValueError):
+            d = {'schema': 1, 'wells': {}}
+        lst = [x for x in d['wells'].get(well_id, []) if x['size'] != rec['size']] + [rec]
+        d['wells'][well_id] = sorted(lst, key=lambda x: x['shoe_md_ft'])
+        os.makedirs(os.path.dirname(_casing_path(ws)), exist_ok=True)
+        with open(_casing_path(ws) + '.tmp', 'w', encoding='utf-8') as f:
+            json.dump(d, f, indent=1)
+        os.replace(_casing_path(ws) + '.tmp', _casing_path(ws))
+        _MEMO.clear()
+    ws.audit(actor, 'casing.declare', {'well': well_id, **rec})
+    return rec
+
+
+def remove_casing(ws, actor: str, well_id: str, size: str) -> dict:
+    with _LOCK:
+        try:
+            with open(_casing_path(ws), encoding='utf-8') as f:
+                d = json.load(f)
+        except (OSError, ValueError):
+            d = {'schema': 1, 'wells': {}}
+        lst = d['wells'].get(well_id, [])
+        if not any(x['size'] == size for x in lst):
+            raise KeyError(f'no {size} in casing declared for {well_id}')
+        d['wells'][well_id] = [x for x in lst if x['size'] != size]
+        with open(_casing_path(ws) + '.tmp', 'w', encoding='utf-8') as f:
+            json.dump(d, f, indent=1)
+        os.replace(_casing_path(ws) + '.tmp', _casing_path(ws))
+    ws.audit(actor, 'casing.remove', {'well': well_id, 'size': size})
+    return {'removed': size}
+
+
+def _sections(r: dict, shoes: List[dict]) -> None:
+    """Each connection's hole section (below the deepest shoe shallower than it) and each trip's hole (cased when
+    half its footage or more is inside casing set before it - a shoe is taken as set when the hole is 50 ft or more
+    past it, or at its declared set time)."""
+    for c in r['connections']:
+        c['section'] = None
+        if shoes and c.get('depth_ft') is not None:
+            above = [x for x in shoes if x['shoe_md_ft'] < c['depth_ft']]
+            c['section'] = f"below the {above[-1]['size']} in shoe" if above else 'surface hole'
+    t0 = datetime.fromisoformat(r['t0'])
+    for x in r['trips']:
+        x['hole'] = None
+        if not shoes:
+            continue
+        when = t0 + timedelta(seconds=x['t_start'])
+        set_ = [s_ for s_ in shoes if (datetime.fromisoformat(s_['set']) <= when if s_.get('set')
+                                        else (x.get('hole_bottom_ft') or 0) >= s_['shoe_md_ft'] + 50.0)]
+        cased_to = max((s_['shoe_md_ft'] for s_ in set_), default=0.0)
+        lo, hi = min(x['from_ft'], x['to_ft']), max(x['from_ft'], x['to_ft'])
+        cased = max(0.0, min(hi, cased_to) - lo)
+        x['cased_ft'] = round(cased, 0)
+        x['hole'] = 'CASED' if cased >= 0.5 * (hi - lo) else 'OPEN'
+
+
 def targets(ws, rs: List[dict]) -> dict:
-    """The targets: declared where declared, else the pad's best quarter."""
+    """The targets: declared where declared, else the pad's best quarter - by hole section and by cased or open hole
+    when the casing is declared and the group holds four or more, and over the whole pad otherwise."""
     s = settings(ws)
     tg = s.get('targets', {})
     w2w = [c['w2w_min'] for r in rs for c in r['connections']]
@@ -373,16 +477,35 @@ def targets(ws, rs: List[dict]) -> dict:
             out[k] = {'value': round(float(np.percentile(vals, q)), 2), 'how': f"this pad's best quarter: the {q}th percentile of {len(vals)}", 'unit': unit}
         else:
             out[k] = None
+    sec: Dict[str, List[float]] = {}
+    for r in rs:
+        for c in r['connections']:
+            if c.get('section'):
+                sec.setdefault(c['section'], []).append(c['w2w_min'])
+    out['by_section'] = {} if 'w2w_min' in tg else {
+        k: {'value': round(float(np.percentile(v, 25)), 2), 'how': f'the best quarter of this section on the pad: the 25th percentile of {len(v)}', 'unit': 'min', 'n': len(v)}
+        for k, v in sec.items() if len(v) >= 4}
+    hole: Dict[str, List[float]] = {}
+    for r in rs:
+        for x in r['trips']:
+            if x.get('hole') and x['speed_ft_h']:
+                hole.setdefault(f"{x['direction']} {x['hole']}", []).append(x['speed_ft_h'])
+    out['by_hole'] = {k: {'value': round(float(np.percentile(v, 75)), 2), 'how': f'the best quarter of these trips on the pad: the 75th percentile of {len(v)}', 'unit': 'ft/h', 'n': len(v)}
+                      for k, v in hole.items() if len(v) >= 4 and f"trip_{k.split()[0].lower()}_ft_h" not in tg}
     return out
 
 
 def _lost(r: dict, tg: dict) -> None:
-    """Each connection's and trip's time past the target, in hours, on the item."""
+    """Each connection's and trip's time past its target, in hours, on the item, with the target it was held to."""
     w = (tg.get('w2w_min') or {}).get('value')
     for c in r['connections']:
-        c['lost_h'] = round(max(0.0, c['w2w_min'] - w) / 60.0, 4) if w else None
+        t = (tg.get('by_section', {}).get(c.get('section') or '') or {}).get('value') or w
+        c['target_min'] = t
+        c['lost_h'] = round(max(0.0, c['w2w_min'] - t) / 60.0, 4) if t else None
     for x in r['trips']:
-        s = (tg.get('trip_in_ft_h' if x['direction'] == 'IN' else 'trip_out_ft_h') or {}).get('value')
+        s = (tg.get('by_hole', {}).get(f"{x['direction']} {x.get('hole')}") or {}).get('value') \
+            or (tg.get('trip_in_ft_h' if x['direction'] == 'IN' else 'trip_out_ft_h') or {}).get('value')
+        x['target_ft_h'] = s
         x['lost_h'] = round(max(0.0, x['hours'] - x['feet'] / s), 4) if s else None
 
 
@@ -443,6 +566,9 @@ def pad(ws) -> dict:
             rs.append(well(ws, wid))
         except (KeyError, OSError, ValueError) as e:
             errs.append(f'{wid}: {e}')
+    cs = casing(ws)
+    for r in rs:
+        _sections(r, cs.get(r['well_id'], []))
     tg = targets(ws, rs)
     op = _price(ws)
     ds = _day_start(ws)
@@ -458,7 +584,10 @@ def pad(ws) -> dict:
                       'block_weight_klbf': r['block_weight_klbf'], 'block_weight_estimated': r['block_weight_estimated'], 'slips_threshold_klbf': r['slips_threshold_klbf'],
                       'how': r['how'], 'channels': r['channels'], 'lost_connections_h': round(lost_c, 2), 'lost_trips_h': round(lost_t, 2),
                       'lost_h': round(lost_c + lost_t, 2), 'lost_usd': round((lost_c + lost_t) / 24.0 * op, 2) if op else None,
-                      'days': by_day(r, ds)})
+                      'days': by_day(r, ds), 'casing': cs.get(r['well_id'], []),
+                      'sections': {k: _stats([c['w2w_min'] for c in r['connections'] if c.get('section') == k])
+                                   for k in sorted({c['section'] for c in r['connections'] if c.get('section')},
+                                                   key=lambda k: (k != 'surface hole', next((x['shoe_md_ft'] for x in cs.get(r['well_id'], []) if k == f"below the {x['size']} in shoe"), 0)))}})
     return {'wells': wells, 'targets': tg, 'operating_usd_per_day': op, 'day_start_h': ds, 'errors': errs, 'sources': SOURCES,
             'settings': settings(ws), 'states': list(STATES[:-1]),
             'totals': {'lost_h': round(sum(w['lost_h'] for w in wells), 2), 'lost_usd': (round(sum(w['lost_usd'] or 0 for w in wells), 2) if op else None),
@@ -508,7 +637,9 @@ def build_report(ws, version: str, well_id: Optional[str] = None):
              ['Time lost against the targets', f"{lost:,.1f} h" + (f" ({lost / 24.0 * P_['operating_usd_per_day']:,.2f} USD at the contract's operating rate)" if P_['operating_usd_per_day'] else '')]]
     s1 = CR.Section('1', 'The targets', [], [])
     s1.tables.append(CR.Table(['Measure', 'Target', 'How'], [[k.replace('_', ' '), (f"{v['value']:,.2f} {v['unit']}" if v else 'none'), (v['how'] if v else 'fewer than four on the pad and none declared')]
-                                                              for k, v in tg.items()]))
+                                                              for k, v in tg.items() if k in MAIN_TARGETS]
+                              + [[f"connections {k}", f"{v['value']:,.2f} min", v['how']] for k, v in tg.get('by_section', {}).items()]
+                              + [[f"trips {k.lower()}", f"{v['value']:,.0f} ft/h", v['how']] for k, v in tg.get('by_hole', {}).items()]))
     s1.paragraphs.append('Time lost is each drilling connection\'s weight-to-weight time past the connection target, and each trip\'s hours past its footage at the '
                          'target speed. Where no target is declared, the target is this pad\'s own best quarter.')
     s2 = CR.Section('2', 'Hours by rig state', [], [])
@@ -548,7 +679,9 @@ def write_report(ws, version: str, actor: str = 'system', well_id: Optional[str]
 
 def text(p: dict) -> str:
     L = [f"Rig time: {len(p['wells'])} well(s); targets: " + '; '.join(f"{k.replace('_', ' ')} {v['value']:g} {v['unit']} ({v['how']})" if v else f"{k.replace('_', ' ')} none"
-                                                                          for k, v in p['targets'].items())]
+                                                                          for k, v in p['targets'].items() if k in MAIN_TARGETS)]
+    for k, v in {**p['targets'].get('by_section', {}), **p['targets'].get('by_hole', {})}.items():
+        L.append(f"  target {k}: {v['value']:g} {v['unit']} ({v['how']})")
     for w in p['wells']:
         h = w['hours']
         L.append('')
@@ -559,8 +692,11 @@ def text(p: dict) -> str:
         if c:
             L.append(f"  {c['n']} drilling connections: weight to weight median {c['median']:.1f} min (P25 {c['p25']:.1f}, P75 {c['p75']:.1f}); pre {w['pre']['median']:.1f}, "
                      f"slips {w['slips']['median']:.1f}, post {w['post']['median']:.1f} min")
+        for k, v in (w.get('sections') or {}).items():
+            if v:
+                L.append(f"    {k}: {v['n']} connections, weight to weight median {v['median']:.1f} min")
         for x in w['trips']:
-            L.append(f"  trip {x['direction']:<3} {x['start'][:16]}  {x['from_ft']:>7,.0f} -> {x['to_ft']:>7,.0f} ft  {x['hours']:5.2f} h  {_f(x['speed_ft_h'], 0)} ft/h "
+            L.append(f"  trip {x['direction']:<3}{(' ' + x['hole'].lower()) if x.get('hole') else ''} {x['start'][:16]}  {x['from_ft']:>7,.0f} -> {x['to_ft']:>7,.0f} ft  {x['hours']:5.2f} h  {_f(x['speed_ft_h'], 0)} ft/h "
                      f"(moving {_f(x['moving_speed_ft_h'], 0)}; breaks {x['breaks_hours']:.2f} h)  {x['connections']} conn, slips median {_f(x['median_slips_min'], 2)} min")
         L.append(f"  time lost: {w['lost_h']:,.2f} h (connections {w['lost_connections_h']:,.2f}, trips {w['lost_trips_h']:,.2f})"
                  + (f", {w['lost_usd']:,.2f} USD at the operating rate" if w['lost_usd'] is not None else ''))

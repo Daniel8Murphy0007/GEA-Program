@@ -13,7 +13,9 @@ worth an event, for the conditions the operator does not watch by hand:
 - `penetrator.outside` - a line of an ESP well's penetrator check is OUTSIDE its rating (the Completion tab);
 - `dossier.changed` - the newest signed dossier of a well or the pad no longer matches the workspace: a source
   record or an earlier audit line has changed since it was signed (checked once a day);
-- `condition.cleared` - one of the last three is no longer so.
+- `invoice.differs` - a well's invoice cross-check finds a day that DIFFERS (checked once a day, and when a file is
+  attached);
+- `condition.cleared` - one of the last four is no longer so.
 
 Every alert is written to `records/alerts.jsonl` whether or not any notification channel is set up - the Alarms
 tab lists them - and is handed to the notification rules, which send it where the site said (a rule per event
@@ -28,7 +30,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 EVENTS = ('seismic.protocol', 'seismic.event', 'seismic.watch_down', 'seismic.watch_up', 'motor.due', 'penetrator.outside',
-          'dossier.changed', 'condition.cleared')
+          'dossier.changed', 'invoice.differs', 'condition.cleared')
 CONDITIONS_EVERY_S = 900          # motors and penetrators: every 15 minutes
 DOSSIERS_EVERY_S = 86400          # dossiers: once a day
 _LOCK = threading.Lock()
@@ -173,5 +175,21 @@ def check_conditions(ws, notifier, now: Optional[datetime] = None, force: bool =
                              'dossier_id': e['dossier_id'], 'detail': '; '.join(f"{c['check']}: {c['detail']}" for c in bad)}, now, raised)
         except Exception as ex:
             last['dossiers_error'] = f'{type(ex).__name__}: {ex}'
+    if due('invoices', DOSSIERS_EVERY_S):
+        last['invoices'] = _utc(now)
+        try:
+            from . import invoice_check as IC
+            if IC.terms(ws):
+                for wid in sorted({f['well_id'] for f in IC.files(ws)}):
+                    if wid not in wells:
+                        continue
+                    r = IC.check(ws, wid)
+                    T = r.get('totals') or {}
+                    _transition(ws, notifier, st, f'invoice.differs:{wid}', r.get('status') == 'DIFFERS',
+                                {'event': 'invoice.differs', 'well_id': wid, 'well': wells[wid], 'what': f'the invoice cross-check of {wells[wid]}',
+                                 'detail': f"{T.get('differs', 0)} day(s) differ, {T.get('usd_in_question', 0):,.2f} USD in question of {T.get('billed_checked_usd', 0):,.2f} billed at day rates",
+                                 'usd_in_question': T.get('usd_in_question')}, now, raised)
+        except Exception as ex:
+            last['invoices_error'] = f'{type(ex).__name__}: {ex}'
     save_state(ws, st)
     return raised

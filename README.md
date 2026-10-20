@@ -609,6 +609,19 @@ against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
 
+### One record, tied together
+
+The invoice check, rig time, the daily summary, the alerts, the signed
+dossier and the declarations sheet now read each other: an invoice that
+differs is an alert; the morning summary carries each well's invoice check
+and yesterday's rig time; a signed dossier carries the contract, the
+invoices and daily reports as attached, the rig-time targets and casing,
+and both checks as they read at signing. The declarations sheet declares
+the contract, the rig-time targets, block weights, casing shoes and the
+watch and summary settings, and every file the program reads as a table -
+the sheet, an invoice, a daily report - may be an Excel workbook. Casing
+shoes split rig time by hole section.
+
 ### Rig time
 
 What the rig did each second of the drilling record, read from the hook

@@ -8,7 +8,9 @@
 
 **The connections and trips**: a drilling connection is a break of an hour or less between two stretches of drilling, with the string set in the slips and the bit kept within a stand of bottom: weight to weight from the last second drilling to the first second drilling again, made of off bottom to slips set, in the slips, and slips pulled to drilling. A trip is a run of tripping and the slips between its stands, the pumps off, split where the bit turns back 500 ft, that moves the bit 1,000 ft or more: its speed is its footage over its pipe-handling hours (moving and in the slips); the breaks inside it are reported beside it.
 
-**What it writes**: the targets and block weights in `drillstring\rig_time.json`, the audit lines `rig_time.settings` and `report.rig_time`, and the reports `reports\rig_time_pad.*` and `reports\wells\<well>\rig_time.*` (PDF, HTML, markdown, JSON). The invoice check shows each report day's time lost beside the bill.
+**Hole sections**: declare each well's casing shoes (the tab, `gea rig-time --well W --casing 9-5/8 --shoe-md 8150 --source "casing tally"`, or the declarations sheet's `[casing]`). A connection then belongs to the hole section below the deepest shoe shallower than it, and is held to that section's best quarter on the pad when it has four or more; a trip is CASED when half its footage or more is inside casing set before it (a shoe is taken as set once the hole is 50 ft past it, or at its declared set time) and is held to the best quarter of the pad's trips in its direction and hole.
+
+**What it writes**: the targets and block weights in `drillstring\rig_time.json`, the casing in `drillstring\casing.json` (audit lines `casing.declare`, `casing.remove`), the audit lines `rig_time.settings` and `report.rig_time`, and the reports `reports\rig_time_pad.*` and `reports\wells\<well>\rig_time.*` (PDF, HTML, markdown, JSON). The invoice check shows each report day's time lost beside the bill.
 
 **The number to check**: a connection's weight to weight against the well's charts at its time; the block weight printed for each well against the rig's; a trip's footage over its hours.
 

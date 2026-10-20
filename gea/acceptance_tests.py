@@ -10913,6 +10913,206 @@ def section_cp_rig_time(tmp: str) -> None:
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_cq_tied_together(tmp: str) -> None:
+    """Section CQ - the recent parts tied together: an Excel workbook read without Excel (shared and inline strings,
+    numbers, booleans, dates and times from their cell formats, the 1904 epoch, a named sheet) and taken wherever a
+    CSV is - the invoice check's files and the declarations sheet; the declarations sheet's new tables (the contract,
+    the rig-time targets, block weights, casing, the watch and summary settings) planned, written, round-tripped and
+    refused when wrong; rig time by hole section from declared casing; the invoice differing raised as an alert and
+    cleared; the daily summary carrying each invoice check and yesterday's rig time; a signed dossier carrying the
+    contract, the files, the targets, the casing and both checks as they read at signing; the API, the CLI, the tabs
+    and the help pages."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    import base64 as _b64
+    import zipfile as _zf
+    from datetime import datetime as _dtm, timedelta as _td, timezone as _tz
+    from . import __version__
+    from . import alerts as AL
+    from . import declarations as DC
+    from . import dossier as DZ
+    from . import helplib as H
+    from . import invoice_check as IC
+    from . import pad_summary as PS
+    from . import rig_state as RS
+    from . import seismic_watch as SW
+    from . import xlsx_read as XR
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "cq"); d.mkdir()
+
+    # -- CQ1 the workbook -------------------------------------------------------------------------------------------------
+    XR.write_simple(str(d / "a.xlsx"), [["Date", "Rate Type", "Quantity", "Note"], [_dtm(2026, 7, 1), "Operating day rate", 1, 'with, a "comma"'],
+                                        [_dtm(2026, 7, 2, 6, 30), "Standby", 12.5, None]])
+    a = XR.rows((d / "a.xlsx").read_bytes())
+    ns = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+    with _zf.ZipFile(d / "b.xlsx", "w") as z:                 # a hand-made workbook: two sheets, inline strings, booleans, the 1904 epoch, a custom date format
+        z.writestr("xl/workbook.xml", f'<workbook {ns}><workbookPr date1904="1"/><sheets><sheet name="Notes" sheetId="1" r:id="rId1"/><sheet name="Invoice" sheetId="2" r:id="rId2"/></sheets></workbook>')
+        z.writestr("xl/_rels/workbook.xml.rels", '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Target="worksheets/sheet1.xml" Type="x"/><Relationship Id="rId2" Target="/xl/worksheets/sheet2.xml" Type="x"/></Relationships>')
+        z.writestr("xl/styles.xml", f'<styleSheet {ns}><numFmts count="1"><numFmt numFmtId="164" formatCode="dd/mm/yyyy\\ hh:mm"/><numFmt numFmtId="165" formatCode="#,##0.00"/></numFmts>'
+                                    '<cellXfs count="3"><xf numFmtId="0"/><xf numFmtId="164"/><xf numFmtId="165"/></cellXfs></styleSheet>')
+        z.writestr("xl/worksheets/sheet1.xml", f'<worksheet {ns}><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>notes</t></is></c></row></sheetData></worksheet>')
+        z.writestr("xl/worksheets/sheet2.xml", f'<worksheet {ns}><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>When</t></is></c><c r="C1" t="inlineStr"><is><t>Paid</t></is></c></row>'
+                                               '<row r="3"><c r="A3" s="1"><v>44743.25</v></c><c r="B3" s="2"><v>1234.5</v></c><c r="C3" t="b"><v>1</v></c></row></sheetData></worksheet>')
+    bx = (d / "b.xlsx").read_bytes()
+    b2 = XR.rows(bx, "Invoice")
+    c1 = {
+        "simple": a == [["Date", "Rate Type", "Quantity", "Note"], ["2026-07-01", "Operating day rate", "1", 'with, a "comma"'], ["2026-07-02T06:30", "Standby", "12.5"]],
+        "csv": XR.to_csv((d / "a.xlsx").read_bytes()).splitlines()[1] == '2026-07-01,Operating day rate,1,"with, a ""comma"""',
+        "sheets": XR.sheets(bx) == ["Notes", "Invoice"] and XR.rows(bx) == [["notes"]],
+        "hand_made": b2 == [["When", "", "Paid"], [], ["2026-07-02T06:00", "1234.5", "TRUE"]],
+        "text_of": XR.text_of(b"a,b\n1,2\n") == "a,b\n1,2\n" and not XR.is_xlsx(b"PK not a zip"),
+    }
+    try:
+        XR.rows(bx, "Nope"); c1["named"] = False
+    except ValueError as e:
+        c1["named"] = "Notes, Invoice" in str(e)
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CQ1 an Excel workbook read with the standard library: shared and inline strings, a comma and quotes kept, whole numbers without "
+       "'.0', dates and date-times from built-in and custom formats, the 1904 epoch, booleans, a gap row kept as a gap, the first or a "
+       "named sheet; CSV text passed through" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- CQ2 the declarations sheet, casing, and the invoice as a workbook --------------------------------------------------
+    F = RS.selftest_edr(str(d))
+    G = IC.selftest_files(str(d))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad CQ", actor="tester")
+    w1 = ws.add_well_file(F["path"], display="RIG-1", actor="tester"); w2 = ws.add_well_file(F["path"], display="RIG-2", actor="tester")
+    wi = ws.add_well_file(G["edr"], display="INV-1", actor="tester")
+    sheet = ("[contract],day_start,report_date,operating,standby,repair,repair_hours_per_month,source\n,06:00,start,30000,25000,0,2,daywork contract A\n"
+             "[rig_time],w2w_min,trip_in_ft_h,source\n,,2800,program 2026\n[block_weights],well,block_weight_klbf\n,RIG-2,42\n"
+             "[casing],well,size_in,shoe_md_ft,set,source\n,RIG-1,9-5/8,10150,,tally\n,RIG-2,9-5/8,10150,,tally\n,RIG-1,13-3/8,2000,,tally\n"
+             "[settings],setting,value\n,watch_every_min,10\n,summary_at,10:45\n,summary_send,no\n")
+    rows_ = [ln.split(",") for ln in sheet.strip().splitlines()]
+    XR.write_simple(str(d / "decl.xlsx"), rows_)
+    p_x = DC.plan(ws, XR.text_of((d / "decl.xlsx").read_bytes()))
+    p_w = DC.apply(ws, sheet, "tester", write=True)
+    p_rt = DC.plan(ws, DC.template(ws))
+    p_bad = DC.plan(ws, "[contract],operating,source\n,30000,\n[settings],setting,value\n,watch_mode,sometimes\n,colour,blue\n[casing],well,size_in,shoe_md_ft,source\n,RIG-1,9 5/8,100,x\n,NOPE,7,100,x\n")
+    pad = RS.pad(ws)
+    W1 = next(w for w in pad["wells"] if w["display"] == "RIG-1")
+    secs = [c["section"] for c in W1["connection_list"]]
+    XR.write_simple(str(d / "inv.xlsx"), [ln.split(",") if i == 0 else [(_dtm.fromisoformat(x) if j == 0 else (float(x) if re.fullmatch(r"[\d.]+", x) else x)) for j, x in enumerate(ln.split(","))]
+                                          for i, ln in enumerate(G["invoice"].strip().splitlines())])
+    IC.attach(ws, "tester", wi["id"], "ddr", "ddr.csv", G["ddr"].encode(), "reports")
+    IC.attach(ws, "tester", wi["id"], "invoice", "inv.xlsx", (d / "inv.xlsx").read_bytes(), "invoice as a workbook")
+    ic = IC.check(ws, wi["id"])
+    c2 = {
+        "xlsx_sheet": p_x["counts"]["NEW"] == 6 and p_x["counts"]["CHANGE"] == 3 and not p_x["errors"],
+        "written": p_w["applied"] and IC.terms(ws)["rates_usd_per_day"] == {"operating": 30000.0, "standby": 25000.0, "repair": 0.0}
+                   and RS.settings(ws)["targets"] == {"trip_in_ft_h": 2800.0} and RS.settings(ws)["block_weight_klbf"] == {w2["id"]: 42.0}
+                   and [x["size"] for x in RS.casing(ws)[w1["id"]]] == ["13-3/8", "9-5/8"] and SW.settings(ws)["every_min"] == 10
+                   and PS.settings(ws)["at"] == "10:45" and PS.settings(ws)["send"] is False,
+        "round_trip": p_rt["counts"]["NEW"] == 0 and p_rt["counts"]["CHANGE"] == 0 and not p_rt["errors"],
+        "refused": len(p_bad["errors"]) == 5 and any("watch_mode" in e for e in p_bad["errors"]) and any("no setting 'colour'" in e for e in p_bad["errors"])
+                   and any("13-3/8, 9-5/8 or 7" in e for e in p_bad["errors"]) and any("came from" in e for e in p_bad["errors"]),
+        "sections": secs == ["below the 13-3/8 in shoe", "below the 9-5/8 in shoe", "below the 9-5/8 in shoe"]
+                    and all(x["hole"] == "CASED" for x in W1["trips"]) and set(pad["targets"]["by_section"]) == {"below the 9-5/8 in shoe"}
+                    and next(w for w in pad["wells"] if w["display"] == "RIG-2")["block_weight_klbf"] == 42.0,
+        "invoice_xlsx": ic["status"] == "DIFFERS" and ic["totals"]["usd_in_question"] == 37666.67,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CQ2 the declarations sheet's new tables - the contract, the rig-time targets, a block weight, casing shoes, the watch and summary "
+       "settings - read from a workbook, written, round-tripped to nothing to do, and refused when wrong (no source, an unknown setting, a "
+       "size not in inches as written, a well not there); connections by hole section and trips inside casing; an invoice attached as a "
+       "workbook checked to the same 37,666.67" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- CQ3 the alert, the summary, the dossier ----------------------------------------------------------------------
+    now = _dtm(2026, 7, 2, 12, 0, tzinfo=_tz.utc)
+    k1 = AL.check_conditions(ws, None, now, force=True)
+    st1 = dict(AL.state(ws)["conditions"])
+    g = PS.gather(ws, _dtm(2026, 8, 2, 7, 0, tzinfo=_tz.utc), _dtm(2026, 8, 1, 0, 0, tzinfo=_tz.utc))
+    RS.write_report(ws, __version__, "tester")
+    e1 = DZ.build(ws, "tester", __version__, None)
+    with _zf.ZipFile(os.path.join(ws.reports_dir, e1["path"])) as z:
+        names = set(z.namelist())
+        rt = json.loads(z.read("results/rig_time.json"))
+        icj = json.loads(z.read(f"results/invoice_check/{wi['id']}.json"))
+    v1 = DZ.verify(os.path.join(ws.reports_dir, e1["path"]), ws)
+    for f_ in IC.files(ws, wi["id"]):                     # the corrected report and invoice replace them
+        IC.remove(ws, "tester", f_["file"])
+    ddr_ok = G["ddr"].replace("2026-07-02,14:00,16:00,2,6,Trip out", "2026-07-02,14:00,16:00,2,7,Service rig").replace("6200,7600", "6200,7400")
+    inv_ok = ("Date,Rate Type,Quantity,Unit,Unit Price,Amount\n2026-07-01,Operating day rate,1,day,30000,30000\n"
+              "2026-07-02,Operating day rate,22,hour,1250,27500\n2026-07-02,Repair rate,2,hour,0,0\n"
+              "2026-07-03,Standby rate,20,hour,1041.6667,20833.33\n2026-07-03,Operating day rate,4,hour,1250,5000\n2026-07-04,Operating day rate,1,day,30000,30000\n")
+    IC.attach(ws, "tester", wi["id"], "ddr", "ddr_ok.csv", ddr_ok.encode(), "corrected reports")
+    IC.attach(ws, "tester", wi["id"], "invoice", "inv_ok.csv", inv_ok.encode(), "corrected invoice")
+    k2 = AL.check_conditions(ws, None, now + _td(minutes=1))
+    c3 = {
+        "alert": [a_["event"] for a_ in k1 if a_["event"] == "invoice.differs"] == ["invoice.differs"] and f"invoice.differs:{wi['id']}" in st1
+                 and "37,666.67" in next(a_ for a_ in k1 if a_["event"] == "invoice.differs")["detail"],
+        "cleared": [a_["event"] for a_ in k2] == ["condition.cleared"] and k2[0]["cleared"] == "invoice.differs",
+        "summary": any(x["item"] == "the invoice check of INV-1" and x["status"] == "DIFFERS" for x in g["due"])
+                   and [x["well"] for x in g["rig_time"]] == ["RIG-1", "RIG-2"] and all(x["connections"] == 3 and x["date"] == "2026-08-01" for x in g["rig_time"])
+                   and all(x["lost_usd"] is not None for x in g["rig_time"]),
+        "dossier": v1["status"] == "VALID" and {"declarations/economics/invoices/terms.json", "declarations/economics/invoices/files.json",
+                                                 "declarations/drillstring/rig_time.json", "declarations/drillstring/casing.json"} <= names
+                   and any(n.startswith(f"declarations/economics/invoices/{wi['id']}/") and n.endswith("_inv.xlsx") for n in names)
+                   and icj["status"] == "DIFFERS" and len(rt["wells"]) == 3 and rt["targets"]["trip_in_ft_h"]["value"] == 2800,
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CQ3 an invoice that differs raised as an alert with its dollars, and cleared when a corrected invoice replaces it; the daily summary "
+       "carrying the invoice check and yesterday's rig time well by well with its cost at the contract's rate; a signed pad dossier carrying "
+       "the contract, the invoice files as attached, the targets and the casing, and both checks as they read at signing - VALID"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+    # -- CQ4 the API, the CLI, the tabs, the help ------------------------------------------------------------------------
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_vc, _ = call(V, "POST", "/api/rig-time/casing", {"well_id": w2["id"], "size": "7", "shoe_md_ft": 9000, "source": "x"})
+        s_oc, ocj = call(O, "POST", "/api/rig-time/casing", {"well_id": w2["id"], "size": "7", "shoe_md_ft": 9000, "source": "tally"})
+        s_ob, _ = call(O, "POST", "/api/rig-time/casing", {"well_id": w2["id"], "size": "seven", "shoe_md_ft": 9000, "source": "tally"})
+        s_or, _ = call(O, "POST", "/api/rig-time/casing/remove", {"well_id": w2["id"], "size": "7"})
+        s_dx, dxj = call(O, "POST", "/api/declare", {"content_b64": _b64.b64encode((d / "decl.xlsx").read_bytes()).decode()})
+        s_ia, iaj = call(O, "POST", "/api/invoice-check/attach", {"well_id": wi["id"], "kind": "invoice", "filename": "inv2.xlsx", "source": "workbook",
+                                                                   "content_b64": _b64.b64encode((d / "inv.xlsx").read_bytes()).decode()})
+        s_al, alj = call(V, "GET", "/api/alerts")
+    finally:
+        svc.stop()
+    cli_c = _sp.run([sys.executable, "-m", "gea", "rig-time", "--workspace", wsp, "--well", w2["id"], "--casing", "13-3/8", "--shoe-md", "2000", "--source", "tally"],
+                    capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_d = _sp.run([sys.executable, "-m", "gea", "declare", "--workspace", wsp, "--file", str(d / "decl.xlsx")], capture_output=True, text=True, cwd=str(pkg.parent))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c4 = {
+        "api": s_vc == 403 and s_oc == 200 and ocj["shoe_md_ft"] == 9000 and s_ob == 400 and s_or == 200 and s_dx == 200 and dxj["counts"]["SAME"] == 9
+               and s_ia == 200 and iaj["lines"] == 7 and s_al == 200 and "invoice.differs" in alj["events"],
+        "cli": cli_c.returncode == 0 and "13-3/8 in, shoe at 2,000 ft" in cli_c.stdout and cli_d.returncode == 0 and "already declared" in cli_d.stdout,
+        "page": all(x in page_src for x in ("rtC", "/api/rig-time/casing", ".xlsx", "content_b64: DC.b64", "'invoice.differs': 'Invoice differs'")),
+        "help": all(not H.check(t_) for t_ in ("declare", "rig-time", "invoice-check", "dossier", "alerts", "pad-summary"))
+                and "[casing]" in (pkg / "help" / "declare.md").read_text(encoding="utf-8") and "Hole sections" in (pkg / "help" / "rig-time.md").read_text(encoding="utf-8")
+                and "invoice.differs" in (pkg / "help" / "alerts.md").read_text(encoding="utf-8") and "results/" in (pkg / "help" / "dossier.md").read_text(encoding="utf-8"),
+    }
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       "CQ4 on the API (only an operator declares or removes a casing shoe, a size that is not one refused; a declarations workbook and an "
+       "invoice workbook sent as they are; the new alert listed), the CLI (a casing shoe, a declarations workbook), the tabs and the help pages"
+       + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -11010,6 +11210,7 @@ def main() -> int:
         section_cn_four(tmp)
         section_co_invoice_check(tmp)
         section_cp_rig_time(tmp)
+        section_cq_tied_together(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

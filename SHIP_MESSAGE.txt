@@ -1,25 +1,28 @@
-v0.47.0 — RIG TIME
+v0.48.0 — ONE RECORD, TIED TOGETHER
 
-What the rig did with every second, and the time it lost.
+The last four releases each stood on their own. Now they read each other.
 
-The drilling recorder already holds the answer to the question every
-operator asks the morning after: where did the day go? The new Rig time
-tab reads it from the hook load, the block, the bit, the pumps and the
-rotary - drilling, in the slips, tripping, circulating, reaming, off the
-hook - for every second of every well.
+An invoice that differs from the daily reports and the drilling record is
+an alert, sent through the notification rules, and cleared when a
+corrected invoice agrees. The morning summary carries each well's invoice
+check and yesterday's rig time - drilling hours, connections, the time
+lost and what it cost at the contract's rate. A signed dossier carries
+the contract, the invoices and daily reports as they were attached, the
+rig-time targets and the casing, and both checks as they read the day it
+was signed.
 
-Every drilling connection is timed weight to weight, from the last second
-drilling to the first second drilling again, with its three parts: off
-bottom to the slips, in the slips, and back to drilling. Every trip is
-timed by its speed while handling pipe, with the breaks inside it shown
-beside it. And each is set against a target - the drilling program's, or
-this pad's own best quarter, what its own crews have already done - so
-the time lost is a number of hours, per well and per report day, and in
-dollars at the contract's operating rate. The invoice check shows each
-day's lost time beside the bill.
+The declarations sheet now declares the contract, the rig-time targets,
+block weights, casing shoes, and the earthquake watch and summary
+settings - and the sheet, an invoice or a daily report may be an Excel
+workbook, read without Excel.
 
-The rules were checked against the site's own drilling records, read on
-the site's machine, before they were fixed.
+With casing shoes declared, rig time is split by hole section: each
+connection is held to its own section's best, each trip to cased or open
+hole's.
 
-Section CP is new, three checks. The gate is 430 checks. The standalone
+Every route the dashboard calls was exercised against a read-only copy of
+the site's workspace on its own machine, and every tab was driven in a
+browser: nothing failed.
+
+Section CQ is new, four checks. The gate is 434 checks. The standalone
 guard is clean.

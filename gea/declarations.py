@@ -67,9 +67,24 @@ TABLES: Dict[str, dict] = {
                             'gas_group', 'temp_class', 'ambient_min_f', 'ambient_max_f', 'source'),
                    'need': ('well', 'source'),
                    'about': "the ESP drive's output limits and the motor nameplate, the wellhead's hazardous-area classification (e.g. Class I, Division 1), gas group, temperature class and the site's ambient range"},
+    'contract': {'cols': ('day_start', 'report_date', 'operating', 'standby', 'repair', 'moving', 'force_majeure', 'repair_hours_per_job',
+                          'repair_hours_per_month', 'source'),
+                 'need': ('operating', 'source'),
+                 'about': "the drilling contract's terms for the invoice check: the hour the report day starts on the rig's clock (06:00), whether a report is dated by the day it starts or ends (start/end), the day rates in USD (operating, and standby, repair, moving and force majeure where the contract has them), the repair allowance in hours a job and a month, and the contract it came from"},
+    'rig_time': {'cols': ('w2w_min', 'trip_in_ft_h', 'trip_out_ft_h', 'source'), 'need': ('source',),
+                 'about': "the rig-time targets from the drilling program: weight-to-weight connection minutes and tripping speeds in and out (ft/h); blank keeps the pad's own best quarter"},
+    'block_weights': {'cols': ('well', 'block_weight_klbf'), 'need': ('well', 'block_weight_klbf'),
+                      'about': "a well's travelling block weight in klbf, where the rig-time estimate from the hook load is wrong"},
+    'casing': {'cols': ('well', 'size_in', 'shoe_md_ft', 'set', 'source'), 'need': ('well', 'size_in', 'shoe_md_ft', 'source'),
+               'about': "casing shoes: the size in inches as written (13-3/8, 9-5/8, 7), the shoe's measured depth in ft, when it was set (the recorder's clock; blank: when the hole is 50 ft past it) and the tally or report it came from"},
+    'settings': {'cols': ('setting', 'value'), 'need': ('setting', 'value'),
+                 'about': "the program's settings: watch_enabled (yes/no), watch_every_min, watch_mode (operations/always), summary_enabled (yes/no), summary_at (HH:MM UTC), summary_send (yes/no)"},
 }
-ORDER = ('wells', 'fleet', 'rates', 'items', 'afe', 'surveys', 'runs', 'components', 'penetrators', 'esp_drives', 'operations', 'catalogs')
-APPLY_ORDER = ('wells', 'fleet', 'rates', 'items', 'afe', 'surveys', 'runs', 'penetrators', 'esp_drives', 'operations', 'catalogs')
+ORDER = ('wells', 'fleet', 'rates', 'items', 'afe', 'surveys', 'runs', 'components', 'penetrators', 'esp_drives', 'operations', 'catalogs',
+         'contract', 'rig_time', 'block_weights', 'casing', 'settings')
+APPLY_ORDER = ('wells', 'fleet', 'rates', 'items', 'afe', 'surveys', 'runs', 'penetrators', 'esp_drives', 'operations', 'catalogs',
+               'contract', 'rig_time', 'block_weights', 'casing', 'settings')
+SETTINGS = ('watch_enabled', 'watch_every_min', 'watch_mode', 'summary_enabled', 'summary_at', 'summary_send')
 
 
 class SheetError(ValueError):
@@ -525,6 +540,98 @@ def plan(ws, text: str, base_dir: str = '') -> dict:
                                                                                rec['lat'], rec['lon'], rec['radius_km'], rec['source']))
         guard('catalogs', rec, b)
 
+    # the contract, rig time, casing and settings
+    from . import invoice_check as IC
+    from . import rig_state as RS
+    from . import seismic_watch as SW
+    from . import pad_summary as PS
+    for rec in tables.get('contract', [])[:1]:
+        def b(rec=rec):
+            rates = {k: rec.get(k) for k in IC.KINDS if (rec.get(k) or '').strip()}
+            new = IC.terms_record(rec.get('source', ''), (rec.get('day_start') or '06:00').strip(), (rec.get('report_date') or 'start').strip(), rates,
+                                  rec.get('repair_hours_per_job'), rec.get('repair_hours_per_month'))
+            old = IC.terms(ws)
+            keys = ('source', 'day_start', 'report_date', 'rates_usd_per_day', 'repair_hours_per_job', 'repair_hours_per_month')
+            if old and all(old.get(k) == new[k] for k in keys):
+                add('contract', rec['_row'], None, 'SAME', 'the contract terms already declared')
+                return
+            add('contract', rec['_row'], None, 'CHANGE' if old else 'NEW',
+                f"operating {new['rates_usd_per_day']['operating']:,.2f} USD/day, report day from {new['day_start']} ({new['source']})",
+                lambda actor, rec=rec, rates=rates: IC.set_terms(ws, actor, rec.get('source', ''), (rec.get('day_start') or '06:00').strip(),
+                                                                (rec.get('report_date') or 'start').strip(), rates, rec.get('repair_hours_per_job'),
+                                                                rec.get('repair_hours_per_month')))
+        guard('contract', rec, b)
+    if len(tables.get('contract', [])) > 1:
+        errs.append(f"row {tables['contract'][1]['_row']}: [contract] the contract is one row")
+    for rec in tables.get('rig_time', [])[:1]:
+        def b(rec=rec):
+            vals = {k: _f(rec.get(k), k) for k in ('w2w_min', 'trip_in_ft_h', 'trip_out_ft_h')}
+            if not any(v is not None for v in vals.values()):
+                raise SheetError('give at least one target')
+            cur = RS.settings(ws).get('targets', {})
+            want = {k: v for k, v in vals.items() if v is not None}
+            if all(cur.get(k) == v for k, v in want.items()) and RS.settings(ws).get('targets_source') == rec['source'].strip():
+                add('rig_time', rec['_row'], None, 'SAME', 'the targets already declared')
+                return
+            add('rig_time', rec['_row'], None, 'CHANGE' if cur else 'NEW', ', '.join(f"{k.replace('_', ' ')} {v:g}" for k, v in want.items()) + f" ({rec['source'].strip()})",
+                lambda actor, vals=vals, rec=rec: RS.set_settings(ws, actor, rec['source'], vals['w2w_min'], vals['trip_in_ft_h'], vals['trip_out_ft_h']))
+        guard('rig_time', rec, b)
+    bw_have = RS.settings(ws).get('block_weight_klbf', {})
+    for rec in tables.get('block_weights', []):
+        def b(rec=rec):
+            wid = _well_id(ws, rec['well'], wells)
+            v = _f(rec.get('block_weight_klbf'), 'the block weight')
+            if bw_have.get(wid) == v:
+                add('block_weights', rec['_row'], wid, 'SAME', f'{v:g} klbf already declared')
+                return
+            add('block_weights', rec['_row'], wid, 'CHANGE' if wid in bw_have else 'NEW', f'block weight {v:g} klbf',
+                lambda actor, wid=wid, v=v: RS.set_settings(ws, actor, '', None, None, None, (wid, v)))
+        guard('block_weights', rec, b)
+    cs_have = RS.casing(ws)
+    for rec in tables.get('casing', []):
+        def b(rec=rec):
+            wid = _well_id(ws, rec['well'], wells)
+            new = RS.casing_record(ws, wid, rec.get('size_in', ''), rec.get('shoe_md_ft'), rec.get('source', ''), rec.get('set') or None)
+            old = next((x for x in cs_have.get(wid, []) if x['size'] == new['size']), None)
+            if old == new:
+                add('casing', rec['_row'], wid, 'SAME', f"{new['size']} in shoe already declared")
+                return
+            add('casing', rec['_row'], wid, 'CHANGE' if old else 'NEW', f"{new['size']} in shoe at {new['shoe_md_ft']:,.0f} ft ({new['source']})",
+                lambda actor, wid=wid, rec=rec: RS.set_casing(ws, actor, wid, rec.get('size_in', ''), rec.get('shoe_md_ft'), rec.get('source', ''), rec.get('set') or None))
+        guard('casing', rec, b)
+    sw_now, ps_now = SW.settings(ws), PS.settings(ws)
+    yes = lambda v: str(v).strip().lower() in ('yes', 'y', 'true', '1', 'on')
+    for rec in tables.get('settings', []):
+        def b(rec=rec):
+            k, v = rec['setting'].strip(), rec['value'].strip()
+            if k not in SETTINGS:
+                raise SheetError(f"no setting {k!r}: one of {', '.join(SETTINGS)}")
+            if k.endswith(('_enabled', '_send')) and v.lower() not in ('yes', 'no', 'y', 'n', 'true', 'false', '1', '0', 'on', 'off'):
+                raise SheetError(f'{k} is yes or no, not {v!r}')
+            if k == 'watch_every_min':
+                x = _f(v, k)
+                cur, want, fn = sw_now['every_min'], x, (lambda actor, x=x: SW.set_settings(ws, actor, every_min=x))
+            elif k == 'watch_mode':
+                if v not in ('operations', 'always'):
+                    raise SheetError("watch_mode is 'operations' or 'always'")
+                cur, want, fn = sw_now['mode'], v, (lambda actor, v=v: SW.set_settings(ws, actor, mode=v))
+            elif k == 'watch_enabled':
+                cur, want, fn = sw_now['enabled'], yes(v), (lambda actor, v=v: SW.set_settings(ws, actor, enabled=yes(v)))
+            elif k == 'summary_enabled':
+                cur, want, fn = ps_now['enabled'], yes(v), (lambda actor, v=v: PS.set_settings(ws, actor, enabled=yes(v)))
+            elif k == 'summary_send':
+                cur, want, fn = ps_now['send'], yes(v), (lambda actor, v=v: PS.set_settings(ws, actor, send=yes(v)))
+            else:
+                if not re.fullmatch(r'([01]?\d|2[0-3]):[0-5]\d', v):
+                    raise SheetError('summary_at is HH:MM, 24-hour, UTC')
+                want = f"{int(v.split(':')[0]):02d}:{v.split(':')[1]}"
+                cur, fn = ps_now['at'], (lambda actor, w_=want: PS.set_settings(ws, actor, at=w_))
+            if cur == want:
+                add('settings', rec['_row'], None, 'SAME', f'{k} already {_g(want)}')
+                return
+            add('settings', rec['_row'], None, 'CHANGE', f'{k} {_g(cur)} -> {_g(want)}', fn)
+        guard('settings', rec, b)
+
     steps.sort(key=lambda s: (APPLY_ORDER.index(s['table']), s['row']))
     counts = {k: sum(1 for s in steps if s['action'] == k) for k in ('NEW', 'CHANGE', 'SAME')}
     return {'steps': steps, 'errors': sorted(errs, key=lambda e: int(re.match(r'row (\d+)', e).group(1)) if re.match(r'row (\d+)', e) else 0),
@@ -669,4 +776,31 @@ def template(ws) -> str:
     head('catalogs')
     for c in OS.catalogs(ws):
         w.writerow(['# ' + c['file'] + ' is attached (' + str(c['n_events']) + ' events); list it here only to replace it'])
+    from . import invoice_check as IC
+    from . import rig_state as RS
+    from . import seismic_watch as SW
+    from . import pad_summary as PS
+    head('contract')
+    t = IC.terms(ws)
+    if t:
+        r = t['rates_usd_per_day']
+        w.writerow(['', t['day_start'], t.get('report_date', 'start')] + [_g(r.get(k)) for k in IC.KINDS]
+                   + [_g(t.get('repair_hours_per_job')), _g(t.get('repair_hours_per_month')), t['source']])
+    head('rig_time')
+    rs_ = RS.settings(ws)
+    if rs_.get('targets'):
+        tg = rs_['targets']
+        w.writerow(['', _g(tg.get('w2w_min')), _g(tg.get('trip_in_ft_h')), _g(tg.get('trip_out_ft_h')), rs_.get('targets_source', '')])
+    head('block_weights')
+    for wid, v in rs_.get('block_weight_klbf', {}).items():
+        w.writerow(['', wid, _g(v)])
+    head('casing')
+    for wid, lst in RS.casing(ws).items():
+        for c in lst:
+            w.writerow(['', wid, c['size'], _g(c['shoe_md_ft']), c.get('set') or '', c['source']])
+    head('settings')
+    sw, ps = SW.settings(ws), PS.settings(ws)
+    for k, v in (('watch_enabled', _g(bool(sw['enabled']))), ('watch_every_min', _g(float(sw['every_min']))), ('watch_mode', sw['mode']),
+                 ('summary_enabled', _g(bool(ps['enabled']))), ('summary_at', ps['at']), ('summary_send', _g(bool(ps['send'])))):
+        w.writerow(['', k, v])
     return buf.getvalue()

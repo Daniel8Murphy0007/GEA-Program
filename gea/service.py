@@ -2261,8 +2261,16 @@ def make_handler(app: App):
                     from . import declarations as DC
                     App.require(user, 'operator')
                     t_ = (body or {}).get('text')
+                    if (body or {}).get('content_b64'):
+                        import base64 as _b64
+                        from . import xlsx_read as XR
+                        try:
+                            raw_ = _b64.b64decode(str(body['content_b64']), validate=True)
+                            t_ = XR.text_of(raw_)
+                        except (ValueError, KeyError) as e:
+                            raise ApiError(400, f'the sheet does not read: {e}')
                     if not isinstance(t_, str) or not t_.strip():
-                        raise ApiError(400, 'send the sheet as text (CSV)')
+                        raise ApiError(400, 'send the sheet as text (CSV) or an Excel workbook')
                     return self._json(200, DC.apply(app.ws, t_, user['name'], '', write=bool((body or {}).get('apply'))))
                 if path.startswith('/api/opseis/'):
                     from . import op_seismicity as OS
@@ -2299,6 +2307,14 @@ def make_handler(app: App):
                         app.ws.audit(user['name'], 'seismicity.watch.poll', {k: r_.get(k) for k in ('ok', 'how', 'in_circle', 'new', 'error', 'why')})
                         return self._json(200, {'result': {k: v for k, v in r_.items() if k != 'alerts'}, 'alerts': r_.get('alerts', []), 'status': SW.status(app.ws)})
                     raise ApiError(404, 'no such operations and seismicity action')
+                if path in ('/api/rig-time/casing', '/api/rig-time/casing/remove'):
+                    from . import rig_state as RS
+                    App.require(user, 'operator')
+                    b_ = dict(body or {})
+                    if path.endswith('/remove'):
+                        return self._json(200, App._cr(RS.remove_casing, app.ws, user['name'], str(b_.get('well_id') or ''), str(b_.get('size') or '')))
+                    return self._json(200, App._cr(RS.set_casing, app.ws, user['name'], str(b_.get('well_id') or ''), str(b_.get('size') or ''),
+                                                   b_.get('shoe_md_ft'), str(b_.get('source') or ''), b_.get('set')))
                 if path in ('/api/rig-time/settings', '/api/rig-time/write'):
                     from . import rig_state as RS
                     from . import __version__ as _v

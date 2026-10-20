@@ -4,9 +4,11 @@ A site that runs the program for weeks stops opening every tab every day. This p
 would look for first, from the records the program already keeps:
 
 - what changed: the actions in the audit log since the last summary (grouped, with who did them), the alerts
-  raised, the report versions written, and the earthquakes the live watch saw for the first time;
+  raised, the report versions written, the earthquakes the live watch saw for the first time, and yesterday's
+  rig time for each well drilling - its drilling hours, connections and the time lost against the targets;
 - what is due: the alert conditions still open (a service interval used up, a penetrator line outside its
-  rating, a signed dossier that no longer matches), drill-string components near or past their interval, the
+  rating, a signed dossier that no longer matches, an invoice that differs), each well's invoice check, drill-string
+  components near or past their interval, the
   operations under way or starting in the next seven days, the earthquake watch's state, the last backup and the
   last signed dossier;
 - what is still missing: the setup checklist's items still TO DO, required first.
@@ -184,6 +186,36 @@ def gather(ws, now: Optional[datetime] = None, since: Optional[datetime] = None)
                     'detail': f"{led[-1]['dossier_id']}, {led[-1]['utc']}" if led else 'none signed yet (Reports tab)'})
     except Exception:
         pass
+    # the invoice cross-check, well by well
+    try:
+        from . import invoice_check as IC
+        if IC.terms(ws):
+            for wid in sorted({f['well_id'] for f in IC.files(ws)}):
+                if wid not in wells:
+                    continue
+                r = IC.check(ws, wid)
+                T = r.get('totals') or {}
+                due.append({'item': f'the invoice check of {wells[wid]}', 'status': r.get('status', ''),
+                            'detail': f"{T.get('days', 0)} day(s): {T.get('agrees', 0)} agree, {T.get('question', 0)} in question, {T.get('differs', 0)} differ; "
+                                      f"{T.get('usd_in_question', 0):,.2f} USD in question"})
+    except Exception:
+        pass
+    # yesterday's rig time: the last whole report day of each well's record
+    rig = []
+    try:
+        from . import rig_state as RS
+        P_ = RS.pad(ws)
+        ds = P_['day_start_h']
+        day = (now.replace(tzinfo=None) - timedelta(hours=ds) - timedelta(days=1)).date().isoformat()
+        for w in P_['wells']:
+            d = next((x for x in w['days'] if x['date'] == day), None)
+            if d:
+                drl = d['hours']['ROTARY DRILLING'] + d['hours']['SLIDE DRILLING']
+                rig.append({'well': w['display'], 'date': day, 'drilling_h': round(drl, 1), 'connections': d['connections'],
+                            'median_w2w_min': d['median_w2w_min'], 'lost_h': d['lost_h'],
+                            'lost_usd': round(d['lost_h'] / 24.0 * P_['operating_usd_per_day'], 2) if P_['operating_usd_per_day'] else None})
+    except Exception:
+        pass
     # -- what is still missing ---------------------------------------------------------------------------------------
     try:
         items = SC.checklist(ws)['items']
@@ -192,7 +224,7 @@ def gather(ws, now: Optional[datetime] = None, since: Optional[datetime] = None)
     order = {'required': 0, 'recommended': 1, 'optional': 2}
     missing = sorted(({'level': i['level'], 'title': i['title'], 'well': wells.get(i.get('well'), i.get('well') or ''), 'detail': _clean(i.get('detail', ''))}
                       for i in items if i['status'] != 'DONE' and i['level'] != 'optional'), key=lambda i: order.get(i['level'], 3))
-    return {'since': _utc(since), 'now': _utc(now), 'changed': changed, 'n_actions': len(aud), 'alerts': alerts, 'versions': fams,
+    return {'since': _utc(since), 'now': _utc(now), 'changed': changed, 'n_actions': len(aud), 'alerts': alerts, 'versions': fams, 'rig_time': rig,
             'n_versions': len(versions), 'quakes': sorted(quakes, key=lambda e: -float(e.get('magnitude') or 0)), 'due': due, 'missing': missing,
             'n_wells': len(wells)}
 
@@ -222,7 +254,12 @@ def build(ws, version: str, now: Optional[datetime] = None, since: Optional[date
     if g['quakes']:
         q = g['quakes'][0]
         s1.paragraphs.append(f"Largest new earthquake: M {q.get('magnitude')} {q.get('mag_type') or ''} at {q.get('time')}, {_clean(q.get('place') or '')}; the Operations & seismicity tab sets each against the wells.")
-    if not (g['alerts'] or g['changed'] or g['versions'] or g['quakes']):
+    if g.get('rig_time'):
+        s1.tables.append(CR.Table(['Well', 'Report day', 'Drilling (h)', 'Connections', 'Median W2W (min)', 'Time lost (h)', 'At the operating rate (USD)'],
+                                  [[x['well'], x['date'], f"{x['drilling_h']:g}", x['connections'], '-' if x['median_w2w_min'] is None else f"{x['median_w2w_min']:g}",
+                                    f"{x['lost_h']:g}", '-' if x['lost_usd'] is None else f"{x['lost_usd']:,.2f}"] for x in g['rig_time']],
+                                  "Yesterday's rig time: the time lost against the targets (the Rig time tab)"))
+    if not (g['alerts'] or g['changed'] or g['versions'] or g['quakes'] or g.get('rig_time')):
         s1.paragraphs.append('Nothing was recorded in this period.')
     s2 = CR.Section('2', 'What is due', [], [])
     if g['due']:
