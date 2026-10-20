@@ -11905,6 +11905,166 @@ def section_cu_pore_pressure(tmp: str) -> None:
        + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
 
 
+def section_cv_torque_drag(tmp: str) -> None:
+    """Section CV - torque and drag: the soft-string model against closed forms (a vertical string, a straight inclined
+    one pulled and rotated, the capstan over a bend in the vertical plane and in azimuth); a drilling record made by the
+    model with known friction factors, read back by the rig states and fitted to them; the worked example; the API, the
+    CLI, the report, the dossier, the tab and the help."""
+    import http.cookiejar
+    import math as _m
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    import zipfile as _zf
+    import numpy as _np
+    from . import __version__ as _ver
+    from . import dossier as DZ
+    from . import helplib as H
+    from . import rig_state as RS
+    from . import torque_drag as TND
+    from . import well3d as W
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "torquedrag"); d.mkdir()
+
+    # -- CV1 the model against closed forms ------------------------------------------------------------------------------
+    md = _np.linspace(0.0, 10000.0, 101); n = len(md)
+    bf = TND.buoyancy(10.0)
+    Fv, _ = TND.soft_string(md, _np.zeros(n), _np.zeros(n), _np.full(n - 1, 20.0 * bf), _np.full(n - 1, 3.3125), _np.full(n - 1, 0.3), "out")
+    s60, c60 = _m.sin(_m.radians(60)), _m.cos(_m.radians(60))
+    Fo, _ = TND.soft_string(md, _np.full(n, 60.0), _np.zeros(n), _np.full(n - 1, 20.0), _np.full(n - 1, 3.0), _np.full(n - 1, 0.3), "out")
+    Fi, _ = TND.soft_string(md, _np.full(n, 60.0), _np.zeros(n), _np.full(n - 1, 20.0), _np.full(n - 1, 3.0), _np.full(n - 1, 0.3), "in")
+    Fr, Mr = TND.soft_string(md, _np.full(n, 60.0), _np.zeros(n), _np.full(n - 1, 20.0), _np.full(n - 1, 3.0), _np.full(n - 1, 0.3), "rotate")
+    N_ = 9001
+    mc = _np.linspace(0.0, 1000.0, N_)
+    Fc, _ = TND.soft_string(mc, _np.linspace(0.0, 90.0, N_), _np.zeros(N_), _np.zeros(N_ - 1), _np.full(N_ - 1, 3.0), _np.full(N_ - 1, 0.3), "out", 10000.0)
+    Fa, _ = TND.soft_string(mc, _np.full(N_, 90.0), _np.linspace(0.0, 90.0, N_), _np.zeros(N_ - 1), _np.full(N_ - 1, 3.0), _np.full(N_ - 1, 0.3), "out", 10000.0)
+    cap = 10000.0 * _m.exp(0.3 * _m.pi / 2)
+    refused = 0
+    for bad in ([], [{"what": "x", "length_ft": None, "od_in": 5, "weight_lb_ft": 20}, {"what": "y", "length_ft": None, "od_in": 5, "weight_lb_ft": 20}],
+                [{"what": "x", "length_ft": 100, "od_in": 0.5, "weight_lb_ft": 20}], [{"what": "x", "length_ft": 100, "od_in": 5, "weight_lb_ft": 900}],
+                [{"what": "x", "length_ft": 100, "od_in": 6, "weight_lb_ft": 20, "contact_od_in": 5}]):
+        try:
+            TND.check_string(bad)
+        except ValueError:
+            refused += 1
+    c1 = {
+        "vertical": abs(Fv[0] - 20.0 * bf * 10000.0) < 1e-6 and abs(bf - (1 - 10.0 / 65.5)) < 1e-12,
+        "inclined": abs(Fo[0] - 200000.0 * (c60 + 0.3 * s60)) < 1e-6 and abs(Fi[0] - 200000.0 * (c60 - 0.3 * s60)) < 1e-6 and abs(Fr[0] - 200000.0 * c60) < 1e-6
+                    and abs(Mr[0] - 0.3 * 200000.0 * s60 * 3.0 / 12.0) < 1e-6,
+        "capstan": abs(Fc[0] / cap - 1) < 5e-5 and abs(Fa[0] / cap - 1) < 5e-5,
+        "string": refused == 5 and TND.parse_string("BHA:300:6.75:95; dp::5:22.6:6.625")[1]["length_ft"] is None,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CV1 the soft-string model against closed forms: a vertical string weighs its buoyed weight; a straight 60-degree string "
+       "pulled, run and rotated gives W(cos + mu sin), W(cos - mu sin), W cos and the torque mu W sin r exactly; a weightless string "
+       "over a 90-degree bend, in the vertical plane or in azimuth, comes to the capstan's e^(mu theta) as the elements shrink; a "
+       "string without sections, with two open-ended, or with a diameter, weight or contact diameter out of range refused"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- CV2 a record made by the model, read back ---------------------------------------------------------------------------
+    f = TND.selftest_files(str(d))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    wid = ws.add_well_file(f["record"], display="TD-1", actor="tester")["id"]
+    ws.set_well(wid, surface={"lat": 31.42, "lon": -104.10, "datum": "NAD83", "elevation": {"ft": 3000.0, "datum": "KB", "source": "test plat"}}, actor="tester")
+    no_survey = TND.page(ws, "workspace", wid)["detail"]
+    W.attach_trajectory(ws, wid, "s.csv", Path(f["survey"]).read_bytes(), "tester", "true", "ft", None, None, None, "test survey")
+    no_string = TND.page(ws, "workspace", wid)["detail"]
+    RS.set_casing(ws, "tester", wid, "9-5/8", 4000, "tally (test)")
+    TND.set_well(ws, "tester", wid, "BHA report (test)", f["string"], 10.0, 0.25, 0.30)
+    r = TND.page(ws, "workspace", wid)["result"]
+    fi = r["fits"]
+    m_ = r["measured"]
+    c2 = {
+        "needs": "survey" in no_survey and "string" in no_string,
+        "measured": len(m_["out"]["depth_ft"]) >= 70 and len(m_["in"]["depth_ft"]) >= 70 and len(m_["rotate"]["depth_ft"]) == 9 and abs(r["block_klbf"] - 40.0) < 0.5 and m_["block_estimated"],
+        "open": all(abs(fi[k]["mu"] - 0.24) <= 0.02 for k in ("out:open", "in:open", "torque:open")),
+        "cased": all(abs(fi[k]["mu"] - 0.18) <= 0.02 for k in ("out:cased", "in:cased", "torque:cased")),
+        "weights": abs(r["string_air_klbf"] - (300 * 95.0 + (r["td_ft"] - 300) * 22.6) / 1000.0) < 0.05 and r["shoe_ft"] == 4000.0,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CV2 a drilling record made by the model - a trip out and in stand by stand, the string rotated off bottom every 900 ft, "
+       "friction 0.18 cased above a 4,000 ft shoe and 0.24 open, a 40 klbf block, noise - read back by the rig states: the block "
+       "estimated to half a klbf, the pick-up, slack-off and torque each fitting 0.18 cased and 0.24 open to within 0.02; a well "
+       "without a survey or a string says what it needs"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- CV3 the worked example -----------------------------------------------------------------------------------------------
+    ex = TND.example()
+    de = ex["declared"]
+    c3 = {
+        "example": ex["well"] == "15/9-F-10" and abs(ex["td_ft"] - 5300.07 / 0.3048) < 5.0 and ex["max_inc_deg"] > 80
+                   and all(de["out"][i] >= de["rotate"][i] >= de["in"][i] for i in range(len(de["depth_ft"])))
+                   and de["torque"][-1] > de["torque"][len(de["torque"]) // 2] > 0 and "not from Volve" in ex["config"]["source"],
+        "fan": sorted(ex["fan"]) == ["0.1", "0.2", "0.3", "0.4", "0.5"] and ex["fan"]["0.5"]["out"][-1] > ex["fan"]["0.1"]["out"][-1] and ex["fan"]["0.5"]["in"][-1] < ex["fan"]["0.1"]["in"][-1],
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CV3 the worked example, Volve 15/9-F-10's survey to its 5,300 m TD with a string declared for the example: pick-up above "
+       "rotating above slack-off at every depth, the torque growing with depth, the broomstick fanning out with the friction factor"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+    # -- CV4 the API, the CLI, the report, the dossier, the tab and the help -------------------------------------------------
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_vg, vg = call(V, "GET", "/api/torque-drag?well=" + wid)
+        s_ve, ve = call(V, "GET", "/api/torque-drag?scene=example")
+        s_vs, _ = call(V, "POST", "/api/torque-drag/settings", {"well_id": wid, "mud_ppg": 11, "source": "x"})
+        s_os, os_ = call(O, "POST", "/api/torque-drag/settings", {"well_id": wid, "mud_ppg": "11", "string": "BHA:300:6.75:95:6.75; dp::5:22.6:6.625", "source": "mud report (test)"})
+        s_bs, _ = call(O, "POST", "/api/torque-drag/settings", {"well_id": wid, "string": "BHA:300", "source": "x"})
+        s_bm, _ = call(O, "POST", "/api/torque-drag/settings", {"well_id": wid, "mu_open": 0.9, "source": "x"})
+        s_ns, _ = call(O, "POST", "/api/torque-drag/settings", {"well_id": wid, "mud_ppg": 12})
+        s_vw, _ = call(V, "POST", "/api/torque-drag/write", {"well_id": wid})
+        s_ow, ow = call(O, "POST", "/api/torque-drag/write", {"well_id": wid})
+    finally:
+        svc.stop()
+    cli_x = _sp.run([sys.executable, "-m", "gea", "torque-drag", "--example"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_s = _sp.run([sys.executable, "-m", "gea", "torque-drag", "--workspace", wsp, "--well", wid, "--mu-open", "0.26", "--source", "offset well (test)"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_t = _sp.run([sys.executable, "-m", "gea", "torque-drag", "--workspace", wsp, "--well", wid], capture_output=True, text=True, cwd=str(pkg.parent))
+    dz = DZ.build(ws, "tester", _ver, None)
+    names = _zf.ZipFile(Path(ws.reports_dir, dz["path"])).namelist()
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c4 = {
+        "api": s_vg == 200 and vg["result"]["fits"] and s_ve == 200 and ve["result"]["well"] == "15/9-F-10" and s_vs == 403 and s_os == 200 and os_["mud_ppg"] == 11.0
+               and len(os_["string"]) == 2 and s_bs == 400 and s_bm == 400 and s_ns == 400 and s_vw == 403 and s_ow == 200 and ow["report_id"].startswith("TND-"),
+        "cli": cli_x.returncode == 0 and "15/9-F-10" in cli_x.stdout and cli_s.returncode == 0 and "open 0.26" in cli_s.stdout and cli_t.returncode == 0
+               and "fits mu" in cli_t.stdout and "mud 11 ppg" in cli_t.stdout,
+        "report": PR_read_ok(Path(ws.reports_dir, "wells", wid, "torque_drag.pdf")) and "torque_drag.declare" in audit and "report.torque_drag" in audit,
+        "dossier": "declarations/drillstring/torque_drag.json" in names and f"results/torque_drag/{wid}.json" in names,
+        "page": all(x in page_src for x in ("VIEWS.torquedrag", "['#/torquedrag', 'Torque & drag']", "/api/torque-drag/settings", "tdChart")),
+        "help": not H.check("torque-drag") and H.VIEW_TOPIC.get("torquedrag") == "torque-drag",
+    }
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       "CV4 on the API (anyone reads a well's model and the worked example; only an operator declares the string, the mud and the "
+       "friction factors - a section without its figures, a friction factor of 0.9 or a change without its source refused - or "
+       "writes the report), the CLI, the report as PDF, a signed dossier carrying the string and the model, the tab and the help"
+       + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+
 def PR_read_ok(path) -> bool:
     from . import pdf_report as PR
     try:
@@ -12015,6 +12175,7 @@ def main() -> int:
         section_cs_plan_and_tools(tmp)
         section_ct_frac_hits(tmp)
         section_cu_pore_pressure(tmp)
+        section_cv_torque_drag(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

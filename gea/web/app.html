@@ -2451,6 +2451,68 @@ VIEWS.opseis = async (arg) => {
   $('#osOp') && ($('#osOp').onsubmit = async ev => { ev.preventDefault(); const f = new FormData(ev.target), b = {}; for (const [k, v] of f.entries()) if (v !== '') b[k] = v;
     try { await post('/api/opseis/operation', b); toast('Operation declared', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
 };
+// ---------- torque and drag: the soft-string model, the broomstick, the friction factors that fit the rig ----------
+const TDV = {scene: 'workspace', well: null};
+function tdChart(r, kind) {
+  const d = r.declared, m = r.measured || {}, W = 460, H = 520, L = 56, R = 12, T = 22, B = 30;
+  const depthMax = r.td_ft * 1.02;
+  let xs = [];
+  if (kind === 'hook') { xs = [...d.out, ...d.in, ...d.rotate]; for (const f of Object.values(r.fan)) xs.push(...f.out, ...f.in); for (const k of ['out', 'in', 'rotate']) if (m[k]) xs.push(...m[k].klbf); }
+  else { xs = [...d.torque]; if (m.rotate && m.rotate.torque_kftlb) xs.push(...m.rotate.torque_kftlb); }
+  const lo = kind === 'hook' ? Math.max(0, Math.floor(Math.min(...xs) / 10) * 10) : 0, hi = Math.ceil(Math.max(...xs, 1) * 1.05);
+  const sx = v => L + (v - lo) / Math.max(1e-9, hi - lo) * (W - L - R), sy = z => T + z / depthMax * (H - T - B);
+  const pl = (xv, zv, col, w, dash, op) => `<polyline points="${xv.map((v, i) => `${sx(v).toFixed(1)},${sy(zv[i]).toFixed(1)}`).join(' ')}" fill="none" stroke="${col}" stroke-width="${w}" ${dash ? `stroke-dasharray="${dash}"` : ''} opacity="${op || 1}"/>`;
+  let g = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${kind === 'hook' ? 'Hook load' : 'Off-bottom torque'} against bit depth" style="max-width:520px">`;
+  const step = Math.pow(10, Math.floor(Math.log10(depthMax / 4))) * 2;
+  for (let z = 0; z <= depthMax; z += step) g += `<line x1="${L}" x2="${W - R}" y1="${sy(z)}" y2="${sy(z)}" stroke="var(--ink2)" opacity=".12"/><text x="${L - 6}" y="${sy(z) + 4}" font-size="10" text-anchor="end" fill="var(--muted)">${z.toLocaleString()}</text>`;
+  const xstep = Math.max(1, Math.pow(10, Math.floor(Math.log10((hi - lo) / 4))) * (((hi - lo) / Math.pow(10, Math.floor(Math.log10((hi - lo) / 4)))) > 20 ? 5 : 2));
+  for (let v = Math.ceil(lo / xstep) * xstep; v <= hi; v += xstep) g += `<line x1="${sx(v)}" x2="${sx(v)}" y1="${T}" y2="${H - B}" stroke="var(--ink2)" opacity=".12"/><text x="${sx(v)}" y="${T - 6}" font-size="10" text-anchor="middle" fill="var(--muted)">${v}</text>`;
+  if (r.shoe_ft) g += `<line x1="${L}" x2="${W - R}" y1="${sy(r.shoe_ft)}" y2="${sy(r.shoe_ft)}" stroke="var(--ink)" stroke-dasharray="6 3" opacity=".6"/><text x="${W - R}" y="${sy(r.shoe_ft) - 4}" font-size="10" text-anchor="end" fill="var(--muted)">casing shoe</text>`;
+  if (kind === 'hook') {
+    for (const [mu, f] of Object.entries(r.fan)) { g += pl(f.out, f.depth_ft, 'var(--s1)', 1, '', .25) + pl(f.in, f.depth_ft, 'var(--s2)', 1, '', .25); const k = f.depth_ft.length - 1; g += `<text x="${sx(f.out[k]) + 3}" y="${sy(f.depth_ft[k]) - 2}" font-size="9" fill="var(--muted)">${mu}</text>`; }
+    g += pl(d.out, d.depth_ft, 'var(--s1)', 2.2) + pl(d.in, d.depth_ft, 'var(--s2)', 2.2) + pl(d.rotate, d.depth_ft, 'var(--s3)', 2.2);
+    const mk = (arr, col, shape, lab) => arr ? arr.depth_ft.map((z, i) => shape === 'up' ? `<path d="M${sx(arr.klbf[i])} ${sy(z) - 4} l4 7 h-8 z" fill="${col}"><title>${lab} ${arr.klbf[i]} klbf at ${z.toLocaleString()} ft (${arr.n[i]} samples)</title></path>` : shape === 'down' ? `<path d="M${sx(arr.klbf[i])} ${sy(z) + 4} l4 -7 h-8 z" fill="${col}"><title>${lab} ${arr.klbf[i]} klbf at ${z.toLocaleString()} ft (${arr.n[i]} samples)</title></path>` : `<circle cx="${sx(arr.klbf[i])}" cy="${sy(z)}" r="3.5" fill="${col}"><title>${lab} ${arr.klbf[i]} klbf at ${z.toLocaleString()} ft (${arr.n[i]} samples)</title></circle>`).join('') : '';
+    g += mk(m.out, 'var(--s1)', 'up', 'pick-up') + mk(m.in, 'var(--s2)', 'down', 'slack-off') + mk(m.rotate, 'var(--s3)', 'dot', 'rotating');
+  } else {
+    g += pl(d.torque, d.depth_ft, 'var(--s3)', 2.2);
+    if (m.rotate && m.rotate.torque_kftlb) g += m.rotate.depth_ft.map((z, i) => `<circle cx="${sx(m.rotate.torque_kftlb[i])}" cy="${sy(z)}" r="3.5" fill="var(--s3)"><title>${m.rotate.torque_kftlb[i]} kft.lbf at ${z.toLocaleString()} ft</title></circle>`).join('');
+  }
+  g += `<text x="${W - R}" y="${H - 8}" font-size="11" fill="var(--muted)" text-anchor="end">${kind === 'hook' ? 'hook load, klbf →' : 'torque off bottom, kft.lbf →'}</text><text x="${L - 6}" y="${H - 8}" font-size="11" fill="var(--muted)" text-anchor="end">ft MD ↓</text>`;
+  return g + `</svg>`;
+}
+VIEWS.torquedrag = async () => {
+  const P = await get('/api/torque-drag?scene=' + TDV.scene + (TDV.well ? '&well=' + encodeURIComponent(TDV.well) : ''));
+  TDV.well = P.well;
+  const r = P.result;
+  let h = `<h2>Torque & drag</h2><div class="row"><label>Scene<select id="tdScene">${P.scenes.map(s_ => `<option value="${s_.id}" ${s_.id === P.scene ? 'selected' : ''}>${esc(s_.title)}</option>`).join('')}</select></label>`;
+  if (P.scene === 'workspace' && P.wells.length) h += `<label>Well<select id="tdWell">${P.wells.map(w => `<option value="${esc(w.id)}" ${w.id === P.well ? 'selected' : ''}>${esc(w.display)}${w.survey ? '' : ' — no survey'}${w.config.string ? '' : ' — no string'}</option>`).join('')}</select></label>`;
+  if (can('operator') && r) h += `<button type="button" class="secondary" id="tdWrite">Write the report</button>`;
+  h += `</div>`;
+  if (!r) h += `<p class="card small">${esc(P.detail || '')}.</p>`;
+  else {
+    const d = r.declared, k = d.depth_ft.length - 1, f = r.fits || {};
+    const fit = (mode) => ['cased', 'open'].filter(w => f[mode + ':' + w]).map(w => `${w} ${f[mode + ':' + w].mu.toFixed(2)}`).join(', ');
+    h += `<div class="tiles">` + tile('Pick-up at TD', d.out[k].toFixed(1) + ' klbf', 'neutral', '#/torquedrag', `at ${r.td_ft.toLocaleString()} ft, the declared friction factors`)
+      + tile('Slack-off at TD', d.in[k].toFixed(1) + ' klbf', d.in[k] < r.block_klbf + 5 ? 'warn' : 'neutral', '#/torquedrag', `rotating ${d.rotate[k].toFixed(1)} klbf; the block ${r.block_klbf} klbf`)
+      + tile('Torque off bottom at TD', d.torque[k].toFixed(2) + ' kft.lbf', 'neutral', '#/torquedrag', `${r.max_inc_deg}° the highest inclination`)
+      + (Object.keys(f).length ? tile('Friction that fits the rig', fit('out') || fit('in') || fit('torque'), 'neutral', '#/torquedrag', `pick-up ${fit('out') || '-'}; slack-off ${fit('in') || '-'}; torque ${fit('torque') || '-'}`) : '') + `</div>`;
+    h += `<div class="card"><h3>The broomstick</h3><div class="grid2"><div><div class="small"><b>Hook load</b> <span class="muted">pick-up blue, slack-off orange, rotating green; faint the friction factors ${P.fan.join(', ')}; the rig's own points ▲ pick-up ▼ slack-off ● rotating</span></div>${tdChart(r, 'hook')}</div><div><div class="small"><b>Torque rotating off bottom</b></div>${tdChart(r, 'torque')}</div></div>
+      <p class="small">Soft-string model; ${esc(r.how || '')}. Mud ${r.config.mud_ppg} ppg (buoyancy ${r.buoyancy}); friction cased ${r.config.mu_cased}, open ${r.config.mu_open}; the block ${r.block_klbf} klbf${r.measured && r.measured.block_estimated && !r.config.block_klbf ? ' (estimated from the record)' : ''}. The string ${r.string_air_klbf.toLocaleString()} klbf in air, ${r.string_buoyed_klbf.toLocaleString()} buoyed.</p>${r.attribution ? `<p class="small muted">${esc(r.attribution)}</p>` : ''}</div>`;
+    if (Object.keys(f).length) h += `<div class="card"><h3>Against the rig</h3><table class="small"><thead><tr><th>Measured</th><th>Hole</th><th>Friction factor that fits</th><th>Depth bins</th><th>RMS</th></tr></thead><tbody>${Object.entries(f).map(([k_, v]) => { const [mode, wh] = k_.split(':'); return `<tr><td>${({out: 'pick-up', in: 'slack-off', torque: 'torque off bottom'})[mode]}</td><td>${wh}</td><td>${v.mu.toFixed(2)}</td><td>${v.points}</td><td>${v.rms} ${mode === 'torque' ? 'kft.lbf' : 'klbf'}</td></tr>`; }).join('')}</tbody></table></div>`;
+    h += `<details class="card"><summary>The string (bit up)</summary><table class="small"><thead><tr><th>Section</th><th>Length (ft)</th><th>OD (in)</th><th>lb/ft in air</th><th>Turns on (in)</th></tr></thead><tbody>${r.config.string.map(x => `<tr><td>${esc(x.what)}</td><td>${x.length_ft == null ? 'to surface' : x.length_ft.toLocaleString()}</td><td>${x.od_in}</td><td>${x.weight_lb_ft}</td><td>${x.contact_od_in}</td></tr>`).join('')}</tbody></table></details>`;
+  }
+  const cur = P.wells.find(w => w.id === P.well);
+  if (can('operator') && P.scene === 'workspace' && cur) {
+    const c = cur.config, st = (c.string || []).map(x => `${x.what}:${x.length_ft ?? ''}:${x.od_in}:${x.weight_lb_ft}:${x.contact_od_in}`).join('; ');
+    h += `<div class="card"><h3>${esc(cur.display)}'s string</h3><form id="tdCfg" class="row"><label>Sections from the bit up<input name="string" value="${esc(st)}" placeholder="BHA:300:6.75:95; drill pipe::5:22.6:6.625" style="min-width:26em"></label><label>Mud (ppg)<input name="mud_ppg" type="number" step="0.1" value="${c.mud_ppg}" style="width:5em"></label><label>μ cased<input name="mu_cased" type="number" step="0.01" value="${c.mu_cased}" style="width:5em"></label><label>μ open<input name="mu_open" type="number" step="0.01" value="${c.mu_open}" style="width:5em"></label><label>Block (klbf)<input name="block_klbf" type="number" step="0.5" value="${c.block_klbf ?? ''}" placeholder="from the record" style="width:7em"></label><label>Source<input name="source" value="${esc(c.source || '')}" placeholder="BHA report, pipe tally"></label><button class="secondary" type="submit">Keep</button></form><p class="small muted">Each section what:length_ft:od_in:weight_lb_ft:contact_od_in, the last with no length (to the surface); the weight in air with its tool joints, the contact diameter the one it turns on.</p></div>`;
+  }
+  h += `<div class="card"><h3>What this page will not call a measurement</h3><ul class="small">${P.not_a_measurement.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
+  $('#main').innerHTML = h;
+  $('#tdScene').onchange = ev => { TDV.scene = ev.target.value; route(); };
+  $('#tdWell') && ($('#tdWell').onchange = ev => { TDV.well = ev.target.value; route(); });
+  $('#tdWrite') && ($('#tdWrite').onclick = async () => { try { const x = await post('/api/torque-drag/write', {well_id: TDV.well, scene: TDV.scene}); toast('Written ' + x.report_id, 'ok'); } catch (e) { toast(e.message, 'err'); } });
+  $('#tdCfg') && ($('#tdCfg').onsubmit = async ev => { ev.preventDefault(); try { await post('/api/torque-drag/settings', {well_id: TDV.well, ...Object.fromEntries(new FormData(ev.target).entries())}); toast('Kept', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+};
 // ---------- pore pressure and fracture gradient: the mud-weight window ----------
 const PPV = {scene: 'workspace', well: null};
 function ppDepthPlot(x) {
@@ -3100,7 +3162,7 @@ function authScreen(first) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/frac', 'Frac hits'], ['#/porepressure', 'Pore pressure'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/frac', 'Frac hits'], ['#/porepressure', 'Pore pressure'], ['#/torquedrag', 'Torque & drag'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w'], '#/control': b => [b.handover_unacked, 'w']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }

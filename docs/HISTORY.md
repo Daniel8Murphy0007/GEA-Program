@@ -4,6 +4,12 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.53.0 - 2026-10-20 - torque and drag
+
+- **What the string should weigh and take to turn.** The soft-string model,
+  the broomstick, and the friction factors that fit the rig's own trips and
+  off-bottom rotation. Section CV; gate 455.
+
 ## v0.52.0 - 2026-10-20 - pore pressure and fracture gradient
 
 - **The mud-weight window.** Overburden, the shale's normal compaction

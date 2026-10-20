@@ -5,6 +5,31 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.53.0] - 2026-10-20 - Torque and drag
+
+### Added
+- **Torque and drag** (`gea/torque_drag.py`): the soft-string model
+  (Johancsik, Friesen and Dawson, SPE-11380-PA) element by element from the
+  bit up every 30 ft of the survey's arcs - the normal force from the
+  tension and the buoyed weight, the tension pulling out, running in and
+  rotating, the torque rotating off bottom; cased and open-hole friction
+  factors divided at the deepest casing shoe declared; the hook load with
+  the travelling block (declared or estimated by the rig-time rule).
+- The broomstick: hook loads for friction factors 0.1 to 0.5 beside the
+  declared ones. The rig's own hook loads and torque from the drilling
+  record by the rig states (tripping out, tripping in, rotating off bottom),
+  binned every 100 ft of bit depth, and the friction factor that fits each,
+  cased hole first.
+- The drill string declared per well: sections from the bit up with
+  length, OD, weight in air and contact diameter; the mud density.
+- The worked example: Volve 15/9-F-10's survey with a string declared for
+  the example.
+- The **Torque & drag** tab, `GET /api/torque-drag`,
+  `POST /api/torque-drag/settings|write` (operator), `gea torque-drag`, the
+  reports `reports/wells/<well>/torque_drag.*`, `gea help torque-drag`. The
+  signed dossier carries the string and the model.
+- Acceptance section CV (4 checks).
+
 ## [v0.52.0] - 2026-10-20 - Pore pressure and fracture gradient
 
 ### Added

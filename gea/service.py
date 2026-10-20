@@ -1921,6 +1921,9 @@ def make_handler(app: App):
                 if path == '/api/plan':
                     from . import wellplan as WPL
                     return self._json(200, App._cr(WPL.page, app.ws, (qs.get('well') or [None])[0]))
+                if path == '/api/torque-drag':
+                    from . import torque_drag as TND
+                    return self._json(200, App._cr(TND.page, app.ws, (qs.get('scene') or ['workspace'])[0], (qs.get('well') or [None])[0]))
                 if path == '/api/pore-pressure':
                     from . import pore_pressure as PPF
                     return self._json(200, App._cr(PPF.page, app.ws, (qs.get('scene') or ['workspace'])[0], (qs.get('well') or [None])[0]))
@@ -2341,6 +2344,20 @@ def make_handler(app: App):
                         return self._json(200, App._cr(RS.remove_casing, app.ws, user['name'], str(b_.get('well_id') or ''), str(b_.get('size') or '')))
                     return self._json(200, App._cr(RS.set_casing, app.ws, user['name'], str(b_.get('well_id') or ''), str(b_.get('size') or ''),
                                                    b_.get('shoe_md_ft'), str(b_.get('source') or ''), b_.get('set')))
+                if path in ('/api/torque-drag/settings', '/api/torque-drag/write'):
+                    from . import torque_drag as TND
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    b_ = dict(body or {})
+                    wid = str(b_.get('well_id') or '')
+                    if path.endswith('/settings'):
+                        st_ = b_.get('string')
+                        if isinstance(st_, str):
+                            st_ = App._cr(TND.parse_string, st_) if st_.strip() else None
+                        return self._json(200, App._cr(TND.set_well, app.ws, user['name'], wid, str(b_.get('source') or ''), st_, b_.get('mud_ppg'),
+                                                       b_.get('mu_cased'), b_.get('mu_open'), b_.get('block_klbf')))
+                    r_ = App._cr(TND.write_report, app.ws, _v, wid or None, user['name'], str(b_.get('scene') or 'workspace'))
+                    return self._json(200, {'report_id': r_['report_id']})
                 if path in ('/api/pore-pressure/settings', '/api/pore-pressure/measure', '/api/pore-pressure/unmeasure', '/api/pore-pressure/write'):
                     from . import pore_pressure as PPF
                     from . import __version__ as _v

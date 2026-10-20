@@ -609,6 +609,18 @@ against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
 
+### Torque and drag
+
+The hook load and torque the drill string should take at each bit depth, by
+the soft-string model of Johancsik et al.: pick-up, slack-off and rotating
+off bottom for the declared friction factors and a fan of others (the
+broomstick), the torque rotating off bottom. Against them, the rig's own
+hook loads and torque from the drilling record, read by the rig states -
+tripping out and in, rotating off bottom - and the friction factors that fit
+them, cased and open hole apart. Volve 15/9-F-10 with an example string is
+the worked example. The **Torque & drag** tab, `gea torque-drag`,
+`gea help torque-drag`.
+
 ### Pore pressure
 
 The mud-weight window from a well's logs or its drilling record. The

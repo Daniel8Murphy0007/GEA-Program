@@ -1,28 +1,26 @@
-v0.52.0 — PORE PRESSURE AND FRACTURE GRADIENT
+v0.53.0 — TORQUE AND DRAG
 
-GEA now draws the mud-weight window for a well.
+GEA now models what the drill string should weigh at the hook and take
+to turn, at every bit depth, and sets it against what the rig measured.
 
-From a well's logs - sonic, deep resistivity, gamma ray and density - or
-from its drilling record, through the d-exponent, it computes the
-overburden, fits the shale's normal compaction trend over an interval the
-operator declares normally pressured, and reads the pore pressure from
-the departure from that trend by Eaton's method. The fracture gradient
-comes from Eaton's relation with a declared Poisson's ratio, with the
-Hubbert-Willis minimum beside it. Everything is shown as equivalent mud
-weight against true vertical depth.
+The model is the industry's soft-string model (Johancsik et al.): the
+string laid on the hole along the well's survey, element by element from
+the bit up, with cased-hole and open-hole friction factors divided at
+the deepest casing shoe. It gives the pick-up, slack-off and rotating
+hook loads and the off-bottom torque, for the declared friction factors
+and a fan of others - the broomstick.
 
-Formation tests, kicks and leak-off tests can be entered and sit beside
-the curves; the Eaton exponent that best fits the formation tests is
-given; and where the drilling record carries the mud weight, any stretch
-where it fell below the pore pressure or above the fracture gradient is
-flagged.
+From the drilling record it reads the rig's own hook loads while
+tripping out and in and while rotating off bottom, and the torque, and
+finds the friction factors that fit them, cased and open hole apart. In
+the gate a record made by the model with known friction is read back to
+within 0.02.
 
-The worked example is the Dutch offshore well L07-01, from NLOG's open
-data. A pore pressure read from a trend is only as good as the trend, so
-the page draws the log, the shale points and the fitted trend beside the
-result.
+The drill string is declared per well, section by section from the bit
+up. The worked example is Volve 15/9-F-10's survey with an example
+string.
 
-The Pore pressure tab, `gea pore-pressure`, a report with its PDF and the
-help page are new; the signed dossier carries the declarations and each
-well's window. Section CU is new, four checks. The gate is 451 checks.
-The standalone guard is clean.
+The Torque & drag tab, `gea torque-drag`, a report with its PDF and the
+help page are new; the signed dossier carries the string and the model.
+Section CV is new, four checks. The gate is 455 checks. The standalone
+guard is clean.

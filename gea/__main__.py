@@ -622,6 +622,20 @@ def main(argv=None) -> int:
     p_pl.add_argument("--actor", type=str, default="cli")
     p_pl.add_argument("--json", action="store_true")
 
+    p_td = sub.add_parser("torque-drag", help="the hook load and torque the string should take at each bit depth (soft-string model), the broomstick, and the friction factors that fit the rig's own trips")
+    p_td.add_argument("--workspace", type=str, default=None)
+    p_td.add_argument("--well", type=str, default=None)
+    p_td.add_argument("--example", action="store_true", help="the worked example (Volve 15/9-F-10 with an example string)")
+    p_td.add_argument("--string", type=str, default=None, help="sections from the bit up: 'BHA:300:6.75:95; drill pipe::5:22.6:6.625' (what:length_ft:od_in:lb_ft[:contact_od_in])")
+    p_td.add_argument("--mud", type=str, default=None, help="mud density, ppg")
+    p_td.add_argument("--mu-cased", type=str, default=None)
+    p_td.add_argument("--mu-open", type=str, default=None)
+    p_td.add_argument("--block", type=str, default=None, help="the travelling block's weight, klbf (estimated from the record when not declared)")
+    p_td.add_argument("--source", type=str, default="", help="where the string and its figures came from")
+    p_td.add_argument("--write", action="store_true")
+    p_td.add_argument("--actor", type=str, default="cli")
+    p_td.add_argument("--json", action="store_true")
+
     p_pp = sub.add_parser("pore-pressure", help="the mud-weight window: overburden, pore pressure by Eaton from the sonic, the resistivity or the d-exponent, and the fracture gradient")
     p_pp.add_argument("--workspace", type=str, default=None)
     p_pp.add_argument("--well", type=str, default=None)
@@ -2471,6 +2485,35 @@ def main(argv=None) -> int:
         except (KeyError, ValueError, OSError, WorkspaceError) as e:
             raise SystemExit(f"collision: {e.args[0] if e.args else e}")
         print(_json.dumps({k: v for k, v in r.items()}, default=str) if a.json else _CO.text(r))
+        return 0
+    elif a.cmd == "torque-drag":
+        import json as _json
+        from . import torque_drag as _TND
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        try:
+            ws = Workspace(a.workspace) if a.workspace else None
+            scene = "example" if (a.example or ws is None) else "workspace"
+            if ws is not None and any(v is not None for v in (a.string, a.mud, a.mu_cased, a.mu_open, a.block)):
+                if not a.well:
+                    raise ValueError("--well is needed")
+                c_ = _TND.set_well(ws, a.actor, a.well, a.source, _TND.parse_string(a.string) if a.string else None, a.mud, a.mu_cased, a.mu_open, a.block)
+                print(f"{a.well}: " + "; ".join(f"{x['what']} {('to surface' if x['length_ft'] is None else format(x['length_ft'], ',.0f') + ' ft')}" for x in (c_.get('string') or []))
+                      + f"; mud {c_['mud_ppg']:g} ppg, mu cased {c_['mu_cased']:g}, open {c_['mu_open']:g}")
+                return 0
+            if a.write:
+                if ws is None:
+                    raise ValueError("--write needs --workspace")
+                r_ = _TND.write_report(ws, __version__, a.well, a.actor, scene)
+                print(f"wrote {r_['report_id']}: {r_['paths']['html']}")
+                if r_['paths'].get('pdf'):
+                    print(f"  printable: {r_['paths']['pdf']}")
+                return 0
+            r = _TND.page(ws, scene, a.well)
+        except (KeyError, ValueError, OSError, WorkspaceError) as e:
+            raise SystemExit(f"torque-drag: {e.args[0] if e.args else e}")
+        print(_json.dumps(r, default=str) if a.json else _TND.text(r))
         return 0
     elif a.cmd == "pore-pressure":
         import json as _json

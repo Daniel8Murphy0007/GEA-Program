@@ -2620,3 +2620,25 @@ stability; and motor specifications in the tool catalogue.
 - The tab was driven in headless Chromium: light, dark and phone width, no
   console errors.
 - Section CU (4 checks). Gate 451.
+
+## 2026-10-20 - Torque and drag (v0.53.0)
+
+- Asked (the fourth of the list): torque and drag for the drill string.
+- The model is Johancsik, Friesen and Dawson's soft-string model
+  (SPE-11380-PA). The sign of the inclination term was taken from the
+  geometry: in a build a string in tension is pulled off the low side,
+  against its weight; in a drop, onto it.
+- The gate checks the model against closed forms: a vertical string, a
+  straight inclined string pulled, run and rotated, and the capstan over a
+  bend in either plane (the discrete model converging to e^(mu theta)). It
+  then makes a drilling record with the model itself - a trip out and in,
+  rotation off bottom every 900 ft, friction 0.18 cased and 0.24 open, a
+  40 klbf block, noise - and reads it back through the rig states: each
+  fit lands within 0.02 of the friction it was made with.
+- The worked example uses Volve 15/9-F-10's released survey with a string,
+  mud and friction factors declared for the example, not Volve's own.
+- Buckling and the string's stiffness are out of this model, and the page
+  says so.
+- The tab was driven in headless Chromium: light, dark and phone width, no
+  console errors.
+- Section CV (4 checks). Gate 455.
