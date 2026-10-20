@@ -5,6 +5,41 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.49.0] - 2026-10-20 - Well collision checks
+
+### Added
+- **Well collision checks** (`gea/collision.py`): every well with a
+  surface position, a reference elevation and a survey scanned against
+  every other, every 10 m of each, for the closest point of the other; the
+  ISCWSA separation factor SF = (D - R_r - R_o - S_m) / (k x
+  sqrt(sigma_S^2 + sigma_pa^2)) with the uncertainty of the distance taken
+  along the line between the two points and the errors both wells share
+  (declination, the global magnetic and depth terms) taken out; each pair's
+  profile, its minimum and its stretches below 4.0, levelled REPORTED,
+  APPROACH LIMIT, REVISE THE PLAN or BELOW 1.0 by the ISCWSA's levels.
+  The rule (k 3.5, surface margin 0.3 m, project-ahead 0.5 m) may be a
+  company standard's, kept with its source; each well's hole size likewise.
+- **Position uncertainty** (`gea/wellpos.py`): the ISCWSA MWD Rev 4 error
+  model - 27 error sources with their published magnitudes and weighting
+  functions, propagated station to station as random, systematic or
+  global - and each well's ellipse; checked against the ISCWSA's own
+  example (`gea/reference/iscwsa_rev4_example.json`, its source and licence
+  carried), all 112 rows.
+- **The Earth's field** (`gea/geomag.py`): WMM2025 to degree 12 - the
+  declination, dip and total field at a place, height and date, outside the
+  model's years answered and called extrapolated; the coefficients shipped
+  as NOAA published them (`gea/reference/WMM2025.COF`).
+- **The Volve template** as the worked example: its three wells, the
+  field at the template, the grid convergence applied.
+- The **Collision** tab (the profile of each pair against the levels,
+  every pair, each well's field and ellipse, the rule and hole sizes for the
+  operator role); `GET /api/collision`, `POST /api/collision/settings` and
+  `/api/collision/write` (operator); `gea collision` (`--scene volve`,
+  `--write`, `--k --surface-margin --sigma-pa --source`, `--well --hole`,
+  `--field LAT,LON[,DATE]`); the report `reports/collision.*` with its PDF;
+  `gea help collision`.
+- Acceptance section CR (4 checks).
+
 ## [v0.48.0] - 2026-10-20 - One record, tied together
 
 ### Added

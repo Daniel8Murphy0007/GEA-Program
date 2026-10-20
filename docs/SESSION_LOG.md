@@ -2512,3 +2512,32 @@ stability; and motor specifications in the tool catalogue.
   and every well page, no console error.
 - Section CQ (4 checks). Gate 434.
 
+
+## 2026-10-20 - Well collision checks (v0.49.0)
+
+- Asked: every well scanned against every other; the ISCWSA separation
+  factor; each well's position uncertainty by the ISCWSA MWD model; the
+  field by WMM2025; the Volve template as the worked example.
+- Sources: the ISCWSA error model (Williamson, SPE-67616-PA) in its Rev 4
+  form, its weighting functions as the ISCWSA's example workbook gives
+  them; the separation rule (Sawaryn et al., SPE Drilling & Completion
+  34(1), 2019) and the ISCWSA eBook's levels; WMM2025's coefficients and
+  technical report (NOAA NCEI / BGS, public domain).
+- The error model is checked in the gate against all 112 rows of the
+  ISCWSA's own Rev 4 example as carried in welleng's test data (Apache-2.0,
+  the source and licence kept with the file); the worst row agrees to a few
+  parts in a million. The vertical-hole forms of the three terms that are
+  singular there (ABXY-TI2S, XYM3, XYM4) follow the example.
+- WMM2025 was checked in the cloud against an independent implementation
+  (pygeomag, not in the gate) to 1e-9 degrees, and in the gate against a
+  published example.
+- In the separation factor the distance's uncertainty is taken along the
+  line between the two closest points, from both wells' covariances less
+  the cross-covariance of the global terms - a declination error moves two
+  wells on one pad together, and does not bring them closer.
+- The Volve template: 15/9-F-5 and 15/9-F-10 come within 1.2 m near the
+  surface, where their slots sit together - below 1.0, as a template's
+  shallow section is, which is what a rule's dispensation is for.
+- The site's workspace has no surveys or surface positions declared yet,
+  so its scene says a check needs two wells and shows the worked example.
+- Section CR (4 checks). Gate 438.

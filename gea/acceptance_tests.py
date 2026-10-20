@@ -11113,6 +11113,189 @@ def section_cq_tied_together(tmp: str) -> None:
        + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
 
 
+def section_cr_collision(tmp: str) -> None:
+    """Section CR - well collision checks: each well's position uncertainty by the ISCWSA MWD Rev 4 error model,
+    checked against all 112 rows of the ISCWSA's own example; the Earth's field from WMM2025, checked against a
+    published example; the ISCWSA separation factor, its arithmetic recomputed by hand with the errors two wells share
+    taken out; the Volve template as the worked example; a workspace's wells checked, the rule and the hole sizes kept
+    by an operator only; the API, the CLI, the report, the tab and the help."""
+    import hashlib as _hl
+    import http.cookiejar
+    import math as _m
+    import subprocess as _sp
+    import time as _t
+    import urllib.request
+    import urllib.error
+    import numpy as _np
+    from . import collision as CO
+    from . import edr as E
+    from . import geomag as GM
+    from . import helplib as H
+    from . import pdf_report as PR
+    from . import well3d as W
+    from . import wellpos as WP
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "collision"); d.mkdir()
+
+    # -- CR1 the error model and the field against their published examples --------------------------------------------
+    ex = WP.check_example()
+    tot8 = ex["totals"]["8000"]
+    f1 = GM.field(42.283, -71.35, 1000.0, "2028-07-04")
+    f2 = GM.field(31.42, -104.10, 0.0, 2031.5)
+    c1 = {
+        "example": ex["rows"] == 112 and ex["sources"] == 27 and ex["depths_m"] == [1200, 2100, 5100, 8000] and not ex["disagree"] and ex["worst_relative"] < 1e-3,
+        "totals": abs(tot8[0] - 8547.78) < 0.05 and abs(tot8[1] - 712.69) < 0.05 and abs(tot8[2] - 468.13) < 0.05 and abs(tot8[3] + 2252.31) < 0.05,
+        "attribution": "ISCWSA" in ex["source"] and "welleng" in ex["source"] and "Apache" in ex["license"],
+        "wmm": abs(f1["declination_deg"] + 13.6891) < 5e-4 and abs(f1["dip_deg"] - 65.9899) < 5e-4 and abs(f1["total_nT"] - 50940) < 1.0
+               and abs(f1["north_nT"] - 20139) < 1.0 and abs(f1["east_nT"] + 4905) < 1.0 and abs(f1["down_nT"] - 46532) < 1.0 and f1["in_range"],
+        "wmm_range": not f2["in_range"] and "extrapolated" in f2["note"] and abs(GM.decimal_year("2026-07-02") - (2026 + 182 / 365)) < 1e-9,
+        "coefficients": _hl.md5((pkg / "reference" / "WMM2025.COF").read_bytes()).hexdigest() == "a1b6402dd23658d15affb0f31babccc7",
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CR1 each well's uncertainty by the ISCWSA MWD Rev 4 error model: all 112 rows of the ISCWSA's own example (27 error sources "
+       "and the total, at 1,200, 2,100, 5,100 and 8,000 m MD) recomputed and agreeing to the printed digits, its source and licence "
+       "carried; the field by WMM2025 agreeing with a published example (declination -13.6891, dip 65.9899 deg, 50,940 nT), a date "
+       "past the model's years answered and called extrapolated, the coefficients as NOAA published them"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- CR2 the separation factor's arithmetic ----------------------------------------------------------------------------
+    fld = {"declination_deg": 6.0, "dip_deg": 60.0, "total_nT": 48000.0}
+    md = [0.0, 500.0, 1000.0, 2000.0]
+    mk = lambda i, x, inc=(0, 0, 0, 0), az=(0, 0, 0, 0), y=0.0: {"id": i, "display": i, "md": md, "inc": list(inc), "az": list(az), "x0": x, "y0": y,
+                                                          "ref_elev_m": 0.0, "field": fld, "hole_in": 8.5}
+    rule = {**CO.DEFAULTS}
+    A, B = CO.prepare(mk("A", 0.0)), CO.prepare(mk("B", 10.0))
+    sAB, sBA = CO.scan(A, B, rule), CO.scan(B, A, rule)
+    u = WP.well_uncertainty(_np.array(md), _np.zeros(4), _np.zeros(4), _np.array(md), 6.0, 60.0, 48000.0)
+    Cee = float(u["cov"][-1][1, 1]); Gee = sum(float(g[-1][1]) ** 2 for g in u["global"].values())
+    sig_hand = _m.sqrt(2.0 * (Cee - Gee))
+    sf_hand = (10.0 - 2 * 8.5 * 0.0254 / 2 - 0.3) / (3.5 * _m.sqrt(sig_hand ** 2 + 0.25))
+    i_td = len(sAB["profile"]["md_m"]) - 1
+    E1, E2 = CO.prepare(mk("E1", 0.0, (0, 0, 30, 30), (90, 90, 90, 90))), CO.prepare(mk("E2", 0.0, (0, 0, 30, 30), (90, 90, 90, 90), 10.0))
+    s_sh = CO.scan(E1, E2, rule)                                  # parallel, inclined east, 10 m apart north-south: the declination moves both
+    s_ng = CO.scan({**E1, "glob": {k: v * 0 for k, v in E1["glob"].items()}}, {**E2, "glob": {k: v * 0 for k, v in E2["glob"].items()}}, rule)
+    j_td = len(s_sh["profile"]["md_m"]) - 1
+    ue = WP.well_uncertainty(_np.array(md), _np.array([0.0, 0.0, 30.0, 30.0]), _np.full(4, 90.0), _np.array(W.Path(md, [0, 0, 30, 30], [90] * 4, 0.0, 0.0, 0.0, 0.0).tvd), 6.0, 60.0, 48000.0)
+    Cnn = float(ue["cov"][-1][0, 0]); Gnn = sum(float(g[-1][0]) ** 2 for g in ue["global"].values())
+    C_, D_ = CO.prepare(mk("C", 0.0, (0, 0, 30, 30), (0, 0, 90, 90))), CO.prepare(mk("D", 30.0, (0, 0, 30, 30), (0, 0, 270, 270)))
+    sCD = CO.scan(C_, D_, rule)
+    c2 = {
+        "hand": abs(sAB["profile"]["sigma_m"][i_td] - sig_hand) < 2e-3 and abs(sAB["profile"]["sf"][i_td] - sf_hand) < 2e-3 and abs(sAB["profile"]["distance_m"][i_td] - 10.0) < 1e-6,
+        "shared_out": set(u["global"]) == {"DECG", "DBHG", "DSTG"} and Gnn > 0.01 and abs(s_sh["profile"]["sigma_m"][j_td] - _m.sqrt(2.0 * (Cnn - Gnn))) < 2e-3
+                      and abs(s_ng["profile"]["sigma_m"][j_td] - _m.sqrt(2.0 * Cnn)) < 2e-3 and abs(s_sh["profile"]["distance_m"][j_td] - 10.0) < 1e-3,
+        "symmetric": abs(sAB["min_sf"] - sBA["min_sf"]) < 1e-6 and sAB["at_md_m"] == 2000.0,
+        "crossing": sCD["min_sf"] < 1.0 and sCD["level"] == "BELOW 1.0" and sCD["closest_m"] < 1.0 and sCD["sections"] and sCD["sections"][0]["from_md_m"] < sCD["at_md_m"],
+        "levels": [CO.level(x)[0] for x in (0.99, 1.0, 1.2, 1.25, 1.4, 1.5, 3.99, 4.0)]
+                  == ["BELOW 1.0", "REVISE THE PLAN", "REVISE THE PLAN", "APPROACH LIMIT", "APPROACH LIMIT", "REPORTED", "REPORTED", "CLEAR"],
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CR2 the separation factor's arithmetic: two vertical wells 10 m apart recomputed by hand at TD - sigma along the line between "
+       "them from each well's covariance less the errors both share (declination, the global magnetic and depth terms), the holes' "
+       "radii, the surface margin, project-ahead and k; leaving the shared errors in widens sigma; the same from either well; two wells "
+       "steered at each other found below 1.0 where they cross; the four levels at their edges"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- CR3 the worked example: the Volve template ------------------------------------------------------------------------
+    t0 = _t.time()
+    v = CO.page(None, "volve")
+    dt = _t.time() - t0
+    w_ = v["worst"]; wl = {x["display"]: x for x in v["wells"]}
+    c3 = {
+        "wells": len(v["wells"]) == 3 and len(v["pairs"]) == 6 and abs(wl["15/9-F-10"]["td_md_m"] - 5300.1) < 0.1
+                 and all(abs(x["field"]["declination_deg"] - 1.12) < 0.05 for x in v["wells"]) and all("grid convergence" in x["azimuth_note"] for x in v["wells"]),
+        "worst": w_["level"] == "BELOW 1.0" and abs(w_["min_sf"] - 0.29) < 0.01 and {w_["reference_name"], w_["offset_name"]} == {"15/9-F-5", "15/9-F-10"}
+                 and abs(w_["at_md_m"] - 250) < 15 and abs(w_["distance_m"] - 1.20) < 0.05,
+        "order": [p["min_sf"] for p in v["pairs"]] == sorted(p["min_sf"] for p in v["pairs"]) and all(len(p["profile"]["md_m"]) == len(p["profile"]["sf"]) for p in v["pairs"]),
+        "ellipses": wl["15/9-F-10"]["td_ellipse_1sigma"]["major_m"] > wl["15/9-F-5"]["td_ellipse_1sigma"]["major_m"] > wl["NO 15/9-F-4"]["td_ellipse_1sigma"]["major_m"] > 1.0,
+        "fast": dt < 20.0,
+    }
+    failed3 = [k for k, v_ in c3.items() if not v_]
+    ok(not failed3,
+       "CR3 the worked example, the Volve template's three wells (Equinor's released data): every pair scanned both ways, the field from "
+       "WMM2025 at the template and the grid convergence applied; the closest, 15/9-F-5 and 15/9-F-10 near the surface where the slots "
+       "sit 1.2 m apart, below 1.0; the longest well the widest ellipse at TD"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+    # -- CR4 a workspace's wells, the API, the CLI, the report, the tab and the help ----------------------------------------
+    ev = E.selftest_events(str(d))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    ids = []
+    for i, n in enumerate(("Well A", "Well B", "Well C")):
+        w = ws.add_well_file(ev["path"], display=n, actor="tester"); ids.append(w["id"])
+        ws.set_well(w["id"], surface={"lat": 31.42, "lon": -104.10 + 0.0001 * i, "datum": "NAD83", "elevation": {"ft": 3000.0, "datum": "KB", "source": "test plat"}}, actor="tester")
+    W.attach_trajectory(ws, ids[0], "a.csv", b"MD (ft),Inc (deg),Azi (deg)\n0,0,0\n1000,0,0\n2000,10,90\n3000,30,90\n4000,45,95\n5750,60,100\n", "tester", "true", "ft", None, None, None, "test survey")
+    W.attach_trajectory(ws, ids[1], "b.csv", b"MD (ft),Inc (deg),Azi (deg)\n0,0,0\n1200,0,0\n2200,12,270\n3500,35,265\n5500,55,260\n", "tester", "true", "ft", None, None, None, "test survey")
+    p0 = CO.page(ws)
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_vg, vg = call(V, "GET", "/api/collision")
+        s_vv, vv = call(V, "GET", "/api/collision?scene=volve")
+        s_bad, _ = call(V, "GET", "/api/collision?scene=nowhere")
+        s_vs, _ = call(V, "POST", "/api/collision/settings", {"k": 3.0, "source": "x"})
+        s_ns, _ = call(O, "POST", "/api/collision/settings", {"k": 3.0})
+        s_lk, _ = call(O, "POST", "/api/collision/settings", {"k": 0.1, "source": "standard"})
+        s_ok, okj = call(O, "POST", "/api/collision/settings", {"k": 3.0, "surface_margin_m": 0.5, "source": "company anti-collision standard, rev 3"})
+        s_hb, _ = call(O, "POST", "/api/collision/settings", {"well_id": ids[0], "hole_in": 99})
+        s_ho, hoj = call(O, "POST", "/api/collision/settings", {"well_id": ids[0], "hole_in": 12.25})
+        s_ag, ag = call(V, "GET", "/api/collision")
+        s_vw, _ = call(V, "POST", "/api/collision/write", {})
+        s_ow, owj = call(O, "POST", "/api/collision/write", {})
+    finally:
+        svc.stop()
+    cli_v = _sp.run([sys.executable, "-m", "gea", "collision", "--scene", "volve"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_f = _sp.run([sys.executable, "-m", "gea", "collision", "--field", "42.283,-71.35,2028-07-04"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_w = _sp.run([sys.executable, "-m", "gea", "collision", "--workspace", wsp, "--write"], capture_output=True, text=True, cwd=str(pkg.parent))
+    pdf = Path(wsp, "reports", "collision.pdf")
+    rd = PR.read(pdf.read_bytes()) if pdf.exists() else {"ok": False, "text": []}
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    wa = next((p for p in ag.get("pairs", []) if p["reference"] == ids[0]), {}) if s_ag == 200 else {}
+    c4 = {
+        "workspace": len(p0["wells"]) == 2 and len(p0["pairs"]) == 2 and [x["id"] for x in p0["left_out"]] == [ids[2]] and "survey" in p0["left_out"][0]["why"]
+                     and all("WMM2025 at the well" in x["field_note"] for x in p0["wells"]) and p0["worst"]["level"] == "BELOW 1.0",
+        "api": s_vg == 200 and vg["scene"] == "workspace" and len(vg["pairs"]) == 2 and s_vv == 200 and len(vv["pairs"]) == 6 and s_bad in (400, 404)
+               and s_vs == 403 and s_ns == 400 and s_lk == 400 and s_ok == 200 and okj["k"] == 3.0 and s_hb == 400 and s_ho == 200 and hoj["holes_in"][ids[0]] == 12.25
+               and s_ag == 200 and ag["rule"]["k"] == 3.0 and ag["rule_source"].startswith("company") and wa.get("min_sf", 0) < p0["pairs"][0]["min_sf"] + 1
+               and next(x for x in ag["wells"] if x["id"] == ids[0])["hole_in"] == 12.25 and s_vw == 403 and s_ow == 200 and owj["report_id"].startswith("COL-"),
+        "cli": cli_v.returncode == 0 and "15/9-F-5" in cli_v.stdout and "BELOW 1.0" in cli_v.stdout and cli_f.returncode == 0 and "declination -13.69" in cli_f.stdout
+               and cli_w.returncode == 0 and "collision" in cli_w.stdout,
+        "report": rd["ok"] and any("separation factor" in t_ for t_ in rd["text"]) and any("Well A" in t_ for t_ in rd["text"])
+                  and "collision.settings" in audit and "report.collision" in audit,
+        "page": all(x in page_src for x in ("VIEWS.collision", "['#/collision', 'Collision']", "/api/collision/settings", "/api/collision/write", "coChart")),
+        "help": not H.check("collision") and H.VIEW_TOPIC.get("collision") == "collision" and "WMM2025" in (pkg / "help" / "collision.md").read_text(encoding="utf-8"),
+    }
+    failed4 = [k for k, v_ in c4.items() if not v_]
+    ok(not failed4,
+       "CR4 a workspace's wells: those with a position, an elevation and a survey checked, the one without listed with why, the field "
+       "at each well; on the API anyone reads it and only an operator keeps a rule (with its source; a k below 0.5 refused) or a hole size "
+       "(inches, 2 to 40) or writes the report; the CLI (the worked example, the field at a place and date, the report); the report as "
+       "PDF; the tab and the help"
+       + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -11211,6 +11394,7 @@ def main() -> int:
         section_co_invoice_check(tmp)
         section_cp_rig_time(tmp)
         section_cq_tied_together(tmp)
+        section_cr_collision(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

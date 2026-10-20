@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.49.0 - 2026-10-20 - well collision checks
+
+- **How close two wells come, against how sure their positions are.**
+  Every well against every other by the ISCWSA separation factor, each
+  well's uncertainty by the ISCWSA MWD Rev 4 error model (checked against
+  the ISCWSA's own example, all 112 rows) and the field by WMM2025; the
+  Volve template as the worked example. Section CR; gate 438.
+
 ## v0.48.0 - 2026-10-20 - one record, tied together
 
 - **The parts read each other.** Invoice differences as alerts and in the

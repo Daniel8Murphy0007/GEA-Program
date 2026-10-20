@@ -1915,6 +1915,9 @@ def make_handler(app: App):
                 if path == '/api/economics':
                     from . import economics as EC
                     return self._json(200, EC.economics(app.ws))
+                if path == '/api/collision':
+                    from . import collision as CO
+                    return self._json(200, App._cr(CO.page, app.ws, (qs.get('scene') or ['workspace'])[0]))
                 if path == '/api/rig-time':
                     from . import rig_state as RS
                     return self._json(200, App._cr(RS.page, app.ws))
@@ -2307,6 +2310,17 @@ def make_handler(app: App):
                         app.ws.audit(user['name'], 'seismicity.watch.poll', {k: r_.get(k) for k in ('ok', 'how', 'in_circle', 'new', 'error', 'why')})
                         return self._json(200, {'result': {k: v for k, v in r_.items() if k != 'alerts'}, 'alerts': r_.get('alerts', []), 'status': SW.status(app.ws)})
                     raise ApiError(404, 'no such operations and seismicity action')
+                if path in ('/api/collision/settings', '/api/collision/write'):
+                    from . import collision as CO
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    b_ = dict(body or {})
+                    if path.endswith('/settings'):
+                        hole = (str(b_['well_id']), b_.get('hole_in')) if b_.get('well_id') else None
+                        return self._json(200, App._cr(CO.set_settings, app.ws, user['name'], b_.get('k'), b_.get('surface_margin_m'), b_.get('sigma_pa_m'),
+                                                       hole, str(b_.get('source') or '')))
+                    r_ = App._cr(CO.write_report, app.ws, _v, user['name'], str(b_.get('scene') or 'workspace'))
+                    return self._json(200, {'report_id': r_['report_id']})
                 if path in ('/api/rig-time/casing', '/api/rig-time/casing/remove'):
                     from . import rig_state as RS
                     App.require(user, 'operator')

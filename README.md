@@ -609,6 +609,22 @@ against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
 
+### Well collision checks
+
+Every well scanned against every other: at each point of one well, the
+closest point of the other, and the ISCWSA separation factor - the distance
+between them less the holes and a surface margin, over k times the
+uncertainty of that distance. Each well's position uncertainty comes from
+the ISCWSA MWD Rev 4 error model (27 error sources, propagated as the model
+says, the errors two wells share taken out of the distance between them),
+checked against all 112 rows of the ISCWSA's own example; the Earth's field
+at each well comes from the World Magnetic Model 2025. Each pair is levelled
+as the ISCWSA's separation rule does - reported below 4.0, the approach
+limit below 1.5, revise the plan below 1.25, below 1.0 only by the
+operator's dispensation - with a company standard's k and margin kept with
+its source. The Volve template's three wells are the worked example. The
+**Collision** tab, `gea collision`, `gea help collision`.
+
 ### One record, tied together
 
 The invoice check, rig time, the daily summary, the alerts, the signed

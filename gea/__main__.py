@@ -590,6 +590,20 @@ def main(argv=None) -> int:
     p_dz.add_argument("--actor", type=str, default="cli")
     p_dz.add_argument("--json", action="store_true")
 
+    p_co = sub.add_parser("collision", help="every well scanned against every other: the closest approach and the ISCWSA separation factor, each well's position uncertainty by the ISCWSA MWD model and the field by WMM2025")
+    p_co.add_argument("--workspace", type=str, default=None)
+    p_co.add_argument("--scene", type=str, default=None, help="workspace (your wells) or volve (the worked example)")
+    p_co.add_argument("--write", action="store_true", help="write the client report")
+    p_co.add_argument("--k", type=str, default=None, help="declare the rule's scaling factor")
+    p_co.add_argument("--surface-margin", type=str, default=None, help="declare the surface margin, m")
+    p_co.add_argument("--sigma-pa", type=str, default=None, help="declare the project-ahead uncertainty, m")
+    p_co.add_argument("--source", type=str, default="", help="where the rule's values came from")
+    p_co.add_argument("--well", type=str, default=None)
+    p_co.add_argument("--hole", type=str, default=None, help="with --well: the hole size in inches ('' removes it)")
+    p_co.add_argument("--field", type=str, default=None, help="the magnetic field at LAT,LON[,YYYY-MM-DD] by WMM2025, and nothing else")
+    p_co.add_argument("--actor", type=str, default="cli")
+    p_co.add_argument("--json", action="store_true")
+
     p_rt = sub.add_parser("rig-time", help="what the rig did each second of the drilling record - drilling, connections, trips, the slips - and the time lost against the pad's own best")
     p_rt.add_argument("--workspace", type=str, required=True)
     p_rt.add_argument("--well", type=str, default=None, help="with --write: one well's report (without it, the pad's)")
@@ -2371,6 +2385,42 @@ def main(argv=None) -> int:
         print(f"signed {e['dossier_id']}: {e['display']}, {e['n_files']} file(s), {e['n_sources']} source record(s) {'embedded' if e['sources_embedded'] else 'by hash'}")
         print(f"  {os.path.join(ws.reports_dir, e['path'])}")
         print(f"  key fingerprint {e['fingerprint']}")
+        return 0
+    elif a.cmd == "collision":
+        import json as _json
+        from . import collision as _CO
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        try:
+            if a.field:
+                from . import geomag as _GM
+                parts = [x.strip() for x in a.field.split(",")]
+                f_ = _GM.field(float(parts[0]), float(parts[1]), 0.0, parts[2] if len(parts) > 2 else None)
+                print(f"{f_['model']} at {float(parts[0]):.4f}, {float(parts[1]):.4f} for {f_['decimal_year']:.2f}: declination {f_['declination_deg']:+.3f} deg, "
+                      f"dip {f_['dip_deg']:.3f} deg, total {f_['total_nT']:,.1f} nT" + (f" ({f_['note']})" if f_['note'] else ""))
+                return 0
+            ws = Workspace(a.workspace) if a.workspace else None
+            if ws is not None and (a.k is not None or a.surface_margin is not None or a.sigma_pa is not None or a.hole is not None):
+                if a.hole is not None and not a.well:
+                    raise ValueError("--hole needs --well")
+                s_ = _CO.set_settings(ws, a.actor, a.k, a.surface_margin, a.sigma_pa, (a.well, a.hole) if a.hole is not None else None, a.source)
+                print(f"rule: k {s_['k']:g}, surface margin {s_['surface_margin_m']:g} m, project-ahead {s_['sigma_pa_m']:g} m; holes: "
+                      + (", ".join(f"{k} {v:g} in" for k, v in s_['holes_in'].items()) or "8.5 in by default"))
+                return 0
+            scene = a.scene or ("workspace" if ws is not None else "volve")
+            if a.write:
+                if ws is None:
+                    raise ValueError("--write needs --workspace")
+                r_ = _CO.write_report(ws, __version__, a.actor, scene)
+                print(f"wrote {r_['report_id']}: {r_['paths']['html']}")
+                if r_['paths'].get('pdf'):
+                    print(f"  printable: {r_['paths']['pdf']}")
+                return 0
+            r = _CO.page(ws, scene)
+        except (KeyError, ValueError, OSError, WorkspaceError) as e:
+            raise SystemExit(f"collision: {e.args[0] if e.args else e}")
+        print(_json.dumps({k: v for k, v in r.items()}, default=str) if a.json else _CO.text(r))
         return 0
     elif a.cmd == "rig-time":
         import json as _json

@@ -1,28 +1,28 @@
-v0.48.0 — ONE RECORD, TIED TOGETHER
+v0.49.0 — WELL COLLISION CHECKS
 
-The last four releases each stood on their own. Now they read each other.
+Every well on the pad is now scanned against every other, every ten
+metres of each: how close they come, against how sure anyone can be of
+where either one is.
 
-An invoice that differs from the daily reports and the drilling record is
-an alert, sent through the notification rules, and cleared when a
-corrected invoice agrees. The morning summary carries each well's invoice
-check and yesterday's rig time - drilling hours, connections, the time
-lost and what it cost at the contract's rate. A signed dossier carries
-the contract, the invoices and daily reports as they were attached, the
-rig-time targets and the casing, and both checks as they read the day it
-was signed.
+Each well's position uncertainty comes from the industry's standard MWD
+error model, ISCWSA Rev 4 - 27 error sources, propagated the way the
+model says - and it reproduces all 112 rows of the ISCWSA's own worked
+example. The Earth's magnetic field at each well, which weighs the
+magnetometer errors and turns magnetic north into true north, comes from
+the World Magnetic Model 2025.
 
-The declarations sheet now declares the contract, the rig-time targets,
-block weights, casing shoes, and the earthquake watch and summary
-settings - and the sheet, an invoice or a daily report may be an Excel
-workbook, read without Excel.
+The two are combined by the ISCWSA separation factor: the distance
+between the wells, less the holes and a surface margin, over three and a
+half times the uncertainty of that distance - with the errors both wells
+share taken out, because a declination error moves every well on the pad
+together. Each pair is levelled as the ISCWSA's rule does: reported
+below 4.0, the approach limit below 1.5, revise the plan below 1.25,
+below 1.0 only by the operator's dispensation. A company standard's k
+and margins can be kept in its place, with where they came from.
 
-With casing shoes declared, rig time is split by hole section: each
-connection is held to its own section's best, each trip to cased or open
-hole's.
+The Volve template is the worked example: three of Equinor's released
+wells, closest near the surface where the slots sit together.
 
-Every route the dashboard calls was exercised against a read-only copy of
-the site's workspace on its own machine, and every tab was driven in a
-browser: nothing failed.
-
-Section CQ is new, four checks. The gate is 434 checks. The standalone
-guard is clean.
+The Collision tab, `gea collision`, a report with its PDF, and the help
+page are new. Section CR is new, four checks. The gate is 438 checks.
+The standalone guard is clean.
