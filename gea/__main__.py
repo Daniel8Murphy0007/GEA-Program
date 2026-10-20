@@ -622,6 +622,22 @@ def main(argv=None) -> int:
     p_pl.add_argument("--actor", type=str, default="cli")
     p_pl.add_argument("--json", action="store_true")
 
+    p_fh = sub.add_parser("frac-hits", help="what each fracturing stage did to the pressure in the wells around it: none, poroelastic, mixed or a frac hit, the first response and the volume pumped by then")
+    p_fh.add_argument("--workspace", type=str, required=True)
+    p_fh.add_argument("--well", type=str, default=None, help="the treatment well (with --stages or --remove) or the monitored well (with --channel)")
+    p_fh.add_argument("--stages", type=str, default=None, help="attach FILE as the well's stage table (CSV or Excel)")
+    p_fh.add_argument("--depth-unit", type=str, default="ft")
+    p_fh.add_argument("--utc-offset", type=str, default=None, help="the stage clock's hours from UTC (for the earthquake count)")
+    p_fh.add_argument("--remove", action="store_true", help="take the well's stage table off it")
+    p_fh.add_argument("--channel", type=str, default=None, help="with --well: the monitored pressure channel ('' for the first in psi)")
+    p_fh.add_argument("--hit-psi", type=str, default=None, help="a frac hit from this many psi")
+    p_fh.add_argument("--min-psi", type=str, default=None, help="the smallest response, psi")
+    p_fh.add_argument("--k-sigma", type=str, default=None, help="the response threshold in multiples of the trend's noise")
+    p_fh.add_argument("--source", type=str, default="", help="where the stage table or the rule came from")
+    p_fh.add_argument("--write", action="store_true", help="write the report")
+    p_fh.add_argument("--actor", type=str, default="cli")
+    p_fh.add_argument("--json", action="store_true")
+
     p_rt = sub.add_parser("rig-time", help="what the rig did each second of the drilling record - drilling, connections, trips, the slips - and the time lost against the pad's own best")
     p_rt.add_argument("--workspace", type=str, required=True)
     p_rt.add_argument("--well", type=str, default=None, help="with --write: one well's report (without it, the pad's)")
@@ -2439,6 +2455,43 @@ def main(argv=None) -> int:
         except (KeyError, ValueError, OSError, WorkspaceError) as e:
             raise SystemExit(f"collision: {e.args[0] if e.args else e}")
         print(_json.dumps({k: v for k, v in r.items()}, default=str) if a.json else _CO.text(r))
+        return 0
+    elif a.cmd == "frac-hits":
+        import json as _json
+        from . import frac_hits as _FH
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        try:
+            ws = Workspace(a.workspace)
+            if a.stages or a.remove or a.channel is not None:
+                if not a.well:
+                    raise ValueError("--well is needed")
+            if a.stages:
+                with open(a.stages, "rb") as f_:
+                    r_ = _FH.attach_stages(ws, a.well, os.path.basename(a.stages), f_.read(), a.actor, a.source, a.depth_unit, a.utc_offset)
+                print(f"stage table attached to {a.well}: {r_['stages']} stages, {r_['first'][:16]} to {r_['last'][:16]}")
+                return 0
+            if a.remove:
+                _FH.remove_stages(ws, a.well, a.actor)
+                print(f"stage table removed from {a.well}")
+                return 0
+            if a.channel is not None or a.hit_psi is not None or a.min_psi is not None or a.k_sigma is not None:
+                s_ = _FH.set_settings(ws, a.actor, a.source, (a.well, a.channel) if a.channel is not None else None,
+                                      hit_psi=a.hit_psi, min_psi=a.min_psi, k_sigma=a.k_sigma)
+                print(f"rule: frac hit from {s_['hit_psi']:g} psi, threshold {s_['k_sigma']:g} x noise and at least {s_['min_psi']:g} psi; monitors: "
+                      + (", ".join(f"{k} {v['channel']}" for k, v in s_['monitors'].items()) or "the first pressure channel of each well"))
+                return 0
+            if a.write:
+                r_ = _FH.write_report(ws, __version__, a.actor)
+                print(f"wrote {r_['report_id']}: {r_['paths']['html']}")
+                if r_['paths'].get('pdf'):
+                    print(f"  printable: {r_['paths']['pdf']}")
+                return 0
+            r = _FH.page(ws)
+        except (KeyError, ValueError, OSError, WorkspaceError) as e:
+            raise SystemExit(f"frac-hits: {e.args[0] if e.args else e}")
+        print(_json.dumps(r, default=str) if a.json else _FH.text(r))
         return 0
     elif a.cmd == "plan":
         import json as _json

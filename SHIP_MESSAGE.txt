@@ -1,30 +1,26 @@
-v0.50.0 — PLAN VS ACTUAL AND THE SURVEY TOOLS
+v0.51.0 — FRAC HITS
 
-Each well can now carry its directional plan, and GEA reads the well
-against it the way a directional driller does: at every survey station,
-how far it is from the plan - high or low, right or left - and whether
-that is more than the survey's own error can explain. Below the last
-survey it projects the bit, and from there it gives the one arc back to
-the plan: the dogleg severity and the toolface to set.
+GEA now reads what each fracturing stage did to the pressure in the
+wells around it.
 
-The survey tools are now named per well and per run. The default is the
-ISCWSA MWD Rev 5.11 standard, which reproduces all 144 rows of the
-ISCWSA's own Rev 5 worked example. Beside it are 21 OWSG tool-code
-models on the same functions - MWD and electronic multishot with the
-standard, high- or low-resolution geomagnetic model or in-field
-referencing, with sag and multi-station corrections. A survey program
-weighs each depth by the tool that surveyed it.
+Attach a treatment well's stage table - stage, pumping start and end,
+the perforations, the fluid and the proppant, from the frac company's
+post-job report as CSV or Excel - and every well with a pressure gauge
+in its record is read against every stage: the pressure's departure
+from its own trend while the stage pumps and after it stops, the first
+response and the fluid pumped by then, and what kind of response it was.
 
-The collision check now includes wells not yet drilled, along their
-plans, and a well being drilled along its survey and then its plan to
-TD. The Collision tab draws the travelling cylinder: looking down one
-well, every neighbour within a chosen radius, at its distance and
-direction.
+Poroelastic - the rock squeezed, falling as soon as the stage stops.
+Mixed - a hydraulic connection, holding or rising after the stop. A frac
+hit - the stage's fluid reaching the well, hundreds of psi or more, not
+falling. The thresholds follow the published field classification and
+are the operator's to declare.
 
-Gyro and axial-interference-corrected tool models are not in this
-release.
+With surveys, each stage's distance to the monitored well is given; with
+an earthquake catalogue, the earthquakes during each stage are counted
+beside it. A frac hit is an alert, sent through the notification rules.
 
-The Plan vs actual tab, `gea plan`, a report with its PDF and the help
-page are new; a signed dossier now carries the plans, the survey
-programs and both checks. Section CS is new, five checks. The gate is
-443 checks. The standalone guard is clean.
+The Frac hits tab, `gea frac-hits`, a report with its PDF and the help
+page are new; the signed dossier carries the stage tables and the check.
+Section CT is new, four checks. The gate is 447 checks. The standalone
+guard is clean.

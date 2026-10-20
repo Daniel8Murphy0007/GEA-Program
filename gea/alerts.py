@@ -15,7 +15,9 @@ worth an event, for the conditions the operator does not watch by hand:
   record or an earlier audit line has changed since it was signed (checked once a day);
 - `invoice.differs` - a well's invoice cross-check finds a day that DIFFERS (checked once a day, and when a file is
   attached);
-- `condition.cleared` - one of the last four is no longer so.
+- `frac.hit` - a fracturing stage reads as a FRAC HIT on a monitored well's pressure (the Frac hits tab; checked every
+  15 minutes, once per stage and well);
+- `condition.cleared` - one of motor.due, penetrator.outside, dossier.changed or invoice.differs is no longer so.
 
 Every alert is written to `records/alerts.jsonl` whether or not any notification channel is set up - the Alarms
 tab lists them - and is handed to the notification rules, which send it where the site said (a rule per event
@@ -30,7 +32,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 EVENTS = ('seismic.protocol', 'seismic.event', 'seismic.watch_down', 'seismic.watch_up', 'motor.due', 'penetrator.outside',
-          'dossier.changed', 'invoice.differs', 'condition.cleared')
+          'dossier.changed', 'invoice.differs', 'frac.hit', 'condition.cleared')
 CONDITIONS_EVERY_S = 900          # motors and penetrators: every 15 minutes
 DOSSIERS_EVERY_S = 86400          # dossiers: once a day
 _LOCK = threading.Lock()
@@ -154,6 +156,22 @@ def check_conditions(ws, notifier, now: Optional[datetime] = None, force: bool =
             _transition(ws, notifier, st, key, bool(bad),
                         {'event': 'penetrator.outside', 'well_id': wid, 'well': wells[wid], 'what': f"the penetrator check of {wells[wid]}",
                          'detail': '; '.join(f"{r['item']}: {r['why']}" for r in bad)}, now, raised)
+        try:
+            from . import frac_hits as FH
+            if FH.stages(ws):
+                done = set(st.setdefault('frac_hits_seen', []))
+                for h in FH.analyse(ws)['hits']:
+                    key = f"frac.hit:{h['well_id']}:{h['stage']}:{h['monitor_id']}"
+                    if key in done:
+                        continue
+                    done.add(key)
+                    raised.append(raise_alert(ws, notifier, {'event': 'frac.hit', 'key': key, 'well_id': h['well_id'], 'well': h['well'],
+                                                             'stage': h['stage'], 'monitor': h['monitor'], 'what': f"stage {h['stage']} of {h['well']}",
+                                                             'detail': f"{h['peak_psi']:,.0f} psi on {h['monitor']}, not falling after the stage stopped "
+                                                                       f"(pumping from {h['start'][:16].replace('T', ' ')})"}, now))
+                st['frac_hits_seen'] = sorted(done)
+        except Exception as ex:
+            last['frac_error'] = f'{type(ex).__name__}: {ex}'
         for key in [k for k in st['conditions'] if k.split(':')[0] in ('motor.due', 'penetrator.outside') and k not in seen]:
             st['conditions'].pop(key, None)                  # the run or the record was removed: nothing left to clear
     if due('dossiers', DOSSIERS_EVERY_S):

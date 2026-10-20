@@ -1921,6 +1921,9 @@ def make_handler(app: App):
                 if path == '/api/plan':
                     from . import wellplan as WPL
                     return self._json(200, App._cr(WPL.page, app.ws, (qs.get('well') or [None])[0]))
+                if path == '/api/frac-hits':
+                    from . import frac_hits as FH
+                    return self._json(200, App._cr(FH.page, app.ws))
                 if path == '/api/tool-models':
                     from . import wellpos as WP
                     return self._json(200, {'models': WP.model_list(), 'default': WP.DEFAULT_MODEL})
@@ -2335,6 +2338,24 @@ def make_handler(app: App):
                         return self._json(200, App._cr(RS.remove_casing, app.ws, user['name'], str(b_.get('well_id') or ''), str(b_.get('size') or '')))
                     return self._json(200, App._cr(RS.set_casing, app.ws, user['name'], str(b_.get('well_id') or ''), str(b_.get('size') or ''),
                                                    b_.get('shoe_md_ft'), str(b_.get('source') or ''), b_.get('set')))
+                if path in ('/api/frac-hits/stages', '/api/frac-hits/remove', '/api/frac-hits/settings', '/api/frac-hits/write'):
+                    from . import frac_hits as FH
+                    from . import wellplan as WPL
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    b_ = dict(body or {})
+                    wid = str(b_.get('well_id') or '')
+                    if path.endswith('/stages'):
+                        return self._json(200, App._cr(FH.attach_stages, app.ws, wid, str(b_.get('filename') or 'stages.csv'), App._cr(WPL.decode_content, b_),
+                                                       user['name'], str(b_.get('source') or ''), str(b_.get('depth_unit') or 'ft'), b_.get('utc_offset_h')))
+                    if path.endswith('/remove'):
+                        return self._json(200, App._cr(FH.remove_stages, app.ws, wid, user['name']))
+                    if path.endswith('/settings'):
+                        mon = (str(b_['monitor_id']), b_.get('channel')) if b_.get('monitor_id') else None
+                        rule = {k: b_.get(k) for k in FH.DEFAULTS if k in b_}
+                        return self._json(200, App._cr(FH.set_settings, app.ws, user['name'], str(b_.get('source') or ''), mon, **rule))
+                    r_ = App._cr(FH.write_report, app.ws, _v, user['name'])
+                    return self._json(200, {'report_id': r_['report_id']})
                 if path in ('/api/plan/attach', '/api/plan/remove', '/api/plan/settings', '/api/plan/write'):
                     from . import wellplan as WPL
                     from . import __version__ as _v

@@ -11537,6 +11537,186 @@ def section_cs_plan_and_tools(tmp: str) -> None:
        + (f" [failed: {', '.join(failed5)}]" if failed5 else ""))
 
 
+def section_ct_frac_hits(tmp: str) -> None:
+    """Section CT - frac hits: each fracturing stage read on the pressure of the wells around it - none, poroelastic,
+    mixed or a frac hit - with the first response and the fluid pumped by then, checked on a labelled record built to
+    answer each way; the stage table read from CSV or Excel by its column names and refused when wrong; the distance
+    from each stage to the monitored well and the earthquakes during it; the alert, raised once; the API, the CLI, the
+    report, the dossier, the tab and the help."""
+    import base64 as _b64
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    import zipfile as _zf
+    from datetime import datetime, timedelta
+    from . import __version__ as _ver
+    from . import alerts as AL
+    from . import dossier as DZ
+    from . import frac_hits as FH
+    from . import helplib as H
+    from . import op_seismicity as OS
+    from . import well3d as W
+    from . import xlsx_read as XR
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "frac"); d.mkdir()
+
+    # -- CT1 the labelled record ---------------------------------------------------------------------------------------------
+    f = FH.selftest_files(str(d))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    tw = ws.add_well_file(f["gauge"], display="Treat 1H", actor="tester")["id"]
+    mw = ws.add_well_file(f["gauge"], display="Monitor 2H", actor="tester")["id"]
+    FH.attach_stages(ws, tw, "frac_stages.csv", Path(f["stages"]).read_bytes(), "tester", "post-job report (test)", "ft", -5)
+    r = FH.analyse(ws)
+    got = {s_["stage"]: s_["responses"][0] for s_ in r["stages"] if s_["responses"]}
+    hit = got.get("4", {})
+    t_, p_, t0_ = FH._series(ws, mw, "P_gauge_psi")
+    st4 = next(s_ for s_ in r["stages"] if s_["stage"] == "4")
+    a4 = (datetime.fromisoformat(st4["start"]) - t0_).total_seconds(); b4 = a4 + 7200.0
+    strict = FH.respond(t_, p_, a4, b4, {**FH.DEFAULTS, "hit_psi": 1000.0})
+    c1 = {
+        "types": {k: v.get("type") for k, v in got.items()} == f["expected"] and r["count"] == {"NONE": 2, "POROELASTIC": 2, "MIXED": 1, "FRAC HIT": 1},
+        "first": abs(hit.get("first_response_s", 0) - 1200.0) <= 30.0 and abs(hit.get("vfr_bbl", 0) - 9400.0 * hit.get("first_response_s", 0) / 7200.0) < 0.1
+                 and abs(got["2"]["first_response_s"] - 2640.0) <= 60.0,
+        "after": got["2"]["after_stop"] == "fell" and got["3"]["after_stop"] == "rose" and hit.get("after_stop") == "held" and abs(hit.get("peak_psi", 0) - 900.0) < 5.0,
+        "noise": all(0.4 < v["noise_psi"] < 0.7 and v["threshold_psi"] == 5.0 for v in got.values()) and all(v["first_response_s"] is None for k, v in got.items() if k in ("1", "6")),
+        "rule": strict["type"] == "MIXED" and abs(got["5"]["peak_psi"] - 8.0) < 1.5,
+        "own_well": all(x["monitor_id"] != tw for s_ in r["stages"] for x in s_["responses"]),
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CT1 a labelled gauge record built so its six stages answer each way: nothing, poroelastic (25 psi, falling at the stop), "
+       "mixed (60 psi, rising after it), a frac hit (900 psi, holding), poroelastic (8 psi), nothing - each read as built, with the "
+       "first response twenty minutes into the hit and the fluid pumped by then in proportion; the trend's noise taken as the "
+       "half-psi it is; a declared 1,000 psi rule reading the same stage as mixed; a well never its own monitor"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- CT2 the stage table --------------------------------------------------------------------------------------------------
+    alt = "Stage No,Pump Start,Pump End,Top MD (m),Bottom MD (m),Slurry Volume (gal),Total Proppant\n1,08/03/2026 07:00,08/03/2026 09:00,4000,4060,420000,400000\n"
+    a_ = FH.read_stages(alt.encode())
+    XR.write_simple(str(d / "st.xlsx"), [["Stage", "Start", "End"], [1, datetime(2026, 8, 3, 7), datetime(2026, 8, 3, 9)], [2, datetime(2026, 8, 3, 12), datetime(2026, 8, 3, 14)]])
+    x_ = FH.read_stages((d / "st.xlsx").read_bytes())
+    refused = 0
+    for bad in ("Stage,Start\n1,2026-08-03 07:00\n", "Stage,Start,End\n1,2026-08-03 09:00,2026-08-03 07:00\n",
+                "Stage,Start,End\n1,2026-08-03 07:00,2026-08-03 09:00\n1,2026-08-03 10:00,2026-08-03 11:00\n", "Stage,Start,End\n1,yesterday,today\n"):
+        try:
+            FH.read_stages(bad.encode())
+        except ValueError:
+            refused += 1
+    try:
+        FH.attach_stages(ws, tw, "s.csv", alt.encode(), "tester", " ")
+        no_src = False
+    except ValueError:
+        no_src = True
+    c2 = {
+        "synonyms": a_[0]["top_md_m"] == 4000.0 and a_[0]["bottom_md_m"] == 4060.0 and abs(a_[0]["volume_bbl"] - 10000.0) < 1e-6 and a_[0]["proppant_lb"] == 400000.0
+                    and a_[0]["start"] == "2026-08-03T07:00:00",
+        "excel": [s_["stage"] for s_ in x_] == ["1", "2"] and x_[1]["end"] == "2026-08-03T14:00:00",
+        "feet": abs(st4["top_md_m"] - 14000 * 0.3048) < 1e-6,
+        "refused": refused == 4 and no_src,
+        "channel": FH.pressure_channel(ws, mw) == ("P_gauge_psi", "psi"),
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CT2 the stage table read by its column names in either wording, with its units (metres, gallons), from CSV or Excel; a table "
+       "without an end column, a stage ending before it starts, a stage listed twice or a time that is not one refused, and a table "
+       "without its source; the monitored channel found by its unit"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- CT3 the distance, the earthquakes and the alert ---------------------------------------------------------------------
+    for wid, dlat in ((tw, 0.0), (mw, 0.003)):
+        ws.set_well(wid, surface={"lat": 31.42 + dlat, "lon": -104.10, "datum": "NAD83", "elevation": {"ft": 3000.0, "datum": "KB", "source": "test plat"}}, actor="tester")
+        sv = "MD (ft),Inc (deg),Azi (deg)\n" + "\n".join(f"{m_},{0.0 if m_ <= 9000 else min(90.0, (m_ - 9000) * 0.09)},90" for m_ in range(0, 16001, 100)) + "\n"
+        W.attach_trajectory(ws, wid, "s.csv", sv.encode(), "tester", "true", "ft", None, None, None, "MWD report (test)")
+    qtime = datetime.fromisoformat(st4["start"]) + timedelta(hours=5, minutes=30)          # 30 min into stage 4, in UTC (the stage clock is UTC-5)
+    cat = ("#EventID|Time|Latitude|Longitude|Depth/km|Author|Catalog|Contributor|ContributorID|MagType|Magnitude|MagAuthor|EventLocationName\n"
+           f"tx2026a|{qtime.isoformat()}|31.43|-104.05|5.0|TexNet|TX|TexNet|a|ML|2.1|TexNet|test\n"
+           f"tx2026b|{(qtime + timedelta(days=3)).isoformat()}|31.43|-104.05|5.0|TexNet|TX|TexNet|b|ML|1.8|TexNet|test\n")
+    OS.attach_catalog(ws, "tester", "cat.txt", cat.encode(), "2026-08-01", "2026-08-10", 1.0, 31.42, -104.10, 20.0, "TexNet (test)")
+    r3 = FH.analyse(ws)
+    q = {s_["stage"]: s_["earthquakes"] for s_ in r3["stages"]}
+    dist = [s_["responses"][0].get("distance_m") for s_ in r3["stages"] if s_["responses"]]
+    raised1 = AL.check_conditions(ws, None, force=True)
+    raised2 = AL.check_conditions(ws, None, force=True)
+    fh1 = [e for e in raised1 if e["event"] == "frac.hit"]
+    c3 = {
+        "distance": all(x is not None and 300.0 < x < 360.0 for x in dist),
+        "quakes": [len(q[k]) for k in sorted(q)] == [0, 0, 0, 1, 0, 0] and q["4"][0]["event_id"] == "tx2026a",
+        "alert": len(fh1) == 1 and fh1[0]["stage"] == "4" and fh1[0]["monitor"] == "Monitor 2H" and not [e for e in raised2 if e["event"] == "frac.hit"]
+                 and "frac.hit" in AL.EVENTS,
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CT3 with both wells surveyed, each stage's mid-point a third of a kilometre from the monitored lateral as built; with a "
+       "catalogue and the stage clock five hours behind UTC, the one earthquake inside stage 4's window counted beside it and the "
+       "one three days later not; the frac hit raised as an alert once, not again"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+    # -- CT4 the API, the CLI, the report, the dossier, the tab and the help -------------------------------------------------
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    xb = _b64.b64encode((d / "st.xlsx").read_bytes()).decode()
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_vg, vg = call(V, "GET", "/api/frac-hits")
+        s_va, _ = call(V, "POST", "/api/frac-hits/stages", {"well_id": mw, "filename": "st.xlsx", "content_b64": xb, "source": "x"})
+        s_oa, oa = call(O, "POST", "/api/frac-hits/stages", {"well_id": mw, "filename": "st.xlsx", "content_b64": xb, "source": "plan (test)"})
+        s_bo, _ = call(O, "POST", "/api/frac-hits/stages", {"well_id": mw, "filename": "b.csv", "content": "Stage,Start\n1,2026-08-03\n", "source": "x"})
+        s_ns, _ = call(O, "POST", "/api/frac-hits/settings", {"hit_psi": 500})
+        s_rs, rs = call(O, "POST", "/api/frac-hits/settings", {"hit_psi": 500, "source": "frac plan (test)"})
+        s_bc, _ = call(O, "POST", "/api/frac-hits/settings", {"monitor_id": "nowhere", "channel": "P"})
+        s_rm, _ = call(O, "POST", "/api/frac-hits/remove", {"well_id": mw})
+        s_r2, _ = call(O, "POST", "/api/frac-hits/remove", {"well_id": mw})
+        s_vw, _ = call(V, "POST", "/api/frac-hits/write", {})
+        s_ow, ow = call(O, "POST", "/api/frac-hits/write", {})
+        s_al, alj = call(V, "GET", "/api/alerts")
+    finally:
+        svc.stop()
+    cli_t = _sp.run([sys.executable, "-m", "gea", "frac-hits", "--workspace", wsp], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_r = _sp.run([sys.executable, "-m", "gea", "frac-hits", "--workspace", wsp, "--hit-psi", "250", "--source", "URTeC 2020-3129 (test)"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_w = _sp.run([sys.executable, "-m", "gea", "frac-hits", "--workspace", wsp, "--write"], capture_output=True, text=True, cwd=str(pkg.parent))
+    dz = DZ.build(ws, "tester", _ver, None)
+    names = _zf.ZipFile(Path(ws.reports_dir, dz["path"])).namelist()
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c4 = {
+        "api": s_vg == 200 and vg["count"]["FRAC HIT"] == 1 and len(vg["stages"]) == 6 and s_va == 403 and s_oa == 200 and oa["stages"] == 2 and s_bo == 400
+               and s_ns == 400 and s_rs == 200 and rs["hit_psi"] == 500.0 and s_bc == 404 and s_rm == 200 and s_r2 == 404 and s_vw == 403 and s_ow == 200
+               and ow["report_id"].startswith("FDI-") and s_al == 200 and "frac.hit" in alj["events"],
+        "cli": cli_t.returncode == 0 and "FRAC HIT 1" in cli_t.stdout and "stage 4" in cli_t.stdout and cli_r.returncode == 0 and "frac hit from 250 psi" in cli_r.stdout
+               and cli_w.returncode == 0 and "frac_hits" in cli_w.stdout,
+        "report": PR_read_ok(Path(ws.reports_dir, "frac_hits.pdf")) and all(x in audit for x in ("frac.stages", "frac.stages_removed", "frac.settings", "report.frac_hits")),
+        "dossier": f"declarations/completion/frac/{tw}/frac_stages.csv" in names and "declarations/completion/frac/stages.json" in names and "results/frac_hits.json" in names,
+        "page": all(x in page_src for x in ("VIEWS.frac", "['#/frac', 'Frac hits']", "/api/frac-hits/stages", "fhTrace", "'frac.hit': 'Frac hit'")),
+        "help": not H.check("frac-hits") and H.VIEW_TOPIC.get("frac") == "frac-hits" and "frac.hit" in (pkg / "help" / "alerts.md").read_text(encoding="utf-8"),
+    }
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       "CT4 on the API (anyone reads the stages and their responses; only an operator attaches a stage table - an Excel one - or a "
+       "rule with its source, names a monitored channel, takes a table off or writes the report; the new alert listed), the CLI, "
+       "the report as PDF, a signed dossier carrying the stage tables and the check, the tab and the help"
+       + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+
 def PR_read_ok(path) -> bool:
     from . import pdf_report as PR
     try:
@@ -11645,6 +11825,7 @@ def main() -> int:
         section_cq_tied_together(tmp)
         section_cr_collision(tmp)
         section_cs_plan_and_tools(tmp)
+        section_ct_frac_hits(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

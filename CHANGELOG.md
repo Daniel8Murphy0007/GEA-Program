@@ -5,6 +5,36 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.51.0] - 2026-10-20 - Frac hits
+
+### Added
+- **Frac hits** (`gea/frac_hits.py`): a treatment well's stage table (stage,
+  pumping start and end, the perforated interval, fluid and proppant; CSV
+  or Excel, columns found by their names and units) read against every
+  monitored well's pressure (the first channel in psi, or the one
+  declared): the trend and its noise over the half hour before each stage,
+  the departure from it while the stage pumps and for half an hour after;
+  the first response (5 x the noise and at least 5 psi, held a minute) and
+  the fluid pumped by then; the type after Seth, Elliott and Sharma
+  (URTeC 2020-3129) - NONE, POROELASTIC (falls at the stop), MIXED (holds or
+  rises), FRAC HIT (250 psi or more, not falling) - the thresholds the
+  operator's to declare with their source. With both wells surveyed, the
+  distance from the stage's mid-point to the monitored well; with an
+  earthquake catalogue and the stage clock's offset from UTC, the
+  earthquakes within 5 km during the stage.
+- The alert `frac.hit`, once per stage and monitored well (checked every 15
+  minutes), through the notification rules.
+- The **Frac hits** tab, `GET /api/frac-hits`,
+  `POST /api/frac-hits/stages|remove|settings|write` (operator),
+  `gea frac-hits`, the report `reports/frac_hits.*`, `gea help frac-hits`.
+- The signed dossier carries the stage tables and the frac-hit check as it
+  read at signing.
+- Acceptance section CT (4 checks).
+
+### Changed
+- The collision check's message for a workspace without two placed wells
+  names a plan as well as a survey.
+
 ## [v0.50.0] - 2026-10-20 - Plan vs actual and the survey tools
 
 ### Added

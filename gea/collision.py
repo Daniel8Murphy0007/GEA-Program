@@ -326,7 +326,7 @@ def page(ws, scene: str = 'workspace') -> dict:
             'title': ws.manifest.get('name') or 'this workspace', 'wells': [], 'pairs': [], 'worst': None, 'rule': {k: rule[k] for k in ('k', 'surface_margin_m', 'sigma_pa_m')},
             'rule_source': rule.get('rule_source') or RULE_SOURCE, 'levels': [{'below': lim, 'level': name, 'meaning': why} for lim, name, why in LEVELS],
             'model': 'each well by its survey program\'s tool models', 'not_a_measurement': [],
-            'detail': f"{len(wells)} well(s) have a surface position, a reference elevation and a survey; a check needs two"}
+            'detail': f"{len(wells)} well(s) have a surface position, a reference elevation and a survey or a plan; a check needs two"}
         res['left_out'] = left
     else:
         raise KeyError(f'no scene {scene!r}: workspace or volve')

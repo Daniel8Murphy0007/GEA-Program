@@ -2573,3 +2573,25 @@ stability; and motor specifications in the tool catalogue.
 - The tabs were driven in headless Chromium against a labelled workspace:
   light, dark and phone width, no console errors.
 - Section CS (5 checks). Gate 443.
+
+## 2026-10-20 - Frac hits (v0.51.0)
+
+- Asked (the second of the list): frac hits on offset gauges, tied to the
+  stages and the seismicity.
+- The three responses and their signatures are Seth, Elliott and Sharma's
+  (URTeC 2020-3129): a purely poroelastic response falls as soon as the
+  treatment well stops; a mixed or direct response holds or rises after it;
+  a direct hit runs to hundreds or thousands of psi. The volume to first
+  response is the sealed-wellbore pressure monitoring measure (Haustveit et
+  al., SPE-199731-MS). The program's thresholds (5 x noise and 5 psi, 250
+  psi for a hit, 10 % for falling) are defaults the operator declares over.
+- The gate's record is built by construction: a six-stage table and a gauge
+  sampled every 10 s whose stages answer nothing, poroelastic, mixed, a hit,
+  poroelastic and nothing; each was read as built.
+- The earthquake count needs the stage clock's offset from UTC, because
+  the catalogue is in UTC and a stage table is in the field's clock; the
+  stage table and the gauge record must share a clock, and the help page
+  says so.
+- The tab was driven in headless Chromium: light, dark and phone width, no
+  console errors.
+- Section CT (4 checks). Gate 447.

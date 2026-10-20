@@ -609,6 +609,20 @@ against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
 
+### Frac hits
+
+What each fracturing stage did to the pressure in the wells around it. A
+treatment well's stage table (from the frac company's post-job report, CSV
+or Excel) is read against every well with a pressure gauge in its record:
+the pressure's departure from its own trend while the stage pumps and after
+it stops, the first response and the fluid pumped by then, and the type -
+no response, poroelastic (the rock squeezed, falling at the stop), mixed
+(a hydraulic connection, holding or rising after it) or a frac hit (the
+stage's fluid reaching the well). With surveys, the distance from each
+stage to the monitored well; with an earthquake catalogue, the earthquakes
+during each stage. A frac hit is an alert. The **Frac hits** tab,
+`gea frac-hits`, `gea help frac-hits`.
+
 ### Plan vs actual and the survey tools
 
 Each well against its directional plan: at every survey station, how far

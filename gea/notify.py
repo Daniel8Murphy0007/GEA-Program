@@ -68,7 +68,7 @@ EXAMPLE = {
 }
 EVENTS = ('alarm.activated', 'alarm.shelved', 'job.failed', 'patch.down', 'patch.up', 'approval.pending', 'file.imported', 'test',
           'seismic.protocol', 'seismic.event', 'seismic.watch_down', 'seismic.watch_up', 'motor.due', 'penetrator.outside', 'dossier.changed',
-          'condition.cleared', 'pad.summary', 'invoice.differs')
+          'condition.cleared', 'pad.summary', 'invoice.differs', 'frac.hit')
 _LOCK = threading.Lock()
 
 
@@ -185,6 +185,8 @@ def _subject(ev: dict) -> str:
         return f"[GEA] the workspace no longer matches dossier {ev.get('dossier_id', '')}"
     if k == 'invoice.differs':
         return f"[GEA] the invoice for {w} differs from the reports and the record: {ev.get('detail', '')}"
+    if k == 'frac.hit':
+        return f"[GEA] frac hit: stage {ev.get('stage', '')} of {w} on {ev.get('monitor', '')} - {ev.get('detail', '')}"
     if k == 'pad.summary':
         return f"[GEA] daily pad summary {ev.get('site', '')}: {ev.get('detail', '')}".strip()
     if k == 'condition.cleared':

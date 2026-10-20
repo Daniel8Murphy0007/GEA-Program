@@ -4,6 +4,13 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.51.0 - 2026-10-20 - frac hits
+
+- **What each frac stage did to the wells around it.** Every stage against
+  every monitored gauge: none, poroelastic, mixed or a frac hit, the first
+  response and the fluid pumped by then, the distance and the earthquakes
+  beside each stage; a frac hit is an alert. Section CT; gate 447.
+
 ## v0.50.0 - 2026-10-20 - plan vs actual and the survey tools
 
 - **Where a well is against its plan, and with which tools.** High/low and

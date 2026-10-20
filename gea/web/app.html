@@ -1566,7 +1566,7 @@ function shelveDialog(wellId, alarmId) {
   post('/api/alarms/shelve', {well_id: wellId, alarm_id: alarmId, hours: hrs.trim() ? +hrs : null, note}).then(j => { toast(`Shelved ${alarmId} (${j.status})`, j.status === 'DONE' ? 'ok' : 'err'); route(); }).catch(e => toast(e.message, 'err'));
 }
 // ---------- program alerts: earthquakes, the watch, motors, penetrators, dossiers ----------
-const AL_NAMES = {'seismic.protocol': 'Protocol level reached', 'seismic.event': 'Earthquake near an operation', 'seismic.watch_down': 'Earthquake watch not reaching the catalogue', 'seismic.watch_up': 'Earthquake watch back', 'motor.due': 'Service interval used up', 'penetrator.outside': 'Penetrator outside its rating', 'dossier.changed': 'Workspace no longer matches a dossier', 'invoice.differs': 'Invoice differs', 'condition.cleared': 'Cleared'};
+const AL_NAMES = {'seismic.protocol': 'Protocol level reached', 'seismic.event': 'Earthquake near an operation', 'seismic.watch_down': 'Earthquake watch not reaching the catalogue', 'seismic.watch_up': 'Earthquake watch back', 'motor.due': 'Service interval used up', 'penetrator.outside': 'Penetrator outside its rating', 'dossier.changed': 'Workspace no longer matches a dossier', 'invoice.differs': 'Invoice differs', 'frac.hit': 'Frac hit', 'condition.cleared': 'Cleared'};
 function alKind(e) { return ({'seismic.protocol': 'serious', 'seismic.watch_down': 'serious', 'penetrator.outside': 'serious', 'dossier.changed': 'serious', 'motor.due': 'warn', 'seismic.event': 'warn'})[e] || 'good'; }
 async function alCard() {
   let A; try { A = await get('/api/alerts'); } catch (e) { return ''; }
@@ -2451,6 +2451,68 @@ VIEWS.opseis = async (arg) => {
   $('#osOp') && ($('#osOp').onsubmit = async ev => { ev.preventDefault(); const f = new FormData(ev.target), b = {}; for (const [k, v] of f.entries()) if (v !== '') b[k] = v;
     try { await post('/api/opseis/operation', b); toast('Operation declared', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
 };
+// ---------- frac hits: each fracturing stage against the pressure in the wells around it ----------
+const FH = {sel: null};
+function fhKind(t) { return ({'NONE': 'good', 'POROELASTIC': 'neutral', 'MIXED': 'warn', 'FRAC HIT': 'serious'})[t] || 'neutral'; }
+function fhTrace(x, pumpMin) {
+  const W = 760, H = 220, L = 52, R = 12, T = 12, B = 28, s = x.trace.s.map(v => v / 60), v = x.trace.psi;
+  const x0 = Math.min(...s), x1 = Math.max(...s), lo = Math.min(0, ...v), hi = Math.max(x.threshold_psi * 1.5, ...v);
+  const sx = m => L + (m - x0) / Math.max(1e-9, x1 - x0) * (W - L - R), sy = y => T + (1 - (y - lo) / Math.max(1e-9, hi - lo)) * (H - T - B);
+  let g = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(x.monitor)}'s pressure departure around the stage" style="max-width:960px">`;
+  g += `<rect x="${sx(0)}" y="${T}" width="${sx(pumpMin) - sx(0)}" height="${H - T - B}" fill="var(--s1)" opacity=".08"/>`;
+  g += `<line x1="${L}" x2="${W - R}" y1="${sy(0)}" y2="${sy(0)}" stroke="var(--ink2)" opacity=".5"/><line x1="${L}" x2="${W - R}" y1="${sy(x.threshold_psi)}" y2="${sy(x.threshold_psi)}" stroke="var(--ink2)" stroke-dasharray="4 3" opacity=".7"/>`;
+  g += `<text x="${L - 6}" y="${sy(x.threshold_psi) + 4}" font-size="11" text-anchor="end" fill="var(--muted)">${x.threshold_psi}</text><text x="${L - 6}" y="${sy(0) + 4}" font-size="11" text-anchor="end" fill="var(--muted)">0</text><text x="${L - 6}" y="${sy(hi) + 10}" font-size="11" text-anchor="end" fill="var(--muted)">${Math.round(hi)} psi</text>`;
+  g += `<polyline points="${s.map((m, i) => `${sx(m).toFixed(1)},${sy(v[i]).toFixed(1)}`).join(' ')}" fill="none" stroke="var(--s1)" stroke-width="1.6" stroke-linejoin="round"/>`;
+  if (x.first_response_s != null) g += `<line x1="${sx(x.first_response_s / 60)}" x2="${sx(x.first_response_s / 60)}" y1="${T}" y2="${H - B}" stroke="var(--serious)" stroke-dasharray="3 3"><title>first response at ${(x.first_response_s / 60).toFixed(1)} min</title></line>`;
+  g += `<text x="${sx(0) + 4}" y="${T + 12}" font-size="11" fill="var(--muted)">pumping</text><text x="${L}" y="${H - 8}" font-size="11" fill="var(--muted)">${Math.round(x0)} min</text><text x="${W - R}" y="${H - 8}" font-size="11" fill="var(--muted)" text-anchor="end">${Math.round(x1)} min from the stage's start</text>`;
+  return g + `</svg>`;
+}
+VIEWS.frac = async () => {
+  const P = await get('/api/frac-hits');
+  let h = `<h2>Frac hits</h2>`;
+  if (P.detail) h += `<p class="card small">${esc(P.detail)}.</p>`;
+  h += `<div class="tiles">` + ['FRAC HIT', 'MIXED', 'POROELASTIC', 'NONE'].map(k => tile(k === 'NONE' ? 'No response' : k.charAt(0) + k.slice(1).toLowerCase(), String(P.count[k] || 0), (P.count[k] || 0) && k !== 'NONE' ? fhKind(k) : 'neutral', '#/frac', ({'FRAC HIT': "the stage's fluid reached the well: hundreds of psi or more, not falling", 'MIXED': 'a hydraulic connection: still rising or holding after the stage stopped', 'POROELASTIC': 'the rock squeezed: falling as soon as the stage stopped', 'NONE': 'below the threshold'})[k])).join('') + `</div>`;
+  const mons = P.monitors;
+  if (P.stages.length && mons.length) {
+    const cells = [];
+    h += `<div class="card"><h3>Stage by stage</h3><div style="overflow-x:auto"><table class="small"><thead><tr><th>Well</th><th>Stage</th><th>Pumping</th><th>Fluid (bbl)</th>${mons.map(m => `<th>${esc(m.display)}<div class="muted">${esc(m.channel)}</div></th>`).join('')}<th>Earthquakes</th></tr></thead><tbody>`;
+    P.stages.forEach((s, i) => {
+      h += `<tr><td>${esc(s.well)}</td><td>${esc(s.stage)}</td><td>${esc(s.start.replace('T', ' ').slice(0, 16))} +${s.pump_min} min</td><td>${s.volume_bbl == null ? '-' : Math.round(s.volume_bbl).toLocaleString()}</td>`;
+      for (const m of mons) {
+        const j = s.responses.findIndex(x => x.monitor_id === m.id), x = s.responses[j];
+        if (!x) { h += `<td class="muted">-</td>`; continue; }
+        if (!x.type) { h += `<td class="muted small">${esc(x.why || '')}</td>`; continue; }
+        const key = `${i}:${j}`; cells.push(key);
+        h += `<td><a href="#/frac" class="fh-c" data-k="${key}">${statusPill(fhKind(x.type), x.type === 'NONE' ? 'none' : x.type.toLowerCase())}</a> ${x.type === 'NONE' ? '' : `${x.peak_psi.toLocaleString()} psi`}</td>`;
+      }
+      h += `<td>${s.earthquakes == null ? '<span class="muted">-</span>' : s.earthquakes.length}</td></tr>`;
+    });
+    h += `</tbody></table></div><p class="small muted">Pick a cell to see the pressure around that stage. Earthquakes are counted within 5 km of the treatment well during the stage and the half hour after, when a catalogue is attached and the stage clock's offset from UTC is declared.</p></div>`;
+    if (!cells.includes(FH.sel)) FH.sel = cells.find(k => { const [i, j] = k.split(':').map(Number); return P.stages[i].responses[j].type !== 'NONE'; }) || cells[0] || null;
+    if (FH.sel) {
+      const [i, j] = FH.sel.split(':').map(Number), s = P.stages[i], x = s.responses[j];
+      h += `<div class="card"><h3>${esc(s.well)} stage ${esc(s.stage)} on ${esc(x.monitor)}: ${statusPill(fhKind(x.type), x.type)}</h3>${fhTrace(x, s.pump_min)}
+        <p class="small">The pressure's departure from its trend over the ${P.rule.pre_min} min before the stage (${x.trend_psi_per_h} psi/h, noise ${x.noise_psi} psi); the threshold ${x.threshold_psi} psi dashed; the stage pumping shaded. Peak ${x.peak_psi} psi at ${(x.peak_at_s / 60).toFixed(1)} min; ${x.first_response_s == null ? 'no sustained response' : `first response at ${(x.first_response_s / 60).toFixed(1)} min${x.vfr_bbl != null ? ` (${x.vfr_bbl.toLocaleString()} bbl pumped by then, in proportion to the pumping time)` : ''}`}; after the stage stopped it ${x.after_stop} (${x.at_end_psi} → ${x.after_psi} psi)${x.distance_m != null ? `; the stage's mid-point ${x.distance_m.toLocaleString()} m from the well (its ${x.nearest_md_m.toLocaleString()} m MD)` : ''}.</p></div>`;
+    }
+  }
+  h += `<div class="card"><h3>The rule</h3><p class="small">Poroelastic falls when the stage stops; mixed holds or rises after it; a frac hit is ${P.rule.hit_psi} psi or more and does not fall (falling: losing more than ${Math.round(P.rule.fall_frac * 100)} % in the ${P.rule.post_min} min after the stop). Threshold: ${P.rule.k_sigma} × the trend's noise and at least ${P.rule.min_psi} psi, held ${P.rule.sustain_s} s. Source: ${esc(P.rule_source)}.</p>`;
+  if (can('operator')) {
+    h += `<form id="fhRule" class="row"><label>Frac hit from (psi)<input name="hit_psi" type="number" step="1" value="${P.rule.hit_psi}" style="width:6em"></label><label>At least (psi)<input name="min_psi" type="number" step="0.1" value="${P.rule.min_psi}" style="width:6em"></label><label>× noise<input name="k_sigma" type="number" step="0.5" value="${P.rule.k_sigma}" style="width:5em"></label><label>Source<input name="source" placeholder="completions engineer, frac plan"></label><button class="secondary" type="submit">Keep the rule</button></form>
+      <h3>Stage tables</h3>${P.treatment.length ? `<ul class="small">${P.treatment.map(t => `<li>${esc(t.well)}: ${t.stages} stages, ${esc(t.first.slice(0, 16).replace('T', ' '))} to ${esc(t.last.slice(0, 16).replace('T', ' '))} — ${esc(t.source)} <button type="button" class="secondary fh-rm" data-w="${esc(t.well_id)}">Remove</button></li>`).join('')}</ul>` : ''}
+      <form id="fhAdd" class="row"><label>Treatment well<select name="well_id">${P.wells.map(w => `<option value="${esc(w.id)}">${esc(w.display)}</option>`).join('')}</select></label><label>Stage table (CSV or Excel)<input type="file" name="file" accept=".csv,.txt,.xlsx"></label><label>Depths<select name="depth_unit"><option>ft</option><option>m</option></select></label><label>Clock's hours from UTC<input name="utc_offset_h" type="number" step="0.5" placeholder="-5" style="width:5em"></label><label>Source<input name="source" placeholder="frac company's post-job report"></label><button class="secondary" type="submit">Attach</button></form>
+      <h3>Monitored wells</h3><p class="small">${mons.length ? mons.map(m => `${esc(m.display)}: ${esc(m.channel)}${m.declared ? '' : ' (found)'}`).join('; ') : 'none yet'}.</p>
+      <form id="fhMon" class="row"><label>Well<select name="monitor_id">${P.wells.map(w => `<option value="${esc(w.id)}">${esc(w.display)}</option>`).join('')}</select></label><label>Pressure channel<input name="channel" placeholder="blank: the first in psi"></label><button class="secondary" type="submit">Keep</button>${P.stages.length && mons.length ? ` <button type="button" class="secondary" id="fhWrite">Write the report</button>` : ''}</form>`;
+  }
+  h += `</div><div class="card"><h3>What this page will not call a measurement</h3><ul class="small">${P.not_a_measurement.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
+  $('#main').innerHTML = h;
+  document.querySelectorAll('.fh-c').forEach(a => a.onclick = ev => { ev.preventDefault(); FH.sel = a.dataset.k; route(); });
+  document.querySelectorAll('.fh-rm').forEach(b => b.onclick = async () => { try { await post('/api/frac-hits/remove', {well_id: b.dataset.w}); toast('Removed', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+  $('#fhRule') && ($('#fhRule').onsubmit = async ev => { ev.preventDefault(); try { await post('/api/frac-hits/settings', Object.fromEntries(new FormData(ev.target).entries())); toast('Rule kept', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+  $('#fhMon') && ($('#fhMon').onsubmit = async ev => { ev.preventDefault(); try { await post('/api/frac-hits/settings', Object.fromEntries(new FormData(ev.target).entries())); toast('Kept', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+  $('#fhWrite') && ($('#fhWrite').onclick = async ev => { ev.preventDefault(); try { const r = await post('/api/frac-hits/write', {}); toast('Written ' + r.report_id, 'ok'); } catch (e) { toast(e.message, 'err'); } });
+  $('#fhAdd') && ($('#fhAdd').onsubmit = async ev => { ev.preventDefault(); const fd = new FormData(ev.target), f = fd.get('file'); if (!f || !f.name) return toast('Choose a stage table', 'err');
+    try { const b = Object.fromEntries([...fd.entries()].filter(([k]) => k !== 'file')); await post('/api/frac-hits/stages', {...b, filename: f.name, content_b64: await readFile(f)}); toast('Stage table attached', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+};
 // ---------- plan against actual: the distance to the plan, the bit projected, the arc back; the survey program ----------
 const PV = {well: null};
 function pvKind(n) { return n == null ? 'neutral' : n < 1 ? 'good' : n < 2 ? 'warn' : 'serious'; }
@@ -2972,7 +3034,7 @@ function authScreen(first) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/frac', 'Frac hits'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w'], '#/control': b => [b.handover_unacked, 'w']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }

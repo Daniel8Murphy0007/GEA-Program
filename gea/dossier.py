@@ -276,13 +276,15 @@ def _gather(ws, well_id: Optional[str]) -> Dict[str, List[tuple]]:
     for rel in (('economics', 'costs.json'), ('drillstring', 'runs.json'), ('completion', 'esp.json'), ('seismicity', 'operations.json'),
                 ('seismicity', 'catalogs.json'), ('seismicity', 'settings.json'), ('config', 'fleet.json'), ('workspace.json',),
                 ('economics', 'invoices', 'terms.json'), ('economics', 'invoices', 'files.json'), ('drillstring', 'rig_time.json'),
-                ('drillstring', 'casing.json'), ('wellpath', 'collision.json'), ('wellpath', 'survey_program.json')):
+                ('drillstring', 'casing.json'), ('wellpath', 'collision.json'), ('wellpath', 'survey_program.json'),
+                ('completion', 'frac', 'stages.json'), ('completion', 'frac', 'settings.json')):
         p = os.path.join(ws.path, *rel)
         if os.path.isfile(p):
             out_list.append((p, 'declarations/' + '/'.join(rel)))
     files_in(os.path.join(ws.path, 'seismicity', 'catalogs'), 'declarations/seismicity/catalogs')
-    for w in wells:                                        # the contractor's invoices and daily reports, as attached
+    for w in wells:                                        # the contractor's invoices and daily reports, and the stage tables, as attached
         files_in(os.path.join(ws.path, 'economics', 'invoices', w['id']), f"declarations/economics/invoices/{w['id']}")
+        files_in(os.path.join(ws.path, 'completion', 'frac', w['id']), f"declarations/completion/frac/{w['id']}")
     for p in audit_segments(ws):
         out['audit'].append((p, 'audit/' + os.path.basename(p)))
     for w in wells:
@@ -297,8 +299,8 @@ def _gather(ws, well_id: Optional[str]) -> Dict[str, List[tuple]]:
 
 def _results(ws, well_id: Optional[str]) -> List[tuple]:
     """The invoice cross-check of each well with invoices or reports attached, the rig time of each well with a drilling
-    record, the collision check and each surveyed well against its plan, as JSON computed when the dossier is signed (a
-    check that cannot run is left out, and says why)."""
+    record, the collision check, each surveyed well against its plan and the frac-hit check, as JSON computed when the
+    dossier is signed (a check that cannot run is left out, and says why)."""
     out = []
     wells = [well_id] if well_id else [w['id'] for w in ws.wells()]
     try:
@@ -336,6 +338,17 @@ def _results(ws, well_id: Optional[str]) -> List[tuple]:
                                                                                  indent=1, sort_keys=True, default=str).encode('utf-8')))
     except Exception as e:
         out.append(('results/collision_not_run.txt', f'the collision check did not run: {type(e).__name__}: {e}\n'.encode('utf-8')))
+    try:
+        from . import frac_hits as FH
+        if FH.stages(ws):
+            r = FH.analyse(ws)
+            st = [{**s_, 'responses': [{k: v for k, v in x.items() if k != 'trace'} for x in s_['responses']
+                                       if not well_id or well_id in (s_['well_id'], x['monitor_id'])]}
+                  for s_ in r['stages']]
+            st = [s_ for s_ in st if s_['responses'] or not well_id or s_['well_id'] == well_id]
+            out.append(('results/frac_hits.json', json.dumps({**r, 'stages': st}, indent=1, sort_keys=True, default=str).encode('utf-8')))
+    except Exception as e:
+        out.append(('results/frac_hits_not_run.txt', f'the frac-hit check did not run: {type(e).__name__}: {e}\n'.encode('utf-8')))
     return out
 
 
