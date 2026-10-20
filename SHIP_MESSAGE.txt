@@ -1,28 +1,30 @@
-v0.49.0 — WELL COLLISION CHECKS
+v0.50.0 — PLAN VS ACTUAL AND THE SURVEY TOOLS
 
-Every well on the pad is now scanned against every other, every ten
-metres of each: how close they come, against how sure anyone can be of
-where either one is.
+Each well can now carry its directional plan, and GEA reads the well
+against it the way a directional driller does: at every survey station,
+how far it is from the plan - high or low, right or left - and whether
+that is more than the survey's own error can explain. Below the last
+survey it projects the bit, and from there it gives the one arc back to
+the plan: the dogleg severity and the toolface to set.
 
-Each well's position uncertainty comes from the industry's standard MWD
-error model, ISCWSA Rev 4 - 27 error sources, propagated the way the
-model says - and it reproduces all 112 rows of the ISCWSA's own worked
-example. The Earth's magnetic field at each well, which weighs the
-magnetometer errors and turns magnetic north into true north, comes from
-the World Magnetic Model 2025.
+The survey tools are now named per well and per run. The default is the
+ISCWSA MWD Rev 5.11 standard, which reproduces all 144 rows of the
+ISCWSA's own Rev 5 worked example. Beside it are 21 OWSG tool-code
+models on the same functions - MWD and electronic multishot with the
+standard, high- or low-resolution geomagnetic model or in-field
+referencing, with sag and multi-station corrections. A survey program
+weighs each depth by the tool that surveyed it.
 
-The two are combined by the ISCWSA separation factor: the distance
-between the wells, less the holes and a surface margin, over three and a
-half times the uncertainty of that distance - with the errors both wells
-share taken out, because a declination error moves every well on the pad
-together. Each pair is levelled as the ISCWSA's rule does: reported
-below 4.0, the approach limit below 1.5, revise the plan below 1.25,
-below 1.0 only by the operator's dispensation. A company standard's k
-and margins can be kept in its place, with where they came from.
+The collision check now includes wells not yet drilled, along their
+plans, and a well being drilled along its survey and then its plan to
+TD. The Collision tab draws the travelling cylinder: looking down one
+well, every neighbour within a chosen radius, at its distance and
+direction.
 
-The Volve template is the worked example: three of Equinor's released
-wells, closest near the surface where the slots sit together.
+Gyro and axial-interference-corrected tool models are not in this
+release.
 
-The Collision tab, `gea collision`, a report with its PDF, and the help
-page are new. Section CR is new, four checks. The gate is 438 checks.
-The standalone guard is clean.
+The Plan vs actual tab, `gea plan`, a report with its PDF and the help
+page are new; a signed dossier now carries the plans, the survey
+programs and both checks. Section CS is new, five checks. The gate is
+443 checks. The standalone guard is clean.

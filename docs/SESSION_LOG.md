@@ -2541,3 +2541,35 @@ stability; and motor specifications in the tool catalogue.
 - The site's workspace has no surveys or surface positions declared yet,
   so its scene says a check needs two wells and shows the worked example.
 - Section CR (4 checks). Gate 438.
+
+## 2026-10-20 - Plan vs actual and the survey tools (v0.50.0)
+
+- Asked (from the list of what a commercial program still lacks): plan
+  against actual and a travelling cylinder, and more survey tool models;
+  released one item per version.
+- The ISCWSA MWD Rev 5.11 framework was implemented from the ISCWSA's Rev 5
+  example workbook for test well 1 and checked against its calculated block
+  as carried in welleng's test data (Apache-2.0): all 144 rows agree to a
+  few parts in a hundred thousand. Two details the workbook fixes: from
+  Rev 5 the first leg below the surface is weighed twice (the slot's
+  attitude has a survey's own errors), and the course-length terms XCLA and
+  XCLH are position errors of the leg itself, not angle errors propagated.
+- The OWSG tool-code sets A and B (Rev 5.1) were taken from welleng's ISCWSA
+  JSON conversion; only the 21 models whose every term uses the Rev 5 MWD
+  weighting functions are carried (each term's formula was checked to be
+  the same in every model that names it). Gyro models were left out: their
+  weighting functions and noise and drift recurrences (SPE 90408) are a
+  separate piece of work, to be checked against that paper's Appendix E
+  examples; the axial-interference-corrected models were left out until
+  their terms can be checked against an example too.
+- The Rev 5 model counts the hole between the surface and a survey's first
+  station: the Volve template's closest pair now reads 0.06 rather than
+  0.29 under Rev 4.
+- Plan against actual is measured in the plan's own frame at its closest
+  point; the bit projection holds the last interval's build and turn; the
+  arc back is a single circular arc to a plan point a look-ahead ahead.
+  Each was checked by construction in the gate (5 m left, 1.5 m high, a
+  3 deg/30 m build, the arc's toolface and severity by hand).
+- The tabs were driven in headless Chromium against a labelled workspace:
+  light, dark and phone width, no console errors.
+- Section CS (5 checks). Gate 443.

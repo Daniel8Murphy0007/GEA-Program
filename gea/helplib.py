@@ -54,7 +54,8 @@ INDEX: List[tuple] = [
     ('report-history', 'Report history', 'every version of every client report kept in a dated folder with its SHA-256, when the next one replaces it'),
     ('pad-summary', 'The daily pad summary', 'one page each morning - what changed since the last one, what is due, what is still missing - kept in report history and sent through the notification rules'),
     ('dossier', 'The signed dossier', "a well's or the pad's reports, declarations, audit log and source hashes in one zip signed with the site's Ed25519 key, with a checker anyone can run without GEA"),
-    ('collision', 'Well collision checks', "every well scanned against every other: the closest approach and the ISCWSA separation factor, each well's position uncertainty by the ISCWSA MWD model, the field by WMM2025; the Volve template as the worked example"),
+    ('collision', 'Well collision checks', "every well scanned against every other, planned wells along their plans: the closest approach and the ISCWSA separation factor, the travelling cylinder, each well's position uncertainty by its survey program's ISCWSA / OWSG tool models, the field by WMM2025; the Volve template as the worked example"),
+    ('plan', 'Plan vs actual', "a well against its directional plan: the distance high or low and right or left at each survey against the survey's own uncertainty, the bit projected, the one arc back to the plan and its toolface; each well's survey program by tool model"),
     ('rig-time', 'Rig time', "what the rig did each second of the drilling record - drilling, the slips, tripping, circulating - its connections timed weight to weight, its trips by speed, and the time lost against the pad's own best quarter"),
     ('invoice-check', 'The invoice cross-check', "the drilling contractor's daywork invoice, day by day, against the daily drilling reports and the drilling record at the contract's terms: hours, rates, standby, the repair allowance, depth and footage, with the dollars each difference puts in question"),
     ('economics', 'Economics', 'each well\'s days, footage and cost by the operator\'s own declared rates, against the EIA oil and gas spot prices while it was drilled, and any series the site imports'),
@@ -87,7 +88,7 @@ REQUIRED_LINES = ('**The command**', '**What it writes**', '**The number to chec
 VIEW_TOPIC: Dict[str, str] = {
     'home': 'start', 'wells': 'data-in', 'well': 'drift', 'live': 'patches', 'patch': 'patches', 'files': 'files', 'alarms': 'alarms',
     'approvals': 'well-tests', 'config': 'site', 'reports': 'drift', 'verify': 'start', 'survey': 'data-in', 'jobs': 'site',
-    'admin': 'site', 'prefs': 'site', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'sar': 'seismic', 'sites': 'sites', 'setup': 'setup', 'map': 'map', '3d': 'well3d', 'simulation': 'simulation', 'drillstring': 'drillstring', 'completion': 'penetrator', 'opseis': 'opseis', 'economics': 'economics', 'invoices': 'invoice-check', 'rigtime': 'rig-time', 'collision': 'collision', 'control': 'control-room', 'wall': 'control-room', 'audit': 'audit-update', 'tools': 'tools', 'catalog': 'catalog',
+    'admin': 'site', 'prefs': 'site', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'sar': 'seismic', 'sites': 'sites', 'setup': 'setup', 'map': 'map', '3d': 'well3d', 'simulation': 'simulation', 'drillstring': 'drillstring', 'completion': 'penetrator', 'opseis': 'opseis', 'economics': 'economics', 'invoices': 'invoice-check', 'rigtime': 'rig-time', 'collision': 'collision', 'plan': 'plan', 'control': 'control-room', 'wall': 'control-room', 'audit': 'audit-update', 'tools': 'tools', 'catalog': 'catalog',
 }
 
 

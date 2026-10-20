@@ -1918,6 +1918,12 @@ def make_handler(app: App):
                 if path == '/api/collision':
                     from . import collision as CO
                     return self._json(200, App._cr(CO.page, app.ws, (qs.get('scene') or ['workspace'])[0]))
+                if path == '/api/plan':
+                    from . import wellplan as WPL
+                    return self._json(200, App._cr(WPL.page, app.ws, (qs.get('well') or [None])[0]))
+                if path == '/api/tool-models':
+                    from . import wellpos as WP
+                    return self._json(200, {'models': WP.model_list(), 'default': WP.DEFAULT_MODEL})
                 if path == '/api/rig-time':
                     from . import rig_state as RS
                     return self._json(200, App._cr(RS.page, app.ws))
@@ -2329,6 +2335,28 @@ def make_handler(app: App):
                         return self._json(200, App._cr(RS.remove_casing, app.ws, user['name'], str(b_.get('well_id') or ''), str(b_.get('size') or '')))
                     return self._json(200, App._cr(RS.set_casing, app.ws, user['name'], str(b_.get('well_id') or ''), str(b_.get('size') or ''),
                                                    b_.get('shoe_md_ft'), str(b_.get('source') or ''), b_.get('set')))
+                if path in ('/api/plan/attach', '/api/plan/remove', '/api/plan/settings', '/api/plan/write'):
+                    from . import wellplan as WPL
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    b_ = dict(body or {})
+                    wid = str(b_.get('well_id') or '')
+                    if path.endswith('/attach'):
+                        dec = b_.get('declination_deg')
+                        r_ = App._cr(WPL.attach, app.ws, wid, str(b_.get('filename') or 'plan.csv'), App._cr(WPL.decode_content, b_), user['name'],
+                                     str(b_.get('azimuth_reference') or ''), str(b_.get('md_unit') or 'ft'), b_.get('grid') or None,
+                                     float(dec) if dec not in (None, '') else None, str(b_.get('source') or ''))
+                        return self._json(200, r_)
+                    if path.endswith('/remove'):
+                        return self._json(200, App._cr(WPL.remove, app.ws, wid, user['name']))
+                    if path.endswith('/settings'):
+                        prog = b_.get('program')
+                        if isinstance(prog, str):
+                            prog = App._cr(WPL.parse_program, prog)
+                        return self._json(200, App._cr(WPL.set_well, app.ws, user['name'], wid, prog, b_.get('bit_offset_m'), b_.get('lookahead_m'),
+                                                       str(b_.get('source') or '')))
+                    r_ = App._cr(WPL.write_report, app.ws, _v, wid, user['name'])
+                    return self._json(200, {'report_id': r_['report_id']})
                 if path in ('/api/rig-time/settings', '/api/rig-time/write'):
                     from . import rig_state as RS
                     from . import __version__ as _v

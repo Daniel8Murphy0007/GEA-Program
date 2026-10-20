@@ -272,10 +272,11 @@ def _gather(ws, well_id: Optional[str]) -> Dict[str, List[tuple]]:
         if os.path.isfile(os.path.join(wd, 'well.json')):
             out_list.append((os.path.join(wd, 'well.json'), f"declarations/wells/{w['id']}/well.json"))
         files_in(os.path.join(wd, 'trajectory'), f"declarations/wells/{w['id']}/trajectory")
+        files_in(os.path.join(wd, 'plan'), f"declarations/wells/{w['id']}/plan")
     for rel in (('economics', 'costs.json'), ('drillstring', 'runs.json'), ('completion', 'esp.json'), ('seismicity', 'operations.json'),
                 ('seismicity', 'catalogs.json'), ('seismicity', 'settings.json'), ('config', 'fleet.json'), ('workspace.json',),
                 ('economics', 'invoices', 'terms.json'), ('economics', 'invoices', 'files.json'), ('drillstring', 'rig_time.json'),
-                ('drillstring', 'casing.json')):
+                ('drillstring', 'casing.json'), ('wellpath', 'collision.json'), ('wellpath', 'survey_program.json')):
         p = os.path.join(ws.path, *rel)
         if os.path.isfile(p):
             out_list.append((p, 'declarations/' + '/'.join(rel)))
@@ -295,8 +296,9 @@ def _gather(ws, well_id: Optional[str]) -> Dict[str, List[tuple]]:
 
 
 def _results(ws, well_id: Optional[str]) -> List[tuple]:
-    """The invoice cross-check of each well with invoices or reports attached, and the rig time of each well with a
-    drilling record, as JSON computed when the dossier is signed (a check that cannot run is left out, and says why)."""
+    """The invoice cross-check of each well with invoices or reports attached, the rig time of each well with a drilling
+    record, the collision check and each surveyed well against its plan, as JSON computed when the dossier is signed (a
+    check that cannot run is left out, and says why)."""
     out = []
     wells = [well_id] if well_id else [w['id'] for w in ws.wells()]
     try:
@@ -317,6 +319,23 @@ def _results(ws, well_id: Optional[str]) -> List[tuple]:
             out.append(('results/rig_time.json', json.dumps(p, indent=1, sort_keys=True, default=str).encode('utf-8')))
     except Exception as e:
         out.append(('results/rig_time_not_run.txt', f'rig time did not run: {type(e).__name__}: {e}\n'.encode('utf-8')))
+    try:
+        from . import collision as CO
+        from . import wellplan as WPL
+        c = CO.page(ws)
+        if c['pairs']:
+            c = {**c, 'pairs': [{k: v for k, v in q.items() if k != 'profile'} for q in c['pairs']
+                                if not well_id or well_id in (q['reference'], q['offset'])]}
+            out.append(('results/collision.json', json.dumps(c, indent=1, sort_keys=True, default=str).encode('utf-8')))
+        for wid in wells:
+            w = ws.well(wid)
+            if w.get('plan') and w.get('trajectory'):
+                r = WPL.page(ws, wid)
+                if r.get('comparison'):
+                    out.append((f'results/plan_vs_actual/{wid}.json', json.dumps({k: v for k, v in r['comparison'].items() if k != 'views'},
+                                                                                 indent=1, sort_keys=True, default=str).encode('utf-8')))
+    except Exception as e:
+        out.append(('results/collision_not_run.txt', f'the collision check did not run: {type(e).__name__}: {e}\n'.encode('utf-8')))
     return out
 
 

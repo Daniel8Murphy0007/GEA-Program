@@ -609,6 +609,21 @@ against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
 
+### Plan vs actual and the survey tools
+
+Each well against its directional plan: at every survey station, how far
+it is from the plan - high or low, right or left, in the plan's own frame -
+against the survey's own uncertainty in that direction; the bit projected
+below the last survey; the one arc back to the plan, with its dogleg
+severity and toolface. Each well's survey program names the tool that
+surveyed each run, weighed by the ISCWSA MWD Rev 5.11 model (checked
+against all 144 rows of the ISCWSA's own Rev 5 example) or one of 21 OWSG
+tool-code models on its weighting functions - MWD and EMS with the standard,
+high- or low-resolution geomagnetic model or in-field referencing. Wells not
+yet drilled are checked for collision along their plans, a well being
+drilled along its survey and then its plan, and the Collision tab draws the
+travelling cylinder. The **Plan vs actual** tab, `gea plan`, `gea help plan`.
+
 ### Well collision checks
 
 Every well scanned against every other: at each point of one well, the

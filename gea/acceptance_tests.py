@@ -11165,7 +11165,8 @@ def section_cr_collision(tmp: str) -> None:
     fld = {"declination_deg": 6.0, "dip_deg": 60.0, "total_nT": 48000.0}
     md = [0.0, 500.0, 1000.0, 2000.0]
     mk = lambda i, x, inc=(0, 0, 0, 0), az=(0, 0, 0, 0), y=0.0: {"id": i, "display": i, "md": md, "inc": list(inc), "az": list(az), "x0": x, "y0": y,
-                                                          "ref_elev_m": 0.0, "field": fld, "hole_in": 8.5}
+                                                          "ref_elev_m": 0.0, "field": fld, "hole_in": 8.5,
+                                                          "program": [{"to_md_m": None, "model": WP.REV4}]}
     rule = {**CO.DEFAULTS}
     A, B = CO.prepare(mk("A", 0.0)), CO.prepare(mk("B", 10.0))
     sAB, sBA = CO.scan(A, B, rule), CO.scan(B, A, rule)
@@ -11207,7 +11208,7 @@ def section_cr_collision(tmp: str) -> None:
     c3 = {
         "wells": len(v["wells"]) == 3 and len(v["pairs"]) == 6 and abs(wl["15/9-F-10"]["td_md_m"] - 5300.1) < 0.1
                  and all(abs(x["field"]["declination_deg"] - 1.12) < 0.05 for x in v["wells"]) and all("grid convergence" in x["azimuth_note"] for x in v["wells"]),
-        "worst": w_["level"] == "BELOW 1.0" and abs(w_["min_sf"] - 0.29) < 0.01 and {w_["reference_name"], w_["offset_name"]} == {"15/9-F-5", "15/9-F-10"}
+        "worst": w_["level"] == "BELOW 1.0" and abs(w_["min_sf"] - 0.062) < 0.01 and {w_["reference_name"], w_["offset_name"]} == {"15/9-F-5", "15/9-F-10"}
                  and abs(w_["at_md_m"] - 250) < 15 and abs(w_["distance_m"] - 1.20) < 0.05,
         "order": [p["min_sf"] for p in v["pairs"]] == sorted(p["min_sf"] for p in v["pairs"]) and all(len(p["profile"]["md_m"]) == len(p["profile"]["sf"]) for p in v["pairs"]),
         "ellipses": wl["15/9-F-10"]["td_ellipse_1sigma"]["major_m"] > wl["15/9-F-5"]["td_ellipse_1sigma"]["major_m"] > wl["NO 15/9-F-4"]["td_ellipse_1sigma"]["major_m"] > 1.0,
@@ -11294,6 +11295,254 @@ def section_cr_collision(tmp: str) -> None:
        "(inches, 2 to 40) or writes the report; the CLI (the worked example, the field at a place and date, the report); the report as "
        "PDF; the tab and the help"
        + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+
+def section_cs_plan_and_tools(tmp: str) -> None:
+    """Section CS - plan against actual, the survey tools and the travelling cylinder: the ISCWSA MWD Rev 5.11 model
+    checked against all 144 rows of the ISCWSA's own Rev 5 example, with the OWSG tool-code models on its weighting
+    functions; survey programs weighing each run by its tool; a well against its plan - high or low, right or left,
+    against the survey's own uncertainty - the bit projected and the arc back, each checked by construction; planned
+    wells in the collision check and the travelling cylinder's directions; the API, the CLI, the report, the dossier,
+    the tabs and the help."""
+    import base64 as _b64
+    import http.cookiejar
+    import math as _m
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    import zipfile as _zf
+    import numpy as _np
+    from . import collision as CO
+    from . import dossier as DZ
+    from . import edr as E
+    from . import helplib as H
+    from . import well3d as W
+    from . import wellplan as WPL
+    from . import wellpos as WP
+    from . import xlsx_read as XR
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "planvs"); d.mkdir()
+
+    # -- CS1 the Rev 5.11 model against the ISCWSA's example; the OWSG models ---------------------------------------------
+    ex5 = WP.check_example_rev5()
+    ex4 = WP.check_example()
+    t8 = ex5["totals"]["8000"]
+    ms = WP.models()
+    ml = WP.model_list()
+    sv = json.loads((pkg / "reference" / "iscwsa_rev5_example.json").read_text(encoding="utf-8"))["survey"]
+    md_, inc_, az_ = (_np.array(sv[k], float) for k in ("md", "inc", "azi"))
+    tvd_ = WP.min_curve_tvd(md_, inc_, az_)
+    at = lambda name: WP.program_uncertainty(md_, inc_, az_, tvd_, -4.0, 72.0, 50000.0, [{"to_md_m": None, "model": name}])["cov"][-1]
+    c_s, c_i, c_h = at("MWD+SRGM"), at("MWD+IFR1"), at("MWD+HRGM")
+    owsg = json.loads((pkg / "reference" / "owsg_tool_models.json").read_text(encoding="utf-8"))
+    c1 = {
+        "example": ex5["rows"] == 144 and ex5["sources"] == 35 and not ex5["disagree"] and ex5["worst_relative"] < 5e-5 and ex5["depths_m"] == [1200, 2100, 5100, 8000],
+        "totals": abs(t8[0] - 8518.67) < 0.01 and abs(t8[1] - 711.20) < 0.01 and abs(t8[2] - 513.29) < 0.01 and abs(t8[3] + 2244.33) < 0.01,
+        "rev4_kept": ex4["rows"] == 112 and not ex4["disagree"],
+        "models": len(ms) == 22 and WP.DEFAULT_MODEL == "MWD+SRGM" and sum(1 for m in ml if m["default"]) == 1 and WP.REV4 in ms
+                  and all(len(m["terms"]) >= 27 for m in ms.values()) and {"MWD+IFR1", "MWD+IFR2+SAG", "MWD+HRGM", "EMS+SRGM", "MWD+LRGM+SAG"} <= set(ms),
+        "magnitudes": ms["MWD+SRGM"]["terms"]["DEC-OS"][1] == 0.24 * _m.pi / 180 and ms["MWD+SRGM"]["terms"]["DEC-OS"][2] == "global"
+                      and ms["MWD+IFR1"]["terms"]["DEC-CI"][2] == "global" and ms["MWD+SRGM"]["terms"]["DEC-U"][2] == "well",
+        "grades": c_i[0, 0] + c_i[1, 1] < c_h[0, 0] + c_h[1, 1] < c_s[0, 0] + c_s[1, 1],
+        "attribution": "ISCWSA" in ex5["source"] and "Apache" in ex5["license"] and "OWSG" in owsg["source"] and "Apache" in owsg["license"] and len(owsg["models"]) == 21,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CS1 the ISCWSA MWD Rev 5.11 model - the surface tie-on, the course-length terms, the enhanced sag and misalignments, the "
+       "declination split well-wide and field-wide - recomputing all 144 rows of the ISCWSA's own Rev 5 example (35 sources and the "
+       "total at four depths) to five significant figures; the Rev 4 example still whole; 21 OWSG tool-code models on the same "
+       "weighting functions with their magnitudes and propagation as published, in-field referencing tighter than the high-resolution "
+       "model and that tighter than the standard; the source and licence of both carried"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- CS2 survey programs ------------------------------------------------------------------------------------------------
+    one = WP.program_terms(md_, inc_, az_, tvd_, -4.0, 72.0, 50000.0, [{"to_md_m": None, "model": "MWD+SRGM"}])
+    two = WP.program_terms(md_, inc_, az_, tvd_, -4.0, 72.0, 50000.0, [{"to_md_m": 2100.0, "model": "MWD+SRGM"}, {"to_md_m": None, "model": "MWD+SRGM"}])
+    mix = WP.program_uncertainty(md_, inc_, az_, tvd_, -4.0, 72.0, 50000.0, [{"to_md_m": 2100.0, "model": "MWD+SRGM"}, {"to_md_m": None, "model": "MWD+IFR1"}])
+    p1, P1, _ = WP.covariances(one)
+    p2, P2, _ = WP.covariances(two)
+    k21 = int(_np.flatnonzero(md_ == 2100)[0])
+    refused = 0
+    for bad in ([{"to_md_m": None, "model": "NOPE"}], [{"to_md_m": 900, "model": "MWD+SRGM"}, {"to_md_m": 800, "model": "MWD+SRGM"}],
+                [{"to_md_m": None, "model": "MWD+SRGM"}, {"to_md_m": None, "model": "MWD+IFR1"}], []):
+        try:
+            WPL.check_program([dict(x) for x in bad])
+        except ValueError:
+            refused += 1
+    c2 = {
+        "same_above": _np.allclose(P1[: k21 + 1], P2[: k21 + 1], rtol=1e-12, atol=1e-12),
+        "keys": "DEC-OS" in two and "DEC-U" in two and "ABZ@1" in two and "ABZ@2" in two and "ABZ" not in two and two["DEC-OS"]["shared"] and not two["DEC-U"]["shared"],
+        "runs_independent": not _np.allclose(P1[-1], P2[-1]),
+        "ifr_below": mix["cov"][-1][0, 0] + mix["cov"][-1][1, 1] < P1[-1][0, 0] + P1[-1][1, 1] and mix["model"] == "MWD+SRGM then MWD+IFR1",
+        "parse": WPL.parse_program("0-1500:MWD+SRGM, 1500-:MWD+IFR1") == [{"to_md_m": 1500.0, "model": "MWD+SRGM"}, {"to_md_m": None, "model": "MWD+IFR1"}]
+                 and WPL.parse_program("MWD+HRGM") == [{"to_md_m": None, "model": "MWD+HRGM"}],
+        "refused": refused == 4,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CS2 survey programs: each station weighed by the run that surveyed it - above the change, two runs of one tool read as one; "
+       "below it a run's own errors start again while the well's and the field's run through; in-field referencing below the "
+       "change tightens the well at TD; a program with an unknown tool, depths out of order or an open run before the last refused"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- CS3 a well against its plan, by construction -----------------------------------------------------------------------
+    fld = {"declination_deg": 6.0, "dip_deg": 60.0, "total_nT": 48000.0}
+    prog = [{"to_md_m": None, "model": "MWD+SRGM"}]
+    mds = [float(x) for x in range(0, 1501, 30)]
+    inc30 = [0.0 if m_ < 300 else min(30.0, (m_ - 300) * 0.1) for m_ in mds]      # builds 3 deg/30 m from 300 m, holds 30 from 600 m
+    az90 = [90.0] * len(mds)
+    plan = {"md": mds, "incl": inc30, "azi": az90, "slot": [0.0, 0.0], "ref_elev_m": 0.0}
+    act = {"md": mds[:41], "incl": inc30[:41], "azi": az90[:41], "slot": [0.0, 0.0], "ref_elev_m": 0.0}   # drilled to 1,200 m of a 1,500 m plan
+    left = WPL.compare({**act, "slot": [0.0, 5.0]}, plan, fld, prog, 15.0, 30.0)                  # the well 5 m north of a plan heading east
+    up = WPL.compare({**act, "ref_elev_m": 3.0}, plan, fld, prog, 15.0, 30.0)                     # the well 3 m above the plan
+    same = WPL.compare(act, plan, fld, prog, 15.0, 30.0)
+    done = WPL.compare(plan, plan, fld, prog, 15.0, 30.0)
+    bld = WPL.compare({"md": mds[:15], "incl": inc30[:15], "azi": az90[:15], "slot": [0.0, 0.0], "ref_elev_m": 0.0}, plan, fld, prog, 15.0, 30.0)
+    la, lu = left["last"], up["last"]
+    phi = _m.atan2(5.0, 30.0)
+    dls_hand = _m.degrees(2 * phi) / (_m.hypot(30.0, 5.0) * phi / _m.sin(phi)) * 30.0
+    c3 = {
+        "left": abs(la["right_m"] + 5.0) < 0.01 and abs(la["high_m"]) < 0.01 and abs(la["distance_m"] - 5.0) < 0.01 and abs(la["d_inc_deg"]) < 0.01,
+        "high": abs(lu["high_m"] - 1.5) < 0.01 and abs(lu["right_m"]) < 0.01,
+        "sigma": la["sigma_right_m"] > 0 and abs(la["n_sigma"] - 5.0 / la["sigma_right_m"]) < 0.02 and same["worst"]["distance_m"] < 0.01,
+        "bit": abs(bld["bit"]["inc_deg"] - (inc30[14] + 1.5)) < 1e-6 and abs(bld["bit"]["build_deg_30m"] - 3.0) < 1e-6 and bld["bit"]["md_m"] == mds[14] + 15.0
+               and bld["bit"]["distance_m"] < 0.05,
+        "steer": abs(left["steer"]["toolface_deg"] - 90.0) < 0.5 and abs(left["steer"]["dls_deg_30m"] - dls_hand) < 0.05 and same["steer"]["dls_deg_30m"] < 0.05
+                 and done["steer"]["dls_deg_30m"] is None and "past the plan" in done["steer"]["note"] and done["bit"]["past_plan_td"],
+        "views": len(left["views"]["actual"]["n"]) == 41 and abs(left["views"]["actual"]["n"][0] - 5.0) < 1e-6,
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CS3 a well against its plan, each figure by construction (drilled to 1,200 m of a 1,500 m plan): a well 5 m north of a plan heading east is 5 m left; 3 m above a "
+       "30-degree hold is 1.5 m high; each set against the survey's standard deviation in its direction; the bit projected 15 m "
+       "holding a 3 deg/30 m build lands on the plan that builds the same; the arc back from 5 m left to the plan 30 m ahead turns "
+       "right (toolface 90) at the severity computed by hand, a well on its plan needs none, and a well at the plan's TD has no plan ahead to steer to"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+    # -- CS4 planned wells in the collision check; the travelling cylinder --------------------------------------------------
+    mk = lambda i, x, inc, az, prog_=None: {"id": i, "display": i, "md": [0.0, 500.0, 1000.0, 2000.0], "inc": list(inc), "az": list(az), "x0": x, "y0": 0.0,
+                                            "ref_elev_m": 0.0, "field": fld, "hole_in": 8.5, **({"program": prog_} if prog_ else {})}
+    R1, O1 = CO.prepare(mk("R", 0.0, (0, 0, 0, 0), (0, 0, 0, 0))), CO.prepare(mk("O", 10.0, (0, 0, 0, 0), (0, 0, 0, 0)))
+    R2, O2 = CO.prepare(mk("R", 0.0, (45, 45, 45, 45), (0, 0, 0, 0))), CO.prepare(mk("O", 10.0, (45, 45, 45, 45), (0, 0, 0, 0), [{"to_md_m": None, "model": WP.REV4}]))
+    s1, s2 = CO.scan(R1, O1, CO.DEFAULTS), CO.scan(R2, O2, CO.DEFAULTS)
+    ev = E.selftest_events(str(d))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    ids = []
+    for i, n in enumerate(("Well A", "Well B", "Well C")):
+        w = ws.add_well_file(ev["path"], display=n, actor="tester"); ids.append(w["id"])
+        ws.set_well(w["id"], surface={"lat": 31.42, "lon": -104.10 + 0.00008 * i, "datum": "NAD83", "elevation": {"ft": 3000.0, "datum": "KB", "source": "test plat"}}, actor="tester")
+    tab = lambda pts: "MD (ft),Inc (deg),Azi (deg)\n" + "\n".join(f"{a},{b},{c}" for a, b, c in pts) + "\n"
+    sur_a = [(m_, 0.0 if m_ < 1500 else min(40.0, (m_ - 1500) * 0.02), 95.0) for m_ in range(0, 4001, 100)]
+    plan_a = [(m_, 0.0 if m_ < 1500 else min(45.0, (m_ - 1500) * 0.02), 95.0) for m_ in range(0, 7001, 250)]
+    W.attach_trajectory(ws, ids[0], "a.csv", tab(sur_a).encode(), "tester", "true", "ft", None, None, None, "MWD report (test)")
+    W.attach_trajectory(ws, ids[1], "b.csv", tab([(m_, 0.0 if m_ < 1200 else min(50.0, (m_ - 1200) * 0.025), 265.0) for m_ in range(0, 5001, 100)]).encode(),
+                        "tester", "true", "ft", None, None, None, "MWD report (test)")
+    XR.write_simple(str(d / "planC.xlsx"), [["MD (ft)", "Inc (deg)", "Azi (deg)"]] + [[m_, 0.0 if m_ < 800 else min(40.0, (m_ - 800) * 0.02), 5.0] for m_ in range(0, 6001, 500)])
+    WPL.attach(ws, ids[0], "planA.csv", tab(plan_a).encode(), "tester", "true", "ft", None, None, "well plan rev 1 (test)")
+    WPL.attach(ws, ids[2], "planC.xlsx", (d / "planC.xlsx").read_bytes(), "tester", "true", "ft", None, None, "well plan rev 0 (test)")
+    pg = CO.page(ws)
+    wl = {w_["id"]: w_ for w_ in pg["wells"]}
+    sc3 = W.workspace_scene(ws)
+    c4 = {
+        "vertical_north": all(a_ == 90.0 for a_ in s1["profile"]["tc_deg"]) and all(s1["profile"]["tc_north"]),
+        "high_side": all(abs(a_ - 90.0) < 0.5 for a_, nn in zip(s2["profile"]["tc_deg"], s2["profile"]["tc_north"]) if not nn) and not s2["profile"]["tc_north"][-1]
+                     and s2["min_sf"] > 0 and abs(s2["distance_m"] - 10.0) < 1e-6,
+        "planned": len(pg["wells"]) == 3 and wl[ids[2]]["basis"] == "plan" and wl[ids[2]]["display"].endswith("(plan)") and "30 m" in wl[ids[2]]["basis_note"]
+                   and wl[ids[0]]["basis"] == "survey + plan" and abs(wl[ids[0]]["td_md_m"] - 7000 * 0.3048) < 0.5 and len(pg["pairs"]) == 6 and not pg["left_out"],
+        "scene": [p_["id"] for p_ in sc3["planned"]] == [ids[0], ids[2]] and [w_["id"] for w_ in sc3["wells"]] == ids[:2]
+                 and any(x["id"] == ids[2] and "a plan" in x["why"] for x in sc3["not_placed"]),
+        "models": all(w_["model"] == "MWD+SRGM" for w_ in pg["wells"]),
+    }
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       "CS4 the travelling cylinder's directions - a neighbour due east of a vertical well at 90 from north, of a well heading north "
+       "at 45 degrees at 90 from its high side (with one well on the Rev 4 model and one on Rev 5.11, their shared errors those both "
+       "carry); a well not yet drilled checked along its plan (an Excel plan), weighed as surveyed every 30 m; a well being drilled "
+       "along its survey and then its plan to TD; the 3D scene carrying the plans"
+       + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+    # -- CS5 the API, the CLI, the report, the dossier, the tabs and the help ----------------------------------------------
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    plan_b = _b64.b64encode(tab([(m_, 0.0 if m_ < 1200 else min(55.0, (m_ - 1200) * 0.025), 262.0) for m_ in range(0, 6001, 300)]).encode()).decode()
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_vp, vp = call(V, "GET", "/api/plan?well=" + ids[0])
+        s_tm, tm = call(V, "GET", "/api/tool-models")
+        s_va, _ = call(V, "POST", "/api/plan/attach", {"well_id": ids[1], "filename": "b.csv", "content_b64": plan_b, "azimuth_reference": "true", "source": "x"})
+        s_ns, _ = call(O, "POST", "/api/plan/attach", {"well_id": ids[1], "filename": "b.csv", "content_b64": plan_b, "azimuth_reference": "true", "source": ""})
+        s_nr, _ = call(O, "POST", "/api/plan/attach", {"well_id": ids[1], "filename": "b.csv", "content_b64": plan_b, "azimuth_reference": "", "source": "plan"})
+        s_oa, oa = call(O, "POST", "/api/plan/attach", {"well_id": ids[1], "filename": "b.csv", "content_b64": plan_b, "azimuth_reference": "true", "md_unit": "ft", "source": "plan rev 1 (test)"})
+        s_bp, _ = call(O, "POST", "/api/plan/settings", {"well_id": ids[1], "program": "0-500:NOPE", "source": "p"})
+        s_op, op_ = call(O, "POST", "/api/plan/settings", {"well_id": ids[1], "program": "0-500:MWD+SRGM, 500-:MWD+IFR1", "bit_offset_m": "18", "source": "survey program rev 1 (test)"})
+        s_bo, _ = call(O, "POST", "/api/plan/settings", {"well_id": ids[1], "bit_offset_m": 500})
+        s_pb, pb = call(V, "GET", "/api/plan?well=" + ids[1])
+        s_vw, _ = call(V, "POST", "/api/plan/write", {"well_id": ids[1]})
+        s_ow, ow = call(O, "POST", "/api/plan/write", {"well_id": ids[1]})
+        s_rm, _ = call(O, "POST", "/api/plan/remove", {"well_id": ids[1]})
+        s_r2, _ = call(O, "POST", "/api/plan/remove", {"well_id": ids[1]})
+        s_co, co = call(V, "GET", "/api/collision")
+    finally:
+        svc.stop()
+    cli_m = _sp.run([sys.executable, "-m", "gea", "plan", "--models"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_p = _sp.run([sys.executable, "-m", "gea", "plan", "--workspace", wsp, "--well", ids[0], "--program", "MWD+HRGM", "--source", "program (test)"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_t = _sp.run([sys.executable, "-m", "gea", "plan", "--workspace", wsp, "--well", ids[0]], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_w = _sp.run([sys.executable, "-m", "gea", "plan", "--workspace", wsp, "--well", ids[0], "--write"], capture_output=True, text=True, cwd=str(pkg.parent))
+    from . import __version__ as _ver
+    dz = DZ.build(ws, "tester", _ver, None)
+    names = _zf.ZipFile(Path(ws.reports_dir, dz["path"])).namelist()
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    pdf = Path(ws.reports_dir, "wells", ids[0], "plan_vs_actual.pdf")
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c5 = {
+        "api": s_vp == 200 and vp["comparison"] is not None and s_tm == 200 and len(tm["models"]) == 22 and tm["default"] == "MWD+SRGM"
+               and s_va == 403 and s_ns == 400 and s_nr == 400 and s_oa == 200 and oa["stations"] == 21 and s_bp == 400 and s_op == 200
+               and op_["program"][1]["model"] == "MWD+IFR1" and op_["bit_offset_m"] == 18.0 and s_bo == 400 and s_pb == 200 and pb["comparison"]["bit"]["offset_m"] == 18.0
+               and pb["comparison"]["model"] == "MWD+SRGM then MWD+IFR1" and s_vw == 403 and s_ow == 200 and ow["report_id"].startswith("PVA-")
+               and s_rm == 200 and s_r2 == 404 and s_co == 200 and any(w_["model"] == "MWD+SRGM then MWD+IFR1" for w_ in co["wells"]),
+        "cli": cli_m.returncode == 0 and "MWD+SRGM" in cli_m.stdout and "(default)" in cli_m.stdout and "ISCWSA MWD Rev4" in cli_m.stdout
+               and cli_p.returncode == 0 and "MWD+HRGM to TD" in cli_p.stdout and cli_t.returncode == 0 and "the bit projected" in cli_t.stdout
+               and "tools: MWD+HRGM" in cli_t.stdout and cli_w.returncode == 0 and "plan_vs_actual" in cli_w.stdout,
+        "report": pdf.exists() and PR_read_ok(pdf) and "report.plan_vs_actual" in audit and "well.plan" in audit and "well.plan_removed" in audit and "survey_program.declare" in audit,
+        "dossier": bool(names) and f"declarations/wells/{ids[0]}/plan/planA.csv" in names and "declarations/wellpath/survey_program.json" in names
+                   and "results/collision.json" in names and f"results/plan_vs_actual/{ids[0]}.json" in names,
+        "page": all(x in page_src for x in ("VIEWS.plan", "['#/plan', 'Plan vs actual']", "/api/plan/attach", "/api/plan/settings", "coCylinder", "#coTcRef", "pvDev")),
+        "help": not H.check("plan") and not H.check("collision") and H.VIEW_TOPIC.get("plan") == "plan" and "travelling cylinder" in (pkg / "help" / "collision.md").read_text(encoding="utf-8"),
+    }
+    failed5 = [k for k, v in c5.items() if not v]
+    ok(not failed5,
+       "CS5 on the API (anyone reads a well against its plan and the tool models; only an operator attaches a plan - its source and "
+       "azimuth reference required - declares a survey program - an unknown tool or a bit offset past 100 m refused - writes the "
+       "report or takes the plan off), the CLI (the models, a program, the comparison, the report), the report as PDF, a signed "
+       "dossier carrying the plans, the programs and both checks, the tabs and the help"
+       + (f" [failed: {', '.join(failed5)}]" if failed5 else ""))
+
+
+def PR_read_ok(path) -> bool:
+    from . import pdf_report as PR
+    try:
+        return bool(PR.read(Path(path).read_bytes())["ok"])
+    except Exception:
+        return False
 
 
 def main() -> int:
@@ -11395,6 +11644,7 @@ def main() -> int:
         section_cp_rig_time(tmp)
         section_cq_tied_together(tmp)
         section_cr_collision(tmp)
+        section_cs_plan_and_tools(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

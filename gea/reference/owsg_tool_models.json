@@ -1,0 +1,4611 @@
+{
+ "entry": "owsg_tool_models",
+ "kind": "REFERENCE_TABLE",
+ "what": "The survey tool error models of the ISCWSA's Operator Wellbore Survey Group (OWSG) tool-code sets A and B, Rev 5.1 (2020-10-08), that use only the ISCWSA MWD Rev 5 weighting functions: each model's error terms, magnitudes, units and propagation modes. The AX (axial-interference corrected), gyroscopic, film, dipmeter, inclination-only and blind models are not carried: their terms use weighting functions this program does not implement.",
+ "source": "ISCWSA / OWSG tool-code workbooks (toolgroup-owsg-a-rev-5-1-08-oct-2020-produced-23-sep-2022.xlsx, toolgroup-owsg-b-rev-5-1-08-oct-2020-produced-23-sep-2022.xlsx), as converted to the ISCWSA JSON tool-model schema in welleng (github.com/jonnymaserati/welleng, welleng/errors/iscwsa_json, version 0.29.1 on PyPI, Copyright (c) 2023 Jonathan Corcutt).",
+ "license": "Apache License 2.0 (welleng). The terms' names, values, units and propagation modes are copied unchanged; the weighting formulas are not copied (they are the ISCWSA Rev 5 functions, implemented in gea/wellpos.py and checked against the ISCWSA's own example).",
+ "units": {
+  "deg": "degrees (converted to radians)",
+  "deg.nT": "degree-nanotesla (converted to radian-nT)",
+  "nT": "nanotesla",
+  "m/s2": "metres per second squared",
+  "m": "metres",
+  "1/m": "per metre",
+  "-": "dimensionless"
+ },
+ "propagation": {
+  "Random": "independent station to station",
+  "Systematic": "the same error through one survey run",
+  "Well": "the same error through one well, independent between wells",
+  "Global": "the same error in every well of the field"
+ },
+ "models": [
+  {
+   "id": "A017Mc",
+   "name": "EMS+SRGM+SAG",
+   "long_name": "OWSG EMS + SRGM + Sag Correction",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "EMS using 1-Year Standard Resolution Geomagnetic Mode (e.g. BGGM up to 2018, MVSD) and Sag Correction",
+   "tool_type": "Magnetic",
+   "set": "owsg_a",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.16,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-OS",
+     "value": 0.24,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OH",
+     "value": 0.21,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECS",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DBH-U",
+     "value": 2350.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-OS",
+     "value": 3359.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OH",
+     "value": 2840.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHS",
+     "value": 3000.0,
+     "unit": "deg.nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "AMIL",
+     "value": 220.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.08,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  },
+  {
+   "id": "A014Mc",
+   "name": "EMS+SRGM",
+   "long_name": "OWSG EMS + SRGM",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "EMS using 1-Year Standard Resolution Geomagnetic Mode (e.g. BGGM up to 2018, MVSD) with no additional corrections",
+   "tool_type": "Magnetic",
+   "set": "owsg_a",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.16,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-OS",
+     "value": 0.24,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OH",
+     "value": 0.21,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECS",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DBH-U",
+     "value": 2350.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-OS",
+     "value": 3359.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OH",
+     "value": 2840.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHS",
+     "value": 3000.0,
+     "unit": "deg.nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "AMIL",
+     "value": 220.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.2,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  },
+  {
+   "id": "A008Mc",
+   "name": "MWD+IFR1+MS",
+   "long_name": "OWSG MWD + IFR1 + Multi-Station Correction",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "CARE TO BE TAKEN WHILE PLANNING A WELL \u2013 Refer to Survey Management Specialist to ensure MS is valid.  MWD with IFR1 (IFR or Crustal Anomaly Correction) and Multi-Station Correction",
+   "tool_type": "Magnetic",
+   "set": "owsg_a",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 35.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 35.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 35.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0008,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0008,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0008,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0008,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.11,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-CI",
+     "value": 0.09,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECR",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "DBH-U",
+     "value": 1271.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-CI",
+     "value": 712.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHR",
+     "value": 3000.0,
+     "unit": "deg.nT",
+     "propagation": "Random"
+    },
+    {
+     "code": "AMIL",
+     "value": 100.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.2,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  },
+  {
+   "id": "A010Mc",
+   "name": "MWD+IFR1+SAG+MS",
+   "long_name": "OWSG MWD + IFR1 + Sag Correction + Multi-Station Correction",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "CARE TO BE TAKEN WHILE PLANNING A WELL \u2013 Refer to Survey Management Specialist to ensure MS is valid.  MWD with IFR1 (IFR or Crustal Anomaly Correction) with Sag and Multi-Station Correction",
+   "tool_type": "Magnetic",
+   "set": "owsg_a",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 35.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 35.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 35.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0008,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0008,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0008,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0008,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.11,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-CI",
+     "value": 0.09,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECR",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "DBH-U",
+     "value": 1271.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-CI",
+     "value": 712.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHR",
+     "value": 3000.0,
+     "unit": "deg.nT",
+     "propagation": "Random"
+    },
+    {
+     "code": "AMIL",
+     "value": 100.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.08,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  },
+  {
+   "id": "A009Mc",
+   "name": "MWD+IFR1+SAG",
+   "long_name": "OWSG MWD + IFR1 + Sag Correction",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "MWD with IFR1 (IFR or Crustal Anomaly Correction) and Sag Correction",
+   "tool_type": "Magnetic",
+   "set": "owsg_a",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.11,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-CI",
+     "value": 0.09,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECR",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "DBH-U",
+     "value": 1271.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-CI",
+     "value": 712.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHR",
+     "value": 3000.0,
+     "unit": "deg.nT",
+     "propagation": "Random"
+    },
+    {
+     "code": "AMIL",
+     "value": 220.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.08,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  },
+  {
+   "id": "A005Mc",
+   "name": "MWD+IFR1",
+   "long_name": "OWSG MWD + IFR1",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "MWD with IFR1 (IFR or Crustal Anomaly Correction)",
+   "tool_type": "Magnetic",
+   "set": "owsg_a",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.11,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-CI",
+     "value": 0.09,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECR",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "DBH-U",
+     "value": 1271.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-CI",
+     "value": 712.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHR",
+     "value": 3000.0,
+     "unit": "deg.nT",
+     "propagation": "Random"
+    },
+    {
+     "code": "AMIL",
+     "value": 220.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.2,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  },
+  {
+   "id": "A013Mc",
+   "name": "MWD+IFR2+SAG+MS",
+   "long_name": "OWSG MWD + IFR2 + Sag + Multi-Station Correction",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "CARE TO BE TAKEN WHILE PLANNING A WELL \u2013 Refer to Survey Management Specialist to ensure MS is valid.  MWD with IFR2 (IIFR or Crustal Anomaly with Time Varying Corrections) with Sag and Multi-Station Correction",
+   "tool_type": "Magnetic",
+   "set": "owsg_a",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 35.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 35.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 35.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0008,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0008,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0008,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0008,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.11,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-CI",
+     "value": 0.09,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECR",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "DBH-U",
+     "value": 963.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-CI",
+     "value": 712.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHR",
+     "value": 750.0,
+     "unit": "deg.nT",
+     "propagation": "Random"
+    },
+    {
+     "code": "AMIL",
+     "value": 100.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.08,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  },
+  {
+   "id": "A012Mc",
+   "name": "MWD+IFR2+SAG",
+   "long_name": "OWSG MWD + IFR2 + Sag Correction",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "MWD with IFR2 (IIFR or Crustal Anomaly with Time Varying Corrections) and Sag Correction",
+   "tool_type": "Magnetic",
+   "set": "owsg_a",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.11,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-CI",
+     "value": 0.09,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECR",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "DBH-U",
+     "value": 963.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-CI",
+     "value": 712.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHR",
+     "value": 750.0,
+     "unit": "deg.nT",
+     "propagation": "Random"
+    },
+    {
+     "code": "AMIL",
+     "value": 220.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.08,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  },
+  {
+   "id": "A002Mc",
+   "name": "MWD+SRGM+SAG",
+   "long_name": "OWSG MWD + SRGM + Sag Correction",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "MWD using 1-Year Standard Resolution Geomagnetic Mode (e.g. BGGM up to 2018, MVSD) and Sag Correction",
+   "tool_type": "Magnetic",
+   "set": "owsg_a",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.16,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-OS",
+     "value": 0.24,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OH",
+     "value": 0.21,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECR",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "DBH-U",
+     "value": 2350.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-OS",
+     "value": 3359.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OH",
+     "value": 2840.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHR",
+     "value": 3000.0,
+     "unit": "deg.nT",
+     "propagation": "Random"
+    },
+    {
+     "code": "AMIL",
+     "value": 220.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.08,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  },
+  {
+   "id": "A001Mc",
+   "name": "MWD+SRGM",
+   "long_name": "OWSG MWD + SRGM",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "MWD using 1-Year Standard Resolution Geomagnetic Mode (e.g. BGGM up to 2018, MVSD) with no additional corrections",
+   "tool_type": "Magnetic",
+   "set": "owsg_a",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.16,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-OS",
+     "value": 0.24,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OH",
+     "value": 0.21,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECR",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "DBH-U",
+     "value": 2350.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-OS",
+     "value": 3359.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OH",
+     "value": 2840.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHR",
+     "value": 3000.0,
+     "unit": "deg.nT",
+     "propagation": "Random"
+    },
+    {
+     "code": "AMIL",
+     "value": 220.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.2,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  },
+  {
+   "id": "B016Mc",
+   "name": "EMS+HRGM+SAG",
+   "long_name": "OWSG EMS + HRGM + Sag Correction",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "EMS using 1-year High Resolution Geomagnetic Model with spherical harmonic degree of 720 or higher (e.g. BGGM2019+, HDGM, MVHD) with Sag Correction",
+   "tool_type": "Magnetic",
+   "set": "owsg_b",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.16,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-CH",
+     "value": 0.13,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OH",
+     "value": 0.21,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECS",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DBH-U",
+     "value": 2359.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-CH",
+     "value": 1789.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OH",
+     "value": 2840.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHS",
+     "value": 3000.0,
+     "unit": "deg.nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "AMIL",
+     "value": 220.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.08,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  },
+  {
+   "id": "B013Mc",
+   "name": "EMS+HRGM",
+   "long_name": "OWSG EMS + HRGM",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "EMS using 1-year High Resolution Geomagnetic Model with spherical harmonic degree of 720 or higher (e.g. BGGM2019+, HDGM, MVHD)",
+   "tool_type": "Magnetic",
+   "set": "owsg_b",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.16,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-CH",
+     "value": 0.13,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OH",
+     "value": 0.21,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECS",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DBH-U",
+     "value": 2359.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-CH",
+     "value": 1789.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OH",
+     "value": 2840.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHS",
+     "value": 3000.0,
+     "unit": "deg.nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "AMIL",
+     "value": 220.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.2,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  },
+  {
+   "id": "B012Mc",
+   "name": "EMS+IFR1+SAG+MS",
+   "long_name": "OWSG EMS + IFR1 + Sag + Multi-Station Correction",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "CARE TO BE TAKEN WHILE PLANNING A WELL \u2013 Refer to Survey Management Specialist to ensure MS is valid.  EMS with IFR1 (IFR or Crustal Anomaly Correction) with Sag and Multi-Station Correction",
+   "tool_type": "Magnetic",
+   "set": "owsg_b",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 35.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 35.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 35.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0008,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0008,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0008,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0008,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.11,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-CI",
+     "value": 0.09,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECS",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DBH-U",
+     "value": 1271.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-CI",
+     "value": 712.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHS",
+     "value": 3000.0,
+     "unit": "deg.nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "AMIL",
+     "value": 100.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.08,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  },
+  {
+   "id": "B011Mc",
+   "name": "EMS+IFR1+SAG",
+   "long_name": "OWSG EMS + IFR1 + Sag Correction",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "EMS with IFR1 (IFR or Crustal Anomaly Correction) and Sag Correction",
+   "tool_type": "Magnetic",
+   "set": "owsg_b",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.11,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-CI",
+     "value": 0.09,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECS",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DBH-U",
+     "value": 1271.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-CI",
+     "value": 712.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHS",
+     "value": 3000.0,
+     "unit": "deg.nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "AMIL",
+     "value": 220.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.08,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  },
+  {
+   "id": "B020Mc",
+   "name": "EMS+LRGM+SAG",
+   "long_name": "OWSG EMS + LRGM + Sag Correction",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "EMS using Low Resolution Geomagnetic Model (e.g. Updated less frequently than yearly, EMM, CGRF, IGRF, WMM) with Sag Correction",
+   "tool_type": "Magnetic",
+   "set": "owsg_b",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.29,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-OS",
+     "value": 0.24,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OH",
+     "value": 0.21,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECS",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DBH-U",
+     "value": 4108.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-OS",
+     "value": 3359.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OH",
+     "value": 2840.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHS",
+     "value": 3000.0,
+     "unit": "deg.nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "AMIL",
+     "value": 220.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.08,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  },
+  {
+   "id": "B017Mc",
+   "name": "EMS+LRGM",
+   "long_name": "OWSG EMS + LRGM",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "EMS using Low Resolution Geomagnetic Model (e.g. Updated less frequently than yearly, EMM, CGRF, IGRF, WMM)",
+   "tool_type": "Magnetic",
+   "set": "owsg_b",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.29,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-OS",
+     "value": 0.24,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OH",
+     "value": 0.21,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECS",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DBH-U",
+     "value": 4108.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-OS",
+     "value": 3359.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OH",
+     "value": 2840.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHS",
+     "value": 3000.0,
+     "unit": "deg.nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "AMIL",
+     "value": 220.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.2,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  },
+  {
+   "id": "B005Mc",
+   "name": "MWD+HRGM+SAG+MS",
+   "long_name": "OWSG MWD + HRGM + Sag + Multi-Station Correction",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "CARE TO BE TAKEN WHILE PLANNING A WELL \u2013 Refer to Survey Management Specialist to ensure MS is valid.  MWD Using a High Resolution Geomagnetic Model (HRGM) with spherical harmonic degree of 720 or higher (e.g. HDGM or MVHD) with Sag Correction and Multi-Station Correction",
+   "tool_type": "Magnetic",
+   "set": "owsg_b",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 35.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 35.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 35.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0008,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0008,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0008,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0008,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.16,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-CH",
+     "value": 0.13,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OH",
+     "value": 0.21,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECR",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "DBH-U",
+     "value": 2359.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-CH",
+     "value": 1789.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OH",
+     "value": 2840.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHR",
+     "value": 3000.0,
+     "unit": "deg.nT",
+     "propagation": "Random"
+    },
+    {
+     "code": "AMIL",
+     "value": 100.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.08,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  },
+  {
+   "id": "B004Mc",
+   "name": "MWD+HRGM+SAG",
+   "long_name": "OWSG MWD + HRGM + Sag Correction",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "MWD using 1-year High Resolution Geomagnetic Model with spherical harmonic degree of 720 or higher (e.g. BGGM2019+, HDGM, MVHD) and Sag Correction",
+   "tool_type": "Magnetic",
+   "set": "owsg_b",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.16,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-CH",
+     "value": 0.13,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OH",
+     "value": 0.21,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECR",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "DBH-U",
+     "value": 2359.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-CH",
+     "value": 1789.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OH",
+     "value": 2840.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHR",
+     "value": 3000.0,
+     "unit": "deg.nT",
+     "propagation": "Random"
+    },
+    {
+     "code": "AMIL",
+     "value": 220.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.08,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  },
+  {
+   "id": "B001Mc",
+   "name": "MWD+HRGM",
+   "long_name": "OWSG MWD + HRGM",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "MWD using 1-year High Resolution Geomagnetic Model with spherical harmonic degree of 720 or higher (e.g. BGGM2019+, HDGM, MVHD)",
+   "tool_type": "Magnetic",
+   "set": "owsg_b",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.16,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-CH",
+     "value": 0.13,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OH",
+     "value": 0.21,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECR",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "DBH-U",
+     "value": 2359.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-CH",
+     "value": 1789.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OH",
+     "value": 2840.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHR",
+     "value": 3000.0,
+     "unit": "deg.nT",
+     "propagation": "Random"
+    },
+    {
+     "code": "AMIL",
+     "value": 220.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.2,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  },
+  {
+   "id": "B009Mc",
+   "name": "MWD+LRGM+SAG",
+   "long_name": "OWSG MWD + LRGM + Sag Correction",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "MWD using Low Resolution Geomagnetic Model (e.g. Updated less frequently than yearly, EMM, CGRF, IGRF, WMM) with Sag Correction",
+   "tool_type": "Magnetic",
+   "set": "owsg_b",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.29,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-OS",
+     "value": 0.24,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OH",
+     "value": 0.21,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECR",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "DBH-U",
+     "value": 4108.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-OS",
+     "value": 3359.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OH",
+     "value": 2840.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHR",
+     "value": 3000.0,
+     "unit": "deg.nT",
+     "propagation": "Random"
+    },
+    {
+     "code": "AMIL",
+     "value": 220.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.08,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  },
+  {
+   "id": "B006Mc",
+   "name": "MWD+LRGM",
+   "long_name": "OWSG MWD + LRGM",
+   "revision": 5,
+   "revision_date": "2020-10-08",
+   "application": "MWD using Low Resolution Geomagnetic Model (e.g. Updated less frequently than yearly, EMM, CGRF, IGRF, WMM)",
+   "tool_type": "Magnetic",
+   "set": "owsg_b",
+   "xcl_tortuosity_rad_per_m": 0.000572614583987641,
+   "terms": [
+    {
+     "code": "DRFR",
+     "value": 0.35,
+     "unit": "m",
+     "propagation": "Random"
+    },
+    {
+     "code": "DSFS",
+     "value": 0.00056,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DSTG",
+     "value": 2.5e-07,
+     "unit": "1/m",
+     "propagation": "Global"
+    },
+    {
+     "code": "ABXY-TI1S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABXY-TI2S",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ABZ",
+     "value": 0.004,
+     "unit": "m/s2",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI1S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI2S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASXY-TI3S",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "ASZ",
+     "value": 0.0005,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI1S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBXY-TI2S",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MBZ",
+     "value": 70.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI1S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI2S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSXY-TI3S",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "MSZ",
+     "value": 0.0016,
+     "unit": "-",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "DEC-U",
+     "value": 0.29,
+     "unit": "deg",
+     "propagation": "Well"
+    },
+    {
+     "code": "DEC-OS",
+     "value": 0.24,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OH",
+     "value": 0.21,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DEC-OI",
+     "value": 0.05,
+     "unit": "deg",
+     "propagation": "Global"
+    },
+    {
+     "code": "DECR",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "DBH-U",
+     "value": 4108.0,
+     "unit": "deg.nT",
+     "propagation": "Well"
+    },
+    {
+     "code": "DBH-OS",
+     "value": 3359.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OH",
+     "value": 2840.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBH-OI",
+     "value": 356.0,
+     "unit": "deg.nT",
+     "propagation": "Global"
+    },
+    {
+     "code": "DBHR",
+     "value": 3000.0,
+     "unit": "deg.nT",
+     "propagation": "Random"
+    },
+    {
+     "code": "AMIL",
+     "value": 220.0,
+     "unit": "nT",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "SAGE",
+     "value": 0.2,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM1",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM2",
+     "value": 0.1,
+     "unit": "deg",
+     "propagation": "Systematic"
+    },
+    {
+     "code": "XYM3E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XYM4E",
+     "value": 0.3,
+     "unit": "deg",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLA",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    },
+    {
+     "code": "XCLH",
+     "value": 0.167,
+     "unit": "-",
+     "propagation": "Random"
+    }
+   ]
+  }
+ ]
+}

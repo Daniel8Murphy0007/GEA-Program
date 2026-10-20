@@ -1,7 +1,9 @@
 """Well collision checks: how close each well's path comes to its neighbours, against how well both are known.
 
 Two wells drilled from one pad start metres apart. Each well's position is known only as well as its survey: the
-error model (`wellpos`, ISCWSA MWD Rev 4) gives each station's covariance, growing with depth. This module scans every
+error model (`wellpos`: the tool models of the well's survey program, ISCWSA MWD Rev 5.11 unless declared) gives each
+station's covariance, growing with depth. A well not yet drilled is checked along its plan (`wellplan`), weighed as if
+surveyed every 30 m; a well being drilled along its survey and then its plan below it. This module scans every
 well against every other in three dimensions and answers, along the reference well, with the separation factor of the
 ISCWSA collision-avoidance rule (Sawaryn et al., "Well-Collision-Avoidance Separation Rule", SPE Drilling &
 Completion 34(1), 2019):
@@ -46,6 +48,8 @@ RULE_SOURCE = ('the ISCWSA separation rule (Sawaryn et al., Well-Collision-Avoid
                'surface margin 0.3 m and project-ahead 0.5 m as recommended) and the ISCWSA eBook\'s levels (Separation Rules: report below 4.0, '
                'approach limit 1.5, revise below 1.25, dispensation below 1.0)')
 _LOCK = threading.Lock()
+TC_NORTH_BELOW_DEG = 5.0          # the travelling cylinder's angle from north while the reference is within this of vertical
+PLANNED_STATION_M = 30.0          # a plan weighed as if surveyed every 30 m (one stand)
 
 
 def _path(ws) -> str:
@@ -113,7 +117,7 @@ def prepare(w: dict, step_m: float = 10.0) -> dict:
     p = W3.Path(md, inc, az, w['x0'], w['y0'], w.get('ref_elev_m') or 0.0, 0.0)
     az_true = (az + w.get('az_true_offset_deg', 0.0)) % 360.0
     f = w['field']
-    u = WP.well_uncertainty(md, inc, az_true, p.tvd, f['declination_deg'], f['dip_deg'], f['total_nT'])
+    u = WP.program_uncertainty(md, inc, az_true, p.tvd, f['declination_deg'], f['dip_deg'], f['total_nT'], w.get('program'))
     r = math.radians(-w.get('az_true_offset_deg', 0.0))  # true north -> the frame's north
     R = np.array([[math.cos(r), -math.sin(r), 0.0], [math.sin(r), math.cos(r), 0.0], [0.0, 0.0, 1.0]])
     C = np.einsum('ij,kjl,ml->kim', R, u['cov'], R)
@@ -125,7 +129,14 @@ def prepare(w: dict, step_m: float = 10.0) -> dict:
     t = ((grid - md[j]) / np.where(md[j + 1] > md[j], md[j + 1] - md[j], 1.0)).clip(0.0, 1.0)
     Ci = C[j] * (1 - t)[:, None, None] + C[j + 1] * t[:, None, None]
     Gi = {k: v[j] * (1 - t)[:, None] + v[j + 1] * t[:, None] for k, v in G.items()}
+    tng = np.gradient(pos, grid, axis=0) if len(grid) > 1 else np.array([[0.0, 0.0, 1.0]])
+    tng = tng / np.maximum(np.linalg.norm(tng, axis=1), 1e-12)[:, None]
+    inc_g = np.degrees(np.arccos(np.clip(tng[:, 2], -1.0, 1.0)))
+    az_g = np.arctan2(tng[:, 1], tng[:, 0])
+    hs = np.stack([np.cos(np.radians(inc_g)) * np.cos(az_g), np.cos(np.radians(inc_g)) * np.sin(az_g), -np.sin(np.radians(inc_g))], axis=1)
+    rt = np.stack([-np.sin(az_g), np.cos(az_g), np.zeros(len(grid))], axis=1)
     return {**w, 'grid_md': grid, 'pos': pos, 'cov': Ci, 'glob': Gi, 'radius_m': w.get('hole_in', DEFAULTS['hole_in']) * 0.0254 / 2.0,
+            'grid_inc': inc_g, 'hs': hs, 'rt': rt, 'model': u['model'],
             'stations_cov': C, 'stations_md': md, 'td_ellipse': WP.ellipse(C[-1], 1.0)}
 
 
@@ -157,13 +168,19 @@ def scan(ref: dict, off: dict, rule: dict) -> dict:
         Cr = ref['cov'][i]
         X = np.zeros((3, 3))
         for g_, sr in ref['glob'].items():                   # what both wells share moves them together
+            if g_ not in off['glob']:
+                continue
             so = off['glob'][g_][jj] * (1 - f) + off['glob'][g_][jj + 1] * f
             X += np.outer(sr[i], so)
         var = float(n @ (Cr + Co - X - X.T) @ n)
         sig = math.sqrt(max(var, 0.0))
         sf = (D - ref['radius_m'] - off['radius_m'] - sm) / (k * math.sqrt(sig * sig + spa * spa))
         md_o = float(off['grid_md'][jj] * (1 - f) + off['grid_md'][jj + 1] * f)
-        out.append((float(ref['grid_md'][i]), float(a[2]), md_o, D, sig, sf))
+        if ref['grid_inc'][i] < TC_NORTH_BELOW_DEG:              # near vertical: the bearing from north
+            ang = math.degrees(math.atan2(float(n[1]), float(n[0]))) % 360.0
+        else:                                                     # clockwise from the reference's high side
+            ang = math.degrees(math.atan2(float(n @ ref['rt'][i]), float(n @ ref['hs'][i]))) % 360.0
+        out.append((float(ref['grid_md'][i]), float(a[2]), md_o, D, sig, sf, ang))
     arr = np.array(out)
     i_min = int(np.argmin(arr[:, 5]))
     low = arr[:, 5] < float(rule.get('report_below', 4.0))
@@ -180,7 +197,9 @@ def scan(ref: dict, off: dict, rule: dict) -> dict:
             'distance_m': round(float(mn[3]), 3), 'sigma_m': round(float(mn[4]), 3), 'level': lv, 'why': why, 'sections': sections,
             'closest_m': round(float(arr[:, 3].min()), 3), 'closest_at_md_m': round(float(arr[int(np.argmin(arr[:, 3])), 0]), 1),
             'profile': {'md_m': [round(float(x), 1) for x in arr[:, 0]], 'sf': [round(float(min(x, 99.0)), 3) for x in arr[:, 5]],
-                        'distance_m': [round(float(x), 2) for x in arr[:, 3]], 'sigma_m': [round(float(x), 3) for x in arr[:, 4]]}}
+                        'distance_m': [round(float(x), 2) for x in arr[:, 3]], 'sigma_m': [round(float(x), 3) for x in arr[:, 4]],
+                        'offset_md_m': [round(float(x), 1) for x in arr[:, 2]], 'tc_deg': [round(float(x), 1) for x in arr[:, 6]],
+                        'tc_north': [bool(x < TC_NORTH_BELOW_DEG) for x in ref['grid_inc']]}}
 
 
 def _runs(mask):
@@ -199,16 +218,18 @@ def analyse(wells: List[dict], rule: dict, title: str = '') -> dict:
     pairs.sort(key=lambda p: p['min_sf'])
     wl = [{'id': w['id'], 'display': w['display'], 'td_md_m': round(float(w['stations_md'][-1]), 1), 'n_stations': int(len(w['stations_md'])),
            'hole_in': w.get('hole_in', DEFAULTS['hole_in']), 'field': w['field'], 'td_ellipse_1sigma': w['td_ellipse'],
-           'slot': [round(float(w['x0']), 2), round(float(w['y0']), 2)], 'field_note': w.get('field_note', ''), 'azimuth_note': w.get('azimuth_note', '')}
+           'slot': [round(float(w['x0']), 2), round(float(w['y0']), 2)], 'field_note': w.get('field_note', ''), 'azimuth_note': w.get('azimuth_note', ''),
+           'model': w['model'], 'basis': w.get('basis', 'survey'), 'basis_note': w.get('basis_note', '')}
           for w in prep]
     worst = pairs[0] if pairs else None
     return {'title': title, 'rule': {k: rule[k] for k in ('k', 'surface_margin_m', 'sigma_pa_m') if k in rule}, 'rule_source': rule.get('rule_source') or RULE_SOURCE,
             'wells': wl, 'pairs': pairs, 'worst': {k: v for k, v in (worst or {}).items() if k != 'profile'} or None,
             'levels': [{'below': lim, 'level': name, 'meaning': why} for lim, name, why in LEVELS],
-            'model': 'ISCWSA MWD Rev 4 (every well; a tool of another grade is another model)',
+            'model': 'each well by its survey program\'s tool models (ISCWSA MWD Rev 5.11, MWD+SRGM, unless declared)',
             'not_a_measurement': ['the wells\' true positions: an uncertainty is what the survey tool\'s published error model allows, not a measured miss',
                                   'a probability of collision: the separation factor is a rule\'s ratio, and the operator\'s standard says what it permits',
-                                  'the hole size when it is not declared (8-1/2 in by default), and the casing beyond it']}
+                                  'the hole size when it is not declared (8-1/2 in by default), and the casing beyond it',
+                                  'a plan\'s position: a well not yet drilled is checked along its plan, weighed as if surveyed every 30 m by its program\'s tools']}
 
 
 # -- the scenes -----------------------------------------------------------------------------------------------------------
@@ -243,8 +264,11 @@ def workspace_wells(ws) -> Tuple[List[dict], List[dict]]:
     sc = W3.workspace_scene(ws)
     s = settings(ws)
     left = list(sc.get('not_placed') or [])
+    from . import wellplan as WPL
     out = []
-    for w in sc['wells']:
+    plans = {p['id']: p for p in sc.get('planned') or []}
+    entries = [(w, 'survey') for w in sc['wells']] + [(p, 'plan') for p in plans.values() if not p['surveyed']]
+    for w, basis in entries:
         wid = w['id']
         wr = ws.well(wid)
         surf = wr.get('surface') or {}
@@ -256,14 +280,38 @@ def workspace_wells(ws) -> Tuple[List[dict], List[dict]]:
         except Exception:
             pass
         f = GM.field(float(surf.get('lat')), float(surf.get('lon')), 0.0, when or datetime.now(timezone.utc).date())
-        st = w['stations']
-        out.append({'id': wid, 'display': w['name'], 'md': st['md'], 'inc': st['incl'], 'az': st['azi'], 'az_true_offset_deg': 0.0,
+        st = dict(w['stations'])
+        note = ''
+        if basis == 'plan':                                # a well not yet drilled: its plan, weighed as surveyed every stand
+            st = _densify(st, PLANNED_STATION_M)
+            note = f'the plan ({w["source"]}), weighed as surveyed every {PLANNED_STATION_M:g} m'
+        elif wid in plans and plans[wid]['td_md'] > float(st['md'][-1]) + 1.0:    # drilling: the survey, then the plan below it
+            pl = _densify(plans[wid]['stations'], PLANNED_STATION_M)
+            below = [i for i, m in enumerate(pl['md']) if m > float(st['md'][-1]) + 1.0]
+            st = {k: list(st[k]) + [pl[k][i] for i in below] for k in ('md', 'incl', 'azi')}
+            basis = 'survey + plan'
+            note = f'surveyed to {w["stations"]["md"][-1]:,.1f} m, the plan below it'
+        prog = WPL.well_settings(ws, wid)['program']
+        out.append({'id': wid, 'display': w['name'] + (' (plan)' if basis == 'plan' else ''), 'md': st['md'], 'inc': st['incl'], 'az': st['azi'], 'az_true_offset_deg': 0.0,
+                    'program': prog, 'basis': basis, 'basis_note': note,
                     'x0': float(w['slot'][0]), 'y0': float(w['slot'][1]), 'ref_elev_m': float(w['ref_elev_m']),
                     'field': {'declination_deg': round(f['declination_deg'], 3), 'dip_deg': round(f['dip_deg'], 3), 'total_nT': round(f['total_nT'], 1)},
                     'hole_in': s['holes_in'].get(wid, DEFAULTS['hole_in']),
                     'field_note': f"WMM2025 at the well for {f['decimal_year']:.2f}" + (f" ({f['note']})" if f['note'] else ''),
                     'azimuth_note': w['azimuth']['applied']})
+    placed = {x['id'] for x in out}
+    left = [x for x in left if x['id'] not in placed]
     return out, left
+
+
+def _densify(st: dict, step: float) -> dict:
+    """A plan's stations with one added every `step` metres between them, on its arcs (as a survey would see it)."""
+    from . import well3d as W3
+    from . import wellplan as WPL
+    p = W3.Path(st['md'], st['incl'], st['azi'], 0.0, 0.0, 0.0, 0.0)
+    mds = sorted(set(np.round(np.concatenate([p.md, np.arange(p.md[0], p.md[-1], step)]), 3).tolist()))
+    dirs = [WPL._interp_dir(p, m) for m in mds]
+    return {'md': mds, 'incl': [d[0] for d in dirs], 'azi': [d[1] for d in dirs]}
 
 
 def page(ws, scene: str = 'workspace') -> dict:
@@ -277,7 +325,7 @@ def page(ws, scene: str = 'workspace') -> dict:
         res = analyse(wells, rule, ws.manifest.get('name') or 'this workspace') if len(wells) >= 2 else {
             'title': ws.manifest.get('name') or 'this workspace', 'wells': [], 'pairs': [], 'worst': None, 'rule': {k: rule[k] for k in ('k', 'surface_margin_m', 'sigma_pa_m')},
             'rule_source': rule.get('rule_source') or RULE_SOURCE, 'levels': [{'below': lim, 'level': name, 'meaning': why} for lim, name, why in LEVELS],
-            'model': 'ISCWSA MWD Rev 4', 'not_a_measurement': [],
+            'model': 'each well by its survey program\'s tool models', 'not_a_measurement': [],
             'detail': f"{len(wells)} well(s) have a surface position, a reference elevation and a survey; a check needs two"}
         res['left_out'] = left
     else:

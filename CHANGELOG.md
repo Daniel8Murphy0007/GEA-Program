@@ -5,6 +5,47 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.50.0] - 2026-10-20 - Plan vs actual and the survey tools
+
+### Added
+- **Plan vs actual** (`gea/wellplan.py`): a well's directional plan attached
+  beside it (CSV, Excel or WITSML, its azimuth reference stated, read by the
+  survey's rules); each survey station set against the plan's closest point
+  in three dimensions and split in the plan's frame - high/low, right/left -
+  and against the survey's standard deviation in each direction; the bit
+  projected below the last survey holding the last interval's build and
+  turn; the one arc from the projected bit back to the plan a look-ahead
+  ahead, with its dogleg severity and toolface. The **Plan vs actual** tab,
+  `GET /api/plan`, `POST /api/plan/attach|remove|settings|write`
+  (operator), `gea plan`, the report `reports/wells/<well>/plan_vs_actual.*`.
+- **Survey programs and tool models** (`gea/wellpos.py`): the ISCWSA MWD
+  Rev 5.11 model - the surface tie-on, the course-length terms XCLA/XCLH,
+  SAGE, XYM3E/XYM4E, the declination and field terms split well-wide and
+  field-wide - checked against all 144 rows of the ISCWSA's own Rev 5
+  example (`gea/reference/iscwsa_rev5_example.json`); 21 OWSG tool-code
+  models on its weighting functions (`gea/reference/owsg_tool_models.json`,
+  source and licence carried); each well's survey program by depth, a run's
+  own errors kept to that run, the well's and the field's run through.
+  `GET /api/tool-models`, `gea plan --models`. MWD+SRGM (Rev 5.11) is the
+  default for every well whose program is not declared.
+- **The collision check with plans**: a well not yet drilled checked along
+  its plan, weighed as if surveyed every 30 m; a well being drilled along
+  its survey and then its plan to TD; each well by its own program. The
+  **travelling cylinder** on the Collision tab: looking down one well, each
+  neighbour within a chosen radius at its distance and direction from the
+  high side (from north while the well is near vertical).
+- The signed dossier carries the plans, the survey programs and the
+  collision rule, with the collision check and each well against its plan
+  as they read at signing. The 3D scene carries each well's plan.
+- `gea help plan`; `gea help collision` updated. Acceptance section CS
+  (5 checks).
+
+### Changed
+- The collision check's default tool model is the ISCWSA MWD Rev 5.11
+  standard (it was Rev 4). On the Volve template the closest pair now reads
+  0.06 rather than 0.29: Rev 5 counts the slot's attitude and the 146 m
+  between the surface and the first survey station.
+
 ## [v0.49.0] - 2026-10-20 - Well collision checks
 
 ### Added

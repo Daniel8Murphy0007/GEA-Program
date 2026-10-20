@@ -604,6 +604,24 @@ def main(argv=None) -> int:
     p_co.add_argument("--actor", type=str, default="cli")
     p_co.add_argument("--json", action="store_true")
 
+    p_pl = sub.add_parser("plan", help="a well against its plan: the distance high/low and right/left at each survey, the bit projected, the arc back to the plan; the survey program's tool models")
+    p_pl.add_argument("--workspace", type=str, default=None)
+    p_pl.add_argument("--well", type=str, default=None)
+    p_pl.add_argument("--attach", type=str, default=None, help="attach FILE as the well's plan (CSV, Excel or WITSML)")
+    p_pl.add_argument("--azimuth-reference", type=str, default=None, help="with --attach: true, grid or magnetic")
+    p_pl.add_argument("--md-unit", type=str, default="ft", help="with --attach: ft or m")
+    p_pl.add_argument("--grid", type=str, default=None, help="with a grid azimuth reference: the grid (e.g. UTM14N)")
+    p_pl.add_argument("--declination", type=str, default=None, help="with a magnetic azimuth reference: the declination used")
+    p_pl.add_argument("--remove", action="store_true", help="take the well's plan off it")
+    p_pl.add_argument("--program", type=str, default=None, help="the survey program: 'MWD+SRGM' or '0-1500:MWD+SRGM, 1500-:MWD+IFR1' (metres)")
+    p_pl.add_argument("--bit-offset", type=str, default=None, help="survey sensor to bit, m")
+    p_pl.add_argument("--lookahead", type=str, default=None, help="how far ahead the arc back rejoins the plan, m")
+    p_pl.add_argument("--source", type=str, default="", help="where the plan or the program came from")
+    p_pl.add_argument("--models", action="store_true", help="list the tool models")
+    p_pl.add_argument("--write", action="store_true", help="write the well's report")
+    p_pl.add_argument("--actor", type=str, default="cli")
+    p_pl.add_argument("--json", action="store_true")
+
     p_rt = sub.add_parser("rig-time", help="what the rig did each second of the drilling record - drilling, connections, trips, the slips - and the time lost against the pad's own best")
     p_rt.add_argument("--workspace", type=str, required=True)
     p_rt.add_argument("--well", type=str, default=None, help="with --write: one well's report (without it, the pad's)")
@@ -2421,6 +2439,49 @@ def main(argv=None) -> int:
         except (KeyError, ValueError, OSError, WorkspaceError) as e:
             raise SystemExit(f"collision: {e.args[0] if e.args else e}")
         print(_json.dumps({k: v for k, v in r.items()}, default=str) if a.json else _CO.text(r))
+        return 0
+    elif a.cmd == "plan":
+        import json as _json
+        from . import wellplan as _PL
+        from . import wellpos as _WP
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        try:
+            if a.models:
+                for m_ in _WP.model_list():
+                    print(f"{m_['name']:<18} {m_['id']:<14} {m_['terms']:>2} terms  {m_['family']:<10} {m_['long_name']}" + ("  (default)" if m_['default'] else ""))
+                return 0
+            if not a.workspace:
+                raise ValueError("--workspace is needed")
+            ws = Workspace(a.workspace)
+            if (a.attach or a.remove or a.program or a.bit_offset is not None or a.lookahead is not None or a.write) and not a.well:
+                raise ValueError("--well is needed")
+            if a.attach:
+                with open(a.attach, "rb") as f_:
+                    r_ = _PL.attach(ws, a.well, os.path.basename(a.attach), f_.read(), a.actor, a.azimuth_reference or "", a.md_unit, a.grid,
+                                    float(a.declination) if a.declination else None, a.source)
+                print(f"plan attached to {a.well}: {r_['stations']} stations, {r_['md_range_m'][0]:,.1f} to {r_['md_range_m'][1]:,.1f} m MD ({r_['azimuth_reference']} north)")
+                return 0
+            if a.remove:
+                _PL.remove(ws, a.well, a.actor)
+                print(f"plan removed from {a.well}")
+                return 0
+            if a.program or a.bit_offset is not None or a.lookahead is not None:
+                s_ = _PL.set_well(ws, a.actor, a.well, _PL.parse_program(a.program) if a.program else None, a.bit_offset, a.lookahead, a.source)
+                print(f"{a.well}: " + ", ".join(f"{p_['model']} to {p_['to_md_m']:,.0f} m" if p_['to_md_m'] is not None else f"{p_['model']} to TD" for p_ in s_['program'])
+                      + f"; the bit {s_['bit_offset_m']:g} m below the survey sensor; back to the plan {s_['lookahead_m']:g} m ahead")
+                return 0
+            if a.write:
+                r_ = _PL.write_report(ws, __version__, a.well, a.actor)
+                print(f"wrote {r_['report_id']}: {r_['paths']['html']}")
+                if r_['paths'].get('pdf'):
+                    print(f"  printable: {r_['paths']['pdf']}")
+                return 0
+            r = _PL.page(ws, a.well)
+        except (KeyError, ValueError, OSError, WorkspaceError) as e:
+            raise SystemExit(f"plan: {e.args[0] if e.args else e}")
+        print(_json.dumps(r, default=str) if a.json else _PL.text(r))
         return 0
     elif a.cmd == "rig-time":
         import json as _json

@@ -415,12 +415,13 @@ def _volve_scene() -> dict:
 
 
 # -- a workspace's own wells ------------------------------------------------------------------------
-def trajectory_of(ws, well_id: str) -> Optional[dict]:
+def trajectory_of(ws, well_id: str, kind: str = 'trajectory') -> Optional[dict]:
+    """A well's directional survey (kind 'trajectory') or its plan (kind 'plan'), read as attached."""
     w = ws.well(well_id)
-    t = w.get('trajectory')
+    t = w.get(kind)
     if not t:
         return None
-    p = os.path.join(ws.path, 'wells', well_id, 'trajectory', t['file'])
+    p = os.path.join(ws.path, 'wells', well_id, kind, t['file'])
     with open(p, encoding='utf-8', errors='replace') as f:
         text = f.read()
     if t['format'] == 'witsml':
@@ -436,10 +437,13 @@ def trajectory_of(ws, well_id: str) -> Optional[dict]:
 
 def attach_trajectory(ws, well_id: str, filename: str, content: bytes, actor: str, azimuth_reference: str, md_unit: str = 'ft',
                       depth_reference: Optional[str] = None, grid: Optional[str] = None, declination_deg: Optional[float] = None,
-                      source: str = '') -> dict:
-    """Keep a well's directional survey verbatim beside it and record how to read it. The azimuth reference is the
-    operator's statement, never guessed: grid (with the grid named, so the convergence can be computed), true, or
-    magnetic (with the declination)."""
+                      source: str = '', kind: str = 'trajectory') -> dict:
+    """Keep a well's directional survey (or, with kind 'plan', its planned trajectory) verbatim beside it and record
+    how to read it. The azimuth reference is the operator's statement, never guessed: grid (with the grid named, so the
+    convergence can be computed), true, or magnetic (with the declination)."""
+    if kind not in ('trajectory', 'plan'):
+        raise ValueError(f'no trajectory kind {kind!r}')
+    what = 'plan' if kind == 'plan' else 'survey'
     import hashlib
     ws.well(well_id)
     ref = (azimuth_reference or '').lower().strip()
@@ -452,7 +456,8 @@ def attach_trajectory(ws, well_id: str, filename: str, content: bytes, actor: st
     if ref == 'magnetic' and declination_deg is None:
         raise ValueError('a magnetic azimuth reference needs the declination used (degrees, east positive)')
     if not source.strip():
-        raise ValueError('say where the survey came from (e.g. "RRC imaged records, W-1 directional survey" or "operator MWD report")')
+        raise ValueError(f'say where the {what} came from (e.g. ' + ('"directional company\'s well plan, rev 2"' if kind == 'plan'
+                         else '"RRC imaged records, W-1 directional survey" or "operator MWD report"') + ')')
     text = content.decode('utf-8', errors='replace')
     fmt = 'witsml' if '<trajectory' in text[:4000] else 'table'
     if fmt == 'witsml':
@@ -469,18 +474,30 @@ def attach_trajectory(ws, well_id: str, filename: str, content: bytes, actor: st
     if elev and dref and elev.get('datum') and dref != elev['datum'].upper():
         raise ValueError(f"the survey's depths are from {dref} but the well's declared reference elevation is {elev['datum']}: declare the "
                          f"elevation of the survey's reference first")
-    d = os.path.join(ws.path, 'wells', well_id, 'trajectory')
+    d = os.path.join(ws.path, 'wells', well_id, kind)
     os.makedirs(d, exist_ok=True)
-    fn = re.sub(r'[^A-Za-z0-9._-]+', '_', os.path.basename(filename)) or 'survey.csv'
+    fn = re.sub(r'[^A-Za-z0-9._-]+', '_', os.path.basename(filename)) or f'{what}.csv'
     with open(os.path.join(d, fn), 'wb') as f:
         f.write(content)
     rec = {'file': fn, 'format': fmt, 'md_unit': md_unit, 'azimuth_reference': ref, 'grid': grid if ref == 'grid' else None,
            'declination_deg': declination_deg if ref == 'magnetic' else None, 'depth_reference': dref or None, 'source': source.strip(),
            'sha256': hashlib.sha256(content).hexdigest(), 'stations': len(st), 'md_range_m': [round(st[0]['md'], 2), round(st[-1]['md'], 2)],
            'attached_by': actor, 'attached_utc': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}
-    w['trajectory'] = rec
+    w[kind] = rec
     _write_well(ws, w)
-    ws.audit(actor, 'well.trajectory', {'well': well_id, 'file': fn, 'stations': len(st), 'azimuth_reference': ref, 'source': rec['source']})
+    ws.audit(actor, 'well.trajectory' if kind == 'trajectory' else 'well.plan',
+             {'well': well_id, 'file': fn, 'stations': len(st), 'azimuth_reference': ref, 'source': rec['source']})
+    return rec
+
+
+def remove_plan(ws, well_id: str, actor: str) -> dict:
+    """Take a well's plan off it; the file stays beside the well, named in the audit line."""
+    w = ws.well(well_id)
+    rec = w.pop('plan', None)
+    if not rec:
+        raise KeyError(f'{well_id} has no plan')
+    _write_well(ws, w)
+    ws.audit(actor, 'well.plan_removed', {'well': well_id, 'file': rec['file'], 'sha256': rec['sha256']})
     return rec
 
 
@@ -528,7 +545,7 @@ def workspace_scene(ws, margin_km: float = 8.0, layer_tol_m: float = 25.0) -> di
             why = 'no surface position declared'
         elif not (s.get('elevation') or {}).get('ft') and (s.get('elevation') or {}).get('ft') != 0:
             why = 'no reference elevation declared'
-        elif not w.get('trajectory'):
+        elif not w.get('trajectory') and not w.get('plan'):
             why = 'no directional survey attached'
         if why:
             listed.append({'id': w['id'], 'display': w.get('display') or w['id'], 'why': why})
@@ -537,14 +554,29 @@ def workspace_scene(ws, margin_km: float = 8.0, layer_tol_m: float = 25.0) -> di
         wl.append((w, g))
     lat0 = float(np.mean([g['lat'] for _, g in wl])) if wl else None
     lon0 = float(np.mean([g['lon'] for _, g in wl])) if wl else None
-    out_wells = []
+    out_wells, planned = [], []
     if wl:
         frame = GD._tm(lat0, lon0, 1.0, 0.0, 0.0, 'WGS84')
         for w, g in wl:
-            tj = trajectory_of(ws, w['id'])
             pr = GD.project(g['lat'], g['lon'], frame)
-            rot, how = _rot_to_local(tj['meta'], g['lat'], g['lon'], lon0)
             elev_m = float(w['surface']['elevation']['ft']) * FT
+            pl = trajectory_of(ws, w['id'], 'plan') if w.get('plan') else None
+            if pl and pl['stations']:
+                rot_p, how_p = _rot_to_local(pl['meta'], g['lat'], g['lon'], lon0)
+                sp = pl['stations']
+                pp = Path([x['md'] for x in sp], [x['incl'] for x in sp], [x['azi'] for x in sp], pr['easting_m'], pr['northing_m'], elev_m, rot_p)
+                planned.append({'id': w['id'], 'name': w.get('display') or w['id'], 'slot': [round(pp.x[0], 2), round(pp.y[0], 2)],
+                                'ref_elev_m': round(elev_m, 2), 'td_md': round(float(pp.md[-1]), 2), 'path': pp.dense(10.0),
+                                'stations': {'md': [round(float(v), 2) for v in pp.md], 'incl': [round(float(v), 3) for v in pp.inc],
+                                             'azi': [round(float(v), 3) for v in pp.azi], 'dls': [round(float(v), 3) for v in pp.dls]},
+                                'azimuth': {'file_reference': pl['meta']['azimuth_reference'], 'applied': how_p},
+                                'source': pl['meta']['source'], 'surveyed': bool(w.get('trajectory'))})
+            if not w.get('trajectory'):
+                listed.append({'id': w['id'], 'display': w.get('display') or w['id'],
+                               'why': 'a plan but no directional survey yet: drawn on the Collision and Plan vs actual tabs'})
+                continue
+            tj = trajectory_of(ws, w['id'])
+            rot, how = _rot_to_local(tj['meta'], g['lat'], g['lon'], lon0)
             st = tj['stations']
             p = Path([x['md'] for x in st], [x['incl'] for x in st], [x['azi'] for x in st], pr['easting_m'], pr['northing_m'], elev_m, rot)
             dn = p.dense(10.0)
@@ -587,7 +619,7 @@ def workspace_scene(ws, margin_km: float = 8.0, layer_tol_m: float = 25.0) -> di
     layers, skipped = [], []
     tol_m = layer_tol_m
     if wl:
-        xs = [w['slot'][0] for w in out_wells]; ys = [w['slot'][1] for w in out_wells]
+        xs = [w['slot'][0] for w in out_wells + planned]; ys = [w['slot'][1] for w in out_wells + planned]
         r = margin_km * 1000.0
         lo = GD.unproject(min(xs) - r, min(ys) - r, frame); hi = GD.unproject(max(xs) + r, max(ys) + r, frame)
         view = [lo[1], lo[0], hi[1], hi[0]]
@@ -640,7 +672,7 @@ def workspace_scene(ws, margin_km: float = 8.0, layer_tol_m: float = 25.0) -> di
             'frame': ({'crs': f'local transverse Mercator on WGS84 centred at {lat0:.5f}, {lon0:.5f} (north is true north at the centre)', 'origin': [0.0, 0.0],
                        'unit': 'm', 'z': 'depth below mean sea level, metres, positive down', 'check': '', 'area': why_view,
                        'layer_detail_m': round(tol_m, 1)} if view is not None else None),
-            'wells': out_wells, 'not_placed': listed, 'picks_only': [], 'surfaces': [], 'layers': layers, 'layers_not_drawn': skipped,
+            'wells': out_wells, 'planned': planned, 'not_placed': listed, 'picks_only': [], 'surfaces': [], 'layers': layers, 'layers_not_drawn': skipped,
             'attribution': '', 'not_drawn': ['a well without a surface position, a reference elevation and a directional survey (listed with what it needs)',
                                              'fault and fold traces (no depth)', 'isopachs (a thickness is not a position)',
                                              'rock and fluid properties between wells']}

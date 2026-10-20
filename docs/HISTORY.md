@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.50.0 - 2026-10-20 - plan vs actual and the survey tools
+
+- **Where a well is against its plan, and with which tools.** High/low and
+  right/left at each survey against the survey's own uncertainty, the bit
+  projected and the arc back; survey programs by depth on the ISCWSA MWD
+  Rev 5.11 model (all 144 rows of its example) and 21 OWSG tool-code
+  models; planned wells in the collision check; the travelling cylinder.
+  Section CS; gate 443.
+
 ## v0.49.0 - 2026-10-20 - well collision checks
 
 - **How close two wells come, against how sure their positions are.**
