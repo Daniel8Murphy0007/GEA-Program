@@ -24,10 +24,13 @@ Sessions are HttpOnly, SameSite=Strict cookies held in memory; every POST
 must carry the header `X-GEA-Action: 1`, which a cross-site form cannot set.
 Every action is written to the workspace audit log with the actor's name.
 
-Transport: plain HTTP on the loopback interface by default. To serve a control
-room, put it behind the site's reverse proxy for TLS, or bind `--host` to the
-site network deliberately. There is no TLS in this module by design; a site's
-certificate management belongs to the site.
+Transport: plain HTTP on the loopback interface by default. For the site
+network, HTTPS: the service speaks TLS itself when the workspace names a
+certificate - the site's own, from its certificate authority, or a self-signed
+one made by `gea tls` (gea.tls) - with TLS 1.2 as the floor, the cookie marked
+Secure, Strict-Transport-Security, and a plain-HTTP request on the same port
+sent to HTTPS. A site that already runs a reverse proxy can terminate TLS there
+instead (--behind-proxy; deploy/ has nginx and Caddy examples).
 """
 
 from __future__ import annotations
@@ -40,6 +43,8 @@ import mimetypes
 import os
 import secrets
 import shutil
+import socket
+import ssl
 import sys
 import threading
 import time
@@ -265,6 +270,7 @@ class App:
         if scheduler:
             self.scheduler.start()
         self.behind_proxy = False                 # set by Service when a reverse proxy terminates TLS in front
+        self.tls: Optional[dict] = None           # set by Service when it speaks TLS itself: the certificate's facts
         self.sessions: Dict[str, dict] = {}
         self._failures: Dict[str, List[float]] = {}
         self._locks: Dict[str, float] = {}
@@ -1611,6 +1617,8 @@ def make_handler(app: App):
                 self.send_header('Strict-Transport-Security', 'max-age=15552000')
 
         def _https(self) -> bool:
+            if app.tls:
+                return True
             return app.behind_proxy and self.headers.get('X-Forwarded-Proto', '').lower() == 'https'
 
         def _client(self) -> str:
@@ -1720,6 +1728,28 @@ def make_handler(app: App):
                     App.require(user, 'admin')
                     return self._json(200, {'sessions': app.sessions_list(), 'session_hours': SESSION_HOURS,
                                             'note': 'sessions live in the service process; a restart signs everyone out'})
+                if path == '/api/tls':
+                    from . import tls as TLS
+                    App.require(user, 'admin')
+                    st = TLS.status(app.ws)
+                    return self._json(200, {**st, 'serving': ({'https': True, 'facts': app.tls} if app.tls else {'https': False, 'behind_proxy': app.behind_proxy}),
+                                            'default_names': TLS.default_names(), 'max_days': TLS.MAX_DAYS, 'bits': list(TLS.BITS),
+                                            'restart_needed': bool(st.get('configured')) != bool(app.tls) or bool(
+                                                app.tls and (st.get('facts') or {}).get('sha256_fingerprint') != app.tls.get('sha256_fingerprint'))})
+                if path == '/api/tls/certificate':
+                    from . import tls as TLS
+                    pem = TLS.certificate_pem(app.ws)
+                    if not pem:
+                        raise ApiError(404, 'HTTPS is off: there is no certificate to hand out')
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/x-pem-file')
+                    self.send_header('Content-Disposition', 'attachment; filename="gea-site-certificate.crt"')
+                    self.send_header('Content-Length', str(len(pem)))
+                    self.send_header('Cache-Control', 'no-store')
+                    self._secure_headers()
+                    self.end_headers()
+                    self.wfile.write(pem)
+                    return None
                 if path.startswith('/api/wells/') and path.endswith('/instruments'):
                     return self._json(200, app.instruments(path[len('/api/wells/'):-len('/instruments')]))
                 if path == '/api/since':
@@ -2686,6 +2716,25 @@ def make_handler(app: App):
                     reason = str(body.get('reason') or ('authorised from the control panel' if restart else 'stopped from the control panel'))[:200]
                     r = svc.request_exit(_SV.EXIT_RESTART if restart else _SV.EXIT_CLEAN, user['name'], reason)
                     return self._json(200, r)
+                if path == '/api/tls':
+                    from . import tls as TLS
+                    App.require(user, 'admin')
+                    act = str(body.get('action') or '')
+                    if act == 'self-signed':
+                        names = body.get('names') or []
+                        if isinstance(names, str):
+                            names = [n for n in names.replace(',', ' ').split() if n]
+                        st = App._cr(TLS.make_self_signed, app.ws, user['name'], [str(n) for n in names] or None,
+                                     int(body.get('days') or TLS.MAX_DAYS), int(body.get('bits') or 2048))
+                    elif act == 'site':
+                        st = App._cr(TLS.use_site_certificate, app.ws, user['name'], str(body.get('cert') or ''), str(body.get('key') or ''))
+                    elif act == 'off':
+                        st = TLS.turn_off(app.ws, user['name'])
+                    else:
+                        raise ApiError(400, 'action is self-signed, site or off')
+                    return self._json(200, {**st, 'restart_needed': True,
+                                            'next': 'takes effect when the control panel next starts: Restart it from Operations control, then open it at '
+                                                    + ('https://' if st.get('configured') else 'http://') + 'the same address'})
                 if path == '/api/control/auto-restart':
                     App.require(user, 'admin')
                     on = bool(body.get('enabled'))
@@ -2905,15 +2954,102 @@ def make_handler(app: App):
     return Handler
 
 
+class _Server(ThreadingHTTPServer):
+    """The HTTP server, speaking TLS when it is given a context. Each connection's handshake is done in that
+    connection's own thread, so a slow or broken client never holds up the others; a connection whose first byte is
+    not a TLS handshake is plain HTTP on the HTTPS port, and is answered with a redirect to the same address over
+    HTTPS when it named this machine by a name the certificate carries, or told to use HTTPS when it did not."""
+    tls_context: Optional[ssl.SSLContext] = None
+    tls_names: Tuple[str, ...] = ()
+    tls_refused = 0
+
+    def finish_request(self, request, client_address):
+        ctx = self.tls_context
+        if ctx is None:
+            return super().finish_request(request, client_address)
+        from . import tls as _TLS
+        try:
+            request.settimeout(_TLS.HANDSHAKE_S)
+            first = request.recv(1, socket.MSG_PEEK)
+        except OSError:
+            return None
+        if not first:
+            return None
+        if first != b'\x16':
+            return self._plain_on_tls(request)
+        try:
+            conn = ctx.wrap_socket(request, server_side=True)
+        except (ssl.SSLError, OSError):
+            self.tls_refused += 1                 # an untrusting browser, a scanner, an old client: nothing to log per connection
+            return None
+        try:
+            conn.settimeout(None)
+            self.RequestHandlerClass(conn, client_address, self)
+        finally:
+            try:
+                conn.close()
+            except OSError:
+                pass
+        return None
+
+    def _plain_on_tls(self, request) -> None:
+        data = b''
+        try:
+            while b'\r\n\r\n' not in data and len(data) < 8192:
+                chunk = request.recv(2048)
+                if not chunk:
+                    break
+                data += chunk
+        except OSError:
+            return None
+        head = data.split(b'\r\n\r\n', 1)[0].decode('latin-1', 'replace').split('\r\n')
+        parts = head[0].split(' ') if head else []
+        target = parts[1] if len(parts) >= 2 and parts[1].startswith('/') and not parts[1].startswith('//') else '/'
+        target = ''.join(c for c in target if 32 < ord(c) < 127)[:2000] or '/'
+        host = next((h.split(':', 1)[1].strip() for h in head[1:] if h.lower().startswith('host:')), '')
+        name = host[1:host.index(']')] if host.startswith('[') and ']' in host else host.rsplit(':', 1)[0] if host.count(':') == 1 else host
+        port = self.server_address[1]
+        if name and name.lower() in {n.lower() for n in self.tls_names}:
+            loc = f"https://{('[' + name + ']') if ':' in name else name}:{port}{target}"
+            body = f'This service speaks HTTPS. Go to {loc}\n'.encode('ascii', 'replace')
+            msg = (f'HTTP/1.1 301 Moved Permanently\r\nLocation: {loc}\r\nContent-Type: text/plain; charset=utf-8\r\n'
+                   f'Content-Length: {len(body)}\r\nConnection: close\r\n\r\n').encode('ascii', 'replace') + body
+        else:
+            body = (f'This service speaks HTTPS: open https://<this machine>:{port}/ with a name its certificate carries '
+                    f'({", ".join(self.tls_names) or "see the administrator"}).\n').encode('ascii', 'replace')
+            msg = (f'HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: {len(body)}\r\n'
+                   'Connection: close\r\n\r\n').encode('ascii') + body
+        try:
+            request.sendall(msg)
+        except OSError:
+            pass
+        return None
+
+    def handle_error(self, request, client_address):
+        if isinstance(sys.exc_info()[1], (ssl.SSLError, ConnectionError, TimeoutError)):
+            return                                # a client that went away mid-request: not the service's error
+        return super().handle_error(request, client_address)
+
+
 class Service:
     """Start/stop wrapper (used by `gea serve` and by the acceptance suite in-process)."""
 
     def __init__(self, workspace_path: str, host: str = '127.0.0.1', port: int = 8765, workers: int = 1, scheduler: bool = True,
-                 behind_proxy: bool = False):
+                 behind_proxy: bool = False, tls: bool = True):
         self.ws = Workspace(workspace_path)
         self.app = App(self.ws, workers=workers, scheduler=scheduler)
         self.app.behind_proxy = behind_proxy
-        self.httpd = ThreadingHTTPServer((host, port), make_handler(self.app))
+        from . import tls as _TLS
+        ctx = _TLS.context(self.ws) if tls else None          # TlsError when HTTPS is on and its files are not right: no start
+        self.httpd = _Server((host, port), make_handler(self.app))
+        if ctx is not None:
+            st = _TLS.status(self.ws)
+            self.httpd.tls_context = ctx
+            self.httpd.tls_names = tuple((st.get('facts') or {}).get('names') or ())
+            self.app.tls = st.get('facts') or {}
+            self.tls_status = st
+        else:
+            self.tls_status = None
         self.httpd.gea_service = self          # the handler reaches the run it belongs to, to stop or restart it
         self.httpd.gea_started_utc = None
         self.httpd.daemon_threads = True
@@ -2988,6 +3124,13 @@ class Service:
 
     @property
     def url(self) -> str:
+        if self.app.tls:
+            host = self.host
+            names = list(self.httpd.tls_names)
+            if host in ('0.0.0.0', '::', '') or host not in names:
+                host = next((n for n in names if n == 'localhost'), None) if self.host in ('127.0.0.1', '::1') else None
+                host = host or (names[0] if names else self.host)
+            return f"https://{('[' + host + ']') if ':' in host else host}:{self.port}/"
         return f'http://{self.host}:{self.port}/'
 
     def start(self) -> 'Service':

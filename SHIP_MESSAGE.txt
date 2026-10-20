@@ -1,22 +1,25 @@
-v0.54.0 — DECLINE CURVES
+v0.55.0 — HTTPS
 
-GEA now forecasts what each well will make and what it is worth.
+The control panel can now be opened from the site network over HTTPS,
+without a proxy in front.
 
-Attach a well's monthly production - oil, gas, water and producing days,
-as CSV or Excel - and it is fitted by Arps's decline curves, turned
-exponential at a terminal decline (the modified hyperbolic) so a steep
-shale decline does not run to an unbounded recovery. The forecast runs
-month by month to the economic limit, the first month that no longer
-pays its operating cost, and gives the estimated ultimate recovery.
+Give the workspace the site's own certificate - from the company's
+certificate authority, which managed computers already trust - or let
+the program make a self-signed one. The certificate is made with the
+standard library alone: an RSA key and an X.509 server certificate for
+every name and address the panel is reached by. TLS 1.2 is the floor.
+The session cookie is marked Secure, every answer tells the browser to
+stay on HTTPS, and a plain http:// request on the same port is sent to
+HTTPS. A certificate in its last 30 days raises an alert. A workspace
+whose certificate files are broken does not start, rather than falling
+back to plain text.
 
-The value is the net cash flow at the declared net revenue interest,
-severance tax and operating cost, discounted at the declared rate. The
-price is the SEC's - the average of the first-of-month WTI and Henry Hub
-prices of the 12 months before the as-of date, from the EIA series
-shipped with the program - or a declared flat price. A forecast is not a
-reserves report, and the page says so.
+Administration has a new HTTPS card: how it stands, what this run
+serves, the certificate to download for the site's computers (never the
+key), and the change. `gea tls` does the same from a terminal, and
+`gea help https` explains it. The Stop, Restart and auto-restart
+controls on the Administration page did nothing before this release;
+they work now.
 
-The Decline curves tab, `gea decline`, a report with its PDF and the
-help page are new; the signed dossier carries the production and the
-curves. Section CW is new, four checks. The gate is 459 checks. The
-standalone guard is clean.
+Section CX is new, four checks. The gate is 463 checks. The standalone
+guard is clean.

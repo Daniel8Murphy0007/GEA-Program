@@ -756,12 +756,25 @@ def main(argv=None) -> int:
 
     p_sv = sub.add_parser("serve", help="serve the dashboard over a workspace: the page, the reports and the JSON API (standard library HTTP)")
     p_sv.add_argument("--workspace", type=str, required=True, help="the workspace folder (gea workspace --action init)")
-    p_sv.add_argument("--host", type=str, default="127.0.0.1", help="bind address; 0.0.0.0 exposes it on the site network (put TLS in front)")
+    p_sv.add_argument("--host", type=str, default="127.0.0.1", help="bind address; 0.0.0.0 exposes it on the site network (turn HTTPS on first: gea tls)")
     p_sv.add_argument("--port", type=int, default=8765)
     p_sv.add_argument("--workers", type=int, default=1, help="jobs run at once")
     p_sv.add_argument("--no-scheduler", action="store_true", help="do not run scheduled jobs from this process")
     p_sv.add_argument("--behind-proxy", action="store_true", help="a reverse proxy terminates TLS in front: trust X-Forwarded-For/-Proto, mark the cookie Secure (deploy/ has nginx and Caddy examples)")
     p_sv.add_argument("--no-browser", action="store_true", help="do not open the control panel in a browser once the service is listening (a scheduled start, a restart, a server with no desktop)")
+
+    p_tl = sub.add_parser("tls", help="HTTPS for the dashboard: the site's own certificate, a self-signed one made here, or off; with no option, how it stands")
+    p_tl.add_argument("--workspace", type=str, required=True)
+    p_tl.add_argument("--site-cert", type=str, default=None, help="the site's certificate (PEM, the server's first, then any chain) - read from where it is at every start")
+    p_tl.add_argument("--site-key", type=str, default=None, help="its private key (PEM, without a passphrase)")
+    p_tl.add_argument("--self-signed", action="store_true", help="make a self-signed certificate and key in the workspace's keys\\tls folder")
+    p_tl.add_argument("--name", action="append", default=[], help="--self-signed: a host name or address the dashboard is reached by (repeat; default: this machine's names, localhost, 127.0.0.1)")
+    p_tl.add_argument("--days", type=int, default=825, help="--self-signed: days valid (at most 825)")
+    p_tl.add_argument("--bits", type=int, default=2048, choices=[2048, 3072])
+    p_tl.add_argument("--off", action="store_true", help="plain HTTP from the next start (the files are left where they are)")
+    p_tl.add_argument("--export-cert", type=str, default=None, help="write the certificate (public, never the key) to this file, for the site's computers to trust")
+    p_tl.add_argument("--actor", type=str, default="cli")
+    p_tl.add_argument("--json", action="store_true")
 
     p_hk = sub.add_parser("housekeeping", help="rotate the append-only logs, prune finished job folders and old live recordings (dry run unless --apply)")
     p_hk.add_argument("--workspace", type=str, required=True)
@@ -2603,6 +2616,41 @@ def main(argv=None) -> int:
             raise SystemExit(f"pore-pressure: {e.args[0] if e.args else e}")
         print(_json.dumps(r, default=str) if a.json else _PPF.text(r))
         return 0
+    elif a.cmd == "tls":
+        import json as _json
+        from . import tls as _TLS
+        from .workspace import Workspace, WorkspaceError
+        try:
+            ws = Workspace(a.workspace)
+            if sum(bool(x) for x in (a.self_signed, a.site_cert or a.site_key, a.off)) > 1:
+                raise ValueError("one of --self-signed, --site-cert/--site-key or --off")
+            if a.site_cert or a.site_key:
+                if not (a.site_cert and a.site_key):
+                    raise ValueError("--site-cert and --site-key go together")
+                r = _TLS.use_site_certificate(ws, a.actor, a.site_cert, a.site_key)
+            elif a.self_signed:
+                r = _TLS.make_self_signed(ws, a.actor, a.name or None, a.days, a.bits)
+            elif a.off:
+                r = _TLS.turn_off(ws, a.actor)
+            else:
+                r = _TLS.status(ws)
+            if a.export_cert:
+                pem = _TLS.certificate_pem(ws)
+                if not pem:
+                    raise ValueError("HTTPS is off: there is no certificate to export")
+                with open(a.export_cert, "wb") as f_:
+                    f_.write(pem)
+        except (KeyError, ValueError, OSError, WorkspaceError) as e:
+            raise SystemExit(f"tls: {e.args[0] if e.args else e}")
+        if a.json:
+            print(_json.dumps(r, default=str))
+        else:
+            print(_TLS.text(r))
+            if a.self_signed or a.site_cert or a.off:
+                print("   takes effect at the next start of the control panel (gea serve, or Restart on the Administration page)")
+            if a.export_cert:
+                print(f"   certificate written to {a.export_cert} - hand this out, never the key")
+        return 0
     elif a.cmd == "frac-hits":
         import json as _json
         from . import frac_hits as _FH
@@ -2946,18 +2994,29 @@ def main(argv=None) -> int:
             print(f"serve: BLOCK {mism}")
         if pre or mism:
             raise SystemExit("serve: not starting - fix the above (gea doctor --workspace ... shows the full picture)")
+        from .tls import TlsError
         try:
             svc = Service(a.workspace, host=a.host, port=a.port, workers=a.workers, scheduler=not a.no_scheduler, behind_proxy=a.behind_proxy)
         except WorkspaceError as e:
             raise SystemExit(f"serve: {e}")
+        except TlsError as e:
+            raise SystemExit(f"serve: HTTPS is on for this workspace but {e}. Put the files right, or: gea tls --workspace \"{a.workspace}\" --off")
         n_users = svc.app.users.count()
         print(f"gea {__version__}: serving workspace '{svc.ws.manifest['name']}' at {svc.url}")
         print(f"   code: {os.path.dirname(os.path.abspath(__file__))}   (an installed copy serves the files it was installed from; pip install -e <clone> follows the clone)")
         print(f"   patches: {len(svc.app.patches.store.list())} defined, {len([s for s in svc.app.patches.states() if s['status'] != 'STOPPED'])} running")
         if n_users == 0:
             print("   no accounts yet: the page will ask for the first administrator's name and password (one time), or run: gea users --workspace ... --action add --role admin --name ...")
-        if a.host not in ("127.0.0.1", "localhost", "::1") and not a.behind_proxy:
-            print("   NOTE: bound to a network address without --behind-proxy: traffic is plain HTTP. Put TLS in front (deploy/README.md) for anything beyond a trusted LAN.")
+        if svc.tls_status:
+            ts_ = svc.tls_status
+            f_ = ts_.get("facts") or {}
+            print(f"   HTTPS ({ts_['state']}): {ts_['detail']}")
+            print(f"   names {', '.join(f_.get('names') or [])}; SHA-256 {f_.get('sha256_fingerprint')}")
+            if f_.get("self_signed"):
+                print(f"   the certificate to hand out (never the key): {ts_['cert']}  - or download it from the Administration page")
+        elif a.host not in ("127.0.0.1", "localhost", "::1") and not a.behind_proxy:
+            print("   NOTE: bound to a network address in plain HTTP. Turn HTTPS on (gea tls --workspace ... --site-cert/--site-key, or --self-signed),")
+            print("   or put the site's TLS proxy in front (--behind-proxy; deploy/README.md), for anything beyond a trusted LAN.")
         print("   Ctrl+C stops it; every action is in records/audit.jsonl, every start and stop in records/runlog.jsonl")
         print("   the control panel's Stop and Restart end this run with a stated code: 0 stop, 86 start me again -")
         print("   the launcher reads it, and on anything but 86 it hands the window to a PowerShell prompt, never a Python one")

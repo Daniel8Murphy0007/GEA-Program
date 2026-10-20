@@ -253,6 +253,18 @@ def check_workspace(path: str, host: str = '127.0.0.1', port: int = 8765) -> Lis
     else:
         f.append(_finding('block', f'port {port} on {host} is already in use (another gea serve, or another program)',
                           f'stop the other service, or start with --port {port + 1}'))
+    try:
+        from . import tls as TLS
+        ts = TLS.status(ws)
+        lvl = {'OFF': 'info', 'OK': 'ok', 'EXPIRING': 'warn', 'EXPIRED': 'warn', 'NOT_YET_VALID': 'warn', 'BROKEN': 'block'}[ts['state']]
+        fix = {'OFF': f'for the site network: gea tls --workspace "{path}" --site-cert <the .crt or .pem> --site-key <its key>, or --self-signed',
+               'EXPIRING': f'gea tls --workspace "{path}" shows the certificate; renew it (or --self-signed for a new one) and restart',
+               'EXPIRED': f'gea tls --workspace "{path}" --self-signed makes a new one; a site certificate is renewed by the site',
+               'NOT_YET_VALID': "set this machine's clock",
+               'BROKEN': f'put the certificate and key files right, or turn HTTPS off: gea tls --workspace "{path}" --off'}.get(ts['state'], '')
+        f.append(_finding(lvl, f"HTTPS {ts['state']}: {ts['detail']}", fix))
+    except Exception as e:
+        f.append(_finding('warn', f'the HTTPS setting could not be read: {e}'))
     prev = _SV.previous_run(ws.path)
     if prev['status'] == 'UNCLEAN':
         f.append(_finding('warn', 'the last run of the control panel was killed rather than stopped: ' + prev['detail'],

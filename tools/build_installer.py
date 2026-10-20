@@ -184,7 +184,7 @@ if not exist "%GEA_WORKSPACE%\workspace.json" (
   echo == creating the site workspace at %GEA_WORKSPACE%
   python\python.exe -m gea workspace --path "%GEA_WORKSPACE%" --action init --name "Pad 3" --actor installer
 )
-echo == starting the dashboard at http://127.0.0.1:%GEA_PORT%/  (workspace %GEA_WORKSPACE%)
+echo == starting the dashboard on port %GEA_PORT%  (workspace %GEA_WORKSPACE%; http://127.0.0.1:%GEA_PORT%/, or https:// once HTTPS is on - gea tls)
 echo    close this window or run stop-dashboard.cmd to stop it
 rem the service opens the browser itself, once its port is listening - a browser opened from here raced the
 rem server and showed a failure page from the second before. A scheduled start (--no-browser) and a restart
@@ -319,7 +319,7 @@ if [ ! -f "$GEA_WORKSPACE/workspace.json" ]; then
   echo "== creating the site workspace at $GEA_WORKSPACE"
   ./python/bin/python3 -m gea workspace --path "$GEA_WORKSPACE" --action init --name "Pad 3" --actor installer
 fi
-echo "== starting the dashboard at http://127.0.0.1:$GEA_PORT/  (workspace $GEA_WORKSPACE)"
+echo "== starting the dashboard on port $GEA_PORT  (workspace $GEA_WORKSPACE; http://127.0.0.1:$GEA_PORT/, or https:// once HTTPS is on - gea tls)"
 echo "   Ctrl+C stops it, or run ./stop-dashboard.sh"
 fails=0
 # the service opens the browser itself once its port is listening; a restart (the page is already open) and
@@ -387,7 +387,8 @@ workspace) that this kit creates on first start and never deletes.
 
 1. {install}
 2. {start}
-   Your browser opens http://127.0.0.1:{port}/ ; the first visit asks you to
+   Your browser opens http://127.0.0.1:{port}/ (https:// once HTTPS is on:
+   see HTTPS on the Administration page); the first visit asks you to
    create the administrator account (name and a password of 8+ characters).
 3. Wells -> add a well from a file (historian CSV, LAS) or the catalogue.
    Patch panel -> add a patch to read the drill floor (WITS0), a WITSML

@@ -2671,3 +2671,25 @@ stability; and motor specifications in the tool catalogue.
   printed. Escaped, and the release steps now run the gate on Python 3.14
   too; a check of every help string the 3.14 way was run over the whole
   package (these two were the only ones).
+
+## 2026-10-20 - HTTPS (v0.55.0)
+
+- Asked (the first of the IT items): what an operator's IT department asks
+  before installing - here, encrypted transport on the site network.
+- The service speaks TLS itself; a site's reverse proxy remains the other
+  way. The certificate and key are made by the standard library alone (no
+  `cryptography` package): RSA by Miller-Rabin, the X.509 v3 certificate
+  written in DER by hand. Checked in the cloud: OpenSSL 3.0 reads it
+  (subject, names, validity, fingerprint) and `openssl verify` accepts its
+  self-signature; Python's TLS client verifies it by name and address.
+- The 825-day limit is Apple's for certificates trusted by hand (HT210176).
+- A plain-HTTP request on the HTTPS port is answered with a redirect only
+  for a name the certificate carries, so the redirect can't be pointed
+  anywhere else by the Host header.
+- Found while wiring the card: the Operations control buttons on the
+  Administration page had their handlers in the preferences page's code
+  and did nothing. Moved; the gate checks where they live.
+- The Administration page was driven in headless Chromium over HTTPS:
+  light, dark and phone width, no console errors, the Restart confirmation
+  opens.
+- Section CX (4 checks). Gate 463.

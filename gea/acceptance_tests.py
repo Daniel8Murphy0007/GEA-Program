@@ -12239,6 +12239,228 @@ def section_cw_decline(tmp: str) -> None:
        + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
 
 
+def section_cx_https(tmp: str) -> None:
+    """Section CX - HTTPS: the self-signed certificate made by the standard library and read back; the service speaking
+    TLS 1.2 or later with it - the Secure cookie, HSTS, a plain request sent to HTTPS, an untrusting client refused while
+    the service keeps answering; the site's own certificate read where it lives; the expiry alert, the doctor, a broken
+    pair that does not start, the CLI; the key in no dossier and from no route; the page and the help."""
+    import http.client
+    import socket as _so
+    import ssl as _ssl
+    import subprocess as _sp
+    import urllib.error
+    import zipfile as _zf
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+    from . import __version__ as _ver
+    from . import alerts as AL
+    from . import doctor as DR
+    from . import dossier as DZ
+    from . import helplib as H
+    from . import tls as TLS
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "https"); d.mkdir()
+
+    # -- CX1 the certificate by hand ----------------------------------------------------------------------------------
+    key = TLS.rsa_key(2048)
+    sig = TLS.sign_pkcs1_sha256(key, b"pad 3")
+    cert, kpem, facts = TLS.self_signed(["gea-pad3", "gea-pad3.example.local", "10.20.0.15", "localhost", "127.0.0.1"], days=400)
+    (d / "a.crt").write_bytes(cert); (d / "a.key").write_bytes(kpem)
+    der = _ssl.PEM_cert_to_DER_cert(cert.decode("ascii"))
+    nb = _dt.strptime(facts["not_before"], "%Y-%m-%dT%H:%M:%SZ"); na = _dt.strptime(facts["not_after"], "%Y-%m-%dT%H:%M:%SZ")
+    cert_b, key_b, _ = TLS.self_signed(["other"], days=5)
+    (d / "b.crt").write_bytes(cert_b); (d / "b.key").write_bytes(key_b)
+    (d / "enc.key").write_bytes(b"-----BEGIN ENCRYPTED PRIVATE KEY-----\nMIIB\n-----END ENCRYPTED PRIVATE KEY-----\n")
+
+    def refused(fn, *a, **k):
+        try:
+            fn(*a, **k)
+        except TLS.TlsError as e:
+            return str(e)
+        return ""
+    c1 = {
+        "rsa": key["n"].bit_length() == 2048 and key["e"] == 65537 and pow(pow(12345, key["e"], key["n"]), key["d"], key["n"]) == 12345
+               and TLS.verify_pkcs1_sha256(key["n"], key["e"], b"pad 3", sig) and not TLS.verify_pkcs1_sha256(key["n"], key["e"], b"pad 4", sig),
+        "facts": facts["names"] == ["gea-pad3", "gea-pad3.example.local", "10.20.0.15", "localhost", "127.0.0.1"] and facts["subject"] == "gea-pad3"
+                 and facts["self_signed"] and facts["self_signature_ok"] and facts["ca"] is False and facts["bits"] == 2048 and facts["key"] == "RSA"
+                 and abs((na - nb).total_seconds() - (400 * 86400 + 300)) < 2
+                 and facts["sha256_fingerprint"].replace(":", "").lower() == __import__("hashlib").sha256(der).hexdigest(),
+        "loads": isinstance(TLS.server_context(str(d / "a.crt"), str(d / "a.key")), _ssl.SSLContext)
+                 and TLS.server_context(str(d / "a.crt"), str(d / "a.key")).minimum_version == _ssl.TLSVersion.TLSv1_2,
+        "refused": all(refused(*x) for x in ((TLS.self_signed, []), (TLS.self_signed, ["x"], 826), (TLS.self_signed, ["x"], 30, 1024),
+                                             (TLS.self_signed, ["bad name!"])))
+                   and "does not belong" in refused(TLS.server_context, str(d / "a.crt"), str(d / "b.key"))
+                   and "passphrase" in refused(TLS.server_context, str(d / "a.crt"), str(d / "enc.key"))
+                   and "not there" in refused(TLS.server_context, str(d / "nope.crt"), str(d / "a.key"))
+                   and "no certificate" in refused(TLS.read_certificate, b"not a certificate"),
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CX1 the self-signed certificate is made by the standard library: an RSA key (e 65537; a PKCS #1 v1.5 SHA-256 signature that verifies, and not for "
+       "other bytes); an X.509 v3 server certificate with every name and address as a subject alternative name, its validity, not an authority, its own "
+       "signature good, its SHA-256 fingerprint; loaded by Python's TLS with 1.2 as the floor; no names, more than 825 days, a 1024-bit key, a bad name, a key "
+       "that is not the certificate's, a key with a passphrase and a missing file refused, each saying why" + (f" - failed: {failed1}" if failed1 else ""))
+
+    # -- CX2 the service over HTTPS ------------------------------------------------------------------------------------
+    wsp = str(Path(tmp, "ws_cx")); ws = Workspace.create(wsp, "HTTPS Site", actor="tester")
+    users = Users(str(Path(wsp, "users.json")))
+    users.add("adm", "admin-pass-123", "admin"); users.add("v", "viewer-pass-1", "viewer")
+    st0 = TLS.status(ws)
+    made = TLS.make_self_signed(ws, "tester", ["localhost", "127.0.0.1"], days=400)
+    svc = Service(wsp, host="127.0.0.1", port=0, scheduler=False).start()
+    port = svc.port
+    trust = _ssl.create_default_context(cafile=str(Path(wsp, TLS.SELF_CERT)))
+
+    def req(method, path, body=None, cookie=None, host="127.0.0.1", ctx=trust):
+        c = http.client.HTTPSConnection(host, port, context=ctx, timeout=30)
+        h = {"Content-Type": "application/json", "X-GEA-Action": "1"} if method == "POST" else {}
+        if cookie:
+            h["Cookie"] = cookie
+        c.request(method, path, body=(json.dumps(body) if body is not None else None), headers=h)
+        r = c.getresponse()
+        data = r.read()
+        ver = c.sock.version() if c.sock else None
+        c.close()
+        return r.status, dict(r.getheaders()), data, ver
+
+    def plain(path, host_header):
+        c = http.client.HTTPConnection("127.0.0.1", port, timeout=30)
+        c.request("GET", path, headers={"Host": host_header})
+        r = c.getresponse()
+        out = (r.status, r.getheader("Location"), r.read())
+        c.close()
+        return out
+    try:
+        idle = _so.create_connection(("127.0.0.1", port), timeout=30)            # connects and says nothing
+        s_s, h_s, _, ver = req("GET", "/api/session")
+        s_l, h_l, b_l, _ = req("POST", "/api/login", {"name": "adm", "password": "admin-pass-123"})
+        ck = h_l.get("Set-Cookie", "").split(";")[0]
+        s_v, h_v, _, _ = req("POST", "/api/login", {"name": "v", "password": "viewer-pass-1"})
+        vk = h_v.get("Set-Cookie", "").split(";")[0]
+        p301 = plain("/api/overview?x=1", f"127.0.0.1:{port}")
+        p400 = plain("/", "elsewhere.example")
+        try:
+            urllib.request.urlopen(svc.url + "api/session", context=_ssl.create_default_context(), timeout=30)
+            untrusted = "accepted"
+        except urllib.error.URLError as e:
+            untrusted = str(e.reason)
+        wrong_name = _ssl.create_default_context(cafile=str(Path(wsp, TLS.SELF_CERT)))
+        try:
+            with _so.create_connection(("127.0.0.1", port), timeout=30) as raw:
+                with wrong_name.wrap_socket(raw, server_hostname="gea-other.example"):
+                    pass
+            name_check = "accepted"
+        except _ssl.SSLError as e:
+            name_check = str(e)
+        s_after, _, _, _ = req("GET", "/api/session")
+        idle.close()
+        # -- CX3 the API ------------------------------------------------------------------------------------------------
+        s_ta, _h, ta_b, _ = req("GET", "/api/tls", cookie=ck)
+        ta = json.loads(ta_b)
+        s_tv, _, _, _ = req("GET", "/api/tls", cookie=vk)
+        s_cv, h_cv, pem_v, _ = req("GET", "/api/tls/certificate", cookie=vk)
+        s_pv, _, _, _ = req("POST", "/api/tls", {"action": "off"}, cookie=vk)
+        s_mm, _, b_mm, _ = req("POST", "/api/tls", {"action": "site", "cert": str(d / "a.crt"), "key": str(d / "b.key")}, cookie=ck)
+        s_bad, _, _, _ = req("POST", "/api/tls", {"action": "nonsense"}, cookie=ck)
+        s_ss, _, b_ss, _ = req("POST", "/api/tls", {"action": "self-signed", "names": "localhost 127.0.0.1", "days": 300}, cookie=ck)
+        s_t2, _, t2, _ = req("GET", "/api/tls", cookie=ck)
+        t2 = json.loads(t2)
+    finally:
+        svc.stop()
+    c2 = {
+        "off_first": st0["state"] == "OFF" and made["state"] == "OK" and made["mode"] == "self-signed",
+        "url": svc.url == f"https://127.0.0.1:{port}/",
+        "tls": s_s == 200 and ver in ("TLSv1.2", "TLSv1.3") and "max-age=" in h_s.get("Strict-Transport-Security", ""),
+        "cookie": s_l == 200 and s_v == 200 and "Secure" in h_l.get("Set-Cookie", "") and "HttpOnly" in h_l.get("Set-Cookie", ""),
+        "plain": p301[0] == 301 and p301[1] == f"https://127.0.0.1:{port}/api/overview?x=1" and p400[0] == 400 and b"speaks HTTPS" in p400[2],
+        "refused": "CERTIFICATE_VERIFY_FAILED" in untrusted and ("mismatch" in name_check.lower() or "doesn't match" in name_check or "not valid" in name_check),
+        "still": s_after == 200 and svc.httpd.tls_refused >= 2,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CX2 with HTTPS on, the service speaks TLS 1.2 or later at an https:// address: a client that trusts the certificate signs in and the cookie is Secure "
+       "and HttpOnly, with Strict-Transport-Security on every answer; plain HTTP on the same port is sent to the same address over HTTPS when it names the "
+       "machine by a name the certificate carries, and told to use HTTPS otherwise; a client that does not trust the certificate, or reaches it by another "
+       "name, is refused - and a silent connection and the refusals do not stop the service answering" + (f" - failed: {failed2}" if failed2 else ""))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    adm_view = page_src[page_src.index("VIEWS.admin = "):page_src.index("VIEWS.help = ")]
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    c3 = {
+        "status": s_ta == 200 and ta["state"] == "OK" and ta["serving"]["https"] and ta["restart_needed"] is False
+                  and ta["facts"]["sha256_fingerprint"] == made["facts"]["sha256_fingerprint"],
+        "roles": s_tv == 403 and s_pv == 403 and s_bad == 400,
+        "certificate": s_cv == 200 and pem_v.startswith(b"-----BEGIN CERTIFICATE-----") and b"PRIVATE KEY" not in pem_v
+                       and TLS.read_certificate(pem_v)["sha256_fingerprint"] == made["facts"]["sha256_fingerprint"] and "attachment" in h_cv.get("Content-Disposition", ""),
+        "change": s_mm == 400 and b"does not belong" in b_mm and s_ss == 200 and json.loads(b_ss)["restart_needed"] is True
+                  and t2["restart_needed"] is True and t2["serving"]["https"] and t2["facts"]["sha256_fingerprint"] != made["facts"]["sha256_fingerprint"],
+        "audit": audit.count('"tls.self_signed"') == 2,
+        "page": all(x in adm_view for x in ("/api/tls", "tlsSite", "tlsSelf", "/api/tls/certificate", "const cStop = $('#ctlStop')", "cAuto.onchange"))
+                and "const cStop" not in page_src[page_src.index("VIEWS.prefs = "):page_src.index("VIEWS.search = ")],
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CX3 the HTTPS card (the administrator role): how it stands and what this run serves; the certificate - public - downloads for any signed-in user "
+       "and carries no key; a viewer may not change it; a key that is not the certificate's is refused; a new certificate is kept and says it needs a "
+       "restart; each change is audited; the operations-control buttons on the Administration page are wired there"
+       + (f" - failed: {failed3}" if failed3 else ""))
+
+    # -- CX4 the site's certificate, the expiry alert, a broken pair, the CLI, the key kept in ----------------------------
+    site_dir = Path(tmp, "site_certs"); site_dir.mkdir()
+    sc, sk, sf = TLS.self_signed(["gea-pad3.example.local", "127.0.0.1"], days=60, org="Example Operator IT")
+    (site_dir / "gea.crt").write_bytes(sc); (site_dir / "gea.key").write_bytes(sk)
+    st_site = TLS.use_site_certificate(ws, "tester", str(site_dir / "gea.crt"), str(site_dir / "gea.key"))
+    copied = sorted(p.name for p in Path(wsp, TLS.TLS_DIR).iterdir())
+    exp_at = _dt.strptime(sf["not_after"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=_tz.utc)
+    st_exp = TLS.status(ws, exp_at - _td(days=10))
+    r_exp = AL.check_conditions(ws, None, now=exp_at - _td(days=10), force=True)
+    TLS.make_self_signed(ws, "tester", ["localhost", "127.0.0.1"], days=400)
+    r_clr = AL.check_conditions(ws, None, now=_dt.now(_tz.utc), force=True)
+    os.remove(Path(wsp, TLS.SELF_KEY))
+    st_broken = TLS.status(ws)
+    doc = DR.check_workspace(wsp, "127.0.0.1", 0)
+    try:
+        Service(wsp, host="127.0.0.1", port=0, scheduler=False)
+        start_broken = "started"
+    except TLS.TlsError as e:
+        start_broken = str(e)
+    cli_off = _sp.run([sys.executable, "-m", "gea", "tls", "--workspace", wsp, "--off"], capture_output=True, text=True, cwd=str(pkg.parent))
+    svc_plain = Service(wsp, host="127.0.0.1", port=0, scheduler=False)
+    url_plain = svc_plain.url
+    svc_plain.httpd.server_close()
+    out_crt = str(d / "handed_out.crt")
+    cli_ss = _sp.run([sys.executable, "-m", "gea", "tls", "--workspace", wsp, "--self-signed", "--name", "gea-pad3", "--name", "10.20.0.15", "--days", "90",
+                      "--export-cert", out_crt], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_st = _sp.run([sys.executable, "-m", "gea", "tls", "--workspace", wsp, "--json"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_bad = _sp.run([sys.executable, "-m", "gea", "tls", "--workspace", wsp, "--site-cert", str(site_dir / "gea.crt")], capture_output=True, text=True, cwd=str(pkg.parent))
+    __import__("gea.frac_hits", fromlist=["write_report"]).write_report(ws, _ver, "tester")
+    dz = DZ.build(ws, "tester", _ver, None, include_sources=True)
+    zp = Path(ws.reports_dir, dz["path"])
+    with _zf.ZipFile(zp) as z:
+        names = z.namelist()
+        leaked = [n for n in names if b"PRIVATE KEY" in z.read(n)]
+    key_text = Path(wsp, TLS.SELF_KEY).read_bytes()
+    c4 = {
+        "site": st_site["state"] == "OK" and st_site["mode"] == "site" and st_site["cert"] == str(site_dir / "gea.crt")
+                and st_site["facts"]["issuer"] == "gea-pad3.example.local" and "self_signed_key.pem" in copied and "gea.key" not in copied,
+        "expiring": st_exp["state"] == "EXPIRING" and [e["event"] for e in r_exp if e["event"] == "tls.expiring"] == ["tls.expiring"]
+                    and any(e["event"] == "condition.cleared" and e.get("cleared") == "tls.expiring" for e in r_clr) and "tls.expiring" in AL.EVENTS,
+        "broken": st_broken["state"] == "BROKEN" and any(f["level"] == "block" and "HTTPS BROKEN" in f["what"] for f in doc) and "not there" in start_broken,
+        "cli": cli_off.returncode == 0 and "HTTPS: OFF" in cli_off.stdout and url_plain.startswith("http://127.0.0.1:")
+               and cli_ss.returncode == 0 and "gea-pad3, 10.20.0.15" in cli_ss.stdout and "next start" in cli_ss.stdout
+               and Path(out_crt).read_bytes().startswith(b"-----BEGIN CERTIFICATE-----") and b"PRIVATE" not in Path(out_crt).read_bytes()
+               and cli_st.returncode == 0 and json.loads(cli_st.stdout)["state"] == "OK" and cli_bad.returncode != 0 and "go together" in (cli_bad.stderr + cli_bad.stdout),
+        "kept_in": not leaked and not any(n.startswith("keys/tls") or n.endswith(".pem") for n in names) and b"PRIVATE KEY" in key_text,
+        "help": not H.check("https") and any(t["topic"] == "https" for t in H.topics()) and "gea help https" in (pkg / "help" / "upkeep.md").read_text(encoding="utf-8"),
+    }
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       "CX4 the site's own certificate is used where it lives (not copied in); in its last 30 days it reads EXPIRING and raises tls.expiring once, cleared "
+       "when a new one is in place; with its key gone the doctor says BLOCK and the service does not start (never plain HTTP by surprise) until "
+       "`gea tls --off`; `gea tls --self-signed --name ... --export-cert` makes one and writes the certificate alone; --site-cert without its key is refused; "
+       "no dossier carries the key; the help page" + (f" - failed: {failed4}" if failed4 else ""))
+
+
 def PR_read_ok(path) -> bool:
     from . import pdf_report as PR
     try:
@@ -12351,6 +12573,7 @@ def main() -> int:
         section_cu_pore_pressure(tmp)
         section_cv_torque_drag(tmp)
         section_cw_decline(tmp)
+        section_cx_https(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

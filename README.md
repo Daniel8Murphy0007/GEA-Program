@@ -204,7 +204,7 @@ disappearing. Every action is written to `records/audit.jsonl` with the
 actor's name and the SHA-256 of the inputs it used. The service is written on
 the standard library only (no new dependency, the standalone check still
 passes), listens on the loopback interface by default (`--host 0.0.0.0` for a
-site network, behind the site's TLS proxy), keeps sessions in HttpOnly
+site network, over HTTPS - its own, below, or the site's TLS proxy), keeps sessions in HttpOnly
 SameSite cookies, and requires the page's own header on every action so a
 foreign form cannot act. Accounts live in `users.json` as salted PBKDF2-SHA256
 hashes; `gea users --workspace C:\site --action add --name ... --role admin`
@@ -1210,11 +1210,35 @@ is recomputed in the index. On the Reports page: the packets on record,
 Assemble as a job, and Schedule monthly (day and hour, the previous month).
 `gea help month-end`.
 
+### HTTPS
+
+The service speaks TLS itself when the workspace names a certificate: the
+site's own (from the company's certificate authority, which managed
+computers already trust; read where the site keeps it, at every start) or a
+self-signed one it makes with the standard library alone (an RSA key and an
+X.509 v3 server certificate for every name and address it is reached by).
+TLS 1.2 is the floor; the cookie is marked Secure; every answer carries
+Strict-Transport-Security; a plain `http://` request on the same port is
+sent to HTTPS; a certificate in its last 30 days raises the `tls.expiring`
+alert; a workspace whose certificate files are broken does not start rather
+than fall back to plain HTTP.
+
+```
+gea tls --workspace C:\site --site-cert C:\certs\gea-pad3.crt --site-key C:\certs\gea-pad3.key
+gea tls --workspace C:\site --self-signed --name gea-pad3 --name 10.20.0.15 --export-cert C:\certs\gea-site.crt
+gea serve --workspace C:\site --host 0.0.0.0                       # https://gea-pad3:8765/
+```
+
+Or Administration -> **HTTPS** in the page (download the certificate, not
+the key, for the site's computers to trust; compare the SHA-256 shown).
+`gea help https`.
+
 ### Before a site goes live
 
-`deploy/README.md` is the checklist: keep the service on the loopback
-address and put a TLS proxy in front (`deploy/Caddyfile`,
-`deploy/nginx-gea.conf`), start with `--behind-proxy`. The service itself
+`deploy/README.md` is the checklist: HTTPS from the service itself (above),
+or keep the service on the loopback address and put the site's TLS proxy in
+front (`deploy/Caddyfile`, `deploy/nginx-gea.conf`), start with
+`--behind-proxy`. The service itself
 rate-limits sign-ins (five failures lock the name and the address for 15
 minutes, audited), lists and revokes live sessions, sends the security
 headers on every response, and `gea housekeeping --workspace C:\site --apply`

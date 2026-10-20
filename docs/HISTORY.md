@@ -4,6 +4,13 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.55.0 - 2026-10-20 - HTTPS
+
+- **The control panel over HTTPS without a proxy.** The site's certificate
+  or a self-signed one made with the standard library; TLS 1.2 floor,
+  Secure cookie, HSTS, plain HTTP sent to HTTPS, the expiry alert, and no
+  start on a broken certificate. Section CX; gate 463.
+
 ## v0.54.0 - 2026-10-20 - decline curves
 
 - **What each well will make, and what it is worth.** Arps's curves fitted

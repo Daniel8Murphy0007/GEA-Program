@@ -5,6 +5,43 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.55.0] - 2026-10-20 - HTTPS
+
+### Added
+- **HTTPS from the service itself** (`gea/tls.py`): the workspace names a
+  certificate - the site's own (PEM, read where the site keeps it at every
+  start, so a renewal needs only a restart) or a self-signed one made with
+  the standard library alone (an RSA key of 2048 or 3072 bits by
+  Miller-Rabin; an X.509 v3 server certificate in DER with every name and
+  address as a subject alternative name, not an authority, signed SHA-256
+  PKCS #1 v1.5; at most 825 days).
+- TLS 1.2 as the floor; each connection's handshake in its own thread; the
+  session cookie marked Secure and Strict-Transport-Security on every
+  answer; a plain-HTTP request on the HTTPS port sent to the same address
+  over HTTPS when it names the machine by a name the certificate carries.
+- A workspace whose certificate files are missing, unreadable, encrypted
+  or not a pair does not start (the doctor says BLOCK) - never plain HTTP
+  by surprise.
+- The alert `tls.expiring` (the last 30 days, or expired; cleared when a
+  new certificate is in place); the doctor's HTTPS line.
+- Administration -> **HTTPS** (how it stands, what this run serves, the
+  certificate to download - never the key - and the change: the site's
+  files, a self-signed one, off), `GET /api/tls` (admin),
+  `GET /api/tls/certificate`, `POST /api/tls` (admin), `gea tls`,
+  `gea help https`; audit lines `tls.site_certificate`, `tls.self_signed`,
+  `tls.off`.
+- Acceptance section CX (4 checks).
+
+### Fixed
+- The Stop, Restart and auto-restart controls under Operations control on
+  the Administration page were wired in the preferences page's code and did
+  nothing; they are wired where they are shown.
+
+### Changed
+- `gea serve` prints the HTTPS state, names and fingerprint; its plain-HTTP
+  note on a network address names `gea tls`. `deploy/README.md`, the
+  upkeep help and the kit's launcher text name both ways to TLS.
+
 ## [v0.54.0] - 2026-10-20 - Decline curves
 
 ### Added
