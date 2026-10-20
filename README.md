@@ -609,6 +609,17 @@ against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
 
+### Decline curves
+
+Each well's monthly production fitted by Arps's curves - the modified
+hyperbolic, turned exponential at a terminal decline - forecast month by
+month to its economic limit and valued: the estimated ultimate recovery,
+and the net cash flow discounted at the declared rate, at the SEC 12-month
+average of the first-of-month WTI and Henry Hub prices (shipped from the
+EIA) or a declared price, with the net revenue interest, severance tax and
+operating cost declared. A forecast is not a reserves report, and the page
+says so. The **Decline curves** tab, `gea decline`, `gea help decline`.
+
 ### Torque and drag
 
 The hook load and torque the drill string should take at each bit depth, by

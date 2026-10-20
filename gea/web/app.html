@@ -2451,6 +2451,61 @@ VIEWS.opseis = async (arg) => {
   $('#osOp') && ($('#osOp').onsubmit = async ev => { ev.preventDefault(); const f = new FormData(ev.target), b = {}; for (const [k, v] of f.entries()) if (v !== '') b[k] = v;
     try { await post('/api/opseis/operation', b); toast('Operation declared', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
 };
+// ---------- decline curves: Arps fitted to each well's production, forecast and valued ----------
+const DCV = {well: null};
+function dcChart(r) {
+  const W = 760, H = 300, L = 56, R = 14, T = 14, B = 30, sts = Object.entries(r.streams);
+  let tmax = 0, qs = [];
+  for (const [, s_] of sts) { tmax = Math.max(tmax, ...s_.curve.t); qs.push(...s_.history.q.filter(v => v && v > 0), ...s_.curve.q.filter(v => v > 0)); }
+  const m0 = new Date(sts[0][1].m0 + 'T00:00:00Z');
+  const lq0 = Math.floor(Math.log10(Math.max(1e-3, Math.min(...qs)))), lq1 = Math.ceil(Math.log10(Math.max(...qs)));
+  const sx = t => L + t / Math.max(1, tmax) * (W - L - R), sy = q => T + (1 - (Math.log10(Math.max(q, Math.pow(10, lq0))) - lq0) / Math.max(1, lq1 - lq0)) * (H - T - B);
+  let g = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Rate against time, log scale, with the fitted curves" style="max-width:960px">`;
+  for (let e = lq0; e <= lq1; e++) g += `<line x1="${L}" x2="${W - R}" y1="${sy(Math.pow(10, e))}" y2="${sy(Math.pow(10, e))}" stroke="var(--ink2)" opacity=".15"/><text x="${L - 6}" y="${sy(Math.pow(10, e)) + 4}" font-size="10" text-anchor="end" fill="var(--muted)">${Math.pow(10, e).toLocaleString()}</text>`;
+  const yrs = tmax / 365.25, ystep = yrs > 30 ? 10 : yrs > 12 ? 5 : yrs > 5 ? 2 : 1;
+  for (let y = 0; y <= yrs; y += ystep) { const t = y * 365.25; g += `<line x1="${sx(t)}" x2="${sx(t)}" y1="${T}" y2="${H - B}" stroke="var(--ink2)" opacity=".12"/><text x="${sx(t)}" y="${H - 12}" font-size="10" text-anchor="middle" fill="var(--muted)">${m0.getUTCFullYear() + y}</text>`; }
+  const lastT = Math.max(...sts.map(([, s_]) => s_.last_t));
+  g += `<line x1="${sx(lastT)}" x2="${sx(lastT)}" y1="${T}" y2="${H - B}" stroke="var(--ink)" stroke-dasharray="3 3" opacity=".5"/><text x="${sx(lastT) + 4}" y="${T + 10}" font-size="10" fill="var(--muted)">forecast →</text>`;
+  sts.forEach(([k, s_], j) => {
+    const col = k === 'oil' ? 'var(--s1)' : 'var(--s2)';
+    const hist = s_.curve.t.map((t, i) => [t, s_.curve.q[i]]).filter(([t]) => t <= s_.last_t), fut = s_.curve.t.map((t, i) => [t, s_.curve.q[i]]).filter(([t]) => t >= s_.last_t);
+    g += `<polyline points="${hist.map(([t, q]) => `${sx(t).toFixed(1)},${sy(q).toFixed(1)}`).join(' ')}" fill="none" stroke="${col}" stroke-width="2"/>`;
+    g += `<polyline points="${fut.map(([t, q]) => `${sx(t).toFixed(1)},${sy(q).toFixed(1)}`).join(' ')}" fill="none" stroke="${col}" stroke-width="2" stroke-dasharray="6 4"/>`;
+    s_.history.t.forEach((t, i) => { const q = s_.history.q[i]; if (!q) return; g += `<circle cx="${sx(t).toFixed(1)}" cy="${sy(q).toFixed(1)}" r="2.6" fill="${col}" opacity=".75"><title>${k} ${q.toLocaleString()} ${k === 'oil' ? 'bbl/d' : 'Mcf/d'} (${s_.history.v[i].toLocaleString()} in the month)</title></circle>`; });
+  });
+  return g + `</svg>`;
+}
+VIEWS.decline = async () => {
+  const P = await get('/api/decline' + (DCV.well ? '?well=' + encodeURIComponent(DCV.well) : ''));
+  DCV.well = P.well;
+  const r = P.result;
+  let h = `<h2>Decline curves</h2>`;
+  if (P.wells.length) h += `<div class="row"><label>Well<select id="dcWell">${P.wells.map(w => `<option value="${esc(w.id)}" ${w.id === P.well ? 'selected' : ''}>${esc(w.display)}${w.production ? ` — ${w.production.months} months` : ' — no production'}</option>`).join('')}</select></label>${can('operator') && r ? `<button type="button" class="secondary" id="dcWrite">Write the report</button>` : ''}</div>`;
+  if (!r) h += `<p class="card small">${esc(P.detail || '')}.</p>`;
+  else {
+    const fc = r.forecast, u = k => k === 'oil' ? 'bbl' : 'Mcf';
+    h += `<div class="tiles">` + Object.entries(r.eur).map(([k, v]) => tile(`EUR, ${k}`, Math.round(v).toLocaleString() + ' ' + u(k), 'neutral', '#/decline', `${Math.round(r.streams[k].produced).toLocaleString()} produced, ${Math.round(fc.remaining[k] || 0).toLocaleString()} to come`)).join('')
+      + tile(`PV${Math.round(r.config.discount * 100)}`, '$' + Math.round(fc.pv_usd).toLocaleString(), fc.pv_usd > 0 ? 'good' : 'warn', '#/decline', fc.end_month ? `to ${fc.end_month} (${fc.stopped_by}); undiscounted $${Math.round(fc.undiscounted_usd).toLocaleString()}` : `the next month, ${fc.limit_month}, does not pay`) + `</div>`;
+    h += `<div class="card"><h3>Rate against time <span class="small muted">oil blue, gas orange; the months as dots, the fitted curve solid, the forecast dashed</span></h3>${dcChart(r)}
+      <table class="small"><thead><tr><th>Stream</th><th>qi (per day)</th><th>b</th><th>Di (%/yr effective)</th><th>Terminal (%/yr)</th><th>Fitted from</th><th>Months</th><th>RMS (log)</th></tr></thead><tbody>${Object.entries(r.streams).map(([k, s_]) => `<tr><td>${k}</td><td>${s_.fit.qi.toFixed(1)}</td><td>${s_.fit.b.toFixed(2)}</td><td>${(s_.De_annual * 100).toFixed(1)}</td><td>${((s_.Dterm_annual || 0) * 100).toFixed(0)}</td><td>${esc(s_.fit_from)}</td><td>${s_.months_fitted}</td><td>${s_.fit.rmse_log.toFixed(3)}</td></tr>`).join('')}</tbody></table>
+      <p class="small">As of ${esc(r.as_of)}. ${Object.entries(r.price_how).map(([k, v]) => `${k.charAt(0).toUpperCase() + k.slice(1)}: ${esc(v)}.`).join(' ')} Net revenue interest ${r.config.nri}, severance ${(r.config.severance * 100).toFixed(1)} %, operating cost $${Math.round(r.config.opex_month).toLocaleString()} a month. Production: ${esc(r.source)}.</p></div>`;
+  }
+  const cur = P.wells.find(w => w.id === P.well);
+  if (can('operator') && cur) {
+    const c = cur.config, num = (k, lab, st) => `<label>${lab}<input name="${k}" type="number" step="${st}" value="${c[k] ?? ''}" style="width:7em"></label>`;
+    h += `<div class="card"><h3>${esc(cur.display)}</h3>${cur.production ? `<p class="small">${esc(cur.production.file)}: ${cur.production.months} months, ${esc(cur.production.first)} to ${esc(cur.production.last)} — ${esc(cur.production.source)} <button type="button" class="secondary" id="dcRemove">Remove</button></p>` : ''}
+      <form id="dcAttach" class="row"><label>${cur.production ? 'Replace with' : 'Monthly production'} (CSV or Excel)<input type="file" name="file" accept=".csv,.txt,.xlsx"></label><label>Source<input name="source" placeholder="RRC production query, lease 12345"></label><button class="secondary" type="submit">Attach</button></form>
+      <form id="dcTerms" class="row">${num('terminal_decline', 'Terminal decline', 0.01)}${num('b_max', 'Largest b', 0.1)}<label>Price<select name="price_basis"><option value="sec" ${c.price_basis === 'sec' ? 'selected' : ''}>SEC 12-month average</option><option value="flat" ${c.price_basis === 'flat' ? 'selected' : ''}>declared</option></select></label>${num('oil_price', 'Oil (USD/bbl)', 0.01)}${num('gas_price', 'Gas (USD/MMBtu)', 0.01)}${num('nri', 'NRI', 0.001)}${num('severance', 'Severance', 0.001)}${num('opex_month', 'Opex (USD/month)', 100)}${num('discount', 'Discount', 0.01)}<label>Fit from (YYYY-MM)<input name="start" value="${esc(c.start || '')}" style="width:7em"></label><label>Source<input name="source" value="${esc(c.source || '')}" placeholder="lease terms, budget"></label><button class="secondary" type="submit">Keep</button></form></div>`;
+  }
+  h += `<div class="card"><h3>What this page will not call a measurement</h3><ul class="small">${P.not_a_measurement.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
+  $('#main').innerHTML = h;
+  $('#dcWell') && ($('#dcWell').onchange = ev => { DCV.well = ev.target.value; route(); });
+  $('#dcWrite') && ($('#dcWrite').onclick = async () => { try { const x = await post('/api/decline/write', {well_id: DCV.well}); toast('Written ' + x.report_id, 'ok'); } catch (e) { toast(e.message, 'err'); } });
+  $('#dcRemove') && ($('#dcRemove').onclick = async () => { try { await post('/api/decline/remove', {well_id: DCV.well}); toast('Removed', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+  $('#dcTerms') && ($('#dcTerms').onsubmit = async ev => { ev.preventDefault(); try { await post('/api/decline/settings', {well_id: DCV.well, ...Object.fromEntries(new FormData(ev.target).entries())}); toast('Kept', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+  $('#dcAttach') && ($('#dcAttach').onsubmit = async ev => { ev.preventDefault(); const fd = new FormData(ev.target), f = fd.get('file'); if (!f || !f.name) return toast('Choose a production file', 'err');
+    try { await post('/api/decline/attach', {well_id: DCV.well, filename: f.name, content_b64: await readFile(f), source: fd.get('source')}); toast('Attached', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+};
 // ---------- torque and drag: the soft-string model, the broomstick, the friction factors that fit the rig ----------
 const TDV = {scene: 'workspace', well: null};
 function tdChart(r, kind) {
@@ -3162,7 +3217,7 @@ function authScreen(first) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/frac', 'Frac hits'], ['#/porepressure', 'Pore pressure'], ['#/torquedrag', 'Torque & drag'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/frac', 'Frac hits'], ['#/porepressure', 'Pore pressure'], ['#/torquedrag', 'Torque & drag'], ['#/decline', 'Decline curves'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w'], '#/control': b => [b.handover_unacked, 'w']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }

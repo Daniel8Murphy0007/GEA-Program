@@ -1921,6 +1921,9 @@ def make_handler(app: App):
                 if path == '/api/plan':
                     from . import wellplan as WPL
                     return self._json(200, App._cr(WPL.page, app.ws, (qs.get('well') or [None])[0]))
+                if path == '/api/decline':
+                    from . import decline as DCA
+                    return self._json(200, App._cr(DCA.page, app.ws, (qs.get('well') or [None])[0], (qs.get('as_of') or [None])[0]))
                 if path == '/api/torque-drag':
                     from . import torque_drag as TND
                     return self._json(200, App._cr(TND.page, app.ws, (qs.get('scene') or ['workspace'])[0], (qs.get('well') or [None])[0]))
@@ -2344,6 +2347,23 @@ def make_handler(app: App):
                         return self._json(200, App._cr(RS.remove_casing, app.ws, user['name'], str(b_.get('well_id') or ''), str(b_.get('size') or '')))
                     return self._json(200, App._cr(RS.set_casing, app.ws, user['name'], str(b_.get('well_id') or ''), str(b_.get('size') or ''),
                                                    b_.get('shoe_md_ft'), str(b_.get('source') or ''), b_.get('set')))
+                if path in ('/api/decline/attach', '/api/decline/remove', '/api/decline/settings', '/api/decline/write'):
+                    from . import decline as DCA
+                    from . import wellplan as WPL
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    b_ = dict(body or {})
+                    wid = str(b_.get('well_id') or '')
+                    if path.endswith('/attach'):
+                        return self._json(200, App._cr(DCA.attach, app.ws, wid, str(b_.get('filename') or 'production.csv'), App._cr(WPL.decode_content, b_),
+                                                       user['name'], str(b_.get('source') or '')))
+                    if path.endswith('/remove'):
+                        return self._json(200, App._cr(DCA.remove, app.ws, wid, user['name']))
+                    if path.endswith('/settings'):
+                        cfg = {k: b_.get(k) for k in list(DCA.LIMITS) + ['price_basis', 'start'] if k in b_}
+                        return self._json(200, App._cr(DCA.set_config, app.ws, user['name'], wid, str(b_.get('source') or ''), **cfg))
+                    r_ = App._cr(DCA.write_report, app.ws, _v, wid or None, user['name'])
+                    return self._json(200, {'report_id': r_['report_id']})
                 if path in ('/api/torque-drag/settings', '/api/torque-drag/write'):
                     from . import torque_drag as TND
                     from . import __version__ as _v

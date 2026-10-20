@@ -12065,6 +12065,180 @@ def section_cv_torque_drag(tmp: str) -> None:
        + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
 
 
+def section_cw_decline(tmp: str) -> None:
+    """Section CW - decline curves: Arps's rate and cumulative and the modified hyperbolic against their closed forms
+    and the decline conversions; a production table built on known curves fitted back and forecast; the economic limit,
+    the discounted value and the SEC 12-month price; the API, the CLI, the report, the dossier, the tab and the help."""
+    import http.cookiejar
+    import math as _m
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    import zipfile as _zf
+    from datetime import date as _date
+    import numpy as _np
+    from . import __version__ as _ver
+    from . import decline as DCA
+    from . import dossier as DZ
+    from . import edr as E
+    from . import helplib as H
+    from . import xlsx_read as XR
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "decline"); d.mkdir()
+
+    # -- CW1 the curves by hand --------------------------------------------------------------------------------------------
+    qi, Di = 1000.0, 0.002
+    t = _np.array([0.0, 100.0, 1000.0])
+    e_ok = _np.allclose(DCA.rate(t, qi, Di, 0.0), qi * _np.exp(-Di * t)) and _np.allclose(DCA.cum(t, qi, Di, 0.0), qi / Di * (1 - _np.exp(-Di * t)))
+    h_ok = _np.allclose(DCA.rate(t, qi, Di, 0.5), qi / (1 + 0.5 * Di * t) ** 2) and _np.allclose(DCA.cum(t, qi, Di, 0.5), qi / (0.5 * Di) * (1 - (1 + 0.5 * Di * t) ** -1))
+    a_ok = _np.allclose(DCA.cum(t, qi, Di, 1.0), qi / Di * _np.log(1 + Di * t))
+    tt = _np.linspace(0, 20000, 200001)
+    q_mh = DCA.rate(tt, qi, Di, 1.5, 0.0002)
+    trap = float(_np.sum(0.5 * (q_mh[1:] + q_mh[:-1]) * _np.diff(tt)))
+    ts = (Di / 0.0002 - 1) / (1.5 * Di)
+    i_s = int(_np.searchsorted(tt, ts))
+    dq = _np.diff(_np.log(q_mh))
+    c1 = {
+        "arps": e_ok and h_ok and a_ok,
+        "modified": abs(float(DCA.cum(_np.array([20000.0]), qi, Di, 1.5, 0.0002)[0]) / trap - 1) < 1e-6 and abs(dq[i_s + 5] / 0.1 + 0.0002) < 1e-9 and q_mh[i_s - 1] > q_mh[i_s],
+        "conversions": abs(DCA.effective_annual(DCA.nominal_daily(0.65, 1.1), 1.1) - 0.65) < 1e-12 and abs(DCA.effective_annual(DCA.nominal_daily(0.08, 0.0), 0.0) - 0.08) < 1e-12
+                       and abs(DCA.effective_annual(0.001, 0.0) - (1 - _m.exp(-0.36525))) < 1e-12,
+        "sec": DCA.sec_price([f"2025-{m:02d}-0{k}" for m in range(1, 13) for k in (2, 3)] + ["2024-12-31"], [float(m * 10 + k) for m in range(1, 13) for k in (2, 3)] + [999.0],
+                             _date(2026, 1, 1))["price"] == round(sum(m * 10 + 2 for m in range(1, 13)) / 12.0, 4)
+               and DCA.sec_price(["2025-06-01"], [50.0], _date(2026, 1, 1)) is None,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CW1 Arps's curves by hand: the exponential, hyperbolic and harmonic rates and cumulatives in closed form; the modified "
+       "hyperbolic's cumulative equal to the integral of its rate, exponential at the terminal decline from the switch; the "
+       "effective and nominal declines inverse to each other; the SEC price the average of each month's first quote of the 12 "
+       "months before, and none when a month is missing"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- CW2 a table built on known curves, fitted back ---------------------------------------------------------------------
+    f = DCA.selftest_files(str(d))
+    prod = DCA.read_production(Path(f["path"]).read_bytes())
+    so = DCA.analyse_stream(prod, "oil", {**DCA.DEFAULTS})
+    Dn, Dm = DCA.nominal_daily(f["De"], f["b"]), DCA.nominal_daily(f["Dterm"], 0.0)
+    th = _np.array(so["history"]["t"])
+    q_true = DCA.rate(th, f["qi"], Dn, f["b"], Dm)
+    q_fit = DCA.rate(th - so["t0_days"], so["fit"]["qi"], so["fit"]["Di"], so["fit"]["b"], so["Dmin"])
+    t_end = th[-1] + 30 * 365.25
+    eur_true = float(DCA.cum(_np.array([t_end]), f["qi"], Dn, f["b"], Dm)[0])
+    eur_fit = float(DCA.cum(_np.array([t_end - so["t0_days"]]), so["fit"]["qi"], so["fit"]["Di"], so["fit"]["b"], so["Dmin"])[0])
+    days_ok = all(abs(so["history"]["q"][i] - so["history"]["v"][i] / prod[i]["days"]) < 1e-3 for i in (7, 19))
+    XR.write_simple(str(d / "p.xlsx"), [["Production Month", "Oil Volume", "Gas Volume", "Days On"], ["2024-01", 3000, 6000, 31], ["2024-02", 2700, 5500, 29]])
+    px = DCA.read_production((d / "p.xlsx").read_bytes())
+    refused = 0
+    for bad in ("Month,Oil\n2024-01,-5\n", "Month,Oil\n2024-01,5\n2024-01,6\n", "Oil,Gas\n1,2\n", "Month,Oil,Days\n2024-01,5,40\n", "Month,Note\n2024-01,x\n"):
+        try:
+            DCA.read_production(bad.encode())
+        except ValueError:
+            refused += 1
+    c2 = {
+        "fit": abs(so["fit"]["b"] - f["b"]) <= 0.15 and float(_np.max(_np.abs(q_fit - q_true) / q_true)) < 0.04 and so["months_fitted"] == 48,
+        "eur": abs(eur_fit / eur_true - 1) < 0.05,
+        "days": days_ok,
+        "table": len(prod) == 48 and prod[0]["month"] == "2022-01" and px[1]["days"] == 29 and px[0]["oil"] == 3000 and refused == 5,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CW2 a well's 48 months built on a known curve (900 bbl/d, b 1.1, 65 % a year, 8 % terminal, 3 % noise, four months part "
+       "shut in) fitted back: b within 0.15, the rate within 4 % over the history, the 30-year recovery within 5 %; a part month's "
+       "rate its volume over its producing days; a table read from Excel by its names; a negative volume, a month twice, no month, "
+       "more than 31 days or no stream refused"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- CW3 the forecast, the limit and the value ---------------------------------------------------------------------------
+    one = [{"month": f"2020-{m:02d}", "oil": 3000.0 * _m.exp(-0.01 * 30.4375 * (m - 1)), "gas": None, "water": None, "days": None} for m in range(1, 13)]
+    cfg = {**DCA.DEFAULTS, "terminal_decline": None, "nri": 1.0, "severance": 0.0, "opex_month": 0.0, "discount": 0.0, "years": 1.0}
+    r1 = DCA.analyse(one, cfg, {"oil": 50.0, "gas": 0.0})
+    vol12 = sum(m_["oil"] for m_ in r1["forecast"]["months"])
+    cfg2 = {**cfg, "opex_month": 500.0, "years": 20.0}
+    r2 = DCA.analyse(one, cfg2, {"oil": 50.0, "gas": 0.0})
+    last_net = r2["forecast"]["months"][-1]["net_usd"]
+    cfg3 = {**cfg, "discount": 0.10, "years": 1.0}
+    r3 = DCA.analyse(one, cfg3, {"oil": 50.0, "gas": 0.0})
+    pv_hand = sum(m_["net_usd"] * 1.1 ** (-((i + 0.5) / 12)) for i, m_ in enumerate(r3["forecast"]["months"]))
+    c3 = {
+        "exponential": r1["streams"]["oil"]["fit"]["b"] == 0.0 and abs(r1["streams"]["oil"]["fit"]["Di"] / (0.01) - 1) < 0.01 and len(r1["forecast"]["months"]) == 12
+                       and abs(r1["forecast"]["undiscounted_usd"] / (50.0 * vol12) - 1) < 1e-3,
+        "limit": r2["forecast"]["limit_month"] is not None and r2["forecast"]["stopped_by"] == "the economic limit" and last_net > 0
+                 and 3 <= len(r2["forecast"]["months"]) <= 12 and 50.0 * r2["forecast"]["months"][-1]["oil"] > 500.0,
+        "pv": abs(r3["forecast"]["pv_usd"] - pv_hand) < 2.0 and r3["forecast"]["pv_usd"] < r3["forecast"]["undiscounted_usd"],
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CW3 the forecast: a year of exponential decline at 1 % a day fitted as exponential and carried a year forward, its revenue "
+       "the volume times the price; an operating cost stopping it at the economic limit on the last month that still pays; the "
+       "value discounted mid-month as by hand"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+    # -- CW4 the API, the CLI, the report, the dossier, the tab and the help -------------------------------------------------
+    ev = E.selftest_events(str(d))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    wid = ws.add_well_file(ev["path"], display="PROD-1", actor="tester")["id"]
+    nothing = DCA.page(ws, wid)["detail"]
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    content = Path(f["path"]).read_text(encoding="utf-8")
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_va, _ = call(V, "POST", "/api/decline/attach", {"well_id": wid, "filename": "p.csv", "content": content, "source": "x"})
+        s_ns, _ = call(O, "POST", "/api/decline/attach", {"well_id": wid, "filename": "p.csv", "content": content, "source": ""})
+        s_oa, oa = call(O, "POST", "/api/decline/attach", {"well_id": wid, "filename": "p.csv", "content": content, "source": "monthly report (test)"})
+        s_vg, vg = call(V, "GET", "/api/decline?well=" + wid + "&as_of=2026-01-01")
+        s_bt, _ = call(O, "POST", "/api/decline/settings", {"well_id": wid, "nri": 1.5, "source": "x"})
+        s_bp, _ = call(O, "POST", "/api/decline/settings", {"well_id": wid, "price_basis": "spot", "source": "x"})
+        s_ot, ot = call(O, "POST", "/api/decline/settings", {"well_id": wid, "price_basis": "flat", "oil_price": "70", "gas_price": "3", "source": "budget deck (test)"})
+        s_fg, fg = call(V, "GET", "/api/decline?well=" + wid)
+        s_vw, _ = call(V, "POST", "/api/decline/write", {"well_id": wid})
+        s_ow, ow = call(O, "POST", "/api/decline/write", {"well_id": wid})
+    finally:
+        svc.stop()
+    cli_t = _sp.run([sys.executable, "-m", "gea", "decline", "--workspace", wsp, "--well", wid], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_s = _sp.run([sys.executable, "-m", "gea", "decline", "--workspace", wsp, "--well", wid, "--opex", "9000", "--source", "LOE (test)"], capture_output=True, text=True, cwd=str(pkg.parent))
+    dz = DZ.build(ws, "tester", _ver, None)
+    names = _zf.ZipFile(Path(ws.reports_dir, dz["path"])).namelist()
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c4 = {
+        "api": "production" in nothing and s_va == 403 and s_ns == 400 and s_oa == 200 and oa["months"] == 48 and s_vg == 200 and vg["result"]["as_of"] == "2026-01-01"
+               and "SEC average" in vg["result"]["price_how"]["oil"] and s_bt == 400 and s_bp == 400 and s_ot == 200 and ot["oil_price"] == 70.0
+               and s_fg == 200 and fg["result"]["prices"]["oil"] == 70.0 and s_vw == 403 and s_ow == 200 and ow["report_id"].startswith("DCA-"),
+        "cli": cli_t.returncode == 0 and "EUR" in cli_t.stdout and "70 USD/bbl declared" in cli_t.stdout and cli_s.returncode == 0 and "opex 9,000/month" in cli_s.stdout,
+        "report": PR_read_ok(Path(ws.reports_dir, "wells", wid, "decline_curves.pdf")) and all(x in audit for x in ("production.attach", "production.terms", "report.decline_curves")),
+        "dossier": "declarations/economics/production/production.json" in names and f"declarations/economics/production/{wid}/p.csv" in names and f"results/decline/{wid}.json" in names,
+        "page": all(x in page_src for x in ("VIEWS.decline", "['#/decline', 'Decline curves']", "/api/decline/attach", "dcChart")),
+        "help": not H.check("decline") and H.VIEW_TOPIC.get("decline") == "decline",
+    }
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       "CW4 on the API (anyone reads a well's curves at a chosen date, valued at the SEC price; only an operator attaches production "
+       "- with its source - or declares terms - a net revenue interest of 1.5 or an unknown price basis refused - or writes the "
+       "report), the CLI, the report as PDF, a signed dossier carrying the production and the curves, the tab and the help"
+       + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+
 def PR_read_ok(path) -> bool:
     from . import pdf_report as PR
     try:
@@ -12176,6 +12350,7 @@ def main() -> int:
         section_ct_frac_hits(tmp)
         section_cu_pore_pressure(tmp)
         section_cv_torque_drag(tmp)
+        section_cw_decline(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

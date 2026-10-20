@@ -278,7 +278,7 @@ def _gather(ws, well_id: Optional[str]) -> Dict[str, List[tuple]]:
                 ('economics', 'invoices', 'terms.json'), ('economics', 'invoices', 'files.json'), ('drillstring', 'rig_time.json'),
                 ('drillstring', 'casing.json'), ('wellpath', 'collision.json'), ('wellpath', 'survey_program.json'),
                 ('completion', 'frac', 'stages.json'), ('completion', 'frac', 'settings.json'), ('geomech', 'pore_pressure.json'),
-                ('drillstring', 'torque_drag.json')):
+                ('drillstring', 'torque_drag.json'), ('economics', 'production', 'production.json')):
         p = os.path.join(ws.path, *rel)
         if os.path.isfile(p):
             out_list.append((p, 'declarations/' + '/'.join(rel)))
@@ -286,6 +286,7 @@ def _gather(ws, well_id: Optional[str]) -> Dict[str, List[tuple]]:
     for w in wells:                                        # the contractor's invoices and daily reports, and the stage tables, as attached
         files_in(os.path.join(ws.path, 'economics', 'invoices', w['id']), f"declarations/economics/invoices/{w['id']}")
         files_in(os.path.join(ws.path, 'completion', 'frac', w['id']), f"declarations/completion/frac/{w['id']}")
+        files_in(os.path.join(ws.path, 'economics', 'production', w['id']), f"declarations/economics/production/{w['id']}")
     for p in audit_segments(ws):
         out['audit'].append((p, 'audit/' + os.path.basename(p)))
     for w in wells:
@@ -301,7 +302,7 @@ def _gather(ws, well_id: Optional[str]) -> Dict[str, List[tuple]]:
 def _results(ws, well_id: Optional[str]) -> List[tuple]:
     """The invoice cross-check of each well with invoices or reports attached, the rig time of each well with a drilling
     record, the collision check, each surveyed well against its plan, each declared well's pore pressure and torque and
-    drag, and the frac-hit check, as JSON computed when the dossier is signed (a check that cannot run is left out, and says why)."""
+    drag, each producing well's decline curves, and the frac-hit check, as JSON computed when the dossier is signed (a check that cannot run is left out, and says why)."""
     out = []
     wells = [well_id] if well_id else [w['id'] for w in ws.wells()]
     try:
@@ -339,6 +340,17 @@ def _results(ws, well_id: Optional[str]) -> List[tuple]:
                                                                                  indent=1, sort_keys=True, default=str).encode('utf-8')))
     except Exception as e:
         out.append(('results/collision_not_run.txt', f'the collision check did not run: {type(e).__name__}: {e}\n'.encode('utf-8')))
+    try:
+        from . import decline as DCA
+        for wid in wells:
+            if DCA.production(ws, wid):
+                r = DCA.page(ws, wid).get('result')
+                if r:
+                    out.append((f'results/decline/{wid}.json', json.dumps({**{k: v for k, v in r.items() if k != 'streams'},
+                                                                           'streams': {k: {kk: vv for kk, vv in s_.items() if kk not in ('history', 'curve')} for k, s_ in r['streams'].items()}},
+                                                                          indent=1, sort_keys=True, default=str).encode('utf-8')))
+    except Exception as e:
+        out.append(('results/decline_not_run.txt', f'the decline curves did not run: {type(e).__name__}: {e}\n'.encode('utf-8')))
     try:
         from . import torque_drag as TND
         declared = (TND._load(ws).get('wells') or {})

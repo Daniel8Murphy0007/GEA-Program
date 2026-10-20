@@ -2642,3 +2642,32 @@ stability; and motor specifications in the tool catalogue.
 - The tab was driven in headless Chromium: light, dark and phone width, no
   console errors.
 - Section CV (4 checks). Gate 455.
+
+## 2026-10-20 - Decline curves (v0.54.0)
+
+- Asked (the fifth of the list): decline curves and EUR, completing the
+  economics.
+- Arps's equations and Robertson's modified hyperbolic were checked in the
+  cloud against an independent implementation (petbox-dca 2.3.1, MIT, not
+  in the gate): rates and cumulatives agree to machine precision. The gate
+  checks them by hand and by integrating the rate.
+- The fit is checked on a production table built on a known curve with
+  noise and part-month shut-ins: b within 0.15, the rate within 4 %, the
+  30-year recovery within 5 %.
+- The price follows the SEC rule (Regulation S-X 4-10(a)(22)(v)): the
+  12-month unweighted average of the first-day-of-the-month prices; the
+  page states that a forecast is not a reserves report.
+- No public monthly production could be fetched from this workspace (its
+  network reaches only the package and code hosts), so there is no public
+  worked example in this release; the site's own production is the next
+  check.
+- The tab was driven in headless Chromium: light, dark and phone width, no
+  console errors.
+- Section CW (4 checks). Gate 459.
+- The first ship stopped at the gate on Daniel's machine: Python 3.14's
+  argparse checks every help string as the parser is built, and two of
+  `gea decline`'s carried a bare "%" - every `gea` command failed before
+  it started. The cloud gate ran on 3.13, which checks only when help is
+  printed. Escaped, and the release steps now run the gate on Python 3.14
+  too; a check of every help string the 3.14 way was run over the whole
+  package (these two were the only ones).

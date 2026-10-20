@@ -1,26 +1,22 @@
-v0.53.0 — TORQUE AND DRAG
+v0.54.0 — DECLINE CURVES
 
-GEA now models what the drill string should weigh at the hook and take
-to turn, at every bit depth, and sets it against what the rig measured.
+GEA now forecasts what each well will make and what it is worth.
 
-The model is the industry's soft-string model (Johancsik et al.): the
-string laid on the hole along the well's survey, element by element from
-the bit up, with cased-hole and open-hole friction factors divided at
-the deepest casing shoe. It gives the pick-up, slack-off and rotating
-hook loads and the off-bottom torque, for the declared friction factors
-and a fan of others - the broomstick.
+Attach a well's monthly production - oil, gas, water and producing days,
+as CSV or Excel - and it is fitted by Arps's decline curves, turned
+exponential at a terminal decline (the modified hyperbolic) so a steep
+shale decline does not run to an unbounded recovery. The forecast runs
+month by month to the economic limit, the first month that no longer
+pays its operating cost, and gives the estimated ultimate recovery.
 
-From the drilling record it reads the rig's own hook loads while
-tripping out and in and while rotating off bottom, and the torque, and
-finds the friction factors that fit them, cased and open hole apart. In
-the gate a record made by the model with known friction is read back to
-within 0.02.
+The value is the net cash flow at the declared net revenue interest,
+severance tax and operating cost, discounted at the declared rate. The
+price is the SEC's - the average of the first-of-month WTI and Henry Hub
+prices of the 12 months before the as-of date, from the EIA series
+shipped with the program - or a declared flat price. A forecast is not a
+reserves report, and the page says so.
 
-The drill string is declared per well, section by section from the bit
-up. The worked example is Volve 15/9-F-10's survey with an example
-string.
-
-The Torque & drag tab, `gea torque-drag`, a report with its PDF and the
-help page are new; the signed dossier carries the string and the model.
-Section CV is new, four checks. The gate is 455 checks. The standalone
-guard is clean.
+The Decline curves tab, `gea decline`, a report with its PDF and the
+help page are new; the signed dossier carries the production and the
+curves. Section CW is new, four checks. The gate is 459 checks. The
+standalone guard is clean.

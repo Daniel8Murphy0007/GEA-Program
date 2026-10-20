@@ -622,6 +622,21 @@ def main(argv=None) -> int:
     p_pl.add_argument("--actor", type=str, default="cli")
     p_pl.add_argument("--json", action="store_true")
 
+    p_dc = sub.add_parser("decline", help="each well's monthly production fitted by Arps's curves, forecast to its economic limit and valued at the SEC 12-month price or a declared one")
+    p_dc.add_argument("--workspace", type=str, required=True)
+    p_dc.add_argument("--well", type=str, default=None)
+    p_dc.add_argument("--attach", type=str, default=None, help="attach FILE as the well's monthly production (CSV or Excel)")
+    p_dc.add_argument("--remove", action="store_true")
+    for k_, h_ in (("terminal-decline", "the terminal decline, effective annual (0.08 = 8 %%)"), ("b-max", "the largest b fitted"), ("oil-price", "USD/bbl"),
+                   ("gas-price", "USD/MMBtu"), ("price-basis", "sec or flat"), ("nri", "the net revenue interest"), ("severance", "the severance tax (0.046 = 4.6 %%)"),
+                   ("opex", "the operating cost, USD a month"), ("discount", "the discount rate (0.10)"), ("start", "fit from this month (YYYY-MM)"),
+                   ("as-of", "value as of this date (YYYY-MM-DD)")):
+        p_dc.add_argument("--" + k_, type=str, default=None, help=h_)
+    p_dc.add_argument("--source", type=str, default="", help="where the production or the terms came from")
+    p_dc.add_argument("--write", action="store_true")
+    p_dc.add_argument("--actor", type=str, default="cli")
+    p_dc.add_argument("--json", action="store_true")
+
     p_td = sub.add_parser("torque-drag", help="the hook load and torque the string should take at each bit depth (soft-string model), the broomstick, and the friction factors that fit the rig's own trips")
     p_td.add_argument("--workspace", type=str, default=None)
     p_td.add_argument("--well", type=str, default=None)
@@ -2485,6 +2500,42 @@ def main(argv=None) -> int:
         except (KeyError, ValueError, OSError, WorkspaceError) as e:
             raise SystemExit(f"collision: {e.args[0] if e.args else e}")
         print(_json.dumps({k: v for k, v in r.items()}, default=str) if a.json else _CO.text(r))
+        return 0
+    elif a.cmd == "decline":
+        import json as _json
+        from . import decline as _DCA
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        try:
+            ws = Workspace(a.workspace)
+            terms = {"terminal_decline": a.terminal_decline, "b_max": a.b_max, "oil_price": a.oil_price, "gas_price": a.gas_price, "price_basis": a.price_basis,
+                     "nri": a.nri, "severance": a.severance, "opex_month": a.opex, "discount": a.discount, "start": a.start}
+            if (a.attach or a.remove or any(v is not None for v in terms.values()) or a.write) and not a.well:
+                raise ValueError("--well is needed")
+            if a.attach:
+                with open(a.attach, "rb") as f_:
+                    r_ = _DCA.attach(ws, a.well, os.path.basename(a.attach), f_.read(), a.actor, a.source)
+                print(f"production attached to {a.well}: {r_['months']} months, {r_['first']} to {r_['last']}")
+                return 0
+            if a.remove:
+                _DCA.remove(ws, a.well, a.actor)
+                print(f"production removed from {a.well}")
+                return 0
+            if any(v is not None for v in terms.values()):
+                c_ = _DCA.set_config(ws, a.actor, a.well, a.source, **{k: v for k, v in terms.items() if v is not None})
+                print(f"{a.well}: terminal {c_['terminal_decline']:g}, price {c_['price_basis']}, NRI {c_['nri']:g}, severance {c_['severance']:g}, opex {c_['opex_month']:,.0f}/month, discount {c_['discount']:g}")
+                return 0
+            if a.write:
+                r_ = _DCA.write_report(ws, __version__, a.well, a.actor)
+                print(f"wrote {r_['report_id']}: {r_['paths']['html']}")
+                if r_['paths'].get('pdf'):
+                    print(f"  printable: {r_['paths']['pdf']}")
+                return 0
+            r = _DCA.page(ws, a.well, a.as_of)
+        except (KeyError, ValueError, OSError, WorkspaceError) as e:
+            raise SystemExit(f"decline: {e.args[0] if e.args else e}")
+        print(_json.dumps(r, default=str) if a.json else _DCA.text(r))
         return 0
     elif a.cmd == "torque-drag":
         import json as _json

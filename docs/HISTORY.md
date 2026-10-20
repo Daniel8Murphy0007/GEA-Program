@@ -4,6 +4,12 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.54.0 - 2026-10-20 - decline curves
+
+- **What each well will make, and what it is worth.** Arps's curves fitted
+  to monthly production, forecast to the economic limit, valued at the SEC
+  12-month price or a declared one. Section CW; gate 459.
+
 ## v0.53.0 - 2026-10-20 - torque and drag
 
 - **What the string should weigh and take to turn.** The soft-string model,

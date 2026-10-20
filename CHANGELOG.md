@@ -5,6 +5,36 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.54.0] - 2026-10-20 - Decline curves
+
+### Added
+- **Decline curves** (`gea/decline.py`): a well's monthly production
+  (month, oil, gas, water, producing days; CSV or Excel, columns by their
+  names) fitted by Arps's curves - least squares in log rate over every b
+  from 0 to 2 and a fine grid of Di, qi in closed form - from the highest
+  month or a declared start; the modified hyperbolic (Robertson) with an
+  8 % a year terminal decline by default; declines shown effective annual.
+- The forecast month by month to the economic limit (the first month whose
+  net cash flow - revenue at the net revenue interest less the severance
+  tax, less the operating cost - does not pay) or 50 years; the EUR; the
+  value discounted mid-month (10 % by default).
+- The price: the SEC 12-month average of the first-of-month prices before
+  the as-of date, from the shipped EIA WTI and Henry Hub series, or a
+  declared flat price; gas at a declared heat content.
+- The **Decline curves** tab, `GET /api/decline`,
+  `POST /api/decline/attach|remove|settings|write` (operator),
+  `gea decline`, the report `reports/wells/<well>/decline_curves.*`,
+  `gea help decline`. The signed dossier carries the production and the
+  curves.
+- Acceptance section CW (4 checks).
+
+### Fixed
+- Two of `gea decline`'s option help texts carried a bare percent sign,
+  which Python 3.14's argparse rejects when the parser is built, so every
+  `gea` command stopped before it started (the first ship of v0.54.0
+  stopped at its gate). They are escaped; the gate now runs on Python 3.14
+  as well as 3.13 before a release leaves the cloud.
+
 ## [v0.53.0] - 2026-10-20 - Torque and drag
 
 ### Added
