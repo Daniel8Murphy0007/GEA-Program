@@ -4,6 +4,13 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.56.0 - 2026-10-20 - company sign-in
+
+- **The company's own accounts.** OpenID Connect with PKCE against Entra
+  ID or any provider; the ID token checked by the standard library; the
+  role from the company's app roles or groups; local accounts kept.
+  Section CY; gate 467.
+
 ## v0.55.0 - 2026-10-20 - HTTPS
 
 - **The control panel over HTTPS without a proxy.** The site's certificate

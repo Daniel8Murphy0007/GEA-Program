@@ -257,7 +257,7 @@ def check_workspace(path: str, host: str = '127.0.0.1', port: int = 8765) -> Lis
         from . import tls as TLS
         ts = TLS.status(ws)
         lvl = {'OFF': 'info', 'OK': 'ok', 'EXPIRING': 'warn', 'EXPIRED': 'warn', 'NOT_YET_VALID': 'warn', 'BROKEN': 'block'}[ts['state']]
-        fix = {'OFF': f'for the site network: gea tls --workspace "{path}" --site-cert <the .crt or .pem> --site-key <its key>, or --self-signed',
+        fix = {'OFF': f'for the site network: gea tls --workspace "{path}" --site-cert C:\\certs\\gea-pad3.crt --site-key C:\\certs\\gea-pad3.key, or --self-signed',
                'EXPIRING': f'gea tls --workspace "{path}" shows the certificate; renew it (or --self-signed for a new one) and restart',
                'EXPIRED': f'gea tls --workspace "{path}" --self-signed makes a new one; a site certificate is renewed by the site',
                'NOT_YET_VALID': "set this machine's clock",

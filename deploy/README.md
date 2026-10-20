@@ -56,7 +56,10 @@ What the service does on its own, proxy or not:
   before the first well is live. The doctor warns when there has never been
   one or the last is more than 26 hours old.
 
+Company sign-in (single sign-on) is the service's own, by OpenID Connect
+against the company's provider - Entra ID, Okta, Google, Ping, Keycloak,
+AD FS (`gea help company-sign-in`); local accounts stay beside it.
+
 What it does not do: obtain or renew a certificate from an authority (the
-site's authority issues it, or Caddy does in front), and no single sign-on;
-that belongs to the site's identity provider. Sessions live in the service process, so a restart signs
+site's authority issues it, or Caddy does in front). Sessions live in the service process, so a restart signs
 everyone out.

@@ -5,6 +5,43 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.56.0] - 2026-10-20 - Company sign-in
+
+### Added
+- **Company sign-in by OpenID Connect** (`gea/oidc.py`): Microsoft Entra
+  ID, Okta, Google Workspace, Ping, Keycloak, AD FS. The authorization code
+  flow with PKCE (S256) for a confidential client; the state used once and
+  bound to the browser that started it by a short-lived cookie; the code
+  exchanged server to server with the client secret.
+- The ID token checked with the standard library alone: RS256 against the
+  provider's JWKS (fetched again once for an unknown key id - key
+  rotation), issuer, audience and azp, expiry, issue and not-before times
+  (five minutes' leeway), nonce; any other algorithm, `none` included,
+  turned away.
+- The role from a claim the company controls (`roles` - Entra ID app roles
+  - or `groups`, or any claim) through the administrator's map, the
+  highest mapped value winning; no mapped value and no default role, no
+  sign-in. A person in more groups than a token carries is told to use app
+  roles.
+- Company accounts in users.json: no password, the role from the claims at
+  every sign-in, bound to the provider's subject, disabled in GEA as well
+  as in the directory; a local account of the same name is never taken
+  over. Local accounts stay.
+- Administration -> **Company sign-in** (set, test the provider, remove),
+  the button on the sign-in page, `GET|POST /api/oidc` (admin),
+  `/api/oidc/start`, `/api/oidc/callback`, `gea oidc`,
+  `gea help company-sign-in` (with the Entra ID app registration step by
+  step); audit lines `oidc.settings`, `oidc.off`, `login` with
+  `via: company`, `login.failed` with the reason. The client secret is
+  kept in `keys\oidc_client_secret.txt` (or read from an environment
+  variable), never shown.
+- `gea.oidc_mock`: a stand-in provider over HTTPS for the gate.
+- Acceptance section CY (4 checks).
+
+### Fixed
+- The search box and the Sign out button showed on the sign-in page: an
+  element marked hidden is now hidden whatever its style.
+
 ## [v0.55.0] - 2026-10-20 - HTTPS
 
 ### Added

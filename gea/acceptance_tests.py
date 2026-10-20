@@ -12461,6 +12461,205 @@ def section_cx_https(tmp: str) -> None:
        "no dossier carries the key; the help page" + (f" - failed: {failed4}" if failed4 else ""))
 
 
+def section_cy_company_sign_in(tmp: str) -> None:
+    """Section CY - company sign-in (OpenID Connect): against a stand-in provider over HTTPS, the whole browser round
+    trip - the start, the provider, the code exchanged with PKCE and the secret, the ID token checked, the role from the
+    claims, a session - and every way an ID token or a return can be wrong turned away; the company account beside the
+    local ones; the settings, the secret kept out of sight; the CLI, the page and the help."""
+    import http.client
+    import ssl as _ssl
+    import subprocess as _sp
+    import urllib.parse as _up
+    import zipfile as _zf
+    from . import __version__ as _ver
+    from . import dossier as DZ
+    from . import helplib as H
+    from . import oidc as OI
+    from . import tls as TLS
+    from .oidc_mock import MockIdP
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    idp = MockIdP()
+    wsp = str(Path(tmp, "ws_cy")); ws = Workspace.create(wsp, "Company Site", actor="tester")
+    users = Users(str(Path(wsp, "users.json")))
+    users.add("adm", "admin-pass-123", "admin"); users.add("v", "viewer-pass-1", "viewer"); users.add("olga.local", "local-pass-12", "operator")
+    TLS.make_self_signed(ws, "tester", ["localhost", "127.0.0.1"], days=60)
+    svc = Service(wsp, host="127.0.0.1", port=0, scheduler=False)
+    svc.app.oidc_ssl_context = idp.client_ctx
+    svc.start()
+    base = svc.url.rstrip("/")
+    trust = _ssl.create_default_context(cafile=str(Path(wsp, TLS.SELF_CERT)))
+
+    def get(url, cookie=None, ctx=trust):
+        u = _up.urlsplit(url)
+        c = http.client.HTTPSConnection(u.hostname, u.port, context=ctx, timeout=30)
+        c.request("GET", u.path + ("?" + u.query if u.query else ""), headers=({"Cookie": cookie} if cookie else {}))
+        r = c.getresponse()
+        b = r.read()
+        c.close()
+        return r.status, r.getheader("Location"), r.headers.get_all("Set-Cookie") or [], b
+
+    def api(method, path, body=None, cookie=None):
+        c = http.client.HTTPSConnection("127.0.0.1", svc.port, context=trust, timeout=30)
+        h = {"Content-Type": "application/json", "X-GEA-Action": "1"} if method == "POST" else {}
+        if cookie:
+            h["Cookie"] = cookie
+        c.request(method, path, body=(json.dumps(body) if body is not None else None), headers=h)
+        r = c.getresponse()
+        b = r.read()
+        c.close()
+        return r.status, json.loads(b or b"{}"), r.headers.get_all("Set-Cookie") or []
+
+    def local(name, pw):
+        return [x for x in api("POST", "/api/login", {"name": name, "password": pw})[2] if x.startswith("gea_session")][0].split(";")[0]
+
+    def round_trip(user=None, fault=None, keep_cookie=True):
+        """The browser's path: start -> the provider -> back. (status, the page, the session cookie or None, the callback URL, the flow cookie)"""
+        idp.fault = fault
+        if user:
+            idp.user = user
+        s1, loc1, ck1, _ = get(base + "/api/oidc/start")
+        flow = ck1[0].split(";")[0] if ck1 else None
+        s2, loc2, _, _ = get(loc1, ctx=idp.client_ctx)
+        s3, _, ck3, b3 = get(loc2, cookie=(flow if keep_cookie else None))
+        sess = next((x.split(";")[0] for x in ck3 if x.startswith("gea_session=") and not x.startswith("gea_session=;")), None)
+        return s3, b3.decode("utf-8", "replace"), sess, loc2, flow, (s1, s2, ck1)
+    olga = {"sub": "sub-olga", "preferred_username": "olga@example.com", "roles": ["GEA.Operator"]}
+    try:
+        adm = local("adm", "admin-pass-123"); vw = local("v", "viewer-pass-1")
+        # -- CY1 the settings --------------------------------------------------------------------------------------------
+        redir = base + "/api/oidc/callback"
+        good = {"issuer": idp.issuer, "client_id": idp.client_id, "redirect_uri": redir,
+                "role_map": {"GEA.Viewer": "viewer", "GEA.Operator": "operator", "GEA.Approver": "approver", "GEA.Admin": "admin"}}
+        bad = [{**good, "redirect_uri": "http://gea-pad3.example.local:8765/api/oidc/callback"}, {**good, "redirect_uri": base + "/somewhere"},
+               {**good, "issuer": "https://login.microsoftonline.com/common/v2.0"}, {**good, "issuer": "http://idp.example"},
+               {**good, "role_map": {}}, {**good, "role_map": {"x": "superuser"}}, {**good, "client_id": ""}]
+        bad_codes = [api("POST", "/api/oidc", {"action": "set", **b, "client_secret": "s"}, adm)[0] for b in bad]
+        s_vset = api("POST", "/api/oidc", {"action": "set", **good, "client_secret": idp.client_secret}, vw)[0]
+        s_set, st_set, _ = api("POST", "/api/oidc", {"action": "set", **good, "client_secret": idp.client_secret}, adm)
+        s_get, st_get, _ = api("GET", "/api/oidc", cookie=adm)
+        s_vget = api("GET", "/api/oidc", cookie=vw)[0]
+        s_test, tst, _ = api("POST", "/api/oidc", {"action": "test"}, adm)
+        sess_pub = api("GET", "/api/session")[1]
+        secret_file = Path(wsp, OI.SECRET_FILE)
+        c1 = {
+            "refused": all(c == 400 for c in bad_codes) and s_vset == 403 and s_vget == 403,
+            "kept": s_set == 200 and st_set["configured"] and st_set["secret"] == "kept" and s_get == 200 and st_get["issuer"] == idp.issuer
+                    and idp.client_secret not in json.dumps(st_get) and secret_file.read_text(encoding="utf-8") == idp.client_secret
+                    and (os.name == "nt" or (secret_file.stat().st_mode & 0o077) == 0),
+            "test": s_test == 200 and tst["ok"] and tst["signing_keys"] == 1 and tst["token_endpoint"].endswith("/token"),
+            "public": sess_pub.get("company_sign_in") == {"label": "Sign in with your company account"} and sess_pub.get("user") is None,
+        }
+        failed1 = [k for k, v in c1.items() if not v]
+        ok(not failed1,
+           "CY1 company sign-in is set by an administrator only: an http:// or wrong redirect URI, a multi-tenant issuer, an issuer not on https, no role map "
+           "and no default, a role that does not exist, no client id - each refused; the secret is kept in keys\\ readable by its owner only and never sent "
+           "back; Test reads the provider's discovery and keys; the sign-in page learns only that the button exists" + (f" - failed: {failed1}" if failed1 else ""))
+        # -- CY2 the round trip --------------------------------------------------------------------------------------------
+        s3, page, sess, cb_url, flow, (s1, s2, ck1) = round_trip(olga)
+        me = api("GET", "/api/session", cookie=sess)[1]["user"] if sess else {}
+        call = idp.token_calls[-1] if idp.token_calls else {}
+        r_replay = get(cb_url, cookie=flow)
+        s_replay, replay_body = r_replay[0], r_replay[3].decode()
+        idp.user = dict(olga, roles=["GEA.Operator", "GEA.Admin"])
+        s_up, _, sess_up, _, _, _ = round_trip()
+        me_up = api("GET", "/api/session", cookie=sess_up)[1]["user"] if sess_up else {}
+        listed = {u["name"]: u for u in api("GET", "/api/users", cookie=adm)[1]["users"]}
+        live = [x for x in api("GET", "/api/sessions", cookie=adm)[1]["sessions"] if x["name"] == "olga@example.com"]
+        c2 = {
+            "start": s1 == 302 and "SameSite=Lax" in ck1[0] and "Secure" in ck1[0] and "Path=/api/oidc" in ck1[0] and s2 == 302,
+            "back": s3 == 200 and 'http-equiv="refresh"' in page and sess is not None and me.get("name") == "olga@example.com" and me.get("role") == "operator"
+                    and me.get("via") == "company",
+            "pkce": call.get("code_verifier") and call.get("client_secret") == idp.client_secret and call.get("redirect_uri") == redir,
+            "once": s_replay == 401 and "unknown or has expired" in replay_body,
+            "role_follows": me_up.get("role") == "admin" and listed["olga@example.com"]["kind"] == "company" and listed["olga@example.com"]["role"] == "admin"
+                            and live and all(x["via"] == "company" for x in live),
+        }
+        failed2 = [k for k, v in c2.items() if not v]
+        ok(not failed2,
+           "CY2 the round trip: the start sends the browser to the provider with a flow cookie (SameSite=Lax, Secure, this path only); back with a code, the "
+           "service exchanges it with the client secret and the PKCE verifier, checks the ID token, and the person is signed in as a company account with the "
+           "role their claims map to - the highest, taken again at every sign-in - by a page that moves on by itself (the session cookie stays Strict); "
+           "a return is accepted once" + (f" - failed: {failed2}" if failed2 else ""))
+        # -- CY3 every way it can be wrong ----------------------------------------------------------------------------------
+        outcomes = {}
+        for f in ("aud", "expired", "sig", "alg_none", "hs256", "nonce", "iss"):
+            st_, pg_, se_, _, _, _ = round_trip(olga, fault=f)
+            outcomes[f] = (st_, se_ is None, pg_)
+        st_rot, _, se_rot, _, _, _ = round_trip(olga, fault="rotate")
+        st_nb, pg_nb, se_nb, _, _, _ = round_trip(olga, keep_cookie=False)
+        st_nr, pg_nr, se_nr, _, _, _ = round_trip({"sub": "sub-x", "preferred_username": "x@example.com", "roles": ["Other"]})
+        st_lc, pg_lc, se_lc, _, _, _ = round_trip({"sub": "sub-l", "preferred_username": "olga.local", "roles": ["GEA.Admin"]})
+        st_os, pg_os, se_os, _, _, _ = round_trip({"sub": "someone-else", "preferred_username": "olga@example.com", "roles": ["GEA.Admin"]})
+        pg_ov = ""
+        try:
+            OI.role_of({"_claim_names": {"groups": "src1"}}, {**OI.DEFAULTS, "role_claim": "groups", "role_map": {"g": "viewer"}})
+        except OI.OidcError as e:
+            pg_ov = str(e)
+        s_dis = api("POST", "/api/users/disable", {"name": "olga@example.com", "disabled": True}, adm)[0]
+        st_dis, pg_dis, se_dis, _, _, _ = round_trip(olga)
+        api("POST", "/api/users/disable", {"name": "olga@example.com", "disabled": False}, adm)
+        s_pw = api("POST", "/api/users/password", {"name": "olga@example.com", "password": "whatever-123"}, adm)[0]
+        s_role = api("POST", "/api/users/role", {"name": "olga@example.com", "role": "viewer"}, adm)[0]
+        s_pwlogin = api("POST", "/api/login", {"name": "olga@example.com", "password": ""})[0]
+        s_local = api("POST", "/api/login", {"name": "olga.local", "password": "local-pass-12"})[0]
+        audit = Path(ws.audit_path).read_text(encoding="utf-8")
+        why = {"aud": "audience", "expired": "expired", "sig": "signature", "alg_none": "only RS256", "hs256": "only RS256", "nonce": "nonce", "iss": "issued by"}
+        c3 = {
+            "tokens": all(outcomes[f][0] == 401 and outcomes[f][1] and why[f] in outcomes[f][2] for f in why),
+            "rotation": st_rot == 200 and se_rot is not None,
+            "binding": st_nb == 401 and se_nb is None and "another browser" in pg_nb,
+            "no_role": st_nr == 401 and se_nr is None and "no role in GEA" in pg_nr and "Other" in pg_nr,
+            "no_takeover": st_lc == 401 and se_lc is None and "local account" in pg_lc and st_os == 401 and se_os is None and "another company identity" in pg_os,
+            "overage": "more groups than a token carries" in pg_ov,
+            "disabled": s_dis == 200 and st_dis == 401 and se_dis is None and "disabled" in pg_dis,
+            "no_password": s_pw == 400 and s_role == 400 and s_pwlogin in (400, 401) and s_local == 200,
+            "audited": audit.count('"via": "company"') >= 3 and '"login.failed"' in audit and "audience" in audit,
+        }
+        failed3 = [k for k, v in c3.items() if not v]
+        ok(not failed3,
+           "CY3 turned away, each saying why, with no session: an ID token for another application, expired, with a bad signature, signed 'none' or HS256, "
+           "with another sign-in's nonce, from another issuer; a return to a browser that did not start the sign-in; a person with no mapped role; a name "
+           "a local account has, or a company account bound to another subject; a person in more groups than a token carries; a company account disabled "
+           "in GEA. A rotated signing key is fetched and accepted. A company account has no password here and its role is not set by hand; local accounts "
+           "sign in as before; every sign-in and failure is audited" + (f" - failed: {failed3}" if failed3 else ""))
+    finally:
+        svc.stop()
+    # -- CY4 the CLI, the dossier, the page, the help -------------------------------------------------------------------
+    env = {**os.environ, "GEA_OIDC_TEST_SECRET": "cli-secret-456", "SSL_CERT_FILE": idp.cafile}
+    w2 = str(Path(tmp, "ws_cy2")); Workspace.create(w2, "CLI Site", actor="tester")
+    cli_set = _sp.run([sys.executable, "-m", "gea", "oidc", "--workspace", w2, "--issuer", idp.issuer, "--client-id", idp.client_id,
+                       "--redirect-uri", "https://gea-pad3.example.local:8765/api/oidc/callback", "--secret-from-env", "GEA_OIDC_TEST_SECRET",
+                       "--map", "GEA.Admin=admin", "--map", "GEA.Viewer=viewer", "--default-role", "none", "--test"],
+                      capture_output=True, text=True, cwd=str(pkg.parent), env=env)
+    cli_st = _sp.run([sys.executable, "-m", "gea", "oidc", "--workspace", w2, "--json"], capture_output=True, text=True, cwd=str(pkg.parent), env=env)
+    cli_bad = _sp.run([sys.executable, "-m", "gea", "oidc", "--workspace", w2, "--map", "nonsense"], capture_output=True, text=True, cwd=str(pkg.parent), env=env)
+    cli_off = _sp.run([sys.executable, "-m", "gea", "oidc", "--workspace", w2, "--off"], capture_output=True, text=True, cwd=str(pkg.parent), env=env)
+    idp.stop()
+    __import__("gea.frac_hits", fromlist=["write_report"]).write_report(ws, _ver, "tester")
+    dz = DZ.build(ws, "tester", _ver, None, include_sources=True)
+    with _zf.ZipFile(Path(ws.reports_dir, dz["path"])) as z:
+        leaked = [n for n in z.namelist() if idp.client_secret.encode() in z.read(n)]
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    st_cli = json.loads(cli_st.stdout) if cli_st.returncode == 0 else {}
+    c4 = {
+        "cli": cli_set.returncode == 0 and "provider: GOOD" in cli_set.stdout and "GEA.Admin -> admin" in cli_set.stdout
+               and st_cli.get("secret") == "kept" and Path(w2, OI.SECRET_FILE).read_text(encoding="utf-8") == "cli-secret-456"
+               and "cli-secret-456" not in cli_st.stdout and cli_bad.returncode != 0 and "VALUE=ROLE" in (cli_bad.stderr + cli_bad.stdout)
+               and cli_off.returncode == 0 and "local accounts only" in cli_off.stdout,
+        "dossier": not leaked and idp.client_secret not in Path(ws.audit_path).read_text(encoding="utf-8"),
+        "page": all(x in page_src for x in ("/api/oidc/start", "aCompany", "s.company_sign_in", "ocSave", "ocTest", "ocMap", "company account: role from its claims"))
+                and "[hidden] { display: none !important; }" in page_src,
+        "help": not H.check("company-sign-in") and "Entra" in (H.page("company-sign-in") or "") and "App roles" in (H.page("company-sign-in") or ""),
+    }
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       "CY4 `gea oidc` sets company sign-in from a terminal (the secret read from an environment variable once and kept, never printed), tests the "
+       "provider, refuses a malformed map and removes it; no dossier carries the client secret; the sign-in page's button and the Company sign-in card; "
+       "the help page with the Entra ID steps" + (f" - failed: {failed4}" if failed4 else ""))
+
+
 def PR_read_ok(path) -> bool:
     from . import pdf_report as PR
     try:
@@ -12574,6 +12773,7 @@ def main() -> int:
         section_cv_torque_drag(tmp)
         section_cw_decline(tmp)
         section_cx_https(tmp)
+        section_cy_company_sign_in(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

@@ -776,6 +776,24 @@ def main(argv=None) -> int:
     p_tl.add_argument("--actor", type=str, default="cli")
     p_tl.add_argument("--json", action="store_true")
 
+    p_oc = sub.add_parser("oidc", help="company sign-in (OpenID Connect: Entra ID, Okta, Google, Ping, Keycloak, AD FS): set it, test the provider, remove it; with no option, how it stands")
+    p_oc.add_argument("--workspace", type=str, required=True)
+    p_oc.add_argument("--issuer", type=str, default=None, help="Entra ID: https://login.microsoftonline.com/3f8b2c1d-6a4e-4d9b-8c2f-1e7a5b9d0c64/v2.0")
+    p_oc.add_argument("--client-id", type=str, default=None)
+    p_oc.add_argument("--redirect-uri", type=str, default=None, help="https://gea-pad3.example.local:8765/api/oidc/callback, registered with the provider exactly")
+    p_oc.add_argument("--secret-from-env", type=str, default=None, help="read the client secret from this environment variable now and keep it in keys\\oidc_client_secret.txt")
+    p_oc.add_argument("--secret-env", type=str, default=None, help="or: the service reads the client secret from this environment variable at each sign-in (nothing kept)")
+    p_oc.add_argument("--role-claim", type=str, default=None, help="roles (Entra ID app roles, the default) or groups, or any claim")
+    p_oc.add_argument("--map", action="append", default=[], help="VALUE=ROLE, e.g. GEA.Admin=admin (repeat)")
+    p_oc.add_argument("--default-role", type=str, default=None, help="the role of a person with no mapped value; 'none' (the default) means no sign-in")
+    p_oc.add_argument("--name-claim", type=str, default=None, help="the claim that names the person (preferred_username by default)")
+    p_oc.add_argument("--label", type=str, default=None, help="the sign-in button's words")
+    p_oc.add_argument("--pause", action="store_true", help="keep the settings, stop company sign-in")
+    p_oc.add_argument("--test", action="store_true", help="read the provider's discovery document and keys now")
+    p_oc.add_argument("--off", action="store_true", help="remove company sign-in (local accounts are unchanged)")
+    p_oc.add_argument("--actor", type=str, default="cli")
+    p_oc.add_argument("--json", action="store_true")
+
     p_hk = sub.add_parser("housekeeping", help="rotate the append-only logs, prune finished job folders and old live recordings (dry run unless --apply)")
     p_hk.add_argument("--workspace", type=str, required=True)
     p_hk.add_argument("--apply", action="store_true")
@@ -2615,6 +2633,53 @@ def main(argv=None) -> int:
         except (KeyError, ValueError, OSError, WorkspaceError) as e:
             raise SystemExit(f"pore-pressure: {e.args[0] if e.args else e}")
         print(_json.dumps(r, default=str) if a.json else _PPF.text(r))
+        return 0
+    elif a.cmd == "oidc":
+        import json as _json
+        from . import oidc as _OI
+        from .workspace import Workspace, WorkspaceError
+        try:
+            ws = Workspace(a.workspace)
+            changing = any(x is not None for x in (a.issuer, a.client_id, a.redirect_uri, a.secret_from_env, a.secret_env, a.role_claim,
+                                                   a.default_role, a.name_claim, a.label)) or a.map or a.pause
+            if a.off:
+                r = _OI.turn_off(ws, a.actor)
+            elif changing:
+                cur = _OI.settings(ws) or {}
+                s = {k: cur.get(k, v) for k, v in _OI.DEFAULTS.items()}
+                for k, v in (("issuer", a.issuer), ("client_id", a.client_id), ("redirect_uri", a.redirect_uri), ("role_claim", a.role_claim),
+                             ("name_claim", a.name_claim), ("label", a.label), ("client_secret_env", a.secret_env)):
+                    if v is not None:
+                        s[k] = v
+                if a.default_role is not None:
+                    s["default_role"] = None if a.default_role.lower() in ("", "none") else a.default_role
+                if a.map:
+                    m = {}
+                    for x in a.map:
+                        v_, _, r_ = x.rpartition("=")
+                        if not v_:
+                            raise ValueError(f"--map takes VALUE=ROLE, not {x!r}")
+                        m[v_.strip()] = r_.strip()
+                    s["role_map"] = m
+                if a.secret_from_env:
+                    s["client_secret_env"] = ""
+                s["enabled"] = not a.pause
+                sec = None
+                if a.secret_from_env:
+                    sec = os.environ.get(a.secret_from_env, "")
+                    if not sec:
+                        raise ValueError(f"the environment variable {a.secret_from_env} is empty")
+                r = _OI.configure(ws, a.actor, s, sec)
+            else:
+                r = _OI.status(ws)
+            if a.test:
+                r = {**r, "test": _OI.test(ws)}
+        except (KeyError, ValueError, OSError, WorkspaceError) as e:
+            raise SystemExit(f"oidc: {e.args[0] if e.args else e}")
+        if a.json:
+            print(_json.dumps(r, default=str))
+        else:
+            print(_OI.text(r))
         return 0
     elif a.cmd == "tls":
         import json as _json

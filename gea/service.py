@@ -136,7 +136,32 @@ class Users:
         return hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), bytes.fromhex(salt), PBKDF2_ROUNDS).hex()
 
     def list(self) -> List[dict]:
-        return [{k: u[k] for k in ('name', 'role', 'created_utc', 'disabled')} for u in self._load()['users']]
+        return [{**{k: u[k] for k in ('name', 'role', 'created_utc', 'disabled')}, 'kind': u.get('kind', 'local')} for u in self._load()['users']]
+
+    def _is_external(self, name: str) -> bool:
+        return any(u['name'] == name and u.get('kind') == 'company' for u in self._load()['users'])
+
+    def external(self, name: str, role: str, subject: str) -> dict:
+        """The company account signing in: made on its first sign-in, its role from the company's claims at every one.
+        A local account of the same name is never taken over, nor an external one bound to another subject."""
+        if role not in ROLES:
+            raise ApiError(400, f'role must be one of {ROLES}')
+        with self._lock:
+            d = self._load()
+            u = next((x for x in d['users'] if x['name'] == name), None)
+            if u is None:
+                u = {'name': name, 'role': role, 'kind': 'company', 'subject': subject, 'created_utc': utc_now_iso(), 'disabled': False}
+                d['users'].append(u)
+            elif u.get('kind') != 'company':
+                raise ApiError(409, f'a local account is named {name}: company sign-in will not take it over (rename or remove the local account)')
+            elif u.get('subject') != subject:
+                raise ApiError(409, f'{name} is bound to another company identity; an administrator removes the old account first')
+            elif u.get('disabled'):
+                raise ApiError(403, f'{name} is disabled in GEA')
+            else:
+                u['role'] = role
+            self._save(d)
+        return {'name': name, 'role': role}
 
     def count(self) -> int:
         return len(self._load()['users'])
@@ -162,6 +187,8 @@ class Users:
     def set_password(self, name: str, password: str) -> None:
         if len(password or '') < 8:
             raise ApiError(400, 'password must be at least 8 characters')
+        if self._is_external(name):
+            raise ApiError(400, f'{name} signs in with the company account and has no password here')
         with self._lock:
             d = self._load()
             for u in d['users']:
@@ -175,6 +202,8 @@ class Users:
     def set_role(self, name: str, role: str) -> None:
         if role not in ROLES:
             raise ApiError(400, f'role must be one of {ROLES}')
+        if self._is_external(name):
+            raise ApiError(400, f"{name}'s role comes from the company's claims at each sign-in: change the role map on the Company sign-in card")
         with self._lock:
             d = self._load()
             for u in d['users']:
@@ -197,7 +226,7 @@ class Users:
     def check(self, name: str, password: str) -> Optional[dict]:
         for u in self._load()['users']:
             if u['name'] == name:
-                if u.get('disabled'):
+                if u.get('disabled') or u.get('kind') == 'company':
                     return None
                 if hmac.compare_digest(self._hash(password or '', u['salt']), u['hash']):
                     return {'name': u['name'], 'role': u['role']}
@@ -271,6 +300,7 @@ class App:
             self.scheduler.start()
         self.behind_proxy = False                 # set by Service when a reverse proxy terminates TLS in front
         self.tls: Optional[dict] = None           # set by Service when it speaks TLS itself: the certificate's facts
+        self.oidc_ssl_context = None              # None: the system's trusted authorities (the gate sets its stand-in's)
         self.sessions: Dict[str, dict] = {}
         self._failures: Dict[str, List[float]] = {}
         self._locks: Dict[str, float] = {}
@@ -384,11 +414,23 @@ class App:
         self.ws.audit(name, 'login', {'role': u['role'], 'client': client})
         return token, u
 
+    def login_company(self, result: dict, client: str = '') -> Tuple[str, dict]:
+        """A session for a person the company's sign-in vouched for (gea.oidc.finish)."""
+        u = self.users.external(result['name'], result['role'], result['subject'])
+        now = time.time()
+        token = secrets.token_urlsafe(32)
+        prev = self.users.stamp_login(u['name'])
+        with self._lock:
+            self.sessions[token] = {**u, 'expires': now + SESSION_HOURS * 3600, 'prev_login_utc': prev, 'created': now, 'last_seen': now,
+                                    'client': client, 'sid': secrets.token_hex(4), 'via': 'company'}
+        self.ws.audit(u['name'], 'login', {'role': u['role'], 'client': client, 'via': 'company', 'claims': result.get('claim_values', [])[:20]})
+        return token, u
+
     def sessions_list(self) -> List[dict]:
         now = time.time()
         with self._lock:
             live = [(t, s) for t, s in self.sessions.items() if s['expires'] > now]
-        return [{'sid': s.get('sid'), 'name': s['name'], 'role': s['role'], 'client': s.get('client', ''),
+        return [{'sid': s.get('sid'), 'name': s['name'], 'role': s['role'], 'client': s.get('client', ''), 'via': s.get('via', 'password'),
                  'created_utc': _iso_epoch(s.get('created')), 'last_seen_utc': _iso_epoch(s.get('last_seen')), 'expires_utc': _iso_epoch(s['expires'])}
                 for t, s in sorted(live, key=lambda x: x[1].get('created') or 0)]
 
@@ -1671,6 +1713,21 @@ def make_handler(app: App):
         def _user(self) -> Optional[dict]:
             return app.session(self._cookie())
 
+        def _page_note(self, status: int, title: str, message: str, clear_flow: bool = False) -> None:
+            """A plain page for an answer a browser lands on directly (the company sign-in's return), not the API."""
+            import html as _html
+            body = (f'<!doctype html><meta charset="utf-8"><title>{_html.escape(title)}</title><h2>{_html.escape(title)}</h2>'
+                    f'<p>{_html.escape(message)}</p><p><a href="/">Back to the sign-in page</a></p>').encode('utf-8')
+            self.send_response(status)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.send_header('Cache-Control', 'no-store')
+            self._secure_headers()
+            if clear_flow:
+                self.send_header('Set-Cookie', 'gea_oidc=; HttpOnly; SameSite=Lax; Path=/api/oidc; Max-Age=0' + ('; Secure' if self._https() else ''))
+            self.end_headers()
+            self.wfile.write(body)
+
         # -- GET ------------------------------------------------------------------------------
         def do_GET(self):
             try:
@@ -1695,10 +1752,55 @@ def make_handler(app: App):
                     return self._file(full)
                 if path == '/api/session':
                     s = self._user()
+                    from . import oidc as _OI
                     return self._json(200, {'user': ({'name': s['name'], 'role': s['role'], 'prev_login_utc': s.get('prev_login_utc'),
-                                                      'prefs': app.users.prefs(s['name'])} if s else None), 'users': app.users.count(),
+                                                      'prefs': app.users.prefs(s['name']), 'via': s.get('via', 'password')} if s else None),
+                                            'users': app.users.count(), 'company_sign_in': _OI.public(app.ws),
                                             'workspace': app.ws.manifest['name'], 'site': app.ws.manifest.get('site', {}),
                                             'wall_pass': (lambda p: {k: p[k] for k in ('id', 'label', 'expires_utc')} if p else None)(self._wall_pass())})
+                if path == '/api/oidc/start':
+                    from . import oidc as _OI
+                    try:
+                        url, binding = _OI.begin(app.ws, app.oidc_ssl_context)
+                    except _OI.OidcError as e:
+                        return self._page_note(400, 'Company sign-in', str(e))
+                    self.send_response(302)
+                    self.send_header('Location', url)
+                    self.send_header('Set-Cookie', f'gea_oidc={binding}; HttpOnly; SameSite=Lax; Path=/api/oidc; Max-Age={_OI.FLOW_S}'
+                                     + ('; Secure' if self._https() else ''))
+                    self.send_header('Content-Length', '0')
+                    self.send_header('Cache-Control', 'no-store')
+                    self._secure_headers()
+                    self.end_headers()
+                    return None
+                if path == '/api/oidc/callback':
+                    from . import oidc as _OI
+                    client = self._client()
+                    # no lock counts here: the password, if any, was checked by the company's provider, which keeps its own;
+                    # a misconfigured map must not lock a whole office behind one address out of its local accounts too
+                    try:
+                        res = _OI.finish(app.ws, {k: v[0] for k, v in qs.items()}, self._cookie('gea_oidc'), app.oidc_ssl_context)
+                        token, u = app.login_company(res, client)
+                    except (_OI.OidcError, ApiError) as e:
+                        why = e.message if isinstance(e, ApiError) else str(e)
+                        app.ws.audit('unknown', 'login.failed', {'client': client, 'via': 'company', 'why': why[:300]})
+                        return self._page_note(401, 'Company sign-in', why, clear_flow=True)
+                    sec = '; Secure' if self._https() else ''
+                    body = ('<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/"><title>Signed in</title>'
+                            '<p>Signed in. <a href="/">Open the control panel</a>.</p>').encode('utf-8')
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'text/html; charset=utf-8')
+                    self.send_header('Content-Length', str(len(body)))
+                    self.send_header('Cache-Control', 'no-store')
+                    self._secure_headers()
+                    # the session cookie is SameSite=Strict, and this answer is the end of a navigation that began at the
+                    # company's sign-in page: a redirect would carry that cross-site start to the next page and the browser
+                    # would not send the new cookie with it. A page that moves on by itself starts a navigation of its own.
+                    self.send_header('Set-Cookie', f'gea_session={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age={SESSION_HOURS * 3600}{sec}')
+                    self.send_header('Set-Cookie', f'gea_oidc=; HttpOnly; SameSite=Lax; Path=/api/oidc; Max-Age=0{sec}')
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return None
                 if path == '/api/wall':
                     if self._user() is None and self._wall_pass() is None:
                         raise ApiError(401, 'sign in, or enter a wall pass')
@@ -1728,6 +1830,10 @@ def make_handler(app: App):
                     App.require(user, 'admin')
                     return self._json(200, {'sessions': app.sessions_list(), 'session_hours': SESSION_HOURS,
                                             'note': 'sessions live in the service process; a restart signs everyone out'})
+                if path == '/api/oidc':
+                    from . import oidc as _OI
+                    App.require(user, 'admin')
+                    return self._json(200, {**_OI.status(app.ws), 'roles': list(_OI.ROLES), 'https': bool(app.tls) or app.behind_proxy})
                 if path == '/api/tls':
                     from . import tls as TLS
                     App.require(user, 'admin')
@@ -2716,6 +2822,18 @@ def make_handler(app: App):
                     reason = str(body.get('reason') or ('authorised from the control panel' if restart else 'stopped from the control panel'))[:200]
                     r = svc.request_exit(_SV.EXIT_RESTART if restart else _SV.EXIT_CLEAN, user['name'], reason)
                     return self._json(200, r)
+                if path == '/api/oidc':
+                    from . import oidc as _OI
+                    App.require(user, 'admin')
+                    act = str(body.get('action') or '')
+                    if act == 'set':
+                        sett = {k: body[k] for k in list(_OI.DEFAULTS) + ['enabled'] if k in body}
+                        return self._json(200, App._cr(_OI.configure, app.ws, user['name'], sett, str(body.get('client_secret') or '') or None))
+                    if act == 'test':
+                        return self._json(200, App._cr(_OI.test, app.ws, app.oidc_ssl_context))
+                    if act == 'off':
+                        return self._json(200, _OI.turn_off(app.ws, user['name']))
+                    raise ApiError(400, 'action is set, test or off')
                 if path == '/api/tls':
                     from . import tls as TLS
                     App.require(user, 'admin')

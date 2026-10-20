@@ -2693,3 +2693,31 @@ stability; and motor specifications in the tool catalogue.
   light, dark and phone width, no console errors, the Restart confirmation
   opens.
 - Section CX (4 checks). Gate 463.
+
+## 2026-10-20 - Company sign-in (v0.56.0)
+
+- Asked (the second IT item; chosen: any OpenID Connect provider, set up
+  against Entra ID's settings, local accounts kept as the fallback).
+- Researched: Microsoft's redirect URI rules (https required except
+  localhost; 256 characters) and its group claims (at most 200 groups in a
+  JWT, object IDs by default, none at all over the limit) - which is why
+  the help recommends app roles.
+- The ID token is checked with the standard library's RSA verification
+  from v0.55 (gea.tls); no JWT package.
+- The session cookie stays SameSite=Strict. The return from the provider
+  is the end of a navigation that began on the provider's site, so the
+  callback answers with a page that moves on by itself rather than a
+  redirect (a redirect would carry the cross-site start and the new cookie
+  would not be sent). Driven in headless Chromium with the control panel at
+  localhost and the stand-in provider at 127.0.0.1 - two sites: the button,
+  the provider, back, signed in as the mapped role; light, dark and phone
+  width, no console errors.
+- Failed company sign-ins are audited but do not count toward the local
+  sign-in lock: the provider keeps its own, and a mistake in the role map
+  must not lock an office's local accounts out.
+- Found while looking at the sign-in page: the search box and Sign out
+  showed there, because the stylesheet overrode the hidden attribute.
+- No live Entra ID tenant was available from this workspace; the stand-in
+  provider follows Entra ID's v2.0 endpoints' shape. The first sign-in
+  against the company's tenant is the next check.
+- Section CY (4 checks). Gate 467.

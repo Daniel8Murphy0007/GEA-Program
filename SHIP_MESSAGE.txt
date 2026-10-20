@@ -1,25 +1,25 @@
-v0.55.0 — HTTPS
+v0.56.0 — COMPANY SIGN-IN
 
-The control panel can now be opened from the site network over HTTPS,
-without a proxy in front.
+People can now sign in to the control panel with the account their
+company already manages - Microsoft Entra ID, Okta, Google Workspace,
+Ping, Keycloak or AD FS - so the company's multi-factor, its access rules
+and its leavers apply to GEA too.
 
-Give the workspace the site's own certificate - from the company's
-certificate authority, which managed computers already trust - or let
-the program make a self-signed one. The certificate is made with the
-standard library alone: an RSA key and an X.509 server certificate for
-every name and address the panel is reached by. TLS 1.2 is the floor.
-The session cookie is marked Secure, every answer tells the browser to
-stay on HTTPS, and a plain http:// request on the same port is sent to
-HTTPS. A certificate in its last 30 days raises an alert. A workspace
-whose certificate files are broken does not start, rather than falling
-back to plain text.
+The sign-in is OpenID Connect with PKCE. The token the company's
+provider signs is checked by the program itself with the standard
+library: the signature against the provider's published keys, who issued
+it, which application it is for, when it expires, and that it belongs to
+this sign-in. The role in GEA comes from the app roles or groups the
+company gives the person, through a map the administrator keeps; someone
+with no mapped role does not get in, and the page says why. Local
+accounts stay, for the first administrator and for when the provider
+cannot be reached.
 
-Administration has a new HTTPS card: how it stands, what this run
-serves, the certificate to download for the site's computers (never the
-key), and the change. `gea tls` does the same from a terminal, and
-`gea help https` explains it. The Stop, Restart and auto-restart
-controls on the Administration page did nothing before this release;
-they work now.
+Administration has a Company sign-in card (set it, test the provider,
+remove it), the sign-in page has the button, and `gea oidc` does the same
+from a terminal. `gea help company-sign-in` walks through the Entra ID
+app registration. The search box and Sign out button no longer show on
+the sign-in page.
 
-Section CX is new, four checks. The gate is 463 checks. The standalone
-guard is clean.
+Section CY is new, four checks, run against a stand-in provider over
+HTTPS. The gate is 467 checks. The standalone guard is clean.

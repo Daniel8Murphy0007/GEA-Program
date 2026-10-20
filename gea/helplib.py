@@ -85,6 +85,7 @@ INDEX: List[tuple] = [
     ('audit-update', 'Audit / Update', 'the whole audit log with filters, the program against PyPI, every report against its source'),
     ('soak', 'The soak', 'the patches through link outages for hours: reconnection, resume, loss by protocol, the page answering - measured, not modelled'),
     ('https', 'HTTPS', "the control panel over HTTPS on the site network: the site's own certificate or a self-signed one made here, the names it carries, handing it out, renewal and the expiry alert"),
+    ('company-sign-in', 'Company sign-in', "people sign in with the account the company manages (Entra ID, Okta, Google, Ping, Keycloak, AD FS by OpenID Connect), the role from its app roles or groups; local accounts stay"),
     ('upkeep', 'Upkeep', 'housekeeping, sessions, the TLS proxy, the load test'),
 ]
 # the four lines every page must carry, in this order

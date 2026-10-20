@@ -1233,6 +1233,25 @@ Or Administration -> **HTTPS** in the page (download the certificate, not
 the key, for the site's computers to trust; compare the SHA-256 shown).
 `gea help https`.
 
+### Company sign-in
+
+People sign in with the account the company already manages - Microsoft
+Entra ID, Okta, Google Workspace, Ping, Keycloak, AD FS - by OpenID Connect
+(the authorization code flow with PKCE), so the company's multi-factor,
+conditional access and leavers apply. The ID token is checked with the
+standard library alone (its RS256 signature against the provider's
+published keys, the issuer, the audience, the times, the nonce); the role in
+GEA is the highest any of the person's app roles or groups maps to. Local
+accounts stay, for the first administrator and for when the provider cannot
+be reached. HTTPS comes first (above).
+
+```
+gea oidc --workspace C:\site --issuer https://login.microsoftonline.com/3f8b2c1d-6a4e-4d9b-8c2f-1e7a5b9d0c64/v2.0 --client-id a41c7e92-0d3b-4f6a-9e85-2b6d1c4f7a30 --redirect-uri https://gea-pad3.example.local:8765/api/oidc/callback --secret-from-env GEA_OIDC_SECRET --map GEA.Operator=operator --map GEA.Admin=admin --test
+```
+
+Or Administration -> **Company sign-in**. `gea help company-sign-in` has the
+Entra ID app registration step by step.
+
 ### Before a site goes live
 
 `deploy/README.md` is the checklist: HTTPS from the service itself (above),
