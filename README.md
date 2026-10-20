@@ -609,6 +609,21 @@ against it; `gea seedlink --config ... --hello` prints what a server says of
 itself; `gea help seedlink`. A TexNet station is served by EarthScope at
 `rtserve.iris.washington.edu:18000`, network `TX`.
 
+### Pore pressure
+
+The mud-weight window from a well's logs or its drilling record. The
+overburden from the density log (or Gardner's density from the sonic); the
+shale's normal compaction trend over an interval the operator declares
+normally pressured; the pore pressure by Eaton's method from the sonic, the
+deep resistivity or the corrected d-exponent computed from the drilling
+record; the fracture gradient by Eaton's relation and the Hubbert-Willis
+minimum - all as equivalent mud weights against true vertical depth, with
+formation tests, kicks and leak-off tests beside them, the Eaton exponent
+that fits the tests, and the mud weight used flagged where it falls outside
+the window. The Dutch offshore well L07-01 (NLOG open data) is the worked
+example. The **Pore pressure** tab, `gea pore-pressure`,
+`gea help pore-pressure`.
+
 ### Frac hits
 
 What each fracturing stage did to the pressure in the wells around it. A

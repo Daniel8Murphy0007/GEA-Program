@@ -1,0 +1,14 @@
+{
+ "entry": "l0701_sonic_gr",
+ "kind": "REAL_WELL_LOG_COMPLETE",
+ "well": "L07-01 (UBID 7264), Dutch offshore sector, southern North Sea; operator on the log Petroland; logged 1971; 53.722768 N, 4.796468 E; rotary table 37 m above mean sea level, ground level 36 m below",
+ "file": "l0701_sonic_gr.las.gz",
+ "source_database": "NLOG - Dutch Oil and Gas Portal (TNO, on behalf of the Ministry of Economic Affairs), the composite log NLOG_LIS_LAS_3164_7264_l0701_1971_comp.las",
+ "source_url": "https://raw.githubusercontent.com/andymcdgeo/Andys_YouTube_Notebooks/main/welly_data/NLOG_LIS_LAS_3164_7264_l0701_1971_comp.las",
+ "license": "NLOG publishes Dutch subsurface data openly under the Mining Act; redistributed in A. McDonald's public notebooks repository (MIT). Attribution: NLOG, well L07-01 (UBID 7264).",
+ "sha256_uncompressed": "c9e9373f90dea307453f10020b8877c885653e8c7bd5a6c6c024aedf79e00910",
+ "sha256": "4f81164b004746ad35bae07f0124d11b302d002333e1785023a068fc35473134",
+ "fetch_date": "2026-10-20",
+ "coverage": "the complete file as fetched, gzip-compressed: 64.9 to 3,928 m every 0.1 m; GR and DT 358 to 3,916 m, RHOB and NPHI 3,591 to 3,916 m",
+ "used_by": "gea.pore_pressure.example() - the worked example of the Pore pressure tab"
+}

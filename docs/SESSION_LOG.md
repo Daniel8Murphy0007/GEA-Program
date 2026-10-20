@@ -2595,3 +2595,28 @@ stability; and motor specifications in the tool catalogue.
 - The tab was driven in headless Chromium: light, dark and phone width, no
   console errors.
 - Section CT (4 checks). Gate 447.
+
+## 2026-10-20 - Pore pressure and fracture gradient (v0.52.0)
+
+- Asked (the third of the list): pore pressure and the fracture gradient -
+  the mud-weight window - from logs and drilling data.
+- The methods are the published ones, each cited in the module and the help
+  page: Eaton's ratio (SPE-5544) with his exponents, Eaton's fracture
+  gradient (JPT 1969), Gardner's density, Jorden and Shirley's d-exponent
+  and Rehm and McClendon's correction, Hubbert and Willis's minimum.
+- The gate checks the arithmetic by hand and reads back a depth log and a
+  drilling record built so that Eaton's method must return a known
+  overpressure (40 % of the way from hydrostatic to the overburden between
+  2,200 and 2,600 m): sonic, resistivity and corrected d-exponent all return
+  it to within 0.2 % away from the zone's edges.
+- The worked example is L07-01 (NLOG), the one public log at hand with a
+  sonic and a gamma ray over most of a well. No pressure measured in that
+  well is in the file, so the example shows the method and the choice of
+  trend, not a calibrated answer; the page says so. The IODP U1324 pressure
+  measurements in the catalogue were considered, but that site's LWD logs
+  could not be fetched from this workspace.
+- A depth log's series cache is not used (it never matches its source file
+  for LAS); the module reads the log from its file.
+- The tab was driven in headless Chromium: light, dark and phone width, no
+  console errors.
+- Section CU (4 checks). Gate 451.

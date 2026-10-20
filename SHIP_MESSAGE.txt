@@ -1,26 +1,28 @@
-v0.51.0 — FRAC HITS
+v0.52.0 — PORE PRESSURE AND FRACTURE GRADIENT
 
-GEA now reads what each fracturing stage did to the pressure in the
-wells around it.
+GEA now draws the mud-weight window for a well.
 
-Attach a treatment well's stage table - stage, pumping start and end,
-the perforations, the fluid and the proppant, from the frac company's
-post-job report as CSV or Excel - and every well with a pressure gauge
-in its record is read against every stage: the pressure's departure
-from its own trend while the stage pumps and after it stops, the first
-response and the fluid pumped by then, and what kind of response it was.
+From a well's logs - sonic, deep resistivity, gamma ray and density - or
+from its drilling record, through the d-exponent, it computes the
+overburden, fits the shale's normal compaction trend over an interval the
+operator declares normally pressured, and reads the pore pressure from
+the departure from that trend by Eaton's method. The fracture gradient
+comes from Eaton's relation with a declared Poisson's ratio, with the
+Hubbert-Willis minimum beside it. Everything is shown as equivalent mud
+weight against true vertical depth.
 
-Poroelastic - the rock squeezed, falling as soon as the stage stops.
-Mixed - a hydraulic connection, holding or rising after the stop. A frac
-hit - the stage's fluid reaching the well, hundreds of psi or more, not
-falling. The thresholds follow the published field classification and
-are the operator's to declare.
+Formation tests, kicks and leak-off tests can be entered and sit beside
+the curves; the Eaton exponent that best fits the formation tests is
+given; and where the drilling record carries the mud weight, any stretch
+where it fell below the pore pressure or above the fracture gradient is
+flagged.
 
-With surveys, each stage's distance to the monitored well is given; with
-an earthquake catalogue, the earthquakes during each stage are counted
-beside it. A frac hit is an alert, sent through the notification rules.
+The worked example is the Dutch offshore well L07-01, from NLOG's open
+data. A pore pressure read from a trend is only as good as the trend, so
+the page draws the log, the shale points and the fitted trend beside the
+result.
 
-The Frac hits tab, `gea frac-hits`, a report with its PDF and the help
-page are new; the signed dossier carries the stage tables and the check.
-Section CT is new, four checks. The gate is 447 checks. The standalone
-guard is clean.
+The Pore pressure tab, `gea pore-pressure`, a report with its PDF and the
+help page are new; the signed dossier carries the declarations and each
+well's window. Section CU is new, four checks. The gate is 451 checks.
+The standalone guard is clean.

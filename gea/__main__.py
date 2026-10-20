@@ -622,6 +622,22 @@ def main(argv=None) -> int:
     p_pl.add_argument("--actor", type=str, default="cli")
     p_pl.add_argument("--json", action="store_true")
 
+    p_pp = sub.add_parser("pore-pressure", help="the mud-weight window: overburden, pore pressure by Eaton from the sonic, the resistivity or the d-exponent, and the fracture gradient")
+    p_pp.add_argument("--workspace", type=str, default=None)
+    p_pp.add_argument("--well", type=str, default=None)
+    p_pp.add_argument("--example", action="store_true", help="the worked example (L07-01, public data)")
+    p_pp.add_argument("--indicator", type=str, default=None, help="auto, sonic, resistivity or dexponent")
+    for k_, h_ in (("exponent", "Eaton's exponent"), ("nct-top", "top of the normally pressured interval, m TVD"), ("nct-bottom", "its bottom, m TVD"),
+                   ("gr-cutoff", "the shale cut-off, gAPI"), ("normal-gradient", "the normal pore gradient, psi/ft"), ("poisson", "Poisson's ratio"),
+                   ("density-above", "the mean density above the logs, g/cm3"), ("water-depth", "the water depth, m"), ("air-gap", "the air gap, m"),
+                   ("bit", "the bit size for the d-exponent, in")):
+        p_pp.add_argument("--" + k_, type=str, default=None, help=h_)
+    p_pp.add_argument("--measure", type=str, default=None, help="add a measurement DEPTH_M,VALUE[,psi|ppg[,pore|kick|lot|fit[,tvd|md]]]")
+    p_pp.add_argument("--source", type=str, default="", help="where the values came from")
+    p_pp.add_argument("--write", action="store_true", help="write the report")
+    p_pp.add_argument("--actor", type=str, default="cli")
+    p_pp.add_argument("--json", action="store_true")
+
     p_fh = sub.add_parser("frac-hits", help="what each fracturing stage did to the pressure in the wells around it: none, poroelastic, mixed or a frac hit, the first response and the volume pumped by then")
     p_fh.add_argument("--workspace", type=str, required=True)
     p_fh.add_argument("--well", type=str, default=None, help="the treatment well (with --stages or --remove) or the monitored well (with --channel)")
@@ -2455,6 +2471,43 @@ def main(argv=None) -> int:
         except (KeyError, ValueError, OSError, WorkspaceError) as e:
             raise SystemExit(f"collision: {e.args[0] if e.args else e}")
         print(_json.dumps({k: v for k, v in r.items()}, default=str) if a.json else _CO.text(r))
+        return 0
+    elif a.cmd == "pore-pressure":
+        import json as _json
+        from . import pore_pressure as _PPF
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        try:
+            ws = Workspace(a.workspace) if a.workspace else None
+            scene = "example" if (a.example or ws is None) else "workspace"
+            keys = {"exponent": a.exponent, "nct_top_m": a.nct_top, "nct_bottom_m": a.nct_bottom, "gr_cutoff": a.gr_cutoff,
+                    "normal_gradient_psi_ft": a.normal_gradient, "poisson": a.poisson, "density_above_gcc": a.density_above,
+                    "water_depth_m": a.water_depth, "air_gap_m": a.air_gap, "bit_in": a.bit, "indicator": a.indicator}
+            if ws is not None and (any(v is not None for v in keys.values()) or a.measure):
+                if not a.well:
+                    raise ValueError("--well is needed")
+                if a.measure:
+                    p_ = [x.strip() for x in a.measure.split(",")]
+                    r_ = _PPF.add_measurement(ws, a.actor, a.well, p_[0], p_[1], p_[2] if len(p_) > 2 else "psi", p_[3] if len(p_) > 3 else "pore",
+                                              p_[4] if len(p_) > 4 else "tvd", a.source)
+                    print(f"measurement kept for {a.well}: {r_['kind']} {r_['value']:g} {r_['unit']} at {r_['depth_m']:g} m {r_['depth_kind'].upper()}")
+                    return 0
+                c_ = _PPF.set_well(ws, a.actor, a.well, a.source, **{k: v for k, v in keys.items() if v is not None})
+                print(f"{a.well}: {c_['indicator']}, exponent {c_['exponent'] or 'Eaton'}, trend {c_['nct_top_m']} to {c_['nct_bottom_m']} m, normal {c_['normal_gradient_psi_ft']:g} psi/ft, Poisson {c_['poisson']:g}")
+                return 0
+            if a.write:
+                if ws is None:
+                    raise ValueError("--write needs --workspace")
+                r_ = _PPF.write_report(ws, __version__, a.well, a.actor, scene)
+                print(f"wrote {r_['report_id']}: {r_['paths']['html']}")
+                if r_['paths'].get('pdf'):
+                    print(f"  printable: {r_['paths']['pdf']}")
+                return 0
+            r = _PPF.page(ws, scene, a.well)
+        except (KeyError, ValueError, OSError, WorkspaceError) as e:
+            raise SystemExit(f"pore-pressure: {e.args[0] if e.args else e}")
+        print(_json.dumps(r, default=str) if a.json else _PPF.text(r))
         return 0
     elif a.cmd == "frac-hits":
         import json as _json

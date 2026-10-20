@@ -11717,6 +11717,194 @@ def section_ct_frac_hits(tmp: str) -> None:
        + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
 
 
+def section_cu_pore_pressure(tmp: str) -> None:
+    """Section CU - pore pressure and fracture gradient: the arithmetic (overburden, Gardner, Eaton, the d-exponent and
+    its correction, Eaton's and Hubbert-Willis's fracture gradients) by hand; a depth log and a drilling record built so
+    Eaton's method must return a known overpressure, read back by the sonic, the resistivity and the corrected
+    d-exponent; measurements and the fitted exponent; the worked example; the API, the CLI, the report, the dossier,
+    the tab and the help."""
+    import gzip
+    import hashlib as _hl
+    import http.cookiejar
+    import math as _m
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    import zipfile as _zf
+    import numpy as _np
+    from . import __version__ as _ver
+    from . import dossier as DZ
+    from . import helplib as H
+    from . import pore_pressure as PPF
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "porepressure"); d.mkdir()
+
+    # -- CU1 the arithmetic by hand ------------------------------------------------------------------------------------------
+    dd = float(PPF.dexponent([30.0], [100.0], [20000.0], 8.5)[0])
+    d_hand = _m.log10(30.0 / 6000.0) / _m.log10(12.0 * 20000.0 / 8.5e6)
+    dc_ = float(PPF.dc([d_hand], 8.95, [10.0])[0])
+    ob = PPF.overburden_psi(_np.array([1000.0, 2000.0]), _np.array([2.3, 2.3]), 0.0, 0.0, 1.03, 2.3)
+    ob_sea = PPF.overburden_psi(_np.array([137.0, 1137.0]), _np.array([2.0, 2.0]), 100.0, 37.0, 1.03, 2.0)
+    psi_hand = lambda rho, h: rho * 1000.0 * 9.80665 * h / 6894.757293168
+    S_, Ph_ = 10000.0, 4650.0
+    pp_s = float(PPF.eaton(S_, Ph_, 120.0, 100.0, 3.0, -1))           # sonic slower than its trend: overpressure
+    pp_r = float(PPF.eaton(S_, Ph_, 0.8, 1.0, 1.2, 1))                # resistivity below its trend: overpressure
+    c1 = {
+        "dexp": abs(dd - d_hand) < 1e-12 and abs(d_hand - 1.48529) < 1e-4 and abs(dc_ - d_hand * 0.895) < 1e-12 and _np.isnan(PPF.dexponent([0.0], [100.0], [20000.0], 8.5)[0]),
+        "overburden": abs(ob[0] - psi_hand(2.3, 1000.0)) < 1e-6 and abs(ob[1] - psi_hand(2.3, 2000.0)) < 1e-6
+                      and abs(ob_sea[0] - psi_hand(1.03, 100.0)) < 1e-6 and abs(ob_sea[1] - psi_hand(1.03, 100.0) - psi_hand(2.0, 1000.0)) < 1e-6,
+        "gardner": abs(float(PPF.gardner(_np.array([100.0]))[0]) - 0.23 * 10000.0 ** 0.25) < 1e-12,
+        "eaton": abs(pp_s - (S_ - (S_ - Ph_) * (100.0 / 120.0) ** 3)) < 1e-9 and pp_s > Ph_ and abs(pp_r - (S_ - (S_ - Ph_) * 0.8 ** 1.2)) < 1e-9
+                 and abs(float(PPF.eaton(S_, Ph_, 100.0, 100.0, 3.0, -1)) - Ph_) < 1e-9,
+        "fracture": abs(float(PPF.eaton_fg(S_, 6000.0, 0.25)) - float(PPF.hubbert_willis(S_, 6000.0))) < 1e-9
+                    and abs(float(PPF.eaton_fg(S_, 6000.0, 0.4)) - (0.4 / 0.6 * 4000.0 + 6000.0)) < 1e-9,
+        "ppg": abs(float(PPF.ppg(5200.0, 10000.0 * 0.3048)) - 10.0) < 1e-9,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "CU1 the arithmetic by hand: Jorden and Shirley's d-exponent (1.4853 for 30 ft/h, 100 rpm, 20 klbf on an 8-1/2 in bit) and "
+       "Rehm and McClendon's correction; the overburden of rock alone and of sea then rock below an air gap; Gardner's density; "
+       "Eaton's ratio for the sonic and the resistivity, returning hydrostatic on the trend; Eaton's fracture gradient equal to "
+       "Hubbert-Willis's at a Poisson's ratio of 0.25; an equivalent mud weight"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- CU2 the labelled log and drilling record --------------------------------------------------------------------------
+    f = PPF.selftest_files(str(d))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    wl = ws.add_well_file(f["las"], display="LOG-1", actor="tester")["id"]
+    we = ws.add_well_file(f["edr"], display="EDR-1", actor="tester")["id"]
+
+    def err_of(wid):
+        x = PPF.page(ws, "workspace", wid)["result"]
+        c = x["curves"]
+        z = _np.array(c["tvd_m"], float)
+        pp = _np.array([_np.nan if v is None else v for v in c["pp_psi"]], float)
+        Pt = PPF.truth(z)[2]
+        away = (_np.abs(z - 2200.0) > 10.0) & (_np.abs(z - 2600.0) > 10.0) & _np.isfinite(pp)
+        return x, float(_np.max(_np.abs(pp[away] - Pt[away]) / Pt[away])), int(away.sum())
+    PPF.set_well(ws, "tester", wl, "labelled log (test)", indicator="sonic", nct_top_m=600, nct_bottom_m=2100, smooth_m=5, density_above_gcc=2.3)
+    xs, es, ns = err_of(wl)
+    PPF.set_well(ws, "tester", wl, "labelled log (test)", indicator="resistivity")
+    xr, er, nr = err_of(wl)
+    no_bit = PPF.page(ws, "workspace", we)["detail"]
+    PPF.set_well(ws, "tester", we, "labelled record (test)", bit_in=8.5, nct_top_m=1050, nct_bottom_m=2100, smooth_m=6, density_above_gcc=2.3)
+    xd, ed, nd = err_of(we)
+    c2 = {
+        "sonic": es < 0.002 and ns > 300 and abs(xs["trend"]["a"] - 2.25) < 1e-4 and abs(xs["trend"]["b_per_m"] + 1.2e-4) < 1e-8
+                 and xs["overpressure_from_tvd_m"] is not None and abs(xs["overpressure_from_tvd_m"] - 2200.0) <= 5.0 and abs(xs["overburden_td_psi"] - float(PPF.truth(_np.array([3500.0]))[0][0])) < 1.0,
+        "resistivity": er < 0.002 and nr > 300 and xr["indicator"] == "resistivity" and abs(xr["trend"]["b_per_m"] - 1.5e-4) < 1e-8,
+        "dexponent": "bit size" in no_bit and ed < 0.002 and nd > 300 and xd["indicator"] == "dexponent" and "Mud Weight In" in xd["how"] and abs(xd["trend"]["b_per_m"] - 1.0e-4) < 2e-6,
+        "mud_flag": any(fl["what"] == "the mud weight below the pore pressure" and abs(fl["from_tvd_m"] - 2200.0) < 6 and abs(fl["to_tvd_m"] - 2600.0) < 6 for fl in xd["flags"]),
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "CU2 a depth log and a drilling record built so that Eaton's method must find a pore pressure 40 % of the way from "
+       "hydrostatic to the overburden between 2,200 and 2,600 m: read back by the sonic, the resistivity and the corrected "
+       "d-exponent to within 0.2 % away from the zone's edges, the trends recovered as built, the overburden to the psi; the "
+       "d-exponent refused without a bit size; the 9.5 ppg mud flagged below the pore pressure across the zone"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- CU3 measurements, the fitted exponent, refusals and the worked example ----------------------------------------------
+    PPF.set_well(ws, "tester", wl, "labelled log (test)", indicator="sonic")
+    pt = float(PPF.truth(_np.array([2400.0]))[2][0])
+    PPF.add_measurement(ws, "tester", wl, 2400.0, round(pt, 1), "psi", "pore", "tvd", "MDT (test)")
+    PPF.add_measurement(ws, "tester", wl, 1500.0, 16.2, "ppg", "lot", "tvd", "LOT (test)")
+    xm = PPF.page(ws, "workspace", wl)["result"]
+    refused = 0
+    for kw in ({"poisson": 0.6}, {"normal_gradient_psi_ft": 0.3}, {"nct_top_m": 2000, "nct_bottom_m": 1000}, {"indicator": "magic"}, {"exponent": 2.0}):
+        try:
+            PPF.set_well(ws, "tester", wl, "" if "exponent" in kw else "x", **kw)
+        except ValueError:
+            refused += 1
+    for args in ((wl, -5, 100), (wl, 1000, 100, "bar"), (wl, 1000, 100, "psi", "dst"), (wl, 1000, 100, "psi", "pore", "tvd", "")):
+        try:
+            PPF.add_measurement(ws, "tester", args[0], args[1], args[2], *(args[3:5] or ()), **({"depth_kind": args[5], "source": args[6]} if len(args) > 6 else {"source": "s"}))
+        except ValueError:
+            refused += 1
+    ex = PPF.example()
+    raw = gzip.open(pkg / "reference" / "l0701_sonic_gr.las.gz").read()
+    prov = json.loads((pkg / "reference" / "l0701_sonic_gr.provenance.json").read_text(encoding="utf-8"))
+    c3 = {
+        "measured": len(xm["measured"]) == 2 and abs(xm["measured"][0]["computed_psi"] - pt) < 0.005 * pt and xm["fit_exponent"] is not None and abs(xm["fit_exponent"] - 3.0) < 0.06
+                    and abs(xm["measured"][1]["psi"] - 16.2 * 0.052 * 1500.0 / 0.3048) < 0.1 and xm["measured"][1]["kind"] == "lot",
+        "refused": refused == 9,
+        "example": ex["indicator"] == "sonic" and ex["channel"] == "DT" and ex["trend"]["points"] > 5000 and 18.0 < ex["overburden_td_ppg"] < 21.0
+                   and "Gardner from the sonic" in ex["density_from"] and "density log" in ex["density_from"] and ex["max_pp_ppg"] is not None and "NLOG" in ex["attribution"],
+        "provenance": _hl.sha256(raw).hexdigest() == prov["sha256_uncompressed"] and _hl.sha256((pkg / "reference" / "l0701_sonic_gr.las.gz").read_bytes()).hexdigest() == prov["sha256"],
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "CU3 a formation test drawn beside the curve it confirms (to half a percent) and the Eaton exponent fitted to it (3); a "
+       "leak-off test in ppg turned to psi at its depth; a Poisson's ratio, a normal gradient, a trend interval or an indicator "
+       "out of range, a value without its source, and a measurement without a depth, a unit, a kind or a source refused; the "
+       "worked example L07-01 read from its sonic with the overburden from its density log and Gardner's, the file as hashed"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+    # -- CU4 the API, the CLI, the report, the dossier, the tab and the help -------------------------------------------------
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_vg, vg = call(V, "GET", "/api/pore-pressure?well=" + wl)
+        s_ve, ve = call(V, "GET", "/api/pore-pressure?scene=example")
+        s_vs, _ = call(V, "POST", "/api/pore-pressure/settings", {"well_id": wl, "poisson": 0.3, "source": "x"})
+        s_os, os_ = call(O, "POST", "/api/pore-pressure/settings", {"well_id": wl, "poisson": "0.3", "source": "frac gradient study (test)"})
+        s_ob, _ = call(O, "POST", "/api/pore-pressure/settings", {"well_id": wl, "poisson": 0.7, "source": "x"})
+        s_om, _ = call(O, "POST", "/api/pore-pressure/measure", {"well_id": wl, "depth_m": 3000, "value": 9.0, "unit": "ppg", "kind": "kick", "source": "kick (test)"})
+        s_bm, _ = call(O, "POST", "/api/pore-pressure/measure", {"well_id": wl, "depth_m": 3000, "value": 9.0, "unit": "ppg", "kind": "kick", "source": ""})
+        s_ur, _ = call(O, "POST", "/api/pore-pressure/unmeasure", {"well_id": wl, "index": 2})
+        s_u2, _ = call(O, "POST", "/api/pore-pressure/unmeasure", {"well_id": wl, "index": 9})
+        s_vw, _ = call(V, "POST", "/api/pore-pressure/write", {"well_id": wl})
+        s_ow, ow = call(O, "POST", "/api/pore-pressure/write", {"well_id": wl})
+    finally:
+        svc.stop()
+    cli_x = _sp.run([sys.executable, "-m", "gea", "pore-pressure", "--example"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_s = _sp.run([sys.executable, "-m", "gea", "pore-pressure", "--workspace", wsp, "--well", wl, "--gr-cutoff", "90", "--source", "shale cut-off (test)"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_m = _sp.run([sys.executable, "-m", "gea", "pore-pressure", "--workspace", wsp, "--well", wl, "--measure", "2500,13.0,ppg,pore,tvd", "--source", "RFT (test)"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_t = _sp.run([sys.executable, "-m", "gea", "pore-pressure", "--workspace", wsp, "--well", wl], capture_output=True, text=True, cwd=str(pkg.parent))
+    dz = DZ.build(ws, "tester", _ver, None)
+    names = _zf.ZipFile(Path(ws.reports_dir, dz["path"])).namelist()
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c4 = {
+        "api": s_vg == 200 and vg["result"]["indicator"] == "sonic" and s_ve == 200 and ve["result"]["well"] == "L07-01" and s_vs == 403 and s_os == 200 and os_["poisson"] == 0.3
+               and s_ob == 400 and s_om == 200 and s_bm == 400 and s_ur == 200 and s_u2 == 404 and s_vw == 403 and s_ow == 200 and ow["report_id"].startswith("PPF-"),
+        "cli": cli_x.returncode == 0 and "L07-01" in cli_x.stdout and cli_s.returncode == 0 and cli_m.returncode == 0 and "pore 13 ppg at 2500 m TVD" in cli_m.stdout
+               and cli_t.returncode == 0 and "gamma ray >= 90" in cli_t.stdout and "the exponent that fits" in cli_t.stdout,
+        "report": PR_read_ok(Path(ws.reports_dir, "wells", wl, "pore_pressure.pdf"))
+                  and all(x in audit for x in ("pore_pressure.settings", "pore_pressure.measurement", "pore_pressure.measurement_removed", "report.pore_pressure")),
+        "dossier": "declarations/geomech/pore_pressure.json" in names and f"results/pore_pressure/{wl}.json" in names and f"results/pore_pressure/{we}.json" in names,
+        "page": all(x in page_src for x in ("VIEWS.porepressure", "['#/porepressure', 'Pore pressure']", "/api/pore-pressure/settings", "ppDepthPlot", "ppTrendPlot")),
+        "help": not H.check("pore-pressure") and H.VIEW_TOPIC.get("porepressure") == "pore-pressure",
+    }
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       "CU4 on the API (anyone reads a well's window and the worked example; only an operator declares how a well is read - a "
+       "Poisson's ratio of 0.7 refused - adds or removes a measurement - one without its source refused - or writes the report), "
+       "the CLI (the example, a cut-off, a measurement, the well), the report as PDF, a signed dossier carrying the declarations "
+       "and each declared well's window, the tab and the help"
+       + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+
 def PR_read_ok(path) -> bool:
     from . import pdf_report as PR
     try:
@@ -11826,6 +12014,7 @@ def main() -> int:
         section_cr_collision(tmp)
         section_cs_plan_and_tools(tmp)
         section_ct_frac_hits(tmp)
+        section_cu_pore_pressure(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

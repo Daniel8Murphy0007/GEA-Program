@@ -277,7 +277,7 @@ def _gather(ws, well_id: Optional[str]) -> Dict[str, List[tuple]]:
                 ('seismicity', 'catalogs.json'), ('seismicity', 'settings.json'), ('config', 'fleet.json'), ('workspace.json',),
                 ('economics', 'invoices', 'terms.json'), ('economics', 'invoices', 'files.json'), ('drillstring', 'rig_time.json'),
                 ('drillstring', 'casing.json'), ('wellpath', 'collision.json'), ('wellpath', 'survey_program.json'),
-                ('completion', 'frac', 'stages.json'), ('completion', 'frac', 'settings.json')):
+                ('completion', 'frac', 'stages.json'), ('completion', 'frac', 'settings.json'), ('geomech', 'pore_pressure.json')):
         p = os.path.join(ws.path, *rel)
         if os.path.isfile(p):
             out_list.append((p, 'declarations/' + '/'.join(rel)))
@@ -299,8 +299,8 @@ def _gather(ws, well_id: Optional[str]) -> Dict[str, List[tuple]]:
 
 def _results(ws, well_id: Optional[str]) -> List[tuple]:
     """The invoice cross-check of each well with invoices or reports attached, the rig time of each well with a drilling
-    record, the collision check, each surveyed well against its plan and the frac-hit check, as JSON computed when the
-    dossier is signed (a check that cannot run is left out, and says why)."""
+    record, the collision check, each surveyed well against its plan, each declared well's pore pressure and the
+    frac-hit check, as JSON computed when the dossier is signed (a check that cannot run is left out, and says why)."""
     out = []
     wells = [well_id] if well_id else [w['id'] for w in ws.wells()]
     try:
@@ -338,6 +338,17 @@ def _results(ws, well_id: Optional[str]) -> List[tuple]:
                                                                                  indent=1, sort_keys=True, default=str).encode('utf-8')))
     except Exception as e:
         out.append(('results/collision_not_run.txt', f'the collision check did not run: {type(e).__name__}: {e}\n'.encode('utf-8')))
+    try:
+        from . import pore_pressure as PPF
+        declared = (PPF._load(ws).get('wells') or {})
+        for wid in wells:
+            if wid in declared:
+                r = PPF.page(ws, 'workspace', wid).get('result')
+                if r:
+                    out.append((f'results/pore_pressure/{wid}.json', json.dumps({k: v for k, v in r.items() if k != 'points'}, indent=1, sort_keys=True,
+                                                                                default=str).encode('utf-8')))
+    except Exception as e:
+        out.append(('results/pore_pressure_not_run.txt', f'the pore-pressure reading did not run: {type(e).__name__}: {e}\n'.encode('utf-8')))
     try:
         from . import frac_hits as FH
         if FH.stages(ws):

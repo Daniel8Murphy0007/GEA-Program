@@ -4,6 +4,13 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.52.0 - 2026-10-20 - pore pressure and fracture gradient
+
+- **The mud-weight window.** Overburden, the shale's normal compaction
+  trend, pore pressure by Eaton from the sonic, the resistivity or the
+  d-exponent, the fracture gradient, against measured pressures and the mud
+  used; L07-01 as the worked example. Section CU; gate 451.
+
 ## v0.51.0 - 2026-10-20 - frac hits
 
 - **What each frac stage did to the wells around it.** Every stage against

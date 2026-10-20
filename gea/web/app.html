@@ -2451,6 +2451,72 @@ VIEWS.opseis = async (arg) => {
   $('#osOp') && ($('#osOp').onsubmit = async ev => { ev.preventDefault(); const f = new FormData(ev.target), b = {}; for (const [k, v] of f.entries()) if (v !== '') b[k] = v;
     try { await post('/api/opseis/operation', b); toast('Operation declared', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
 };
+// ---------- pore pressure and fracture gradient: the mud-weight window ----------
+const PPV = {scene: 'workspace', well: null};
+function ppDepthPlot(x) {
+  const c = x.curves, W = 460, H = 560, L = 56, R = 12, T = 22, B = 30, z = c.tvd_m;
+  const vals = [...c.hyd_ppg, ...c.pp_ppg, ...c.fg_ppg, ...c.ob_ppg, ...(x.mud ? x.mud.ppg : []), ...x.measured.map(m => m.ppg)].filter(v => v != null && isFinite(v));
+  const lo = Math.max(6, Math.floor(Math.min(...vals))), hi = Math.min(24, Math.ceil(Math.max(...vals)));
+  const z0 = 0, z1 = Math.max(...z, ...x.measured.map(m => m.tvd_m)) * 1.02;
+  const sx = v => L + (Math.min(hi, Math.max(lo, v)) - lo) / Math.max(1, hi - lo) * (W - L - R), sy = d => T + (d - z0) / Math.max(1, z1 - z0) * (H - T - B);
+  const line = (arr, col, dash, w) => { let g = '', pts = []; arr.forEach((v, i) => { if (v == null) { if (pts.length > 1) g += `<polyline points="${pts.join(' ')}" fill="none" stroke="${col}" stroke-width="${w || 1.8}" ${dash ? `stroke-dasharray="${dash}"` : ''}/>`; pts = []; } else pts.push(`${sx(v).toFixed(1)},${sy(z[i]).toFixed(1)}`); }); if (pts.length > 1) g += `<polyline points="${pts.join(' ')}" fill="none" stroke="${col}" stroke-width="${w || 1.8}" ${dash ? `stroke-dasharray="${dash}"` : ''}/>`; return g; };
+  let g = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Pressures as equivalent mud weights against depth" style="max-width:520px">`;
+  for (let v = lo; v <= hi; v += 2) g += `<line x1="${sx(v)}" x2="${sx(v)}" y1="${T}" y2="${H - B}" stroke="var(--ink2)" opacity=".12"/><text x="${sx(v)}" y="${T - 6}" font-size="10" text-anchor="middle" fill="var(--muted)">${v}</text>`;
+  const step = Math.pow(10, Math.floor(Math.log10(z1 / 4))) * (z1 / Math.pow(10, Math.floor(Math.log10(z1 / 4))) > 20 ? 5 : 2);
+  for (let d = 0; d <= z1; d += step) g += `<line x1="${L}" x2="${W - R}" y1="${sy(d)}" y2="${sy(d)}" stroke="var(--ink2)" opacity=".12"/><text x="${L - 6}" y="${sy(d) + 4}" font-size="10" text-anchor="end" fill="var(--muted)">${d.toLocaleString()}</text>`;
+  g += line(c.hyd_ppg, 'var(--ink2)', '4 3', 1.2) + line(c.ob_ppg, 'var(--ink)', '', 1.2) + line(c.hw_ppg, 'var(--s2)', '2 3', 1.2) + line(c.fg_ppg, 'var(--s2)', '', 2) + line(c.pp_ppg, 'var(--s1)', '', 2);
+  if (x.mud) { const mz = x.mud.tvd_m; let pts = x.mud.ppg.map((v, i) => v == null || !isFinite(v) ? null : `${sx(v).toFixed(1)},${sy(mz[i]).toFixed(1)}`).filter(Boolean); if (pts.length > 1) g += `<polyline points="${pts.join(' ')}" fill="none" stroke="var(--s3)" stroke-width="2"/>`; }
+  for (const m of x.measured) g += m.kind === 'pore' ? `<circle cx="${sx(m.ppg)}" cy="${sy(m.tvd_m)}" r="4.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="1.5"><title>${esc(m.label)} ${m.ppg.toFixed(2)} ppg at ${m.tvd_m.toLocaleString()} m: ${esc(m.source)}</title></circle>` : `<path d="M${sx(m.ppg)} ${sy(m.tvd_m) - 5} l5 9 h-10 z" fill="var(--s2)" stroke="var(--surface)" stroke-width="1.5"><title>${esc(m.label.toUpperCase())} ${m.ppg.toFixed(2)} ppg at ${m.tvd_m.toLocaleString()} m: ${esc(m.source)}</title></path>`;
+  g += `<text x="${W - R}" y="${H - 8}" font-size="11" fill="var(--muted)" text-anchor="end">ppg equivalent →</text><text x="${L - 6}" y="${H - 8}" font-size="11" fill="var(--muted)" text-anchor="end">m TVD ↓</text>`;
+  const leg = [['var(--ink2)', 'hydrostatic', '4 3'], ['var(--s1)', 'pore pressure', ''], ['var(--s2)', 'fracture (Eaton)', ''], ['var(--s2)', 'fracture (Hubbert-Willis minimum)', '2 3'], ['var(--ink)', 'overburden', '']].concat(x.mud ? [['var(--s3)', 'mud weight used', '']] : []);
+  return `<div><div class="row small">${leg.map(([c_, t, d]) => `<span style="white-space:nowrap"><svg width="22" height="8"><line x1="0" x2="22" y1="4" y2="4" stroke="${c_}" stroke-width="2" ${d ? `stroke-dasharray="${d}"` : ''}/></svg> ${t}</span>`).join(' ')}</div>${g}</svg></div>`;
+}
+function ppTrendPlot(x) {
+  const P_ = x.points, W = 360, H = 560, L = 44, R = 12, T = 22, B = 30, xs = P_.x.filter(v => v != null && v > 0);
+  if (!xs.length) return '';
+  const lx0 = Math.log10(Math.min(...xs)), lx1 = Math.log10(Math.max(...xs)), z1 = Math.max(...P_.tvd_m) * 1.02;
+  const sx = v => L + (Math.log10(v) - lx0) / Math.max(1e-6, lx1 - lx0) * (W - L - R), sy = d => T + d / z1 * (H - T - B);
+  let g = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="The compaction indicator against depth with its normal trend" style="max-width:420px">`;
+  g += `<rect x="${L}" y="${sy(x.trend.top_tvd_m)}" width="${W - L - R}" height="${sy(x.trend.bottom_tvd_m) - sy(x.trend.top_tvd_m)}" fill="var(--s1)" opacity=".07"/>`;
+  P_.tvd_m.forEach((d, i) => { const v = P_.x[i]; if (v == null || v <= 0) return; g += `<circle cx="${sx(v).toFixed(1)}" cy="${sy(d).toFixed(1)}" r="${P_.shale[i] ? 1.6 : 1.1}" fill="${P_.shale[i] ? 'var(--s1)' : 'var(--ink2)'}" opacity="${P_.shale[i] ? .7 : .25}"/>`; });
+  const tz = [0, z1], tv = tz.map(d => Math.pow(10, x.trend.a + x.trend.b_per_m * d));
+  g += `<line x1="${sx(Math.max(tv[0], 1e-9))}" y1="${sy(tz[0])}" x2="${sx(Math.max(tv[1], 1e-9))}" y2="${sy(tz[1])}" stroke="var(--serious)" stroke-dasharray="5 4" stroke-width="1.5"/>`;
+  g += `<text x="${L}" y="${T - 6}" font-size="10" fill="var(--muted)">${Math.pow(10, lx0).toPrecision(3)}</text><text x="${W - R}" y="${T - 6}" font-size="10" text-anchor="end" fill="var(--muted)">${Math.pow(10, lx1).toPrecision(3)} (log scale)</text>`;
+  return `<div><div class="small"><b>${esc(x.channel)}</b> <span class="muted">shale dark, the rest pale; the trend dashed, fitted in the shaded interval</span></div>${g}</svg></div>`;
+}
+VIEWS.porepressure = async () => {
+  const P = await get('/api/pore-pressure?scene=' + PPV.scene + (PPV.well ? '&well=' + encodeURIComponent(PPV.well) : ''));
+  PPV.well = P.well;
+  const x = P.result;
+  let h = `<h2>Pore pressure</h2><div class="row"><label>Scene<select id="ppScene">${P.scenes.map(s_ => `<option value="${s_.id}" ${s_.id === P.scene ? 'selected' : ''}>${esc(s_.title)}</option>`).join('')}</select></label>`;
+  if (P.scene === 'workspace' && P.wells.length) h += `<label>Well<select id="ppWell">${P.wells.map(w => `<option value="${esc(w.id)}" ${w.id === P.well ? 'selected' : ''}>${esc(w.display)} — ${w.source || 'nothing to read'}</option>`).join('')}</select></label>`;
+  if (can('operator') && x) h += `<button type="button" class="secondary" id="ppWrite">Write the report</button>`;
+  h += `</div>`;
+  if (!x) h += `<p class="card small">${esc(P.detail || 'Nothing to read')}.</p>`;
+  else {
+    h += `<div class="tiles">` + tile('Highest pore pressure', x.max_pp_ppg == null ? '-' : x.max_pp_ppg.toFixed(2) + ' ppg', x.overpressure_from_tvd_m != null ? 'warn' : 'neutral', '#/porepressure', x.max_pp_at_tvd_m == null ? '' : `at ${x.max_pp_at_tvd_m.toLocaleString()} m TVD`)
+      + tile('Overpressure', x.overpressure_from_tvd_m == null ? 'none read' : 'from ' + x.overpressure_from_tvd_m.toLocaleString() + ' m', x.overpressure_from_tvd_m != null ? 'warn' : 'good', '#/porepressure', 'half a ppg over hydrostatic, held 50 m')
+      + tile('Overburden at TD', x.overburden_td_ppg.toFixed(2) + ' ppg', 'neutral', '#/porepressure', `${Math.round(x.overburden_td_psi).toLocaleString()} psi at ${x.td_tvd_m.toLocaleString()} m TVD`)
+      + (x.flags.length ? tile('The mud', x.flags.length + ' warning' + (x.flags.length > 1 ? 's' : ''), 'serious', '#/porepressure', x.flags.map(f => `${f.what} ${f.from_tvd_m.toLocaleString()}–${f.to_tvd_m.toLocaleString()} m`).join('; ')) : '') + `</div>`;
+    h += `<div class="card"><h3>The window</h3><div class="grid2">${ppDepthPlot(x)}${ppTrendPlot(x)}</div>
+      <p class="small">${esc(x.indicator)} (${esc(x.channel)}) by Eaton with exponent ${x.exponent}; the normal trend log10 = ${x.trend.a.toFixed(4)} ${x.trend.b_per_m >= 0 ? '+' : '−'} ${Math.abs(x.trend.b_per_m).toExponential(3)} × TVD over ${x.trend.points.toLocaleString()} shale points (gamma ray ≥ ${x.gr_cutoff}) from ${x.trend.top_tvd_m.toLocaleString()} to ${x.trend.bottom_tvd_m.toLocaleString()} m${x.trend.note ? ' — ' + esc(x.trend.note) : ''}. Density from ${esc(x.density_from.join(', '))}. Read from ${esc(x.how || '')}.${x.config && Math.abs(x.config.poisson - 0.25) < 1e-9 ? ' At a Poisson\'s ratio of 0.25 the two fracture gradients coincide.' : ''}${x.not_read ? ' ' + esc(x.not_read) + '.' : ''}${x.fit_exponent ? ` The exponent that best fits the measured pore pressures: ${x.fit_exponent}.` : ''}</p>${x.attribution ? `<p class="small muted">${esc(x.attribution)} ${esc(x.config.source)}.</p>` : ''}</div>`;
+    if (x.measured.length) h += `<div class="card"><h3>Measured</h3><table class="small"><thead><tr><th>Kind</th><th>TVD (m)</th><th>psi</th><th>ppg</th><th>Computed (psi)</th><th>Source</th><th></th></tr></thead><tbody>${x.measured.map(m => `<tr><td>${esc(m.label)}</td><td>${m.tvd_m.toLocaleString()}</td><td>${Math.round(m.psi).toLocaleString()}</td><td>${m.ppg.toFixed(2)}</td><td>${m.computed_psi == null ? '-' : Math.round(m.computed_psi).toLocaleString()}</td><td>${esc(m.source)}</td><td>${can('operator') && P.scene === 'workspace' ? `<button type="button" class="secondary pp-rm" data-i="${m.index}">Remove</button>` : ''}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+  const cur = P.wells.find(w => w.id === P.well);
+  if (can('operator') && P.scene === 'workspace' && cur) {
+    const c = cur.config, num = (k, lab, st, w) => `<label>${lab}<input name="${k}" type="number" step="${st}" value="${c[k] ?? ''}" style="width:${w || 6}em"></label>`;
+    h += `<div class="card"><h3>How ${esc(cur.display)} is read</h3><form id="ppCfg" class="row"><label>Indicator<select name="indicator">${['auto', 'sonic', 'resistivity', 'dexponent'].map(o => `<option ${o === c.indicator ? 'selected' : ''}>${o}</option>`).join('')}</select></label>${num('exponent', 'Exponent', 0.1)}${num('nct_top_m', 'Trend from (m)', 1)}${num('nct_bottom_m', 'to (m)', 1)}${num('gr_cutoff', 'Shale GR ≥', 1)}${num('normal_gradient_psi_ft', 'Normal (psi/ft)', 0.001)}${num('poisson', 'Poisson', 0.01)}${num('density_above_gcc', 'Density above (g/cm³)', 0.01)}${num('water_depth_m', 'Water (m)', 1)}${num('air_gap_m', 'Air gap (m)', 1)}${num('bit_in', 'Bit (in)', 0.125)}${num('smooth_m', 'Smooth (m)', 1)}<label>Source<input name="source" value="${esc(c.source || '')}" placeholder="offset RFTs, drilling program"></label><button class="secondary" type="submit">Keep</button></form>
+      <h3>Add a measurement</h3><form id="ppMeas" class="row"><label>Kind<select name="kind"><option value="pore">formation test</option><option value="kick">kick</option><option value="lot">leak-off test</option><option value="fit">formation-integrity test</option></select></label><label>Depth (m)<input name="depth_m" type="number" step="0.1" style="width:7em"></label><label>Depth is<select name="depth_kind"><option>tvd</option><option>md</option></select></label><label>Value<input name="value" type="number" step="0.01" style="width:7em"></label><label>Unit<select name="unit"><option>psi</option><option>ppg</option></select></label><label>Source<input name="source" placeholder="MDT run 2, station 14"></label><button class="secondary" type="submit">Add</button></form></div>`;
+  }
+  h += `<div class="card"><h3>What this page will not call a measurement</h3><ul class="small">${P.not_a_measurement.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
+  $('#main').innerHTML = h;
+  $('#ppScene').onchange = ev => { PPV.scene = ev.target.value; route(); };
+  $('#ppWell') && ($('#ppWell').onchange = ev => { PPV.well = ev.target.value; route(); });
+  $('#ppWrite') && ($('#ppWrite').onclick = async () => { try { const r = await post('/api/pore-pressure/write', {well_id: PPV.well, scene: PPV.scene}); toast('Written ' + r.report_id, 'ok'); } catch (e) { toast(e.message, 'err'); } });
+  document.querySelectorAll('.pp-rm').forEach(b => b.onclick = async () => { try { await post('/api/pore-pressure/unmeasure', {well_id: PPV.well, index: +b.dataset.i}); toast('Removed', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+  $('#ppCfg') && ($('#ppCfg').onsubmit = async ev => { ev.preventDefault(); try { await post('/api/pore-pressure/settings', {well_id: PPV.well, ...Object.fromEntries(new FormData(ev.target).entries())}); toast('Kept', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+  $('#ppMeas') && ($('#ppMeas').onsubmit = async ev => { ev.preventDefault(); try { await post('/api/pore-pressure/measure', {well_id: PPV.well, ...Object.fromEntries(new FormData(ev.target).entries())}); toast('Added', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+};
 // ---------- frac hits: each fracturing stage against the pressure in the wells around it ----------
 const FH = {sel: null};
 function fhKind(t) { return ({'NONE': 'good', 'POROELASTIC': 'neutral', 'MIXED': 'warn', 'FRAC HIT': 'serious'})[t] || 'neutral'; }
@@ -3034,7 +3100,7 @@ function authScreen(first) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/frac', 'Frac hits'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/frac', 'Frac hits'], ['#/porepressure', 'Pore pressure'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w'], '#/control': b => [b.handover_unacked, 'w']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }

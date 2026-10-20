@@ -1921,6 +1921,9 @@ def make_handler(app: App):
                 if path == '/api/plan':
                     from . import wellplan as WPL
                     return self._json(200, App._cr(WPL.page, app.ws, (qs.get('well') or [None])[0]))
+                if path == '/api/pore-pressure':
+                    from . import pore_pressure as PPF
+                    return self._json(200, App._cr(PPF.page, app.ws, (qs.get('scene') or ['workspace'])[0], (qs.get('well') or [None])[0]))
                 if path == '/api/frac-hits':
                     from . import frac_hits as FH
                     return self._json(200, App._cr(FH.page, app.ws))
@@ -2338,6 +2341,23 @@ def make_handler(app: App):
                         return self._json(200, App._cr(RS.remove_casing, app.ws, user['name'], str(b_.get('well_id') or ''), str(b_.get('size') or '')))
                     return self._json(200, App._cr(RS.set_casing, app.ws, user['name'], str(b_.get('well_id') or ''), str(b_.get('size') or ''),
                                                    b_.get('shoe_md_ft'), str(b_.get('source') or ''), b_.get('set')))
+                if path in ('/api/pore-pressure/settings', '/api/pore-pressure/measure', '/api/pore-pressure/unmeasure', '/api/pore-pressure/write'):
+                    from . import pore_pressure as PPF
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    b_ = dict(body or {})
+                    wid = str(b_.get('well_id') or '')
+                    if path.endswith('/settings'):
+                        cfg = {k: b_.get(k) for k in list(PPF.LIMITS) + ['indicator'] if k in b_}
+                        return self._json(200, App._cr(PPF.set_well, app.ws, user['name'], wid, str(b_.get('source') or ''), **cfg))
+                    if path.endswith('/measure'):
+                        return self._json(200, App._cr(PPF.add_measurement, app.ws, user['name'], wid, b_.get('depth_m'), b_.get('value'),
+                                                       str(b_.get('unit') or 'psi'), str(b_.get('kind') or 'pore'), str(b_.get('depth_kind') or 'tvd'),
+                                                       str(b_.get('source') or '')))
+                    if path.endswith('/unmeasure'):
+                        return self._json(200, App._cr(PPF.remove_measurement, app.ws, user['name'], wid, int(b_.get('index', -1))))
+                    r_ = App._cr(PPF.write_report, app.ws, _v, wid or None, user['name'], str(b_.get('scene') or 'workspace'))
+                    return self._json(200, {'report_id': r_['report_id']})
                 if path in ('/api/frac-hits/stages', '/api/frac-hits/remove', '/api/frac-hits/settings', '/api/frac-hits/write'):
                     from . import frac_hits as FH
                     from . import wellplan as WPL

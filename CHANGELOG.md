@@ -5,6 +5,34 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.52.0] - 2026-10-20 - Pore pressure and fracture gradient
+
+### Added
+- **Pore pressure and fracture gradient** (`gea/pore_pressure.py`): from a
+  depth log (sonic, deep resistivity, gamma ray, bulk density) or a drilling
+  record (the d-exponent of Jorden and Shirley, corrected for the mud
+  density by Rehm and McClendon, on the drilling samples every 3 m of hole):
+  the overburden (sea, then rock - the density log, Gardner's density from
+  the sonic, or a declared mean); the normal compaction trend in shale over
+  a declared interval; the pore pressure by Eaton's ratio (exponents 3.0
+  sonic, 1.2 resistivity and d-exponent, the operator's to change); the
+  fracture gradient by Eaton's relation with a declared Poisson's ratio and
+  the Hubbert-Willis minimum; equivalent mud weights against true vertical
+  depth (by the survey, the recorder's TVD, or vertical).
+- Measured pressures - formation tests, kicks, leak-off and
+  formation-integrity tests - drawn beside the curves; the Eaton exponent
+  that best fits the formation tests; the mud weight in the record flagged
+  where it is below the pore pressure or above the fracture gradient.
+- The worked example: well L07-01 (Dutch offshore, NLOG open data), its
+  composite log shipped as `gea/reference/l0701_sonic_gr.las.gz` with its
+  provenance.
+- The **Pore pressure** tab, `GET /api/pore-pressure`,
+  `POST /api/pore-pressure/settings|measure|unmeasure|write` (operator),
+  `gea pore-pressure`, the reports `reports/wells/<well>/pore_pressure.*`,
+  `gea help pore-pressure`. The signed dossier carries the declarations and
+  each declared well's window.
+- Acceptance section CU (4 checks).
+
 ## [v0.51.0] - 2026-10-20 - Frac hits
 
 ### Added
