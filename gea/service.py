@@ -2060,6 +2060,9 @@ def make_handler(app: App):
                 if path == '/api/decline':
                     from . import decline as DCA
                     return self._json(200, App._cr(DCA.page, app.ws, (qs.get('well') or [None])[0], (qs.get('as_of') or [None])[0]))
+                if path == '/api/hydraulics':
+                    from . import hydraulics as HYD
+                    return self._json(200, App._cr(HYD.page, app.ws, (qs.get('scene') or ['workspace'])[0], (qs.get('well') or [None])[0]))
                 if path == '/api/torque-drag':
                     from . import torque_drag as TND
                     return self._json(200, App._cr(TND.page, app.ws, (qs.get('scene') or ['workspace'])[0], (qs.get('well') or [None])[0]))
@@ -2499,6 +2502,20 @@ def make_handler(app: App):
                         cfg = {k: b_.get(k) for k in list(DCA.LIMITS) + ['price_basis', 'start'] if k in b_}
                         return self._json(200, App._cr(DCA.set_config, app.ws, user['name'], wid, str(b_.get('source') or ''), **cfg))
                     r_ = App._cr(DCA.write_report, app.ws, _v, wid or None, user['name'])
+                    return self._json(200, {'report_id': r_['report_id']})
+                if path in ('/api/hydraulics/settings', '/api/hydraulics/write'):
+                    from . import hydraulics as HYD
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    b_ = dict(body or {})
+                    wid = str(b_.get('well_id') or '')
+                    if path.endswith('/settings'):
+                        fann = {k[1:]: b_[k] for k in ('r600', 'r300', 'r200', 'r100', 'r6', 'r3') if b_.get(k) not in (None, '')} if any(
+                            b_.get(k) not in (None, '') for k in ('r600', 'r300')) else b_.get('fann')
+                        vals = {k: b_.get(k) for k in HYD.LIMITS if k in b_}
+                        return self._json(200, App._cr(HYD.set_well, app.ws, user['name'], wid, str(b_.get('source') or ''),
+                                                       (b_.get('string') or None), (b_.get('hole') or None), fann, (b_.get('nozzles_32') or None), **vals))
+                    r_ = App._cr(HYD.write_report, app.ws, _v, wid or None, user['name'], str(b_.get('scene') or 'workspace'))
                     return self._json(200, {'report_id': r_['report_id']})
                 if path in ('/api/torque-drag/settings', '/api/torque-drag/write'):
                     from . import torque_drag as TND

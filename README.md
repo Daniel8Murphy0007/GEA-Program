@@ -620,6 +620,17 @@ EIA) or a declared price, with the net revenue interest, severance tax and
 operating cost declared. A forecast is not a reserves report, and the page
 says so. The **Decline curves** tab, `gea decline`, `gea help decline`.
 
+### Hydraulics and ECD
+
+The pressures the mud makes while it circulates, from the six-speed
+viscometer (the API RP 13D power law: the pipe from 600/300, the annulus
+from 100/3): the standpipe pressure part by part - surface lines, string,
+motor and MWD, bit, annulus - the bit's hydraulics, the ECD at every depth
+against the pore pressure and fracture gradient, surge and swab and the
+fastest safe trip at each bit depth, and the standpipe pressure the rig
+measured against the model. The **Hydraulics & ECD** tab, `gea hydraulics`,
+`gea help hydraulics`.
+
 ### Torque and drag
 
 The hook load and torque the drill string should take at each bit depth, by

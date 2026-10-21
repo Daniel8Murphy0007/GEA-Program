@@ -2749,3 +2749,32 @@ stability; and motor specifications in the tool catalogue.
   3.13 in the cloud, and CZ1 checks every help text the 3.14 way on any
   Python. v0.55.0-v0.57.0 were re-made to carry the v0.54.0 fix.
 - Section CZ (3 checks). Gate 470.
+
+## 2026-10-21 - Hydraulics and ECD (v0.58.0)
+
+- Asked (chosen from four: hydraulics and ECD, casing design, ESP nodal,
+  Pad 3 onboarding).
+- Researched: the API power-law method (the pipe's n and K from 600/300,
+  the annulus's from 100/3; the critical Reynolds number 3470 - 1370 n;
+  Dodge-Metzner's turbulent friction) and Zamora et al. (AADE-05-NTCE-27)
+  for the Churchill blending of the three regimes. API RP 13D itself is a
+  paid standard and was not read here; the equations come from the
+  public descriptions of it and are checked by hand.
+- Written in SI from the Fanning definition (dp = 2 f rho V^2 L / D) and
+  checked against API's field-unit forms (24.51 Q/D^2 ft/min, the
+  effective viscosity, 15.467 V D rho / mu, 1.076 rho V^2 f / 10^5 D) to
+  0.1 %; a Newtonian fluid's laminar loss equals Hagen-Poiseuille's in a
+  pipe and the slot's in the annulus; the turbulent friction factor at
+  n = 1 is Blasius's to 1 %; the bit's loss equals 156.5 rho Q^2 /
+  (sum d^2)^2.
+- Surge and swab are the steady-flow estimate (Burkhardt's clinging
+  constant 0.45, the pipe's peak speed 1.5 times the average); the gel's
+  breaking and the mud's inertia are out, and the page says so.
+- No public drilling record with a standpipe pressure and a declared mud
+  could be fetched here, so the check against the rig is made on a record
+  built on the model with a known offset (recovered to within 10 psi);
+  Pad 3's own record is the next check, once its mud, string and hole are
+  declared.
+- The tab was driven in headless Chromium: light, dark and phone width,
+  no console errors.
+- Section DA (4 checks). Gate 474 on Python 3.13 and 3.14.

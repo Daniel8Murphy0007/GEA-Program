@@ -5,6 +5,35 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.58.0] - 2026-10-21 - Hydraulics and ECD
+
+### Added
+- **Hydraulics and ECD** (`gea/hydraulics.py`): the mud as a power-law
+  fluid read from the six-speed viscometer as API RP 13D reads it (the
+  pipe from 600/300, the annulus from 100/3); each length of pipe and
+  annulus with its velocity, effective viscosity (Metzner-Reed; the slot),
+  Reynolds number and Fanning friction factor - laminar, transitional from
+  the critical Reynolds number 3470 - 1370 n, turbulent (Dodge-Metzner),
+  blended by Churchill's method (Zamora et al., AADE-05-NTCE-27).
+- The standpipe pressure part by part - surface lines (declared at a rate,
+  scaled as the 1.86th power), string, motor and MWD, bit, annulus - at the
+  declared rate and three others; the bit's pressure drop, total flow
+  area, jet velocity, horsepower, horsepower per square inch and impact.
+- The ECD at every depth against the pore pressure and fracture gradient
+  (the Pore pressure tab's, or one declared for the hole), the smallest
+  margin; surge and swab of a trip (Burkhardt's clinging constant, the
+  pipe's peak speed) and the fastest a stand may be run or pulled at each
+  bit depth to stay inside the window.
+- Against the rig: the drilling record's standpipe pressure and pump rate
+  while pumping, the median of each 250 ft of bit depth, against the model
+  at the same rate and depth.
+- The **Hydraulics & ECD** tab, `GET /api/hydraulics`,
+  `POST /api/hydraulics/settings|write` (operator), `gea hydraulics`, the
+  report `reports/wells/<well>/hydraulics.*`, `gea help hydraulics`; Volve
+  15/9-F-10's survey as the worked example. The signed dossier carries the
+  declarations and the result.
+- Acceptance section DA (4 checks).
+
 ## [v0.57.0] - 2026-10-20 - The IT review: provenance, code signing, the security overview
 
 ### Added

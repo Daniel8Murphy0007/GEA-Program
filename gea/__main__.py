@@ -646,6 +646,24 @@ def main(argv=None) -> int:
     p_dc.add_argument("--actor", type=str, default="cli")
     p_dc.add_argument("--json", action="store_true")
 
+    p_hy = sub.add_parser("hydraulics", help="the pressures the mud makes while it circulates - the standpipe, the bit, the annulus, the ECD against the pore pressure and fracture gradient, surge and swab - and the standpipe pressure the rig measured")
+    p_hy.add_argument("--workspace", type=str, default=None)
+    p_hy.add_argument("--well", type=str, default=None)
+    p_hy.add_argument("--example", action="store_true", help="the worked example (Volve 15/9-F-10 with an example mud, string and hole)")
+    p_hy.add_argument("--string", type=str, default=None, help="sections from the bit up: 'BHA:350:6.75:2.875; drill pipe::5:4.276' (what:length_ft:od_in:id_in)")
+    p_hy.add_argument("--hole", type=str, default=None, help="sections from the surface down: '9-5/8 casing:3500:8.681; open hole::8.75' (what:bottom_md_ft:id_in)")
+    p_hy.add_argument("--fann", type=str, default=None, help="the viscometer dial: '600=60 300=38 200=30 100=21 6=7 3=6'")
+    p_hy.add_argument("--nozzles", type=str, default=None, help="nozzle sizes in 32nds of an inch: '14 14 14 14 14'")
+    for k_, h_ in (("mw", "mud weight, ppg"), ("flow", "pump rate, gal/min"), ("bit", "bit diameter, in"), ("surface", "surface lines' pressure loss, psi"),
+                   ("surface-ref", "the rate (gal/min) the surface loss was declared at"), ("tools", "motor and MWD pressure drop, psi"),
+                   ("trip", "average stand speed tripping, ft/min"), ("pp", "a pore pressure for the hole when the Pore pressure tab has none, ppg"),
+                   ("fg", "a fracture gradient for the hole when the Pore pressure tab has none, ppg")):
+        p_hy.add_argument("--" + k_, type=str, default=None, help=h_)
+    p_hy.add_argument("--source", type=str, default="", help="where the mud, string and hole figures came from")
+    p_hy.add_argument("--write", action="store_true")
+    p_hy.add_argument("--actor", type=str, default="cli")
+    p_hy.add_argument("--json", action="store_true")
+
     p_td = sub.add_parser("torque-drag", help="the hook load and torque the string should take at each bit depth (soft-string model), the broomstick, and the friction factors that fit the rig's own trips")
     p_td.add_argument("--workspace", type=str, default=None)
     p_td.add_argument("--well", type=str, default=None)
@@ -2576,6 +2594,46 @@ def main(argv=None) -> int:
         except (KeyError, ValueError, OSError, WorkspaceError) as e:
             raise SystemExit(f"decline: {e.args[0] if e.args else e}")
         print(_json.dumps(r, default=str) if a.json else _DCA.text(r))
+        return 0
+    elif a.cmd == "hydraulics":
+        import json as _json
+        from . import hydraulics as _HYD
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        try:
+            ws = Workspace(a.workspace) if a.workspace else None
+            scene = "example" if (a.example or ws is None) else "workspace"
+            keys_ = {"mw": "mw_ppg", "flow": "flow_gpm", "bit": "bit_in", "surface": "surface_psi", "surface_ref": "surface_ref_gpm", "tools": "tools_psi",
+                     "trip": "trip_ft_min", "pp": "pp_ppg", "fg": "fg_ppg"}
+            vals_ = {v: getattr(a, k) for k, v in keys_.items() if getattr(a, k) is not None}
+            if ws is not None and (vals_ or any(x is not None for x in (a.string, a.hole, a.fann, a.nozzles))):
+                if not a.well:
+                    raise ValueError("--well is needed")
+                fann_ = None
+                if a.fann is not None:
+                    fann_ = {}
+                    for p_ in a.fann.replace(",", " ").split():
+                        k_, _, v_ = p_.partition("=")
+                        if not v_:
+                            raise ValueError(f"--fann takes SPEED=DIAL pairs, e.g. 600=60 300=38, not {p_!r}")
+                        fann_[k_.strip()] = v_.strip()
+                c_ = _HYD.set_well(ws, a.actor, a.well, a.source, a.string, a.hole, fann_, a.nozzles, **vals_)
+                print(f"{a.well}: mud {c_['mw_ppg']:g} ppg, {c_['flow_gpm']:g} gpm; string {len(c_.get('string') or [])} section(s), hole {len(c_.get('hole') or [])} section(s); "
+                      f"viscometer {' '.join(f'{k}={v:g}' for k, v in (c_.get('fann') or {}).items()) or 'not declared'}")
+                return 0
+            if a.write:
+                if ws is None:
+                    raise ValueError("--write needs --workspace")
+                r_ = _HYD.write_report(ws, __version__, a.well, a.actor, scene)
+                print(f"wrote {r_['report_id']}: {r_['paths']['html']}")
+                if r_['paths'].get('pdf'):
+                    print(f"  printable: {r_['paths']['pdf']}")
+                return 0
+            r = _HYD.page(ws, scene, a.well)
+        except (KeyError, ValueError, OSError, WorkspaceError) as e:
+            raise SystemExit(f"hydraulics: {e.args[0] if e.args else e}")
+        print(_json.dumps(r, default=str) if a.json else _HYD.text(r))
         return 0
     elif a.cmd == "torque-drag":
         import json as _json

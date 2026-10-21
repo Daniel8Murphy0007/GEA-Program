@@ -2537,6 +2537,83 @@ VIEWS.decline = async () => {
   $('#dcAttach') && ($('#dcAttach').onsubmit = async ev => { ev.preventDefault(); const fd = new FormData(ev.target), f = fd.get('file'); if (!f || !f.name) return toast('Choose a production file', 'err');
     try { await post('/api/decline/attach', {well_id: DCV.well, filename: f.name, content_b64: await readFile(f), source: fd.get('source')}); toast('Attached', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
 };
+// ---------- hydraulics and ECD: the standpipe, the bit, the annulus, the window, surge and swab ----------
+const HYV = {scene: 'workspace', well: null};
+function hyChart(r) {
+  const e = r.ecd, W = 460, H = 520, L = 56, R = 12, T = 22, B = 30, mw = r.config.mw_ppg;
+  const zmax = Math.max(...e.tvd_ft) * 1.02;
+  const xs = [...e.ecd_ppg, mw, ...e.pp_ppg.filter(v => v != null), ...e.fg_ppg.filter(v => v != null), ...r.trips.surge_ppg, ...r.trips.swab_ppg];
+  const lo = Math.floor(Math.min(...xs) - 0.5), hi = Math.ceil(Math.max(...xs) + 0.5);
+  const sx = v => L + (v - lo) / Math.max(1e-9, hi - lo) * (W - L - R), sy = z => T + z / zmax * (H - T - B);
+  const pl = (xv, zv, col, w, dash) => { const pts = xv.map((v, i) => v == null ? null : `${sx(v).toFixed(1)},${sy(zv[i]).toFixed(1)}`).filter(Boolean); return pts.length > 1 ? `<polyline points="${pts.join(' ')}" fill="none" stroke="${col}" stroke-width="${w}" ${dash ? `stroke-dasharray="${dash}"` : ''}/>` : ''; };
+  let g = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="ECD, pore pressure and fracture gradient against true vertical depth" style="max-width:520px">`;
+  const step = Math.pow(10, Math.floor(Math.log10(zmax / 4))) * 2;
+  for (let z = 0; z <= zmax; z += step) g += `<line x1="${L}" x2="${W - R}" y1="${sy(z)}" y2="${sy(z)}" stroke="var(--ink2)" opacity=".12"/><text x="${L - 6}" y="${sy(z) + 4}" font-size="10" text-anchor="end" fill="var(--muted)">${z.toLocaleString()}</text>`;
+  for (let v = lo; v <= hi; v += 1) g += `<line x1="${sx(v)}" x2="${sx(v)}" y1="${T}" y2="${H - B}" stroke="var(--ink2)" opacity=".12"/><text x="${sx(v)}" y="${T - 6}" font-size="10" text-anchor="middle" fill="var(--muted)">${v}</text>`;
+  g += `<line x1="${sx(mw)}" x2="${sx(mw)}" y1="${T}" y2="${H - B}" stroke="var(--ink)" stroke-dasharray="4 3" opacity=".6"/>`;
+  g += pl(e.pp_ppg, e.tvd_ft, 'var(--s2)', 2) + pl(e.fg_ppg, e.tvd_ft, 'var(--serious, #c0392b)', 2) + pl(e.ecd_ppg, e.tvd_ft, 'var(--s1)', 2.4);
+  const tz_ = r.trips.depth_ft.map(d => { let k = e.md_ft.findIndex(m => m >= d); return k < 0 ? e.tvd_ft[e.tvd_ft.length - 1] : e.tvd_ft[k]; });
+  g += r.trips.depth_ft.map((d, i) => `<circle cx="${sx(r.trips.surge_ppg[i])}" cy="${sy(tz_[i])}" r="3" fill="var(--s3)"><title>surge ${r.trips.surge_ppg[i]} ppg, bit at ${d.toLocaleString()} ft MD</title></circle><circle cx="${sx(r.trips.swab_ppg[i])}" cy="${sy(tz_[i])}" r="3" fill="none" stroke="var(--s3)"><title>swab ${r.trips.swab_ppg[i]} ppg, bit at ${d.toLocaleString()} ft MD</title></circle>`).join('');
+  g += `<text x="${W - R}" y="${H - 8}" font-size="11" fill="var(--muted)" text-anchor="end">equivalent density, ppg →</text><text x="${L - 6}" y="${H - 8}" font-size="11" fill="var(--muted)" text-anchor="end">ft TVD ↓</text>`;
+  return g + `</svg>`;
+}
+function hySppChart(rc) {
+  const W = 460, H = 300, L = 56, R = 12, T = 18, B = 34, rows = rc.rows;
+  const xs = rows.map(x => x.depth_ft), ys = [...rows.map(x => x.measured_psi), ...rows.map(x => x.model_psi)];
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.floor(Math.min(...ys) / 100) * 100, y1 = Math.ceil(Math.max(...ys) / 100) * 100;
+  const sx = v => L + (v - x0) / Math.max(1, x1 - x0) * (W - L - R), sy = v => H - B - (v - y0) / Math.max(1, y1 - y0) * (H - T - B);
+  let g = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Standpipe pressure, measured and modelled, against bit depth" style="max-width:520px">`;
+  const ys_ = Math.max(100, Math.pow(10, Math.floor(Math.log10((y1 - y0) / 3))) * 2);
+  for (let v = y0; v <= y1; v += ys_) g += `<line x1="${L}" x2="${W - R}" y1="${sy(v)}" y2="${sy(v)}" stroke="var(--ink2)" opacity=".12"/><text x="${L - 6}" y="${sy(v) + 4}" font-size="10" text-anchor="end" fill="var(--muted)">${v.toLocaleString()}</text>`;
+  g += `<polyline points="${rows.map(x => `${sx(x.depth_ft).toFixed(1)},${sy(x.model_psi).toFixed(1)}`).join(' ')}" fill="none" stroke="var(--s1)" stroke-width="2"/>`;
+  g += rows.map(x => `<circle cx="${sx(x.depth_ft)}" cy="${sy(x.measured_psi)}" r="3.5" fill="var(--s2)"><title>${x.measured_psi.toLocaleString()} psi measured, ${x.model_psi.toLocaleString()} modelled at ${x.depth_ft.toLocaleString()} ft, ${x.q_gpm} gpm</title></circle>`).join('');
+  g += `<text x="${W - R}" y="${H - 8}" font-size="11" fill="var(--muted)" text-anchor="end">bit depth, ft MD →</text><text x="${L}" y="${T - 4}" font-size="11" fill="var(--muted)">psi</text>`;
+  return g + `</svg>`;
+}
+VIEWS.hydraulics = async () => {
+  const P = await get('/api/hydraulics?scene=' + HYV.scene + (HYV.well ? '&well=' + encodeURIComponent(HYV.well) : ''));
+  HYV.well = P.well;
+  const r = P.result;
+  let h = `<h2>Hydraulics & ECD</h2>${help('hydraulics')}<div class="row"><label>Scene<select id="hyScene">${P.scenes.map(s_ => `<option value="${s_.id}" ${s_.id === P.scene ? 'selected' : ''}>${esc(s_.title)}</option>`).join('')}</select></label>`;
+  if (P.scene === 'workspace' && P.wells.length) h += `<label>Well<select id="hyWell">${P.wells.map(w => `<option value="${esc(w.id)}" ${w.id === P.well ? 'selected' : ''}>${esc(w.display)}${w.survey ? '' : ' — no survey'}${w.config.string ? '' : ' — not declared'}</option>`).join('')}</select></label>`;
+  if (can('operator') && r) h += `<button type="button" class="secondary" id="hyWrite">Write the report</button>`;
+  h += `</div>`;
+  if (!r) h += `<p class="card small">${esc(P.detail || '')}.</p>`;
+  else {
+    const c = r.circulating, pt = c.parts, b = c.bit, mf = r.min_fg_margin, rc = r.record;
+    h += `<div class="tiles">` + tile('Standpipe pressure', Math.round(c.spp_psi).toLocaleString() + ' psi', 'neutral', '#/hydraulics', `${c.q_gpm} gpm, the bit at ${Math.round(r.td_ft).toLocaleString()} ft MD`)
+      + tile('ECD at the bit', c.ecd_bit_ppg.toFixed(2) + ' ppg', mf && mf.ppg < 0 ? 'serious' : (mf && mf.ppg < 0.3 ? 'warn' : 'neutral'), '#/hydraulics', `mud ${r.config.mw_ppg} ppg; ${Math.round(r.tvd_td_ft).toLocaleString()} ft TVD`)
+      + (mf ? tile('Margin to the fracture gradient', (mf.ppg >= 0 ? '+' : '') + mf.ppg.toFixed(2) + ' ppg', mf.ppg < 0 ? 'serious' : (mf.ppg < 0.3 ? 'warn' : 'good'), '#/hydraulics', `the smallest, at ${Math.round(mf.md_ft).toLocaleString()} ft MD`) : tile('The window', 'not known', 'neutral', '#/porepressure', 'the Pore pressure tab, or declare one'))
+      + (b.tfa_in2 ? tile('At the bit', `${b.hsi != null ? b.hsi + ' hp/in²' : b.hhp + ' hhp'}`, 'neutral', '#/hydraulics', `${Math.round(b.psi).toLocaleString()} psi, ${Math.round((c.bit_share || 0) * 100)} % of the standpipe; jet ${b.jet_ft_s} ft/s`) : '')
+      + (rc ? tile('Against the rig', (rc.median_difference_psi >= 0 ? '+' : '') + Math.round(rc.median_difference_psi) + ' psi', Math.abs(rc.median_difference_psi) > 300 ? 'warn' : 'neutral', '#/hydraulics', `measured less model, median of ${rc.bins} depth bins`) : '') + `</div>`;
+    const tot = Object.values(pt).reduce((a, x) => a + x, 0) || 1, cols = {surface: 'var(--s4, #999)', string: 'var(--s1)', tools: 'var(--s5, #8e44ad)', bit: 'var(--s2)', annulus: 'var(--s3)'};
+    h += `<div class="card"><h3>Where the pressure goes</h3><div style="display:flex;height:22px;border-radius:4px;overflow:hidden" role="img" aria-label="standpipe pressure by part">${Object.entries(pt).filter(([, v]) => v > 0).map(([k, v]) => `<div title="${k} ${Math.round(v).toLocaleString()} psi" style="width:${(v / tot * 100).toFixed(2)}%;background:${cols[k]}"></div>`).join('')}</div>
+      <p class="small">${Object.entries(pt).map(([k, v]) => `<span style="color:${cols[k]}">■</span> ${k} ${Math.round(v).toLocaleString()} psi`).join(' · ')}</p>
+      <table class="small"><thead><tr><th>Rate (gpm)</th><th>Standpipe (psi)</th><th>ECD at the bit (ppg)</th></tr></thead><tbody>${r.by_rate.map(x => `<tr><td>${x.q_gpm}</td><td>${Math.round(x.spp_psi).toLocaleString()}</td><td>${x.ecd_bit_ppg.toFixed(2)}</td></tr>`).join('')}</tbody></table></div>`;
+    h += `<div class="card"><h3>ECD against the window</h3><div class="grid2"><div><div class="small"><b>Equivalent density by depth</b> <span class="muted">ECD blue, pore pressure orange, fracture gradient red, the mud weight dashed; tripping at ${r.config.trip_ft_min} ft/min ● surge ○ swab</span></div>${hyChart(r)}</div>
+      <div>${rc ? `<div class="small"><b>Standpipe pressure, rig against model</b> <span class="muted">● measured (median of each 250 ft) — the model at the same rate and depth</span></div>${hySppChart(rc)}` : '<p class="small muted">No pumping in the drilling record to compare with.</p>'}
+      <table class="small"><thead><tr><th>Bit (ft MD)</th><th>Surge</th><th>Swab</th><th>Fastest run</th><th>Fastest pull</th></tr></thead><tbody>${r.trips.depth_ft.map((d, i) => `<tr><td>${Math.round(d).toLocaleString()}</td><td>${r.trips.surge_ppg[i].toFixed(2)}</td><td>${r.trips.swab_ppg[i].toFixed(2)}</td><td>${r.trips.run_max_ft_min[i] == null ? '—' : r.trips.run_max_ft_min[i] + ' ft/min'}</td><td>${r.trips.pull_max_ft_min[i] == null ? '—' : r.trips.pull_max_ft_min[i] + ' ft/min'}</td></tr>`).join('')}</tbody></table></div></div>
+      <p class="small">Power law after API RP 13D: pipe n ${r.rheology.n_pipe} (600/300), annulus n ${r.rheology.n_ann} (${esc(r.rheology.annulus_from)}); PV ${r.rheology.pv_cp} cP, YP ${r.rheology.yp_lbf_100ft2}. Window: ${esc(r.window_how)}. Read from ${esc(r.how || '')}.</p>${r.attribution ? `<p class="small muted">${esc(r.attribution)}</p>` : ''}</div>`;
+    h += `<details class="card"><summary>The annulus, section by section</summary><table class="small"><thead><tr><th>From (ft)</th><th>To (ft)</th><th>Hole × pipe (in)</th><th>Velocity (ft/min)</th><th>Regime</th><th>Loss (psi)</th></tr></thead><tbody>${c.annulus.map(a => `<tr><td>${Math.round(a.top_ft).toLocaleString()}</td><td>${Math.round(a.bottom_ft).toLocaleString()}</td><td>${a.hole_in} × ${a.od_in}</td><td>${Math.round(a.v_ft_min).toLocaleString()}</td><td>${a.regime}</td><td>${Math.round(a.psi).toLocaleString()}</td></tr>`).join('')}</tbody></table></details>`;
+  }
+  const cur = P.wells.find(w => w.id === P.well);
+  if (can('operator') && P.scene === 'workspace' && cur) {
+    const c = cur.config, f = c.fann || {};
+    const st = (c.string || []).map(x => `${x.what}:${x.length_ft ?? ''}:${x.od_in}:${x.id_in}`).join('; '), ho = (c.hole || []).map(x => `${x.what}:${x.bottom_md_ft ?? ''}:${x.id_in}`).join('; ');
+    const num = (n, lab, v, w, st_) => `<label>${lab}<input name="${n}" type="number" step="${st_ || 'any'}" value="${v ?? ''}" style="width:${w || 5}em"></label>`;
+    h += `<div class="card"><h3>${esc(cur.display)}: the mud, the string and the hole</h3><form id="hyCfg"><div class="row"><label>String, from the bit up<input name="string" value="${esc(st)}" placeholder="BHA:350:6.75:2.875; drill pipe::5:4.276" style="min-width:min(26em,100%)"></label><label>Hole, from the surface down<input name="hole" value="${esc(ho)}" placeholder="9-5/8 casing:3500:8.681; open hole::8.75" style="min-width:min(24em,100%)"></label></div>
+      <div class="row">${num('mw_ppg', 'Mud (ppg)', c.mw_ppg)}${['600', '300', '200', '100', '6', '3'].map(k => num('r' + k, `θ${k}`, f[k], 4)).join('')}</div>
+      <div class="row">${num('flow_gpm', 'Rate (gpm)', c.flow_gpm)}<label>Nozzles (32nds)<input name="nozzles_32" value="${esc((c.nozzles_32 || []).join(' '))}" placeholder="14 14 14 14 14" style="width:9em"></label>${num('bit_in', 'Bit (in)', c.bit_in)}${num('surface_psi', 'Surface lines (psi)', c.surface_psi)}${num('surface_ref_gpm', 'at (gpm)', c.surface_ref_gpm)}${num('tools_psi', 'Motor + MWD (psi)', c.tools_psi)}${num('trip_ft_min', 'Trip (ft/min)', c.trip_ft_min)}${num('pp_ppg', 'Pore pressure (ppg)', c.pp_ppg)}${num('fg_ppg', 'Fracture gradient (ppg)', c.fg_ppg)}</div>
+      <div class="row"><label>Source<input name="source" value="${esc(c.source || '')}" placeholder="mud report, BHA report, casing tally"></label><button class="secondary" type="submit">Keep</button></div></form>
+      <p class="small muted">String sections what:length_ft:od_in:bore_in, the last with no length (to the surface). Hole sections what:bottom_md_ft:inside_diameter_in, each casing string to its shoe, the open hole last with no bottom. The viscometer as its dial reads; 600 and 300 at least. A pore pressure and fracture gradient here are used only when the Pore pressure tab has none for the well.</p></div>`;
+  }
+  h += `<div class="card"><h3>What this page will not call a measurement</h3><ul class="small">${P.not_a_measurement.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
+  $('#main').innerHTML = h;
+  $('#hyScene').onchange = ev => { HYV.scene = ev.target.value; route(); };
+  $('#hyWell') && ($('#hyWell').onchange = ev => { HYV.well = ev.target.value; route(); });
+  $('#hyWrite') && ($('#hyWrite').onclick = async () => { try { const x = await post('/api/hydraulics/write', {well_id: HYV.well, scene: HYV.scene}); toast('Written ' + x.report_id, 'ok'); } catch (e) { toast(e.message, 'err'); } });
+  $('#hyCfg') && ($('#hyCfg').onsubmit = async ev => { ev.preventDefault(); const b_ = Object.fromEntries([...new FormData(ev.target).entries()].filter(([, v]) => v !== '')); try { await post('/api/hydraulics/settings', {well_id: HYV.well, ...b_}); toast('Kept', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+};
 // ---------- torque and drag: the soft-string model, the broomstick, the friction factors that fit the rig ----------
 const TDV = {scene: 'workspace', well: null};
 function tdChart(r, kind) {
@@ -3249,7 +3326,7 @@ function authScreen(first, company) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/frac', 'Frac hits'], ['#/porepressure', 'Pore pressure'], ['#/torquedrag', 'Torque & drag'], ['#/decline', 'Decline curves'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/frac', 'Frac hits'], ['#/porepressure', 'Pore pressure'], ['#/torquedrag', 'Torque & drag'], ['#/hydraulics', 'Hydraulics & ECD'], ['#/decline', 'Decline curves'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w'], '#/control': b => [b.handover_unacked, 'w']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }

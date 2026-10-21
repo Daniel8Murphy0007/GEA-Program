@@ -1,24 +1,24 @@
-v0.57.0 — THE IT REVIEW
+v0.58.0 — HYDRAULICS AND ECD
 
-The answers an operator's IT department asks for before installing GEA
-now ship with it.
+GEA now works out the pressures the mud makes while it circulates, and
+sets them against the window the rock allows.
 
-`gea security` prints the security overview from any installation: where
-the site's data lives, every host the program can reach and when (there
-is no telemetry), the one port it listens on, HTTPS, company sign-in and
-the roles, the audit log, the bill of materials, and how to check a kit.
-The acceptance gate checks the overview against the code, so it cannot
-drift from what the program does. SECURITY.md says how to report a
-vulnerability.
+From the mud weight and the six-speed viscometer readings, read the way
+API RP 13D reads them, it gives the standpipe pressure part by part:
+the surface lines, the string, the motor and MWD, the bit and the
+annulus. It gives the bit's horsepower, jet velocity and impact, and the
+equivalent circulating density at every depth, set against the pore
+pressure and fracture gradient from the Pore pressure tab. For a trip it
+gives the surge and swab, and the fastest a stand may be run or pulled
+at each bit depth to stay inside that window.
 
-Every kit is now attested by the build that made it, so a site can check
-a downloaded kit with `gh attestation verify`. The Windows kit carries a
-file catalog of every file in it. The build signs that catalog as soon
-as a code-signing certificate - Azure Artifact Signing or a PFX - is
-configured. Until then it ships unsigned and the build says so.
+From the drilling record it takes the standpipe pressure and pump rate
+the rig measured while pumping, and sets them beside the model at the
+same rate and depth. The difference is what the declarations leave out.
 
-Fixed: `gea guide`, `gea help` and the other front-door commands now work
-from the kit's own launcher.
+The Hydraulics & ECD tab, `gea hydraulics`, a report with its PDF and
+the help page are new; Volve 15/9-F-10 is the worked example, and the
+signed dossier carries the declarations and the results.
 
-Section CZ is new, three checks. The gate is 470 checks. The standalone
-guard is clean.
+Section DA is new, four checks. The gate is 474 checks, run on Python
+3.13 and 3.14. The standalone guard is clean.

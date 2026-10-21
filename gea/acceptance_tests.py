@@ -12821,6 +12821,187 @@ def section_cz_it_review(tmp: str) -> None:
        "SECURITY.md says how to report a vulnerability" + (f" - failed: {failed3}" if failed3 else ""))
 
 
+def section_da_hydraulics(tmp: str) -> None:
+    """Section DA - hydraulics and ECD: the power law's losses against their closed forms (Hagen-Poiseuille, the slot,
+    Blasius) and API RP 13D's field-unit forms, the bit against its classic formula; a record whose standpipe pressure is
+    the model's plus a known amount, read back; the worked example's ECD against its window, surge and swab; the API, the
+    CLI, the report, the dossier, the tab and the help."""
+    import http.cookiejar
+    import math as _m
+    import subprocess as _sp
+    import urllib.request
+    import urllib.error
+    import zipfile as _zf
+    from . import __version__ as _ver
+    from . import dossier as DZ
+    from . import helplib as H
+    from . import hydraulics as HY
+    from . import well3d as W
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "hydraulics"); d.mkdir()
+
+    # -- DA1 by hand --------------------------------------------------------------------------------------------------------
+    mu, q = 0.03, 50.0
+    lp = HY.pipe_loss(q, 4.0, 1000.0, 8.33, 1.0, mu)
+    Q, D = q * HY.GPM, 4.0 * HY.IN
+    V = Q / (_m.pi * D * D / 4.0)
+    hp = 32.0 * mu * V * 1000.0 * HY.FT / D ** 2 / HY.PSI
+    la = HY.annulus_loss(q, 8.5, 5.0, 1000.0, 8.33, 1.0, mu)
+    Va = q * HY.GPM / (_m.pi * ((8.5 * HY.IN) ** 2 - (5.0 * HY.IN) ** 2) / 4.0)
+    slot = 48.0 * mu * Va * 1000.0 * HY.FT / (3.5 * HY.IN) ** 2 / HY.PSI
+    f_t = HY.friction(1e5, 1.0, 16.0)[0]
+    rh = HY.rheology({"600": 56, "300": 36, "200": 28, "100": 20, "6": 6, "3": 5})
+    n, K = rh["n_pipe"], rh["K_pipe"]
+    api = HY.pipe_loss(550.0, 4.276, 1000.0, 10.5, n, K)
+    Vf = 24.51 * 550.0 / 4.276 ** 2                                   # ft/min
+    mu_api = 100.0 * (5.11 * 56 / 1022 ** n) * (1.6 * Vf / 4.276) ** (n - 1) * ((3 * n + 1) / (4 * n)) ** n
+    re_api = 15.467 * Vf * 4.276 * 10.5 / mu_api
+    dp_api = 1.076 * 10.5 * Vf ** 2 * api["f"] / 1e5 / 4.276 * 1000.0
+    bt = HY.bit(550.0, 10.5, [13] * 6, 8.5)
+    refused = []
+    for bad in ({"600": 56}, {"600": 30, "300": 36}, {"600": 56, "300": 36, "450": 40}, {"600": 400, "300": 36}):
+        try:
+            HY.rheology(bad); refused.append(False)
+        except ValueError:
+            refused.append(True)
+    for fn, arg in ((HY.check_string, [{"what": "x", "length_ft": 100, "od_in": 5, "id_in": 6}]), (HY.check_hole, [{"what": "a", "bottom_md_ft": 1000, "id_in": 8},
+                                                                                                                       {"what": "b", "bottom_md_ft": 500, "id_in": 8}, {"what": "c", "id_in": 8}]),
+                    (HY.parse_sections, "BHA:300:6.75"), (HY.annulus_loss, None)):
+        try:
+            fn(arg, "string") if fn is HY.parse_sections else (HY.annulus_loss(500, 5.0, 6.0, 100, 10, 0.5, 0.5) if fn is HY.annulus_loss else fn(arg))
+            refused.append(False)
+        except ValueError:
+            refused.append(True)
+    c1 = {
+        "newtonian": abs(lp["psi"] / hp - 1) < 1e-4 and lp["regime"] == "laminar" and abs(la["psi"] / slot - 1) < 1e-9 and abs(f_t / (0.0791 / 1e5 ** 0.25) - 1) < 0.01,
+        "rheology": rh["pv_cp"] == 20 and rh["yp_lbf_100ft2"] == 16 and abs(rh["n_pipe"] - _m.log2(56 / 36)) < 1e-4 and abs(rh["n_ann"] - _m.log(20 / 5) / _m.log(170.2 / 5.11)) < 1e-4
+                    and rh["tau0_lbf_100ft2"] == 4 and rh["annulus_from"] == "100 and 3 rpm",
+        "api_forms": abs(api["v_ft_min"] / Vf - 1) < 1e-3 and abs(api["mu_cp"] / mu_api - 1) < 1e-3 and abs(api["re"] / re_api - 1) < 2e-3 and abs(api["psi"] / dp_api - 1) < 1e-3,
+        "bit": abs(bt["psi"] / (156.5 * 10.5 * 550.0 ** 2 / (6 * 13 ** 2) ** 2) - 1) < 1e-3 and abs(bt["tfa_in2"] - 6 * _m.pi / 4 * (13 / 32) ** 2) < 1e-3
+               and abs(bt["hhp"] - bt["psi"] * 550 / 1714) < 0.1,
+        "refused": all(refused) and len(refused) == 8,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "DA1 the losses by hand: a Newtonian fluid's laminar loss in a pipe is Hagen-Poiseuille's and in the annulus the slot's, exactly; its turbulent "
+       "friction factor Blasius's to 1 %; the viscometer's PV, YP, the pipe's n from 600/300 and the annulus's from 100/3; the velocity, effective "
+       "viscosity, Reynolds number and loss equal to API RP 13D's field-unit forms; the bit's loss the classic 156.5 rho Q^2 / (sum d^2)^2; readings "
+       "missing, falling or out of range, a bore wider than the pipe, a hole out of order, a short section and a pipe wider than its hole refused"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- DA2 a record made by the model, read back ---------------------------------------------------------------------------
+    f = HY.selftest_files(str(d))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    wid = ws.add_well_file(f["record"], display="HY-1", actor="tester")["id"]
+    ws.set_well(wid, surface={"lat": 31.42, "lon": -104.10, "datum": "NAD83", "elevation": {"ft": 3000.0, "datum": "KB", "source": "test plat"}}, actor="tester")
+    no_survey = HY.page(ws, "workspace", wid)["detail"]
+    W.attach_trajectory(ws, wid, "s.csv", Path(f["survey"]).read_bytes(), "tester", "true", "ft", None, None, None, "test survey")
+    no_decl = HY.page(ws, "workspace", wid)["detail"]
+    c = f["config"]
+    HY.set_well(ws, "tester", wid, "mud report (test)", string=c["string"], hole=c["hole"], fann=c["fann"], nozzles_32=c["nozzles_32"], mw_ppg=c["mw_ppg"],
+                flow_gpm=500, bit_in=8.75, tools_psi=400, pp_ppg=9.5, fg_ppg=14.5)
+    r = HY.page(ws, "workspace", wid)["result"]
+    rc = r["record"]
+    cc = r["circulating"]
+    c2 = {
+        "needs": "survey" in no_survey and "string" in no_decl and "viscometer" in no_decl,
+        "record": rc and rc["bins"] >= 20 and abs(rc["median_difference_psi"] - f["offset_psi"]) <= 10.0 and rc["spread_psi"] < 30.0,
+        "parts": abs(sum(cc["parts"].values()) - cc["spp_psi"]) < 1.0 and cc["parts"]["tools"] == 400.0 and cc["parts"]["surface"] == 0.0,
+        "ecd": cc["ecd_bit_ppg"] > c["mw_ppg"] and all(e_ >= c["mw_ppg"] for e_ in r["ecd"]["ecd_ppg"])
+               and abs(cc["ecd_bit_ppg"] - (c["mw_ppg"] + cc["parts"]["annulus"] / (0.052 * cc["tvd_bit_ft"]))) < 0.002,
+        "window": r["window_how"].startswith("declared") and r["min_fg_margin"]["ppg"] == min(x for x in r["ecd"]["margin_fg_ppg"] if x is not None),
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "DA2 a drilling record made by the model - drilling from 4,000 to 10,000 ft at 500 gpm and circulating at 350 gpm, its standpipe pressure the "
+       "model's plus 120 psi and noise - read back while pumping: the median difference 120 psi to within 10 over 20 or more depth bins; the standpipe "
+       "pressure the sum of its parts; the ECD at the bit the mud weight plus the annular loss over 0.052 TVD; a well without a survey or its "
+       "declarations says what it needs" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- DA3 the worked example ----------------------------------------------------------------------------------------------
+    ex = HY.example()
+    t = ex["trips"]
+    s_hi = HY.surge_swab(ex["config"], ex["rheology"], ex["td_ft"], 180.0, lambda z: ex["tvd_td_ft"] * z / ex["td_ft"])
+    s_lo = HY.surge_swab(ex["config"], ex["rheology"], ex["td_ft"], 90.0, lambda z: ex["tvd_td_ft"] * z / ex["td_ft"])
+    rates = ex["by_rate"]
+    c3 = {
+        "example": ex["well"] == "15/9-F-10" and abs(ex["td_ft"] - 5300.07 / 0.3048) < 5.0 and "not from Volve" in ex["config"]["source"]
+                   and 2000 < ex["circulating"]["spp_psi"] < 5000 and ex["circulating"]["ecd_bit_ppg"] > ex["config"]["mw_ppg"],
+        "rates": all(b["spp_psi"] > a["spp_psi"] and b["ecd_bit_ppg"] >= a["ecd_bit_ppg"] for a, b in zip(rates, rates[1:])),
+        "surge": all(su > ex["config"]["mw_ppg"] > sw for su, sw in zip(t["surge_ppg"], t["swab_ppg"])) and s_hi["psi"] > s_lo["psi"] > 0,
+        "speeds": all(v is not None and v > 0 for v in t["run_max_ft_min"] + t["pull_max_ft_min"])
+                  and HY.surge_swab(ex["config"], ex["rheology"], ex["td_ft"], t["run_max_ft_min"][-1], lambda z: ex["tvd_td_ft"] * z / ex["td_ft"])["surge_ppg"] <= 14.0 + 0.02,
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "DA3 the worked example, Volve 15/9-F-10's survey to its 5,300 m TD with a mud, string and hole declared for the example: the standpipe pressure "
+       "and the ECD rising with the rate; surge above and swab below the mud weight at every bit depth, more at a faster trip; the fastest run keeping "
+       "the surge within the declared fracture gradient" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+    # -- DA4 the API, the CLI, the report, the dossier, the tab and the help -------------------------------------------------
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V_, O_ = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_vg, vg = call(V_, "GET", "/api/hydraulics?well=" + wid)
+        s_ve, ve = call(V_, "GET", "/api/hydraulics?scene=example")
+        s_vs, _ = call(V_, "POST", "/api/hydraulics/settings", {"well_id": wid, "mw_ppg": 11.2, "source": "x"})
+        s_os, os_ = call(O_, "POST", "/api/hydraulics/settings", {"well_id": wid, "mw_ppg": "11.2", "r600": "62", "r300": "40", "r100": "22", "r3": "6",
+                                                                  "nozzles_32": "13 13 13 13 13", "hole": "9-5/8 casing:3500:8.681; open hole::8.75", "source": "mud report (test)"})
+        s_bf, _ = call(O_, "POST", "/api/hydraulics/settings", {"well_id": wid, "r600": "30", "r300": "40", "source": "x"})
+        s_bh, _ = call(O_, "POST", "/api/hydraulics/settings", {"well_id": wid, "flow_gpm": 9000, "source": "x"})
+        s_ns, _ = call(O_, "POST", "/api/hydraulics/settings", {"well_id": wid, "mw_ppg": 12})
+        s_vw, _ = call(V_, "POST", "/api/hydraulics/write", {"well_id": wid})
+        s_ow, ow = call(O_, "POST", "/api/hydraulics/write", {"well_id": wid})
+    finally:
+        svc.stop()
+    cli_x = _sp.run([sys.executable, "-m", "gea", "hydraulics", "--example"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_s = _sp.run([sys.executable, "-m", "gea", "hydraulics", "--workspace", wsp, "--well", wid, "--flow", "450", "--fann", "600=60 300=38 100=21 3=6",
+                     "--source", "mud report (test)"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_b = _sp.run([sys.executable, "-m", "gea", "hydraulics", "--workspace", wsp, "--well", wid, "--fann", "600:60", "--source", "x"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_t = _sp.run([sys.executable, "-m", "gea", "hydraulics", "--workspace", wsp, "--well", wid], capture_output=True, text=True, cwd=str(pkg.parent))
+    dz = DZ.build(ws, "tester", _ver, None)
+    names = _zf.ZipFile(Path(ws.reports_dir, dz["path"])).namelist()
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c4 = {
+        "api": s_vg == 200 and vg["result"]["record"]["bins"] >= 20 and s_ve == 200 and ve["result"]["well"] == "15/9-F-10" and s_vs == 403 and s_os == 200
+               and os_["fann"] == {"600": 62.0, "300": 40.0, "100": 22.0, "3": 6.0} and os_["nozzles_32"] == [13.0] * 5 and os_["mw_ppg"] == 11.2
+               and s_bf == 400 and s_bh == 400 and s_ns == 400 and s_vw == 403 and s_ow == 200 and ow["report_id"].startswith("HYD-"),
+        "cli": cli_x.returncode == 0 and "standpipe" in cli_x.stdout and "ECD at the bit" in cli_x.stdout and cli_s.returncode == 0 and "450 gpm" in cli_s.stdout
+               and cli_b.returncode != 0 and "SPEED=DIAL" in (cli_b.stderr + cli_b.stdout) and cli_t.returncode == 0 and "against the record" in cli_t.stdout,
+        "report": PR_read_ok(Path(ws.reports_dir, "wells", wid, "hydraulics.pdf")) and all(x in audit for x in ("hydraulics.declare", "report.hydraulics")),
+        "dossier": "declarations/drillstring/hydraulics.json" in names and f"results/hydraulics/{wid}.json" in names,
+        "page": all(x in page_src for x in ("VIEWS.hydraulics", "['#/hydraulics', 'Hydraulics & ECD']", "/api/hydraulics/settings", "hyChart", "hySppChart")),
+        "help": not H.check("hydraulics") and H.VIEW_TOPIC.get("hydraulics") == "hydraulics",
+    }
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       "DA4 the tab's data for a viewer (the well, the worked example); the declarations by an operator only, with a source, readings and rates in "
+       "range; `gea hydraulics` prints the example and a well and declares the viscometer as SPEED=DIAL; the report with its PDF, audited; the "
+       "signed dossier carries the declarations and the result; the tab and the help page"
+       + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+
 def PR_read_ok(path) -> bool:
     from . import pdf_report as PR
     try:
@@ -12936,6 +13117,7 @@ def main() -> int:
         section_cx_https(tmp)
         section_cy_company_sign_in(tmp)
         section_cz_it_review(tmp)
+        section_da_hydraulics(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

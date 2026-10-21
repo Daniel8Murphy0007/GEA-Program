@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.58.0 - 2026-10-21 - hydraulics and ECD
+
+- **The pressures the mud makes, against the window the rock allows.** The
+  standpipe pressure part by part, the bit, the ECD at every depth against
+  the pore pressure and fracture gradient, surge and swab and the fastest
+  safe trip, and the rig's own standpipe pressure against the model.
+  Section DA; gate 474.
+
 ## v0.57.0 - 2026-10-20 - the IT review
 
 - **What an IT department checks before installing.** The security
