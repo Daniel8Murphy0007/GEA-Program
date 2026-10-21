@@ -2721,3 +2721,31 @@ stability; and motor specifications in the tool catalogue.
   provider follows Entra ID's v2.0 endpoints' shape. The first sign-in
   against the company's tenant is the next check.
 - Section CY (4 checks). Gate 467.
+
+## 2026-10-20 - The IT review (v0.57.0)
+
+- Asked (the last IT items; chosen: build the signing now, sign once a
+  certificate exists; the business model: the source open, the signed
+  kit, updates and support as a subscription).
+- What can be signed: the kit's launchers are batch files, and a batch
+  file cannot carry an Authenticode signature. Windows' own answer for
+  files that cannot be signed is a signed catalog (New-FileCatalog,
+  Test-FileCatalog; App Control/WDAC trusts files by their catalog). The
+  catalog sits beside the kit's folder in the zip so it never lists itself.
+- Researched: Azure Artifact Signing's action (azure/artifact-signing-
+  action@v2, formerly Trusted Signing; its inputs and the signer role);
+  Test-FileCatalog's statuses; GitHub artifact attestations for a public
+  repository. None of the workflow's new steps can run from this
+  workspace: the first tag run is their check, and the catalog check step
+  stops the run if the catalog does not match the kit or a configured
+  certificate did not sign.
+- Found while checking the kit's commands: `python -m gea guide` (what
+  the kit's gea.cmd runs) answered "invalid choice" - the front door's
+  commands lived only in the console-script entry point. Routed.
+- The overview's numbers and hosts are checked by the gate against the
+  code (PBKDF2 rounds, session hours, the lock, the port, TLS, every host).
+- After v0.54.0's first ship stopped on Python 3.14 (a bare "%" in two
+  help texts), every release from here is gated on Python 3.14 as well as
+  3.13 in the cloud, and CZ1 checks every help text the 3.14 way on any
+  Python. v0.55.0-v0.57.0 were re-made to carry the v0.54.0 fix.
+- Section CZ (3 checks). Gate 470.

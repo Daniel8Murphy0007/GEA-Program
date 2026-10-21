@@ -147,6 +147,14 @@ def index_text() -> str:
     return '\n'.join(lines)
 
 
+def security_text() -> Optional[str]:
+    p = os.path.join(HELP_DIR, 'IT_SECURITY.md')
+    if not os.path.isfile(p):
+        return None
+    with open(p, encoding='utf-8') as f:
+        return f.read()
+
+
 def guide_text() -> Optional[str]:
     p = os.path.join(HELP_DIR, 'TESTER_GUIDE.md')
     if not os.path.isfile(p):

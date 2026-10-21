@@ -10,6 +10,24 @@ GEA-Program is licensed under the **Mozilla Public License 2.0** (repository
   Your own files - new modules, configuration, site maps, reports - are yours.
 - Attribution stays: keep the licence header and the notice in `LICENSE`.
 
+## The subscription
+
+The source stays open under MPL-2.0: anyone may build, run and audit it.
+What a site pays for is what an operator's IT department and its operations
+need around the source:
+
+- **the signed kit** - the standalone install kit as released, its file
+  catalog signed with ENRGYONE's code-signing certificate and its build
+  attested (`docs/IT_SECURITY.md`, "What is installed, and from where");
+- **updates** - every release's kit for the subscription's term, and the
+  security fixes (`SECURITY.md`);
+- **support** - installation and site integration help, answers on the
+  program's results, and the IT review (`gea security` prints the overview
+  a reviewer starts from).
+
+Terms, price and the response times of support are set by written
+agreement.
+
 ## What ENRGYONE offers on top
 
 - **Pilot engagements** (see `PILOT_PROPOSAL_SUBSURFACE_SURVEYING.md`): data-room

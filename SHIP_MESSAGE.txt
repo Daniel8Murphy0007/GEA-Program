@@ -1,25 +1,24 @@
-v0.56.0 — COMPANY SIGN-IN
+v0.57.0 — THE IT REVIEW
 
-People can now sign in to the control panel with the account their
-company already manages - Microsoft Entra ID, Okta, Google Workspace,
-Ping, Keycloak or AD FS - so the company's multi-factor, its access rules
-and its leavers apply to GEA too.
+The answers an operator's IT department asks for before installing GEA
+now ship with it.
 
-The sign-in is OpenID Connect with PKCE. The token the company's
-provider signs is checked by the program itself with the standard
-library: the signature against the provider's published keys, who issued
-it, which application it is for, when it expires, and that it belongs to
-this sign-in. The role in GEA comes from the app roles or groups the
-company gives the person, through a map the administrator keeps; someone
-with no mapped role does not get in, and the page says why. Local
-accounts stay, for the first administrator and for when the provider
-cannot be reached.
+`gea security` prints the security overview from any installation: where
+the site's data lives, every host the program can reach and when (there
+is no telemetry), the one port it listens on, HTTPS, company sign-in and
+the roles, the audit log, the bill of materials, and how to check a kit.
+The acceptance gate checks the overview against the code, so it cannot
+drift from what the program does. SECURITY.md says how to report a
+vulnerability.
 
-Administration has a Company sign-in card (set it, test the provider,
-remove it), the sign-in page has the button, and `gea oidc` does the same
-from a terminal. `gea help company-sign-in` walks through the Entra ID
-app registration. The search box and Sign out button no longer show on
-the sign-in page.
+Every kit is now attested by the build that made it, so a site can check
+a downloaded kit with `gh attestation verify`. The Windows kit carries a
+file catalog of every file in it. The build signs that catalog as soon
+as a code-signing certificate - Azure Artifact Signing or a PFX - is
+configured. Until then it ships unsigned and the build says so.
 
-Section CY is new, four checks, run against a stand-in provider over
-HTTPS. The gate is 467 checks. The standalone guard is clean.
+Fixed: `gea guide`, `gea help` and the other front-door commands now work
+from the kit's own launcher.
+
+Section CZ is new, three checks. The gate is 470 checks. The standalone
+guard is clean.

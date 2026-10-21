@@ -8,6 +8,20 @@ name: Build the standalone install kit
 # that tag, replacing; a manual run with no tag attaches to the release of the version in pyproject.toml
 # only where a kit is missing (a failed tag run's gap, filled by hand). A concurrency group on the commit
 # serialises a manual run that overlaps a tag run, so even then the two never write at once.
+#
+# Provenance: each kit zip is attested by this build (GitHub artifact attestations, Sigstore, keyless):
+#   gh attestation verify gea-program-0.57.0-win64.zip -R Daniel8Murphy0007/GEA-Program
+#
+# Code signing (Windows). The kit's launchers are batch files, which cannot carry an Authenticode signature, so
+# the kit carries a file catalog instead: gea-program-<version>-win64.cat beside the kit's folder in the zip, the
+# SHA-256 of every file in the kit. When the publisher's certificate is configured the catalog is signed, and
+# Windows (Get-AuthenticodeSignature, Test-FileCatalog, an App Control / WDAC policy) trusts every file it lists.
+# Until a certificate is configured the catalog ships unsigned, and the run says so. Either of, as repository
+# secrets:
+#   Azure Artifact Signing (formerly Trusted Signing): ARTIFACT_SIGNING_ENDPOINT, ARTIFACT_SIGNING_ACCOUNT,
+#     ARTIFACT_SIGNING_PROFILE, AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET (an app registration that
+#     holds the Artifact Signing Certificate Profile Signer role on the account);
+#   a code-signing certificate as a PFX: SIGNING_PFX_BASE64 (the .pfx file, base64) and SIGNING_PFX_PASSWORD.
 on:
   push:
     tags:
@@ -24,11 +38,16 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write   # to attach the kit to the GitHub release of the tag
+  contents: write       # to attach the kit to the GitHub release of the tag
+  id-token: write       # the provenance attestation (Sigstore, keyless)
+  attestations: write   # recorded against this repository
 
 jobs:
   windows-kit:
     runs-on: windows-latest
+    env:
+      ARTIFACT_SIGNING_ACCOUNT: ${{ secrets.ARTIFACT_SIGNING_ACCOUNT }}
+      SIGNING_PFX_BASE64: ${{ secrets.SIGNING_PFX_BASE64 }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,6 +57,57 @@ jobs:
           python-version: "3.12"
       - name: Build the kit (embeddable Python + every wheel + scripts)
         run: python tools/build_installer.py --extras live,plotting,xls,desktop
+      - name: The file catalog - the SHA-256 of every file in the kit
+        shell: pwsh
+        run: |
+          $kit = Get-ChildItem dist -Directory -Filter 'gea-program-*-win64' | Select-Object -First 1
+          if (-not $kit) { throw 'no kit folder under dist' }
+          $cat = Join-Path (Resolve-Path dist).Path ($kit.Name + '.cat')
+          New-FileCatalog -Path $kit.FullName -CatalogFilePath $cat -CatalogVersion 2.0 | Out-Null
+          "KIT=$($kit.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "CAT=$cat" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Sign the catalog (Azure Artifact Signing)
+        if: env.ARTIFACT_SIGNING_ACCOUNT != ''
+        uses: azure/artifact-signing-action@v2
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ secrets.ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ secrets.ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.ARTIFACT_SIGNING_PROFILE }}
+          files: ${{ env.CAT }}
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+      - name: Sign the catalog (a PFX certificate)
+        if: env.ARTIFACT_SIGNING_ACCOUNT == '' && env.SIGNING_PFX_BASE64 != ''
+        shell: pwsh
+        env:
+          SIGNING_PFX_PASSWORD: ${{ secrets.SIGNING_PFX_PASSWORD }}
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP 'signing.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGNING_PFX_BASE64))
+          try {
+            $st = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter signtool.exe |
+                  Where-Object { $_.FullName -like '*\x64\*' } | Sort-Object FullName -Descending | Select-Object -First 1
+            if (-not $st) { throw 'signtool.exe not found in the Windows SDK' }
+            & $st.FullName sign /fd SHA256 /f $pfx /p $env:SIGNING_PFX_PASSWORD /tr http://timestamp.digicert.com /td SHA256 $env:CAT
+            if ($LASTEXITCODE -ne 0) { throw "signtool failed ($LASTEXITCODE)" }
+          } finally { Remove-Item $pfx -Force -ErrorAction SilentlyContinue }
+      - name: Check the catalog against the kit, and say whether it is signed
+        shell: pwsh
+        run: |
+          $t = Test-FileCatalog -CatalogFilePath $env:CAT -Path $env:KIT -Detailed
+          "catalog: $($t.Status), $($t.CatalogItems.Count) files, $($t.HashAlgorithm)"
+          if ("$($t.Status)" -ne 'Valid') { throw 'the catalog does not match the kit' }
+          $sig = Get-AuthenticodeSignature $env:CAT
+          "signature: $($sig.Status) $($sig.SignerCertificate.Subject)"
+          $configured = [bool]($env:ARTIFACT_SIGNING_ACCOUNT -or $env:SIGNING_PFX_BASE64)
+          if ($configured -and "$($sig.Status)" -ne 'Valid') { throw 'a certificate is configured but the catalog is not validly signed' }
+          if (-not $configured) { "::notice::no signing certificate is configured: the kit's catalog ships unsigned" }
+      - name: Zip the kit again, its catalog beside its folder
+        run: python tools/build_installer.py --rezip "${{ env.KIT }}" --beside "${{ env.CAT }}"
       - name: Install the kit the way a client does, then run its gate
         shell: cmd
         run: |
@@ -48,6 +118,10 @@ jobs:
           cd /d "%KIT%" || exit /b 1
           call install.cmd || exit /b 1
           call verify.cmd || exit /b 1
+      - name: Attest where the kit was built (provenance)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/gea-program-*-win64.zip
       - name: Attach the kit to the release
         shell: bash
         run: bash .github/workflows/attach-kit.sh "${{ inputs.release_tag }}" "dist/gea-program-*-win64.zip" "-win64.zip"
@@ -71,6 +145,10 @@ jobs:
       - name: Install it offline and run its gate
         run: |
           cd dist/gea-program-*-linux-*/ && ./install.sh && ./verify.sh
+      - name: Attest where the kit was built (provenance)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/gea-program-*-linux-*.zip
       - name: Attach to the release
         run: bash .github/workflows/attach-kit.sh "${{ inputs.release_tag }}" "dist/gea-program-*-linux-*.zip" "-linux-"
         env:

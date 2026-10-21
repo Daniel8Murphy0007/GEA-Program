@@ -393,8 +393,8 @@ workspace) that this kit creates on first start and never deletes.
 3. Wells -> add a well from a file (historian CSV, LAS) or the catalogue.
    Patch panel -> add a patch to read the drill floor (WITS0), a WITSML
    store, OPC UA, MQTT or Modbus. Home -> Refresh every report.
-4. {verify}  runs the acceptance gate (368 checks) from this installation and
-   is your own acceptance evidence (also on the Verification page).
+4. {verify}  runs every check of the acceptance gate from this installation
+   and is your own acceptance evidence (also on the Verification page).
 5. report-samples\\  holds one rendered example of every report the program
    writes, from the build in this kit; SAMPLES.md names the command behind each.
 
@@ -406,15 +406,54 @@ found automatically. Uninstalling: {uninstall} (the workspace stays).
 Workspace location: {workspace}  (set GEA_WORKSPACE before starting to use
 another folder; set GEA_PORT to change the port).
 
-The dashboard listens on this computer only. To serve a control room, start
-it with --host 0.0.0.0 behind the site's TLS proxy; see README.md in the
-package for the service's security notes.
+The dashboard listens on this computer only. To serve a control room, turn
+HTTPS on first (Administration -> HTTPS, or: gea help https) and start it
+with --host 0.0.0.0; people can sign in with their company account
+(gea help company-sign-in). IT_SECURITY.md in this folder answers what an IT
+department asks before installing (also: gea security).
 
 Contents are listed in MANIFEST.json; SHA256SUMS.txt holds the hash of every
 file so the kit can be verified after copying to the site.
-
+{check}
 Licence: Mozilla Public License 2.0. (c) 2026 Daniel T. Murphy / ENRGYONE.
 '''
+
+
+WIN_CHECK = '''
+Checking this kit before installing it (what an IT department may ask):
+  the build that made it - with the GitHub CLI, where the zip was saved:
+    gh attestation verify gea-program-{version}-win64.zip -R Daniel8Murphy0007/GEA-Program
+  every file against the catalog beside this folder, in PowerShell, in the
+  folder the zip was extracted to, before install.cmd runs:
+    Get-AuthenticodeSignature .\\gea-program-{version}-win64.cat
+    Test-FileCatalog -CatalogFilePath .\\gea-program-{version}-win64.cat -Path .\\gea-program-{version}-win64
+  (Valid: no file has changed. The signature names the publisher once the
+  publisher's code-signing certificate is in place; until then it reads
+  NotSigned. install.cmd then adds the installed packages to the folder,
+  so the check is made before it.)
+'''
+LINUX_CHECK = '''
+Checking this kit before installing it: with the GitHub CLI, where the zip
+was saved:
+    gh attestation verify gea-program-{version}-{tag}.zip -R Daniel8Murphy0007/GEA-Program
+'''
+
+
+def rezip(kit: Path, beside: list) -> Path:
+    """The kit's zip made again from its folder - after the workflow has made (and, with a certificate, signed) its
+    file catalog - with the given files beside the folder at the top of the zip. Every file of the folder, under the
+    folder's name, as the build wrote it."""
+    kit = Path(kit)
+    if not (kit / 'MANIFEST.json').is_file():
+        raise SystemExit(f'{kit} is not a kit folder (no MANIFEST.json)')
+    zpath = kit.parent / f'{kit.name}.zip'
+    files = sorted(p for p in kit.rglob('*') if p.is_file())
+    with zipfile.ZipFile(zpath, 'w', zipfile.ZIP_DEFLATED) as z:
+        for p in files:
+            z.write(p, f'{kit.name}/{p.relative_to(kit).as_posix()}')
+        for b in beside:
+            z.write(b, Path(b).name)
+    return zpath
 
 
 def main(argv=None) -> int:
@@ -425,7 +464,13 @@ def main(argv=None) -> int:
     ap.add_argument('--extras', default=EXTRAS_DEFAULT, help='comma-separated extras to include (desktop adds PyQt6, ~100 MB)')
     ap.add_argument('--out', default=str(ROOT / 'dist'))
     ap.add_argument('--no-zip', action='store_true')
+    ap.add_argument('--rezip', default=None, help='zip an existing kit folder again (after its catalog is made and signed) instead of building')
+    ap.add_argument('--beside', action='append', default=[], help='--rezip: a file to put beside the kit folder at the top of the zip (the catalog)')
     a = ap.parse_args(argv)
+    if a.rezip:
+        z = rezip(Path(a.rezip), [Path(b) for b in a.beside])
+        print(f'== {z} ({z.stat().st_size / 1e6:.1f} MB)')
+        return 0
 
     ver = version()
     tag = 'win64' if a.platform == 'windows' else f'linux-{platform.machine()}'
@@ -449,7 +494,8 @@ def main(argv=None) -> int:
         scripts = {k: v.replace('{version}', ver).replace('{extras}', a.extras) for k, v in WIN_SCRIPTS.items()}
         for name, body in scripts.items():
             (kit / name).write_text(body.replace('\n', '\r\n'), encoding='utf-8', newline='')
-        readme = README.format(version=ver, target='Windows x64', pyline=f'its own Python {a.python}', install='Double-click install.cmd (about a minute).',
+        check = WIN_CHECK.format(version=ver)
+        readme = README.format(version=ver, target='Windows x64', pyline=f'its own Python {a.python}', install='Double-click install.cmd (about a minute).', check=check,
                                start='Double-click start-dashboard.cmd.', verify='verify.cmd', port='8765',
                                service='To have the dashboard start at logon: register-service.cmd (unregister-service.cmd undoes it).',
                                stop='stop-dashboard.cmd', uninstall='uninstall.cmd', workspace='%LOCALAPPDATA%\\GEA-Program\\site')
@@ -460,11 +506,14 @@ def main(argv=None) -> int:
             p.write_text(body, encoding='utf-8')
             if not name.endswith('.service'):
                 p.chmod(0o755)
-        readme = README.format(version=ver, target='Linux', pyline='a virtual environment built from the machine\'s python3 (3.10 or newer)', install='./install.sh',
+        readme = README.format(version=ver, target='Linux', pyline='a virtual environment built from the machine\'s python3 (3.10 or newer)', install='./install.sh', check=LINUX_CHECK.format(version=ver, tag=tag),
                                start='./start-dashboard.sh', verify='./verify.sh', port='8765',
                                service='To run as a service: copy the kit to /opt/gea-program, edit gea-program.service if the paths differ, then\n  cp gea-program.service ~/.config/systemd/user/ && systemctl --user enable --now gea-program',
                                stop='Ctrl+C', uninstall='delete the kit folder', workspace='~/.local/share/gea-program/site')
     (kit / 'README.txt').write_text(readme, encoding='utf-8')
+    sec = ROOT / 'docs' / 'IT_SECURITY.md'
+    if sec.is_file():
+        shutil.copy2(sec, kit / 'IT_SECURITY.md')
     samples = ROOT / 'docs' / 'report_samples'
     if samples.is_dir():
         shutil.copytree(samples, kit / 'report-samples')

@@ -12660,6 +12660,167 @@ def section_cy_company_sign_in(tmp: str) -> None:
        "the help page with the Entra ID steps" + (f" - failed: {failed4}" if failed4 else ""))
 
 
+def section_cz_it_review(tmp: str) -> None:
+    """Section CZ - what an IT department asks: the security overview ships with the program and agrees with the
+    code it describes (the rounds, the sessions, the lock, the port, TLS, every host the program can reach); `gea
+    security`, `gea guide` and `gea help` answer through `python -m gea` as the kit's launcher runs it; in a checkout,
+    the kit tools zip the kit again with its catalog beside it and tell the site how to check it, and the build
+    workflow attests both kits and signs the catalog only when a certificate is configured."""
+    import importlib.util
+    import json as _json
+    import subprocess as _sp
+    import urllib.parse as _up
+    import zipfile as _zf
+    from . import doctor as DR
+    from . import elevation as EL
+    from . import helplib as H
+    from . import seismic_watch as SW
+    from . import service as SVC
+    from . import tls as TLS
+    pkg = Path(__file__).parent
+    checkout = (pkg.parent / "pyproject.toml").exists() and (pkg.parent / "tools" / "build_installer.py").exists()
+
+    # -- CZ1 the overview, and the code it describes -------------------------------------------------------------------
+    text = H.security_text() or ""
+    docs_copy = pkg.parent / "docs" / "IT_SECURITY.md"
+    same = (not docs_copy.exists()) or docs_copy.read_text(encoding="utf-8") == text
+    flat = " ".join(text.split())
+    with open(Path(pkg, "reference", "eia_prices.provenance.json"), encoding="utf-8") as f:
+        eia_hosts = {_up.urlsplit(s["refresh_url"]).hostname for s in _json.load(f)["series"].values() if s.get("refresh_url")}
+    doctor_src = Path(DR.__file__).read_text(encoding="utf-8")
+    hosts = {_up.urlsplit(EL.EPQS_URL).hostname, _up.urlsplit(SW.QUERY_URL).hostname, _up.urlsplit(SW.FEED_URL).hostname, *eia_hosts}
+    hosts |= {"pypi.org"} if "https://pypi.org/pypi/gea-program/json" in doctor_src else {"(the update check moved)"}
+    facts = {
+        "rounds": f"{SVC.PBKDF2_ROUNDS:,}" in flat,
+        "sessions": f"{SVC.SESSION_HOURS} hours" in flat and "256-bit" in flat,
+        "lock": SVC.LOGIN_MAX_FAILURES == 5 and "five failures" in flat and f"{SVC.LOGIN_LOCK_S // 60} minutes" in flat,
+        "port": "TCP 8765" in flat and "8765" in Path(DR.__file__).read_text(encoding="utf-8"),
+        "tls": "TLS 1.2 minimum" in flat and f"last {TLS.EXPIRING_DAYS} days" in flat,
+        "hosts": all(f"`{h}`" in flat for h in hosts),
+        "no_telemetry": "No telemetry" in flat,
+    }
+    # Python 3.14's argparse formats every help string as the parser is built (help % params) and stops on a bare
+    # "%": v0.54.0's first ship stopped at its gate that way while 3.13 passed. The same check, on any Python.
+    import argparse as _ap
+    import contextlib as _cl
+    import io as _io
+    from . import __main__ as _M
+    bad_help = []
+    _orig_add, _orig_sub = _ap.ArgumentParser.add_argument, _ap._SubParsersAction.add_parser
+    _params = {k_: "x" for k_ in ("prog", "default", "dest", "type", "choices", "metavar", "required", "nargs", "const", "option_strings")}
+
+    def _fmt_ok(h):
+        try:
+            h % _params
+            return True
+        except (ValueError, TypeError, KeyError):
+            return False
+
+    def _add(self, *a_, **k_):
+        h_ = k_.get("help")
+        if isinstance(h_, str) and h_ != _ap.SUPPRESS and not _fmt_ok(h_):
+            bad_help.append(f"{self.prog} {'/'.join(a_)}")
+        return _orig_add(self, *a_, **k_)
+
+    def _sub(self, name, **k_):
+        h_ = k_.get("help")
+        if isinstance(h_, str) and not _fmt_ok(h_):
+            bad_help.append(f"gea {name}")
+        return _orig_sub(self, name, **k_)
+    _ap.ArgumentParser.add_argument, _ap._SubParsersAction.add_parser = _add, _sub
+    try:
+        with _cl.redirect_stdout(_io.StringIO()), _cl.redirect_stderr(_io.StringIO()):
+            try:
+                _M.main(["wells"])
+            except SystemExit:
+                pass
+    finally:
+        _ap.ArgumentParser.add_argument, _ap._SubParsersAction.add_parser = _orig_add, _orig_sub
+    facts["help_strings"] = not bad_help
+    r_sec = _sp.run([sys.executable, "-m", "gea", "security"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    r_guide = _sp.run([sys.executable, "-m", "gea", "guide"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    r_help = _sp.run([sys.executable, "-m", "gea", "help", "https"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    bad = [k for k, v in facts.items() if not v]
+    ok(text.startswith("# GEA-Program for an IT department") and same and not bad
+       and r_sec.returncode == 0 and "GEA-Program for an IT department" in r_sec.stdout
+       and r_guide.returncode == 0 and "HOW TO TEST GEA" in r_guide.stdout and r_help.returncode == 0 and "**The command**" in r_help.stdout,
+       "CZ1 the security overview ships in the package (identical to docs/IT_SECURITY.md) and agrees with the code: the password hashing rounds, the "
+       "session length and token size, the sign-in lock, the one port, the TLS floor and the expiry warning, every host the program can reach "
+       "(ComCat, the elevation service, the price series, PyPI); `python -m gea security`, `guide` and `help` answer as the kit's own launcher "
+       "runs them; every option's help text formats the way Python 3.14 checks it as the parser is built"
+       + (f" - disagrees: {bad}" if bad else "") + (f" - help texts: {bad_help}" if bad_help else ""))
+
+    # -- CZ2 the kit is zipped again with its catalog, and says how to check it ----------------------------------------------
+    if checkout:
+        spec = importlib.util.spec_from_file_location("cz_installer", str(pkg.parent / "tools" / "build_installer.py"))
+        bi = importlib.util.module_from_spec(spec); spec.loader.exec_module(bi)
+        kit = Path(tmp, "cz_kit", "gea-program-9.9.9-win64"); (kit / "python").mkdir(parents=True)
+        (kit / "MANIFEST.json").write_text("{}", encoding="utf-8"); (kit / "python" / "python.exe").write_bytes(b"MZ stand-in")
+        (kit / "SHA256SUMS.txt").write_text("x  MANIFEST.json\n", encoding="utf-8")
+        cat = Path(tmp, "cz_kit", "gea-program-9.9.9-win64.cat"); cat.write_bytes(b"0\x82 a catalog stand-in")
+        zp = bi.rezip(kit, [cat])
+        with _zf.ZipFile(zp) as z:
+            names = sorted(z.namelist())
+            cat_back = z.read("gea-program-9.9.9-win64.cat")
+        try:
+            bi.rezip(Path(tmp, "cz_kit"), [])
+            not_kit = "accepted"
+        except SystemExit as e:
+            not_kit = str(e)
+        readme = bi.README.format(version="9.9.9", target="Windows x64", pyline="p", install="i", start="s", verify="v", port="8765",
+                                  service="sv", stop="st", uninstall="u", workspace="w", check=bi.WIN_CHECK.format(version="9.9.9"))
+        build_src = (pkg.parent / "tools" / "build_installer.py").read_text(encoding="utf-8")
+        c2 = {
+            "rezip": names == ["gea-program-9.9.9-win64.cat", "gea-program-9.9.9-win64/MANIFEST.json", "gea-program-9.9.9-win64/SHA256SUMS.txt",
+                               "gea-program-9.9.9-win64/python/python.exe"] and cat_back == cat.read_bytes() and "not a kit folder" in not_kit,
+            "readme": all(x in readme for x in ("gh attestation verify gea-program-9.9.9-win64.zip -R Daniel8Murphy0007/GEA-Program",
+                                                "Test-FileCatalog -CatalogFilePath .\\gea-program-9.9.9-win64.cat -Path .\\gea-program-9.9.9-win64",
+                                                "Get-AuthenticodeSignature", "IT_SECURITY.md", "gea help https"))
+                      and "368 checks" not in readme and "behind the site's TLS proxy" not in readme,
+            "ships_overview": "docs' / 'IT_SECURITY.md'" in build_src and "kit / 'IT_SECURITY.md'" in build_src,
+        }
+        where = "the checkout's kit tools"
+    else:
+        c2 = {"installed": bool(H.security_text())}
+        where = "an installed copy: the kit tools are checked in the checkout"
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       f"CZ2 ({where}) the kit is zipped again from its folder with its file catalog beside the folder, every file kept; a folder that is not a kit "
+       "is refused; the kit's README tells the site how to check the build's attestation and every file against the catalog and its signature, "
+       "and carries the IT overview" + (f" - failed: {failed2}" if failed2 else ""))
+
+    # -- CZ3 the build workflow: attested, signed only with a certificate, never signed in name only ----------------------------
+    wf = pkg.parent / ".github" / "workflows" / "build-installer.yml"
+    if wf.exists():
+        y = wf.read_text(encoding="utf-8")
+        win = y[y.index("windows-kit:"):y.index("linux-kit:")]
+        lin = y[y.index("linux-kit:"):]
+        order = [win.index(s) for s in ("New-FileCatalog", "azure/artifact-signing-action", "signtool", "Test-FileCatalog", "--rezip", "call install.cmd",
+                                        "attest-build-provenance", "attach-kit.sh")]
+        c3 = {
+            "permissions": "id-token: write" in y and "attestations: write" in y and "contents: write" in y,
+            "attested": "actions/attest-build-provenance" in win and "actions/attest-build-provenance" in lin
+                        and "subject-path: dist/gea-program-*-win64.zip" in win and "subject-path: dist/gea-program-*-linux-*.zip" in lin,
+            "conditional": "if: env.ARTIFACT_SIGNING_ACCOUNT != ''" in win and "if: env.ARTIFACT_SIGNING_ACCOUNT == '' && env.SIGNING_PFX_BASE64 != ''" in win
+                           and "secrets.ARTIFACT_SIGNING_ACCOUNT" in win and "secrets.SIGNING_PFX_BASE64" in win,
+            "checked": "-CatalogVersion 2.0" in win and "throw 'the catalog does not match the kit'" in win
+                       and "throw 'a certificate is configured but the catalog is not validly signed'" in win and "ships unsigned" in win
+                       and "Remove-Item $pfx" in win and "/tr http://timestamp" in win and "timestamp-rfc3161" in win,
+            "order": order == sorted(order),
+            "policy": (pkg.parent / "SECURITY.md").exists() and "Report a vulnerability" in " ".join((pkg.parent / "SECURITY.md").read_text(encoding="utf-8").split()),
+        }
+        where3 = "the checkout's workflow"
+    else:
+        c3 = {"installed": True}
+        where3 = "an installed copy: the workflow is checked in the checkout"
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       f"CZ3 ({where3}) both kits are attested by the build that made them; the Windows kit's file catalog is made, signed by Azure Artifact "
+       "Signing or a PFX only when its secrets are configured (timestamped; the PFX removed), checked against the kit - a mismatch, or a "
+       "configured certificate that did not sign, stops the build - then zipped beside the kit before the kit is installed and its gate run; "
+       "SECURITY.md says how to report a vulnerability" + (f" - failed: {failed3}" if failed3 else ""))
+
+
 def PR_read_ok(path) -> bool:
     from . import pdf_report as PR
     try:
@@ -12774,6 +12935,7 @@ def main() -> int:
         section_cw_decline(tmp)
         section_cx_https(tmp)
         section_cy_company_sign_in(tmp)
+        section_cz_it_review(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

@@ -4,6 +4,13 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.57.0 - 2026-10-20 - the IT review
+
+- **What an IT department checks before installing.** The security
+  overview (`gea security`), checked against the code; both kits attested
+  by their build; the Windows kit's file catalog, signed once the
+  certificate is configured; the disclosure policy. Section CZ; gate 470.
+
 ## v0.56.0 - 2026-10-20 - company sign-in
 
 - **The company's own accounts.** OpenID Connect with PKCE against Entra

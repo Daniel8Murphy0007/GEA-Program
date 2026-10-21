@@ -67,7 +67,16 @@ def _build_config(a):
     return SimulatorConfig(**kw)
 
 
+# the front door's own commands (gea.cli), reached the same way through `python -m gea` - the kit's gea.cmd and
+# gea wrapper run `python -m gea`, and before v0.57 `gea guide`, `gea help` and the rest answered "invalid choice"
+FRONT_ONLY = ('quickstart', 'guide', 'security', 'docs', 'gui', 'help')
+
+
 def main(argv=None) -> int:
+    _argv = list(sys.argv[1:] if argv is None else argv)
+    if _argv and _argv[0] in FRONT_ONLY:
+        from .cli import main as _front
+        return _front(_argv)
     ap = argparse.ArgumentParser(prog="gea",
                                  description="GEA Downhole Simulator - headless CLI")
     sub = ap.add_subparsers(dest="cmd", required=True)

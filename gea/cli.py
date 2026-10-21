@@ -10,6 +10,7 @@
     gea model-cards ...    gea store-forward ...  gea sla-report ...  gea fat-sat ...
     gea help [topic]                    the help library, by the job (gea help drift); same text as the dashboard's panels
     gea guide                           the click-by-click tester guide
+    gea security                        what an IT department asks before installing, answered (docs/IT_SECURITY.md)
     gea docs                            where the catalogue and the reports live on this machine
     gea gui                             the desktop window (desktop extra)
     gea accept                          the product gate
@@ -23,7 +24,7 @@ import os
 import sys
 from pathlib import Path
 
-FRONT = {'quickstart', 'survey', 'guide', 'docs', 'gui', 'help', '-h', '--help'}
+FRONT = {'quickstart', 'survey', 'guide', 'security', 'docs', 'gui', 'help', '-h', '--help'}
 
 
 def _pkg_root() -> Path:
@@ -57,6 +58,16 @@ def cmd_guide(_argv) -> int:
         text = cand.read_text(encoding='utf-8') if cand.exists() else None
     if text is None:
         print('the tester guide is missing from this installation; reinstall: python -m pip install --upgrade --force-reinstall "gea-program[live]"')
+        return 2
+    print(text)
+    return 0
+
+
+def cmd_security(_argv) -> int:
+    from .helplib import security_text
+    text = security_text()                                # ships inside the package (gea/help/IT_SECURITY.md)
+    if text is None:
+        print('the security overview is missing from this installation; reinstall: python -m pip install --upgrade --force-reinstall "gea-program[live]"')
         return 2
     print(text)
     return 0
@@ -141,6 +152,8 @@ def main(argv=None) -> int:
             return cmd_survey(rest)
         if cmd == 'guide':
             return cmd_guide(rest)
+        if cmd == 'security':
+            return cmd_security(rest)
         if cmd == 'docs':
             return cmd_docs(rest)
         if cmd == 'gui':

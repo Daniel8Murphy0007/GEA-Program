@@ -5,6 +5,42 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.57.0] - 2026-10-20 - The IT review: provenance, code signing, the security overview
+
+### Added
+- **The security overview for an IT department** (`docs/IT_SECURITY.md`,
+  shipped in the package; `gea security` prints it): where the data is,
+  every host the program can reach and when, the one port, HTTPS, company
+  sign-in and roles, the audit log, the bill of materials, how a kit is
+  checked, updates. The gate checks it against the code it describes.
+- `SECURITY.md`: how to report a vulnerability (GitHub private
+  vulnerability reporting, or email).
+- **Provenance**: the build workflow attests both kits (GitHub artifact
+  attestations, Sigstore); `gh attestation verify <the kit's zip> -R
+  Daniel8Murphy0007/GEA-Program` checks one.
+- **Code signing, ready for the certificate**: the Windows kit carries a
+  file catalog beside its folder in the zip (the SHA-256 of every file,
+  the batch launchers included, which cannot be signed themselves). The
+  workflow signs it with Azure Artifact Signing or a PFX when their
+  secrets are configured, checks it against the kit, and stops when a
+  configured certificate did not sign; without a certificate the catalog
+  ships unsigned and the run says so.
+- `tools/build_installer.py --rezip <kit folder> --beside <file>`; the
+  kit's README tells the site how to check the attestation, the catalog
+  and its signature, and the kit carries `IT_SECURITY.md`.
+- `docs/commercial/COMMERCIAL.md`: the subscription - the source open
+  under MPL-2.0; the signed kit, updates and support by agreement.
+- Acceptance section CZ (3 checks). CZ1 also checks every option's help
+  text the way Python 3.14 does when the parser is built (the check that
+  stopped v0.54.0's first ship), on whatever Python runs the gate.
+
+### Fixed
+- `gea guide`, `gea help`, `gea quickstart`, `gea docs` and `gea gui`
+  answered "invalid choice" through `python -m gea`, which is how the
+  kit's `gea.cmd` runs the program; they are reached that way now.
+- The kit's README named a 368-check gate and a TLS proxy as the only way
+  to serve a control room.
+
 ## [v0.56.0] - 2026-10-20 - Company sign-in
 
 ### Added

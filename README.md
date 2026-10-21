@@ -1252,6 +1252,19 @@ gea oidc --workspace C:\site --issuer https://login.microsoftonline.com/3f8b2c1d
 Or Administration -> **Company sign-in**. `gea help company-sign-in` has the
 Entra ID app registration step by step.
 
+### For an IT department
+
+`docs/IT_SECURITY.md` (`gea security` prints it from any installation)
+answers what a reviewer asks before installing: where the data is and every
+connection the program can make, the one port, HTTPS, company sign-in and
+roles, the audit log, the bill of materials (`gea sbom`), and how a kit is
+checked - the build's attestation
+(`gea-program-0.57.0-win64.zip` checked with
+`gh attestation verify gea-program-0.57.0-win64.zip -R Daniel8Murphy0007/GEA-Program`)
+and the file catalog beside the kit's folder, Authenticode-signed once the
+publisher's certificate is in place. `SECURITY.md` says how to report a
+vulnerability.
+
 ### Before a site goes live
 
 `deploy/README.md` is the checklist: HTTPS from the service itself (above),
@@ -1383,4 +1396,5 @@ https://pypi.org/project/gea-program/ after the first successful run.
 ## Licence
 
 Mozilla Public License 2.0 (MPL-2.0); see `LICENSE`. Every source file carries the MPL-2.0
-header (Exhibit A). Copyright (c) 2026 Daniel T. Murphy.
+header (Exhibit A). Copyright (c) 2026 Daniel T. Murphy. The signed kit, its updates and
+support are a subscription from ENRGYONE (`docs/commercial/COMMERCIAL.md`).
