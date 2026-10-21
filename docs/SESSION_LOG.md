@@ -2778,3 +2778,23 @@ stability; and motor specifications in the tool catalogue.
 - The tab was driven in headless Chromium: light, dark and phone width,
   no console errors.
 - Section DA (4 checks). Gate 474 on Python 3.13 and 3.14.
+
+## 2026-10-21 - The declarations workbook carries the engineering (v0.59.0)
+
+- Asked (chosen: the Pad 3 declarations workbook). On Pad 3 every tab from
+  v0.50 to v0.58 waits on what the drilling recorder never writes; the
+  site's own inventory (_incoming\Drilling Data\edr_dataset_contents.xlsx)
+  lists the same gaps: no survey, no mud, no casing, no identity.
+- The sheet's ten new tables write through each tab's own function, so
+  the checks, the sources and the audit lines are the tabs' own.
+- The recorder's Interpolated TVD (already in each Pad 3 drilling record,
+  about 9-20 % of rows blank, stopping short of TD) gives the depth
+  conversions a well without a survey can have; it has no azimuth, so
+  torque and drag on it is an inclination-only, one-plane path, and the
+  pages say so. Pore pressure already used it (v0.52).
+- Checked: a sheet with all ten tables planned NEW, written, then SAME;
+  the template imported unchanged writes nothing; each malformed row
+  refused alone; the Excel workbook reads back to the same plan; on a
+  record built with a known standpipe offset, the recorder-TVD path gives
+  TVDs within 30 ft of the survey's and the same offset.
+- Section DB (4 checks). Gate 478 on Python 3.13 and 3.14.

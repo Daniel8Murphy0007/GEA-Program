@@ -5,6 +5,28 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.59.0] - 2026-10-21 - The declarations workbook carries the engineering
+
+### Added
+- **The declarations sheet carries the engineering** (`gea declare`):
+  ten new tables - `[survey_program]`, `[plans]`, `[pore_pressure]`,
+  `[pressures]`, `[torque_drag]`, `[hydraulics]`, `[frac_stages]`,
+  `[frac_monitors]`, `[production]`, `[decline_terms]` - so everything
+  the v0.50-v0.58 tabs need goes in through one sheet. Every row is
+  checked before anything is written, planned NEW, CHANGE or SAME, and
+  written through the tab's own function (audited the same way); files
+  (plans, stage tables, production) are named beside the sheet.
+- **The sheet as an Excel workbook**: `gea declare --template pad3.xlsx`,
+  and **Download the sheet (Excel)** on the Setup tab
+  (`GET /api/declare/template?format=xlsx`); CSV stays.
+- **No survey: the recorder's own TVD.** A well with no directional survey
+  but a drilling record carrying the recorder's Interpolated TVD is read
+  on it by Hydraulics & ECD (the TVDs) and Torque & drag (an
+  inclination-only path in one vertical plane), each labelled as the
+  recorder's interpolation and not a survey; an attached survey is used
+  instead.
+- Acceptance section DB (4 checks).
+
 ## [v0.58.0] - 2026-10-21 - Hydraulics and ECD
 
 ### Added

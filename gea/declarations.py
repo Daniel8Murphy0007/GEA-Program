@@ -632,6 +632,7 @@ def plan(ws, text: str, base_dir: str = '') -> dict:
             add('settings', rec['_row'], None, 'CHANGE', f'{k} {_g(cur)} -> {_g(want)}', fn)
         guard('settings', rec, b)
 
+    _plan_engineering(ws, tables, wells, add, guard, base_dir)
     steps.sort(key=lambda s: (APPLY_ORDER.index(s['table']), s['row']))
     counts = {k: sum(1 for s in steps if s['action'] == k) for k in ('NEW', 'CHANGE', 'SAME')}
     return {'steps': steps, 'errors': sorted(errs, key=lambda e: int(re.match(r'row (\d+)', e).group(1)) if re.match(r'row (\d+)', e) else 0),
@@ -798,9 +799,379 @@ def template(ws) -> str:
     for wid, lst in RS.casing(ws).items():
         for c in lst:
             w.writerow(['', wid, c['size'], _g(c['shoe_md_ft']), c.get('set') or '', c['source']])
+    _template_engineering(ws, w, head)
     head('settings')
     sw, ps = SW.settings(ws), PS.settings(ws)
     for k, v in (('watch_enabled', _g(bool(sw['enabled']))), ('watch_every_min', _g(float(sw['every_min']))), ('watch_mode', sw['mode']),
                  ('summary_enabled', _g(bool(ps['enabled']))), ('summary_at', ps['at']), ('summary_send', _g(bool(ps['send'])))):
         w.writerow(['', k, v])
     return buf.getvalue()
+
+
+# -- the engineering declarations (v0.59): plans and survey programs, pore pressure, torque and drag, hydraulics, frac
+# stages, production. Each row is written through its own module's function, as its own tab or command writes it.
+ENG_TABLES: Dict[str, dict] = {
+    'survey_program': {'cols': ('well', 'program', 'source'), 'need': ('well', 'program', 'source'),
+                       'about': "the survey tools by depth for the collision check and plan vs actual: one tool model ('MWD+SRGM') or runs by measured depth in metres ('0-1500:MWD+SRGM, 1500-:MWD+IFR1'), and the survey program it came from (`gea plan --models` lists the models)"},
+    'plans': {'cols': ('well', 'file', 'azimuth_reference', 'grid', 'declination_deg', 'md_unit', 'source'), 'need': ('well', 'file', 'azimuth_reference', 'source'),
+              'about': "directional plans: the file (a path beside this sheet: MD, Inc and Azi columns, an Excel table or a WITSML trajectory), its azimuth reference (grid with the grid named, true, or magnetic with the declination), the MD unit and the plan's revision"},
+    'pore_pressure': {'cols': ('well', 'indicator', 'exponent', 'nct_top_m', 'nct_bottom_m', 'gr_cutoff', 'normal_gradient_psi_ft', 'poisson',
+                               'density_above_gcc', 'water_depth_m', 'air_gap_m', 'smooth_m', 'bit_in', 'source'),
+                      'need': ('well', 'source'),
+                      'about': "how a well's pore pressure is read: the indicator (auto, sonic, resistivity, dexponent), Eaton's exponent, the normally pressured interval (m TVD), the shale cut-off (gAPI), the normal gradient (psi/ft), Poisson's ratio, the density above the logs, the sea, and the bit size (in) the d-exponent needs; blank keeps the default"},
+    'pressures': {'cols': ('well', 'depth_m', 'depth_kind', 'value', 'unit', 'kind', 'source'), 'need': ('well', 'depth_m', 'value', 'kind', 'source'),
+                  'about': "measured pressures: the depth in metres (tvd or md), the value in psi or ppg, the kind (pore: a formation test; kick; lot: a leak-off test; fit: a formation-integrity test) and the test it came from"},
+    'torque_drag': {'cols': ('well', 'string', 'mud_ppg', 'mu_cased', 'mu_open', 'block_klbf', 'source'), 'need': ('well', 'source'),
+                    'about': "the string for torque and drag, from the bit up: what:length_ft:od_in:lb_ft_in_air:contact_od_in sections separated by ; (the last with no length: to the surface), the mud (ppg), the friction factors cased and open, the block weight (klbf; blank: estimated from the record)"},
+    'hydraulics': {'cols': ('well', 'string', 'hole', 'mw_ppg', 'fann', 'flow_gpm', 'nozzles_32', 'bit_in', 'surface_psi', 'surface_ref_gpm', 'tools_psi',
+                            'trip_ft_min', 'pp_ppg', 'fg_ppg', 'source'), 'need': ('well', 'source'),
+                   'about': "the hydraulics: the string from the bit up (what:length_ft:od_in:bore_in; ...), the hole from the surface down (what:bottom_md_ft:inside_diameter_in; ..., the open hole last with no bottom), the mud weight, the viscometer dial (600=60 300=38 200=30 100=21 6=7 3=6), the pump rate, the nozzles in 32nds (14 14 14 14 14), the bit (in), the surface lines' loss (psi) at a rate, the motor and MWD (psi), the trip speed, and a pore pressure and fracture gradient for the hole when the Pore pressure tab has none"},
+    'frac_stages': {'cols': ('well', 'file', 'depth_unit', 'utc_offset_h', 'source'), 'need': ('well', 'file', 'source'),
+                    'about': "a treatment well's stage table (a path beside this sheet: CSV or Excel, one row per stage with its start and end of pumping), its depth unit (ft or m), the stage clock's hours from UTC, and the report it came from"},
+    'frac_monitors': {'cols': ('well', 'channel'), 'need': ('well', 'channel'),
+                      'about': "a monitored well's pressure channel for the frac-hit check, as the record names it (blank: the first pressure channel)"},
+    'production': {'cols': ('well', 'file', 'source'), 'need': ('well', 'file', 'source'),
+                   'about': "a well's monthly production (a path beside this sheet: CSV or Excel with the month, oil, gas, water and producing days) and where it came from"},
+    'decline_terms': {'cols': ('well', 'terminal_decline', 'b_max', 'start', 'price_basis', 'oil_price', 'gas_price', 'nri', 'severance', 'opex_month',
+                               'discount', 'gas_mmbtu_per_mcf', 'source'), 'need': ('well', 'source'),
+                      'about': "the decline fit's and the value's terms: the terminal decline (0.08 = 8 % a year), the largest b, the month to fit from (YYYY-MM), the price basis (sec or flat) and flat prices, the net revenue interest, severance tax, operating cost a month (USD), the discount rate and the gas heat content"},
+}
+TABLES.update(ENG_TABLES)
+ENG_ORDER = ('survey_program', 'plans', 'pore_pressure', 'pressures', 'torque_drag', 'hydraulics', 'frac_stages', 'frac_monitors', 'production', 'decline_terms')
+ORDER = ORDER[:-1] + ENG_ORDER + ('settings',)
+APPLY_ORDER = APPLY_ORDER[:-1] + ENG_ORDER + ('settings',)
+
+
+def _same_vals(cur: dict, want: dict) -> bool:
+    for k, v in want.items():
+        c = cur.get(k)
+        if isinstance(v, float) or isinstance(c, float):
+            try:
+                if c is None or abs(float(c) - float(v)) > 1e-9:
+                    return False
+            except (TypeError, ValueError):
+                return False
+        elif c != v:
+            return False
+    return True
+
+
+def _file_bytes(p: str, base_dir: str, what: str, where: str) -> bytes:
+    path = p if os.path.isabs(p) else os.path.join(base_dir or '.', p)
+    if not os.path.isfile(path):
+        raise SheetError(f'no {what} file {p!r} beside the sheet' + ('' if base_dir else f' (a sheet sent through the browser carries no files: attach it on {where} or from the command line)'))
+    with open(path, 'rb') as f:
+        return f.read()
+
+
+def _plan_engineering(ws, tables, wells, add, guard, base_dir: str) -> None:
+    from . import decline as DCA
+    from . import frac_hits as FH
+    from . import hydraulics as HY
+    from . import pore_pressure as PPF
+    from . import torque_drag as TND
+    from . import wellplan as WPL
+    from . import xlsx_read as XR
+
+    for rec in tables.get('survey_program', []):
+        def b(rec=rec):
+            wid = _well_id(ws, rec['well'], wells)
+            prog = WPL.parse_program(rec['program'])
+            cur = WPL.well_settings(ws, wid)
+            src = rec['source'].strip()
+            if cur['program_declared'] and cur['program'] == prog and cur['source'] == src:
+                add('survey_program', rec['_row'], wid, 'SAME', 'the survey program already declared')
+                return
+            txt = ', '.join((f"to {p['to_md_m']:g} m: " if p['to_md_m'] is not None else ('then ' if i else '')) + p['model'] for i, p in enumerate(prog))
+            add('survey_program', rec['_row'], wid, 'CHANGE' if cur['program_declared'] else 'NEW', f'{txt} ({src})',
+                lambda actor, wid=wid, prog=prog, src=src: WPL.set_well(ws, actor, wid, prog, source=src))
+        guard('survey_program', rec, b)
+
+    for rec in tables.get('plans', []):
+        def b(rec=rec):
+            wid = _well_id(ws, rec['well'], wells)
+            p = rec['file'].strip()
+            content = _file_bytes(p, base_dir, 'plan', 'the Plan vs actual tab')
+            ref = rec['azimuth_reference'].strip().lower()
+            if ref not in ('grid', 'true', 'magnetic'):
+                raise SheetError('the azimuth reference is grid, true or magnetic')
+            dec = _f(rec.get('declination_deg'), 'the declination (degrees)', False)
+            if ref == 'magnetic' and dec is None:
+                raise SheetError('a magnetic azimuth reference needs the declination used')
+            if ref == 'grid' and not rec.get('grid', '').strip():
+                raise SheetError('a grid azimuth reference needs its grid named (e.g. TX-C or UTM14N)')
+            unit = (rec.get('md_unit') or 'ft').strip().lower()
+            if unit not in ('ft', 'm'):
+                raise SheetError('the MD unit is ft or m')
+            body = XR.to_csv(content) if XR.is_xlsx(content) else content.decode('utf-8', errors='replace')
+            if '<trajectory' not in body[:4000]:
+                from . import well3d as W3
+                W3.read_survey_csv(body, unit)
+            sha = hashlib.sha256(XR.to_csv(content).encode('utf-8') if XR.is_xlsx(content) else content).hexdigest()
+            old = ws.well(wid).get('plan') or {}
+            if old.get('sha256') == sha and old.get('azimuth_reference') == ref and old.get('source') == rec['source'].strip():
+                add('plans', rec['_row'], wid, 'SAME', f'{os.path.basename(p)} already attached')
+                return
+            add('plans', rec['_row'], wid, 'CHANGE' if old else 'NEW', f"plan {os.path.basename(p)}, azimuths {ref} ({rec['source'].strip()})",
+                lambda actor, wid=wid, p=p, content=content, ref=ref, dec=dec, unit=unit, rec=rec:
+                    WPL.attach(ws, wid, os.path.basename(p), content, actor, ref, unit, rec.get('grid', '').strip() or None, dec, rec['source'].strip()))
+        guard('plans', rec, b)
+
+    for rec in tables.get('pore_pressure', []):
+        def b(rec=rec):
+            wid = _well_id(ws, rec['well'], wells)
+            want = {}
+            ind = (rec.get('indicator') or '').strip().lower()
+            if ind:
+                if ind not in ('auto', 'sonic', 'resistivity', 'dexponent'):
+                    raise SheetError('the indicator is auto, sonic, resistivity or dexponent')
+                want['indicator'] = ind
+            for k in PPF.LIMITS:
+                v = _f(rec.get(k), k, False)
+                if v is not None:
+                    lo, hi = PPF.LIMITS[k]
+                    if not lo <= v <= hi:
+                        raise SheetError(f'{k} must be between {lo:g} and {hi:g}')
+                    want[k] = v
+            if not want:
+                raise SheetError('give at least one value (blank keeps the default)')
+            cur = PPF.well_config(ws, wid)
+            src = rec['source'].strip()
+            if _same_vals(cur, want) and cur.get('source') == src:
+                add('pore_pressure', rec['_row'], wid, 'SAME', 'already declared')
+                return
+            declared = bool(((PPF._load(ws).get('wells') or {}).get(wid) or {}).get('source'))
+            add('pore_pressure', rec['_row'], wid, 'CHANGE' if declared else 'NEW', ', '.join(f'{k} {_g(v)}' for k, v in want.items()) + f' ({src})',
+                lambda actor, wid=wid, want=want, src=src: PPF.set_well(ws, actor, wid, src, **want))
+        guard('pore_pressure', rec, b)
+
+    have_m = PPF._load(ws).get('measured') or {}
+    for rec in tables.get('pressures', []):
+        def b(rec=rec):
+            wid = _well_id(ws, rec['well'], wells)
+            z, v = _f(rec['depth_m'], 'the depth (m)'), _f(rec['value'], 'the value')
+            unit = (rec.get('unit') or 'psi').strip().lower()
+            dk = (rec.get('depth_kind') or 'tvd').strip().lower()
+            kind = rec['kind'].strip().lower()
+            if kind not in ('pore', 'kick', 'lot', 'fit'):
+                raise SheetError('the kind is pore, kick, lot or fit')
+            if unit not in ('psi', 'ppg') or dk not in ('tvd', 'md'):
+                raise SheetError('the unit is psi or ppg; the depth kind tvd or md')
+            src = rec['source'].strip()
+            if any(abs(m['depth_m'] - z) < 1e-6 and abs(m['value'] - v) < 1e-6 and (m['unit'], m['kind'], m['depth_kind'], m['source']) == (unit, kind, dk, src)
+                   for m in have_m.get(wid, [])):
+                add('pressures', rec['_row'], wid, 'SAME', f'{kind} {v:g} {unit} at {z:g} m {dk} already declared')
+                return
+            add('pressures', rec['_row'], wid, 'NEW', f'{kind} {v:g} {unit} at {z:g} m {dk} ({src})',
+                lambda actor, wid=wid, z=z, v=v, unit=unit, kind=kind, dk=dk, src=src: PPF.add_measurement(ws, actor, wid, z, v, unit, kind, dk, src))
+        guard('pressures', rec, b)
+
+    for rec in tables.get('torque_drag', []):
+        def b(rec=rec):
+            wid = _well_id(ws, rec['well'], wells)
+            string = TND.parse_string(rec['string']) if (rec.get('string') or '').strip() else None
+            vals = {k: _f(rec.get(k), k, k != 'mud_ppg') for k in ('mud_ppg', 'mu_cased', 'mu_open', 'block_klbf')}
+            for k, (lo, hi) in (('mud_ppg', (6.0, 22.0)), ('mu_cased', (0.0, 0.8)), ('mu_open', (0.0, 0.8)), ('block_klbf', (0.0, 200.0))):
+                if vals[k] is not None and not lo <= vals[k] <= hi:
+                    raise SheetError(f'{k} must be between {lo:g} and {hi:g}')
+            if string is None and all(v is None for v in vals.values()):
+                raise SheetError('give the string or at least one value')
+            cur = TND.well_config(ws, wid)
+            src = rec['source'].strip()
+            want = {k: v for k, v in vals.items() if v is not None}
+            if (string is None or cur.get('string') == string) and _same_vals(cur, want) and cur.get('source') == src:
+                add('torque_drag', rec['_row'], wid, 'SAME', 'already declared')
+                return
+            what = (f"{len(string)} section(s) from the bit up; " if string else '') + ', '.join(f'{k} {_g(v)}' for k, v in want.items())
+            add('torque_drag', rec['_row'], wid, 'CHANGE' if cur.get('source') else 'NEW', f'{what} ({src})'.replace('; (', ' ('),
+                lambda actor, wid=wid, string=string, vals=vals, src=src: TND.set_well(ws, actor, wid, src, string, vals['mud_ppg'], vals['mu_cased'],
+                                                                                         vals['mu_open'], vals['block_klbf']))
+        guard('torque_drag', rec, b)
+
+    for rec in tables.get('hydraulics', []):
+        def b(rec=rec):
+            wid = _well_id(ws, rec['well'], wells)
+            string = HY.parse_sections(rec['string'], 'string') if (rec.get('string') or '').strip() else None
+            hole = HY.parse_sections(rec['hole'], 'hole') if (rec.get('hole') or '').strip() else None
+            fann = None
+            if (rec.get('fann') or '').strip():
+                fann = {}
+                for part in rec['fann'].replace(',', ' ').split():
+                    k, _, v = part.partition('=')
+                    if not v:
+                        raise SheetError(f'the viscometer is SPEED=DIAL pairs (600=60 300=38 ...), not {part!r}')
+                    fann[str(int(float(k)))] = float(v)
+                HY.rheology(fann)
+            nz = None
+            if (rec.get('nozzles_32') or '').strip():
+                nz = [float(x) for x in rec['nozzles_32'].replace(',', ' ').split()]
+                if any(not 6.0 <= x <= 32.0 for x in nz) or len(nz) > 12:
+                    raise SheetError('nozzles are in 32nds of an inch, 6 to 32 each, at most 12')
+            vals = {}
+            for k in ('mw_ppg', 'flow_gpm', 'bit_in', 'surface_psi', 'surface_ref_gpm', 'tools_psi', 'trip_ft_min', 'pp_ppg', 'fg_ppg'):
+                v = _f(rec.get(k), k, False)
+                if v is not None:
+                    lo, hi = HY.LIMITS[k]
+                    if not lo <= v <= hi:
+                        raise SheetError(f'{k} must be between {lo:g} and {hi:g}')
+                    vals[k] = v
+            if string is None and hole is None and fann is None and nz is None and not vals:
+                raise SheetError('give at least one of the string, the hole, the mud or a value')
+            cur = HY.well_config(ws, wid)
+            src = rec['source'].strip()
+            same = ((string is None or cur.get('string') == string) and (hole is None or cur.get('hole') == hole)
+                    and (fann is None or {k: float(v) for k, v in (cur.get('fann') or {}).items()} == fann)
+                    and (nz is None or cur.get('nozzles_32') == nz) and _same_vals(cur, vals) and cur.get('source') == src)
+            if same:
+                add('hydraulics', rec['_row'], wid, 'SAME', 'already declared')
+                return
+            parts = ([f'string {len(string)} section(s)'] if string else []) + ([f'hole {len(hole)} section(s)'] if hole else []) \
+                + (['viscometer ' + ' '.join(f'{k}={_g(v)}' for k, v in fann.items())] if fann else []) + ([f"nozzles {' '.join(_g(x) for x in nz)}"] if nz else []) \
+                + [f'{k} {_g(v)}' for k, v in vals.items()]
+            add('hydraulics', rec['_row'], wid, 'CHANGE' if cur.get('source') else 'NEW', '; '.join(parts) + f' ({src})',
+                lambda actor, wid=wid, string=string, hole=hole, fann=fann, nz=nz, vals=vals, src=src: HY.set_well(ws, actor, wid, src, string, hole, fann, nz, **vals))
+        guard('hydraulics', rec, b)
+
+    st_have = FH.stages(ws)
+    for rec in tables.get('frac_stages', []):
+        def b(rec=rec):
+            wid = _well_id(ws, rec['well'], wells)
+            p = rec['file'].strip()
+            content = _file_bytes(p, base_dir, 'stage table', 'the Frac hits tab')
+            unit = (rec.get('depth_unit') or 'ft').strip().lower()
+            if unit not in ('ft', 'm'):
+                raise SheetError('the depth unit is ft or m')
+            off = _f(rec.get('utc_offset_h'), "the stage clock's hours from UTC", False)
+            if off is not None and not -14 <= off <= 14:
+                raise SheetError("the stage clock's offset from UTC is in hours, between -14 and 14")
+            st = FH.read_stages(content, unit)
+            src = rec['source'].strip()
+            old = st_have.get(wid) or {}
+            if old.get('sha256') == hashlib.sha256(content).hexdigest() and old.get('source') == src and old.get('depth_unit') == unit and old.get('utc_offset_h') == off:
+                add('frac_stages', rec['_row'], wid, 'SAME', f'{os.path.basename(p)} already attached')
+                return
+            add('frac_stages', rec['_row'], wid, 'CHANGE' if old else 'NEW', f"{os.path.basename(p)}: {len(st)} stage(s) ({src})",
+                lambda actor, wid=wid, p=p, content=content, src=src, unit=unit, off=off: FH.attach_stages(ws, wid, os.path.basename(p), content, actor, src, unit, off))
+        guard('frac_stages', rec, b)
+
+    mon_have = FH.settings(ws).get('monitors') or {}
+    for rec in tables.get('frac_monitors', []):
+        def b(rec=rec):
+            wid = _well_id(ws, rec['well'], wells)
+            ch = rec['channel'].strip()
+            if (mon_have.get(wid) or {}).get('channel') == ch:
+                add('frac_monitors', rec['_row'], wid, 'SAME', f'monitored on {ch} already')
+                return
+            add('frac_monitors', rec['_row'], wid, 'CHANGE' if wid in mon_have else 'NEW', f'monitored on {ch}',
+                lambda actor, wid=wid, ch=ch: FH.set_settings(ws, actor, '', (wid, ch)))
+        guard('frac_monitors', rec, b)
+
+    prod_have = DCA._load(ws).get('wells') or {}
+    for rec in tables.get('production', []):
+        def b(rec=rec):
+            wid = _well_id(ws, rec['well'], wells)
+            p = rec['file'].strip()
+            content = _file_bytes(p, base_dir, 'production', 'the Decline curves tab')
+            prod = DCA.read_production(content)
+            src = rec['source'].strip()
+            old = prod_have.get(wid) or {}
+            if old.get('sha256') == hashlib.sha256(content).hexdigest() and old.get('source') == src:
+                add('production', rec['_row'], wid, 'SAME', f'{os.path.basename(p)} already attached')
+                return
+            add('production', rec['_row'], wid, 'CHANGE' if old.get('file') else 'NEW', f"{os.path.basename(p)}: {len(prod)} month(s), {prod[0]['month']} to {prod[-1]['month']} ({src})",
+                lambda actor, wid=wid, p=p, content=content, src=src: DCA.attach(ws, wid, os.path.basename(p), content, actor, src))
+        guard('production', rec, b)
+
+    for rec in tables.get('decline_terms', []):
+        def b(rec=rec):
+            wid = _well_id(ws, rec['well'], wells)
+            want = {}
+            for k in DCA.LIMITS:
+                v = _f(rec.get(k), k, False)
+                if v is not None:
+                    lo, hi = DCA.LIMITS[k]
+                    if not lo <= v <= hi:
+                        raise SheetError(f'{k} must be between {lo:g} and {hi:g}')
+                    want[k] = v
+            pb = (rec.get('price_basis') or '').strip().lower()
+            if pb:
+                if pb not in ('sec', 'flat'):
+                    raise SheetError('the price basis is sec or flat')
+                want['price_basis'] = pb
+            if (rec.get('start') or '').strip():
+                if not re.fullmatch(r'\d{4}-\d{2}', rec['start'].strip()[:7]):
+                    raise SheetError('the month to fit from is YYYY-MM')
+                want['start'] = rec['start'].strip()[:7]
+            if not want:
+                raise SheetError('give at least one term')
+            cur = DCA.well_config(ws, wid)
+            src = rec['source'].strip()
+            if _same_vals(cur, want) and cur.get('source') == src:
+                add('decline_terms', rec['_row'], wid, 'SAME', 'already declared')
+                return
+            add('decline_terms', rec['_row'], wid, 'CHANGE' if ((prod_have.get(wid) or {}).get('config')) else 'NEW',
+                ', '.join(f'{k} {_g(v)}' for k, v in want.items()) + f' ({src})',
+                lambda actor, wid=wid, want=want, src=src: DCA.set_config(ws, actor, wid, src, **want))
+        guard('decline_terms', rec, b)
+
+
+def _template_engineering(ws, w, head) -> None:
+    from . import decline as DCA
+    from . import frac_hits as FH
+    from . import hydraulics as HY
+    from . import pore_pressure as PPF
+    from . import torque_drag as TND
+    from . import wellplan as WPL
+    wells = ws.wells()
+    head('survey_program')
+    for x in wells:
+        s = WPL.well_settings(ws, x['id'])
+        if s['program_declared']:
+            w.writerow(['', x['id'], ', '.join((f"{a:g}-{p['to_md_m']:g}:" if p['to_md_m'] is not None else (f'{a:g}-:' if i else '')) + p['model']
+                                               for i, (p, a) in enumerate(zip(s['program'], [0.0] + [q['to_md_m'] or 0.0 for q in s['program']]))), s['source']])
+    head('plans')
+    w.writerow(['# a plan already attached is kept beside its well; list it here only to replace it'])
+    head('pore_pressure')
+    for wid, c in ((PPF._load(ws).get('wells') or {})).items():
+        if c.get('source'):
+            w.writerow(['', wid] + [_g(c.get(k)) if c.get(k) is not None else '' for k in TABLES['pore_pressure']['cols'][1:-1]] + [c['source']])
+    head('pressures')
+    for wid, lst in (PPF._load(ws).get('measured') or {}).items():
+        for m in lst:
+            w.writerow(['', wid, _g(m['depth_m']), m['depth_kind'], _g(m['value']), m['unit'], m['kind'], m['source']])
+    head('torque_drag')
+    for wid, c in ((TND._load(ws).get('wells') or {})).items():
+        if c.get('source'):
+            st = '; '.join(f"{x['what']}:{_g(x['length_ft']) if x['length_ft'] is not None else ''}:{_g(x['od_in'])}:{_g(x['weight_lb_ft'])}:{_g(x['contact_od_in'])}"
+                           for x in (c.get('string') or []))
+            w.writerow(['', wid, st, _g(c.get('mud_ppg')), _g(c.get('mu_cased')), _g(c.get('mu_open')), _g(c.get('block_klbf')), c['source']])
+    head('hydraulics')
+    for wid, c in ((HY._load(ws).get('wells') or {})).items():
+        if c.get('source'):
+            st = '; '.join(f"{x['what']}:{_g(x['length_ft']) if x['length_ft'] is not None else ''}:{_g(x['od_in'])}:{_g(x['id_in'])}" for x in (c.get('string') or []))
+            ho = '; '.join(f"{x['what']}:{_g(x['bottom_md_ft']) if x['bottom_md_ft'] is not None else ''}:{_g(x['id_in'])}" for x in (c.get('hole') or []))
+            w.writerow(['', wid, st, ho, _g(c.get('mw_ppg')), ' '.join(f'{k}={_g(float(v))}' for k, v in (c.get('fann') or {}).items()), _g(c.get('flow_gpm')),
+                        ' '.join(_g(float(x)) for x in (c.get('nozzles_32') or [])), _g(c.get('bit_in')), _g(c.get('surface_psi')), _g(c.get('surface_ref_gpm')),
+                        _g(c.get('tools_psi')), _g(c.get('trip_ft_min')), _g(c.get('pp_ppg')), _g(c.get('fg_ppg')), c['source']])
+    head('frac_stages')
+    for wid, s in FH.stages(ws).items():
+        w.writerow([f"# {wid}: {s['file']} is attached ({s['stages']} stages); list it here only to replace it"])
+    head('frac_monitors')
+    for wid, m in (FH.settings(ws).get('monitors') or {}).items():
+        w.writerow(['', wid, m.get('channel', '')])
+    head('production')
+    for wid, p in (DCA._load(ws).get('wells') or {}).items():
+        if p.get('file'):
+            w.writerow([f"# {wid}: {p['file']} is attached ({p['months']} months); list it here only to replace it"])
+    head('decline_terms')
+    for wid, p in (DCA._load(ws).get('wells') or {}).items():
+        c = p.get('config') or {}
+        if c.get('source'):
+            w.writerow(['', wid] + [_g(c.get(k)) if c.get(k) is not None else '' for k in TABLES['decline_terms']['cols'][1:-1]] + [c['source']])
+
+
+def template_xlsx(ws, path: str) -> None:
+    """The same sheet as an Excel workbook (one sheet; the import reads its first sheet)."""
+    from . import xlsx_read as XR
+    rows_ = list(csv.reader(io.StringIO(template(ws))))
+    XR.write_simple(path, [[c for c in r] for r in rows_])

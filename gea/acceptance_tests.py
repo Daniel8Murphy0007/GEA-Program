@@ -13002,6 +13002,142 @@ def section_da_hydraulics(tmp: str) -> None:
        + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
 
 
+def section_db_declarations_engineering(tmp: str) -> None:
+    """Section DB - the declarations sheet carries the engineering: the survey program, a plan, the pore-pressure
+    settings and a measured pressure, the torque-and-drag string, the hydraulics, a frac stage table and its monitor,
+    production and the decline terms - planned NEW, written, then SAME on a second import and from the template; every
+    malformed row refused with nothing written; the sheet as an Excel workbook; a well with no survey read on the
+    drilling recorder's own TVD, labelled so."""
+    import csv as _csv
+    import io as _io
+    import shutil as _sh
+    import subprocess as _sp
+    from . import __version__ as _ver
+    from . import declarations as DC
+    from . import decline as DCA
+    from . import edr as E
+    from . import frac_hits as FH
+    from . import helplib as H
+    from . import hydraulics as HY
+    from . import pore_pressure as PPF
+    from . import torque_drag as TND
+    from . import wellplan as WPL
+    from . import xlsx_read as XR
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "declare_eng"); d.mkdir()
+    hy = HY.selftest_files(str(d / "hy"))
+    fh = FH.selftest_files(str(d / "fh"))
+    dc = DCA.selftest_files(str(d / "dc"))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    w1 = ws.add_well_file(hy["record"], display="HY-1", actor="tester")["id"]
+    w2 = ws.add_well_file(fh["gauge"], display="MON-1", actor="tester")["id"]
+    sheet_dir = d / "sheet"; sheet_dir.mkdir()
+    _sh.copy(hy["survey"], sheet_dir / "plan.csv"); _sh.copy(fh["stages"], sheet_dir / "stages.csv"); _sh.copy(dc["path"], sheet_dir / "production.csv")
+    rows = [
+        ["[survey_program]", "well", "program", "source"], ["", "HY-1", "0-1000:MWD+SRGM, 1000-:MWD+IFR1", "survey program rev 1 (test)"],
+        ["[plans]", "well", "file", "azimuth_reference", "md_unit", "source"], ["", "HY-1", "plan.csv", "true", "ft", "well plan rev 2 (test)"],
+        ["[pore_pressure]", "well", "indicator", "bit_in", "nct_top_m", "nct_bottom_m", "source"], ["", "HY-1", "dexponent", "8.75", "1300", "2000", "drilling program (test)"],
+        ["[pressures]", "well", "depth_m", "depth_kind", "value", "unit", "kind", "source"], ["", "HY-1", "2100", "tvd", "13.5", "ppg", "lot", "LOT at the 9-5/8 shoe (test)"],
+        ["[torque_drag]", "well", "string", "mud_ppg", "mu_cased", "mu_open", "source"], ["", "HY-1", "BHA:350:6.75:95:6.75; drill pipe::5:22.6:6.625", "11", "0.2", "0.28", "BHA report (test)"],
+        ["[hydraulics]", "well", "string", "hole", "mw_ppg", "fann", "flow_gpm", "nozzles_32", "bit_in", "tools_psi", "pp_ppg", "fg_ppg", "source"],
+        ["", "HY-1", "BHA:350:6.75:2.875; drill pipe::5:4.276", "9-5/8 casing:3500:8.681; open hole::8.75", "11", "600=60 300=38 100=21 6=7 3=6", "500",
+         "14 14 14 14 14", "8.75", "400", "9.5", "14.5", "mud report (test)"],
+        ["[frac_stages]", "well", "file", "depth_unit", "source"], ["", "HY-1", "stages.csv", "ft", "post-job report (test)"],
+        ["[frac_monitors]", "well", "channel"], ["", "MON-1", "P_gauge_psi"],
+        ["[production]", "well", "file", "source"], ["", "HY-1", "production.csv", "monthly report (test)"],
+        ["[decline_terms]", "well", "terminal_decline", "price_basis", "oil_price", "gas_price", "opex_month", "source"], ["", "HY-1", "0.08", "flat", "70", "3", "9000", "budget deck (test)"],
+    ]
+    buf = _io.StringIO(); _csv.writer(buf, lineterminator="\n").writerows(rows); text = buf.getvalue()
+    p1 = DC.apply(ws, text, "tester", str(sheet_dir))
+    a1 = DC.apply(ws, text, "tester", str(sheet_dir), write=True)
+    p2 = DC.apply(ws, text, "tester", str(sheet_dir))
+    tpl = DC.template(ws)
+    pt = DC.apply(ws, tpl, "tester", str(sheet_dir))
+    hcfg, tcfg, pcfg = HY.well_config(ws, w1), TND.well_config(ws, w1), PPF.well_config(ws, w1)
+    meas = (PPF._load(ws).get("measured") or {}).get(w1) or []
+    c1 = {
+        "planned": not p1["errors"] and p1["counts"]["NEW"] == 10 and p1["counts"]["CHANGE"] == 0 and sorted({s["table"] for s in p1["steps"]}) == sorted(DC.ENG_ORDER),
+        "written": a1["applied"] and len(a1["written"]) == 10,
+        "landed": WPL.well_settings(ws, w1)["program"] == [{"to_md_m": 1000.0, "model": "MWD+SRGM"}, {"to_md_m": None, "model": "MWD+IFR1"}]
+                  and bool(ws.well(w1).get("plan")) and pcfg["indicator"] == "dexponent" and pcfg["bit_in"] == 8.75
+                  and meas and meas[0]["kind"] == "lot" and meas[0]["unit"] == "ppg" and len(tcfg["string"]) == 2 and tcfg["mu_open"] == 0.28
+                  and hcfg["fann"] == {"600": 60.0, "300": 38.0, "100": 21.0, "6": 7.0, "3": 6.0} and hcfg["nozzles_32"] == [14.0] * 5 and len(hcfg["hole"]) == 2
+                  and FH.stages(ws).get(w1, {}).get("stages") == 6 and FH.settings(ws)["monitors"].get(w2, {}).get("channel") == "P_gauge_psi"
+                  and DCA.production(ws, w1) and DCA.well_config(ws, w1)["oil_price"] == 70.0,
+        "again": not p2["errors"] and p2["counts"]["NEW"] == 0 and p2["counts"]["CHANGE"] == 0 and p2["counts"]["SAME"] == 10,
+        "template": not pt["errors"] and pt["counts"]["NEW"] == 0 and pt["counts"]["CHANGE"] == 0 and all(f"[{t}]" in tpl for t in DC.ENG_ORDER),
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "DB1 one sheet carries the engineering - the survey program, a plan, the pore-pressure settings and a leak-off test, the torque-and-drag string, "
+       "the hydraulics (string, hole, mud, viscometer, nozzles), a frac stage table and its monitored well, production and the decline terms: ten rows "
+       "planned NEW, written through each tab's own function, SAME on a second import; the template lists every table and carries what is declared, "
+       "so importing it writes nothing" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- DB2 every malformed row refused, nothing written ---------------------------------------------------------------------
+    bad = {
+        "survey_program": ["", "HY-1", "0-1000:NO-SUCH-TOOL", "x"], "plans": ["", "HY-1", "missing.csv", "true", "ft", "x"],
+        "pore_pressure": ["", "HY-1", "dexponent", "99", "1300", "2000", "x"], "pressures": ["", "HY-1", "2100", "tvd", "13.5", "ppg", "guess", "x"],
+        "torque_drag": ["", "HY-1", "BHA:350", "11", "0.2", "0.28", "x"],
+        "hydraulics": ["", "HY-1", "", "", "11", "600:60", "500", "40 40", "8.75", "400", "9.5", "14.5", "x"],
+        "frac_stages": ["", "HY-1", "stages.csv", "yards", "x"], "decline_terms": ["", "HY-1", "0.08", "spot", "70", "3", "9000", "x"],
+    }
+    errs = {}
+    for t, r in bad.items():
+        hdr = next(x for x in rows if x[0] == f"[{t}]")
+        b_ = _io.StringIO(); _csv.writer(b_, lineterminator="\n").writerows([hdr, r]); bp = DC.apply(ws, b_.getvalue(), "tester", str(sheet_dir), write=True)
+        errs[t] = (len(bp["errors"]) == 1 and not bp["written"] and not bp["applied"])
+    mixed = rows[:2] + [["[pressures]", "well", "depth_m", "value", "kind", "source"], ["", "HY-1", "-5", "13", "pore", "x"]]
+    b_ = _io.StringIO(); _csv.writer(b_, lineterminator="\n").writerows(mixed); mp = DC.apply(ws, b_.getvalue(), "tester", str(sheet_dir), write=True)
+    ok(all(errs.values()) and len(mp["errors"]) == 1 and not mp["written"],
+       "DB2 a tool model that does not exist, a plan file that is not there, a bit size out of range, a pressure of no known kind, a string section "
+       "short of its figures, a viscometer pair without '=' and nozzles over 32/32, a depth unit of yards, a price basis of 'spot' - each refused with "
+       "its row named; a sheet with one bad row writes none of its good rows"
+       + (f" [failed: {', '.join(k for k, v in errs.items() if not v)}]" if not all(errs.values()) else ""))
+
+    # -- DB3 the sheet as an Excel workbook --------------------------------------------------------------------------------
+    xp = str(d / "declarations.xlsx")
+    DC.template_xlsx(ws, xp)
+    xb = Path(xp).read_bytes()
+    px = DC.apply(ws, XR.text_of(xb), "tester", str(sheet_dir))
+    cli_t = _sp.run([sys.executable, "-m", "gea", "declare", "--workspace", wsp, "--template", str(d / "t2.xlsx")], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_p = _sp.run([sys.executable, "-m", "gea", "declare", "--workspace", wsp, "--file", str(d / "t2.xlsx")], capture_output=True, text=True, cwd=str(pkg.parent))
+    ok(XR.is_xlsx(xb) and not px["errors"] and px["counts"]["NEW"] == 0 and px["counts"]["CHANGE"] == 0 and px["counts"]["SAME"] >= 10
+       and cli_t.returncode == 0 and XR.is_xlsx(Path(d / "t2.xlsx").read_bytes()) and cli_p.returncode == 0 and "nothing to write" in cli_p.stdout,
+       "DB3 the template as an Excel workbook (gea declare --template declarations.xlsx, and the Download on the Setup page): a workbook the import "
+       "reads back to the same plan - nothing new to write")
+
+    # -- DB4 no survey: the recorder's own TVD -------------------------------------------------------------------------------
+    st = E.read(hy["record"])
+    out = Path(ws.reports_dir, "wells", w1); out.mkdir(parents=True, exist_ok=True)
+    E.write_record(st, str(out), _ver)
+    rp = HY.recorder_path(ws, w1)
+    r_h = HY.page(ws, "workspace", w1)["result"]
+    TND.set_well(ws, "tester", w1, "BHA report (test)", TND.parse_string("BHA:350:6.75:95:6.75; drill pipe::5:22.6:6.625"), 11)
+    r_t = TND.page(ws, "workspace", w1)["result"]
+    from . import well3d as W
+    W.attach_trajectory(ws, w1, "s.csv", Path(hy["survey"]).read_bytes(), "tester", "true", "ft", None, None, None, "test survey")
+    r_s = HY.page(ws, "workspace", w1)["result"]
+    help_txt = H.page("declare") or ""
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c4 = {
+        "path": rp and rp["md_ft"][0] == 0.0 and abs(max(rp["tvd_ft"]) - 7480.0) < 30.0 and max(rp["inc_deg"]) <= 61.0 and "not a survey" in rp["source"],
+        "hydraulics": r_h and r_h["path_from"] == "recorder" and "Interpolated TVD" in r_h["how"] and abs(r_h["record"]["median_difference_psi"] - hy["offset_psi"]) <= 10.0
+                      and abs(r_h["tvd_td_ft"] - r_s["tvd_td_ft"]) < 30.0,
+        "torque_drag": r_t and r_t["path_from"] == "recorder" and "one vertical plane" in r_t["how"] and 55.0 <= r_t["max_inc_deg"] <= 61.0,
+        "survey_first": r_s["path_from"] == "survey",
+        "help": not H.check("declare") and all(f"[{t}]" in help_txt for t in DC.ENG_ORDER) and "Interpolated TVD" in (H.page("hydraulics") or "")
+                and "/api/declare/template?format=xlsx" in page_src,
+    }
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       "DB4 a well with no survey attached is read on the drilling recorder's own Interpolated TVD, labelled as the recorder's interpolation and not a "
+       "survey: the hydraulics' TVDs within 30 ft of the survey's and the standpipe offset recovered the same; torque and drag on an inclination-only path "
+       "in one vertical plane, said so; a survey, once attached, is used instead; the help names every table"
+       + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+
 def PR_read_ok(path) -> bool:
     from . import pdf_report as PR
     try:
@@ -13118,6 +13254,7 @@ def main() -> int:
         section_cy_company_sign_in(tmp)
         section_cz_it_review(tmp)
         section_da_hydraulics(tmp)
+        section_db_declarations_engineering(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

@@ -533,11 +533,11 @@ def main(argv=None) -> int:
     p_ds.add_argument("--actor", type=str, default="cli")
     p_ds.add_argument("--json", action="store_true")
 
-    p_dc = sub.add_parser("declare", help="the declarations sheet: wells' identity, position and elevation, surveys, rates, items and AFEs, fleet tools, drill-string runs, ESP penetrators and drives - one CSV, checked against the workspace before anything is written")
+    p_dc = sub.add_parser("declare", help="the declarations sheet: wells' identity, position and elevation, surveys, rates, items and AFEs, fleet tools, drill-string runs, ESP penetrators and drives, the survey program and plans, pore pressure, torque and drag, hydraulics, frac stages, production - one CSV or Excel workbook, checked against the workspace before anything is written")
     p_dc.add_argument("--workspace", type=str, required=True)
     p_dc.add_argument("--file", type=str, default=None, help="the sheet (CSV); every row is planned NEW, CHANGE or SAME and nothing is written without --apply")
     p_dc.add_argument("--apply", action="store_true", help="write the NEW and CHANGE rows (only when the sheet has no error)")
-    p_dc.add_argument("--template", type=str, default=None, help="write the sheet for this workspace, filled with what is already declared, to this path")
+    p_dc.add_argument("--template", type=str, default=None, help="write the sheet for this workspace, filled with what is already declared, to this path (.xlsx: an Excel workbook; otherwise CSV)")
     p_dc.add_argument("--actor", type=str, default="cli")
     p_dc.add_argument("--json", action="store_true")
 
@@ -2352,8 +2352,11 @@ def main(argv=None) -> int:
         except WorkspaceError as e:
             raise SystemExit(f"declare: {e}")
         if a.template:
-            with open(a.template, "w", encoding="utf-8", newline="") as f:
-                f.write(_DC.template(ws))
+            if a.template.lower().endswith(".xlsx"):
+                _DC.template_xlsx(ws, a.template)
+            else:
+                with open(a.template, "w", encoding="utf-8", newline="") as f:
+                    f.write(_DC.template(ws))
             print(f"wrote {a.template}: fill in the blanks, then gea declare --workspace {a.workspace} --file {a.template}")
             return 0
         if not a.file:

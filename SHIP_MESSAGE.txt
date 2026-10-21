@@ -1,24 +1,25 @@
-v0.58.0 — HYDRAULICS AND ECD
+v0.59.0 — THE DECLARATIONS WORKBOOK CARRIES THE ENGINEERING
 
-GEA now works out the pressures the mud makes while it circulates, and
-sets them against the window the rock allows.
+Everything the engineering tabs need now goes in through one workbook.
 
-From the mud weight and the six-speed viscometer readings, read the way
-API RP 13D reads them, it gives the standpipe pressure part by part:
-the surface lines, the string, the motor and MWD, the bit and the
-annulus. It gives the bit's horsepower, jet velocity and impact, and the
-equivalent circulating density at every depth, set against the pore
-pressure and fracture gradient from the Pore pressure tab. For a trip it
-gives the surge and swab, and the fastest a stand may be run or pulled
-at each bit depth to stay inside that window.
+The declarations sheet - the one that already carried each well's
+number, position, elevation, rates, runs and casing - now takes ten more
+tables: the survey program and plans, how the pore pressure is read and
+the pressures measured, the torque-and-drag string, the hydraulics
+(string, hole, mud, viscometer, nozzles), frac stage tables and monitored
+wells, production and the decline terms. Every row is checked against the
+workspace before anything is written; one bad row and nothing is
+written; the same workbook can be imported again and again.
 
-From the drilling record it takes the standpipe pressure and pump rate
-the rig measured while pumping, and sets them beside the model at the
-same rate and depth. The difference is what the declarations leave out.
+It downloads as an Excel workbook, already filled with what is declared
+(`gea declare --template pad3.xlsx`, or Download the sheet on the Setup
+tab).
 
-The Hydraulics & ECD tab, `gea hydraulics`, a report with its PDF and
-the help page are new; Volve 15/9-F-10 is the worked example, and the
-signed dossier carries the declarations and the results.
+A well with no directional survey is now read on the drilling recorder's
+own Interpolated TVD where a depth conversion is needed - Hydraulics &
+ECD, and Torque & drag on an inclination-only path - labelled as the
+recorder's interpolation, not a survey. An attached survey is always used
+first.
 
-Section DA is new, four checks. The gate is 474 checks, run on Python
-3.13 and 3.14. The standalone guard is clean.
+Section DB is new, four checks. The gate is 478 checks on Python 3.13
+and 3.14. The standalone guard is clean.

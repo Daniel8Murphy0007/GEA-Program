@@ -2098,6 +2098,15 @@ def make_handler(app: App):
                         raise ApiError(404, str(e.args[0]))
                 if path == '/api/declare/template':
                     from . import declarations as DC
+                    if (qs.get('format') or [''])[0] == 'xlsx':
+                        import base64 as _b64
+                        import tempfile as _tf
+                        with _tf.TemporaryDirectory() as td_:
+                            p_ = os.path.join(td_, 'declarations.xlsx')
+                            DC.template_xlsx(app.ws, p_)
+                            with open(p_, 'rb') as f_:
+                                b_ = f_.read()
+                        return self._json(200, {'xlsx_b64': _b64.b64encode(b_).decode('ascii'), 'filename': 'declarations.xlsx'})
                     return self._json(200, {'csv': DC.template(app.ws), 'filename': 'declarations.csv'})
                 if path == '/api/opseis':
                     from . import op_seismicity as OS

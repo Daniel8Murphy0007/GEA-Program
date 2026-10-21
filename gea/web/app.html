@@ -850,9 +850,9 @@ VIEWS.setup = async () => {
 const DC = {text: '', name: '', plan: null};
 function dcCard() {
   const P = DC.plan;
-  let h = `<div class="card" id="dcCard"><h3>The declarations sheet <span class="small muted">every well's number, position and elevation, the rates and AFE, the fleet, the drill-string runs, the ESP penetrator and drive - one spreadsheet</span></h3>
-    <p class="small">Download the sheet: it already holds what this workspace has declared, with a line under each table saying what it takes. Fill in the blanks in a spreadsheet, save it as CSV, and check it here. Nothing is written until the check is clean and you press Write. <a href="#/help/declare">How the sheet is laid out</a>.</p>
-    <div class="row"><button type="button" class="secondary" id="dcGet">Download the sheet</button>
+  let h = `<div class="card" id="dcCard"><h3>The declarations sheet <span class="small muted">every well's number, position and elevation, the rates and AFE, the fleet, the drill-string runs, the ESP penetrator and drive, the survey program and plans, pore pressure, torque and drag, hydraulics, frac stages, production - one spreadsheet</span></h3>
+    <p class="small">Download the sheet: it already holds what this workspace has declared, with a line above each table saying what it takes. Fill in the blanks in Excel (or save it as CSV) and check it here. Files a table names (surveys, plans, stage tables, production) go in by the command line, beside the sheet: <span class="mono">gea declare --workspace C:\\site --file C:\\site\\declarations.xlsx</span>. Nothing is written until the check is clean and you press Write. <a href="#/help/declare">How the sheet is laid out</a>.</p>
+    <div class="row"><button type="button" class="secondary" id="dcGet">Download the sheet (Excel)</button><button type="button" class="secondary" id="dcGetCsv">CSV</button>
     ${can('operator') ? `<label>Sheet (CSV or Excel)<input type="file" id="dcFile" accept=".csv,text/csv,.xlsx"></label><button type="button" id="dcCheck" ${DC.text || DC.b64 ? '' : 'disabled'}>Check the sheet</button>` : need('operator')}</div>`;
   if (P) {
     const c = P.counts, k = {NEW: 'good', CHANGE: 'warn', SAME: 'neutral'};
@@ -864,7 +864,9 @@ function dcCard() {
   return h + `</div>`;
 }
 function dcBind() {
-  $('#dcGet') && ($('#dcGet').onclick = async () => { try { const r = await get('/api/declare/template'); const b = new Blob([r.csv], {type: 'text/csv'}); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = r.filename; a.click(); setTimeout(() => URL.revokeObjectURL(u), 1000); } catch (e) { toast(e.message, 'err'); } });
+  const dcSave = (blob, name) => { const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(u), 1000); };
+  $('#dcGet') && ($('#dcGet').onclick = async () => { try { const r = await get('/api/declare/template?format=xlsx'); const bin = atob(r.xlsx_b64), arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); dcSave(new Blob([arr], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), r.filename); } catch (e) { toast(e.message, 'err'); } });
+  $('#dcGetCsv') && ($('#dcGetCsv').onclick = async () => { try { const r = await get('/api/declare/template'); dcSave(new Blob([r.csv], {type: 'text/csv'}), r.filename); } catch (e) { toast(e.message, 'err'); } });
   $('#dcFile') && ($('#dcFile').onchange = async ev => { const f = ev.target.files[0]; if (!f) return; DC.name = f.name; DC.plan = null;
     if (/\.xlsx$/i.test(f.name)) { DC.b64 = await readFile(f); DC.text = null; $('#dcCheck').disabled = false; return; }
     const fr = new FileReader(); fr.onload = () => { DC.text = String(fr.result); DC.b64 = null; $('#dcCheck').disabled = false; }; fr.readAsText(f); });

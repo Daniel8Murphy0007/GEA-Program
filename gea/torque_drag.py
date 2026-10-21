@@ -363,8 +363,12 @@ def page(ws, scene: str = 'workspace', well: Optional[str] = None) -> dict:
         return out
     cfg = well_config(ws, choice)
     tj = W3.trajectory_of(ws, choice) if ws.well(choice).get('trajectory') else None
+    rec_path = None
     if not tj:
-        out['detail'] = 'this well has no directional survey attached'
+        from . import hydraulics as HYD
+        rec_path = HYD.recorder_path(ws, choice)
+    if not tj and not rec_path:
+        out['detail'] = 'this well has no directional survey attached (and no drilling record with the recorder\'s TVD)'
         return out
     if not cfg.get('string'):
         out['detail'] = 'declare the drill string (sections from the bit up)'
@@ -372,14 +376,20 @@ def page(ws, scene: str = 'workspace', well: Optional[str] = None) -> dict:
     shoes = RS.casing(ws).get(choice) or []
     shoe_ft = max(s['shoe_md_ft'] for s in shoes) if shoes else None
     meas = measured(ws, choice, cfg.get('block_klbf'))
-    st = tj['stations']
+    if tj:
+        st = tj['stations']
+        md_m, inc_, azi_ = [x['md'] for x in st], [x['incl'] for x in st], [x['azi'] for x in st]
+        path_how = f"the survey ({tj['meta']['source']})"
+    else:
+        md_m, inc_, azi_ = [m * FT for m in rec_path['md_ft']], rec_path['inc_deg'], [0.0] * len(rec_path['md_ft'])
+        path_how = (rec_path['source'] + '; the path taken in one vertical plane, so the drag of a turn in azimuth is not in the model')
     td_ft = None
     if meas and any((meas.get(k) or {}).get('depth_ft') for k in ('out', 'in', 'rotate')):
         td_ft = max(max((meas.get(k) or {}).get('depth_ft') or [0]) for k in ('out', 'in', 'rotate'))
-    md_end = st[-1]['md'] / FT
-    r = analyse([x['md'] for x in st], [x['incl'] for x in st], [x['azi'] for x in st], cfg, shoe_ft, meas, min(td_ft, md_end) if td_ft else None)
-    r.update({'well': choice, 'display': next(w['display'] for w in out['wells'] if w['id'] == choice),
-              'how': f"the survey ({tj['meta']['source']}); the string as declared ({cfg.get('source')}); "
+    md_end = md_m[-1] / FT
+    r = analyse(md_m, inc_, azi_, cfg, shoe_ft, meas, min(td_ft, md_end) if td_ft else None)
+    r.update({'well': choice, 'display': next(w['display'] for w in out['wells'] if w['id'] == choice), 'path_from': 'survey' if tj else 'recorder',
+              'how': f"{path_how}; the string as declared ({cfg.get('source')}); "
                      + (f"cased to {shoe_ft:,.0f} ft (the deepest shoe declared)" if shoe_ft else 'no casing declared: all open hole')})
     out['result'] = r
     return out

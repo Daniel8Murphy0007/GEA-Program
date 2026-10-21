@@ -447,6 +447,34 @@ def set_well(ws, actor: str, well_id: str, source: str = '', string=None, hole=N
     return well_config(ws, well_id)
 
 
+def recorder_path(ws, well_id: str) -> Optional[dict]:
+    """The drilling recorder's own MD-TVD table for a well with no survey attached (its 'Interpolated TVD' against the
+    hole depth, written with the drilling record): {md_ft, tvd_ft, inc_deg, source}, or None. The inclination of each
+    step is the one whose cosine is the TVD it adds over the MD; the azimuth is not in the record."""
+    p = os.path.join(ws.reports_dir, 'wells', well_id, 'drilling_record.json')
+    try:
+        with open(p, encoding='utf-8') as f:
+            mt = (json.load(f) or {}).get('md_tvd') or {}
+    except (OSError, ValueError):
+        return None
+    rows = [r for r in (mt.get('rows') or []) if r.get('md_ft') is not None and r.get('tvd_ft') is not None]
+    if mt.get('status') != 'OK' or len(rows) < 3:
+        return None
+    md = [0.0] + [float(r['md_ft']) for r in rows]
+    tv = [0.0] + [float(r['tvd_ft']) for r in rows]
+    keep_md, keep_tv = [md[0]], [tv[0]]
+    for m, t in zip(md[1:], tv[1:]):
+        if m > keep_md[-1] + 1.0:
+            keep_md.append(m); keep_tv.append(min(t, keep_tv[-1] + (m - keep_md[-2])))
+    inc = [0.0]
+    for i in range(1, len(keep_md)):
+        c = (keep_tv[i] - keep_tv[i - 1]) / (keep_md[i] - keep_md[i - 1])
+        inc.append(math.degrees(math.acos(max(-1.0, min(1.0, c)))))
+    return {'md_ft': keep_md, 'tvd_ft': keep_tv, 'inc_deg': inc,
+            'source': "the drilling recorder's Interpolated TVD against the hole depth (no survey attached): an interpolation the recorder made, "
+                      "not a survey; the azimuth is not in it"}
+
+
 def _tvd_function(md_m, inc, azi):
     from . import well3d as W3
     p = W3.Path(md_m, inc, azi, 0.0, 0.0, 0.0, 0.0)
@@ -488,13 +516,17 @@ def _at(win: Optional[dict], tvd_ft: float) -> Tuple[Optional[float], Optional[f
 
 
 def analyse(md_m, inc, azi, cfg: dict, td_ft: Optional[float] = None, window: Optional[dict] = None, window_how: str = '',
-            meas: Optional[dict] = None) -> dict:
+            meas: Optional[dict] = None, recorder: Optional[dict] = None) -> dict:
     if not cfg.get('string'):
         raise ValueError('declare the drill string with its bores (sections from the bit up)')
     if not cfg.get('hole'):
         raise ValueError('declare the hole: each casing string\'s inside diameter to its shoe, then the open hole')
     rheo = rheology(cfg.get('fann') or {})
-    tvd_of, md_end = _tvd_function(md_m, inc, azi)
+    if recorder:
+        gm, gt = np.asarray(recorder['md_ft']), np.asarray(recorder['tvd_ft'])
+        tvd_of, md_end = (lambda md_ft: float(np.interp(float(md_ft), gm, gt))), float(gm[-1])
+    else:
+        tvd_of, md_end = _tvd_function(md_m, inc, azi)
     td = float(td_ft or md_end)
     q = float(cfg['flow_gpm'])
     c = circulate(cfg, rheo, td, q, tvd_of)
@@ -566,8 +598,9 @@ def page(ws, scene: str = 'workspace', well: Optional[str] = None) -> dict:
         return out
     cfg = well_config(ws, choice)
     tj = W3.trajectory_of(ws, choice) if ws.well(choice).get('trajectory') else None
-    if not tj:
-        out['detail'] = 'this well has no directional survey attached'
+    rec_path = None if tj else recorder_path(ws, choice)
+    if not tj and not rec_path:
+        out['detail'] = 'this well has no directional survey attached (and no drilling record with the recorder\'s TVD)'
         return out
     missing = [w for w, ok in (('the drill string with its bores', cfg.get('string')), ('the hole (casing inside diameters and the open hole)', cfg.get('hole')),
                                ('the viscometer readings', (cfg.get('fann') or {}).get('600'))) if not ok]
@@ -575,17 +608,22 @@ def page(ws, scene: str = 'workspace', well: Optional[str] = None) -> dict:
         out['detail'] = 'declare ' + ', '.join(missing)
         return out
     meas = measured(ws, choice)
-    st = tj['stations']
-    md_end = st[-1]['md'] / FT
     td = max(meas['depth_ft']) if meas and meas.get('depth_ft') else None
     win, how_w = _window(ws, choice, cfg)
     try:
-        r = analyse([x['md'] for x in st], [x['incl'] for x in st], [x['azi'] for x in st], cfg, min(td, md_end) if td else None, win, how_w, meas)
+        if tj:
+            st = tj['stations']
+            md_end = st[-1]['md'] / FT
+            r = analyse([x['md'] for x in st], [x['incl'] for x in st], [x['azi'] for x in st], cfg, min(td, md_end) if td else None, win, how_w, meas)
+        else:
+            md_end = rec_path['md_ft'][-1]
+            r = analyse(None, None, None, cfg, min(td, md_end) if td else None, win, how_w, meas, recorder=rec_path)
     except ValueError as e:
         out['detail'] = str(e)
         return out
-    r.update({'well': choice, 'display': next(w['display'] for w in out['wells'] if w['id'] == choice),
-              'how': f"the survey ({tj['meta']['source']}); the mud, string and hole as declared ({cfg.get('source')})"})
+    path_how = f"the survey ({tj['meta']['source']})" if tj else rec_path['source']
+    r.update({'well': choice, 'display': next(w['display'] for w in out['wells'] if w['id'] == choice), 'path_from': 'survey' if tj else 'recorder',
+              'how': f"{path_how}; the mud, string and hole as declared ({cfg.get('source')})"})
     out['result'] = r
     return out
 
@@ -732,8 +770,9 @@ def selftest_files(tmp: str, offset_psi: float = 120.0, seed: int = 5) -> dict:
     with open(ep, 'w', encoding='utf-8', newline='') as f:
         w = csv.writer(f)
         w.writerow(['YYYY/MM/DD', 'HH:MM:SS', 'Hole Depth (feet)', 'Bit Depth (feet)', 'Rate Of Penetration (ft_per_hr)', 'Hook Load (klbs)', 'Block Height (feet)',
-                    'Total Pump Output (gal_per_min)', 'Standpipe Pressure (psi)', 'Rotary RPM (RPM)', 'Convertible Torque (kft_lb)', 'On Bottom (unitless)'])
+                    'Total Pump Output (gal_per_min)', 'Standpipe Pressure (psi)', 'Rotary RPM (RPM)', 'Convertible Torque (kft_lb)', 'On Bottom (unitless)',
+                    'Interpolated TVD (feet)'])
         for (tt, hole, bitd, q, p, rpm, onb) in rows:
             w.writerow([tt.strftime('%Y/%m/%d'), tt.strftime('%H:%M:%S'), f'{hole:.2f}', f'{bitd:.2f}', '1800.0' if onb else '0.0', '180.0', '40.0',
-                        f'{q:.1f}', f'{p:.1f}', f'{rpm:.1f}', '8.0' if rpm else '0.0', str(onb)])
+                        f'{q:.1f}', f'{p:.1f}', f'{rpm:.1f}', '8.0' if rpm else '0.0', str(onb), f'{tvd_of(hole):.2f}'])
     return {'survey': sp, 'record': ep, 'config': cfg, 'offset_psi': offset_psi, 'rows': len(rows)}

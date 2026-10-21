@@ -620,6 +620,20 @@ EIA) or a declared price, with the net revenue interest, severance tax and
 operating cost declared. A forecast is not a reserves report, and the page
 says so. The **Decline curves** tab, `gea decline`, `gea help decline`.
 
+### The declarations workbook
+
+Everything the operator declares about a pad goes in through one sheet -
+`gea declare --workspace C:\site --template pad3.xlsx` writes it as an
+Excel workbook already filled with what is declared; `gea declare
+--workspace C:\site --file pad3.xlsx` checks it row by row and `--apply`
+writes it. Beside the wells, rates, runs and casing, it carries the
+engineering: the survey program and plans, pore pressure and measured
+pressures, the torque-and-drag string, the hydraulics (string, hole, mud,
+viscometer, nozzles), frac stage tables and monitored wells, production
+and the decline terms. A well with no directional survey is read on the
+drilling recorder's own Interpolated TVD where one is needed, labelled as
+the recorder's interpolation. `gea help declare`.
+
 ### Hydraulics and ECD
 
 The pressures the mud makes while it circulates, from the six-speed

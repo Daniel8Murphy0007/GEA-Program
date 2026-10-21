@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.59.0 - 2026-10-21 - the declarations workbook carries the engineering
+
+- **One workbook lights up the engineering tabs.** The declarations sheet
+  takes the survey program and plans, pore pressure and measured
+  pressures, torque and drag, hydraulics, frac stages and monitors,
+  production and decline terms; it downloads as an Excel workbook; a well
+  with no survey is read on the recorder's own TVD, labelled so.
+  Section DB; gate 478.
+
 ## v0.58.0 - 2026-10-21 - hydraulics and ECD
 
 - **The pressures the mud makes, against the window the rock allows.** The
