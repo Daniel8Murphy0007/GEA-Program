@@ -1268,7 +1268,14 @@ class Workspace:
             site = self.site(sid)
             if well_id in (site.get('wells') or []) and site.get('sra'):
                 boundary = site['sra'].get('formation_boundary'); break
-        res = IV.statement(w, st, self.layers(), boundary)
+        md_path = None
+        if ((w.get('disposal') or {}).get('depth_reference')) == 'MD':
+            from . import hydraulics as _HY
+            try:
+                md_path = _HY.depth_path(self, well_id)
+            except Exception:
+                md_path = None
+        res = IV.statement(w, st, self.layers(), boundary, md_path)
         res['generated_utc'] = utc_now_iso()
         if write:
             d = self.dir('reports', 'wells', well_id)

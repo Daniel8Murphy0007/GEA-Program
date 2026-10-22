@@ -475,6 +475,43 @@ def recorder_path(ws, well_id: str) -> Optional[dict]:
                       "not a survey; the azimuth is not in it"}
 
 
+def depth_path(ws, well_id: str, plan_too: bool = False) -> Optional[dict]:
+    """A well's MD to TVD table in feet: its survey (every 30 ft along it), else the drilling recorder's own Interpolated
+    TVD, else (with plan_too) its directional plan. {md_ft, tvd_ft, from: survey|recorder|plan, source}, or None."""
+    from . import well3d as W3
+    for kind in (('trajectory', 'plan') if plan_too else ('trajectory',)):
+        try:
+            tj = W3.trajectory_of(ws, well_id, kind) if ws.well(well_id).get(kind) else None
+        except Exception:
+            tj = None
+        if tj and len(tj['stations']) >= 2:
+            st = tj['stations']
+            f, md_end = _tvd_function([x['md'] for x in st], [x['incl'] for x in st], [x['azi'] for x in st])
+            grid = sorted(set([0.0] + [float(x) for x in np.arange(30.0, md_end, 30.0)] + [md_end]))
+            name = 'survey' if kind == 'trajectory' else 'plan'
+            return {'md_ft': grid, 'tvd_ft': [f(m) for m in grid], 'from': name,
+                    'source': f"the {'survey' if name == 'survey' else 'directional plan'} ({(tj.get('meta') or {}).get('source') or 'as attached'})"}
+        if kind == 'trajectory':
+            rp = recorder_path(ws, well_id)
+            if rp:
+                return {'md_ft': rp['md_ft'], 'tvd_ft': rp['tvd_ft'], 'from': 'recorder', 'source': rp['source']}
+    return None
+
+
+def tvd_at(path: dict, md_ft: float) -> float:
+    """The TVD at a measured depth on a depth path; past its last station, on along the last station's slope."""
+    m, t = path['md_ft'], path['tvd_ft']
+    md_ft = float(md_ft)
+    if md_ft <= m[-1]:
+        return float(np.interp(md_ft, m, t))
+    k = len(m) - 1
+    j = max(0, k - 1)
+    while j > 0 and m[k] - m[j] < 30.0:
+        j -= 1
+    slope = (t[k] - t[j]) / (m[k] - m[j]) if m[k] > m[j] else 1.0
+    return float(t[k] + max(0.0, min(1.0, slope)) * (md_ft - m[k]))
+
+
 def _tvd_function(md_m, inc, azi):
     from . import well3d as W3
     p = W3.Path(md_m, inc, azi, 0.0, 0.0, 0.0, 0.0)

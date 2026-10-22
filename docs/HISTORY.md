@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.61.0 - 2026-10-22 - casing design and kick tolerance
+
+- **Every casing string against the loads the hole can put on it.** API TR
+  5C3 ratings (every collapse regime, reduced under tension) against the
+  textbook burst, collapse and tension loads, the smallest safety factor
+  and where; the kick tolerance below each shoe; an interval declared in
+  measured depth converted on the survey or the recorder's TVD.
+  Section DD; gate 486.
+
 ## v0.60.0 - 2026-10-21 - every tab and button answers
 
 - **The control panel driven end to end.** Every tab and well page and

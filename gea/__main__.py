@@ -646,6 +646,23 @@ def main(argv=None) -> int:
     p_dc.add_argument("--actor", type=str, default="cli")
     p_dc.add_argument("--json", action="store_true")
 
+    p_cs = sub.add_parser("casing", help="casing design and kick tolerance: each string's burst, collapse and tension against the loads the hole can put on it (API TR 5C3 ratings), and the gas kick each open hole can take")
+    p_cs.add_argument("--workspace", type=str, default=None)
+    p_cs.add_argument("--well", type=str, default=None)
+    p_cs.add_argument("--example", action="store_true", help="the worked example (a vertical 10,000 ft well with three strings, declared for the example)")
+    p_cs.add_argument("--strings", type=str, default=None, help="shallowest shoe first: 'surface:13-3/8:54.5:J55:0-1500:17.5:9.0; intermediate:9-5/8:47:N80:0-7000:12.25:9.8' (what:od:lb_ft:grade:top-shoe:hole_in:mud_ppg[:wall_in])")
+    for k_, h_ in (("td", "the well's TD below the deepest string, ft MD"), ("td-hole", "the hole below the deepest string, in"), ("td-mw", "the mud below the deepest string, ppg"),
+                   ("pp", "a pore pressure for the well when the Pore pressure tab has none, ppg"), ("fg", "a fracture gradient for the well when the Pore pressure tab has none, ppg"),
+                   ("kick", "kick intensity above the mud, ppg (0.5)"), ("gas", "gas gradient, psi/ft (0.1)"), ("backup", "burst backup gradient outside, psi/ft (0.465)"),
+                   ("evacuation", "how far the string is emptied for collapse, 0 to 1 (1: to the shoe)"), ("df-burst", "burst design factor (1.1)"),
+                   ("df-collapse", "collapse design factor (1.125)"), ("df-tension", "tension design factor (1.6)"), ("overpull", "overpull, klbf (100)"),
+                   ("bha-od", "BHA outside diameter, in"), ("bha-length", "BHA length, ft"), ("dp-od", "drill pipe outside diameter, in")):
+        p_cs.add_argument("--" + k_, type=str, default=None, help=h_)
+    p_cs.add_argument("--source", type=str, default="", help="where the casing program came from")
+    p_cs.add_argument("--write", action="store_true")
+    p_cs.add_argument("--actor", type=str, default="cli")
+    p_cs.add_argument("--json", action="store_true")
+
     p_hy = sub.add_parser("hydraulics", help="the pressures the mud makes while it circulates - the standpipe, the bit, the annulus, the ECD against the pore pressure and fracture gradient, surge and swab - and the standpipe pressure the rig measured")
     p_hy.add_argument("--workspace", type=str, default=None)
     p_hy.add_argument("--well", type=str, default=None)
@@ -2597,6 +2614,39 @@ def main(argv=None) -> int:
         except (KeyError, ValueError, OSError, WorkspaceError) as e:
             raise SystemExit(f"decline: {e.args[0] if e.args else e}")
         print(_json.dumps(r, default=str) if a.json else _DCA.text(r))
+        return 0
+    elif a.cmd == "casing":
+        import json as _json
+        from . import casing_design as _CSG
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        try:
+            ws = Workspace(a.workspace) if a.workspace else None
+            scene = "example" if (a.example or ws is None) else "workspace"
+            keys_ = {"td": "td_md_ft", "td_hole": "td_hole_in", "td_mw": "td_mw_ppg", "pp": "pp_ppg", "fg": "fg_ppg", "kick": "kick_intensity_ppg",
+                     "gas": "gas_gradient_psi_ft", "backup": "backup_gradient_psi_ft", "evacuation": "evacuation", "df_burst": "df_burst",
+                     "df_collapse": "df_collapse", "df_tension": "df_tension", "overpull": "overpull_klbf", "bha_od": "bha_od_in",
+                     "bha_length": "bha_length_ft", "dp_od": "dp_od_in"}
+            vals_ = {v: getattr(a, k) for k, v in keys_.items() if getattr(a, k) is not None}
+            if ws is not None and (vals_ or a.strings is not None):
+                if not a.well:
+                    raise ValueError("--well is needed")
+                c_ = _CSG.set_well(ws, a.actor, a.well, a.source, a.strings, **vals_)
+                print(f"{a.well}: {len(c_.get('strings') or [])} string(s): {_CSG.strings_text(c_.get('strings') or []) or 'none declared'}")
+                return 0
+            if a.write:
+                if ws is None:
+                    raise ValueError("--write needs --workspace")
+                r_ = _CSG.write_report(ws, __version__, a.well, a.actor, scene)
+                print(f"wrote {r_['report_id']}: {r_['paths']['html']}")
+                if r_['paths'].get('pdf'):
+                    print(f"  printable: {r_['paths']['pdf']}")
+                return 0
+            r = _CSG.page(ws, scene, a.well)
+        except (KeyError, ValueError, OSError, WorkspaceError) as e:
+            raise SystemExit(f"casing: {e.args[0] if e.args else e}")
+        print(_json.dumps(r, default=str) if a.json else _CSG.text(r))
         return 0
     elif a.cmd == "hydraulics":
         import json as _json

@@ -1,22 +1,25 @@
-v0.60.0 — EVERY TAB AND BUTTON ANSWERS
+v0.61.0 — CASING DESIGN AND KICK TOLERANCE
 
-The control panel was driven end to end in a browser - every tab, every
-well page, every button that does not change or remove something, every
-Scene and Well choice - and the faults it found are fixed.
+Each casing string against the loads the hole can put on it, and the kick
+each open hole can take.
 
-- The Verification tab opens (it used a value only the Seismic tab set up).
-- The Rig time tab opens with a live well whose stream has not arrived yet.
-- Add a catalogue well takes only an entry that carries a downhole gauge
-  series, a well inside it and the gauge depth; the form lists only those.
-- One well that cannot be read never stops Refresh every report or the
-  month-end again: it is written down with why, shown NOT REPORTED on the
-  overview and the printed dashboard, and named by the refresh job and the
-  month-end packet, while every other well is reported.
-- A live seismic station with no recording yet is listed as such in the
-  month-end instead of stopping it.
-- An empty field is answered in the form's words ("a number is needed: a
-  field was left empty"), not Python's; the configuration buttons and the
-  folder watch say what to choose first; a well with nothing to chart says
-  so without an error in the browser's console.
+- The Casing & kick tolerance tab (and `gea casing`): each string's burst,
+  collapse and tension ratings by API TR 5C3 from its size, weight and
+  grade - every collapse regime, the collapse reduced by the tension at
+  each depth - matching API's tables (9-5/8 in 47 lb/ft N80: 6,870 psi
+  burst, 4,750 psi collapse, 1,086 klbf).
+- Against the textbook loads: burst from gas to the surface, held by the
+  fracture pressure at the shoe; collapse with the string emptied; tension
+  from the buoyed weight with the overpull. The smallest safety factor
+  along each string and where, against the design factors.
+- Kick tolerance below each shoe: MAASP, the tallest gas bubble the shoe
+  can hold, and its volume at the bottom and at the shoe - in barrels.
+- Read on the survey, or the drilling recorder's own TVD for a well with
+  none, said so; the window from the Pore pressure tab or declared.
+- Declared on the tab, from the command line, or in the declarations
+  sheet's new [casing_design] and [casing_loads] tables; written as a
+  report; carried in the signed dossier.
+- An interval declared in measured depth is now converted to true
+  vertical depth on the survey or the recorder's TVD.
 
-Acceptance section DC (4 checks).
+Acceptance section DD (4 checks).

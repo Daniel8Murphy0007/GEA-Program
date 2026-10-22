@@ -644,6 +644,17 @@ catalogue well is added only from an entry that carries a downhole gauge
 series, with a well inside it and its gauge depth; a live seismic station
 whose feed has written nothing yet is listed as having no recording yet.
 
+### Casing design and kick tolerance
+
+Each casing string's burst, collapse and tension ratings by API TR 5C3,
+from its size, weight and grade, against the loads the hole can put on it
+- gas to the surface held by the shoe, an emptied string, the buoyed
+weight with overpull - with the smallest safety factor and where, and the
+gas kick each open hole below a shoe can take and still be shut in. `gea
+casing --example`; declared on the **Casing & kick tolerance** tab, with
+`gea casing --workspace C:\site --well SWD-1 --strings ...`, or in the
+declarations sheet. `gea help casing`.
+
 ### Hydraulics and ECD
 
 The pressures the mud makes while it circulates, from the six-speed

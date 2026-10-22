@@ -2622,6 +2622,67 @@ VIEWS.hydraulics = async () => {
   $('#hyWrite') && ($('#hyWrite').onclick = async () => { try { const x = await post('/api/hydraulics/write', {well_id: HYV.well, scene: HYV.scene}); toast('Written ' + x.report_id, 'ok'); } catch (e) { toast(e.message, 'err'); } });
   $('#hyCfg') && ($('#hyCfg').onsubmit = async ev => { ev.preventDefault(); const b_ = Object.fromEntries([...new FormData(ev.target).entries()].filter(([, v]) => v !== '')); try { await post('/api/hydraulics/settings', {well_id: HYV.well, ...b_}); toast('Kept', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
 };
+// ---------- casing design and kick tolerance: burst, collapse, tension against the loads; the kick each open hole can take ----------
+const CSV_ = {scene: 'workspace', well: null, pick: 0};
+function csChart(s, kind) {
+  const rows = s.rows, W = 300, H = 420, L = 54, R = 10, T = 22, B = 30;
+  const zmax = Math.max(...rows.map(x => x.tvd_ft), 1) * 1.03;
+  const load = rows.map(x => kind === 'burst' ? x.burst_net_psi : x.collapse_net_psi), rating = rows.map(x => kind === 'burst' ? s.string.burst_psi : x.collapse_rating_psi);
+  const df = kind === 'burst' ? s.checks.burst.df : s.checks.collapse.df, need = load.map(v => v * df);
+  const hi = Math.max(...rating, ...need, 1) * 1.08, lo = Math.min(0, ...load);
+  const sx = v => L + (v - lo) / Math.max(1e-9, hi - lo) * (W - L - R), sy = z => T + z / zmax * (H - T - B);
+  const pl = (xv, col, w, dash) => `<polyline points="${xv.map((v, i) => `${sx(v).toFixed(1)},${sy(rows[i].tvd_ft).toFixed(1)}`).join(' ')}" fill="none" stroke="${col}" stroke-width="${w}" ${dash ? `stroke-dasharray="${dash}"` : ''}/>`;
+  let g = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${kind} load and rating against true vertical depth" style="max-width:340px">`;
+  const zs = Math.pow(10, Math.floor(Math.log10(zmax / 4))) * 2;
+  for (let z = 0; z <= zmax; z += zs) g += `<line x1="${L}" x2="${W - R}" y1="${sy(z)}" y2="${sy(z)}" stroke="var(--ink2)" opacity=".12"/><text x="${L - 6}" y="${sy(z) + 4}" font-size="10" text-anchor="end" fill="var(--muted)">${z.toLocaleString()}</text>`;
+  const raw = (hi - lo) / 4, mag = Math.pow(10, Math.floor(Math.log10(raw))), xstep = [1, 2, 2.5, 5, 10].map(k => k * mag).find(k => k >= raw) || raw;
+  for (let v = Math.ceil(lo / xstep) * xstep; v <= hi; v += xstep) g += `<line x1="${sx(v)}" x2="${sx(v)}" y1="${T}" y2="${H - B}" stroke="var(--ink2)" opacity=".12"/><text x="${sx(v)}" y="${T - 6}" font-size="10" text-anchor="middle" fill="var(--muted)">${v >= 1000 || v <= -1000 ? (v / 1000).toLocaleString(undefined, {maximumFractionDigits: 1}) + 'k' : Math.round(v)}</text>`;
+  g += pl(rating, 'var(--s2)', 2.2) + pl(need, 'var(--s1)', 1.2, '4 3') + pl(load, 'var(--s1)', 2.2);
+  g += `<text x="${W - R}" y="${H - 8}" font-size="11" fill="var(--muted)" text-anchor="end">${kind}, psi →</text><text x="${L - 6}" y="${H - 8}" font-size="11" fill="var(--muted)" text-anchor="end">ft TVD ↓</text>`;
+  return g + `</svg>`;
+}
+VIEWS.casing = async () => {
+  const P = await get('/api/casing-design?scene=' + CSV_.scene + (CSV_.well ? '&well=' + encodeURIComponent(CSV_.well) : ''));
+  if (CSV_.well !== P.well) CSV_.pick = 0;
+  CSV_.well = P.well;
+  const r = P.result;
+  let h = `<h2>Casing & kick tolerance</h2>${help('casing')}<div class="row"><label>Scene<select id="csScene">${P.scenes.map(s_ => `<option value="${s_.id}" ${s_.id === P.scene ? 'selected' : ''}>${esc(s_.title)}</option>`).join('')}</select></label>`;
+  if (P.scene === 'workspace' && P.wells.length) h += `<label>Well<select id="csWell">${P.wells.map(w => `<option value="${esc(w.id)}" ${w.id === P.well ? 'selected' : ''}>${esc(w.display)}${(w.config.strings || []).length ? '' : ' — not declared'}</option>`).join('')}</select></label>`;
+  if (can('operator') && r) h += `<button type="button" class="secondary" id="csWrite">Write the report</button>`;
+  h += `</div>`;
+  if (!r) h += `<p class="card small">${esc(P.detail || '')}.</p>`;
+  else {
+    const pick = Math.min(CSV_.pick, r.strings.length - 1), sf = v => v == null ? '—' : v.toFixed(2);
+    h += `<div class="tiles">` + r.strings.map(s => { const bad = Object.entries(s.checks).filter(([, v]) => !v.ok).map(([k]) => k), least = Object.entries(s.checks).filter(([, v]) => v.sf != null).sort((a, b) => a[1].sf / a[1].df - b[1].sf / b[1].df)[0];
+      return tile(s.string.what, bad.length ? 'below: ' + bad.join(', ') : 'passes', bad.length ? 'serious' : (least && least[1].sf / least[1].df < 1.1 ? 'warn' : 'good'), '#/casing', least ? `least: ${least[0]} ${sf(least[1].sf)} against ${least[1].df}` : ''); }).join('')
+      + r.kicks.map(k => tile('Kick tolerance below ' + k.shoe_what, k.volume_bbl != null ? k.volume_bbl + ' bbl' : k.status.toLowerCase(), k.volume_bbl == null ? 'neutral' : (k.volume_bbl < 25 ? 'warn' : 'neutral'), '#/casing', k.maasp_psi != null ? `MAASP ${k.maasp_psi.toLocaleString()} psi; kick ${k.kick_ppg} ppg` : (k.detail || ''))).join('') + `</div>`;
+    h += `<div class="card"><h3>The strings and their ratings</h3><table class="small"><thead><tr><th>String</th><th>Pipe</th><th>Top–shoe (ft MD)</th><th>Burst (psi)</th><th>Collapse (psi)</th><th>Body (klbf)</th><th>Burst SF</th><th>Collapse SF</th><th>Tension SF</th></tr></thead><tbody>${r.strings.map((s, i) => { const st = s.string, c = s.checks, cell = x => `<td class="${x.ok ? '' : 'serious'}">${sf(x.sf)}${x.md_ft != null && x.sf != null ? ` <span class="muted">at ${Math.round(x.md_ft).toLocaleString()}</span>` : ''}</td>`;
+      return `<tr><td><button type="button" class="secondary cs-pick" data-i="${i}" aria-pressed="${i === pick}">${esc(st.what)}</button></td><td>${st.od_in} in ${st.weight_lbft} lb/ft ${st.grade} (wall ${st.wall_in}, ${esc(st.wall_from)})</td><td>${Math.round(st.top_md_ft).toLocaleString()}–${Math.round(st.shoe_md_ft).toLocaleString()}</td><td>${st.burst_psi.toLocaleString()}</td><td>${st.collapse_psi.toLocaleString()} <span class="muted">${st.collapse_regime}</span></td><td>${Math.round(st.body_yield_klbf).toLocaleString()}</td>${cell(c.burst)}${cell(c.collapse)}${cell(c.tension)}</tr>`; }).join('')}</tbody></table>
+      <p class="small muted">Design factors: burst ${r.config.df_burst}, collapse ${r.config.df_collapse}, tension ${r.config.df_tension} with ${r.config.overpull_klbf} klbf overpull. Depths read on ${esc(r.path_how)}. Window: ${esc(r.window_how)}.</p></div>`;
+    const s = r.strings[pick];
+    h += `<div class="card"><h3>${esc(s.string.what)}: load against rating by depth</h3><div class="grid2"><div><div class="small"><b>Burst</b> <span class="muted">load blue, load × design factor dashed, rating orange</span></div>${csChart(s, 'burst')}<p class="small">${esc(s.burst_case)}; pore pressure ${s.pore_ppg} ppg at ${Math.round(s.reservoir_tvd_ft).toLocaleString()} ft TVD${s.fg_shoe_ppg != null ? `, fracture gradient at the shoe ${s.fg_shoe_ppg} ppg` : ''}; backup ${r.config.backup_gradient_psi_ft} psi/ft.</p></div>
+      <div><div class="small"><b>Collapse</b> <span class="muted">the rating reduced by the tension at each depth</span></div>${csChart(s, 'collapse')}<p class="small">${esc(s.collapse_case)}. Tension at the top ${s.checks.tension.load_klbf} klbf buoyed (factor ${s.buoyancy_factor}); needed ${s.checks.tension.needed_klbf} klbf of ${Math.round(s.string.body_yield_klbf)}.</p></div></div></div>`;
+    if (r.kicks.length) h += `<div class="card"><h3>Kick tolerance</h3><table class="small"><thead><tr><th>Below</th><th>Open hole (ft MD)</th><th>Mud (ppg)</th><th>Kick (ppg)</th><th>FG at shoe (ppg)</th><th>MAASP (psi)</th><th>SIDPP (psi)</th><th>Height (ft)</th><th>At bottom / at shoe (bbl)</th><th>Tolerance (bbl)</th></tr></thead><tbody>${r.kicks.map(k => `<tr><td>${esc(k.shoe_what)}</td><td>${Math.round(k.shoe_md_ft).toLocaleString()}–${Math.round(k.bottom_md_ft).toLocaleString()}</td><td>${k.mw_ppg}</td><td>${k.kick_ppg}</td><td>${k.fg_shoe_ppg ?? '—'}</td><td>${k.maasp_psi != null ? k.maasp_psi.toLocaleString() : '—'}</td><td>${k.sidpp_psi != null ? k.sidpp_psi.toLocaleString() : '—'}</td><td>${k.height_ft != null ? Math.round(k.height_ft).toLocaleString() : '—'}</td><td>${k.volume_at_bottom_bbl != null ? `${k.volume_at_bottom_bbl} / ${k.volume_shoe_as_bottom_bbl}` : '—'}</td><td>${k.volume_bbl != null ? `<b>${k.volume_bbl}</b>` : esc(k.status)}</td></tr>`).join('')}</tbody></table>
+      <p class="small muted">${r.kicks.filter(k => k.detail).map(k => esc(k.shoe_what + ': ' + k.detail)).join('<br>')}</p></div>`;
+  }
+  const cur = P.wells.find(w => w.id === P.well);
+  if (can('operator') && P.scene === 'workspace' && cur) {
+    const c = cur.config;
+    const num = (n, lab, v, w) => `<label>${lab}<input name="${n}" type="number" step="any" value="${v ?? ''}" style="width:${w || 5}em"></label>`;
+    h += `<div class="card"><h3>${esc(cur.display)}: the casing program</h3><form id="csCfg"><label style="display:block">Strings, shallowest shoe first<input name="strings" value="${esc(cur.strings_text)}" placeholder="surface:13-3/8:54.5:J55:0-1500:17.5:9.0; intermediate:9-5/8:47:N80:0-7000:12.25:9.8" style="width:100%;box-sizing:border-box"></label>
+      <div class="row">${num('td_md_ft', 'TD below the last (ft MD)', c.td_md_ft, 7)}${num('td_hole_in', 'its hole (in)', c.td_hole_in)}${num('td_mw_ppg', 'its mud (ppg)', c.td_mw_ppg)}${num('pp_ppg', 'Pore pressure (ppg)', c.pp_ppg)}${num('fg_ppg', 'Fracture gradient (ppg)', c.fg_ppg)}${num('kick_intensity_ppg', 'Kick intensity (ppg)', c.kick_intensity_ppg)}</div>
+      <div class="row">${num('bha_od_in', 'BHA OD (in)', c.bha_od_in)}${num('bha_length_ft', 'BHA length (ft)', c.bha_length_ft)}${num('dp_od_in', 'Drill pipe OD (in)', c.dp_od_in)}${num('df_burst', 'DF burst', c.df_burst, 4)}${num('df_collapse', 'DF collapse', c.df_collapse, 4)}${num('df_tension', 'DF tension', c.df_tension, 4)}${num('overpull_klbf', 'Overpull (klbf)', c.overpull_klbf)}${num('evacuation', 'Evacuation (0–1)', c.evacuation, 4)}${num('gas_gradient_psi_ft', 'Gas (psi/ft)', c.gas_gradient_psi_ft, 4)}${num('backup_gradient_psi_ft', 'Backup (psi/ft)', c.backup_gradient_psi_ft, 4)}</div>
+      <div class="row"><label>Source<input name="source" value="${esc(c.source || '')}" placeholder="drilling program, casing tally"></label><button class="secondary" type="submit">Keep</button></div></form>
+      <p class="small muted">Each string what:od:lb_ft:grade:top-shoe:hole_in:mud_ppg, the outside diameter as 9.625 or 9-5/8, a wall in inches last for a size the program's table does not hold; the top 0 for a string to the surface. The hole below a shoe is the next string's; below the deepest, the TD row. A pore pressure and fracture gradient here are used only when the Pore pressure tab has none for the well. Grades: ${Object.keys(P.grades).join(', ')}.</p></div>`;
+  }
+  h += `<div class="card"><h3>What this page will not call a measurement</h3><ul class="small">${P.not_a_measurement.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
+  $('#main').innerHTML = h;
+  $('#csScene').onchange = ev => { CSV_.scene = ev.target.value; CSV_.pick = 0; route(); };
+  $('#csWell') && ($('#csWell').onchange = ev => { CSV_.well = ev.target.value; CSV_.pick = 0; route(); });
+  document.querySelectorAll('.cs-pick').forEach(b => b.onclick = () => { CSV_.pick = +b.dataset.i; route(); });
+  $('#csWrite') && ($('#csWrite').onclick = async () => { try { const x = await post('/api/casing-design/write', {well_id: CSV_.well, scene: CSV_.scene}); toast('Written ' + x.report_id, 'ok'); } catch (e) { toast(e.message, 'err'); } });
+  $('#csCfg') && ($('#csCfg').onsubmit = async ev => { ev.preventDefault(); const b_ = Object.fromEntries([...new FormData(ev.target).entries()].filter(([, v]) => v !== '')); try { await post('/api/casing-design/settings', {well_id: CSV_.well, ...b_}); toast('Kept', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+};
 // ---------- torque and drag: the soft-string model, the broomstick, the friction factors that fit the rig ----------
 const TDV = {scene: 'workspace', well: null};
 function tdChart(r, kind) {
@@ -3334,7 +3395,7 @@ function authScreen(first, company) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/frac', 'Frac hits'], ['#/porepressure', 'Pore pressure'], ['#/torquedrag', 'Torque & drag'], ['#/hydraulics', 'Hydraulics & ECD'], ['#/decline', 'Decline curves'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/frac', 'Frac hits'], ['#/porepressure', 'Pore pressure'], ['#/torquedrag', 'Torque & drag'], ['#/hydraulics', 'Hydraulics & ECD'], ['#/casing', 'Casing & kick tolerance'], ['#/decline', 'Decline curves'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w'], '#/control': b => [b.handover_unacked, 'w']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }

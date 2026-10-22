@@ -826,6 +826,13 @@ ENG_TABLES: Dict[str, dict] = {
     'hydraulics': {'cols': ('well', 'string', 'hole', 'mw_ppg', 'fann', 'flow_gpm', 'nozzles_32', 'bit_in', 'surface_psi', 'surface_ref_gpm', 'tools_psi',
                             'trip_ft_min', 'pp_ppg', 'fg_ppg', 'source'), 'need': ('well', 'source'),
                    'about': "the hydraulics: the string from the bit up (what:length_ft:od_in:bore_in; ...), the hole from the surface down (what:bottom_md_ft:inside_diameter_in; ..., the open hole last with no bottom), the mud weight, the viscometer dial (600=60 300=38 200=30 100=21 6=7 3=6), the pump rate, the nozzles in 32nds (14 14 14 14 14), the bit (in), the surface lines' loss (psi) at a rate, the motor and MWD (psi), the trip speed, and a pore pressure and fracture gradient for the hole when the Pore pressure tab has none"},
+    'casing_design': {'cols': ('well', 'what', 'od_in', 'weight_lbft', 'grade', 'top_md_ft', 'shoe_md_ft', 'hole_in', 'mw_ppg', 'wall_in', 'source'),
+                      'need': ('well', 'what', 'od_in', 'weight_lbft', 'grade', 'shoe_md_ft', 'hole_in', 'mw_ppg', 'source'),
+                      'about': "the casing program for casing design and kick tolerance: a row per string - its outside diameter (9.625 or 9-5/8), nominal weight (lb/ft), grade (H40 to Q125), top (0 to the surface) and shoe (ft MD), the hole it was run in (in), the mud it was run in (ppg), the wall (in) for a size not in the program's table; a well's rows together replace its program"},
+    'casing_loads': {'cols': ('well', 'td_md_ft', 'td_hole_in', 'td_mw_ppg', 'pp_ppg', 'fg_ppg', 'kick_intensity_ppg', 'gas_gradient_psi_ft', 'backup_gradient_psi_ft',
+                              'evacuation', 'df_burst', 'df_collapse', 'df_tension', 'overpull_klbf', 'bha_od_in', 'bha_length_ft', 'dp_od_in', 'source'),
+                     'need': ('well', 'source'),
+                     'about': "the casing loads' terms: the hole below the deepest string (TD ft MD, hole in, mud ppg), a pore pressure and fracture gradient when the Pore pressure tab has none, the kick intensity (ppg), the gas and backup gradients (psi/ft), the evacuation (0 to 1), the design factors, the overpull (klbf), and the BHA and drill pipe for the kick volume; blank keeps the default"},
     'frac_stages': {'cols': ('well', 'file', 'depth_unit', 'utc_offset_h', 'source'), 'need': ('well', 'file', 'source'),
                     'about': "a treatment well's stage table (a path beside this sheet: CSV or Excel, one row per stage with its start and end of pumping), its depth unit (ft or m), the stage clock's hours from UTC, and the report it came from"},
     'frac_monitors': {'cols': ('well', 'channel'), 'need': ('well', 'channel'),
@@ -837,7 +844,7 @@ ENG_TABLES: Dict[str, dict] = {
                       'about': "the decline fit's and the value's terms: the terminal decline (0.08 = 8 % a year), the largest b, the month to fit from (YYYY-MM), the price basis (sec or flat) and flat prices, the net revenue interest, severance tax, operating cost a month (USD), the discount rate and the gas heat content"},
 }
 TABLES.update(ENG_TABLES)
-ENG_ORDER = ('survey_program', 'plans', 'pore_pressure', 'pressures', 'torque_drag', 'hydraulics', 'frac_stages', 'frac_monitors', 'production', 'decline_terms')
+ENG_ORDER = ('survey_program', 'plans', 'pore_pressure', 'pressures', 'torque_drag', 'hydraulics', 'casing_design', 'casing_loads', 'frac_stages', 'frac_monitors', 'production', 'decline_terms')
 ORDER = ORDER[:-1] + ENG_ORDER + ('settings',)
 APPLY_ORDER = APPLY_ORDER[:-1] + ENG_ORDER + ('settings',)
 
@@ -1032,6 +1039,57 @@ def _plan_engineering(ws, tables, wells, add, guard, base_dir: str) -> None:
                 lambda actor, wid=wid, string=string, hole=hole, fann=fann, nz=nz, vals=vals, src=src: HY.set_well(ws, actor, wid, src, string, hole, fann, nz, **vals))
         guard('hydraulics', rec, b)
 
+    from . import casing_design as CSG
+    groups: Dict[str, list] = {}
+    for rec in tables.get('casing_design', []):
+        def b(rec=rec):
+            wid = _well_id(ws, rec['well'], wells)
+            row = {k: rec.get(k) for k in ('what', 'od_in', 'weight_lbft', 'grade', 'top_md_ft', 'shoe_md_ft', 'hole_in', 'mw_ppg', 'wall_in')}
+            row['wall_in'] = row['wall_in'] if (row.get('wall_in') or '').strip() else None
+            row['top_md_ft'] = row['top_md_ft'] if (row.get('top_md_ft') or '').strip() else 0
+            CSG.check_strings([row])
+            groups.setdefault(wid, []).append((rec, row))
+        guard('casing_design', rec, b)
+    for wid, items in groups.items():
+        first = items[0][0]
+
+        def b(wid=wid, items=items, first=first):
+            strings = CSG.check_strings([r for _, r in items])
+            srcs = {rec['source'].strip() for rec, _ in items}
+            src = '; '.join(sorted(srcs))
+            cur = CSG.well_config(ws, wid)
+            if cur.get('strings') == strings and (cur.get('strings_source') or cur.get('source')) == src:
+                add('casing_design', first['_row'], wid, 'SAME', f'{len(strings)} string(s) already declared')
+                return
+            add('casing_design', first['_row'], wid, 'CHANGE' if cur.get('strings') else 'NEW',
+                f"{len(strings)} string(s): " + ', '.join(f"{x['what']} {x['od_in']:g} in {x['weight_lbft']:g} lb/ft {x['grade']} to {x['shoe_md_ft']:,.0f} ft" for x in strings) + f' ({src})',
+                lambda actor, wid=wid, strings=strings, src=src: CSG.set_well(ws, actor, wid, src, strings))
+        guard('casing_design', first, b)
+
+    for rec in tables.get('casing_loads', []):
+        def b(rec=rec):
+            wid = _well_id(ws, rec['well'], wells)
+            want = {}
+            for k in CSG.LIMITS:
+                if k == 'step_ft' or not (rec.get(k) or '').strip():
+                    continue
+                v = CSG.size_in(rec[k]) if k in ('td_hole_in', 'bha_od_in', 'dp_od_in') else _f(rec.get(k), k, False)
+                lo, hi = CSG.LIMITS[k]
+                if not lo <= v <= hi:
+                    raise SheetError(f'{k} must be between {lo:g} and {hi:g}')
+                want[k] = v
+            if not want:
+                raise SheetError('give at least one value (blank keeps the default)')
+            cur = CSG.well_config(ws, wid)
+            src = rec['source'].strip()
+            if _same_vals(cur, want) and cur.get('source') == src:
+                add('casing_loads', rec['_row'], wid, 'SAME', 'already declared')
+                return
+            declared = bool(((CSG._load(ws).get('wells') or {}).get(wid) or {}).get('source'))
+            add('casing_loads', rec['_row'], wid, 'CHANGE' if declared else 'NEW', ', '.join(f'{k} {_g(v)}' for k, v in want.items()) + f' ({src})',
+                lambda actor, wid=wid, want=want, src=src: CSG.set_well(ws, actor, wid, src, None, **want))
+        guard('casing_loads', rec, b)
+
     st_have = FH.stages(ws)
     for rec in tables.get('frac_stages', []):
         def b(rec=rec):
@@ -1153,6 +1211,16 @@ def _template_engineering(ws, w, head) -> None:
             w.writerow(['', wid, st, ho, _g(c.get('mw_ppg')), ' '.join(f'{k}={_g(float(v))}' for k, v in (c.get('fann') or {}).items()), _g(c.get('flow_gpm')),
                         ' '.join(_g(float(x)) for x in (c.get('nozzles_32') or [])), _g(c.get('bit_in')), _g(c.get('surface_psi')), _g(c.get('surface_ref_gpm')),
                         _g(c.get('tools_psi')), _g(c.get('trip_ft_min')), _g(c.get('pp_ppg')), _g(c.get('fg_ppg')), c['source']])
+    from . import casing_design as CSG
+    head('casing_design')
+    for wid, c in ((CSG._load(ws).get('wells') or {})).items():
+        for x in (c.get('strings') or []):
+            w.writerow(['', wid, x['what'], _g(x['od_in']), _g(x['weight_lbft']), x['grade'], _g(x['top_md_ft']), _g(x['shoe_md_ft']), _g(x['hole_in']),
+                        _g(x['mw_ppg']), _g(x['wall_in']) if x.get('wall_from') == 'declared' else '', c.get('strings_source') or c.get('source') or ''])
+    head('casing_loads')
+    for wid, c in ((CSG._load(ws).get('wells') or {})).items():
+        if c.get('source') and any(k in c for k in CSG.LIMITS):
+            w.writerow(['', wid] + [_g(c.get(k)) if c.get(k) is not None else '' for k in TABLES['casing_loads']['cols'][1:-1]] + [c['source']])
     head('frac_stages')
     for wid, s in FH.stages(ws).items():
         w.writerow([f"# {wid}: {s['file']} is attached ({s['stages']} stages); list it here only to replace it"])

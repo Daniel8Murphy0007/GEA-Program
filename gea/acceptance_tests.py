@@ -13058,7 +13058,7 @@ def section_db_declarations_engineering(tmp: str) -> None:
     hcfg, tcfg, pcfg = HY.well_config(ws, w1), TND.well_config(ws, w1), PPF.well_config(ws, w1)
     meas = (PPF._load(ws).get("measured") or {}).get(w1) or []
     c1 = {
-        "planned": not p1["errors"] and p1["counts"]["NEW"] == 10 and p1["counts"]["CHANGE"] == 0 and sorted({s["table"] for s in p1["steps"]}) == sorted(DC.ENG_ORDER),
+        "planned": not p1["errors"] and p1["counts"]["NEW"] == 10 and p1["counts"]["CHANGE"] == 0 and sorted({s["table"] for s in p1["steps"]}) == sorted(set(DC.ENG_ORDER) - {"casing_design", "casing_loads"}),   # the casing tables: section DD
         "written": a1["applied"] and len(a1["written"]) == 10,
         "landed": WPL.well_settings(ws, w1)["program"] == [{"to_md_m": 1000.0, "model": "MWD+SRGM"}, {"to_md_m": None, "model": "MWD+IFR1"}]
                   and bool(ws.well(w1).get("plan")) and pcfg["indicator"] == "dexponent" and pcfg["bit_in"] == 8.75
@@ -13310,6 +13310,222 @@ def section_dc_every_tab(tmp: str) -> None:
        + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
 
 
+def section_dd_casing_design(tmp: str) -> None:
+    """Section DD - casing design and kick tolerance: each string's ratings by API TR 5C3 as API's tables give them, in
+    every collapse regime and reduced under tension; the burst, collapse and tension loads and the smallest safety factor
+    against the design factor, worked by hand on the example; the kick tolerance below each shoe; the program declared
+    from the tab, the command line and the declarations sheet, read on the survey or the recorder's own TVD, written,
+    in the dossier; an interval declared in measured depth converted on the survey or the recorder's TVD."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.error
+    import urllib.request
+    import zipfile as _zf
+    from . import __version__ as _ver
+    from . import casing_design as CSG
+    from . import declarations as DC
+    from . import dossier as DZ
+    from . import edr as E
+    from . import helplib as H
+    from . import hydraulics as HY
+    from . import interval as IV
+    from . import well3d as W
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+
+    # -- DD1 the ratings -------------------------------------------------------------------------------------------------------
+    def one(od, ppf, grade, **kw):
+        return CSG.check_strings([{"what": "x", "od_in": od, "weight_lbft": ppf, "grade": grade, "top_md_ft": 0, "shoe_md_ft": 1000, "hole_in": 26, "mw_ppg": 9, **kw}])[0]
+    table = [("9-5/8", 47, "N80", 6870, 4750, "plastic", 1086), (7, 29, "P110", 11220, 8530, "plastic", 929), ("13-3/8", 54.5, "J55", 2730, 1130, "transition", 853),
+             (20, 94, "J55", 2110, 520, "elastic", 1481), ("9-5/8", 40, "N80", 5750, 3090, "transition", 916)]
+    rated = [(one(od, w_, g), b, c, reg, by) for od, w_, g, b, c, reg, by in table]
+    thick = CSG.collapse(5.0, 0.5, 110000.0)                     # D/t 10: the yield regime, 2 Yp (D/t - 1) / (D/t)^2
+    ya0, ya1, ya2 = CSG.reduced_yield(80000.0, 0.0), CSG.reduced_yield(80000.0, 20000.0), CSG.reduced_yield(80000.0, 40000.0)
+
+    def refused(rows):
+        try:
+            CSG.check_strings(rows)
+            return ""
+        except ValueError as e:
+            return str(e)
+    base = {"what": "s", "od_in": "9-5/8", "weight_lbft": 47, "grade": "N80", "top_md_ft": 0, "shoe_md_ft": 5000, "hole_in": 12.25, "mw_ppg": 10}
+    m_grade = refused([{**base, "grade": "X99"}])
+    m_size = refused([{**base, "weight_lbft": 41.3}])
+    m_wall = refused([{**base, "wall_in": 0.3}])
+    m_drift = refused([{**base, "what": "a", "od_in": 7, "weight_lbft": 29, "shoe_md_ft": 3000, "hole_in": 8.5}, {**base, "what": "b"}])
+    try:
+        CSG.parse_strings("surface:13-3/8:54.5:J55")
+        m_parse = ""
+    except ValueError as e:
+        m_parse = str(e)
+    c1 = {
+        "api_tables": all(s["burst_psi"] == b and s["collapse_psi"] == c and s["collapse_regime"] == reg and abs(s["body_yield_klbf"] - by) <= 1.0
+                          for s, b, c, reg, by in rated),
+        "yield_regime": thick[1] == "yield" and abs(thick[0] - 2 * 110000.0 * 9.0 / 100.0) < 1e-6,
+        "sizes": CSG.size_in("9-5/8") == 9.625 and CSG.size_in("13 3/8") == 13.375 and CSG.size_in(7) == 7.0 and rated[0][0]["wall_in"] == 0.472
+                 and rated[0][0]["id_in"] == 8.681,
+        "tension": ya0 == 80000.0 and ya0 > ya1 > ya2 and CSG.collapse_with_tension(9.625, 0.472, 80000.0, 20000.0) < 4750.0
+                   and CSG.reduced_yield(80000.0, -20000.0) == 80000.0,
+        "answered": "the grade is one of" in m_grade and "not in the program's table" in m_size and "weighs about" in m_wall
+                    and "does not pass through" in m_drift and "what:od:weight:grade:top-shoe:hole:mw" in m_parse,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "DD1 the ratings by API TR 5C3 as API's tables give them - 9-5/8 in 47 lb/ft N80 6,870 psi burst, 4,750 collapse, 1,086 klbf body; 7 in 29 "
+       "P110 11,220 and 8,530; 13-3/8 in 54.5 J55 2,730 and 1,130 (transition); 20 in 94 J55 520 (elastic); 9-5/8 in 40 N80 3,090 (transition); a "
+       "D/t of 10 in the yield regime - the collapse reduced under tension and not raised by compression; a grade, a size, a wall that does not "
+       "match its weight, a string that does not pass through the one above and a short line each answered" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- DD2 the loads and the kick tolerance, by hand on the example -------------------------------------------------------------------
+    ex = CSG.example()
+    sv, iv_, pv = ex["strings"]
+    win = CSG.EXAMPLE_WINDOW
+
+    def at(key, z):
+        return float(np.interp(z, win["tvd_ft"], win[key]))
+    # surface string: gas from the pore pressure at the intermediate shoe (7,000 ft), held by the fracture pressure at 1,500 ft
+    p_res, p_frac = 0.052 * at("pp_ppg", 7000.0) * 7000.0, 0.052 * at("fg_ppg", 1500.0) * 1500.0
+    top_in = min(p_res - 0.1 * 7000.0, p_frac - 0.1 * 1500.0)
+    sf_b_top = 2730.0 / top_in
+    sf_c_shoe = 1130.0 / (0.052 * 9.0 * 1500.0)
+    sf_t = 853.2 / ((1 - 9.0 / 65.5) * 54.5 * 1500.0 / 1000.0)
+    k0 = ex["kicks"][0]
+    maasp = 0.052 * (at("fg_ppg", 1500.0) - 9.8) * 1500.0
+    sidpp = 0.052 * 0.5 * 7000.0
+    hgt = (maasp - sidpp) / (0.052 * 9.8 - 0.1)
+    v_bot = hgt * (12.25 ** 2 - 6.5 ** 2) / 1029.4
+    v_shoe = hgt * (12.25 ** 2 - 5.0 ** 2) / 1029.4 * p_frac / (0.052 * 10.3 * 7000.0)
+    weak = {**CSG.DEFAULTS, "strings": CSG.check_strings([{**base, "what": "9-5/8 in J55 36 lb/ft", "weight_lbft": 36, "grade": "J55", "shoe_md_ft": 7000, "mw_ppg": 10}]),
+            "td_md_ft": 10000.0, "td_hole_in": 8.5, "td_mw_ppg": 12.0, "bha_od_in": 6.5, "bha_length_ft": 600.0, "dp_od_in": 5.0}
+    rw = CSG.analyse(weak, lambda md: float(md), win)
+    no_fg = CSG.analyse({**weak, "strings": weak["strings"]}, lambda md: float(md), {"pp_const": 9.0, "fg_const": None})
+    c2 = {
+        "burst": abs(sv["rows"][0]["burst_net_psi"] - top_in) <= 1.0 and sv["rows"][0]["burst_limited_by_shoe"] and abs(sv["rows"][0]["sf_burst"] - sf_b_top) < 0.005,
+        "collapse": abs(sv["rows"][-1]["sf_collapse"] - sf_c_shoe) < 0.005 and sv["rows"][-1]["collapse_rating_psi"] == 1130,
+        "tension": abs(sv["checks"]["tension"]["sf"] - sf_t) < 0.01 and sv["checks"]["tension"]["ok"],
+        "least": sv["checks"]["burst"]["sf"] == min(r_["sf_burst"] for r_ in sv["rows"] if r_["sf_burst"]) and ex["ok"],
+        "kick": abs(k0["maasp_psi"] - maasp) <= 1 and abs(k0["height_ft"] - hgt) < 0.5 and abs(k0["volume_at_bottom_bbl"] - v_bot) < 0.15
+                and abs(k0["volume_shoe_as_bottom_bbl"] - v_shoe) < 0.15 and k0["volume_bbl"] == min(k0["volume_at_bottom_bbl"], k0["volume_shoe_as_bottom_bbl"]),
+        "weak": not rw["ok"] and not rw["strings"][0]["checks"]["burst"]["ok"] and not rw["strings"][0]["checks"]["collapse"]["ok"],
+        "no_fg": no_fg["kicks"][0]["status"] == "NOT KNOWN" and "fracture gradient at the shoe" in no_fg["kicks"][0]["detail"],
+        "production": pv["below"] is None and "at the shoe" in pv["burst_case"],
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "DD2 the worked example by hand: the surface string's burst load at the top is gas from the pore pressure at the next shoe held to the fracture "
+       "pressure at its own shoe, the collapse at its shoe the 9.0 ppg mud against an empty string, the tension its buoyed weight; the smallest "
+       "safety factor where it falls; the kick tolerance below it MAASP, SIDPP, the bubble's height and its volume at the bottom and at the shoe "
+       "carried back by Boyle's law, the smaller; a 36 lb/ft J55 string at 7,000 ft below its design factors in burst and collapse; no fracture "
+       "gradient, no kick tolerance - said so" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- DD3 a well: declared three ways, read on its survey or the recorder's TVD, written, in the dossier ----------------------------------
+    d = Path(tmp, "casing"); d.mkdir()
+    hy = HY.selftest_files(str(d / "hy"))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    w1 = ws.add_well_file(hy["record"], display="HY-1", actor="tester")["id"]
+    w2 = ws.add_well_file(hy["record"], display="HY-2", actor="tester")["id"]
+    W.attach_trajectory(ws, w1, "s.csv", Path(hy["survey"]).read_bytes(), "tester", "true", "ft", None, None, None, "test survey")
+    for wid in (w2,):
+        out = Path(ws.reports_dir, "wells", wid); out.mkdir(parents=True, exist_ok=True)
+        E.write_record(E.read(hy["record"]), str(out), _ver)
+    prog = "surface:13-3/8:54.5:J55:0-1500:17.5:9.0; intermediate:9-5/8:47:N80:0-6000:12.25:10"
+    cli = _sp.run([sys.executable, "-m", "gea", "casing", "--workspace", wsp, "--well", w1, "--strings", prog, "--td", "10000", "--td-hole", "8-1/2", "--td-mw", "11",
+                   "--pp", "9.5", "--fg", "14.5", "--bha-od", "6.75", "--bha-length", "400", "--dp-od", "5", "--source", "drilling program (test)"],
+                  capture_output=True, text=True, cwd=str(pkg.parent))
+    p1 = CSG.page(ws, "workspace", w1)
+    r1 = p1["result"]
+    sheet = d / "sheet.csv"
+    cols_d, cols_l = DC.TABLES["casing_design"]["cols"], DC.TABLES["casing_loads"]["cols"]
+    rows = [["[casing_design]", *cols_d], ["", "HY-2", "surface", "13-3/8", "54.5", "J55", "0", "1500", "17.5", "9.0", "", "casing tally (test)"],
+            ["", "HY-2", "intermediate", "9.625", "47", "N80", "0", "6000", "12.25", "10", "", "casing tally (test)"],
+            ["[casing_loads]", *cols_l], ["", "HY-2", "10000", "8.5", "11", "9.5", "14.5", "0.5", "", "", "", "", "", "", "", "6.75", "400", "5", "drilling program (test)"]]
+    import csv as _csv
+    import io as _io
+    buf = _io.StringIO(); _csv.writer(buf).writerows(rows); sheet.write_text(buf.getvalue(), encoding="utf-8")
+    pl = DC.apply(ws, sheet.read_text(encoding="utf-8"), "tester", str(d))
+    pw = DC.apply(ws, sheet.read_text(encoding="utf-8"), "tester", str(d), write=True)
+    again = DC.apply(ws, sheet.read_text(encoding="utf-8"), "tester", str(d))
+    tmpl = DC.apply(ws, DC.template(ws), "tester", str(d))
+    bad = sheet.read_text(encoding="utf-8").replace(",N80,", ",X99,")
+    pb = DC.apply(ws, bad, "tester", str(d), write=True)
+    p2 = CSG.page(ws, "workspace", w2)
+    r2 = p2["result"]
+    Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+    o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        call("POST", "/api/login", {"name": "op", "password": "op-pass-123"})
+        st_g, g = call("GET", f"/api/casing-design?well={w1}")
+        st_ex, gx = call("GET", "/api/casing-design?scene=example")
+        st_s, sset = call("POST", "/api/casing-design/settings", {"well_id": w1, "df_burst": "1.2", "source": "drilling program rev 2 (test)"})
+        st_bad, sbad = call("POST", "/api/casing-design/settings", {"well_id": w1, "strings": "surface:13-3/8:54.5:X99:0-1500:17.5:9", "source": "x"})
+        st_w, wr = call("POST", "/api/casing-design/write", {"well_id": w1})
+    finally:
+        svc.stop()
+    cli_ex = _sp.run([sys.executable, "-m", "gea", "casing", "--example"], capture_output=True, text=True, cwd=str(pkg.parent))
+    dz = DZ.build(ws, "tester", _ver, None)
+    with _zf.ZipFile(Path(ws.reports_dir, dz["path"])) as z_:
+        names = set(z_.namelist())
+    rep_json = json.loads(Path(ws.reports_dir, "wells", w1, "casing_design.json").read_text(encoding="utf-8"))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c3 = {
+        "cli": cli.returncode == 0 and "2 string(s)" in cli.stdout,
+        "survey": r1 and r1["path_from"] == "survey" and r1["strings"][1]["shoe_tvd_ft"] < 6000.0 - 100.0 and len(r1["kicks"]) == 2
+                  and r1["kicks"][1]["bottom_md_ft"] == 10000.0 and r1["kicks"][1].get("volume_bbl") is not None,
+        "sheet": not pl["errors"] and [s_["action"] for s_ in pl["steps"] if s_["table"] in ("casing_design", "casing_loads")] == ["NEW", "NEW"]
+                 and pw["applied"] and not again["errors"] and again["counts"]["NEW"] == 0 and again["counts"]["CHANGE"] == 0
+                 and not tmpl["errors"] and tmpl["counts"]["NEW"] == 0 and tmpl["counts"]["CHANGE"] == 0,
+        "sheet_bad": bool(pb["errors"]) and any("[casing_design]" in e and "the grade is one of" in e for e in pb["errors"]) and not pb["written"],
+        "recorder": r2 and r2["path_from"] == "recorder" and "not a survey" in r2["path_how"] and abs(r2["strings"][1]["shoe_tvd_ft"] - r1["strings"][1]["shoe_tvd_ft"]) < 40.0,
+        "api": st_g == 200 and g["result"]["well"] == w1 and st_ex == 200 and gx["scene"] == "example" and st_s == 200 and sset["df_burst"] == 1.2
+               and st_bad == 400 and "the grade is one of" in sbad.get("error", "") and st_w == 200 and wr["report_id"].startswith("CSG-")
+               and rep_json["config"]["df_burst"] == 1.2,
+        "example_cli": cli_ex.returncode == 0 and "6,870 psi" in cli_ex.stdout and "kick tolerance below" in cli_ex.stdout,
+        "dossier": "declarations/drillstring/casing_design.json" in names and f"results/casing_design/{w1}.json" in names,
+        "page_help": "['#/casing', 'Casing & kick tolerance']" in page_src and "VIEWS.casing = async" in page_src and not H.check("casing")
+                     and any(t["topic"] == "casing" for t in H.topics()) and "[casing_design]" in (H.page("declare") or ""),
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "DD3 a well's casing program declared from the command line, the API and the declarations sheet (planned NEW, written, then SAME, and from "
+       "the template; a bad grade answered with its row, nothing written); read on its survey, or on the drilling recorder's own TVD for a well with "
+       "none, said so; the kick tolerance of each open hole to TD; the report written (CSG-...); the dossier carries the declarations and the "
+       "result; the tab, the help and the sheet's tables" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+    # -- DD4 an interval declared in measured depth -----------------------------------------------------------------------------------------
+    base_w = {"id": "w", "surface": {"lat": 1.0, "lon": 1.0, "elevation": {"ft": 2950.0, "datum": "KB", "source": "report"}},
+              "disposal": {"top_interval_ft": 7000.0, "base_interval_ft": 7600.0, "depth_reference": "MD"}}
+    path1, path2 = HY.depth_path(ws, w1), HY.depth_path(ws, w2)
+    s1 = IV.statement(base_w, {"status": "OK", "layers": []}, [], None, path1)
+    s2 = IV.statement(base_w, {"status": "OK", "layers": []}, [], None, path2)
+    s3 = IV.statement({**base_w, "disposal": {**base_w["disposal"], "base_interval_ft": 30000.0}}, {"status": "OK", "layers": []}, [], None, path1)
+    tv_top = HY.tvd_at(path1, 7000.0)
+    c4 = {
+        "survey": path1["from"] == "survey" and s1["declared"]["depth_reference"] == "TVD" and abs(s1["declared"]["top_ft"] - tv_top) < 0.2
+                  and s1["declared"]["top_ft"] < 7000.0 - 500.0 and s1["declared"]["converted_from_md"]["top_md_ft"] == 7000.0
+                  and any("converted to" in n and "survey" in n for n in s1["notes"]) and abs(s1["declared"]["top_subsea_ft"] - (2950.0 - s1["declared"]["top_ft"])) < 0.2,
+        "recorder": path2["from"] == "recorder" and abs(s2["declared"]["top_ft"] - s1["declared"]["top_ft"]) < 40.0 and any("not a survey" in n for n in s2["notes"]),
+        "beyond": s3["status"] == "NOT RESOLVED" and "reaches" in s3["lines"][0],
+        "help": "converted on the well's survey" in (H.page("interval") or ""),
+    }
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       "DD4 an interval declared in measured depth is converted to true vertical depth on the well's survey, or the drilling recorder's own TVD for a "
+       "well with none (within 40 ft of the survey's), each said so in the statement; an interval deeper than the depth table reaches stays NOT "
+       "RESOLVED and says how far it reaches" + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+
 def PR_read_ok(path) -> bool:
     from . import pdf_report as PR
     try:
@@ -13428,6 +13644,7 @@ def main() -> int:
         section_da_hydraulics(tmp)
         section_db_declarations_engineering(tmp)
         section_dc_every_tab(tmp)
+        section_dd_casing_design(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

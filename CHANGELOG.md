@@ -5,6 +5,42 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.61.0] - 2026-10-22 - Casing design and kick tolerance
+
+### Added
+- **Casing design** (`gea/casing_design.py`, the **Casing & kick
+  tolerance** tab, `gea casing`): each string's ratings by API TR 5C3 /
+  ISO/TR 10400 - internal yield 0.875 (2 Yp t / D), collapse in its
+  yield, plastic, transition or elastic regime by D/t, the collapse read
+  at the reduced yield under the axial tension at each depth, the body
+  yield - from the declared size, weight, grade and (for a size outside
+  the program's table of API sizes) wall. Checked against API's tables:
+  9-5/8 in 47 lb/ft N80 6,870 psi burst, 4,750 collapse, 1,086 klbf.
+- The loads (Applied Drilling Engineering, ch. 7): burst - gas to the
+  surface from the pore pressure at the bottom of the hole below, held to
+  the fracture pressure at the shoe, against a formation-water backup;
+  collapse - the mud the string was run in against an emptied string;
+  tension - the buoyed weight with the design factor and the overpull.
+  The smallest safety factor along each string and where, against the
+  declared design factors (1.1, 1.125, 1.6 and 100 klbf by default).
+- **Kick tolerance** below each shoe: MAASP, the shut-in pressure of a
+  kick at the declared intensity, the tallest gas bubble the shoe can
+  hold, its volume at the bottom and at the shoe (Boyle's law back to the
+  bottom) - the smaller, in barrels.
+- Depths read on the survey, else the drilling recorder's own TVD, else
+  the plan, else the well taken as vertical - each said so; the window
+  from the Pore pressure tab or declared.
+- Declared from the tab, `gea casing --strings ...`, the API, or the
+  declarations sheet's new `[casing_design]` (a row per string) and
+  `[casing_loads]` tables; the report `CSG-...`; the signed dossier
+  carries the declarations and each well's result. A worked example: three
+  strings in a vertical 10,000 ft well.
+- **The interval band in measured depth**: a disposal interval declared in
+  MD is now converted to TVD on the well's survey, or the drilling
+  recorder's own TVD, and the statement says which; it is NOT RESOLVED,
+  saying how far the depth table reaches, only when neither covers it.
+- Acceptance section DD (4 checks).
+
 ## [v0.60.0] - 2026-10-21 - Every tab and button answers
 
 ### Fixed

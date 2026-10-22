@@ -11,8 +11,8 @@ came from); the layers the site brought give the formation tops as contour brack
 (`structure`: read, not interpolated). This module puts the two side by side:
 
 - the interval is converted to subsea elevation through the declared reference: subsea = reference - depth,
-  so a depth of 6,000 ft from a kelly bushing at 2,950 ft is -3,050 ft subsea; a measured depth is refused
-  (this program converts true vertical depth only; a deviated well's MD needs its survey);
+  so a depth of 6,000 ft from a kelly bushing at 2,950 ft is -3,050 ft subsea; a measured depth is converted to true
+  vertical depth on the well's survey (or the drilling recorder's own TVD), said so, and is NOT RESOLVED without one;
 - for each formation-top layer with a bracket at the well, the interval is ABOVE the mapped top (its base is
   shallower than the shallowest the top can be), BELOW it (its top is deeper than the deepest the top can be),
   or NOT RESOLVED at the map's resolution (the bracket overlaps the interval - the map cannot place the top
@@ -103,9 +103,12 @@ def formation_named(boundary: str, formations: List[str]) -> Optional[str]:
     return None
 
 
-def statement(well: dict, structure: dict, layer_records: List[dict], formation_boundary: Optional[str] = None) -> dict:
+def statement(well: dict, structure: dict, layer_records: List[dict], formation_boundary: Optional[str] = None,
+              md_path: Optional[dict] = None) -> dict:
     """The interval against the mapped tops for one well. `structure` is the well's structure result (every layer's
-    reading at the position); `layer_records` the workspace's layer records (role and formation per layer)."""
+    reading at the position); `layer_records` the workspace's layer records (role and formation per layer); `md_path`
+    the well's MD to TVD table ({md_ft, tvd_ft, source}: its survey, or the drilling recorder's own TVD), with which an
+    interval declared in measured depth is converted."""
     disp = well.get('disposal') or {}
     surf = well.get('surface') or {}
     elev = surf.get('elevation') or {}
@@ -124,15 +127,28 @@ def statement(well: dict, structure: dict, layer_records: List[dict], formation_
         out['notes'].append('not declared: ' + '; '.join(missing))
         out['lines'].append('Interval against the mapped tops: NOT DECLARED - ' + '; '.join(missing) + '.')
         return out
+    converted = None
     if ref == 'MD':
-        out['status'] = 'NOT RESOLVED'
-        out['notes'].append('the interval is declared in measured depth; this program converts true vertical depth only - a deviated well needs its survey, a vertical one may be declared TVD')
-        out['lines'].append('Interval against the mapped tops: NOT RESOLVED - the interval is declared in measured depth; declare true vertical depth (set-well --depth-ref TVD) or convert it with the survey first.')
-        return out
+        reach = float(md_path['md_ft'][-1]) if md_path and md_path.get('md_ft') else None
+        if reach is None or max(float(top_ft), float(base_ft)) > reach + 1.0:
+            out['status'] = 'NOT RESOLVED'
+            why = ('the well has no survey or drilling record with its TVD to convert it with' if reach is None
+                   else f'the depth table reaches {reach:,.0f} ft MD, above the interval\'s base ({max(float(top_ft), float(base_ft)):,.0f} ft MD)')
+            out['notes'].append(f'the interval is declared in measured depth and {why} - attach the survey, or declare true vertical depth')
+            out['lines'].append('Interval against the mapped tops: NOT RESOLVED - the interval is declared in measured depth and ' + why
+                                + '; attach the survey or declare true vertical depth (set-well --depth-ref TVD).')
+            return out
+        import numpy as _np
+        md_top, md_base = float(top_ft), float(base_ft)
+        top_ft = round(float(_np.interp(md_top, md_path['md_ft'], md_path['tvd_ft'])), 1)
+        base_ft = round(float(_np.interp(md_base, md_path['md_ft'], md_path['tvd_ft'])), 1)
+        converted = {'top_md_ft': md_top, 'base_md_ft': md_base, 'how': md_path.get('source', 'the survey')}
+        out['notes'].append(f"the interval was declared in measured depth ({md_top:,.0f} to {md_base:,.0f} ft MD) and converted to {top_ft:,.0f} to "
+                            f"{base_ft:,.0f} ft TVD on {converted['how']}")
     top_ss, base_ss = subsea_ft(top_ft, elev['ft']), subsea_ft(base_ft, elev['ft'])
-    out['declared'] = {'top_ft': float(top_ft), 'base_ft': float(base_ft), 'depth_reference': ref, 'ref_elev_ft': float(elev['ft']),
+    out['declared'] = {'top_ft': float(top_ft), 'base_ft': float(base_ft), 'depth_reference': 'TVD' if converted else ref, 'ref_elev_ft': float(elev['ft']),
                        'ref_datum': elev.get('datum'), 'ref_source': elev.get('source', ''), 'top_subsea_ft': top_ss, 'base_subsea_ft': base_ss,
-                       'depth_tier': disp.get('depth_tier')}
+                       'depth_tier': disp.get('depth_tier'), **({'converted_from_md': converted} if converted else {})}
     if elev.get('datum') == 'GL':
         out['notes'].append('the reference is the ground elevation; a depth measured from the kelly bushing is deeper by the KB height, which is not stated - '
                             'declare the KB elevation from the completion report when the brackets are close')
@@ -186,7 +202,7 @@ def statement(well: dict, structure: dict, layer_records: List[dict], formation_
                                       if named else f"no layer is declared for the formation the boundary names ({formation_boundary})")}
     # the lines as the well page and the packet print them
     d = out['declared']
-    out['lines'].append(f"Declared interval {d['top_ft']:,.0f} to {d['base_ft']:,.0f} ft {ref} below the {d['ref_datum']} at {d['ref_elev_ft']:,.0f} ft"
+    out['lines'].append(f"Declared interval {d['top_ft']:,.0f} to {d['base_ft']:,.0f} ft {d['depth_reference']} below the {d['ref_datum']} at {d['ref_elev_ft']:,.0f} ft"
                         + (f" ({d['ref_source']})" if d['ref_source'] else '') + f": {top_ss:,.0f} to {base_ss:,.0f} ft subsea.")
     for row in out['tops']:
         if row['relation'] in ('ABOVE', 'BELOW'):

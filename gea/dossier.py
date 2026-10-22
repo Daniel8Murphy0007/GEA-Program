@@ -278,7 +278,8 @@ def _gather(ws, well_id: Optional[str]) -> Dict[str, List[tuple]]:
                 ('economics', 'invoices', 'terms.json'), ('economics', 'invoices', 'files.json'), ('drillstring', 'rig_time.json'),
                 ('drillstring', 'casing.json'), ('wellpath', 'collision.json'), ('wellpath', 'survey_program.json'),
                 ('completion', 'frac', 'stages.json'), ('completion', 'frac', 'settings.json'), ('geomech', 'pore_pressure.json'),
-                ('drillstring', 'torque_drag.json'), ('economics', 'production', 'production.json'), ('drillstring', 'hydraulics.json')):
+                ('drillstring', 'torque_drag.json'), ('economics', 'production', 'production.json'), ('drillstring', 'hydraulics.json'),
+                ('drillstring', 'casing_design.json')):
         p = os.path.join(ws.path, *rel)
         if os.path.isfile(p):
             out_list.append((p, 'declarations/' + '/'.join(rel)))
@@ -362,6 +363,16 @@ def _results(ws, well_id: Optional[str]) -> List[tuple]:
                                                                               default=str).encode('utf-8')))
     except Exception as e:
         out.append(('results/hydraulics_not_run.txt', f'the hydraulics model did not run: {type(e).__name__}: {e}\n'.encode('utf-8')))
+    try:
+        from . import casing_design as CSG
+        declared_c = (CSG._load(ws).get('wells') or {})
+        for wid in wells:
+            if (declared_c.get(wid) or {}).get('strings'):
+                r = CSG.page(ws, 'workspace', wid).get('result')
+                if r:
+                    out.append((f'results/casing_design/{wid}.json', json.dumps(r, indent=1, sort_keys=True, default=str).encode('utf-8')))
+    except Exception as e:
+        out.append(('results/casing_design_not_run.txt', f'the casing design did not run: {type(e).__name__}: {e}\n'.encode('utf-8')))
     try:
         from . import torque_drag as TND
         declared = (TND._load(ws).get('wells') or {})

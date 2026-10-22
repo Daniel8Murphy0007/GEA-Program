@@ -2837,3 +2837,27 @@ stability; and motor specifications in the tool catalogue.
   not. Reproduced on a clock set to 23:59:10 UTC; the check now counts
   from the summary's own time. Every section was then run with the clock
   starting 30 seconds before midnight UTC.
+
+## 2026-10-22 - Casing design and kick tolerance (v0.61.0)
+
+- Asked (chosen: casing design and kick tolerance, which needs no site
+  data). The window (Pore pressure), the mud and the depths the earlier
+  tabs carry are what the casing loads are made of.
+- The API TR 5C3 formulas were checked by computing API's own table
+  values: 9-5/8 in 47 N80 (6,870 / 4,750 psi, 1,086 klbf), 7 in 29 P110
+  (11,220 / 8,530), 13-3/8 in 54.5 J55 (2,730 / 1,130, transition), 20 in
+  94 J55 (520, elastic), 9-5/8 in 40 N80 (3,090, transition) - every
+  regime but yield, which a D/t of 10 checks against its formula. Ratings
+  are given to the nearest 10 psi, as the tables round.
+- The loads are the textbook single cases (gas to surface held by the
+  shoe; full evacuation; buoyed weight with overpull), labelled; no
+  temperature, cement, wear, connection rating or drag.
+- Kick tolerance by the single-bubble method, worked by hand in the
+  acceptance section on the example: MAASP 260 psi below the surface
+  shoe, a 191 ft bubble, 6.3 bbl governed at the shoe.
+- The interval band (v0.27's) now converts an MD-declared interval on the
+  survey or the recorder's TVD instead of stopping.
+- The tab was driven in headless Chromium: light, dark and phone width,
+  no console errors, no sideways scroll.
+- Section DD (4 checks). Gate 486 on Python 3.13 and 3.14.
+
