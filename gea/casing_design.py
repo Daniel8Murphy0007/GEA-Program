@@ -620,6 +620,11 @@ def kick_tolerance(cfg: dict, i: int, tvd_of, win) -> Optional[dict]:
     out.update({'volume_at_bottom_bbl': round(v_bottom, 1), 'volume_at_shoe_bbl': round(v_shoe, 1), 'volume_shoe_as_bottom_bbl': round(v_shoe_at_bottom, 1),
                 'volume_bbl': round(min(v_bottom, v_shoe_at_bottom), 1), 'carried_by': law,
                 'governs': 'the bubble at the bottom' if v_bottom <= v_shoe_at_bottom else 'the bubble at the shoe'})
+    if bot['h'] > open_h and sho['h'] > open_h:
+        out['governs'] = 'the open hole itself'
+        out['limited_by_open_hole'] = True
+        out['detail'] = (f"the shoe would hold a gas column taller than the {open_h:,.0f} ft of open hole below it: the tolerance is the open hole's "
+                         "whole volume, and the shoe is not what limits it")
     return out
 
 

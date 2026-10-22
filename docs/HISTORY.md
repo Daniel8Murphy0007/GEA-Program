@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.63.0 - 2026-10-22 - trusted timestamps on the signed dossier
+
+- **A public authority's word for when a dossier was signed.** RFC 3161
+  tokens requested over the dossier's signature, carried in the dossier,
+  and checked - signature, certificate, chain to a trusted root - by the
+  program and by the dossier's own standalone checker. Section DF; gate
+  494.
+
 ## v0.62.0 - 2026-10-22 - kick tolerance on a real gas
 
 - **The gas weighs what it weighs where it is.** Sutton and Dranchuk and

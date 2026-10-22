@@ -644,6 +644,16 @@ catalogue well is added only from an entry that carries a downhole gauge
 series, with a well inside it and its gauge depth; a live seismic station
 whose feed has written nothing yet is listed as having no recording yet.
 
+### Trusted timestamps
+
+A signed dossier's time is the signing machine's clock. With a public
+time-stamping service named (RFC 3161: DigiCert, Sectigo or the site's
+own), each dossier also carries the authority's signed word that its
+signature existed at a given time - only the signature's SHA-256 is
+sent - and the dossier's own checker verifies it to a root the reader's
+computer trusts. `gea dossier --workspace C:\site --timestamp-url
+http://timestamp.digicert.com --timestamp on`; `gea help dossier`.
+
 ### Casing design and kick tolerance
 
 Each casing string's burst, collapse and tension ratings by API TR 5C3,

@@ -12,6 +12,8 @@ A dossier is a zip:
 - `signature.json` - an Ed25519 signature (RFC 8032) over the manifest's exact bytes, with the public key;
 - `verify_dossier.py` - a standalone checker (Python 3.8+, nothing else): the signature, every file's hash,
   and, given the folder, the source records;
+- `timestamp.tsr`, when the site uses a time-stamping service: an RFC 3161 token in which a public authority signs,
+  at its own time, the SHA-256 of the dossier's signature (`timestamp.py`); added after signing, and self-checking;
 - `README.txt`.
 
 The key is the site's own: an Ed25519 seed made on this machine the first time a dossier is signed, kept in
@@ -39,6 +41,7 @@ from typing import Dict, List, Optional
 
 from . import ed25519 as ED
 from . import dossier_verify as DV
+from . import timestamp as TS
 
 KEY_FILE = os.path.join('keys', 'dossier_ed25519.json')
 KEY_HISTORY = os.path.join('keys', 'dossier_key_history.json')      # public keys and rotation statements only
@@ -429,9 +432,12 @@ def verifier_source() -> str:
         ed = f.read()
     with open(os.path.join(here, 'dossier_verify.py'), encoding='utf-8') as f:
         dv = f.read()
-    dv = '\n'.join(l for l in dv.splitlines() if l.strip() != 'from __future__ import annotations')
+    with open(os.path.join(here, 'timestamp.py'), encoding='utf-8') as f:
+        ts = f.read()
+    strip = lambda t: '\n'.join(l for l in t.splitlines() if l.strip() != 'from __future__ import annotations')
     return ('#!/usr/bin/env python3\n# verify_dossier.py - written by GEA-Program into every dossier. Python 3.8+, standard library only.\n'
-            + ed + '\n\n# ---- the checker ----\n' + dv + '\n')
+            'from __future__ import annotations\n'
+            + strip(ed) + '\n\n# ---- trusted timestamps (RFC 3161) ----\n' + strip(ts) + '\n\n# ---- the checker ----\n' + strip(dv) + '\n')
 
 
 README = """GEA dossier
@@ -449,6 +455,11 @@ size and SHA-256 the manifest gives, and INVALID otherwise, with the reason.
 It also prints the signer's key fingerprint. A valid signature shows the files are byte-for-byte those the key's
 holder signed; compare the fingerprint with the one the site gave you by another channel to know who that is.
 This README and verify_dossier.py are not covered by the signature; manifest.json and every file it lists are.
+
+When the dossier carries timestamp.tsr, a public time-stamping authority (RFC 3161) signed, at the time it gives,
+that this dossier's signature existed: the checker verifies the authority's signature and follows its certificates
+to a root this computer trusts (add --anchors FILE.pem to trust another). The time stated in manifest.json is the
+signing machine's own clock; the authority's time is not.
 """
 
 
@@ -538,13 +549,161 @@ def build(ws, actor: str, version: str, well_id: Optional[str] = None, include_s
         with open(_dir(ws, 'ledger.jsonl'), 'a', encoding='utf-8') as f:
             f.write(json.dumps(entry, sort_keys=True) + '\n')
     ws.audit(actor, 'dossier.sign', {k: entry[k] for k in ('dossier_id', 'scope', 'well_id', 'path', 'manifest_sha256', 'n_files', 'n_sources', 'fingerprint')})
+    if timestamp_settings(ws)['enabled']:
+        try:
+            entry['timestamp'] = stamp(ws, actor, did)
+        except (TS.TimestampError, OSError, ValueError) as e:     # the dossier stands; the time is the machine's until it is stamped
+            entry['timestamp'] = _stamp_failed(ws, actor, did, e)
     return entry
+
+
+# -- trusted timestamps -----------------------------------------------------------------------------------------------
+TS_SETTINGS = os.path.join('config', 'timestamp.json')
+TS_LOG = 'timestamps.jsonl'
+TS_SUGGESTED = [{'name': 'DigiCert', 'url': 'http://timestamp.digicert.com'}, {'name': 'Sectigo', 'url': 'http://timestamp.sectigo.com'}]
+
+
+def timestamp_settings(ws) -> dict:
+    try:
+        with open(os.path.join(ws.path, TS_SETTINGS), encoding='utf-8') as f:
+            s = json.load(f)
+    except (OSError, ValueError):
+        s = {}
+    return {'url': s.get('url') or None, 'enabled': bool(s.get('enabled')) and bool(s.get('url')), 'anchors': s.get('anchors') or None,
+            'timeout_s': float(s.get('timeout_s') or 20.0), 'by': s.get('by'), 'utc': s.get('utc'), 'suggested': TS_SUGGESTED}
+
+
+def set_timestamp(ws, actor: str, url: Optional[str] = None, enabled: Optional[bool] = None, anchors: Optional[str] = None) -> dict:
+    """The time-stamping service (an RFC 3161 address), whether every dossier is stamped as it is signed, and an extra
+    trusted root (a PEM file) when the service's root is not in this machine's store."""
+    cur = timestamp_settings(ws)
+    new = {'url': cur['url'], 'enabled': cur['enabled'], 'anchors': cur['anchors'], 'timeout_s': cur['timeout_s']}
+    if url is not None:
+        u = str(url).strip()
+        if u and not u.lower().startswith(('http://', 'https://')):
+            raise ValueError('the time-stamping service is an http:// or https:// address (DigiCert: http://timestamp.digicert.com)')
+        new['url'] = u or None
+    if anchors is not None:
+        a = str(anchors).strip().strip('"')
+        if a:
+            if not os.path.isfile(a):
+                raise ValueError(f'no file {a}: a PEM file holding the root certificate the service chains to')
+            with open(a, 'rb') as f:
+                if not TS.ts_pem_certs(f.read()):
+                    raise ValueError(f'{a} holds no PEM certificate (-----BEGIN CERTIFICATE-----)')
+        new['anchors'] = a or None
+    if enabled is not None:
+        new['enabled'] = bool(enabled)
+    elif url is not None and not new['url']:
+        new['enabled'] = False                                 # the address forgotten: nothing to stamp with
+    if new['enabled'] and not new['url']:
+        raise ValueError('give the time-stamping service\'s address first')
+    new.update({'by': actor, 'utc': _utc()})
+    os.makedirs(os.path.join(ws.path, 'config'), exist_ok=True)
+    with open(os.path.join(ws.path, TS_SETTINGS), 'w', encoding='utf-8') as f:
+        json.dump(new, f, indent=1)
+    ws.audit(actor, 'dossier.timestamp_settings', {k: new[k] for k in ('url', 'enabled', 'anchors')})
+    return timestamp_settings(ws)
+
+
+def _anchors(ws) -> Optional[List[bytes]]:
+    a = timestamp_settings(ws)['anchors']
+    if not a:
+        return None
+    with open(a, 'rb') as f:
+        return TS.ts_system_anchors() + TS.ts_pem_certs(f.read())
+
+
+def stamps(ws) -> Dict[str, dict]:
+    """The latest stamp, or failure, of each dossier."""
+    out: Dict[str, dict] = {}
+    try:
+        with open(_dir(ws, TS_LOG), encoding='utf-8') as f:
+            for ln in f:
+                if ln.strip():
+                    e = json.loads(ln)
+                    if e.get('status') in ('TRUSTED', 'VERIFIED') or out.get(e['dossier_id'], {}).get('status') not in ('TRUSTED', 'VERIFIED'):
+                        out[e['dossier_id']] = e
+    except OSError:
+        pass
+    return out
+
+
+def _log_stamp(ws, rec: dict) -> None:
+    with open(_dir(ws, TS_LOG), 'a', encoding='utf-8') as f:
+        f.write(json.dumps(rec, sort_keys=True) + '\n')
+
+
+def _stamp_failed(ws, actor: str, did: str, e: Exception) -> dict:
+    rec = {'dossier_id': did, 'utc': _utc(), 'status': 'NOT STAMPED', 'url': timestamp_settings(ws)['url'], 'by': actor,
+           'reason': f'{type(e).__name__}: {e}' if not isinstance(e, TS.TimestampError) else str(e)}
+    _log_stamp(ws, rec)
+    ws.audit(actor, 'dossier.timestamp', {k: rec[k] for k in ('dossier_id', 'status', 'url', 'reason')})
+    return rec
+
+
+def stamp(ws, actor: str, dossier_id: str, url: Optional[str] = None, fetch=None) -> dict:
+    """Ask the time-stamping service to vouch for a dossier's signature, check its reply, and add the token to the dossier
+    as timestamp.tsr. Only the SHA-256 of the signature (and a nonce) is sent."""
+    st = timestamp_settings(ws)
+    url = url or st['url']
+    if not url:
+        raise ValueError('no time-stamping service set: give its address (Reports tab, or gea dossier --timestamp-url)')
+    e = next((x for x in ledger(ws) if x['dossier_id'] == dossier_id), None)
+    if e is None:
+        raise KeyError(f'no dossier {dossier_id!r} in this site\'s ledger')
+    zp = os.path.join(ws.reports_dir, *e['path'].split('/'))
+    with zipfile.ZipFile(zp) as z:
+        sig = bytes.fromhex(json.loads(z.read('signature.json').decode('utf-8'))['signature'])
+        entries = [(i, z.read(i.filename)) for i in z.infolist() if i.filename != 'timestamp.tsr']
+    digest = hashlib.sha256(sig).digest()
+    req, nonce = TS.ts_request(digest)
+    try:
+        raw = (fetch or TS.ts_fetch)(url, req, st['timeout_s'])
+    except OSError as x:
+        raise TS.TimestampError(f'the time-stamping service at {url} did not answer: {getattr(x, "reason", x)}') from None
+    tok = TS.ts_read_response(raw)['token']
+    v = TS.ts_verify(tok, digest, 'sha256', nonce, anchors=_anchors(ws))
+    if v['status'] == 'INVALID':
+        bad = next((c for c in v['checks'] if not c['ok']), {'check': '?', 'detail': ''})
+        raise TS.TimestampError(f"the reply from {url} does not verify ({bad['check']}: {bad['detail']}); the dossier was left as it was")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
+        for info, b in entries:
+            z.writestr(info, b)
+        z.writestr('timestamp.tsr', tok)
+    with open(zp + '.tmp', 'wb') as f:
+        f.write(buf.getvalue())
+    os.replace(zp + '.tmp', zp)
+    rec = {'dossier_id': dossier_id, 'utc': _utc(), 'status': v['status'], 'url': url, 'gen_time': v['gen_time'], 'tsa': v['tsa'], 'root': v['root'],
+           'serial': str(v['serial']), 'accuracy_s': v['accuracy_s'], 'chain': v['chain_detail'], 'signed_utc': e['utc'],
+           'token_sha256': hashlib.sha256(tok).hexdigest(), 'zip_sha256': _sha_file(zp), 'by': actor}
+    _log_stamp(ws, rec)
+    ws.audit(actor, 'dossier.timestamp', {k: rec[k] for k in ('dossier_id', 'status', 'url', 'gen_time', 'tsa', 'serial', 'token_sha256')})
+    return rec
+
+
+def test_timestamp(ws, url: Optional[str] = None, fetch=None) -> dict:
+    """Ask the service to stamp a random hash and check the reply, writing nothing: whether this machine reaches it, and
+    whether its root is one this machine trusts."""
+    url = url or timestamp_settings(ws)['url']
+    if not url:
+        raise ValueError('give the time-stamping service\'s address')
+    digest = hashlib.sha256(os.urandom(32)).digest()
+    req, nonce = TS.ts_request(digest)
+    try:
+        raw = (fetch or TS.ts_fetch)(url, req, timestamp_settings(ws)['timeout_s'])
+    except OSError as x:
+        raise TS.TimestampError(f'the time-stamping service at {url} did not answer: {getattr(x, "reason", x)}') from None
+    v = TS.ts_verify(TS.ts_read_response(raw)['token'], digest, 'sha256', nonce, anchors=_anchors(ws))
+    return {'url': url, **{k: v[k] for k in ('status', 'gen_time', 'tsa', 'root', 'chain', 'accuracy_s', 'policy')}, 'chain_detail': v['chain_detail'],
+            'checks': v['checks']}
 
 
 def verify(zip_path: str, ws=None, sources_dir: str = '') -> dict:
     """The standalone check, and inside a workspace the four more: this site's key, its ledger, its source records
     as they are now, and its audit log still holding the lines the dossier chained."""
-    r = DV.check(zip_path, sources_dir)
+    r = DV.check(zip_path, sources_dir, anchors=_anchors(ws) if ws is not None else None)
     if ws is None or not r.get('dossier_id'):
         return r
     with zipfile.ZipFile(zip_path) as z:
@@ -599,11 +758,13 @@ def text(r: dict) -> str:
 def page(ws) -> dict:
     from . import report_history as RH
     kh = key_history(ws)
+    st_ = stamps(ws)
     return {'key': key_info(ws), 'key_history': {'keys': kh['keys'], 'rotations': [{'utc': r['statement']['utc'], 'by': r['statement']['by'],
                                                                                   'reason': r['statement']['reason'],
                                                                                   'old': (r['statement'].get('old') or {}).get('fingerprint') or r['statement'].get('old_fingerprint'),
                                                                                   'new': r['statement']['new']['fingerprint'],
                                                                                   'signed_by_old': bool(r.get('old_signature')),
                                                                                   'statement_sha256': r['statement_sha256']} for r in kh['rotations']]},
-            'dossiers': list(reversed(ledger(ws))), 'history': RH.summary(ws.reports_dir),
+            'dossiers': [{**e, 'timestamp': st_.get(e['dossier_id'])} for e in reversed(ledger(ws))], 'history': RH.summary(ws.reports_dir),
+            'timestamp': timestamp_settings(ws),
             'wells': [{'id': w['id'], 'display': w.get('display') or w['id']} for w in ws.wells()]}

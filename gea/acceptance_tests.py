@@ -13611,6 +13611,11 @@ def section_de_real_gas(tmp: str) -> None:
         "carried": abs(k_["volume_shoe_as_bottom_bbl"] - carried) < 0.15 and "real-gas law" in k_["carried_by"] and "Boyle" in kf["carried_by"],
         "z_t": k_["z_bottom"] > 0 and abs(k_["temp_bottom_f"] - CSG.temperature_f(ex["config"], 10000.0 - h_b / 2)) < 0.1,
         "swabbed": all(k["swabbed"]["kick_ppg"] == k["mw_ppg"] and k["swabbed"]["volume_bbl"] > k["volume_bbl"] for k in ex["kicks"]),
+        "open_hole": (lambda k: k.get("limited_by_open_hole") and k["governs"] == "the open hole itself" and "taller than the" in k["detail"])(
+            CSG.analyse({**CSG.DEFAULTS, "strings": CSG.check_strings([{"what": "intermediate", "od_in": "9-5/8", "weight_lbft": 40, "grade": "N80", "top_md_ft": 0,
+                                                                        "shoe_md_ft": 8000, "hole_in": 12.25, "mw_ppg": 9.5}]),
+                         "td_md_ft": 9000.0, "td_hole_in": 8.5, "td_mw_ppg": 10.0, "bha_od_in": 6.75, "bha_length_ft": 400.0, "dp_od_in": 5.0},
+                        lambda md: float(md), {"pp_const": 9.5, "fg_const": 14.0})["kicks"][0]),
         "burst_real": abs(sv["rows"][0]["burst_net_psi"] - top_load) <= 1.0 and sv["rows"][0]["burst_limited_by_shoe"]
                       and "real gas" in sv["gas"] and "0.1 psi/ft" in exf["strings"][0]["gas"],
     }
@@ -13618,7 +13623,8 @@ def section_de_real_gas(tmp: str) -> None:
     ok(not failed3,
        "DE3 on the worked example: the gas's gradient in the bubble at its own middle's pressure and temperature, heavier on bottom than at the shoe; "
        "the bubble's heights from them; the shoe's volume carried to the bottom by p V / z T (Boyle's law with a fixed gradient); a swabbed kick "
-       "(no underbalance) beside each, larger; the burst load at the top the real gas's column from the fracture pressure at the shoe"
+       "(no underbalance) beside each, larger; a shoe that would hold more gas than the open hole below it says the open hole is the limit; the burst load at "
+       "the top the real gas's column from the fracture pressure at the shoe"
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
     # -- DE4 declared --------------------------------------------------------------------------------------------------------------
@@ -13661,6 +13667,364 @@ def section_de_real_gas(tmp: str) -> None:
        "DE4 the gas declared from the command line (its gravity, the surface temperature, the geothermal gradient), a fixed gradient taken in its place "
        "and the real gas back with 'none'; the declarations sheet's [casing_loads] carries them; out of range answered; the tab, its kick table and "
        "the help" + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+
+# -- trusted timestamps: four time-stamp replies OpenSSL 3.0 made (a root, then RSA, ECDSA P-256, P-384 tokens over
+# SHA-256('hello dossier')), for section DF; made for these checks, by no real authority
+_TSF_CA = ('MIIDJDCCAgygAwIBAgIUGHYUXAMX2bEUAqBmXzWi3yefo28wDQYJKoZIhvcNAQELBQAwKjEVMBMGA1UEAwwMVGVzdCBSb290IENBMREwDwYDVQQKDAhHRUEg'
+    'dGVzdDAeFw0yNjEwMjIxMDEyNTVaFw0zNjEwMTkxMDEyNTVaMCoxFTATBgNVBAMMDFRlc3QgUm9vdCBDQTERMA8GA1UECgwIR0VBIHRlc3QwggEiMA0GCSqG'
+    'SIb3DQEBAQUAA4IBDwAwggEKAoIBAQDAgRnGIUewLTPEkHlyaS3hrMtqJ+nR2UiQGDXVZsbTyx0jw5yT/DbX95mxfQ0wGI4hA+QQwfycNUGyQ4PHOz133wjK'
+    'uH2PqyTxIWq10eSmk1bKN7xkrWn+M/530uPna5XcqGdd4fvYw3c2C4pns5ABjBpVS22CQ+UobLAP6XOBvdXskRDtBIuDE4kfUd7Z0BKLLVFLrFmhhimewBMW'
+    'K5FjMFQZL2GkI3WsTQpK9IZ84yOO8mVcVlBkQoR6U3YVY7M57ISO54ph1umAUkUK2jk8OctJW/2FgAQ3c+gJ94/yRQGgI9zCWzDBCfBUWjzwz1s6Q6dSfQx7'
+    'U7mQiYl4rOLpAgMBAAGjQjBAMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRrdCnx+4GIdaiSiwJ59XMT33qZKjANBgkqhkiG'
+    '9w0BAQsFAAOCAQEAIWRaLc8LYGaOzxh8KPHOG6GNH7aTmBAvdPZDOyqyD7VL9psblX1Ad+yh68G4/fhcLhgy6SNHmcDG7bwa1n3qV1MnoOQm4qxsez/kujQC'
+    '5KizMnJZjZqJY5PVgo+1/4hRvdP9WA8dv8TIw4/r4X9Q6H0ec74qCX2hZUrTeUjd1gibZ1RKgMP+kwQ0DEQOEdJU3eA5GRT/xpI6i5kFPpgb0HkkDQivYrqa'
+    'WKkANb6GAXMnDZbjGJWSQx0KwQ64h63itQ38CcVrIEZufwIWWgo9d41eDwRtvef0+SsyGE5c+iZOj6XBJRUGbDEMRfSxnPnXz55UU3N3ZUS00RruGnypEA==')
+_TSF_RSA = ('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')
+_TSF_P256 = ('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'
+    'd+nd/I+vxtLUz5GF/V/ZAc0n0W3zdqHsAa7S')
+_TSF_P384 = ('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'
+    'MQsKFLjuOOhqJIoQHBXQkLfeAw==')
+
+
+def _test_tsa(bits: int = 2048, eku_critical: bool = True, wrong_nonce: bool = False, break_signature: bool = False,
+              gen_time=None, ca_valid_days: int = 3650):
+    """A time-stamping authority for the checks, never a real one: a root it made, a TSA certificate the root issued, and
+    a function answering an RFC 3161 request as a service would (CMS SignedData, RSA with SHA-256, ESS v2)."""
+    import hashlib as _h
+    import secrets as _sec
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+    from . import timestamp as TS
+    from . import tls as TL
+    S, I, O, T_, N, E = TL._seq, TL._int, TL._oid, TL._tlv, TL._name, TL._ext
+    rsa_alg = S(O('1.2.840.113549.1.1.11'), T_(0x05, b''))
+    now = _dt.now(_tz.utc).replace(microsecond=0)
+
+    def spki(k):
+        return S(S(O('1.2.840.113549.1.1.1'), T_(0x05, b'')), T_(0x03, b'\x00' + S(I(k['n']), I(k['e']))))
+
+    def cert(serial, subject, issuer, key, signer_key, exts, days):
+        tbs = S(T_(0xA0, I(2)), I(serial), rsa_alg, issuer, S(TL._time(now - _td(days=1)), TL._time(now + _td(days=days))), subject, spki(key), T_(0xA3, S(*exts)))
+        return S(tbs, rsa_alg, T_(0x03, b'\x00' + TL.sign_pkcs1_sha256(signer_key, tbs)))
+    ca_key, tsa_key = TL.rsa_key(bits), TL.rsa_key(bits)
+    ca_name, tsa_name = N('GEA Test Root (not a real authority)', 'GEA acceptance'), N('GEA Test TSA (not a real authority)', 'GEA acceptance')
+    ca = cert(1001, ca_name, ca_name, ca_key, ca_key, [E('2.5.29.19', True, S(T_(0x01, b'\xff'))), E('2.5.29.15', True, T_(0x03, b'\x01\x06'))], ca_valid_days)
+    tsa = cert(1002, tsa_name, ca_name, tsa_key, ca_key, [E('2.5.29.19', True, S()), E('2.5.29.15', True, T_(0x03, b'\x07\x80')),
+                                                          E('2.5.29.37', eku_critical, S(O('1.3.6.1.5.5.7.3.8')))], 1800)
+    served = []
+
+    def answer(url, req, timeout=None):
+        k = TS._ts_kids(TS._ts_one(req)[1])
+        imp = k[1][2]
+        nonce = next((TS._ts_int(v) for t, v, _ in k[2:] if t == 0x02), None)
+        if wrong_nonce and nonce is not None:
+            nonce += 1
+        when = gen_time or _dt.now(_tz.utc)
+        serial = _sec.randbits(62)
+        tst = S(I(1), O('1.3.6.1.4.1.99999.1'), imp, I(serial), T_(0x18, when.strftime('%Y%m%d%H%M%SZ').encode('ascii')), S(I(1)),
+                *([I(nonce)] if nonce is not None else []))
+        attrs = sorted([S(O('1.2.840.113549.1.9.3'), TL._set(O('1.2.840.113549.1.9.16.1.4'))),
+                        S(O('1.2.840.113549.1.9.4'), TL._set(T_(0x04, _h.sha256(tst).digest()))),
+                        S(O('1.2.840.113549.1.9.16.2.47'), TL._set(S(S(S(T_(0x04, _h.sha256(tsa).digest()))))))])
+        signed = TL._set(*attrs)
+        sig = TL.sign_pkcs1_sha256(tsa_key, signed)
+        if break_signature:
+            sig = sig[:-1] + bytes([sig[-1] ^ 1])
+        si = S(I(1), S(ca_name, I(1002)), S(O('2.16.840.1.101.3.4.2.1'), T_(0x05, b'')), b'\xa0' + signed[1:],
+               S(O('1.2.840.113549.1.1.1'), T_(0x05, b'')), T_(0x04, sig))
+        sd = S(I(3), TL._set(S(O('2.16.840.1.101.3.4.2.1'), T_(0x05, b''))), S(O('1.2.840.113549.1.9.16.1.4'), T_(0xA0, T_(0x04, tst))),
+               T_(0xA0, tsa), TL._set(si))
+        served.append(serial)
+        return S(S(I(0)), S(O('1.2.840.113549.1.7.2'), T_(0xA0, sd)))
+    return {'ca': ca, 'tsa': tsa, 'answer': answer, 'served': served}
+
+
+def section_df_trusted_timestamp(tmp: str) -> None:
+    """Section DF - trusted timestamps (RFC 3161) on the signed dossier: tokens an independent implementation (OpenSSL
+    3.0) made with RSA, ECDSA P-256 and P-384 read and verified to their root, and every tampering caught; a request
+    OpenSSL reads; a dossier stamped as it is signed through a service over HTTP, the token inside, the standalone
+    checker reading it with and without the root trusted; a service that cannot be reached leaves the dossier signed
+    and says so; stamping later; the settings, the command line, the API, the tab and the help."""
+    import base64 as _b64
+    import hashlib
+    import http.cookiejar
+    import http.server
+    import subprocess as _sp
+    import threading as _th
+    import urllib.error
+    import urllib.request
+    import zipfile as _zf
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+    from . import __version__ as _ver
+    from . import dossier as DZ
+    from . import helplib as H
+    from . import timestamp as TS
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    fx = {k: _b64.b64decode(v) for k, v in (('ca', _TSF_CA), ('rsa', _TSF_RSA), ('p256', _TSF_P256), ('p384', _TSF_P384))}
+    data_hash = hashlib.sha256(b'hello dossier').digest()
+
+    # -- DF1 tokens OpenSSL made ------------------------------------------------------------------------------------------------
+    res = {k: TS.ts_verify(TS.ts_read_response(fx[k])['token'], data_hash, anchors=[fx['ca']]) for k in ('rsa', 'p256', 'p384')}
+    tok = TS.ts_read_response(fx['rsa'])['token']
+    other = TS.ts_verify(tok, hashlib.sha256(b'another dossier').digest(), anchors=[fx['ca']])
+    untrusted = TS.ts_verify(tok, data_hash, anchors=[])
+    i_t = tok.find(TS.ts_read_token(tok)['tst_der'])
+    t_tst = TS.ts_verify(tok[:i_t + 40] + bytes([tok[i_t + 40] ^ 1]) + tok[i_t + 41:], data_hash, anchors=[fx['ca']])
+    t_sig = TS.ts_verify(tok[:-3] + bytes([tok[-3] ^ 1]) + tok[-2:], data_hash, anchors=[fx['ca']])
+    req, nonce = TS.ts_request(data_hash, nonce=12345)
+    rk = TS._ts_kids(TS._ts_one(req)[1])
+    try:
+        TS.ts_request(b'short')
+        short = ''
+    except TS.TimestampError as e:
+        short = str(e)
+    c1 = {
+        "openssl_tokens": all(r['status'] == 'TRUSTED' for r in res.values()) and res['rsa']['gen_time'] == '2026-10-22T10:12:55Z'
+                          and res['rsa']['tsa'] == 'Test TSA' and abs(res['rsa']['accuracy_s'] - 1.5001) < 1e-9,
+        "algorithms": 'RSA with SHA256' in res['rsa']['checks'][3]['detail'] and 'ECDSA P-256 with SHA256' in res['p256']['checks'][3]['detail']
+                      and 'ECDSA P-384 with SHA384' in res['p384']['checks'][3]['detail'],
+        "chain": res['rsa']['chain'] == ['Test TSA', 'Test Intermediate', 'Test Root CA'] and res['rsa']['root'] == 'Test Root CA',
+        "other_hash": other['status'] == 'INVALID' and not other['checks'][1]['ok'],
+        "not_trusted": untrusted['status'] == 'VERIFIED' and 'not trusted here' in untrusted['chain_detail'],
+        "tampered": t_tst['status'] == 'INVALID' and t_sig['status'] == 'INVALID',
+        "request": len(req) > 50 and TS._ts_int(rk[0][1]) == 1 and TS._ts_kids(rk[1][1])[1][1] == data_hash and TS._ts_int(rk[2][1]) == 12345
+                   and rk[3][1] == b'\xff' and 'a sha256 hash is 32 bytes' in short,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "DF1 time-stamp tokens OpenSSL 3.0 made (RSA, ECDSA P-256, P-384) read and verified: the hash they cover, the signed attributes, the authority's "
+       "signature, its signing-certificate attribute, a time-stamping certificate, the chain through the intermediate to the root; another hash, a "
+       "changed TSTInfo or signature INVALID; the root not trusted here VERIFIED, said so; the request as RFC 3161 lays it out"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- DF2 a service made here, and what a bad one does -------------------------------------------------------------------------------
+    good = _test_tsa()
+    bad_nonce, soft_eku, bad_sig = _test_tsa(wrong_nonce=True), _test_tsa(eku_critical=False), _test_tsa(break_signature=True)
+    late = _test_tsa(gen_time=_dt.now(_tz.utc) + _td(days=4000))
+
+    def ask(t):
+        rq, n = TS.ts_request(data_hash)
+        return TS.ts_verify(TS.ts_read_response(t['answer']('x', rq))['token'], data_hash, nonce=n, anchors=[t['ca']])
+    rg, rn, re_, rs, rl = ask(good), ask(bad_nonce), ask(soft_eku), ask(bad_sig), ask(late)
+    try:                                                       # a TimeStampResp whose status is 2 (rejection), "no"
+        TS.ts_read_response(b'\x30\x0b\x30\x09\x02\x01\x02\x30\x04\x0c\x02no')
+        refused_ = ''
+    except TS.TimestampError as e:
+        refused_ = str(e)
+    c2 = {
+        "good": rg['status'] == 'TRUSTED' and any(c['check'] == 'the nonce is the one sent' and c['ok'] for c in rg['checks']),
+        "nonce": rn['status'] == 'INVALID' and any(c['check'] == 'the nonce is the one sent' and not c['ok'] for c in rn['checks']),
+        "eku": re_['status'] == 'INVALID' and any('time stamping only' in c['detail'] for c in re_['checks'] if not c['ok']),
+        "signature": rs['status'] == 'INVALID' and any(c['check'] == "the authority's signature verifies" and not c['ok'] for c in rs['checks']),
+        "out_of_validity": rl['status'] == 'INVALID' and any('not valid at the time stamped' in c['detail'] for c in rl['checks']),
+        "rejected": 'did not grant a time stamp: rejection' in refused_ and '(no)' in refused_,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "DF2 a service made here with the program's own RSA (a root and a time-stamping certificate it issued) answers and verifies; a reply with "
+       "another nonce, a certificate not marked for time stamping only, a broken signature, a time outside the certificate's validity are each "
+       "INVALID, said which; a rejection is reported with the service's words" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- DF3 a dossier stamped as it is signed, over HTTP ---------------------------------------------------------------------------------
+    d = Path(tmp, "tsa"); d.mkdir()
+    (d / "root.pem").write_text('-----BEGIN CERTIFICATE-----\n' + _b64.encodebytes(good['ca']).decode() + '-----END CERTIFICATE-----\n', encoding='ascii')
+
+    class TSAHandler(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_POST(self):
+            n = int(self.headers.get('Content-Length') or 0)
+            body = good['answer']('x', self.rfile.read(n))
+            self.send_response(200); self.send_header('Content-Type', 'application/timestamp-reply'); self.send_header('Content-Length', str(len(body)))
+            self.end_headers(); self.wfile.write(body)
+    srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), TSAHandler)
+    _th.Thread(target=srv.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{srv.server_address[1]}/tsr"
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    ws.add_well_catalog("volve_f12_f14_production_excerpt", "15/9-F-12", 10000.0, actor="tester")
+    ws.refresh_dashboard(actor="tester")
+
+    def refused(**kw):
+        try:
+            DZ.set_timestamp(ws, "tester", **kw)
+            return ''
+        except ValueError as e:
+            return str(e)
+    m_url, m_on, m_anc = refused(url='ftp://x'), refused(enabled=True), refused(anchors=str(d / 'none.pem'))
+    st = DZ.set_timestamp(ws, "tester", url, True, str(d / "root.pem"))
+    e1 = DZ.build(ws, "tester", _ver, None)
+    zp = os.path.join(ws.reports_dir, e1['path'])
+    with _zf.ZipFile(zp) as z_:
+        names = set(z_.namelist())
+        verifier = z_.read('verify_dossier.py')
+    (d / "verify_dossier.py").write_bytes(verifier)
+    v_any = _sp.run([sys.executable, str(d / "verify_dossier.py"), zp], capture_output=True, text=True, cwd=str(d))
+    v_anc = _sp.run([sys.executable, str(d / "verify_dossier.py"), zp, "--anchors", str(d / "root.pem")], capture_output=True, text=True, cwd=str(d))
+    v_ws = DZ.verify(zp, ws)
+    with _zf.ZipFile(zp) as z_:                               # a token changed after the fact
+        items = [(i, z_.read(i.filename)) for i in z_.infolist()]
+    zp_bad = str(d / "bad.zip")
+    with _zf.ZipFile(zp_bad, 'w') as z_:
+        for i, b in items:
+            z_.writestr(i, (b[:-5] + bytes([b[-5] ^ 1]) + b[-4:]) if i.filename == 'timestamp.tsr' else b)
+    v_bad = _sp.run([sys.executable, str(d / "verify_dossier.py"), zp_bad, "--anchors", str(d / "root.pem")], capture_output=True, text=True, cwd=str(d))
+    DZ.set_timestamp(ws, "tester", "http://127.0.0.1:9/tsr")      # nothing listens there
+    e2 = DZ.build(ws, "tester", _ver, None)
+    DZ.set_timestamp(ws, "tester", url)
+    later = DZ.stamp(ws, "tester", e2['dossier_id'])
+    stamps = DZ.stamps(ws)
+    pg = DZ.page(ws)
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    c3 = {
+        "settings": "http:// or https://" in m_url and "address first" in m_on and "no file" in m_anc and st['enabled'] and st['url'] == url,
+        "stamped": e1['timestamp']['status'] == 'TRUSTED' and 'timestamp.tsr' in names and e1['timestamp']['tsa'].startswith('GEA Test TSA'),
+        "checker_anchor": v_anc.returncode == 0 and "VALID" in v_anc.stdout and "the trusted timestamp verifies" in v_anc.stdout
+                          and "a root this computer trusts" in v_anc.stdout and "after the signing machine's clock" in v_anc.stdout,
+        "checker_untrusted": v_any.returncode == 0 and "does not reach a root this computer trusts" in v_any.stdout,
+        "workspace": v_ws['status'] == 'VALID' and v_ws['timestamp']['status'] == 'TRUSTED',
+        "tampered": v_bad.returncode == 1 and "INVALID" in v_bad.stdout and "NO  the trusted timestamp verifies" in v_bad.stdout,
+        "unreachable": e2['timestamp']['status'] == 'NOT STAMPED' and 'did not answer' in e2['timestamp']['reason'] and os.path.isfile(os.path.join(ws.reports_dir, e2['path'])),
+        "later": later['status'] == 'TRUSTED' and stamps[e2['dossier_id']]['status'] == 'TRUSTED' and DZ.verify(os.path.join(ws.reports_dir, e2['path']), ws)['status'] == 'VALID',
+        "page": pg['timestamp']['url'] == url and all(x['timestamp'] and x['timestamp']['status'] == 'TRUSTED' for x in pg['dossiers']),
+        "audit": '"dossier.timestamp"' in audit and '"dossier.timestamp_settings"' in audit and 'NOT STAMPED' in audit,
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "DF3 a dossier stamped as it is signed, through a service over HTTP: the token rides in it; the standalone checker reads it - TRUSTED with the "
+       "service's root given, its chain short of a trusted root said so without it, a changed token INVALID; a service that cannot be reached leaves "
+       "the dossier signed and NOT STAMPED with why, and stamping it later adds the token; settings refused when wrong; audited"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+    # -- DF4 the command line, the API, the tab, the help ------------------------------------------------------------------------------
+    run = lambda *a: _sp.run([sys.executable, "-m", "gea", "dossier", "--workspace", wsp, *a], capture_output=True, text=True, cwd=str(pkg.parent))
+    r_test = run("--timestamp-test")
+    e3 = DZ.build(ws, "tester", _ver, None)
+    r_stamp = run("--stamp", e3['dossier_id'])
+    r_list = run("--list")
+    r_off = run("--timestamp", "off")
+    r_none = run("--timestamp-url", "none")
+    st_none = DZ.timestamp_settings(ws)
+    DZ.set_timestamp(ws, "tester", url, True)
+    Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator"); Users(str(Path(wsp, "users.json"))).add("adm", "admin-pass-123", "admin")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        op, adm = opener("op", "op-pass-123"), opener("adm", "admin-pass-123")
+        s_op, _ = call(op, "POST", "/api/dossier/timestamp/settings", {"url": url})
+        s_ad, sa = call(adm, "POST", "/api/dossier/timestamp/settings", {"url": url, "enabled": True})
+        t_ad, ta = call(adm, "POST", "/api/dossier/timestamp/test", {})
+        sg, sgv = call(op, "POST", "/api/dossier/sign", {})
+        gp, gpv = call(op, "GET", "/api/dossier")
+        st_x, sx = call(op, "POST", "/api/dossier/stamp", {"dossier_id": "nope"})
+    finally:
+        svc.stop(); srv.shutdown()
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    it = H.security_text() or ""
+    c4 = {
+        "cli": r_test.returncode == 0 and "TRUSTED" in r_test.stdout and r_stamp.returncode == 0 and "stamped " in r_stamp.stdout
+               and "[timestamp TRUSTED" in r_list.stdout and r_off.returncode == 0 and "stamped as it is signed: no" in r_off.stdout
+               and r_none.returncode == 0 and st_none['url'] is None and not st_none['enabled'],
+        "api": s_op == 403 and s_ad == 200 and sa['enabled'] and t_ad == 200 and ta['status'] == 'TRUSTED' and sg == 200 and sgv['timestamp']['status'] == 'TRUSTED'
+               and gp == 200 and gpv['dossiers'][0]['timestamp']['status'] == 'TRUSTED' and st_x == 404,
+        "page": all(x in page_src for x in ("/api/dossier/timestamp/settings", "/api/dossier/timestamp/test", "/api/dossier/stamp", "Trusted timestamp", "dz-stamp")),
+        "help": not H.check("dossier") and "--timestamp-url http://timestamp.digicert.com" in (H.page("dossier") or "") and "Trusted timestamp" in it
+                and "only the SHA-256 of a dossier's signature" in it,
+    }
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       "DF4 from the command line (the service set, tested, a dossier stamped, the list showing it, turned off, forgotten), the API (the settings for "
+       "the administrator only, the test, signing stamped), the Reports tab, the help and the IT overview naming the service and what is sent"
+       + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
 
 
 def PR_read_ok(path) -> bool:
@@ -13783,6 +14147,7 @@ def main() -> int:
         section_dc_every_tab(tmp)
         section_dd_casing_design(tmp)
         section_de_real_gas(tmp)
+        section_df_trusted_timestamp(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

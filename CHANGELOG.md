@@ -5,6 +5,44 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.63.0] - 2026-10-22 - Trusted timestamps on the signed dossier
+
+### Added
+- **Trusted timestamps (RFC 3161)** on signed dossiers (`gea/timestamp.py`,
+  standard library only). A public time-stamping authority signs, at its
+  own time, the SHA-256 of a dossier's Ed25519 signature; the token rides
+  in the dossier as `timestamp.tsr`. Only that hash and a random nonce
+  leave the machine. Off until the site names a service (DigiCert
+  `http://timestamp.digicert.com`, Sectigo `http://timestamp.sectigo.com`,
+  or its own).
+- **The check**, in the program and in every dossier's standalone
+  `verify_dossier.py`: the token covers this signature (and the nonce
+  sent), the signed attributes bind the TSTInfo, the authority's signature
+  verifies (RSA, or ECDSA on P-256, P-384 or P-521; SHA-256/384/512), the
+  signing-certificate attribute names its certificate, a time-stamping
+  certificate valid at the time, and the chain to a root this computer
+  trusts (the operating system's store, as Python's ssl reads it; or
+  `--anchors ROOTS.pem`). TRUSTED, VERIFIED (sound, root not trusted
+  here) or INVALID; the authority's time is printed beside the signing
+  machine's clock, with the difference. Revocation is not checked.
+- Checked against tokens OpenSSL 3.0 made (RSA, ECDSA P-256 and P-384),
+  and OpenSSL verifies tokens from the acceptance suite's own service.
+- **Reports tab**: Trusted timestamp - the service's address, Test the
+  service, stamp every dossier as it is signed, an extra trusted root;
+  each dossier's timestamp in the list, **Stamp** / **Try again** for one
+  signed before or when the service could not be reached (the dossier is
+  signed either way, and says why it was not stamped).
+- `gea dossier --timestamp-url URL --timestamp on|off`,
+  `--timestamp-anchors FILE`, `--timestamp-test`, `--stamp DOSSIER_ID`;
+  `--verify FILE --anchors ROOTS.pem`. The IT overview lists the service
+  among the outbound connections, with what is sent.
+- Acceptance section DF (4 checks).
+
+### Fixed
+- **Kick tolerance** says when the open hole, not the shoe, is the limit:
+  a shoe that would hold a taller gas column than the open hole below it
+  gives the open hole's whole volume, labelled so (found on Pad 3).
+
 ## [v0.62.0] - 2026-10-22 - Kick tolerance on a real gas
 
 ### Changed

@@ -49,6 +49,7 @@ declared extras.
   | Update check | `pypi.org` | when a person runs `gea update --check` or opens Audit / Update |
   | Notifications | the site's own SMTP server or webhook | when the site configures a channel |
   | Company sign-in | the site's identity provider (Entra ID: `login.microsoftonline.com`) | at each company sign-in, if configured |
+  | Trusted timestamp | the RFC 3161 time-stamping service the site names (e.g. `timestamp.digicert.com`); only the SHA-256 of a dossier's signature and a random nonce are sent | when a dossier is signed, if the site turns it on, or when a person asks |
   | Live data | the site's historian (PI Web API), WITSML store, OPC UA server, MQTT broker, Modbus/DNP3/HART-IP device, SeedLink server | when the site defines a patch for it |
 
   No telemetry, no usage reporting, no licence server. Everything else runs

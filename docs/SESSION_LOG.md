@@ -2879,3 +2879,29 @@ stability; and motor specifications in the tool catalogue.
 - A swabbed kick (no underbalance) is now shown beside each.
 - Section DE (4 checks). Gate 490 on Python 3.13 and 3.14.
 
+## 2026-10-22 - Trusted timestamps on the signed dossier (v0.63.0)
+
+- Asked (chosen: trusted timestamps, the last open item on the site's
+  remaining-work list: "a public timestamp service vouches for a
+  dossier's time instead of the machine clock").
+- RFC 3161 request and response, CMS SignedData, X.509 and RSA/ECDSA
+  verification written in the standard library, in one file with no
+  imports from the program, so it rides inside every dossier's checker.
+- Independent checks: tokens made by OpenSSL 3.0's `ts -reply` with RSA,
+  ECDSA P-256 and P-384 verify to their root (kept in the acceptance
+  section); OpenSSL `ts -verify` accepts the acceptance suite's own
+  service's tokens and reads the program's requests. Outside the gate,
+  the test tokens of rfc3161-client (Apache-2.0, downloaded from PyPI
+  for the check only) all verified as that project expects - among them
+  a real IdenTrust token, which chained to the IdenTrust root in this
+  container's own trust store.
+- What is sent: the SHA-256 of the dossier's signature and a nonce. The
+  token is added after signing and is outside the manifest; it checks
+  itself. A service that cannot be reached leaves the dossier signed,
+  NOT STAMPED with why; Stamp adds the token later.
+- No time-stamping service could be reached from here (this container's
+  network, or the site VM's proxy); `gea dossier --timestamp-test` on the
+  site machine is the first real call.
+- Also: kick tolerance now says when the open hole itself is the limit.
+- Section DF (4 checks). Gate 494 on Python 3.13 and 3.14.
+

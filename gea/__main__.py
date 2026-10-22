@@ -596,6 +596,12 @@ def main(argv=None) -> int:
     p_dz.add_argument("--rotate-key", action="store_true", help="retire this site's signing key and start a new one, signed over by the old (give --reason)")
     p_dz.add_argument("--reason", type=str, default="", help="with --rotate-key: why the key is retired")
     p_dz.add_argument("--key-history", action="store_true", help="the site's keys, current and retired, and the rotations between them")
+    p_dz.add_argument("--timestamp-url", type=str, default=None, help="the RFC 3161 time-stamping service to use, e.g. http://timestamp.digicert.com ('none' to forget it)")
+    p_dz.add_argument("--timestamp", type=str, choices=["on", "off"], default=None, help="stamp every dossier as it is signed (on) or not (off)")
+    p_dz.add_argument("--timestamp-anchors", type=str, default=None, help="a PEM file with the service's root certificate, when this machine's store does not hold it ('none' to forget it)")
+    p_dz.add_argument("--timestamp-test", action="store_true", help="ask the service to stamp a random hash and check its reply (nothing is written)")
+    p_dz.add_argument("--stamp", type=str, default=None, help="stamp a dossier this site signed, by its id (gea dossier --list)")
+    p_dz.add_argument("--anchors", type=str, default="", help="with --verify: a PEM file of roots to trust for the timestamp, beside this machine's own")
     p_dz.add_argument("--actor", type=str, default="cli")
     p_dz.add_argument("--json", action="store_true")
 
@@ -2507,11 +2513,40 @@ def main(argv=None) -> int:
             except WorkspaceError as e:
                 raise SystemExit(f"dossier: {e}")
         if a.verify:
-            r = _DZ.verify(a.verify, ws, a.sources)
+            if a.anchors and ws is None:
+                from . import dossier_verify as _DV, timestamp as _TSM
+                with open(a.anchors, "rb") as fh_:
+                    r = _DV.check(a.verify, a.sources, _TSM.ts_system_anchors() + _TSM.ts_pem_certs(fh_.read()))
+            else:
+                r = _DZ.verify(a.verify, ws, a.sources)
             print(_json.dumps(r, default=str) if a.json else _DZ.text(r))
             return 0 if r["status"] == "VALID" else 1
         if ws is None:
             raise SystemExit("dossier: give --workspace (or --verify FILE)")
+        if a.timestamp_url is not None or a.timestamp is not None or a.timestamp_anchors is not None:
+            try:
+                st_ = _DZ.set_timestamp(ws, a.actor, ("" if (a.timestamp_url or "").lower() == "none" else a.timestamp_url),
+                                        None if a.timestamp is None else a.timestamp == "on",
+                                        ("" if (a.timestamp_anchors or "").lower() == "none" else a.timestamp_anchors))
+            except ValueError as ex:
+                raise SystemExit(f"dossier: {ex}")
+            print(f"time-stamping service: {st_['url'] or 'none'}; every dossier stamped as it is signed: {'yes' if st_['enabled'] else 'no'}"
+                  + (f"; extra trusted roots: {st_['anchors']}" if st_["anchors"] else ""))
+            return 0
+        if a.timestamp_test or a.stamp:
+            from . import timestamp as _TSM
+            try:
+                if a.timestamp_test:
+                    t_ = _DZ.test_timestamp(ws)
+                    print(f"{t_['url']}: {t_['status']} - {t_['tsa']} stamped {t_['gen_time']}" + (f" (accuracy {t_['accuracy_s']:g} s)" if t_.get("accuracy_s") else ""))
+                    print(f"  the chain: {t_['chain_detail']}")
+                    return 0 if t_["status"] in ("TRUSTED", "VERIFIED") else 1
+                rec = _DZ.stamp(ws, a.actor, a.stamp)
+            except (KeyError, ValueError, OSError) as ex:
+                raise SystemExit(f"dossier: {ex.args[0] if ex.args else ex}")
+            print(f"stamped {rec['dossier_id']}: {rec['status']} - {rec['tsa']} at {rec['gen_time']} (signed {rec['signed_utc']} by this machine's clock)")
+            print(f"  the chain: {rec['chain']}")
+            return 0
         if a.key:
             k = _DZ.key_info(ws)
             print(f"Ed25519 {k['fingerprint']} (public key {k['public_key']}, made {k['created_utc']})" if k else "no signing key yet: the first dossier makes one")
@@ -2534,8 +2569,11 @@ def main(argv=None) -> int:
                 print("no key history yet")
             return 0
         if a.list:
+            st_ = _DZ.stamps(ws)
             for e in reversed(_DZ.ledger(ws)):
-                print(f"{e['utc']}  {e['dossier_id']}  {e['display']:<24} {e['n_files']:>4} files  {e['path']}")
+                t_ = st_.get(e["dossier_id"]) or {}
+                print(f"{e['utc']}  {e['dossier_id']}  {e['display']:<24} {e['n_files']:>4} files  {e['path']}"
+                      + (f"  [timestamp {t_['status']}" + (f" {t_['gen_time']}]" if t_.get("gen_time") else "]") if t_ else ""))
             return 0
         try:
             e = _DZ.build(ws, a.actor, __version__, a.well, a.include_sources)
@@ -2544,6 +2582,9 @@ def main(argv=None) -> int:
         print(f"signed {e['dossier_id']}: {e['display']}, {e['n_files']} file(s), {e['n_sources']} source record(s) {'embedded' if e['sources_embedded'] else 'by hash'}")
         print(f"  {os.path.join(ws.reports_dir, e['path'])}")
         print(f"  key fingerprint {e['fingerprint']}")
+        t_ = e.get("timestamp")
+        if t_:
+            print(f"  trusted timestamp: {t_['status']}" + (f" - {t_['tsa']} at {t_['gen_time']}" if t_.get("gen_time") else f" - {t_.get('reason', '')}"))
         return 0
     elif a.cmd == "collision":
         import json as _json

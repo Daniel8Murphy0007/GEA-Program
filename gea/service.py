@@ -2669,6 +2669,23 @@ def make_handler(app: App):
                         r_ = App._cr(IC.write_report, app.ws, str(b_.get('well_id') or ''), _v, user['name'])
                         return self._json(200, {k: v for k, v in r_.items() if k != 'paths'})
                     raise ApiError(404, 'no such invoice cross-check action')
+                if path in ('/api/dossier/timestamp/settings', '/api/dossier/timestamp/test', '/api/dossier/stamp'):
+                    from . import dossier as DZ
+                    from . import timestamp as TSM
+                    b_ = dict(body or {})
+                    try:
+                        if path.endswith('/settings'):
+                            App.require(user, 'admin')
+                            en = b_.get('enabled')
+                            return self._json(200, App._cr(DZ.set_timestamp, app.ws, user['name'], b_.get('url') if 'url' in b_ else None,
+                                                           None if en is None else bool(en), b_.get('anchors') if 'anchors' in b_ else None))
+                        if path.endswith('/test'):
+                            App.require(user, 'admin')
+                            return self._json(200, App._cr(DZ.test_timestamp, app.ws, str(b_.get('url') or '') or None))
+                        App.require(user, 'operator')
+                        return self._json(200, App._cr(DZ.stamp, app.ws, user['name'], str(b_.get('dossier_id') or '')))
+                    except TSM.TimestampError as e:
+                        raise ApiError(502, str(e))
                 if path == '/api/dossier/rotate':
                     from . import dossier as DZ
                     App.require(user, 'admin')
