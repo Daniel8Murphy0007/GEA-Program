@@ -653,7 +653,9 @@ def main(argv=None) -> int:
     p_cs.add_argument("--strings", type=str, default=None, help="shallowest shoe first: 'surface:13-3/8:54.5:J55:0-1500:17.5:9.0; intermediate:9-5/8:47:N80:0-7000:12.25:9.8' (what:od:lb_ft:grade:top-shoe:hole_in:mud_ppg[:wall_in])")
     for k_, h_ in (("td", "the well's TD below the deepest string, ft MD"), ("td-hole", "the hole below the deepest string, in"), ("td-mw", "the mud below the deepest string, ppg"),
                    ("pp", "a pore pressure for the well when the Pore pressure tab has none, ppg"), ("fg", "a fracture gradient for the well when the Pore pressure tab has none, ppg"),
-                   ("kick", "kick intensity above the mud, ppg (0.5)"), ("gas", "gas gradient, psi/ft (0.1)"), ("backup", "burst backup gradient outside, psi/ft (0.465)"),
+                   ("kick", "kick intensity above the mud, ppg (0.5)"), ("gas", "a fixed gas gradient, psi/ft, in place of the real gas ('none' for the real gas again)"),
+                   ("gas-sg", "the gas's specific gravity, air 1 (0.65)"), ("surface-temp", "the temperature at the surface, F (70)"),
+                   ("geothermal", "the geothermal gradient, F per 100 ft (1.5)"), ("backup", "burst backup gradient outside, psi/ft (0.465)"),
                    ("evacuation", "how far the string is emptied for collapse, 0 to 1 (1: to the shoe)"), ("df-burst", "burst design factor (1.1)"),
                    ("df-collapse", "collapse design factor (1.125)"), ("df-tension", "tension design factor (1.6)"), ("overpull", "overpull, klbf (100)"),
                    ("bha-od", "BHA outside diameter, in"), ("bha-length", "BHA length, ft"), ("dp-od", "drill pipe outside diameter, in")):
@@ -2625,7 +2627,8 @@ def main(argv=None) -> int:
             ws = Workspace(a.workspace) if a.workspace else None
             scene = "example" if (a.example or ws is None) else "workspace"
             keys_ = {"td": "td_md_ft", "td_hole": "td_hole_in", "td_mw": "td_mw_ppg", "pp": "pp_ppg", "fg": "fg_ppg", "kick": "kick_intensity_ppg",
-                     "gas": "gas_gradient_psi_ft", "backup": "backup_gradient_psi_ft", "evacuation": "evacuation", "df_burst": "df_burst",
+                     "gas": "gas_gradient_psi_ft", "gas_sg": "gas_sg", "surface_temp": "surface_temp_f", "geothermal": "geothermal_f_100ft",
+                     "backup": "backup_gradient_psi_ft", "evacuation": "evacuation", "df_burst": "df_burst",
                      "df_collapse": "df_collapse", "df_tension": "df_tension", "overpull": "overpull_klbf", "bha_od": "bha_od_in",
                      "bha_length": "bha_length_ft", "dp_od": "dp_od_in"}
             vals_ = {v: getattr(a, k) for k, v in keys_.items() if getattr(a, k) is not None}

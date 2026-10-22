@@ -2861,3 +2861,21 @@ stability; and motor specifications in the tool catalogue.
   no console errors, no sideways scroll.
 - Section DD (4 checks). Gate 486 on Python 3.13 and 3.14.
 
+## 2026-10-22 - Kick tolerance on a real gas (v0.62.0)
+
+- Asked (chosen: kick tolerance from real gas). v0.61 took the textbook's
+  fixed 0.1 psi/ft and Boyle's law; in deep, hot hole the gas is heavier
+  than that on bottom and lighter near the surface.
+- Sutton's coefficients and the eleven Dranchuk-Abou-Kassem constants
+  were taken from the published correlations and checked against
+  pyrestoolbox 3.8.9 (downloaded from PyPI for the check only, not used
+  by the program): z and density agree within 1e-5 at five points, and a
+  column of gas from 5,720 psi at 10,000 ft integrated (RK4, 50 ft) to
+  4,659 psi at the surface agrees with a 1 ft integration on its
+  densities.
+- The bubble's gradient is taken at its middle by fixed point; the shoe
+  case shows how light the gas is shallow (0.03 psi/ft at the 1,500 ft
+  shoe of the example), which lengthens the bubble the shoe can hold.
+- A swabbed kick (no underbalance) is now shown beside each.
+- Section DE (4 checks). Gate 490 on Python 3.13 and 3.14.
+

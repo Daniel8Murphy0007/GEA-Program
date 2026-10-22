@@ -829,10 +829,10 @@ ENG_TABLES: Dict[str, dict] = {
     'casing_design': {'cols': ('well', 'what', 'od_in', 'weight_lbft', 'grade', 'top_md_ft', 'shoe_md_ft', 'hole_in', 'mw_ppg', 'wall_in', 'source'),
                       'need': ('well', 'what', 'od_in', 'weight_lbft', 'grade', 'shoe_md_ft', 'hole_in', 'mw_ppg', 'source'),
                       'about': "the casing program for casing design and kick tolerance: a row per string - its outside diameter (9.625 or 9-5/8), nominal weight (lb/ft), grade (H40 to Q125), top (0 to the surface) and shoe (ft MD), the hole it was run in (in), the mud it was run in (ppg), the wall (in) for a size not in the program's table; a well's rows together replace its program"},
-    'casing_loads': {'cols': ('well', 'td_md_ft', 'td_hole_in', 'td_mw_ppg', 'pp_ppg', 'fg_ppg', 'kick_intensity_ppg', 'gas_gradient_psi_ft', 'backup_gradient_psi_ft',
-                              'evacuation', 'df_burst', 'df_collapse', 'df_tension', 'overpull_klbf', 'bha_od_in', 'bha_length_ft', 'dp_od_in', 'source'),
+    'casing_loads': {'cols': ('well', 'td_md_ft', 'td_hole_in', 'td_mw_ppg', 'pp_ppg', 'fg_ppg', 'kick_intensity_ppg', 'gas_gradient_psi_ft', 'gas_sg',
+                              'surface_temp_f', 'geothermal_f_100ft', 'backup_gradient_psi_ft', 'evacuation', 'df_burst', 'df_collapse', 'df_tension', 'overpull_klbf', 'bha_od_in', 'bha_length_ft', 'dp_od_in', 'source'),
                      'need': ('well', 'source'),
-                     'about': "the casing loads' terms: the hole below the deepest string (TD ft MD, hole in, mud ppg), a pore pressure and fracture gradient when the Pore pressure tab has none, the kick intensity (ppg), the gas and backup gradients (psi/ft), the evacuation (0 to 1), the design factors, the overpull (klbf), and the BHA and drill pipe for the kick volume; blank keeps the default"},
+                     'about': "the casing loads' terms: the hole below the deepest string (TD ft MD, hole in, mud ppg), a pore pressure and fracture gradient when the Pore pressure tab has none, the kick intensity (ppg), the gas (its gravity, the surface temperature in F and the geothermal gradient in F per 100 ft; or a fixed gradient in psi/ft in place of the real gas), the backup gradient (psi/ft), the evacuation (0 to 1), the design factors, the overpull (klbf), and the BHA and drill pipe for the kick volume; blank keeps the default"},
     'frac_stages': {'cols': ('well', 'file', 'depth_unit', 'utc_offset_h', 'source'), 'need': ('well', 'file', 'source'),
                     'about': "a treatment well's stage table (a path beside this sheet: CSV or Excel, one row per stage with its start and end of pumping), its depth unit (ft or m), the stage clock's hours from UTC, and the report it came from"},
     'frac_monitors': {'cols': ('well', 'channel'), 'need': ('well', 'channel'),
@@ -1072,6 +1072,9 @@ def _plan_engineering(ws, tables, wells, add, guard, base_dir: str) -> None:
             want = {}
             for k in CSG.LIMITS:
                 if k == 'step_ft' or not (rec.get(k) or '').strip():
+                    continue
+                if rec[k].strip().lower() == 'none' and CSG.DEFAULTS.get(k) is None:
+                    want[k] = None
                     continue
                 v = CSG.size_in(rec[k]) if k in ('td_hole_in', 'bha_od_in', 'dp_od_in') else _f(rec.get(k), k, False)
                 lo, hi = CSG.LIMITS[k]

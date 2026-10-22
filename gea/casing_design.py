@@ -15,9 +15,12 @@ outside diameter D, the wall t and the grade's minimum yield Yp:
 The loads are the textbook ones (Bourgoyne et al., Applied Drilling Engineering, ch. 7; Rabia, Well Engineering and
 Construction), on the true vertical depth z:
 
-- burst: inside, gas to the surface from the deepest pore pressure the hole below the shoe reaches (gas gradient 0.1
-  psi/ft unless declared), no more than the fracture pressure at the shoe less the gas column above it when there is
-  open hole below; outside, a backup of formation water (0.465 psi/ft unless declared);
+- burst: inside, gas to the surface from the deepest pore pressure the hole below the shoe reaches, no more than the
+  fracture pressure at the shoe less the gas column above it when there is open hole below; outside, a backup of
+  formation water (0.465 psi/ft unless declared). The gas is a real gas: its density p M / (z R T) at each depth's
+  pressure and temperature (the surface temperature and the geothermal gradient), z by Dranchuk and Abou-Kassem's fit
+  of the Standing-Katz chart on Sutton's pseudocritical properties for the declared gas gravity, the column integrated
+  up the well; a gas gradient declared in psi/ft replaces it;
 - collapse: outside, the mud the string was run in; inside, the string emptied (or emptied to a declared fraction of
   its depth) with the next hole's mud below the level;
 - tension: the string's buoyed weight hanging from its top (the buoyancy factor 1 - MW/65.5), checked against the
@@ -62,10 +65,11 @@ WALLS: Dict[float, Dict[float, float]] = {
     20.0: {94.0: 0.438, 106.5: 0.500, 133.0: 0.635},
 }
 DEFAULTS = {'strings': [], 'td_md_ft': None, 'td_hole_in': None, 'td_mw_ppg': None, 'pp_ppg': None, 'fg_ppg': None, 'kick_intensity_ppg': 0.5,
-            'gas_gradient_psi_ft': 0.1, 'backup_gradient_psi_ft': 0.465, 'evacuation': 1.0, 'df_burst': 1.1, 'df_collapse': 1.125, 'df_tension': 1.6,
+            'gas_gradient_psi_ft': None, 'gas_sg': 0.65, 'surface_temp_f': 70.0, 'geothermal_f_100ft': 1.5, 'backup_gradient_psi_ft': 0.465, 'evacuation': 1.0, 'df_burst': 1.1, 'df_collapse': 1.125, 'df_tension': 1.6,
             'overpull_klbf': 100.0, 'bha_od_in': None, 'bha_length_ft': None, 'dp_od_in': None, 'step_ft': 100.0}
 LIMITS = {'td_md_ft': (100.0, 40000.0), 'td_hole_in': (2.0, 40.0), 'td_mw_ppg': (6.0, 22.0), 'pp_ppg': (6.0, 22.0), 'fg_ppg': (6.0, 25.0),
-          'kick_intensity_ppg': (0.0, 5.0), 'gas_gradient_psi_ft': (0.0, 0.3), 'backup_gradient_psi_ft': (0.0, 0.6), 'evacuation': (0.0, 1.0),
+          'kick_intensity_ppg': (0.0, 5.0), 'gas_gradient_psi_ft': (0.0, 0.3), 'gas_sg': (0.55, 1.5), 'surface_temp_f': (-20.0, 150.0),
+          'geothermal_f_100ft': (0.5, 4.0), 'backup_gradient_psi_ft': (0.0, 0.6), 'evacuation': (0.0, 1.0),
           'df_burst': (1.0, 2.0), 'df_collapse': (0.8, 2.0), 'df_tension': (1.0, 3.0), 'overpull_klbf': (0.0, 1000.0), 'bha_od_in': (2.0, 20.0),
           'bha_length_ft': (0.0, 5000.0), 'dp_od_in': (2.0, 10.0), 'step_ft': (20.0, 1000.0)}
 NOT_A_MEASUREMENT = [
@@ -74,8 +78,8 @@ NOT_A_MEASUREMENT = [
     "the loads: the textbook cases on the declared mud and the pore pressure and fracture gradient (the Pore pressure tab's, or declared), "
     "not a well's measured pressures; the temperature and the cement are not in them",
     "tension: the buoyed weight on the measured length, hanging straight; the drag of a deviated hole and the bending in a dogleg are not added",
-    "kick tolerance: a single bubble of gas at the gas gradient, Boyle's law without temperature or compressibility; the volume a well can take, "
-    "not one it has taken",
+    "kick tolerance: a single bubble of gas, a sweet natural gas of the declared gravity (no correction for CO2, H2S or nitrogen), at the "
+    "declared geothermal temperature, not the circulating one; the volume a well can take, not one it has taken",
 ]
 BBL_PER_IN2_FT = 1.0 / 1029.4          # annular capacity: (D^2 - d^2) / 1029.4 bbl per ft
 
@@ -291,6 +295,120 @@ def set_well(ws, actor: str, well_id: str, source: str = '', strings=None, **val
     return well_config(ws, well_id)
 
 
+# -- the gas: a real gas at the well's pressure and temperature -----------------------------------------------------------------
+SUTTON_TPC = (169.2, 349.5, -74.0)        # deg R: Tpc = a + b sg + c sg^2 (Sutton, SPE 14265, 1985)
+SUTTON_PPC = (756.8, -131.0, -3.6)        # psia
+DAK = (0.3265, -1.0700, -0.5339, 0.01569, -0.05165, 0.5475, -0.7361, 0.1844, 0.1056, 0.6134, 0.7210)   # Dranchuk and Abou-Kassem, 1975
+R_GAS = 10.7316                           # psia ft3 / (lb-mol deg R)
+M_AIR = 28.97                             # lb / lb-mol
+ATM = 14.696                              # psi
+
+
+def pseudo_critical(sg: float) -> Tuple[float, float]:
+    """Sutton's pseudocritical temperature (deg R) and pressure (psia) of a sweet natural gas of specific gravity sg."""
+    return (SUTTON_TPC[0] + SUTTON_TPC[1] * sg + SUTTON_TPC[2] * sg * sg, SUTTON_PPC[0] + SUTTON_PPC[1] * sg + SUTTON_PPC[2] * sg * sg)
+
+
+def z_factor(tpr: float, ppr: float) -> float:
+    """The gas deviation factor by Dranchuk and Abou-Kassem's fit of the Standing-Katz chart: the reduced density rho_r
+    solving 0 = 1 + C1 rho + C2 rho^2 - C3 rho^5 + C4 (1 + A11 rho^2) rho^2 exp(-A11 rho^2) - 0.27 Ppr / (Tpr rho),
+    found by Newton's method from the ideal gas; z = 0.27 Ppr / (Tpr rho_r)."""
+    if ppr <= 1e-9:
+        return 1.0
+    A = DAK
+    c1 = A[0] + A[1] / tpr + A[2] / tpr ** 3 + A[3] / tpr ** 4 + A[4] / tpr ** 5
+    c2 = A[5] + A[6] / tpr + A[7] / tpr ** 2
+    c3 = A[8] * (A[6] / tpr + A[7] / tpr ** 2)
+    c4 = A[9] / tpr ** 3
+
+    def f(r):
+        e = math.exp(-A[10] * r * r)
+        return 1 + c1 * r + c2 * r * r - c3 * r ** 5 + c4 * (1 + A[10] * r * r) * r * r * e - 0.27 * ppr / (tpr * r)
+
+    def df(r):
+        e = math.exp(-A[10] * r * r)
+        return (c1 + 2 * c2 * r - 5 * c3 * r ** 4 + 2 * c4 * r * e * (1 + 2 * A[10] * r * r - A[10] * r * r * (1 + A[10] * r * r))
+                + 0.27 * ppr / (tpr * r * r))
+    r = 0.27 * ppr / tpr
+    for _ in range(100):
+        step = f(r) / df(r)
+        nr = r - step
+        if nr <= 0:
+            nr = r / 2
+        if abs(nr - r) < 1e-12:
+            r = nr
+            break
+        r = nr
+    if not (math.isfinite(r) and r > 0 and abs(f(r)) < 1e-8):
+        lo, hi = 1e-6, 3.0                      # the gas root lies where f rises through zero; bisect on it
+        for _ in range(200):
+            mid = 0.5 * (lo + hi)
+            if f(mid) < 0:
+                lo = mid
+            else:
+                hi = mid
+        r = 0.5 * (lo + hi)
+    return 0.27 * ppr / (tpr * r)
+
+
+def gas_state(p_psig: float, t_f: float, sg: float) -> dict:
+    """The gas at a gauge pressure and a temperature: z, its density (lb/ft3, ppg) and its gradient (psi/ft)."""
+    tpc, ppc = pseudo_critical(sg)
+    pa, tr = max(0.0, p_psig) + ATM, t_f + 459.67
+    z = z_factor(tr / tpc, pa / ppc)
+    rho = pa * M_AIR * sg / (z * R_GAS * tr)
+    return {'z': z, 'rho_lb_ft3': rho, 'ppg': rho / 7.48052, 'psi_ft': rho / 144.0, 'p_psia': pa, 't_r': tr}
+
+
+def temperature_f(cfg: dict, tvd_ft: float) -> float:
+    return float(cfg['surface_temp_f']) + float(cfg['geothermal_f_100ft']) * max(0.0, tvd_ft) / 100.0
+
+
+def real_gas(cfg: dict) -> bool:
+    return cfg.get('gas_gradient_psi_ft') in (None, '')
+
+
+def gas_column(cfg: dict, p0_psig: float, z0_ft: float, z_ft: float, step_ft: float = 50.0) -> float:
+    """The pressure at z_ft in a column of gas whose pressure at z0_ft is p0_psig: the declared gradient, or the real gas's
+    own weight integrated along the geothermal temperature (fourth-order Runge-Kutta, 50 ft steps)."""
+    if not real_gas(cfg):
+        return p0_psig - float(cfg['gas_gradient_psi_ft']) * (z0_ft - z_ft)
+    sg = float(cfg['gas_sg'])
+    n = max(1, int(math.ceil(abs(z0_ft - z_ft) / step_ft)))
+    h = (z_ft - z0_ft) / n
+
+    def g(z, p):
+        return gas_state(p, temperature_f(cfg, z), sg)['psi_ft']
+    z, p = z0_ft, p0_psig
+    for _ in range(n):
+        k1 = g(z, p); k2 = g(z + h / 2, p + h * k1 / 2); k3 = g(z + h / 2, p + h * k2 / 2); k4 = g(z + h, p + h * k3)
+        p += h * (k1 + 2 * k2 + 2 * k3 + k4) / 6
+        z += h
+    return p
+
+
+def _bubble(cfg: dict, gm: float, maasp: float, sidpp: float, p_anchor: float, z_anchor: float, down: bool) -> dict:
+    """A gas bubble whose top (down=True: at the shoe, the anchor) or bottom (down=False: at the bottom of the hole) is at the
+    anchor pressure: its height H = (MAASP - SIDPP) / (mud gradient - gas gradient), the gas gradient taken at the bubble's
+    middle, found by fixed point; its middle's pressure, temperature and z."""
+    gg = float(cfg['gas_gradient_psi_ft']) if not real_gas(cfg) else 0.1
+    st = None
+    for _ in range(30):
+        h = (maasp - sidpp) / (gm - gg) if gm > gg else -1.0
+        hm = max(0.0, h) / 2
+        zm = z_anchor + hm if down else z_anchor - hm
+        pm = p_anchor + gg * hm if down else p_anchor - gg * hm
+        if not real_gas(cfg):
+            break
+        st = gas_state(pm, temperature_f(cfg, zm), float(cfg['gas_sg']))
+        if abs(st['psi_ft'] - gg) < 1e-7:
+            gg = st['psi_ft']
+            break
+        gg = st['psi_ft']
+    h = (maasp - sidpp) / (gm - gg) if gm > gg else -1.0
+    return {'h': h, 'gg': gg, 'mid_p_psig': pm, 'mid_tvd_ft': zm, 'state': st}
+
+
 # -- the loads -------------------------------------------------------------------------------------------------------------------
 def _section_below(cfg: dict, i: int) -> Optional[dict]:
     """The hole drilled below string i's shoe: to the next string's shoe (its hole, its mud), or for the deepest to the
@@ -318,9 +436,28 @@ def _fg(win, tvd: float) -> Optional[float]:
     return _at(win, tvd)[1]
 
 
+def gas_how(cfg: dict) -> str:
+    if real_gas(cfg):
+        return (f"a natural gas of specific gravity {float(cfg['gas_sg']):g} as a real gas (z by Dranchuk and Abou-Kassem, pseudocritical properties by "
+                f"Sutton) at the well's temperature, {float(cfg['surface_temp_f']):g} F at the surface rising {float(cfg['geothermal_f_100ft']):g} F per 100 ft")
+    return f"a gas gradient of {float(cfg['gas_gradient_psi_ft']):g} psi/ft as declared"
+
+
+def _column_at(cfg: dict, p0: float, z0: float, zs: List[float]) -> List[float]:
+    """The gas column's pressure at each of the TVDs zs (shallower than z0), from p0 at z0: integrated once, upward, through them."""
+    order = sorted(range(len(zs)), key=lambda k: -zs[k])
+    out = [0.0] * len(zs)
+    z, p = z0, p0
+    for k in order:
+        p = gas_column(cfg, p, z, min(zs[k], z)) if zs[k] < z else p
+        z = min(zs[k], z)
+        out[k] = p if zs[k] <= z0 else p0
+    return out
+
+
 def string_loads(cfg: dict, i: int, tvd_of, win) -> dict:
     s = cfg['strings'][i]
-    gg, gb = float(cfg['gas_gradient_psi_ft']), float(cfg['backup_gradient_psi_ft'])
+    gb = float(cfg['backup_gradient_psi_ft'])
     below = _section_below(cfg, i)
     ds = tvd_of(s['shoe_md_ft'])
     open_below = below is not None
@@ -341,12 +478,15 @@ def string_loads(cfg: dict, i: int, tvd_of, win) -> dict:
     mds = sorted(set([s['top_md_ft'], s['shoe_md_ft']] + [float(x) for x in np.arange(math.ceil(s['top_md_ft'] / step) * step, s['shoe_md_ft'], step)]))
     rows = []
     level = float(cfg['evacuation']) * ds
-    for md in mds:
-        z = tvd_of(md)
-        pin_b = p_res - gg * (dres - z)
+    zs = [tvd_of(md) for md in mds]
+    col_res = _column_at(cfg, p_res, dres, zs)
+    col_frac = _column_at(cfg, p_frac, ds, zs) if p_frac is not None else None
+    for k, md in enumerate(mds):
+        z = zs[k]
+        pin_b = col_res[k]
         limited = False
-        if p_frac is not None and p_frac - gg * (ds - z) < pin_b:
-            pin_b, limited = p_frac - gg * (ds - z), True
+        if col_frac is not None and col_frac[k] < pin_b:
+            pin_b, limited = col_frac[k], True
         pout_b = gb * z
         net_b = pin_b - pout_b
         pout_c = 0.052 * s['mw_ppg'] * z
@@ -380,6 +520,7 @@ def string_loads(cfg: dict, i: int, tvd_of, win) -> dict:
     return {'string': s, 'below': below, 'shoe_tvd_ft': round(ds, 1), 'reservoir_tvd_ft': round(dres, 1), 'pore_ppg': round(pp, 3), 'pore_how': pp_how,
             'fg_shoe_ppg': round(fg_shoe, 3) if fg_shoe is not None else None, 'mud_inside_ppg': mw_in, 'buoyancy_factor': round(bf, 4),
             'rows': rows, 'checks': checks, 'ok': all(c['ok'] for c in checks.values()),
+            'gas': gas_how(cfg),
             'burst_case': ('gas to the surface from the pore pressure at the bottom of the hole below (' + pp_how + ')'
                            + (', no more than the fracture pressure at the shoe less the gas above it' if p_frac is not None else '')
                            if open_below else 'gas to the surface from the pore pressure at the shoe (' + pp_how + ')'),
@@ -439,33 +580,46 @@ def kick_tolerance(cfg: dict, i: int, tvd_of, win) -> Optional[dict]:
     if fg is None:
         out.update({'status': 'NOT KNOWN', 'detail': 'the fracture gradient at the shoe is not known (the Pore pressure tab, or declare one)'})
         return out
-    gm, gg = 0.052 * mw, float(cfg['gas_gradient_psi_ft'])
+    gm = 0.052 * mw
     maasp = 0.052 * (fg - mw) * ds
     sidpp = 0.052 * (pp - mw) * dt
-    out.update({'maasp_psi': round(maasp), 'sidpp_psi': round(sidpp)})
-    if gm <= gg:
-        out.update({'status': 'NOT KNOWN', 'detail': 'the mud is lighter than the gas gradient declared'})
+    p_frac, p_bot = 0.052 * fg * ds, 0.052 * pp * dt
+    out.update({'maasp_psi': round(maasp), 'sidpp_psi': round(sidpp), 'gas': gas_how(cfg)})
+    bot = _bubble(cfg, gm, maasp, sidpp, p_bot, dt, down=False)        # the bubble on bottom, as it is shut in
+    sho = _bubble(cfg, gm, maasp, sidpp, p_frac, ds, down=True)        # the bubble circulated up to the shoe
+    out.update({'gas_gradient_bottom_psi_ft': round(bot['gg'], 6), 'gas_gradient_shoe_psi_ft': round(sho['gg'], 6)})
+    if real_gas(cfg):
+        out.update({'z_bottom': round(bot['state']['z'], 4), 'z_shoe': round(sho['state']['z'], 4),
+                    'temp_bottom_f': round(temperature_f(cfg, bot['mid_tvd_ft']), 1), 'temp_shoe_f': round(temperature_f(cfg, sho['mid_tvd_ft']), 1)})
+    if gm <= max(bot['gg'], sho['gg']):
+        out.update({'status': 'NOT KNOWN', 'detail': 'the mud is no heavier than the gas'})
         return out
-    h = (maasp - sidpp) / (gm - gg)
     open_h = dt - ds
-    out['height_ft'] = round(max(0.0, min(h, open_h)), 1)
-    out['height_capped'] = h > open_h
-    if h <= 0:
+    hb, hs = min(bot['h'], open_h), min(sho['h'], open_h)
+    out['height_ft'] = round(max(0.0, hb), 1)
+    out['height_shoe_ft'] = round(max(0.0, hs), 1)
+    out['height_capped'] = bot['h'] > open_h
+    if bot['h'] <= 0:
         out.update({'volume_bbl': 0.0, 'detail': 'the shoe cannot hold the shut-in pressure of a kick of this intensity: no kick tolerance'})
         return out
     cap = _capacity_profile(cfg, below['hole_in'] or 0.0, md_b)
     if cap is None:
         out.update({'status': 'HEIGHT ONLY', 'detail': 'declare the BHA (outside diameter, length) and the drill pipe (outside diameter) for the volume'})
         return out
-    hh = min(h, open_h)
-    md_top_bottom = _md_at_tvd(tvd_of, dt - hh, md_s, md_b)
+    md_top_bottom = _md_at_tvd(tvd_of, dt - hb, md_s, md_b)
     v_bottom = _volume(cap, tvd_of, md_top_bottom, md_b)
-    md_low_shoe = _md_at_tvd(tvd_of, ds + hh, md_s, md_b)
+    md_low_shoe = _md_at_tvd(tvd_of, ds + max(0.0, hs), md_s, md_b)
     v_shoe = _volume(cap, tvd_of, md_s, md_low_shoe)
-    p_frac, p_bot = 0.052 * fg * ds, 0.052 * pp * dt
-    v_shoe_at_bottom = v_shoe * p_frac / p_bot
+    if real_gas(cfg):                                  # the same moles of gas: p V / (z T) at the shoe's middle and at the bottom's
+        sb, ss = bot['state'], sho['state']
+        v_shoe_at_bottom = v_shoe * (ss['p_psia'] / (ss['z'] * ss['t_r'])) / (sb['p_psia'] / (sb['z'] * sb['t_r']))
+        law = "the real-gas law (p V / z T) from the shoe's conditions to the bottom's"
+    else:
+        v_shoe_at_bottom = v_shoe * p_frac / p_bot
+        law = "Boyle's law (p V) from the fracture pressure at the shoe to the pressure at the bottom"
     out.update({'volume_at_bottom_bbl': round(v_bottom, 1), 'volume_at_shoe_bbl': round(v_shoe, 1), 'volume_shoe_as_bottom_bbl': round(v_shoe_at_bottom, 1),
-                'volume_bbl': round(min(v_bottom, v_shoe_at_bottom), 1), 'governs': 'the bubble at the bottom' if v_bottom <= v_shoe_at_bottom else 'the bubble at the shoe'})
+                'volume_bbl': round(min(v_bottom, v_shoe_at_bottom), 1), 'carried_by': law,
+                'governs': 'the bubble at the bottom' if v_bottom <= v_shoe_at_bottom else 'the bubble at the shoe'})
     return out
 
 
@@ -474,6 +628,11 @@ def analyse(cfg: dict, tvd_of, win, path_how: str = '', window_how: str = '') ->
         raise ValueError('declare the casing strings: what:od:weight:grade:top-shoe:hole:mw for each, shallowest shoe first')
     strings = [string_loads(cfg, i, tvd_of, win) for i in range(len(cfg['strings']))]
     kicks = [k for k in (kick_tolerance(cfg, i, tvd_of, win) for i in range(len(cfg['strings']))) if k]
+    if float(cfg['kick_intensity_ppg']) > 0:          # a swabbed kick: gas pulled in with no underbalance
+        sw = {k['shoe_md_ft']: k for k in (kick_tolerance({**cfg, 'kick_intensity_ppg': 0.0}, i, tvd_of, win) for i in range(len(cfg['strings']))) if k}
+        for k in kicks:
+            s_ = sw.get(k['shoe_md_ft']) or {}
+            k['swabbed'] = {x: s_.get(x) for x in ('kick_ppg', 'kick_how', 'sidpp_psi', 'height_ft', 'volume_bbl', 'status', 'detail', 'governs')}
     return {'strings': strings, 'kicks': kicks, 'ok': all(s['ok'] for s in strings), 'config': cfg, 'path_how': path_how, 'window_how': window_how}
 
 
@@ -543,7 +702,7 @@ def text(p: dict) -> str:
     r = p.get('result')
     if not r:
         return f"Casing design: {p.get('detail', '')}"
-    L = [f"Casing design - {r['display']} ({r['path_how']}; window: {r['window_how']})"]
+    L = [f"Casing design - {r['display']} ({r['path_how']}; window: {r['window_how']})", f"  the gas: {gas_how(r['config'])}"]
     for s in r['strings']:
         st, c = s['string'], s['checks']
         L.append(f"  {st['what']}: {st['od_in']:g} in {st['weight_lbft']:g} lb/ft {st['grade']} to {st['shoe_md_ft']:,.0f} ft MD - burst {st['burst_psi']:,} psi, "
@@ -551,7 +710,9 @@ def text(p: dict) -> str:
         L.append('    ' + '; '.join(f"{k} SF {('%.2f' % v['sf']) if v['sf'] is not None else '-'} (design {v['df']:g}) {'OK' if v['ok'] else 'BELOW'}" for k, v in c.items()))
     for k in r['kicks']:
         if k.get('volume_bbl') is not None:
-            L.append(f"  kick tolerance below {k['shoe_what']}: {k['volume_bbl']:g} bbl ({k['governs'] if k.get('governs') else k.get('detail', '')}); MAASP {k['maasp_psi']:,} psi")
+            sw = k.get('swabbed') or {}
+            L.append(f"  kick tolerance below {k['shoe_what']}: {k['volume_bbl']:g} bbl at {k['kick_ppg']:.2f} ppg ({k['governs'] if k.get('governs') else k.get('detail', '')}); "
+                     f"MAASP {k['maasp_psi']:,} psi" + (f"; swabbed (no underbalance) {sw['volume_bbl']:g} bbl" if sw.get('volume_bbl') is not None else ''))
         else:
             L.append(f"  kick tolerance below {k['shoe_what']}: {k['status']} - {k.get('detail', '')}" + (f"; MAASP {k['maasp_psi']:,} psi, height {k.get('height_ft', 0):,.0f} ft" if k.get('maasp_psi') is not None else ''))
     return '\n'.join(L)
@@ -603,14 +764,19 @@ def build_report(ws, version: str, well: Optional[str] = None, scene: str = 'wor
                                      f"{s['rows'][i]['collapse_rating_psi']:,}", '-' if s['rows'][i]['sf_collapse'] is None else f"{s['rows'][i]['sf_collapse']:.2f}",
                                      f"{s['rows'][i]['axial_klbf']:,.0f}"] for i in idx]))
         secs.append(sec)
-    s4 = CR.Section('4', 'Kick tolerance', [f"A single gas bubble at {cfg['gas_gradient_psi_ft']:g} psi/ft; MAASP = 0.052 (FG - MW) D_shoe; SIDPP = 0.052 (kick - MW) D_bottom; "
-                                             f"the tallest bubble H = (MAASP - SIDPP) / (mud gradient - gas gradient); its volume at the bottom and at the shoe "
-                                             f"(Boyle's law back to the bottom), the smaller governing. Annulus: BHA {cfg.get('bha_od_in') or '-'} in over "
+    s4 = CR.Section('4', 'Kick tolerance', [f"A single gas bubble: {gas_how(cfg)}. MAASP = 0.052 (FG - MW) D_shoe; SIDPP = 0.052 (kick - MW) D_bottom; "
+                                             f"the tallest bubble H = (MAASP - SIDPP) / (mud gradient - gas gradient), the gas's gradient taken at the bubble's middle on bottom "
+                                             f"and at the shoe; its volume at the bottom and at the shoe "
+                                             f"({'the real-gas law, p V / z T' if real_gas(cfg) else 'Boyle' + chr(39) + 's law'} back to the bottom), the smaller governing; "
+                                             f"and the same for a swabbed kick, gas pulled in with no underbalance. Annulus: BHA {cfg.get('bha_od_in') or '-'} in over "
                                              f"{cfg.get('bha_length_ft') or '-'} ft, drill pipe {cfg.get('dp_od_in') or '-'} in."], [])
-    s4.tables.append(CR.Table(['Below', 'Open hole (ft MD)', 'Mud (ppg)', 'Kick (ppg)', 'FG at shoe (ppg)', 'MAASP (psi)', 'Height (ft)', 'Kick tolerance (bbl)'],
+    s4.tables.append(CR.Table(['Below', 'Open hole (ft MD)', 'Mud (ppg)', 'Kick (ppg)', 'FG at shoe (ppg)', 'MAASP (psi)', 'Gas (psi/ft) bottom / shoe', 'Height (ft)',
+                               'Kick tolerance (bbl)', 'Swabbed (bbl)'],
                               [[k['shoe_what'], f"{k['shoe_md_ft']:,.0f}-{k['bottom_md_ft']:,.0f}", f"{k['mw_ppg']:g}", f"{k['kick_ppg']:.2f}",
                                 '-' if k['fg_shoe_ppg'] is None else f"{k['fg_shoe_ppg']:.2f}", '-' if k.get('maasp_psi') is None else f"{k['maasp_psi']:,}",
-                                '-' if k.get('height_ft') is None else f"{k['height_ft']:,.0f}", f"{k['volume_bbl']:g}" if k.get('volume_bbl') is not None else k['status']]
+                                '-' if k.get('gas_gradient_bottom_psi_ft') is None else f"{k['gas_gradient_bottom_psi_ft']:.3f} / {k['gas_gradient_shoe_psi_ft']:.3f}",
+                                '-' if k.get('height_ft') is None else f"{k['height_ft']:,.0f}", f"{k['volume_bbl']:g}" if k.get('volume_bbl') is not None else k['status'],
+                                f"{(k.get('swabbed') or {}).get('volume_bbl'):g}" if (k.get('swabbed') or {}).get('volume_bbl') is not None else '-']
                                for k in r['kicks']]))
     secs += [s4, CR.Section('5', 'What this will not call a measurement', ['; '.join(p['not_a_measurement']) + '.'], [])]
     return CR.Document(f"Casing design and kick tolerance - {r['display']}", rid, front, secs,

@@ -13378,7 +13378,8 @@ def section_dd_casing_design(tmp: str) -> None:
        "match its weight, a string that does not pass through the one above and a short line each answered" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
 
     # -- DD2 the loads and the kick tolerance, by hand on the example -------------------------------------------------------------------
-    ex = CSG.example()
+    ex0 = CSG.example()                                           # worked by hand with the fixed 0.1 psi/ft gas of the textbook method (section DE: the real gas)
+    ex = CSG.analyse({**ex0["config"], "gas_gradient_psi_ft": 0.1}, lambda md: float(md), CSG.EXAMPLE_WINDOW)
     sv, iv_, pv = ex["strings"]
     win = CSG.EXAMPLE_WINDOW
 
@@ -13439,7 +13440,9 @@ def section_dd_casing_design(tmp: str) -> None:
     cols_d, cols_l = DC.TABLES["casing_design"]["cols"], DC.TABLES["casing_loads"]["cols"]
     rows = [["[casing_design]", *cols_d], ["", "HY-2", "surface", "13-3/8", "54.5", "J55", "0", "1500", "17.5", "9.0", "", "casing tally (test)"],
             ["", "HY-2", "intermediate", "9.625", "47", "N80", "0", "6000", "12.25", "10", "", "casing tally (test)"],
-            ["[casing_loads]", *cols_l], ["", "HY-2", "10000", "8.5", "11", "9.5", "14.5", "0.5", "", "", "", "", "", "", "", "6.75", "400", "5", "drilling program (test)"]]
+            ["[casing_loads]", *cols_l], [""] + [{"well": "HY-2", "td_md_ft": "10000", "td_hole_in": "8.5", "td_mw_ppg": "11", "pp_ppg": "9.5", "fg_ppg": "14.5",
+                                                  "kick_intensity_ppg": "0.5", "bha_od_in": "6.75", "bha_length_ft": "400", "dp_od_in": "5",
+                                                  "source": "drilling program (test)"}.get(c_, "") for c_ in cols_l]]
     import csv as _csv
     import io as _io
     buf = _io.StringIO(); _csv.writer(buf).writerows(rows); sheet.write_text(buf.getvalue(), encoding="utf-8")
@@ -13524,6 +13527,140 @@ def section_dd_casing_design(tmp: str) -> None:
        "DD4 an interval declared in measured depth is converted to true vertical depth on the well's survey, or the drilling recorder's own TVD for a "
        "well with none (within 40 ft of the survey's), each said so in the statement; an interval deeper than the depth table reaches stays NOT "
        "RESOLVED and says how far it reaches" + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+
+def section_de_real_gas(tmp: str) -> None:
+    """Section DE - the kick and the burst load on a real gas: Sutton's pseudocritical properties and Dranchuk and
+    Abou-Kassem's z against an independent implementation; the gas's density, and a column of it integrated up the well
+    along the geothermal temperature; the kick tolerance with the gas's gradient at the bubble's own pressure and
+    temperature and the volume carried between shoe and bottom by p V / z T, and a swabbed kick beside it; a fixed
+    gradient still taken when declared, and the real gas back with 'none'."""
+    import subprocess as _sp
+    from . import casing_design as CSG
+    from . import declarations as DC
+    from . import helplib as H
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+
+    # -- DE1 the gas's properties ------------------------------------------------------------------------------------------------
+    # reference values from pyrestoolbox 3.8.9 (gas_z / gas_den, zmethod DAK, cmethod SUT), an independent open-source implementation
+    ref = [(3000, 0.65, 200, 0.9048073771833917, 8.819352273478), (6000, 0.65, 250, 1.0923431854133714, 13.58107045798391),
+           (1000, 0.8, 120, 0.8335178869315637, 4.469708326242926), (10000, 0.7, 300, 1.3920860511301727, 17.868657631013313),
+           (500, 0.6, 80, 0.9330965197803314, 1.6082418312797764)]
+    got = [CSG.gas_state(p_ - CSG.ATM, f_, sg_) for p_, sg_, f_, _, _ in ref]
+    tpc, ppc = CSG.pseudo_critical(0.65)
+    tpc8, ppc8 = CSG.pseudo_critical(0.8)
+    low = CSG.z_factor(1.5, 0.01)
+    c1 = {
+        "sutton": abs(tpc - 365.11) < 0.01 and abs(ppc - 670.129) < 0.01 and abs(tpc8 - 401.44) < 0.01 and abs(ppc8 - 649.696) < 0.01,
+        "z": all(abs(g_["z"] - r_[3]) < 1e-5 for g_, r_ in zip(got, ref)),
+        "density": all(abs(g_["rho_lb_ft3"] - r_[4]) / r_[4] < 1e-5 for g_, r_ in zip(got, ref)),
+        "gradient": all(abs(g_["psi_ft"] - g_["rho_lb_ft3"] / 144.0) < 1e-12 for g_ in got),
+        "ideal_limit": abs(low - 1.0) < 0.005 and CSG.z_factor(1.5, 0.0) == 1.0,
+        "chart_shape": CSG.z_factor(1.5, 2.0) < CSG.z_factor(1.5, 1.0) < 1.0 and CSG.z_factor(1.5, 10.0) > 1.0 and CSG.z_factor(1.2, 2.0) < CSG.z_factor(2.0, 2.0),
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "DE1 the gas: Sutton's pseudocritical temperature and pressure (365.11 R and 670.13 psia for a 0.65 gas), Dranchuk and Abou-Kassem's z and "
+       "the density p M / z R T within 1e-5 of an independent implementation (pyrestoolbox) from 500 to 10,000 psia, 80 to 300 F, gravities 0.6 "
+       "to 0.8; z to 1 as the pressure falls, the Standing-Katz chart's dip and rise" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- DE2 a column of gas up the well ------------------------------------------------------------------------------------------
+    cfg = {**CSG.DEFAULTS}
+    p0 = 0.052 * 11.0 * 10000.0
+    top = CSG.gas_column(cfg, p0, 10000.0, 0.0)
+    p_, z_ = p0, 10000.0                                          # a fine Euler integration of the same gas, 1 ft at a time
+    while z_ > 0.0:
+        p_ -= CSG.gas_state(p_, CSG.temperature_f(cfg, z_ - 0.5), 0.65)["psi_ft"]
+        z_ -= 1.0
+    hot = CSG.gas_column({**cfg, "geothermal_f_100ft": 2.5}, p0, 10000.0, 0.0)
+    heavy = CSG.gas_column({**cfg, "gas_sg": 0.9}, p0, 10000.0, 0.0)
+    fixed = CSG.gas_column({**cfg, "gas_gradient_psi_ft": 0.1}, p0, 10000.0, 0.0)
+    c2 = {
+        "integrated": abs(top - p_) < 0.5 and abs(top - 4658.6) < 1.0,
+        "hotter_lighter": hot > top and heavy < top,
+        "fixed": abs(fixed - (p0 - 1000.0)) < 1e-9,
+        "temperature": CSG.temperature_f(cfg, 0.0) == 70.0 and abs(CSG.temperature_f(cfg, 10000.0) - 220.0) < 1e-9,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "DE2 a column of real gas from 5,720 psi at 10,000 ft (an 11 ppg pore pressure) integrated to the surface along 70 F rising 1.5 F per 100 ft: "
+       "4,659 psi at the surface (an average 0.106 psi/ft), as a 1 ft step integration gives; a hotter well's gas lighter, a heavier gas heavier; a "
+       "declared 0.1 psi/ft taken as it is" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- DE3 the kick tolerance and the burst load on the real gas -----------------------------------------------------------------
+    ex = CSG.example()
+    exf = CSG.analyse({**ex["config"], "gas_gradient_psi_ft": 0.1}, lambda md: float(md), CSG.EXAMPLE_WINDOW)
+    k_, kf = ex["kicks"][1], exf["kicks"][1]
+    win = CSG.EXAMPLE_WINDOW
+    fg_s = float(np.interp(7000.0, win["tvd_ft"], win["fg_ppg"]))
+    p_frac, p_bot = 0.052 * fg_s * 7000.0, 0.052 * k_["kick_ppg"] * 10000.0
+    maasp, sidpp = 0.052 * (fg_s - 11.5) * 7000.0, 0.052 * (k_["kick_ppg"] - 11.5) * 10000.0
+    gm = 0.052 * 11.5
+    h_b = (maasp - sidpp) / (gm - k_["gas_gradient_bottom_psi_ft"])
+    st_b = CSG.gas_state(p_bot - k_["gas_gradient_bottom_psi_ft"] * h_b / 2, CSG.temperature_f(ex["config"], 10000.0 - h_b / 2), 0.65)
+    h_s = (maasp - sidpp) / (gm - k_["gas_gradient_shoe_psi_ft"])
+    st_s = CSG.gas_state(p_frac + k_["gas_gradient_shoe_psi_ft"] * h_s / 2, CSG.temperature_f(ex["config"], 7000.0 + h_s / 2), 0.65)
+    carried = k_["volume_at_shoe_bbl"] * (st_s["p_psia"] / (st_s["z"] * st_s["t_r"])) / (st_b["p_psia"] / (st_b["z"] * st_b["t_r"]))
+    sv = ex["strings"][0]
+    top_load = CSG.gas_column(ex["config"], 0.052 * float(np.interp(1500.0, win["tvd_ft"], win["fg_ppg"])) * 1500.0, 1500.0, 0.0)
+    c3 = {
+        "bubble_gradient": abs(k_["gas_gradient_bottom_psi_ft"] - st_b["psi_ft"]) < 1e-5 and abs(k_["gas_gradient_shoe_psi_ft"] - st_s["psi_ft"]) < 1e-5
+                           and k_["gas_gradient_bottom_psi_ft"] > k_["gas_gradient_shoe_psi_ft"],
+        "heights": abs(k_["height_ft"] - h_b) < 0.2 and abs(k_["height_shoe_ft"] - h_s) < 0.2,
+        "carried": abs(k_["volume_shoe_as_bottom_bbl"] - carried) < 0.15 and "real-gas law" in k_["carried_by"] and "Boyle" in kf["carried_by"],
+        "z_t": k_["z_bottom"] > 0 and abs(k_["temp_bottom_f"] - CSG.temperature_f(ex["config"], 10000.0 - h_b / 2)) < 0.1,
+        "swabbed": all(k["swabbed"]["kick_ppg"] == k["mw_ppg"] and k["swabbed"]["volume_bbl"] > k["volume_bbl"] for k in ex["kicks"]),
+        "burst_real": abs(sv["rows"][0]["burst_net_psi"] - top_load) <= 1.0 and sv["rows"][0]["burst_limited_by_shoe"]
+                      and "real gas" in sv["gas"] and "0.1 psi/ft" in exf["strings"][0]["gas"],
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "DE3 on the worked example: the gas's gradient in the bubble at its own middle's pressure and temperature, heavier on bottom than at the shoe; "
+       "the bubble's heights from them; the shoe's volume carried to the bottom by p V / z T (Boyle's law with a fixed gradient); a swabbed kick "
+       "(no underbalance) beside each, larger; the burst load at the top the real gas's column from the fracture pressure at the shoe"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+    # -- DE4 declared --------------------------------------------------------------------------------------------------------------
+    d = Path(tmp, "realgas"); d.mkdir()
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    wid = ws.add_well_catalog("volve_f12_f14_production_excerpt", "15/9-F-12", 10000.0, actor="tester")["id"]
+    prog = "surface:13-3/8:54.5:J55:0-1500:17.5:9.0; intermediate:9-5/8:47:N80:0-7000:12.25:9.8"
+    run = lambda *a: _sp.run([sys.executable, "-m", "gea", "casing", "--workspace", wsp, "--well", wid, *a], capture_output=True, text=True, cwd=str(pkg.parent))
+    r1 = run("--strings", prog, "--td", "10000", "--td-hole", "8.5", "--td-mw", "11.5", "--pp", "10", "--fg", "15", "--gas-sg", "0.7", "--surface-temp", "80",
+             "--geothermal", "1.2", "--bha-od", "6.5", "--bha-length", "600", "--dp-od", "5", "--source", "test")
+    c_a = CSG.well_config(ws, wid)
+    r2 = run("--gas", "0.1", "--source", "test")
+    c_b = CSG.well_config(ws, wid)
+    r3 = run("--gas", "none", "--source", "test")
+    c_c = CSG.well_config(ws, wid)
+    pr = run()
+    cols = DC.TABLES["casing_loads"]["cols"]
+    sheet = "\n".join([",".join(["[casing_loads]", *cols]), ",".join([""] + [{"well": wid, "gas_sg": "0.75", "surface_temp_f": "60", "geothermal_f_100ft": "1.8",
+                                                                          "source": "drilling program (test)"}.get(c_, "") for c_ in cols])])
+    ps = DC.apply(ws, sheet, "tester", str(d), write=True)
+    c_d = CSG.well_config(ws, wid)
+    try:
+        CSG.set_well(ws, "tester", wid, "x", geothermal_f_100ft=9)
+        lim = ""
+    except ValueError as e:
+        lim = str(e)
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    help_txt = H.page("casing") or ""
+    c4 = {
+        "cli": r1.returncode == 0 and c_a["gas_sg"] == 0.7 and c_a["surface_temp_f"] == 80.0 and c_a["geothermal_f_100ft"] == 1.2 and c_a["gas_gradient_psi_ft"] is None,
+        "fixed_and_back": r2.returncode == 0 and c_b["gas_gradient_psi_ft"] == 0.1 and r3.returncode == 0 and c_c["gas_gradient_psi_ft"] is None,
+        "printed": pr.returncode == 0 and "specific gravity 0.7 as a real gas" in pr.stdout and "swabbed (no underbalance)" in pr.stdout,
+        "sheet": ps["applied"] and c_d["gas_sg"] == 0.75 and c_d["surface_temp_f"] == 60.0 and c_d["geothermal_f_100ft"] == 1.8,
+        "limits": "geothermal_f_100ft must be between" in lim,
+        "page_help": "name=\"gas_gradient_psi_ft\"" in page_src and "'gas_sg', 'Gas gravity'" in page_src and "Swabbed (bbl)" in page_src
+                     and not H.check("casing") and "Dranchuk and Abou-Kassem" in help_txt and "--gas none" in help_txt,
+    }
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       "DE4 the gas declared from the command line (its gravity, the surface temperature, the geothermal gradient), a fixed gradient taken in its place "
+       "and the real gas back with 'none'; the declarations sheet's [casing_loads] carries them; out of range answered; the tab, its kick table and "
+       "the help" + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
 
 
 def PR_read_ok(path) -> bool:
@@ -13645,6 +13782,7 @@ def main() -> int:
         section_db_declarations_engineering(tmp)
         section_dc_every_tab(tmp)
         section_dd_casing_design(tmp)
+        section_de_real_gas(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

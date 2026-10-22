@@ -5,6 +5,35 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.62.0] - 2026-10-22 - Kick tolerance on a real gas
+
+### Changed
+- **The gas is a real gas** (casing design and kick tolerance): its
+  density p M / (z R T) at each depth's pressure and temperature, z by
+  Dranchuk and Abou-Kassem's fit of the Standing-Katz chart on Sutton's
+  pseudocritical properties for the declared gas gravity (0.65 unless
+  declared), the temperature 70 F at the surface rising 1.5 F per 100 ft
+  unless declared - in place of a fixed 0.1 psi/ft. Checked within 1e-5
+  of an independent implementation (pyrestoolbox) from 500 to 10,000
+  psia.
+- **Burst**: the gas column from the pore pressure (or the fracture
+  pressure at the shoe) is integrated up the well on that gas.
+- **Kick tolerance**: the bubble's gas gradient taken at its own middle's
+  pressure and temperature - on bottom and at the shoe - and the shoe's
+  volume carried back to the bottom by p V / z T instead of Boyle's law.
+- A fixed gradient can still be declared (`gea casing --gas 0.1`, the
+  tab, the sheet); `--gas none` returns to the real gas.
+
+### Added
+- **A swabbed kick** beside each kick tolerance: the same gas pulled in
+  with no underbalance.
+- `gea casing --gas-sg --surface-temp --geothermal`; the `[casing_loads]`
+  table's `gas_sg`, `surface_temp_f` and `geothermal_f_100ft` columns; the
+  kick table shows the gas gradient on bottom and at the shoe and the
+  swabbed volume.
+- Acceptance section DE (4 checks); section DD's hand calculation keeps
+  the textbook's fixed 0.1 psi/ft.
+
 ## [v0.61.0] - 2026-10-22 - Casing design and kick tolerance
 
 ### Added

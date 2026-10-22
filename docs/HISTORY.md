@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.62.0 - 2026-10-22 - kick tolerance on a real gas
+
+- **The gas weighs what it weighs where it is.** Sutton and Dranchuk and
+  Abou-Kassem's z at each depth's pressure and the geothermal temperature,
+  in the burst load's gas column and in the kick's bubble (p V / z T
+  between shoe and bottom); a swabbed kick beside each. Section DE; gate
+  490.
+
 ## v0.61.0 - 2026-10-22 - casing design and kick tolerance
 
 - **Every casing string against the loads the hole can put on it.** API TR

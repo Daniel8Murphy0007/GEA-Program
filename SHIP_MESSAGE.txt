@@ -1,25 +1,20 @@
-v0.61.0 — CASING DESIGN AND KICK TOLERANCE
+v0.62.0 — KICK TOLERANCE ON A REAL GAS
 
-Each casing string against the loads the hole can put on it, and the kick
-each open hole can take.
+The gas in the casing loads and the kick tolerance now weighs what it
+weighs where it is.
 
-- The Casing & kick tolerance tab (and `gea casing`): each string's burst,
-  collapse and tension ratings by API TR 5C3 from its size, weight and
-  grade - every collapse regime, the collapse reduced by the tension at
-  each depth - matching API's tables (9-5/8 in 47 lb/ft N80: 6,870 psi
-  burst, 4,750 psi collapse, 1,086 klbf).
-- Against the textbook loads: burst from gas to the surface, held by the
-  fracture pressure at the shoe; collapse with the string emptied; tension
-  from the buoyed weight with the overpull. The smallest safety factor
-  along each string and where, against the design factors.
-- Kick tolerance below each shoe: MAASP, the tallest gas bubble the shoe
-  can hold, and its volume at the bottom and at the shoe - in barrels.
-- Read on the survey, or the drilling recorder's own TVD for a well with
-  none, said so; the window from the Pore pressure tab or declared.
-- Declared on the tab, from the command line, or in the declarations
-  sheet's new [casing_design] and [casing_loads] tables; written as a
-  report; carried in the signed dossier.
-- An interval declared in measured depth is now converted to true
-  vertical depth on the survey or the recorder's TVD.
+- A real gas instead of a flat 0.1 psi/ft: its density at each depth's
+  pressure and temperature, z by Dranchuk and Abou-Kassem (the
+  Standing-Katz chart) on Sutton's pseudocritical properties for the gas
+  gravity, the temperature from the surface and the geothermal gradient
+  (0.65 gravity, 70 F, 1.5 F per 100 ft unless declared).
+- Burst: the gas column is integrated up the well on that gas.
+- Kick tolerance: the bubble's gradient at its own pressure and
+  temperature, on bottom and at the shoe, and the volume carried between
+  them by p V / z T.
+- A swabbed kick - gas pulled in with no underbalance - beside each.
+- A fixed gradient can still be declared (gea casing --gas 0.1); --gas
+  none returns to the real gas. New: --gas-sg, --surface-temp,
+  --geothermal, and the same columns in the declarations sheet.
 
-Acceptance section DD (4 checks).
+Acceptance section DE (4 checks).
