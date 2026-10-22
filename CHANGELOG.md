@@ -5,6 +5,54 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.60.0] - 2026-10-21 - Every tab and button answers
+
+### Fixed
+- **Verification tab**: it stopped with "siteReports is not defined"
+  (it used a value only the Seismic tab set up); it now reads the site
+  reports itself.
+- **Rig time tab**: a live well whose stream had not arrived yet stopped
+  the whole tab ("no recorded stream yet"); that well is now passed over,
+  as the invoice check already meant to.
+- **Add a catalogue well** accepted any archive entry and an empty well
+  tag, and the well it added then stopped **Refresh every report** and
+  the month-end for the whole workspace. A catalogue well is now added
+  only from an entry that carries a downhole gauge series, naming a well
+  inside it and a gauge depth above zero (the form lists only those
+  entries and their wells; the API and `gea workspace --action
+  add-catalog` answer what to choose).
+- **One well never stops the refresh**: a well that cannot be read
+  (a catalogue entry an older version accepted, a file that fails part
+  way) is written down with why (`reports\wells\<well>\refresh_failed.json`),
+  shown NOT REPORTED on the overview and in the printed dashboard, and
+  named by the refresh job and the month-end packet; every other well is
+  reported.
+- **Month-end with a live seismic station that has no recording yet**
+  stopped with "list index out of range"; the station is now NOT
+  AVAILABLE, "no recording yet", and refreshing it says so.
+- **A field left empty** is answered in the form's words ("a number is
+  needed: a field was left empty", "'abc' is not a number") instead of
+  Python's ("could not convert string to float").
+- **Configuration**: Load current, Start from the defaults and Commit
+  with no name chosen say to choose one first.
+- **Files**: the folder watch is greyed out until an import root exists,
+  and asking for one without a root is answered at once rather than as a
+  failed job.
+- **Charts**: a well with nothing to chart yet says so, without an error
+  in the browser's console (an unknown well is still not found).
+- **A well's transient parameters**: Save with every field empty was
+  answered "unknown parameter params"; it now clears them.
+- **HTTPS**: Use the site's certificate with no path given asks for the
+  file's full path instead of naming the program's own folder.
+- **The gate at midnight**: the daily pad summary's check (CN3) took
+  "tomorrow" from the moment the test began rather than from the
+  summary it had just written, so a gate run in the minutes before
+  midnight UTC failed it. Every section was then run starting 30 seconds
+  before midnight UTC.
+
+### Added
+- Acceptance section DC (4 checks).
+
 ## [v0.59.0] - 2026-10-21 - The declarations workbook carries the engineering
 
 ### Added

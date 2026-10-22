@@ -82,6 +82,14 @@ def _copy_family(src_dir: str, names: List[str], dst_dir: str) -> List[dict]:
     return out
 
 
+def _failed_reason(ws, name: str) -> str:
+    try:
+        with open(os.path.join(ws.reports_dir, 'wells', name, 'refresh_failed.json'), encoding='utf-8') as f:
+            return json.load(f).get('reason') or 'its reports could not be written'
+    except (OSError, ValueError):
+        return 'its reports could not be written'
+
+
 def assemble(ws, period: str, actor: str = 'system', refresh: bool = True, catalog_csv: Optional[str] = None) -> dict:
     """Run the refresh for the period (unless refresh=False), collect every report into reports/month_end/<period>/,
     write INDEX (markdown, html, json) and MANIFEST.json, zip it, audit it. Returns the packet record."""
@@ -92,10 +100,15 @@ def assemble(ws, period: str, actor: str = 'system', refresh: bool = True, catal
     errors: List[str] = []
     if refresh:
         try:
-            ws.refresh_dashboard(actor=actor, month=period)
+            res = ws.refresh_dashboard(actor=actor, month=period)
+            for wname, kinds in sorted((res.get('reports') or {}).items()):
+                if 'refresh_failed' in kinds:                    # one well that could not be read: named, the rest still reported
+                    errors.append(f'well {wname}: {_failed_reason(ws, wname)}')
         except Exception as e:                                   # the refresh's own failure is an item, never a silent gap
             errors.append(f'dashboard refresh: {e}')
         for st in ws.seismic_stations():
+            if not st.get('files'):                              # a live station whose feed has written no record yet: nothing to report on
+                continue
             try:
                 ws.refresh_seismic(st['id'], actor=actor)
             except Exception as e:
@@ -183,7 +196,8 @@ def assemble(ws, period: str, actor: str = 'system', refresh: bool = True, catal
     # -- seismic stations and tracks --------------------------------------------------------------------------------
     for s in ws.seismic_stations():
         item('seismic', s['id'], f"{s['display']}: seismic station report",
-             _copy_family(os.path.join(rep, 'seismic', s['id']), ['seismic_station_report', 'summary', 'detect', 'lines'], os.path.join(out, 'seismic', s['id'])), 'never refreshed')
+             _copy_family(os.path.join(rep, 'seismic', s['id']), ['seismic_station_report', 'summary', 'detect', 'lines'], os.path.join(out, 'seismic', s['id'])),
+             'never refreshed' if s.get('files') else 'no recording yet (its live feed has written none)')
     for t in ws.tracks():
         item('track', t['id'], f"{t['display']}: seismic track report",
              _copy_family(os.path.join(rep, 'tracks', t['id']), ['seismic_track_report', 'summary'], os.path.join(out, 'tracks', t['id'])), 'never refreshed')
@@ -192,6 +206,10 @@ def assemble(ws, period: str, actor: str = 'system', refresh: bool = True, catal
     na = [i for i in items if i['status'] != 'INCLUDED']
     now = _utc()
     report_id = f"MONTH-{period}-{now.replace('-', '').replace(':', '')}"
+    from .client_reports import forbidden_terms as _ft
+    if errors:
+        ws.audit(actor, 'month_end.steps_failed', {'period': period, 'errors': list(errors)})
+    errors = [e if not _ft(e) else e.split(':', 1)[0] + ': the step stopped; its message is in the audit log' for e in errors]
     rows = [[i['kind'], i['id'], i['name'], i['status'], i['reason'] or ', '.join(f['file'] for f in i['files'])] for i in items]
     secs = [Section('1', 'The month', [
         f"{ws.manifest['name']}: the deliverable for {period} ({pb['start'][:10]} to {pb['end'][:10]}, {pb['days']} days), "

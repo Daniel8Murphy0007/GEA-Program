@@ -3226,7 +3226,16 @@ def main(argv=None) -> int:
                 print(_json.dumps(ws.migrate_out_dir(a.from_dir, actor=a.actor), indent=1)); return 0
             elif a.action == "refresh":
                 r = ws.refresh_dashboard(actor=a.actor, outages=a.outage, month=a.month, run_sat=a.sat)
-                print("dashboard:", r.get("index") if isinstance(r, dict) else r); return 0
+                print("dashboard:", r.get("index") if isinstance(r, dict) else r)
+                for wname, kinds in sorted(((r.get("reports") or {}) if isinstance(r, dict) else {}).items()):
+                    if "refresh_failed" in kinds:
+                        try:
+                            with open(os.path.join(ws.reports_dir, "wells", wname, "refresh_failed.json"), encoding="utf-8") as fh:
+                                why = _json.load(fh).get("reason", "")
+                        except (OSError, ValueError):
+                            why = ""
+                        print(f"well {wname}: its reports could not be written - {why} (the other wells were reported)")
+                return 0
             elif a.action == "audit":
                 for row in ws.audit_log(limit=50):
                     print(row["utc"], row["actor"], row["action"], _json.dumps(row["detail"]))

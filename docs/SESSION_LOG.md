@@ -2798,3 +2798,42 @@ stability; and motor specifications in the tool catalogue.
   record built with a known standpipe offset, the recorder-TVD path gives
   TVDs within 30 ft of the survey's and the same offset.
 - Section DB (4 checks). Gate 478 on Python 3.13 and 3.14.
+
+## 2026-10-21 - Every tab and button answers (v0.60.0)
+
+- Asked: do all tabs and buttons work? The control panel was driven in
+  headless Chromium as an administrator over a workspace with every kind
+  of well (a catalogue gauge well, a drilling record with its survey,
+  plan, casing, hydraulics, torque and drag, pore pressure, frac stages
+  and production, a gauge well): every route and well page, every button
+  that does not change or remove something, every Scene and Well choice -
+  287 in all. No page failed to load.
+- Found and fixed: the Verification tab used a value only the Seismic tab
+  set up; the Rig time tab stopped on a live well not yet streaming (an
+  error class the loop did not catch); Add a catalogue well took the first
+  archive entry, not a gauge series, with an empty tag, and that well then
+  stopped Refresh every report and the month-end for everyone; month-end
+  stopped on a live seismic station with no recording yet; empty fields,
+  configuration buttons with no name and the folder watch with no root
+  answered in the program's words, not the form's; the chart's metadata
+  call logged errors in the console for a well with nothing to chart.
+- The refresh now writes down a well it cannot report and goes on; the
+  overview, the printed dashboard, the refresh job and the month-end name
+  it. Errors the month-end lists are kept whole in the audit log.
+- The sweep was run again on the fixed build, each page loaded fresh
+  (a hash route alone does not reload, which had left the earlier run's
+  dialogs and messages on screen): 292 buttons and choices, no page
+  error, every remaining message a plain answer to an empty form. A second
+  pass opened every folded section first and clicked the buttons inside:
+  it found the transient parameters' Save with every field empty answered
+  "unknown parameter params" (fixed: it clears them) and the site's
+  certificate with no path naming the program's own folder (fixed: it
+  asks for the file's path).
+- Section DC (4 checks). Gate 482 on Python 3.13 and 3.14.
+- The first ship stopped at the gate, 481 of 482: CN3, the daily pad
+  summary's hour, run at 00:0x UTC. The check wrote the summary two minutes
+  on (already the next day) and then asked whether "tomorrow" - counted
+  from before midnight - was due; it was the summary's own day, so it was
+  not. Reproduced on a clock set to 23:59:10 UTC; the check now counts
+  from the summary's own time. Every section was then run with the clock
+  starting 30 seconds before midnight UTC.

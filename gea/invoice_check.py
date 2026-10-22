@@ -53,6 +53,8 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from .workspace import WorkspaceError as _WsErr
+
 KINDS = ('operating', 'standby', 'repair', 'moving', 'force_majeure')
 ACTIVE_CODES = {2: 'drilling', 3: 'reaming', 5: 'circulate and condition', 6: 'trips'}
 IADC = {1: 'rig up / tear down / rig move', 2: 'drilling', 3: 'reaming', 4: 'coring', 5: 'circulate and condition mud', 6: 'trips',
@@ -406,7 +408,7 @@ def _record_days(ws, well_id: str, day_start_h: float) -> Optional[dict]:
     from . import drill_string as DS
     try:
         c = DS._cache(ws, well_id, build=True)
-    except (KeyError, OSError, ValueError):
+    except (KeyError, OSError, ValueError, _WsErr):
         return None
     t0 = datetime.fromisoformat(c.meta['start_time']).replace(tzinfo=None)
     idx = np.asarray(c.index, dtype=np.float64)

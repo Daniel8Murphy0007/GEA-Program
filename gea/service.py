@@ -41,6 +41,7 @@ import hmac
 import json
 import mimetypes
 import os
+import re
 import secrets
 import shutil
 import socket
@@ -90,6 +91,22 @@ def _iso_epoch(t: Optional[float]) -> Optional[str]:
         return None
     from datetime import datetime, timezone
     return datetime.fromtimestamp(t, tz=timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+
+_NUM_RAW = re.compile(r"^(?:ValueError: |TypeError: )?(?:could not convert string to (?:float|int): |invalid literal for int\(\) with base 10: )'(.*)'$", re.S)
+_NONE_RAW = re.compile(r"^(?:ValueError: |TypeError: )?(?:float|int)\(\) argument must be a string or a (?:real )?number, not 'NoneType'$")
+
+
+def friendly_error(msg: str) -> str:
+    """Python's own wording for a number that was not given, in the words of the form: a field left empty, or text
+    where a number goes. Every other message is passed as it is."""
+    m = _NUM_RAW.match(msg or '')
+    if m:
+        v = m.group(1).strip()
+        return 'a number is needed: a field was left empty' if not v else f"'{v[:40]}' is not a number"
+    if _NONE_RAW.match(msg or ''):
+        return 'a number is needed: a field was left empty'
+    return msg
 
 
 def app_catalog_well(name: str) -> str:
@@ -727,6 +744,7 @@ class App:
                 out = os.path.join(dest, f"evidence_{slug(self.ws.manifest['name'])}_{utc_now_iso().replace(':', '').replace('-', '')}.zip")
                 return F.evidence_pack(self.ws, out, user['name'])
             if sub == 'watch':
+                F.Roots(self.ws).resolve('import', str(body.get('root', '')), '')       # an unknown root is answered here, not in a failed job
                 return self._job(['files', '--workspace', self.ws.path, '--action', 'watch', '--root', str(body.get('root', '')), '--actor', user['name']], user, f"watch folder {body.get('root')}")
             App.require(user, 'admin')
             if sub == 'roots/add':
@@ -808,7 +826,7 @@ class App:
                     st = ingest(src)
                     return [d.__dict__ for d in defaults_from_catalogue(TagCatalogue.from_stream(st))]
             raise ApiError(404, 'default alarm definitions are derived from a historian well; add one first')
-        raise ApiError(404, f'no defaults for {name}')
+        raise ApiError(404, f'no defaults for {name}' if name else 'choose a configuration by name first (criteria, alarm_definitions, or a port such as wits0)')
 
     def set_port_config(self, user: dict, well_id: str, config: dict) -> dict:
         w = self.ws.well(well_id)
@@ -853,10 +871,12 @@ class App:
 
     def catalog(self) -> List[dict]:
         from . import CATALOG
+        from .workspace import catalog_gauge_wells
         out = []
         for name, e in CATALOG.items():
             out.append({'entry': name, 'kind': getattr(e, 'kind', ''), 'region': getattr(e, 'region', ''),
-                        'title': getattr(e, 'title', '') or getattr(e, 'description', '')[:120]})
+                        'title': getattr(e, 'title', '') or getattr(e, 'description', '')[:120],
+                        'gauge_wells': catalog_gauge_wells(name)})
         return out
 
     def reports_index(self) -> dict:
@@ -884,7 +904,7 @@ class App:
         cs = ConfigStore(self.ws.config_dir)
         hist = cs.history(name)
         if not hist:
-            raise ApiError(404, f'no configuration named {name}')
+            raise ApiError(404, f'no configuration named {name}' if name else 'choose a configuration by name first (criteria, alarm_definitions, or one in the list)')
         return {'name': name, 'current': cs.get(name), 'history': hist}
 
     def approvals_queue(self) -> dict:
@@ -1671,6 +1691,8 @@ def make_handler(app: App):
             return self.client_address[0]
 
         def _json(self, status: int, obj, set_cookie: Optional[str] = None, retry_after: Optional[int] = None) -> None:
+            if status >= 400 and isinstance(obj, dict) and isinstance(obj.get('error'), str):
+                obj = {**obj, 'error': friendly_error(obj['error'])}
             body = json.dumps(_finite(obj), default=str, allow_nan=False).encode('utf-8')
             self.send_response(status)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
@@ -2016,10 +2038,11 @@ def make_handler(app: App):
                     wid, _, what = path[len('/api/wells/'):].partition('/chart/')
                     try:
                         return self._json(200, app.chart(wid, what, qs))
-                    except WorkspaceError as e:
-                        raise ApiError(404, str(e))
-                    except (KeyError, ValueError) as e:
-                        raise ApiError(400, str(e.args[0] if e.args else e))
+                    except (WorkspaceError, KeyError, ValueError) as e:
+                        why = str(e) if isinstance(e, WorkspaceError) else str(e.args[0] if e.args else e)
+                        if what == 'meta' and any(w['id'] == wid for w in app.ws.wells()):   # a well with nothing to chart yet: a state of the page
+                            return self._json(200, {'available': False, 'reason': friendly_error(why)})
+                        raise ApiError(404 if isinstance(e, WorkspaceError) else 400, why)
                 if path == '/api/map' or path.startswith('/api/map/'):
                     from . import site_map as _SM
                     def _bbox():
@@ -2277,7 +2300,7 @@ def make_handler(app: App):
                 if path == '/api/wells/catalog':
                     App.require(user, 'operator')
                     try:
-                        return self._json(200, app.ws.add_well_catalog(str(body['entry']), str(body['well']), float(body.get('station_md') or 10000),
+                        return self._json(200, app.ws.add_well_catalog(str(body.get('entry') or ''), str(body.get('well') or ''), body.get('station_md'),
                                                                        actor=user['name'], display=body.get('display')))
                     except (KeyError, WorkspaceError) as e:
                         raise ApiError(400, str(e))
@@ -2964,7 +2987,7 @@ def make_handler(app: App):
                     return self._json(200, app.certificate_add(user, path[len('/api/wells/'):-len('/certificates')], body))
                 if path.startswith('/api/wells/') and path.endswith('/transient-params'):
                     App.require(user, 'operator')
-                    return self._json(200, app.transient_params_set(user, path[len('/api/wells/'):-len('/transient-params')], body.get('params') or body))
+                    return self._json(200, app.transient_params_set(user, path[len('/api/wells/'):-len('/transient-params')], body['params'] if isinstance(body.get('params'), dict) else body))
                 if path.startswith('/api/wells/') and path.endswith('/port-config'):
                     App.require(user, 'operator')
                     return self._json(200, app.set_port_config(user, path[len('/api/wells/'):-len('/port-config')], body.get('config') or {}))

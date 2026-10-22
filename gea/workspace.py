@@ -74,6 +74,27 @@ class WorkspaceError(Exception):
     pass
 
 
+def catalog_gauge_wells(entry: str) -> List[str]:
+    """The wells inside a catalogue entry that carry a downhole gauge pressure series (what a catalogue well is built
+    from); an entry that is not a gauge series has none."""
+    from . import CATALOG
+    e = CATALOG.get(entry)
+    if e is None:
+        return []
+    try:
+        chans = e.stream().channels
+    except Exception:
+        return []
+    pre = 'AVG_DOWNHOLE_PRESSURE['
+    return sorted(c[len(pre):-1] for c in chans if c.startswith(pre) and c.endswith(']'))
+
+
+def gauge_entries() -> List[str]:
+    """The catalogue entries a catalogue well can be added from."""
+    from . import CATALOG
+    return [k for k in CATALOG if catalog_gauge_wells(k)]
+
+
 def _group_truth(points) -> dict:
     """Truth points grouped by their point_id: when the ids are the rigs' ids, every rig has its own truth."""
     out: dict = {}
@@ -275,6 +296,21 @@ class Workspace:
         from . import CATALOG
         if entry not in CATALOG:
             raise WorkspaceError(f'no such catalogue entry: {entry}')
+        tags = catalog_gauge_wells(entry)
+        if not tags:
+            raise WorkspaceError(f"'{entry}' is not a downhole gauge series; the entries that are: {', '.join(gauge_entries()) or 'none'}")
+        well_tag = (well_tag or '').strip()
+        if well_tag not in tags:
+            raise WorkspaceError(f"choose the well inside '{entry}': {', '.join(tags)}" if not well_tag
+                                 else f"'{entry}' has no well '{well_tag}'; its wells: {', '.join(tags)}")
+        if station_md_ft is None or (isinstance(station_md_ft, str) and not station_md_ft.strip()):
+            raise WorkspaceError('the station MD is needed: the gauge depth in feet, from the completion records')
+        try:
+            station_md_ft = float(station_md_ft)
+        except (TypeError, ValueError):
+            raise WorkspaceError('the station MD must be a number of feet') from None
+        if not station_md_ft > 0:
+            raise WorkspaceError('the station MD must be greater than zero (from the completion records)')
         display = display or well_tag
         wid = slug(f'{entry}__{well_tag}')
         well = {'id': wid, 'display': display, 'kind': 'catalog', 'files': [],
@@ -620,6 +656,8 @@ class Workspace:
         src = os.path.join(self.path, 'seismic', station_id, 'source')
         out = self.seismic_reports_dir(station_id)
         band = tuple(st.get('band_hz') or (1.0, 50.0))
+        if not st.get('files'):
+            raise WorkspaceError(f"{st.get('display', station_id)} has no recording yet: its live feed has written no record to report on")
         traces = []
         for name in st['files']:
             trs = S.read_any(os.path.join(src, name))

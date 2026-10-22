@@ -44,6 +44,8 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from .workspace import WorkspaceError as _WsErr
+
 STATES = ('ROTARY DRILLING', 'SLIDE DRILLING', 'REAMING', 'WASHING', 'CIRCULATING', 'TRIPPING IN', 'TRIPPING OUT', 'IN SLIPS', 'OFF THE HOOK', 'STATIONARY',
           'NO RECORD')
 ROT, SLIDE, REAM, WASH, CIRC, TIN, TOUT, SLIPS, OFFHOOK, STAT, NOREC = range(11)
@@ -356,7 +358,7 @@ def _wells_with_record(ws) -> List[str]:
         try:
             DS._cache(ws, w['id'], build=True)
             out.append(w['id'])
-        except (KeyError, OSError, ValueError):
+        except (KeyError, OSError, ValueError, _WsErr):
             continue
     return out
 
@@ -564,7 +566,7 @@ def pad(ws) -> dict:
     for wid in _wells_with_record(ws):
         try:
             rs.append(well(ws, wid))
-        except (KeyError, OSError, ValueError) as e:
+        except (KeyError, OSError, ValueError, _WsErr) as e:
             errs.append(f'{wid}: {e}')
     cs = casing(ws)
     for r in rs:

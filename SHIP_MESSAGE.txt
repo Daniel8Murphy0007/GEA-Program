@@ -1,25 +1,22 @@
-v0.59.0 — THE DECLARATIONS WORKBOOK CARRIES THE ENGINEERING
+v0.60.0 — EVERY TAB AND BUTTON ANSWERS
 
-Everything the engineering tabs need now goes in through one workbook.
+The control panel was driven end to end in a browser - every tab, every
+well page, every button that does not change or remove something, every
+Scene and Well choice - and the faults it found are fixed.
 
-The declarations sheet - the one that already carried each well's
-number, position, elevation, rates, runs and casing - now takes ten more
-tables: the survey program and plans, how the pore pressure is read and
-the pressures measured, the torque-and-drag string, the hydraulics
-(string, hole, mud, viscometer, nozzles), frac stage tables and monitored
-wells, production and the decline terms. Every row is checked against the
-workspace before anything is written; one bad row and nothing is
-written; the same workbook can be imported again and again.
+- The Verification tab opens (it used a value only the Seismic tab set up).
+- The Rig time tab opens with a live well whose stream has not arrived yet.
+- Add a catalogue well takes only an entry that carries a downhole gauge
+  series, a well inside it and the gauge depth; the form lists only those.
+- One well that cannot be read never stops Refresh every report or the
+  month-end again: it is written down with why, shown NOT REPORTED on the
+  overview and the printed dashboard, and named by the refresh job and the
+  month-end packet, while every other well is reported.
+- A live seismic station with no recording yet is listed as such in the
+  month-end instead of stopping it.
+- An empty field is answered in the form's words ("a number is needed: a
+  field was left empty"), not Python's; the configuration buttons and the
+  folder watch say what to choose first; a well with nothing to chart says
+  so without an error in the browser's console.
 
-It downloads as an Excel workbook, already filled with what is declared
-(`gea declare --template pad3.xlsx`, or Download the sheet on the Setup
-tab).
-
-A well with no directional survey is now read on the drilling recorder's
-own Interpolated TVD where a depth conversion is needed - Hydraulics &
-ECD, and Torque & drag on an inclination-only path - labelled as the
-recorder's interpolation, not a survey. An attached survey is always used
-first.
-
-Section DB is new, four checks. The gate is 478 checks on Python 3.13
-and 3.14. The standalone guard is clean.
+Acceptance section DC (4 checks).

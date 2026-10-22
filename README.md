@@ -634,6 +634,16 @@ and the decline terms. A well with no directional survey is read on the
 drilling recorder's own Interpolated TVD where one is needed, labelled as
 the recorder's interpolation. `gea help declare`.
 
+### When one well cannot be reported
+
+Refresh every report goes on past a well it cannot read: that well is
+written down with why (`reports\wells\<well>\refresh_failed.json`), shown
+NOT REPORTED on the overview and the printed dashboard, and named by the
+refresh job and the month-end packet; every other well is reported. A
+catalogue well is added only from an entry that carries a downhole gauge
+series, with a well inside it and its gauge depth; a live seismic station
+whose feed has written nothing yet is listed as having no recording yet.
+
 ### Hydraulics and ECD
 
 The pressures the mud makes while it circulates, from the six-speed

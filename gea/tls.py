@@ -488,6 +488,9 @@ def make_self_signed(ws, actor: str, names: Optional[List[str]] = None, days: in
 
 def use_site_certificate(ws, actor: str, cert_path: str, key_path: str) -> dict:
     """Serve with the site's own certificate and key, read from where the site keeps them at each start."""
+    for what, p in (('certificate', cert_path), ('private key', key_path)):
+        if not (p or '').strip().strip('"'):
+            raise TlsError(f"give the {what} file's full path (for example C:\\site\\tls\\site.{'crt' if what == 'certificate' else 'key'})")
     cert_path, key_path = os.path.abspath(cert_path.strip().strip('"')), os.path.abspath(key_path.strip().strip('"'))
     server_context(cert_path, key_path)
     with open(cert_path, 'rb') as f:

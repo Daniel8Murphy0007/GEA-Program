@@ -232,6 +232,8 @@ class Roots:
         """An absolute path inside the named root, or WorkspaceError when it would leave it."""
         root = next((r for r in self.list(which) if r['name'] == name), None)
         if root is None:
+            if not name:
+                raise WorkspaceError(f'no {which} root chosen' + ('' if self.list(which) else f': add an {which} root under Administration first'))
             raise WorkspaceError(f'no {which} root named {name}')
         base = os.path.realpath(root['path'])
         full = os.path.realpath(os.path.join(base, rel or ''))

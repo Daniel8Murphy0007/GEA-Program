@@ -4,6 +4,17 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.60.0 - 2026-10-21 - every tab and button answers
+
+- **The control panel driven end to end.** Every tab and well page and
+  every button that does not change or remove something was driven in a
+  browser; the ten faults it found are fixed (the Verification tab, the
+  Rig time tab with a live well not yet streaming, a catalogue well from
+  an entry that is not a gauge series stopping the refresh and the
+  month-end, a live seismic station with no recording, Python's wording
+  for an empty field). One well that cannot be read never stops the
+  refresh again. Section DC; gate 482.
+
 ## v0.59.0 - 2026-10-21 - the declarations workbook carries the engineering
 
 - **One workbook lights up the engineering tabs.** The declarations sheet

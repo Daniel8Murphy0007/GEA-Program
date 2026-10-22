@@ -10472,8 +10472,9 @@ def section_cn_four(tmp: str) -> None:
     t0 = now.replace(hour=10, minute=59, second=0) if now.hour < 23 else now.replace(hour=10, minute=59, second=0)
     due_before = PS.due_now(ws, t0)
     s1 = PS.write(ws, __version__, "tester", nt, now + timedelta(minutes=2))
-    due_after = PS.due_now(ws, (now + timedelta(minutes=2)).replace(hour=23, minute=0))
-    nxt = (now + timedelta(days=1)).replace(hour=11, minute=1, second=0)
+    w1 = now + timedelta(minutes=2)                               # the summary's own day: two minutes on may already be tomorrow (UTC)
+    due_after = PS.due_now(ws, w1.replace(hour=23, minute=0))
+    nxt = (w1 + timedelta(days=1)).replace(hour=11, minute=1, second=0)
     due_next = PS.due_now(ws, nxt)
     ws.audit("tester", "test.after", {})
     s2 = PS.write(ws, __version__, "tester", nt, now + timedelta(minutes=5), send=False)
@@ -13138,6 +13139,177 @@ def section_db_declarations_engineering(tmp: str) -> None:
        + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
 
 
+def section_dc_every_tab(tmp: str) -> None:
+    """Section DC - every tab and button answers: the Verification tab reads the site reports itself; the Rig time
+    tab and the charts with a live well whose stream has not arrived; a catalogue well only from a gauge series, its
+    well and its gauge depth; one well that cannot be read never stops the refresh or the month-end, and is shown
+    with why; a live seismic station with no recording yet is a state, not a failure; a field left empty is answered
+    in the form's words."""
+    import http.cookiejar
+    import urllib.error
+    import urllib.request
+    from . import dashboard as D
+    from . import hydraulics as HY
+    from . import month_end as ME
+    from .service import Service, Users, friendly_error
+    from .workspace import Workspace, WorkspaceError, catalog_gauge_wells, gauge_entries
+    pkg = Path(__file__).parent
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    d = Path(tmp, "every_tab"); d.mkdir()
+    hy = HY.selftest_files(str(d / "hy"))
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    w_edr = ws.add_well_file(hy["record"], display="HY-1", actor="tester")["id"]
+    w_cat = ws.add_well_catalog("volve_f12_f14_production_excerpt", "15/9-F-12", 10000.0, actor="tester")["id"]
+
+    # -- DC1 a catalogue well: a gauge series, a well inside it, a gauge depth -------------------------------------------
+    def answer(*a):
+        try:
+            ws.add_well_catalog(*a, actor="tester")
+            return ""
+        except WorkspaceError as e:
+            return str(e)
+    other = next(k for k in __import__("gea").CATALOG if k not in gauge_entries())
+    m_series, m_empty = answer(other, "", 10000.0), answer("volve_f12_f14_production_excerpt", "", 10000.0)
+    m_wrong, m_md0 = answer("volve_f12_f14_production_excerpt", "15/9-F-99", 10000.0), answer("volve_f12_f14_production_excerpt", "15/9-F-14", 0)
+    m_none = answer("volve_f12_f14_production_excerpt", "15/9-F-14", None)
+    n_wells = len(ws.wells())
+    c1 = {
+        "gauges": gauge_entries() == ["volve_f12_f14_production_excerpt"] and catalog_gauge_wells("volve_f12_f14_production_excerpt") == ["15/9-F-12", "15/9-F-14"]
+                  and catalog_gauge_wells(other) == [],
+        "answered": "is not a downhole gauge series" in m_series and "volve_f12_f14_production_excerpt" in m_series
+                   and "choose the well inside" in m_empty and "15/9-F-14" in m_empty and "has no well '15/9-F-99'" in m_wrong
+                   and "greater than zero" in m_md0 and "the station MD is needed" in m_none,
+        "nothing_added": n_wells == 2,
+        "form": "entries.filter(e => (e.gauge_wells || []).length)" in page_src and '<select id="cWell">' in page_src
+                and "Enter the station MD in feet" in page_src,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "DC1 a catalogue well is added only from an entry that carries a downhole gauge series, naming a well inside it and a gauge depth above zero: "
+       "an entry that is not a series, a well left empty or not in the entry, and a depth of zero or none are each answered with what to choose, and "
+       "nothing is added; the form lists only the series and their wells" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- DC2 one well that cannot be read: the refresh and the month-end go on, and say which and why ----------------------
+    bad = ws._register({"id": "old_entry__", "display": "old entry", "kind": "catalog", "files": [],
+                        "source": {"entry": other, "well": ""}, "station_md_ft": 10000.0}, "tester")["id"]   # as an older version could add it
+    res = ws.refresh_dashboard(actor="tester")
+    rep = res.get("reports") or {}
+    data = D.collect(ws.reports_dir)
+    failed_row = next((w for w in data["wells"] if w["slug"].startswith(other)), {})
+    me = ME.assemble(ws, "2026-09", actor="tester")
+    me_err = " | ".join(me.get("errors") or [])
+    cat_name = f"volve_f12_f14_production_excerpt__15/9-F-12".replace("/", "-")
+    c2 = {
+        "others_reported": "drift" in rep.get(cat_name, []) and "drilling_record" in rep.get(w_edr, []),
+        "failed_named": any("refresh_failed" in v for k, v in rep.items() if k.startswith(other))
+                        and os.path.isfile(os.path.join(ws.reports_dir, "wells", f"{other}__", "refresh_failed.json")),
+        "shown": bool(failed_row.get("failed")) and D._drift_status(failed_row)[1].startswith("NOT REPORTED"),
+        "month_end": me.get("included", 0) > 0 and f"well {other}__" in me_err and "dashboard refresh" not in me_err,
+        "page": "w.failed ? statusPill('serious', 'not reported')" in page_src,
+    }
+    ws.remove_well(bad, actor="tester")
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "DC2 a well that cannot be read (a catalogue entry an older version accepted) never stops the refresh: every other well is reported, the "
+       "failed one is written down with why and shown NOT REPORTED on the overview; the month-end packet is assembled and names that one well"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- DC3 a live well with no stream yet, a live station with no recording yet ------------------------------------------
+    from .wits0 import EXAMPLE_CONFIG as _WITS
+    wits_cfg = d / "wits0.json"
+    wits_cfg.write_text(json.dumps(_WITS), encoding="utf-8")
+    w_live = ws.add_well_live("Rig feed", "wits0", str(wits_cfg), actor="tester")["id"]
+    st = ws.add_live_station("Pad 3 seismometer", {"host": "127.0.0.1", "port": 18000, "streams": [{"network": "XX", "station": "PAD3"}]}, actor="tester")
+    try:
+        ws.refresh_seismic(st["id"], actor="tester")
+        m_seis = ""
+    except WorkspaceError as e:
+        m_seis = str(e)
+    me2 = ME.assemble(ws, "2026-09", actor="tester", refresh=True)
+    with open(os.path.splitext(me2["index"])[0] + ".json", encoding="utf-8") as fh_:
+        me2_items = json.load(fh_).get("items") or []
+    seis_item = next((i for i in me2_items if i["kind"] == "seismic" and i["id"] == st["id"]), {})
+
+    Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+    o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        call("POST", "/api/login", {"name": "op", "password": "op-pass-123"})
+        st_rig, rig = call("GET", "/api/rig-time")
+        st_cm, cm = call("GET", f"/api/wells/{w_live}/chart/meta")
+        st_cx, _ = call("GET", "/api/wells/no-such-well/chart/meta")
+        st_cat, cat = call("GET", "/api/catalog")
+        st_add, add = call("POST", "/api/wells/catalog", {"entry": other, "well": "", "station_md": 10000})
+        st_pp, pp = call("POST", "/api/pore-pressure/measure", {"well_id": w_edr, "depth_m": "", "value": "", "unit": "psi", "kind": "pore", "source": "x"})
+        st_cf, cf = call("GET", "/api/config/")
+        st_cd, cd = call("GET", "/api/config/defaults/")
+        st_fw, fw = call("POST", "/api/files/watch", {"root": ""})
+        st_sl, sl = call("GET", "/api/seismic")
+        st_tp, tp = call("POST", f"/api/wells/{w_edr}/transient-params", {"params": {"mu_cp": 0.8}})
+        st_tp0, tp0 = call("POST", f"/api/wells/{w_edr}/transient-params", {"params": {}})
+    finally:
+        svc.stop()
+    gauges_api = {e["entry"]: e["gauge_wells"] for e in cat.get("entries", []) if e.get("gauge_wells")}
+    c3 = {
+        "seismic": "has no recording yet" in m_seis and seis_item.get("status") == "NOT AVAILABLE" and "no recording yet" in seis_item.get("reason", "")
+                   and not any(st["id"] in e for e in me2.get("errors") or []),
+        "rig_time": st_rig == 200 and isinstance(rig, dict),
+        "chart": st_cm == 200 and cm.get("available") is False and bool(cm.get("reason")) and st_cx == 404
+                 and "meta.available === false" in page_src,
+        "catalog_api": st_cat == 200 and gauges_api == {"volve_f12_f14_production_excerpt": ["15/9-F-12", "15/9-F-14"]}
+                       and st_add == 400 and "is not a downhole gauge series" in add.get("error", ""),
+        "site_reports": st_sl == 200 and "site_reports" in sl,
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "DC3 a live seismic station whose feed has written nothing is answered as having no recording yet and is NOT AVAILABLE in the month-end, not "
+       "a failure; the Rig time tab answers with a live well whose stream has not arrived; that well's chart says there is nothing to chart yet "
+       "(an unknown well is still not found); the catalogue API names each series' wells and answers a well that is not one with what to choose"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+    # -- DC4 the form's words, and the Verification tab's own data -------------------------------------------------------------
+    def _tls_msg():
+        from . import tls as TLS
+        try:
+            TLS.use_site_certificate(ws, "tester", "", "")
+            return ""
+        except ValueError as e:
+            return str(e)
+    verify = page_src[page_src.index("VIEWS.verify = async"):]
+    verify = verify[:verify.index("\nVIEWS.", 10)] if "\nVIEWS." in verify[10:] else verify
+    c4 = {
+        "words": friendly_error("could not convert string to float: ''") == "a number is needed: a field was left empty"
+                 and friendly_error("could not convert string to float: 'abc'") == "'abc' is not a number"
+                 and friendly_error("no such well") == "no such well",
+        "pore": st_pp == 400 and pp.get("error") == "a number is needed: a field was left empty",
+        "config": st_cf == 404 and "choose a configuration by name first" in cf.get("error", "")
+                  and st_cd == 404 and "choose a configuration by name first" in cd.get("error", "")
+                  and page_src.count("if (!$('#cfgName').value.trim()) return toast('Choose a configuration by name first', 'err');") == 3,
+        "watch": st_fw == 400 and "add an import root under Administration first" in fw.get("error", "")
+                 and "w.title = 'Add an import root under Administration first'" in page_src,
+        "params": st_tp == 200 and st_tp0 == 200 and "unknown parameter" not in json.dumps(tp0),
+        "tls_path": _tls_msg().startswith("give the certificate file's full path"),
+        "verify": "let siteReports = {}; try { siteReports = (await get('/api/seismic')).site_reports || {}; }" in verify
+                  and verify.index("let siteReports") < verify.index("siteReports.seismic_dataset_report"),
+    }
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       "DC4 a field left empty, or text where a number goes, is answered in the form's words rather than the program's; a configuration button with "
+       "no name chosen, a folder watch with no import root and the site's certificate with no path given say what to do first; a well's transient "
+       "parameters saved empty are cleared; the Verification tab reads the site reports itself"
+       + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+
 def PR_read_ok(path) -> bool:
     from . import pdf_report as PR
     try:
@@ -13255,6 +13427,7 @@ def main() -> int:
         section_cz_it_review(tmp)
         section_da_hydraulics(tmp)
         section_db_declarations_engineering(tmp)
+        section_dc_every_tab(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:
