@@ -2958,3 +2958,19 @@ stability; and motor specifications in the tool catalogue.
   running, and uninstalls the setup on the runner before attaching it.
   The kit's gate runs DH on Windows with the real Win32 calls.
 - Section DH (6 checks). Gate 504 on Python 3.13 and 3.14.
+
+## 2026-10-23 - The site's own name (v0.66.0)
+
+- v0.65.0 shipped; its build installed, upgraded and uninstalled the setup
+  on the runner and attached it. Two loose ends from it.
+- The kit's launchers made a missing workspace named "Pad 3" - harmless
+  here, wrong at any other client's site. They now let `gea workspace
+  --action init` name it after its folder; the setup asks the name when
+  it makes the workspace (and only then), and the program makes it.
+- The control panel could not rename the site (only `gea workspace
+  --action rename`); the site settings and the first-run guide now carry
+  Site name, administrators only, audited.
+- GitHub warned that the attestation action runs on Node 20; all four
+  actions moved to their Node 24 majors (checked against each action's
+  action.yml).
+- Section DI (3 checks). Gate 507 on Python 3.13 and 3.14.

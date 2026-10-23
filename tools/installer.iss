@@ -9,15 +9,18 @@
 ;
 ; What it does: copies the kit for the signed-in user alone (no administrator rights, nothing outside the user's
 ; own folders), runs the kit's install.cmd (the package and its dependencies into the kit's own Python, from the
-; kit's own wheels - no network), records the site workspace the user chose, and adds the Start-menu shortcuts,
+; kit's own wheels - no network), records the site workspace the user chose (and makes it, with the site name
+; asked for, when the folder holds none yet), and adds the Start-menu shortcuts,
 ; a desktop shortcut and, when chosen, a start at sign-in. A newer setup installs over an older one in place; the
 ; uninstaller removes the program and what install.cmd added to it.
 ;
 ; What it never does: change, move or delete the site workspace (the wells, reports, records, accounts and keys).
-; The workspace is a folder of its own, outside the program's folder; the setup will not take one inside it.
+; The workspace is a folder of its own, outside the program's folder; the setup will not take one inside it. An
+; existing workspace is used exactly as it is, its name included (renamed on the Administration page, if at all).
 ;
 ; Silent install, for a site's software deployment (the CI test runs exactly this):
-;   GEA-Program-Setup-0.65.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /TASKS="desktopicon"
+;   GEA-Program-Setup-0.66.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+; (/SITENAME names a workspace the setup makes; a workspace that exists keeps its own name)
 
 #ifndef AppVersion
   #error AppVersion is not defined: ISCC /DAppVersion=0.65.0 /DKitDir=... /DOutDir=... tools\installer.iss
@@ -106,6 +109,7 @@ Type: dirifempty; Name: "{app}"
 [Code]
 var
   WsPage: TInputDirWizardPage;
+  NamePage: TInputQueryWizardPage;
   InstallFailed: Boolean;
   InstallFailedWhy: String;
 
@@ -181,6 +185,42 @@ begin
     False, '');
   WsPage.Add('');
   WsPage.Values[0] := DefaultWorkspace();
+  NamePage := CreateInputQueryPage(WsPage.ID,
+    'Site name',
+    'The name on every report',
+    'There is no workspace in that folder yet: setup makes one. Its name heads every report and the control panel ' +
+    '(for example the pad, the field or the client''s site). Left empty, the workspace is named after its folder. ' +
+    'The name can be changed later on the Administration page.');
+  NamePage.Add('Site name:', False);
+  NamePage.Values[0] := ExpandConstant('{param:SITENAME|}');
+end;
+
+function WorkspaceExists(): Boolean;
+begin
+  Result := FileExists(AddBackslash(WorkspaceDir('')) + 'workspace.json');
+end;
+
+function SiteName(): String;
+begin
+  Result := '';
+  if NamePage <> nil then Result := Trim(NamePage.Values[0]);
+end;
+
+{ why a site name cannot be used, or an empty string; empty is allowed - the workspace is then named after its folder }
+function SiteNameProblem(const S: String): String;
+begin
+  Result := '';
+  if Length(S) > 80 then
+    Result := 'A site name of 80 characters at most, please: it heads every report.'
+  else if Pos('"', S) > 0 then
+    Result := 'A site name holds no quotation marks.';
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := False;
+  if (NamePage <> nil) and (PageID = NamePage.ID) then
+    Result := WorkspaceExists();
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -190,6 +230,13 @@ begin
   Result := True;
   if (WsPage <> nil) and (CurPageID = WsPage.ID) then begin
     Why := WorkspaceProblem(WorkspaceDir(''), RemoveBackslashUnlessRoot(WizardDirValue()));
+    if Why <> '' then begin
+      SuppressibleMsgBox(Why, mbError, MB_OK, IDOK);
+      Result := False;
+    end;
+  end;
+  if (NamePage <> nil) and (CurPageID = NamePage.ID) then begin
+    Why := SiteNameProblem(SiteName());
     if Why <> '' then begin
       SuppressibleMsgBox(Why, mbError, MB_OK, IDOK);
       Result := False;
@@ -206,6 +253,12 @@ function UpdateReadyMemo(Space, NewLine, MemoUserInfoInfo, MemoDirInfo, MemoType
 begin
   Result := MemoDirInfo + NewLine + NewLine +
             'Site workspace (setup never changes or deletes it):' + NewLine + Space + WorkspaceDir('') + NewLine;
+  if WorkspaceExists() then
+    Result := Result + Space + '(it exists and is used as it is)' + NewLine
+  else if SiteName() <> '' then
+    Result := Result + Space + '(made by setup, named ' + SiteName() + ')' + NewLine
+  else
+    Result := Result + Space + '(made by setup, named after its folder)' + NewLine;
   if MemoTasksInfo <> '' then
     Result := Result + NewLine + MemoTasksInfo;
 end;
@@ -218,6 +271,7 @@ var
 begin
   Result := '';
   Why := WorkspaceProblem(WorkspaceDir(''), RemoveBackslashUnlessRoot(ExpandConstant('{app}')));
+  if Why = '' then Why := SiteNameProblem(SiteName());
   if Why <> '' then begin
     Result := Why;
     exit;
@@ -248,10 +302,11 @@ begin
       InstallFailedWhy := 'install.cmd ended with exit code ' + IntToStr(Rc) + '; its log is ' + App + '\install.log';
     end;
     if not InstallFailed then begin
-      WizardForm.StatusLabel.Caption := 'Recording the site workspace...';
-      if not Exec(App + '\python\python.exe', '-m gea launch --set-workspace "' + WorkspaceDir('') + '"', App, SW_HIDE, ewWaitUntilTerminated, Rc) or (Rc <> 0) then begin
+      WizardForm.StatusLabel.Caption := 'Recording the site workspace (and making it, when it is new)...';
+      { records the workspace; makes it, with its name, when there is none there yet - an existing one is left as it is }
+      if not Exec(App + '\python\python.exe', '-m gea launch --set-workspace "' + WorkspaceDir('') + '" --site-name "' + SiteName() + '"', App, SW_HIDE, ewWaitUntilTerminated, Rc) or (Rc <> 0) then begin
         InstallFailed := True;
-        InstallFailedWhy := 'the site workspace ' + WorkspaceDir('') + ' could not be recorded (exit ' + IntToStr(Rc) + ')';
+        InstallFailedWhy := 'the site workspace ' + WorkspaceDir('') + ' could not be recorded or made (exit ' + IntToStr(Rc) + ')';
       end;
     end;
     if InstallFailed then

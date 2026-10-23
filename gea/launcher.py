@@ -134,6 +134,33 @@ def set_workspace(kit: Optional[Path], path: str) -> str:
     return path
 
 
+SITE_NAME_MAX = 80
+
+
+def check_site_name(name: Optional[str]) -> Optional[str]:
+    """Why a site name cannot be used, or None. Empty is allowed: the workspace is then named after its folder."""
+    name = (name or '').strip()
+    if len(name) > SITE_NAME_MAX:
+        return f'a site name of {len(name)} characters; {SITE_NAME_MAX} at most (it heads every report)'
+    if any(c in name for c in '"\r\n\t'):
+        return 'a site name holds no quotation marks, line breaks or tabs'
+    return None
+
+
+def create_workspace(path: str, site_name: Optional[str], actor: str = 'installer') -> Optional[str]:
+    """Make the workspace with its name when there is none at `path` yet; an existing workspace is left exactly as it
+    is (its name is changed on the Administration page). Returns the name it was made with, or None when it existed."""
+    if os.path.isfile(os.path.join(path, 'workspace.json')):
+        return None
+    why = check_site_name(site_name)
+    if why:
+        raise LaunchError(why)
+    from .workspace import Workspace
+    name = (site_name or '').strip() or os.path.basename(os.path.normpath(path))
+    Workspace.create(path, name, actor=actor)
+    return name
+
+
 def port_open(port: int, host: str = '127.0.0.1', timeout: float = 0.4) -> bool:
     try:
         with socket.create_connection((host, int(port)), timeout=timeout):
@@ -407,7 +434,15 @@ def main(a) -> int:
         except LaunchError as e:
             say('GEA-Program', f'The site workspace was not recorded: {e}', error=True)
             return 2
-        say('GEA-Program', f'site workspace: {path}  (recorded in {Path(kit_dir()) / WORKSPACE_FILE})')
+        made = None
+        if getattr(a, 'site_name', None) is not None:
+            try:
+                made = create_workspace(path, a.site_name)
+            except (LaunchError, OSError) as e:
+                say('GEA-Program', f'The site workspace was recorded but not made: {e}', error=True)
+                return 2
+        say('GEA-Program', f'site workspace: {path}  (recorded in {Path(kit_dir()) / WORKSPACE_FILE})'
+                           + (f'; made, named {made}' if made else ('; it exists and is used as it is' if getattr(a, 'site_name', None) is not None else '')))
         return 0
     if getattr(a, 'selftest', False):
         p = plan(a.workspace, a.port)

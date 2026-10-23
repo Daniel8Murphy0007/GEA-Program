@@ -198,7 +198,7 @@ if "%GEA_WORKSPACE%"=="" set GEA_WORKSPACE=%LOCALAPPDATA%\GEA-Program\site
 if "%GEA_PORT%"=="" set GEA_PORT=8765
 if not exist "%GEA_WORKSPACE%\workspace.json" (
   echo == creating the site workspace at %GEA_WORKSPACE%
-  python\python.exe -m gea workspace --path "%GEA_WORKSPACE%" --action init --name "Pad 3" --actor installer
+  python\python.exe -m gea workspace --path "%GEA_WORKSPACE%" --action init --actor installer
 )
 echo == starting the dashboard on port %GEA_PORT%  (workspace %GEA_WORKSPACE%; http://127.0.0.1:%GEA_PORT%/, or https:// once HTTPS is on - gea tls)
 echo    close this window or run stop-dashboard.cmd to stop it
@@ -349,7 +349,7 @@ cd "$(dirname "$0")"
 : "${GEA_PORT:=8765}"
 if [ ! -f "$GEA_WORKSPACE/workspace.json" ]; then
   echo "== creating the site workspace at $GEA_WORKSPACE"
-  ./python/bin/python3 -m gea workspace --path "$GEA_WORKSPACE" --action init --name "Pad 3" --actor installer
+  ./python/bin/python3 -m gea workspace --path "$GEA_WORKSPACE" --action init --actor installer
 fi
 echo "== starting the dashboard on port $GEA_PORT  (workspace $GEA_WORKSPACE; http://127.0.0.1:$GEA_PORT/, or https:// once HTTPS is on - gea tls)"
 echo "   Ctrl+C stops it, or run ./stop-dashboard.sh"

@@ -14549,6 +14549,136 @@ def section_dh_windows_installer(tmp: str) -> None:
        + (f" [failed: {', '.join(failed6)}]" if failed6 else ""))
 
 
+def section_di_site_name(tmp: str) -> None:
+    """Section DI - the site's name: asked for by the installer and given to a workspace it makes, an existing workspace
+    left with its own; never written into the kit's scripts; changed on the Administration page and in the first-run
+    guide, heading every report from then on, audited; the workflow's own install checks it."""
+    import argparse as _ap
+    import contextlib as _cl
+    import http.cookiejar
+    import importlib.util
+    import io as _io
+    import urllib.error
+    import urllib.request
+    from . import launcher as L
+    from .doctor import kit_dir as _doctor_kit
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "site_name"); d.mkdir()
+    checkout = (pkg.parent / "pyproject.toml").exists() and (pkg.parent / "tools" / "installer.iss").exists()
+
+    # -- DI1 the installer's workspace, made with its name ---------------------------------------------------------------------------
+    kit = d / "Programs" / "GEA-Program"; (kit / "python").mkdir(parents=True)
+    (kit / "start-dashboard.cmd").write_text("@echo off\n", encoding="utf-8")
+    new_ws, old_ws, plain_ws = str(d / "new site"), str(d / "old site"), str(d / "Pad 7")
+    Workspace.create(old_ws, "Pad 3", actor="tester")
+    old_bytes = Path(old_ws, "workspace.json").read_bytes()
+    saved = L.kit_dir
+    outs = {}
+    try:
+        L.kit_dir = lambda executable=None: kit
+        for key, ws_, nm in (("new", new_ws, "Jörg's Pad 3 – east"), ("old", old_ws, "Something else"), ("plain", plain_ws, ""), ("quote", str(d / "q site"), 'Pad "3"'),
+                             ("record_only", str(d / "rec site"), None)):
+            buf = _io.StringIO()
+            with _cl.redirect_stdout(buf):
+                rc = L.main(_ap.Namespace(set_workspace=ws_, site_name=nm, selftest=False, workspace=None, port=8765, background=False, no_tray=False))
+            outs[key] = (rc, buf.getvalue())
+    finally:
+        L.kit_dir = saved
+    name_of = lambda p: json.loads(Path(p, "workspace.json").read_text(encoding="utf-8"))["name"] if Path(p, "workspace.json").exists() else None
+    c1 = {
+        "made_named": outs["new"][0] == 0 and name_of(new_ws) == "Jörg's Pad 3 – east" and "made, named Jörg's Pad 3 – east" in outs["new"][1]
+                      and Workspace(new_ws).audit_log()[-1]["actor"] == "installer",
+        "existing_kept": outs["old"][0] == 0 and Path(old_ws, "workspace.json").read_bytes() == old_bytes and "exists and is used as it is" in outs["old"][1],
+        "empty_is_folder": outs["plain"][0] == 0 and name_of(plain_ws) == "Pad 7",
+        "quote_not_taken": outs["quote"][0] == 2 and name_of(str(d / "q site")) is None and "quotation marks" in outs["quote"][1],
+        "record_only": outs["record_only"][0] == 0 and name_of(str(d / "rec site")) is None,
+        "limits": L.check_site_name("x" * 81) is not None and L.check_site_name("x" * 80) is None and L.check_site_name("a\tb") is not None,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "DI1 the installer's site name: a workspace the setup makes is made with the name asked for (any letters; no quotation marks, tabs or "
+       "line breaks; 80 characters at most), or the folder's name when none is given; an existing workspace is used exactly as it is, its "
+       "own name kept, byte for byte" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- DI2 no site's name in the kit; the setup asks only when it makes the workspace ------------------------------------------------
+    if checkout:
+        spec = importlib.util.spec_from_file_location("di_installer", str(pkg.parent / "tools" / "build_installer.py"))
+        bi = importlib.util.module_from_spec(spec); spec.loader.exec_module(bi)
+        start_cmd, start_sh = bi.WIN_SCRIPTS["start-dashboard.cmd"], bi.LINUX_SCRIPTS["start-dashboard.sh"]
+        iss = (pkg.parent / "tools" / "installer.iss").read_text(encoding="utf-8")
+        wf = (pkg.parent / ".github" / "workflows" / "build-installer.yml").read_text(encoding="utf-8")
+        code = iss[iss.index("[Code]"):]
+        nb = code.split("function NextButtonClick", 1)[1].split("\nend;", 1)[0]
+        c2 = {
+            "page": "CreateInputQueryPage(WsPage.ID" in code and "{param:SITENAME|}" in code and "Result := WorkspaceExists();" in code.split("function ShouldSkipPage", 1)[1]
+                    and "SiteNameProblem(SiteName())" in nb and code.count("SiteNameProblem(SiteName())") == 2,
+            "made_by_program": "--site-name \"' + SiteName() + '\"'" in code and "Pos('\"', S) > 0" in code,
+            "workflow": '/SITENAME="CI Pad"' in wf and "expected 'CI Pad'" in wf and "the upgrade changed the existing workspace" in wf,
+        }
+        where2 = "the checkout's templates and installer"
+    else:
+        kd = _doctor_kit(); where2 = f"the installed kit at {kd}"
+        start_cmd = open(os.path.join(kd, "start-dashboard.cmd"), encoding="utf-8").read() if kd and os.path.isfile(os.path.join(kd, "start-dashboard.cmd")) else ""
+        start_sh = open(os.path.join(kd, "start-dashboard.sh"), encoding="utf-8").read() if kd and os.path.isfile(os.path.join(kd, "start-dashboard.sh")) else ""
+        c2 = {}
+    init_lines = [ln for ln in (start_cmd + "\n" + start_sh).splitlines() if "--action init" in ln]
+    c2["kit_unnamed"] = all("--name" not in ln for ln in init_lines) and "Pad 3" not in start_cmd + start_sh and (bool(init_lines) or not (start_cmd or start_sh))
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       f"DI2 ({where2}) the kit's launchers make a missing workspace named after its folder - no site's name is written into them (before "
+       "v0.66 every kit named a new workspace Pad 3); the setup asks for the name only when it makes the workspace, skips the question for "
+       "one that exists, passes it to the program to make it, and its build makes one named and upgrades it unchanged"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- DI3 renamed in the control panel ----------------------------------------------------------------------------------------------
+    wsp = str(d / "panel"); Workspace.create(wsp, "site", actor="tester")
+    users = Users(str(Path(wsp, "users.json")))
+    users.add("adm", "admin-pass-123", "admin"); users.add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=60) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        adm, op = opener("adm", "admin-pass-123"), opener("op", "op-pass-123")
+        s_op, _ = call(op, "POST", "/api/site", {"site": {"name": "Pad 9"}})
+        s_empty, e_empty = call(adm, "POST", "/api/site", {"site": {"name": "  "}})
+        s_q, e_q = call(adm, "POST", "/api/site", {"site": {"name": 'Pad "9"'}})
+        s_ok, r_ok = call(adm, "POST", "/api/site", {"site": {"name": "Pad 9 – north", "units": "si"}})
+        s_only, r_only = call(adm, "POST", "/api/site", {"site": {"name": "Pad 9 – north"}})
+        _, sess = call(op, "GET", "/api/session")
+    finally:
+        svc.stop()
+    renames = [e for e in Workspace(wsp).audit_log() if e.get("action") == "workspace.rename"]
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c3 = {
+        "admin_only": s_op == 403,
+        "checked": s_empty == 400 and "not empty" in e_empty.get("error", "") and s_q == 400 and "quotation" in e_q.get("error", ""),
+        "renamed": s_ok == 200 and r_ok.get("site", {}).get("units") == "si" and sess.get("workspace") == "Pad 9 – north" and Workspace(wsp).manifest["name"] == "Pad 9 – north",
+        "audited_once": len(renames) == 1 and renames[0]["actor"] == "adm" and renames[0]["detail"] == {"from": "site", "to": "Pad 9 – north"} and s_only == 200,
+        "page": all(x in page_src for x in ('id="stSiteName"', 'id="wSiteName"', "{name: nm}", "The site's name heads every report")),
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "DI3 the site's name changed in the control panel (Administration's site settings, and the first-run guide's first step), by an "
+       "administrator only: an empty name or one with quotation marks answered, the new name heading the page and every report from then on, "
+       "one audit line per change" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -14664,6 +14794,7 @@ def main() -> int:
         section_df_trusted_timestamp(tmp)
         section_dg_casing_program(tmp)
         section_dh_windows_installer(tmp)
+        section_di_site_name(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

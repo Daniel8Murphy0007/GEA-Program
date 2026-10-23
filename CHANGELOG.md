@@ -5,6 +5,37 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.66.0] - 2026-10-23 - The site's own name
+
+### Fixed
+- **Every kit named a new workspace "Pad 3".** `start-dashboard.cmd` (and
+  the Linux kit's `start-dashboard.sh`) made a missing workspace with that
+  name, so any other site that installed the program had Pad 3 heading
+  its reports. A workspace the launchers make is now named after its
+  folder, and the setup asks for the name.
+
+### Added
+- **The setup asks the site's name** when it makes a new workspace (the
+  question is skipped for a workspace that exists, which keeps its own
+  name, byte for byte), and makes the workspace with it at install
+  (`gea launch --set-workspace ... --site-name ...`); left empty, it is
+  named after its folder. Silent: `/SITENAME="Pad 3"`. No quotation
+  marks, tabs or line breaks; 80 characters at most.
+- **Renaming the site in the control panel**: Site name in
+  Administration's site settings and in the first-run guide's first step
+  (administrators; `POST /api/site` with `name`). The new name heads the
+  page and every report written from then on; one `workspace.rename`
+  audit line per change. (`gea workspace --action rename` already did
+  this from a terminal.)
+- The build's install test makes its workspace with `/SITENAME="CI Pad"`
+  and checks the name, and that the upgrade leaves it alone.
+- Acceptance section DI (3 checks).
+
+### Changed
+- The workflows' actions moved to their Node 24 majors (`checkout@v5`,
+  `setup-python@v6`, `upload-artifact@v6`, `attest-build-provenance@v3`):
+  GitHub warned on the v0.65.0 build that Node 20 is deprecated.
+
 ## [v0.65.0] - 2026-10-23 - The Windows installer
 
 ### Added

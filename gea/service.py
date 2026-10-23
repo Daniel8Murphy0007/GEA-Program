@@ -1260,9 +1260,25 @@ class App:
         return {'jobs': out}
 
     def set_site(self, user: dict, site: dict) -> dict:
-        """Site-wide display defaults in the manifest: units, time zone, display name, contact line. Admin only."""
+        """Site-wide display defaults in the manifest: units, time zone, display name, contact line - and `name`, the
+        site's name that heads every report (the workspace's own name, audited as workspace.rename). Admin only."""
+        site = dict(site or {})
+        if 'name' in site:
+            from .launcher import check_site_name
+            nm = site.pop('name')
+            if not isinstance(nm, str) or not nm.strip():
+                raise ApiError(400, 'the site name must be text, and not empty: it heads every report')
+            why = check_site_name(nm)
+            if why:
+                raise ApiError(400, why)
+            try:
+                self.ws.rename(nm.strip(), actor=user['name'])
+            except WorkspaceError as e:
+                raise ApiError(400, str(e))
+            if not site:
+                return dict(self.ws.manifest.get('site') or {})
         cur = dict(self.ws.manifest.get('site') or {})
-        for k, v in (site or {}).items():
+        for k, v in site.items():
             if k not in ('units', 'time_zone', 'display_name', 'contact', 'wizard_done'):
                 raise ApiError(400, f'unknown site setting: {k}')
             if k == 'units' and v not in ('field', 'si'):

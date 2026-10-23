@@ -53,10 +53,10 @@ jobs:
       ARTIFACT_SIGNING_ACCOUNT: ${{ secrets.ARTIFACT_SIGNING_ACCOUNT }}
       SIGNING_PFX_BASE64: ${{ secrets.SIGNING_PFX_BASE64 }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0        # the tags: the attach step names the release from them
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Build the kit (embeddable Python + every wheel + scripts)
@@ -123,7 +123,7 @@ jobs:
           call install.cmd || exit /b 1
           call verify.cmd || exit /b 1
       - name: Attest where the kit was built (provenance)
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v3
         with:
           subject-path: dist/gea-program-*-win64.zip
       - name: Attach the kit to the release
@@ -131,7 +131,7 @@ jobs:
         run: bash .github/workflows/attach-kit.sh "${{ inputs.release_tag }}" "dist/gea-program-*-win64.zip" "-win64.zip"
         env:
           GH_TOKEN: ${{ github.token }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: gea-program-win64-kit
           path: dist/gea-program-*-win64.zip
@@ -215,7 +215,7 @@ jobs:
           function PortOpen { try { $c = New-Object Net.Sockets.TcpClient; $c.Connect('127.0.0.1', 8765); $c.Close(); $true } catch { $false } }
           function InstallOnce([string]$what) {
             $log = Join-Path $env:RUNNER_TEMP "setup-$what.log"
-            $p = Start-Process -FilePath $env:SETUP -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/WORKSPACE=`"$ws`"", '/TASKS="desktopicon"', "/LOG=`"$log`"") -Wait -PassThru
+            $p = Start-Process -FilePath $env:SETUP -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/WORKSPACE=`"$ws`"", '/SITENAME="CI Pad"', '/TASKS="desktopicon"', "/LOG=`"$log`"") -Wait -PassThru
             if ($p.ExitCode -ne 0) {
               Get-Content $log -Tail 40
               if (Test-Path "$app\install.log") { Get-Content "$app\install.log" -Tail 40 }
@@ -233,6 +233,9 @@ jobs:
           if ($v -ne $env:SETUP_VER) { throw "installed $v, expected $env:SETUP_VER" }
           $rec = (Get-Content "$app\site-workspace.txt" -Raw).Trim()
           if ($rec -ne $ws) { throw "site-workspace.txt holds '$rec', expected '$ws'" }
+          $made = (Get-Content "$ws\workspace.json" -Raw | ConvertFrom-Json).name
+          if ($made -ne 'CI Pad') { throw "the setup made the workspace named '$made', expected 'CI Pad'" }
+          "workspace made by the setup, named $made"
           $u = Get-ItemProperty $key
           "Add/Remove Programs: $($u.DisplayName) $($u.DisplayVersion), $($u.Publisher)"
           foreach ($lnk in @((Join-Path ([Environment]::GetFolderPath('Programs')) 'GEA-Program\GEA-Program.lnk'), (Join-Path ([Environment]::GetFolderPath('Desktop')) 'GEA-Program.lnk'))) {
@@ -251,6 +254,7 @@ jobs:
           Start-Sleep 3
           if (PortOpen) { throw 'the upgrade did not stop the running control panel first' }
           if ((& $py -c "import gea; print(gea.__version__)").Trim() -ne $env:SETUP_VER) { throw 'the upgraded program does not import' }
+          if ((Get-Content "$ws\workspace.json" -Raw | ConvertFrom-Json).name -ne 'CI Pad') { throw 'the upgrade changed the existing workspace' }
           & $py -m gea launch --background --no-tray
           WaitUp
           "control panel running again; uninstalling while it runs"
@@ -262,7 +266,7 @@ jobs:
           if (-not (Test-Path "$ws\workspace.json") -or -not (Test-Path "$ws\records\ci-marker.txt")) { throw 'the site workspace was touched by the uninstall' }
           "uninstalled: program removed, workspace kept ($((Get-ChildItem $ws -Recurse -File).Count) files)"
       - name: Attest where the setup was built (provenance)
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v3
         with:
           subject-path: dist/GEA-Program-Setup-*.exe
       - name: Attach the setup to the release
@@ -270,17 +274,17 @@ jobs:
         run: bash .github/workflows/attach-kit.sh "${{ inputs.release_tag }}" "dist/GEA-Program-Setup-*.exe" "GEA-Program-Setup-"
         env:
           GH_TOKEN: ${{ github.token }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: gea-program-win64-setup
           path: dist/GEA-Program-Setup-*.exe
   linux-kit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Build the Linux kit
@@ -289,14 +293,14 @@ jobs:
         run: |
           cd dist/gea-program-*-linux-*/ && ./install.sh && ./verify.sh
       - name: Attest where the kit was built (provenance)
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v3
         with:
           subject-path: dist/gea-program-*-linux-*.zip
       - name: Attach to the release
         run: bash .github/workflows/attach-kit.sh "${{ inputs.release_tag }}" "dist/gea-program-*-linux-*.zip" "-linux-"
         env:
           GH_TOKEN: ${{ github.token }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: gea-program-linux-kit
           path: dist/gea-program-*-linux-*.zip

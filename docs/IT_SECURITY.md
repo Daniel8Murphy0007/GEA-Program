@@ -24,9 +24,11 @@ system service (a per-user scheduled task only if the site runs
 and desktop, an optional shortcut in the user's Startup folder, and the
 user's own Add/Remove Programs entry (`HKCU`, the only registry key it
 writes, removed by its uninstaller). Silent install for a software
-deployment: `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site"`.
-The setup never writes into the site workspace and will not take one inside the
-program's own folder; the uninstaller stops the control panel, removes the
+deployment: `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site"`
+(`/SITENAME="Pad 3"` names a workspace the setup makes).
+The setup never writes into an existing site workspace (a new one it makes,
+with the site name asked for) and will not take one inside the program's own
+folder; the uninstaller stops the control panel, removes the
 program and leaves the workspace. The program's window is Microsoft Edge's
 app window (`msedge --app=` on the local address); its notification-area
 icon (standard library `ctypes`, `Shell_NotifyIconW`) reads only whether the

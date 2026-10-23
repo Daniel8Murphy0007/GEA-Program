@@ -1,22 +1,15 @@
-v0.65.0 — THE WINDOWS INSTALLER
+v0.66.0 — THE SITE'S OWN NAME
 
-GEA-Program now installs like any Windows program.
+Every install kit named a new workspace "Pad 3". It no longer does.
 
-- GEA-Program-Setup-0.65.0.exe on the release: installs for you alone,
-  with no administrator rights; asks where the site workspace is (an
-  existing one such as C:\site is used as it is) and never changes or
-  deletes it; adds Start-menu and desktop shortcuts, an Add/Remove
-  Programs entry and, if you want it, a start at sign-in. A newer setup
-  installs over the older one in place.
-- The GEA-Program shortcut starts the control panel when it is not
-  running and opens it in a window of its own (Microsoft Edge's app
-  window; Chrome's, else a browser tab, where Edge is missing).
-- The program's icon in the notification area says whether the control
-  panel is running and opens, starts or stops it.
-- Signed with the publisher's certificate once one is configured;
-  installed, upgraded with the panel running, and uninstalled on the
-  build machine before it is attached to the release.
-- Fixed: stop-dashboard.cmd found nothing to stop on Windows 11 24H2 (no
-  wmic there); the logon task stopped the dashboard after three days.
+- A workspace the kit's launchers make is named after its folder.
+- The setup asks the site's name when it makes a new workspace and makes
+  it with that name; a workspace that already exists (C:\site) keeps its
+  own name, untouched. Silent installs: /SITENAME="...".
+- An administrator can rename the site in the control panel:
+  Administration -> Site settings -> Site name (also in the first-run
+  guide). The new name heads every report written from then on, and the
+  change is in the audit log.
+- The build workflows use the Node 24 versions of GitHub's actions.
 
-Acceptance section DH (6 checks).
+Acceptance section DI (3 checks).

@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.66.0 - 2026-10-23 - the site's own name
+
+- **No kit names a site Pad 3 any more**: a workspace the launchers make
+  is named after its folder; the setup asks the name and makes the
+  workspace with it; an existing workspace keeps its own. Renamed by an
+  administrator in the control panel. Workflow actions on Node 24.
+  Section DI; gate 507.
+
 ## v0.65.0 - 2026-10-23 - the Windows installer
 
 - **GEA-Program-Setup.exe**: the kit installed per user with no
