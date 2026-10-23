@@ -394,6 +394,23 @@ def well_config(ws, well_id: str) -> dict:
     return {**DEFAULTS, **((_load(ws).get('wells') or {}).get(well_id) or {})}
 
 
+def program_config(ws, well_id: str) -> dict:
+    """The well's hydraulics with its hole read from the casing program (each depth's innermost string's inside diameter,
+    then the bit) when the program gives one; the hole declared for hydraulics otherwise."""
+    from . import casing_design as CSG
+    cfg = well_config(ws, well_id)
+    pr = CSG.program(ws, well_id)
+    oh = cfg.get('bit_in') or CSG.well_config(ws, well_id).get('td_hole_in')
+    hole, why = CSG.hole_sections(pr['strings'], oh)
+    if hole:
+        cfg['hole'], cfg['hole_from'] = check_hole(hole), 'from the casing program'
+    elif cfg.get('hole'):
+        cfg['hole_from'] = 'as declared for hydraulics' + (f' (the casing program cannot give it: {why})' if pr['strings'] else '')
+    else:
+        cfg['hole_from'], cfg['hole_missing'] = None, why
+    return cfg
+
+
 LIMITS = {'mw_ppg': (6.0, 22.0), 'flow_gpm': (10.0, 3000.0), 'bit_in': (2.0, 40.0), 'surface_psi': (0.0, 2000.0), 'surface_ref_gpm': (10.0, 3000.0),
           'tools_psi': (0.0, 3000.0), 'trip_ft_min': (1.0, 1000.0), 'peak_factor': (1.0, 3.0), 'clinging': (0.0, 1.0), 'pp_ppg': (6.0, 22.0),
           'fg_ppg': (6.0, 25.0), 'step_ft': (20.0, 1000.0)}
@@ -410,6 +427,9 @@ def set_well(ws, actor: str, well_id: str, source: str = '', string=None, hole=N
     if string is not None:
         cur['string'] = check_string([dict(x) for x in string]) if not isinstance(string, str) else parse_sections(string, 'string'); changed = True
     if hole is not None:
+        from . import casing_design as CSG
+        if CSG.hole_sections(CSG.program(ws, well_id)['strings'], cur.get('bit_in') or vals.get('bit_in') or CSG.well_config(ws, well_id).get('td_hole_in'))[0]:
+            raise ValueError("this well's hole comes from its casing program (the Casing tab, or the [casing] table): change it there, and give the bit here")
         cur['hole'] = check_hole([dict(x) for x in hole]) if not isinstance(hole, str) else parse_sections(hole, 'hole'); changed = True
     if fann is not None:
         f = {str(int(k)): float(v) for k, v in dict(fann).items() if v not in (None, '')}
@@ -626,20 +646,23 @@ def page(ws, scene: str = 'workspace', well: Optional[str] = None) -> dict:
     if scene != 'workspace':
         raise KeyError(f'no scene {scene!r}: workspace or example')
     for w in ws.wells():
-        out['wells'].append({'id': w['id'], 'display': w.get('display') or w['id'], 'survey': bool(w.get('trajectory')), 'config': well_config(ws, w['id'])})
+        c_ = program_config(ws, w['id'])
+        out['wells'].append({'id': w['id'], 'display': w.get('display') or w['id'], 'survey': bool(w.get('trajectory')), 'config': c_,
+                             'hole_from': c_.get('hole_from')})
     choice = well if any(w['id'] == well for w in out['wells']) else next((w['id'] for w in out['wells'] if w['survey'] and w['config'].get('string')),
                                                                           next((w['id'] for w in out['wells'] if w['survey']), out['wells'][0]['id'] if out['wells'] else None))
     out['well'] = choice
     if choice is None:
         out['detail'] = 'no wells yet'
         return out
-    cfg = well_config(ws, choice)
+    cfg = program_config(ws, choice)
     tj = W3.trajectory_of(ws, choice) if ws.well(choice).get('trajectory') else None
     rec_path = None if tj else recorder_path(ws, choice)
     if not tj and not rec_path:
         out['detail'] = 'this well has no directional survey attached (and no drilling record with the recorder\'s TVD)'
         return out
-    missing = [w for w, ok in (('the drill string with its bores', cfg.get('string')), ('the hole (casing inside diameters and the open hole)', cfg.get('hole')),
+    missing = [w for w, ok in (('the drill string with its bores', cfg.get('string')),
+                               ('the hole: the casing program (the Casing tab) and the bit' + (f" - {cfg['hole_missing']}" if cfg.get('hole_missing') else ''), cfg.get('hole')),
                                ('the viscometer readings', (cfg.get('fann') or {}).get('600'))) if not ok]
     if missing:
         out['detail'] = 'declare ' + ', '.join(missing)
@@ -660,7 +683,8 @@ def page(ws, scene: str = 'workspace', well: Optional[str] = None) -> dict:
         return out
     path_how = f"the survey ({tj['meta']['source']})" if tj else rec_path['source']
     r.update({'well': choice, 'display': next(w['display'] for w in out['wells'] if w['id'] == choice), 'path_from': 'survey' if tj else 'recorder',
-              'how': f"{path_how}; the mud, string and hole as declared ({cfg.get('source')})"})
+              'hole_from': cfg.get('hole_from'),
+              'how': f"{path_how}; the mud and string as declared ({cfg.get('source')}); the hole {cfg.get('hole_from')}"})
     out['result'] = r
     return out
 

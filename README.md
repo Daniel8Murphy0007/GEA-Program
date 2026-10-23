@@ -656,6 +656,10 @@ http://timestamp.digicert.com --timestamp on`; `gea help dossier`.
 
 ### Casing design and kick tolerance
 
+A well's casing is declared once, as its casing program (the Casing &
+kick tolerance tab, `gea casing`, or the declarations sheet's `[casing]`):
+rig time, hydraulics and torque and drag read the same strings, and a
+string needs only its size and shoe until it is to be checked.
 Each casing string's burst, collapse and tension ratings by API TR 5C3,
 from its size, weight and grade, against the loads the hole can put on it
 - gas to the surface held by the shoe, an emptied string, the buoyed

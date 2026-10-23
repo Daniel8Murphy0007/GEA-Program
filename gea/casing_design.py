@@ -166,55 +166,108 @@ def _r10(x: float) -> int:
 
 
 # -- the declared strings ----------------------------------------------------------------------------------------------------
+DESIGN_NEEDS = (('weight_lbft', 'the weight (lb/ft)'), ('grade', 'the grade'), ('hole_in', 'the hole it was run in'), ('mw_ppg', 'the mud it was run in'))
+
+
+def od_text(od: float) -> str:
+    """An outside diameter as the trade writes it: 13.375 -> '13-3/8', 7.0 -> '7', 4.5 -> '4-1/2'."""
+    whole = int(math.floor(od + 1e-9))
+    frac = round((od - whole) * 16)
+    if frac == 16:
+        whole, frac = whole + 1, 0
+    if frac == 0:
+        return str(whole)
+    num, den = frac, 16
+    while num % 2 == 0:
+        num, den = num // 2, den // 2
+    return f'{whole}-{num}/{den}'
+
+
+def _blank(v) -> bool:
+    return v is None or (isinstance(v, str) and not v.strip())
+
+
 def check_strings(rows: List[dict]) -> List[dict]:
-    """Each string: what, od_in, weight_lbft, grade, wall_in (or from the API table), top_md_ft, shoe_md_ft, hole_in, mw_ppg."""
+    """The casing program, shallowest shoe first. Each string needs its outside diameter and shoe (ft MD); its weight
+    (lb/ft), grade, top, the hole and mud it was run in, the wall (or inside diameter) and when it was set may follow.
+    A string with weight, grade, hole and mud is checked for burst, collapse and tension; one without serves the depths
+    and diameters only (rig time, hydraulics, torque and drag). Each row: what, od_in, shoe_md_ft, and optionally
+    weight_lbft, grade, top_md_ft, hole_in, mw_ppg, wall_in, id_in, set, source."""
     out = []
     for i, r in enumerate(rows):
-        n = f"string {i + 1} ({r.get('what') or 'unnamed'})"
-        what = str(r.get('what') or '').strip()
-        if not what:
-            raise ValueError(f'{n}: name it (e.g. "9-5/8 in intermediate")')
+        n = f"string {i + 1} ({r.get('what') or r.get('od_in') or 'unnamed'})"
         try:
             od = size_in(r.get('od_in'))
-            ppf = float(r.get('weight_lbft'))
-            top = float(r.get('top_md_ft') or 0.0)
-            shoe = float(r.get('shoe_md_ft'))
-            hole = size_in(r.get('hole_in'))
-            mw = float(r.get('mw_ppg'))
-        except (TypeError, ValueError) as e:
-            raise ValueError(f'{n}: the outside diameter, the weight (lb/ft), the top and the shoe (ft MD), the hole (in) and the mud (ppg) are numbers'
-                             + (f' - {e}' if 'diameter' in str(e) else '')) from None
-        grade = str(r.get('grade') or '').strip().upper().replace('-', '')
-        if grade not in GRADES:
-            raise ValueError(f"{n}: the grade is one of {', '.join(GRADES)}, not {r.get('grade')!r}")
-        given = r.get('wall_in') not in (None, '') and r.get('wall_from') != 'the API table'     # a checked row passed again keeps where its wall came from
-        wall = float(r['wall_in']) if given else wall_for(od, ppf)
-        if wall is None:
-            raise ValueError(f'{n}: {od:g} in {ppf:g} lb/ft is not in the program\'s table of API sizes - give the wall (in) from the pipe\'s data sheet')
-        if not (2.0 <= od <= 30.0 and 0.1 <= wall <= od / 4 and 2.0 <= ppf <= 250.0):
-            raise ValueError(f'{n}: the size, weight or wall is out of range')
-        plain = 10.69 * (od - wall) * wall
-        if abs(plain - ppf) / ppf > 0.12:
-            raise ValueError(f'{n}: a {od:g} in pipe with a {wall:g} in wall weighs about {plain:.1f} lb/ft plain-end, not {ppf:g} - check the weight and the wall')
-        if not (0.0 <= top < shoe <= 40000.0):
+        except (TypeError, ValueError):
+            raise ValueError(f'{n}: the size is the outside diameter in inches as written, e.g. 13-3/8, 9-5/8 or 7 (or 9.625), not {r.get("od_in")!r}') from None
+        what = str(r.get('what') or '').strip() or f'{od_text(od)} in casing'
+        try:
+            shoe = float(str(r.get('shoe_md_ft')).replace(',', ''))
+            top = 0.0 if _blank(r.get('top_md_ft')) else float(str(r.get('top_md_ft')).replace(',', ''))
+            ppf = None if _blank(r.get('weight_lbft')) else float(r.get('weight_lbft'))
+            mw = None if _blank(r.get('mw_ppg')) else float(r.get('mw_ppg'))
+            hole = None if _blank(r.get('hole_in')) else size_in(r.get('hole_in'))
+            id_decl = None if _blank(r.get('id_in')) else float(r.get('id_in'))
+        except (TypeError, ValueError):
+            raise ValueError(f'{n}: the shoe and top (ft MD), the weight (lb/ft), the hole (in), the mud (ppg) and the inside diameter (in) are numbers') from None
+        if not (2.0 <= od <= 30.0):
+            raise ValueError(f'{n}: an outside diameter of {od:g} in is out of range')
+        if not (math.isfinite(shoe) and 0.0 <= top < shoe <= 40000.0):
             raise ValueError(f'{n}: the top must be above the shoe, both in ft MD (0 for a string to the surface)')
-        if not (od < hole <= 40.0):
+        grade = None
+        if not _blank(r.get('grade')):
+            grade = str(r.get('grade')).strip().upper().replace('-', '')
+            if grade not in GRADES:
+                raise ValueError(f"{n}: the grade is one of {', '.join(GRADES)}, not {r.get('grade')!r}")
+        given = not _blank(r.get('wall_in')) and r.get('wall_from') != 'the API table'     # a checked row passed again keeps where its wall came from
+        wall = float(r['wall_in']) if given else (wall_for(od, ppf) if ppf is not None else None)
+        if ppf is not None and wall is None:
+            raise ValueError(f'{n}: {od:g} in {ppf:g} lb/ft is not in the program\'s table of API sizes - give the wall (in) from the pipe\'s data sheet')
+        if ppf is not None and not (2.0 <= ppf <= 250.0):
+            raise ValueError(f'{n}: a weight of {ppf:g} lb/ft is out of range')
+        if wall is not None:
+            if not (0.1 <= wall <= od / 4):
+                raise ValueError(f'{n}: a wall of {wall:g} in is out of range for a {od:g} in pipe')
+            if ppf is not None:
+                plain = 10.69 * (od - wall) * wall
+                if abs(plain - ppf) / ppf > 0.12:
+                    raise ValueError(f'{n}: a {od:g} in pipe with a {wall:g} in wall weighs about {plain:.1f} lb/ft plain-end, not {ppf:g} - check the weight and the wall')
+        if id_decl is not None and not (0.5 <= id_decl < od):
+            raise ValueError(f'{n}: the inside diameter must be less than the outside ({od:g} in)')
+        id_in = round(od - 2 * wall, 3) if wall is not None else id_decl
+        if wall is not None and id_decl is not None and abs(id_in - id_decl) > 0.01:
+            raise ValueError(f'{n}: the inside diameter given ({id_decl:g} in) is not the {id_in:g} in the wall makes - give one or the other')
+        if hole is not None and not (od < hole <= 40.0):
             raise ValueError(f'{n}: the hole ({hole:g} in) must be larger than the pipe ({od:g} in)')
-        if not (6.0 <= mw <= 22.0):
+        if mw is not None and not (6.0 <= mw <= 22.0):
             raise ValueError(f'{n}: the mud it was run in is 6 to 22 ppg')
-        yp = GRADES[grade]
-        cp, regime = collapse(od, wall, yp)
-        out.append({'what': what, 'od_in': od, 'weight_lbft': ppf, 'grade': grade, 'wall_in': wall, 'id_in': round(od - 2 * wall, 3),
-                    'top_md_ft': top, 'shoe_md_ft': shoe, 'hole_in': hole, 'mw_ppg': mw, 'yield_psi': yp,
-                    'burst_psi': _r10(burst(od, wall, yp)), 'collapse_psi': _r10(cp), 'collapse_regime': regime,
-                    'body_yield_klbf': round(body_yield_lbf(od, wall, yp) / 1000.0, 1), 'd_over_t': round(od / wall, 2),
-                    'wall_from': 'declared' if given else 'the API table'})
+        st = None
+        if not _blank(r.get('set')):
+            try:
+                st = datetime.fromisoformat(str(r['set']).strip().replace(' ', 'T')).isoformat(timespec='minutes')
+            except ValueError:
+                raise ValueError(f"{n}: the set time is YYYY-MM-DD or YYYY-MM-DDTHH:MM on the recorder's clock, not {r['set']!r}") from None
+        rec = {'what': what, 'od_in': od, 'size': od_text(od), 'weight_lbft': ppf, 'grade': grade, 'wall_in': wall, 'id_in': id_in,
+               'top_md_ft': top, 'shoe_md_ft': shoe, 'hole_in': hole, 'mw_ppg': mw, 'set': st,
+               'wall_from': None if wall is None else ('declared' if given else 'the API table')}
+        if not _blank(r.get('source')):
+            rec['source'] = str(r['source']).strip()
+        missing = [lab for k, lab in DESIGN_NEEDS if rec[k] is None]
+        rec['design_missing'] = missing
+        if ppf is not None and grade is not None and wall is not None:
+            yp = GRADES[grade]
+            cp, regime = collapse(od, wall, yp)
+            rec.update({'yield_psi': yp, 'burst_psi': _r10(burst(od, wall, yp)), 'collapse_psi': _r10(cp), 'collapse_regime': regime,
+                        'body_yield_klbf': round(body_yield_lbf(od, wall, yp) / 1000.0, 1), 'd_over_t': round(od / wall, 2)})
+        out.append(rec)
     out.sort(key=lambda x: x['shoe_md_ft'])
     for a, b in zip(out, out[1:]):
-        if b['od_in'] >= a['id_in']:
-            raise ValueError(f"{b['what']} ({b['od_in']:g} in) does not pass through {a['what']} (bore {a['id_in']:g} in)")
         if b['shoe_md_ft'] <= a['shoe_md_ft']:
             raise ValueError(f"two shoes at the same depth ({a['shoe_md_ft']:g} ft)")
+        if a['id_in'] is not None and b['od_in'] >= a['id_in']:
+            raise ValueError(f"{b['what']} ({b['od_in']:g} in) does not pass through {a['what']} (bore {a['id_in']:g} in)")
+        if a['id_in'] is None and b['od_in'] >= a['od_in']:
+            raise ValueError(f"{b['what']} ({b['od_in']:g} in) is not smaller than {a['what']} ({a['od_in']:g} in) above it")
     return out
 
 
@@ -223,8 +276,11 @@ def parse_strings(text: str) -> List[dict]:
     rows = []
     for part in [p.strip() for p in (text or '').split(';') if p.strip()]:
         f = [x.strip() for x in part.split(':')]
+        if len(f) == 2:                                        # od:shoe - the depths and diameter alone
+            f = ['', f[0], '', '', f[1], '', '']
         if len(f) not in (7, 8):
-            raise ValueError(f'a string is what:od:weight:grade:top-shoe:hole:mw[:wall] (e.g. surface:13-3/8:54.5:J55:0-1500:17.5:9.0), not {part!r}')
+            raise ValueError(f'a string is what:od:weight:grade:top-shoe:hole:mw[:wall] (e.g. surface:13-3/8:54.5:J55:0-1500:17.5:9.0; '
+                             f'the weight, grade, hole and mud may be left empty), not {part!r}')
         top, _, shoe = f[4].partition('-')
         if not shoe:
             top, shoe = '0', f[4]
@@ -235,8 +291,8 @@ def parse_strings(text: str) -> List[dict]:
 
 def strings_text(strings: List[dict]) -> str:
     def g(v):
-        return f'{v:g}'
-    return '; '.join(f"{s['what']}:{g(s['od_in'])}:{g(s['weight_lbft'])}:{s['grade']}:{g(s['top_md_ft'])}-{g(s['shoe_md_ft'])}:{g(s['hole_in'])}:{g(s['mw_ppg'])}"
+        return '' if v is None else f'{v:g}'
+    return '; '.join(f"{s['what']}:{g(s['od_in'])}:{g(s.get('weight_lbft'))}:{s.get('grade') or ''}:{g(s['top_md_ft'])}-{g(s['shoe_md_ft'])}:{g(s.get('hole_in'))}:{g(s.get('mw_ppg'))}"
                      + (f":{g(s['wall_in'])}" if s.get('wall_from') == 'declared' else '') for s in strings)
 
 
@@ -257,6 +313,151 @@ def well_config(ws, well_id: str) -> dict:
     return {**DEFAULTS, **((_load(ws).get('wells') or {}).get(well_id) or {})}
 
 
+# -- the casing program: the one place a well's casing is declared ---------------------------------------------------------------
+# Rig time (its hole sections), hydraulics (the hole's diameters), torque and drag (cased or open) and the casing design read
+# it. Shoes declared for rig time before v0.64 (drillstring/casing.json) are carried over into it.
+def _legacy_path(ws) -> str:
+    return os.path.join(ws.path, 'drillstring', 'casing.json')
+
+
+def _legacy(ws) -> Dict[str, List[dict]]:
+    try:
+        with open(_legacy_path(ws), encoding='utf-8') as f:
+            return (json.load(f) or {}).get('wells', {}) or {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _clear_legacy(ws, well_id: str) -> List[dict]:
+    """Remove a well's pre-v0.64 shoes once its program holds them; returns what was removed."""
+    try:
+        with open(_legacy_path(ws), encoding='utf-8') as f:
+            d = json.load(f)
+    except (OSError, ValueError):
+        return []
+    gone = (d.get('wells') or {}).pop(well_id, None) or []
+    if gone:
+        with open(_legacy_path(ws) + '.tmp', 'w', encoding='utf-8') as f:
+            json.dump(d, f, indent=1)
+        os.replace(_legacy_path(ws) + '.tmp', _legacy_path(ws))
+    return gone
+
+
+def _same_od(a: float, b: float) -> bool:
+    return abs(float(a) - float(b)) < 0.002
+
+
+def program(ws, well_id: str) -> dict:
+    """The well's casing program: {strings, from, carried, conflicts}. The declared strings, with any shoe declared for
+    rig time before v0.64 that the program does not hold carried in (said so); a carried shoe that disagrees with a
+    declared string of the same size is a conflict, listed and not carried."""
+    stored = list((((_load(ws).get('wells') or {}).get(well_id) or {}).get('strings')) or [])
+    legacy = _legacy(ws).get(well_id) or []
+    carried, conflicts = [], []
+    for sh in legacy:
+        try:
+            od = size_in(sh.get('size'))
+        except ValueError:
+            continue
+        twin = next((x for x in stored if _same_od(x['od_in'], od)), None)
+        if twin is None:
+            carried.append({'od_in': od, 'shoe_md_ft': sh['shoe_md_ft'], 'set': sh.get('set'), 'source': sh.get('source'),
+                            'what': f'{od_text(od)} in casing'})
+        elif abs(float(twin['shoe_md_ft']) - float(sh['shoe_md_ft'])) > 1.0:
+            conflicts.append({'size': od_text(od), 'program_shoe_md_ft': twin['shoe_md_ft'], 'rig_time_shoe_md_ft': sh['shoe_md_ft'], 'source': sh.get('source')})
+    strings = stored
+    if carried:
+        try:
+            strings = check_strings(stored + carried)
+        except ValueError as e:
+            conflicts += [{'size': od_text(c['od_in']), 'rig_time_shoe_md_ft': c['shoe_md_ft'], 'source': c.get('source'), 'reason': str(e)} for c in carried]
+            carried = []
+    return {'strings': strings, 'from': ('declared' if stored else ('carried over from the rig-time shoes' if carried else 'none')),
+            'carried': [od_text(c['od_in']) for c in carried], 'conflicts': conflicts}
+
+
+def shoes(ws) -> Dict[str, List[dict]]:
+    """Every well's casing shoes, shallowest first, as rig time and torque and drag read them: {well: [{size, shoe_md_ft, set, source}]}."""
+    wells = set(_legacy(ws)) | set((_load(ws).get('wells') or {}))
+    out = {}
+    for wid in wells:
+        pr = program(ws, wid)
+        src = (((_load(ws).get('wells') or {}).get(wid) or {}).get('source')) or ''
+        lst = [{'size': x.get('size') or od_text(x['od_in']), 'shoe_md_ft': x['shoe_md_ft'], 'set': x.get('set'), 'source': x.get('source') or src}
+               for x in pr['strings']]
+        if lst:
+            out[wid] = sorted(lst, key=lambda x: x['shoe_md_ft'])
+    return out
+
+
+def upsert_string(ws, actor: str, well_id: str, row: dict, source: str) -> dict:
+    """Add a string to the program, or change the one of the same outside diameter: what is given replaces, the rest of
+    that string (its weight, grade, mud) is kept."""
+    pr = program(ws, well_id)
+    od = size_in(row.get('od_in'))
+    cur = [dict(x) for x in pr['strings']]
+    twin = next((x for x in cur if _same_od(x['od_in'], od)), None)
+    merged = dict(twin or {})
+    merged.update({k: v for k, v in row.items() if not _blank(v)})
+    if twin is not None and merged.get('what', '').endswith(' in casing') and not _blank(row.get('what')):
+        merged['what'] = row['what']
+    rest = [x for x in cur if x is not twin]
+    return set_well(ws, actor, well_id, source, rest + [merged])
+
+
+def remove_string(ws, actor: str, well_id: str, size) -> dict:
+    od = size_in(size)
+    cur = program(ws, well_id)['strings']
+    if not any(_same_od(x['od_in'], od) for x in cur):
+        raise KeyError(f'no {od_text(od)} in casing declared for {well_id}')
+    keep = [x for x in cur if not _same_od(x['od_in'], od)]
+    d = _load(ws)
+    w = dict((d.get('wells') or {}).get(well_id) or {})
+    w['strings'] = check_strings(keep) if keep else []
+    w['utc'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'); w['by'] = actor
+    d.setdefault('wells', {})[well_id] = w
+    _save(ws, d)
+    _clear_legacy(ws, well_id)
+    ws.audit(actor, 'casing.remove', {'well': well_id, 'size': od_text(od)})
+    return well_config(ws, well_id)
+
+
+def hole_sections(strings: List[dict], open_hole_in: Optional[float]) -> Tuple[Optional[List[dict]], str]:
+    """The hole from the surface down as hydraulics reads it - each depth's innermost string's inside diameter, then the
+    open hole - or (None, what is missing)."""
+    if not strings:
+        return None, 'no casing program'
+    bounds = sorted({0.0} | {float(x['top_md_ft']) for x in strings} | {float(x['shoe_md_ft']) for x in strings})
+    out: List[dict] = []
+    for a, b in zip(bounds, bounds[1:]):
+        cov = [x for x in strings if x['top_md_ft'] <= a + 1e-6 and x['shoe_md_ft'] >= b - 1e-6]
+        if not cov:
+            return None, f'nothing covers {a:,.0f} to {b:,.0f} ft (a liner\'s top above the shoe of the string it hangs in)'
+        inner = max(cov, key=lambda x: x['shoe_md_ft'])
+        if inner['id_in'] is None:
+            return None, f"declare the weight (or the inside diameter) of {inner['what']}"
+        if out and out[-1]['what'] == inner['what']:
+            out[-1]['bottom_md_ft'] = b
+        else:
+            out.append({'what': inner['what'], 'bottom_md_ft': b, 'id_in': inner['id_in']})
+    if not open_hole_in:
+        return None, 'declare the bit (or the hole below the deepest string)'
+    out.append({'what': f'{open_hole_in:g} in open hole', 'bottom_md_ft': None, 'id_in': float(open_hole_in)})
+    return out, ''
+
+
+def _save(ws, d: dict) -> None:
+    os.makedirs(os.path.dirname(_store_path(ws)), exist_ok=True)
+    with open(_store_path(ws) + '.tmp', 'w', encoding='utf-8') as f:
+        json.dump(d, f, indent=1)
+    os.replace(_store_path(ws) + '.tmp', _store_path(ws))
+    try:
+        from . import rig_state as _RS
+        _RS._MEMO.clear()
+    except (ImportError, AttributeError):
+        pass
+
+
 def set_well(ws, actor: str, well_id: str, source: str = '', strings=None, **vals) -> dict:
     """Declare a well's casing program (the strings, shallowest shoe first) and the loads' terms."""
     if not any(w['id'] == well_id for w in ws.wells()):
@@ -264,8 +465,18 @@ def set_well(ws, actor: str, well_id: str, source: str = '', strings=None, **val
     d = _load(ws)
     cur = dict((d.get('wells') or {}).get(well_id) or {})
     changed = False
+    dropped: List[dict] = []
     if strings is not None:
-        cur['strings'] = parse_strings(strings) if isinstance(strings, str) else check_strings([dict(x) for x in strings]); changed = True
+        before = program(ws, well_id)['strings']
+        new_ = parse_strings(strings) if isinstance(strings, str) else check_strings([dict(x) for x in strings])
+        for x in new_:                                   # when it was set, and its own source, carried from the same string before
+            old_ = next((y for y in before if _same_od(y['od_in'], x['od_in'])), None)
+            if old_:
+                for k in ('set', 'source'):
+                    if x.get(k) in (None, '') and old_.get(k):
+                        x[k] = old_[k]
+        dropped = [y for y in before if not any(_same_od(y['od_in'], x['od_in']) for x in new_)]
+        cur['strings'] = new_; changed = True
     for key, v in vals.items():
         if key not in LIMITS:
             raise ValueError(f'unknown setting {key}')
@@ -287,11 +498,11 @@ def set_well(ws, actor: str, well_id: str, source: str = '', strings=None, **val
             cur['strings_source'] = source.strip()
     cur['utc'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'); cur['by'] = actor
     d.setdefault('wells', {})[well_id] = cur
-    os.makedirs(os.path.dirname(_store_path(ws)), exist_ok=True)
-    with open(_store_path(ws) + '.tmp', 'w', encoding='utf-8') as f:
-        json.dump(d, f, indent=1)
-    os.replace(_store_path(ws) + '.tmp', _store_path(ws))
-    ws.audit(actor, 'casing_design.declare', {'well': well_id, **{k: v for k, v in cur.items() if k not in ('utc', 'by')}})
+    _save(ws, d)
+    if strings is not None:
+        _clear_legacy(ws, well_id)
+    ws.audit(actor, 'casing_design.declare', {'well': well_id, **{k: v for k, v in cur.items() if k not in ('utc', 'by')},
+                                              **({'dropped': [od_text(y['od_in']) for y in dropped]} if dropped else {})})
     return well_config(ws, well_id)
 
 
@@ -416,10 +627,10 @@ def _section_below(cfg: dict, i: int) -> Optional[dict]:
     st = cfg['strings']
     if i + 1 < len(st):
         n = st[i + 1]
-        return {'bottom_md_ft': n['shoe_md_ft'], 'hole_in': n['hole_in'], 'mw_ppg': n['mw_ppg'], 'what': f"the {n['hole_in']:g} in hole for {n['what']}"}
+        return {'bottom_md_ft': n['shoe_md_ft'], 'hole_in': n['hole_in'], 'mw_ppg': n['mw_ppg'], 'what': (f"the {n['hole_in']:g} in hole for {n['what']}" if n.get('hole_in') else f"the hole for {n['what']}")}
     td = cfg.get('td_md_ft')
     if td and td > st[i]['shoe_md_ft'] + 1.0:
-        return {'bottom_md_ft': float(td), 'hole_in': cfg.get('td_hole_in'), 'mw_ppg': cfg.get('td_mw_ppg') or st[i]['mw_ppg'], 'what': 'the hole to TD'}
+        return {'bottom_md_ft': float(td), 'hole_in': cfg.get('td_hole_in'), 'mw_ppg': cfg.get('td_mw_ppg') or st[i].get('mw_ppg'), 'what': 'the hole to TD'}
     return None
 
 
@@ -463,7 +674,7 @@ def string_loads(cfg: dict, i: int, tvd_of, win) -> dict:
     open_below = below is not None
     if open_below:
         dres = tvd_of(below['bottom_md_ft'])
-        pp, pp_how = _pore(win, cfg, dres, below['mw_ppg'])
+        pp, pp_how = _pore(win, cfg, dres, below['mw_ppg'] or s['mw_ppg'])
         fg_shoe = _fg(win, ds)
     else:
         dres = ds
@@ -471,7 +682,7 @@ def string_loads(cfg: dict, i: int, tvd_of, win) -> dict:
         fg_shoe = None
     p_res = 0.052 * pp * dres
     p_frac = 0.052 * fg_shoe * ds if fg_shoe is not None else None
-    mw_in = below['mw_ppg'] if open_below else s['mw_ppg']
+    mw_in = (below['mw_ppg'] or s['mw_ppg']) if open_below else s['mw_ppg']
     bf = 1.0 - s['mw_ppg'] / 65.5
     area = area_in2(s['od_in'], s['wall_in'])
     step = float(cfg.get('step_ft') or 100.0)
@@ -567,6 +778,10 @@ def kick_tolerance(cfg: dict, i: int, tvd_of, win) -> Optional[dict]:
     ds, md_s = tvd_of(s['shoe_md_ft']), s['shoe_md_ft']
     md_b = below['bottom_md_ft']
     dt = tvd_of(md_b)
+    if below.get('mw_ppg') is None:
+        return {'shoe_what': s['what'], 'shoe_md_ft': md_s, 'shoe_tvd_ft': round(ds, 1), 'bottom_md_ft': md_b, 'bottom_tvd_ft': round(dt, 1), 'mw_ppg': None,
+                'kick_ppg': None, 'kick_how': '', 'hole_in': below.get('hole_in'), 'fg_shoe_ppg': None, 'status': 'NOT KNOWN',
+                'detail': f"declare the mud {below['what']} is drilled with (and its hole size, for the volume)"}
     mw = float(below['mw_ppg'])
     fg = _fg(win, ds)
     from .hydraulics import _at
@@ -631,14 +846,19 @@ def kick_tolerance(cfg: dict, i: int, tvd_of, win) -> Optional[dict]:
 def analyse(cfg: dict, tvd_of, win, path_how: str = '', window_how: str = '') -> dict:
     if not cfg.get('strings'):
         raise ValueError('declare the casing strings: what:od:weight:grade:top-shoe:hole:mw for each, shallowest shoe first')
-    strings = [string_loads(cfg, i, tvd_of, win) for i in range(len(cfg['strings']))]
+    strings = [string_loads(cfg, i, tvd_of, win) if (not s_.get('design_missing') and s_.get('burst_psi') is not None)
+               else {'string': s_, 'incomplete': True, 'missing': s_.get('design_missing') or ['the weight (lb/ft)'], 'checks': {}, 'ok': None,
+                     'shoe_tvd_ft': round(tvd_of(s_['shoe_md_ft']), 1)}
+               for i, s_ in enumerate(cfg['strings'])]
     kicks = [k for k in (kick_tolerance(cfg, i, tvd_of, win) for i in range(len(cfg['strings']))) if k]
     if float(cfg['kick_intensity_ppg']) > 0:          # a swabbed kick: gas pulled in with no underbalance
         sw = {k['shoe_md_ft']: k for k in (kick_tolerance({**cfg, 'kick_intensity_ppg': 0.0}, i, tvd_of, win) for i in range(len(cfg['strings']))) if k}
         for k in kicks:
             s_ = sw.get(k['shoe_md_ft']) or {}
             k['swabbed'] = {x: s_.get(x) for x in ('kick_ppg', 'kick_how', 'sidpp_psi', 'height_ft', 'volume_bbl', 'status', 'detail', 'governs')}
-    return {'strings': strings, 'kicks': kicks, 'ok': all(s['ok'] for s in strings), 'config': cfg, 'path_how': path_how, 'window_how': window_how}
+    done = [s for s in strings if not s.get('incomplete')]
+    return {'strings': strings, 'kicks': kicks, 'ok': all(s['ok'] for s in done) if done else None, 'checked': len(done),
+            'incomplete': [s['string']['what'] for s in strings if s.get('incomplete')], 'config': cfg, 'path_how': path_how, 'window_how': window_how}
 
 
 # -- the example, the page, the report --------------------------------------------------------------------------------------------------
@@ -659,6 +879,46 @@ def example() -> dict:
     return r
 
 
+def open_hole_in(ws, well_id: str) -> Tuple[Optional[float], str]:
+    """The open hole below the deepest string: the bit declared for hydraulics, else the casing loads' hole to TD."""
+    from . import hydraulics as HY
+    b = HY.well_config(ws, well_id).get('bit_in')
+    if b:
+        return float(b), "the bit declared for hydraulics"
+    t = well_config(ws, well_id).get('td_hole_in')
+    if t:
+        return float(t), "the hole to TD declared with the casing"
+    return None, ''
+
+
+def crosscheck(ws, well_id: str) -> dict:
+    """What else was declared about this well's casing, set against its program: shoes declared for rig time before
+    v0.64 (carried in, or in conflict), and a hole declared for hydraulics (which the program now replaces)."""
+    from . import hydraulics as HY
+    pr = program(ws, well_id)
+    items = []
+    if pr['carried']:
+        items.append({'what': 'carried over', 'ok': True, 'detail': f"the rig-time shoe(s) {', '.join(pr['carried'])} in were carried into the program"})
+    for c in pr['conflicts']:
+        items.append({'what': 'rig-time shoe', 'ok': False, 'detail': (f"{c['size']} in: the program says {c['program_shoe_md_ft']:,.0f} ft, a shoe declared for rig time "
+                                                                      f"{c['rig_time_shoe_md_ft']:,.0f} ft ({c.get('source') or 'no source'})" if 'program_shoe_md_ft' in c
+                                                                      else f"{c['size']} in at {c['rig_time_shoe_md_ft']:,.0f} ft could not be carried in: {c.get('reason', '')}")})
+    declared = HY.well_config(ws, well_id).get('hole') if (HY._load(ws).get('wells') or {}).get(well_id) else None
+    oh, _ = open_hole_in(ws, well_id)
+    derived, why = hole_sections(pr['strings'], oh)
+    if declared and derived:
+        cd = [(x['bottom_md_ft'], x['id_in']) for x in declared[:-1]]
+        cp = [(x['bottom_md_ft'], x['id_in']) for x in derived[:-1]]
+        same = len(cd) == len(cp) and all(abs(a[0] - b[0]) <= 1.0 and abs(a[1] - b[1]) <= 0.01 for a, b in zip(cd, cp))
+        items.append({'what': 'hydraulics hole', 'ok': same,
+                      'detail': ("the hole declared for hydraulics agrees with the program; hydraulics now reads the program" if same else
+                                 "the hole declared for hydraulics (" + '; '.join(f"{b:,.0f} ft x {d:g} in" for b, d in cd) + ") differs from the program's ("
+                                 + '; '.join(f"{b:,.0f} ft x {d:g} in" for b, d in cp) + "); hydraulics now reads the program")})
+    elif declared and pr['strings']:
+        items.append({'what': 'hydraulics hole', 'ok': True, 'detail': f"hydraulics still reads the hole declared for it: the program cannot give one yet ({why})"})
+    return {'program_from': pr['from'], 'items': items, 'hole': derived, 'hole_missing': why}
+
+
 def page(ws, scene: str = 'workspace', well: Optional[str] = None) -> dict:
     from . import hydraulics as HY
     out = {'scene': scene, 'scenes': [{'id': 'workspace', 'title': 'Your wells'}, {'id': 'example', 'title': 'Worked example: three strings, 10,000 ft'}],
@@ -671,16 +931,20 @@ def page(ws, scene: str = 'workspace', well: Optional[str] = None) -> dict:
         raise KeyError(f'no scene {scene!r}: workspace or example')
     for w in ws.wells():
         c = well_config(ws, w['id'])
-        out['wells'].append({'id': w['id'], 'display': w.get('display') or w['id'], 'config': c, 'strings_text': strings_text(c.get('strings') or [])})
+        pr = program(ws, w['id'])
+        c['strings'] = pr['strings']
+        out['wells'].append({'id': w['id'], 'display': w.get('display') or w['id'], 'config': c, 'strings_text': strings_text(pr['strings']),
+                             'program_from': pr['from']})
     choice = well if any(w['id'] == well for w in out['wells']) else next((w['id'] for w in out['wells'] if w['config'].get('strings')),
                                                                           out['wells'][0]['id'] if out['wells'] else None)
     out['well'] = choice
     if choice is None:
         out['detail'] = 'no wells yet'
         return out
-    cfg = well_config(ws, choice)
+    cfg = next(w['config'] for w in out['wells'] if w['id'] == choice)
+    out['crosscheck'] = crosscheck(ws, choice)
     if not cfg.get('strings'):
-        out['detail'] = 'declare the casing strings for this well (below, or the [casing_design] table of the declarations sheet)'
+        out['detail'] = 'declare the casing program for this well (below, or the [casing] table of the declarations sheet)'
         return out
     path = HY.depth_path(ws, choice, plan_too=True)
     if path:
@@ -710,6 +974,9 @@ def text(p: dict) -> str:
     L = [f"Casing design - {r['display']} ({r['path_how']}; window: {r['window_how']})", f"  the gas: {gas_how(r['config'])}"]
     for s in r['strings']:
         st, c = s['string'], s['checks']
+        if s.get('incomplete'):
+            L.append(f"  {st['what']}: {st['od_in']:g} in to {st['shoe_md_ft']:,.0f} ft MD - not checked: declare {', '.join(s['missing'])}")
+            continue
         L.append(f"  {st['what']}: {st['od_in']:g} in {st['weight_lbft']:g} lb/ft {st['grade']} to {st['shoe_md_ft']:,.0f} ft MD - burst {st['burst_psi']:,} psi, "
                  f"collapse {st['collapse_psi']:,} psi ({st['collapse_regime']}), body {st['body_yield_klbf']:,.0f} klbf")
         L.append('    ' + '; '.join(f"{k} SF {('%.2f' % v['sf']) if v['sf'] is not None else '-'} (design {v['df']:g}) {'OK' if v['ok'] else 'BELOW'}" for k, v in c.items()))
@@ -723,6 +990,10 @@ def text(p: dict) -> str:
     return '\n'.join(L)
 
 
+def _gd(v) -> str:
+    return '-' if v is None else f'{v:g}'
+
+
 def build_report(ws, version: str, well: Optional[str] = None, scene: str = 'workspace'):
     from . import client_reports as CR
     p = page(ws, scene, well)
@@ -732,9 +1003,11 @@ def build_report(ws, version: str, well: Optional[str] = None, scene: str = 'wor
     now = datetime.now(timezone.utc)
     rid = f"CSG-{now.strftime('%Y%m%dT%H%M%SZ')}"
     cfg = r['config']
-    below = [s for s in r['strings'] if not s['ok']]
+    done = [s for s in r['strings'] if not s.get('incomplete')]
+    below = [s for s in done if not s['ok']]
     front = [['Report ID', rid], ['Well', r['display']], ['Generated (UTC)', now.strftime('%Y-%m-%dT%H:%M:%SZ')], ['Program', f'Downhole Gauge Monitoring build {version}'],
-             ['Strings', f"{len(r['strings'])}: " + ('every check at or above its design factor' if not below else f"{len(below)} with a check below its design factor")],
+             ['Strings', f"{len(r['strings'])}, {len(done)} checked: " + ('every check at or above its design factor' if not below else f"{len(below)} with a check below its design factor")
+              + (f"; not checked (weight, grade, hole or mud not declared): {', '.join(r['incomplete'])}" if r.get('incomplete') else '')],
              ['Design factors', f"burst {cfg['df_burst']:g}, collapse {cfg['df_collapse']:g}, tension {cfg['df_tension']:g} with {cfg['overpull_klbf']:g} klbf overpull"]]
     for k in r['kicks']:
         if k.get('volume_bbl') is not None:
@@ -743,8 +1016,11 @@ def build_report(ws, version: str, well: Optional[str] = None, scene: str = 'wor
         f"Read on {r['path_how']}. Window: {r['window_how']}. Ratings from API TR 5C3 (ISO/TR 10400) on the declared size, weight, wall and grade: "
         f"internal yield 0.875 (2 Yp t / D); collapse by its D/t regime; body yield in tension. {cfg.get('source') or ''}"], [])
     s1.tables.append(CR.Table(['String', 'OD (in)', 'lb/ft', 'Grade', 'Wall (in)', 'Top-shoe (ft MD)', 'Hole (in)', 'Mud (ppg)', 'Burst (psi)', 'Collapse (psi)', 'Body (klbf)'],
-                              [[s_['what'], f"{s_['od_in']:g}", f"{s_['weight_lbft']:g}", s_['grade'], f"{s_['wall_in']:g}", f"{s_['top_md_ft']:,.0f}-{s_['shoe_md_ft']:,.0f}",
-                                f"{s_['hole_in']:g}", f"{s_['mw_ppg']:g}", f"{s_['burst_psi']:,}", f"{s_['collapse_psi']:,} ({s_['collapse_regime']})", f"{s_['body_yield_klbf']:,.0f}"]
+                              [[s_['what'], f"{s_['od_in']:g}", _gd(s_.get('weight_lbft')), s_.get('grade') or '-', _gd(s_.get('wall_in')),
+                                f"{s_['top_md_ft']:,.0f}-{s_['shoe_md_ft']:,.0f}", _gd(s_.get('hole_in')), _gd(s_.get('mw_ppg')),
+                                f"{s_['burst_psi']:,}" if s_.get('burst_psi') is not None else '-',
+                                f"{s_['collapse_psi']:,} ({s_['collapse_regime']})" if s_.get('collapse_psi') is not None else '-',
+                                f"{s_['body_yield_klbf']:,.0f}" if s_.get('body_yield_klbf') is not None else '-']
                                for s_ in cfg['strings']]))
     s2 = CR.Section('2', 'Each string against its loads', [], [])
     s2.tables.append(CR.Table(['String', 'Burst SF (at ft MD)', 'Collapse SF (at ft MD)', 'Tension SF (load klbf)', 'Result'],
@@ -753,13 +1029,13 @@ def build_report(ws, version: str, well: Optional[str] = None, scene: str = 'wor
                                 '-' if s['checks']['collapse']['sf'] is None else f"{s['checks']['collapse']['sf']:.2f} ({s['checks']['collapse']['md_ft']:,.0f})",
                                 '-' if s['checks']['tension']['sf'] is None else f"{s['checks']['tension']['sf']:.2f} ({s['checks']['tension']['load_klbf']:,.0f})",
                                 'every check at or above its design factor' if s['ok'] else 'BELOW: ' + ', '.join(k for k, v in s['checks'].items() if not v['ok'])]
-                               for s in r['strings']]))
-    for s in r['strings']:
+                               for s in done]))
+    for s in done:
         s2.paragraphs.append(f"{s['string']['what']}: burst - {s['burst_case']} (pore pressure {s['pore_ppg']:.2f} ppg at {s['reservoir_tvd_ft']:,.0f} ft TVD"
                              + (f", fracture gradient at the shoe {s['fg_shoe_ppg']:.2f} ppg" if s['fg_shoe_ppg'] is not None else '') + f"), backup {cfg['backup_gradient_psi_ft']:g} psi/ft; "
                              f"collapse - {s['collapse_case']}, the rating reduced for the tension at each depth; tension - buoyancy factor {s['buoyancy_factor']:.3f}.")
     secs = [s1, s2]
-    for n, s in enumerate(r['strings']):
+    for n, s in enumerate(done):
         k_ = max(1, len(s['rows']) // 25)
         idx = list(range(0, len(s['rows']), k_)) + ([len(s['rows']) - 1] if (len(s['rows']) - 1) % k_ else [])
         sec = CR.Section(f'3.{n + 1}', f"{s['string']['what']}: the loads by depth", [], [])
@@ -777,7 +1053,7 @@ def build_report(ws, version: str, well: Optional[str] = None, scene: str = 'wor
                                              f"{cfg.get('bha_length_ft') or '-'} ft, drill pipe {cfg.get('dp_od_in') or '-'} in."], [])
     s4.tables.append(CR.Table(['Below', 'Open hole (ft MD)', 'Mud (ppg)', 'Kick (ppg)', 'FG at shoe (ppg)', 'MAASP (psi)', 'Gas (psi/ft) bottom / shoe', 'Height (ft)',
                                'Kick tolerance (bbl)', 'Swabbed (bbl)'],
-                              [[k['shoe_what'], f"{k['shoe_md_ft']:,.0f}-{k['bottom_md_ft']:,.0f}", f"{k['mw_ppg']:g}", f"{k['kick_ppg']:.2f}",
+                              [[k['shoe_what'], f"{k['shoe_md_ft']:,.0f}-{k['bottom_md_ft']:,.0f}", _gd(k.get('mw_ppg')), '-' if k.get('kick_ppg') is None else f"{k['kick_ppg']:.2f}",
                                 '-' if k['fg_shoe_ppg'] is None else f"{k['fg_shoe_ppg']:.2f}", '-' if k.get('maasp_psi') is None else f"{k['maasp_psi']:,}",
                                 '-' if k.get('gas_gradient_bottom_psi_ft') is None else f"{k['gas_gradient_bottom_psi_ft']:.3f} / {k['gas_gradient_shoe_psi_ft']:.3f}",
                                 '-' if k.get('height_ft') is None else f"{k['height_ft']:,.0f}", f"{k['volume_bbl']:g}" if k.get('volume_bbl') is not None else k['status'],

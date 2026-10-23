@@ -2905,3 +2905,25 @@ stability; and motor specifications in the tool catalogue.
 - Also: kick tolerance now says when the open hole itself is the limit.
 - Section DF (4 checks). Gate 494 on Python 3.13 and 3.14.
 
+## 2026-10-22 - One casing program (v0.64.0)
+
+- Asked (the shared casing program before the installer, so the Pad 3
+  declarations workbook is filled once, in its final form). Casing was
+  asked for three times: `[casing]` (shoes, for rig time), the hole in
+  `[hydraulics]`, and `[casing_design]`.
+- The program is the casing design's strings, loosened: a string needs
+  only its size and shoe; the weight gives the bore; weight, grade, hole
+  and mud make it checkable. Rig time's and torque and drag's shoes are a
+  view of it; hydraulics' hole is derived from it (the innermost bore at
+  each depth, a liner from its top, then the bit).
+- Nothing already declared is lost: rig-time shoes are carried in (and
+  the old file cleared for a well once its program is written); a shoe
+  that disagrees with a declared string, and a hydraulics hole that
+  differs from the program's, are listed on the Casing tab.
+- The sheet: `[casing]` gains the design columns; `[casing_design]` is
+  still read; a hole for hydraulics beside a program is refused with its
+  row; the template round-trips SAME.
+- Driven in headless Chromium: the Casing, Hydraulics and Rig time tabs at
+  desktop and phone width, no console errors, no sideways scroll.
+- Section DG (4 checks). Gate 498 on Python 3.13 and 3.14.
+

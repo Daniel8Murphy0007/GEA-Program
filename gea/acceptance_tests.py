@@ -10992,7 +10992,7 @@ def section_cq_tied_together(tmp: str) -> None:
     p_x = DC.plan(ws, XR.text_of((d / "decl.xlsx").read_bytes()))
     p_w = DC.apply(ws, sheet, "tester", write=True)
     p_rt = DC.plan(ws, DC.template(ws))
-    p_bad = DC.plan(ws, "[contract],operating,source\n,30000,\n[settings],setting,value\n,watch_mode,sometimes\n,colour,blue\n[casing],well,size_in,shoe_md_ft,source\n,RIG-1,9 5/8,100,x\n,NOPE,7,100,x\n")
+    p_bad = DC.plan(ws, "[contract],operating,source\n,30000,\n[settings],setting,value\n,watch_mode,sometimes\n,colour,blue\n[casing],well,size_in,shoe_md_ft,source\n,RIG-1,nine,100,x\n,NOPE,7,100,x\n")
     pad = RS.pad(ws)
     W1 = next(w for w in pad["wells"] if w["display"] == "RIG-1")
     secs = [c["section"] for c in W1["connection_list"]]
@@ -11002,7 +11002,7 @@ def section_cq_tied_together(tmp: str) -> None:
     IC.attach(ws, "tester", wi["id"], "invoice", "inv.xlsx", (d / "inv.xlsx").read_bytes(), "invoice as a workbook")
     ic = IC.check(ws, wi["id"])
     c2 = {
-        "xlsx_sheet": p_x["counts"]["NEW"] == 6 and p_x["counts"]["CHANGE"] == 3 and not p_x["errors"],
+        "xlsx_sheet": p_x["counts"]["NEW"] == 5 and p_x["counts"]["CHANGE"] == 3 and not p_x["errors"],   # (v0.64) a well's casing rows are one step: its program
         "written": p_w["applied"] and IC.terms(ws)["rates_usd_per_day"] == {"operating": 30000.0, "standby": 25000.0, "repair": 0.0}
                    and RS.settings(ws)["targets"] == {"trip_in_ft_h": 2800.0} and RS.settings(ws)["block_weight_klbf"] == {w2["id"]: 42.0}
                    and [x["size"] for x in RS.casing(ws)[w1["id"]]] == ["13-3/8", "9-5/8"] and SW.settings(ws)["every_min"] == 10
@@ -11051,7 +11051,7 @@ def section_cq_tied_together(tmp: str) -> None:
                    and [x["well"] for x in g["rig_time"]] == ["RIG-1", "RIG-2"] and all(x["connections"] == 3 and x["date"] == "2026-08-01" for x in g["rig_time"])
                    and all(x["lost_usd"] is not None for x in g["rig_time"]),
         "dossier": v1["status"] == "VALID" and {"declarations/economics/invoices/terms.json", "declarations/economics/invoices/files.json",
-                                                 "declarations/drillstring/rig_time.json", "declarations/drillstring/casing.json"} <= names
+                                                 "declarations/drillstring/rig_time.json", "declarations/drillstring/casing_design.json"} <= names
                    and any(n.startswith(f"declarations/economics/invoices/{wi['id']}/") and n.endswith("_inv.xlsx") for n in names)
                    and icj["status"] == "DIFFERS" and len(rt["wells"]) == 3 and rt["targets"]["trip_in_ft_h"]["value"] == 2800,
     }
@@ -11085,7 +11085,7 @@ def section_cq_tied_together(tmp: str) -> None:
     try:
         V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
         s_vc, _ = call(V, "POST", "/api/rig-time/casing", {"well_id": w2["id"], "size": "7", "shoe_md_ft": 9000, "source": "x"})
-        s_oc, ocj = call(O, "POST", "/api/rig-time/casing", {"well_id": w2["id"], "size": "7", "shoe_md_ft": 9000, "source": "tally"})
+        s_oc, ocj = call(O, "POST", "/api/rig-time/casing", {"well_id": w2["id"], "size": "7", "shoe_md_ft": 11000, "source": "tally"})   # below its 9-5/8 (v0.64 checks the nesting)
         s_ob, _ = call(O, "POST", "/api/rig-time/casing", {"well_id": w2["id"], "size": "seven", "shoe_md_ft": 9000, "source": "tally"})
         s_or, _ = call(O, "POST", "/api/rig-time/casing/remove", {"well_id": w2["id"], "size": "7"})
         s_dx, dxj = call(O, "POST", "/api/declare", {"content_b64": _b64.b64encode((d / "decl.xlsx").read_bytes()).decode()})
@@ -11099,7 +11099,7 @@ def section_cq_tied_together(tmp: str) -> None:
     cli_d = _sp.run([sys.executable, "-m", "gea", "declare", "--workspace", wsp, "--file", str(d / "decl.xlsx")], capture_output=True, text=True, cwd=str(pkg.parent))
     page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
     c4 = {
-        "api": s_vc == 403 and s_oc == 200 and ocj["shoe_md_ft"] == 9000 and s_ob == 400 and s_or == 200 and s_dx == 200 and dxj["counts"]["SAME"] == 9
+        "api": s_vc == 403 and s_oc == 200 and ocj["shoe_md_ft"] == 11000 and s_ob == 400 and s_or == 200 and s_dx == 200 and dxj["counts"]["SAME"] == 8
                and s_ia == 200 and iaj["lines"] == 7 and s_al == 200 and "invoice.differs" in alj["events"],
         "cli": cli_c.returncode == 0 and "13-3/8 in, shoe at 2,000 ft" in cli_c.stdout and cli_d.returncode == 0 and "already declared" in cli_d.stdout,
         "page": all(x in page_src for x in ("rtC", "/api/rig-time/casing", ".xlsx", "content_b64: DC.b64", "'invoice.differs': 'Invoice differs'")),
@@ -13486,7 +13486,7 @@ def section_dd_casing_design(tmp: str) -> None:
         "cli": cli.returncode == 0 and "2 string(s)" in cli.stdout,
         "survey": r1 and r1["path_from"] == "survey" and r1["strings"][1]["shoe_tvd_ft"] < 6000.0 - 100.0 and len(r1["kicks"]) == 2
                   and r1["kicks"][1]["bottom_md_ft"] == 10000.0 and r1["kicks"][1].get("volume_bbl") is not None,
-        "sheet": not pl["errors"] and [s_["action"] for s_ in pl["steps"] if s_["table"] in ("casing_design", "casing_loads")] == ["NEW", "NEW"]
+        "sheet": not pl["errors"] and [s_["action"] for s_ in pl["steps"] if s_["table"] in ("casing", "casing_loads")] == ["NEW", "NEW"]   # [casing_design] is read as [casing] (v0.64)
                  and pw["applied"] and not again["errors"] and again["counts"]["NEW"] == 0 and again["counts"]["CHANGE"] == 0
                  and not tmpl["errors"] and tmpl["counts"]["NEW"] == 0 and tmpl["counts"]["CHANGE"] == 0,
         "sheet_bad": bool(pb["errors"]) and any("[casing_design]" in e and "the grade is one of" in e for e in pb["errors"]) and not pb["written"],
@@ -14027,6 +14027,190 @@ def section_df_trusted_timestamp(tmp: str) -> None:
        + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
 
 
+def section_dg_casing_program(tmp: str) -> None:
+    """Section DG - one casing program: rig time, hydraulics, torque and drag and the casing design read the same strings;
+    shoes declared for rig time before v0.64 are carried in, and what disagrees is listed; a string needs only its size
+    and shoe; hydraulics' hole comes from the program (each depth's innermost bore, then the bit), and declaring it twice
+    is answered; the declarations sheet's [casing] is the program, [casing_design] read the same; the tab, the API, the
+    command line and the help."""
+    import csv as _csv
+    import http.cookiejar
+    import io as _io
+    import subprocess as _sp
+    import urllib.error
+    import urllib.request
+    from . import casing_design as CSG
+    from . import declarations as DC
+    from . import helplib as H
+    from . import hydraulics as HY
+    from . import rig_state as RS
+    from . import torque_drag as TND
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "casing_program"); d.mkdir()
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    def well(name):                                            # a well the casing and hydraulics are declared for; no record needed
+        return ws._register({"id": name, "display": name, "kind": "file", "files": [], "source": {}}, "tester")["id"]
+    w1, w2 = well("SWD-1"), well("SWD-2")
+
+    # -- DG1 one program, carried over -------------------------------------------------------------------------------------------
+    Path(wsp, "drillstring").mkdir(exist_ok=True)
+    Path(wsp, "drillstring", "casing.json").write_text(json.dumps({"schema": 1, "wells": {               # as v0.50 to v0.63 kept rig time's shoes
+        w1: [{"size": "13-3/8", "shoe_md_ft": 1500.0, "set": None, "source": "tally"}, {"size": "9-5/8", "shoe_md_ft": 7000.0, "set": "2026-06-01T10:00", "source": "tally"}],
+        w2: [{"size": "13-3/8", "shoe_md_ft": 1450.0, "set": None, "source": "old tally"}]}}), encoding="utf-8")
+    pr0 = CSG.program(ws, w1)
+    view0 = RS.casing(ws)
+    RS.set_casing(ws, "tester", w1, "7", "9900", "tally 2")
+    pr1 = CSG.program(ws, w1)
+    legacy1 = json.loads(Path(wsp, "drillstring", "casing.json").read_text(encoding="utf-8"))["wells"]
+    CSG.upsert_string(ws, "tester", w1, {"od_in": "9-5/8", "weight_lbft": 47, "grade": "N80", "hole_in": 12.25, "mw_ppg": 10}, "BHA report")
+    RS.set_casing(ws, "tester", w1, "9-5/8", "7010", "tally 3")              # the shoe moved: the design kept
+    s95 = next(x for x in CSG.program(ws, w1)["strings"] if x["size"] == "9-5/8")
+    CSG.set_well(ws, "tester", w2, "program", "surface:13-3/8:54.5:J55:0-1500:17.5:9")       # declared on the Casing tab: the old shoe differs
+    pr2 = CSG.program(ws, w2)
+    Path(wsp, "drillstring", "casing.json").write_text(json.dumps({"schema": 1, "wells": {w2: [{"size": "13-3/8", "shoe_md_ft": 1450.0, "source": "old tally"}]}}),
+                                                         encoding="utf-8")
+    pr2c = CSG.program(ws, w2)
+    cc2 = CSG.crosscheck(ws, w2)
+    RS.remove_casing(ws, "tester", w1, "7")
+    c1 = {
+        "carried": pr0["from"] == "carried over from the rig-time shoes" and [x["size"] for x in pr0["strings"]] == ["13-3/8", "9-5/8"]
+                   and view0[w1][1]["set"] == "2026-06-01T10:00" and view0[w2][0]["shoe_md_ft"] == 1450.0,
+        "rig_time_writes_program": pr1["from"] == "declared" and [x["size"] for x in pr1["strings"]] == ["13-3/8", "9-5/8", "7"] and w1 not in legacy1
+                                   and pr1["strings"][1]["set"] == "2026-06-01T10:00",
+        "kept": s95["shoe_md_ft"] == 7010.0 and s95["weight_lbft"] == 47.0 and s95["grade"] == "N80" and s95["id_in"] == 8.681 and s95["source"] == "tally 3",
+        "partial": pr1["strings"][2]["design_missing"] and pr1["strings"][2]["id_in"] is None and CSG.od_text(13.375) == "13-3/8" and CSG.od_text(4.5) == "4-1/2",
+        "conflict": pr2["from"] == "declared" and pr2c["conflicts"] and pr2c["conflicts"][0]["rig_time_shoe_md_ft"] == 1450.0
+                    and any(not x["ok"] and "rig time 1,450 ft" in x["detail"] for x in cc2["items"]),
+        "removed": [x["size"] for x in CSG.program(ws, w1)["strings"]] == ["13-3/8", "9-5/8"],
+        "torque_drag": RS.casing(ws)[w1][-1]["shoe_md_ft"] == 7010.0,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "DG1 one casing program per well: shoes declared for rig time before v0.64 carried into it (with when they were set), and a shoe declared on "
+       "the Rig time tab written into it, keeping that string's weight, grade and mud; a string with only its size and shoe kept and not checked; a "
+       "rig-time shoe that disagrees with a declared string listed, not carried; removed from one place" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- DG2 hydraulics reads its hole from the program ---------------------------------------------------------------------------------
+    CSG.set_well(ws, "tester", w1, "program", [{"what": "surface", "od_in": "13-3/8", "weight_lbft": 54.5, "top_md_ft": 0, "shoe_md_ft": 1500},
+                                               {"what": "intermediate", "od_in": "9-5/8", "weight_lbft": 47, "shoe_md_ft": 7000},
+                                               {"what": "liner", "od_in": 7, "weight_lbft": 29, "top_md_ft": 6800, "shoe_md_ft": 9900}])
+    HY.set_well(ws, "tester", w1, "mud report (test)", string="BHA:350:4.75:2.25; drill pipe::3.5:2.764", fann={"600": 60, "300": 38, "100": 21, "3": 6},
+                bit_in=6.125, mw_ppg=11, flow_gpm=250)
+    hc = HY.program_config(ws, w1)
+    try:
+        HY.set_well(ws, "tester", w1, "x", hole="x:100:8; oh::8")
+        twice = ""
+    except ValueError as e:
+        twice = str(e)
+    w5, w6 = well("SWD-5"), well("SWD-6")
+    for w_, hole_ in ((w5, "13-3/8 casing:1500:12.615; open hole::12.25"), (w6, "13-3/8 casing:1600:12.5; open hole::12.25")):
+        HY.set_well(ws, "tester", w_, "mud report (test)", hole=hole_, bit_in=12.25)        # declared for hydraulics before the program
+        CSG.set_well(ws, "tester", w_, "program", "surface:13-3/8:54.5:J55:0-1500:17.5:9")
+    agree, differ = CSG.crosscheck(ws, w5), CSG.crosscheck(ws, w6)
+    w3 = well("SWD-3")
+    HY.set_well(ws, "tester", w3, "mud report (test)", hole="9-5/8 casing:3500:8.681; open hole::8.5")
+    no_prog = HY.program_config(ws, w3)
+    holes, why = CSG.hole_sections(CSG.check_strings([{"od_in": "9-5/8", "shoe_md_ft": 7000}]), 8.5)
+    c2 = {
+        "sections": [(x["what"], x["bottom_md_ft"], x["id_in"]) for x in hc["hole"]] == [("intermediate", 6800.0, 8.681), ("liner", 9900.0, 6.184), ("6.125 in open hole", None, 6.125)]
+                    and hc["hole_from"] == "from the casing program",
+        "twice": "comes from its casing program" in twice,
+        "crosscheck": any(x["what"] == "hydraulics hole" and x["ok"] and "agrees" in x["detail"] for x in agree["items"])
+                      and any(x["what"] == "hydraulics hole" and not x["ok"] and "differs" in x["detail"] for x in differ["items"])
+                      and HY.program_config(ws, w6)["hole_from"] == "from the casing program",
+        "fallback": no_prog["hole_from"] == "as declared for hydraulics" and no_prog["hole"][0]["bottom_md_ft"] == 3500.0,
+        "needs_bore": holes is None and "weight (or the inside diameter)" in why,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "DG2 hydraulics reads its hole from the casing program - each depth's innermost bore (the intermediate to the liner's top, the liner to its "
+       "shoe), then the bit - and declaring the hole again is answered with where to change it; a hole declared before is set against the program's, "
+       "agreeing or not, and the program wins; a well with no program keeps its declared hole; a string with no weight gives no bore, said so"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- DG3 the declarations sheet -------------------------------------------------------------------------------------------------------
+    w4 = well("SWD-4")
+
+    def sheet(rows):
+        buf = _io.StringIO(); _csv.writer(buf).writerows(rows); return buf.getvalue()
+    cols = DC.TABLES["casing"]["cols"]
+    full = sheet([["[casing]", *cols],
+                  [""] + [{"well": "SWD-4", "what": "surface", "size_in": "13-3/8", "weight_lbft": "54.5", "grade": "J55", "shoe_md_ft": "1500", "hole_in": "17.5",
+                           "mw_ppg": "9", "source": "casing tally (test)"}.get(c, "") for c in cols],
+                  [""] + [{"well": "SWD-4", "what": "intermediate", "size_in": "9-5/8", "shoe_md_ft": "7000", "set": "2026-06-12T14:00",
+                           "source": "casing tally (test)"}.get(c, "") for c in cols]])
+    p1 = DC.apply(ws, full, "tester", str(d))
+    p2 = DC.apply(ws, full, "tester", str(d), write=True)
+    p3 = DC.apply(ws, full, "tester", str(d))
+    p4 = DC.apply(ws, DC.template(ws), "tester", str(d))
+    old5 = sheet([["[casing]", "well", "size_in", "shoe_md_ft", "set", "source"], ["", "SWD-4", "9-5/8", "7000", "2026-06-12T14:00", "casing tally (test)"]])
+    p5 = DC.apply(ws, old5, "tester", str(d))
+    alias = sheet([["[casing_design]", "well", "what", "od_in", "weight_lbft", "grade", "shoe_md_ft", "hole_in", "mw_ppg", "source"],
+                   ["", "SWD-4", "surface", "13-3/8", "54.5", "J55", "1500", "17.5", "9", "casing tally (test)"],
+                   ["", "SWD-4", "intermediate", "9-5/8", "47", "N80", "7000", "12.25", "10", "casing tally (test)"]])
+    p6 = DC.apply(ws, alias, "tester", str(d))
+    hcols = DC.TABLES["hydraulics"]["cols"]
+    hyd = sheet([["[hydraulics]", *hcols], [""] + [{"well": "SWD-4", "hole": "x:100:8; open hole::8", "source": "mud report (test)"}.get(c, "") for c in hcols]])
+    p7 = DC.apply(ws, hyd, "tester", str(d))
+    prog4 = CSG.program(ws, w4)["strings"]
+    c3 = {
+        "new": not p1["errors"] and [s_["action"] for s_ in p1["steps"] if s_["table"] == "casing"] == ["NEW"] and p2["applied"]
+               and [x["size"] for x in prog4] == ["13-3/8", "9-5/8"] and prog4[0]["burst_psi"] == 2730 and prog4[1]["set"] == "2026-06-12T14:00",
+        "same": not p3["errors"] and p3["counts"]["NEW"] == 0 and p3["counts"]["CHANGE"] == 0 and not p4["errors"] and p4["counts"]["NEW"] == 0 and p4["counts"]["CHANGE"] == 0,
+        "old_layout": not p5["errors"] and any(s_["table"] == "casing" and s_["action"] == "CHANGE" and "no longer listed: 13-3/8 in" in s_["what"] for s_ in p5["steps"]),
+        "alias": not p6["errors"] and any(s_["table"] == "casing" and s_["action"] == "CHANGE" and "47 lb/ft N80" in s_["what"] for s_ in p6["steps"]),
+        "hydraulics_hole": any("[hydraulics]" in e and "comes from its casing program" in e for e in p7["errors"]),
+        "template_one_table": "[casing]," in DC.template(ws) and "[casing_design]" not in DC.template(ws),
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "DG3 the declarations sheet's [casing] is the casing program - a well's rows together, planned NEW, written, then SAME and from the template; "
+       "the old layout (size and shoe only) and [casing_design] read as the same table, a string no longer listed said so; a hole for hydraulics "
+       "beside a casing program answered with its row" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+    # -- DG4 the tab, the API, the command line, the help ----------------------------------------------------------------------------------
+    cli = _sp.run([sys.executable, "-m", "gea", "rig-time", "--workspace", wsp, "--well", w4, "--casing", "7", "--shoe-md", "7900", "--source", "tally (test)"],
+                  capture_output=True, text=True, cwd=str(pkg.parent))
+    cli2 = _sp.run([sys.executable, "-m", "gea", "casing", "--workspace", wsp, "--well", w4], capture_output=True, text=True, cwd=str(pkg.parent))
+    Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+    o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        call("POST", "/api/login", {"name": "op", "password": "op-pass-123"})
+        st_c, cp = call("POST", "/api/rig-time/casing", {"well_id": w2, "size": "9-5/8", "shoe_md_ft": 6500, "source": "tally (test)"})
+        st_g, gp = call("GET", f"/api/casing-design?well={w2}")
+        st_h, hp = call("GET", f"/api/hydraulics?well={w1}")
+    finally:
+        svc.stop()
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c4 = {
+        "cli": cli.returncode == 0 and "in the well's casing program" in cli.stdout and [x["size"] for x in CSG.program(ws, w4)["strings"]] == ["13-3/8", "9-5/8", "7"]
+               and cli2.returncode == 0 and "7 in casing: 7 in to 7,900 ft MD - not checked" in cli2.stdout,
+        "api": st_c == 200 and st_g == 200 and [x["size"] for x in gp["wells"][[w["id"] for w in gp["wells"]].index(w2)]["config"]["strings"]] == ["13-3/8", "9-5/8"]
+               and "crosscheck" in gp and st_h == 200 and next(w_ for w_ in hp["wells"] if w_["id"] == w1)["hole_from"] == "from the casing program",
+        "page": all(x in page_src for x in ("The casing program against what else was declared", "the one place this well's casing is declared",
+                                            "goes into the well's casing program", "cur.hole_from === 'from the casing program'", "s.incomplete")),
+        "help": not H.check("casing") and not H.check("hydraulics") and not H.check("rig-time") and "one place" in (H.page("casing") or "")
+                and "read from the well's casing program" in (H.page("hydraulics") or "") and "casing program" in (H.page("declare") or ""),
+    }
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       "DG4 a shoe from the command line and the Rig time tab's API lands in the program; the Casing tab shows what is not yet checked and the "
+       "cross-check; hydraulics says its hole comes from the program; the help pages name one place" + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+
 def PR_read_ok(path) -> bool:
     from . import pdf_report as PR
     try:
@@ -14148,6 +14332,7 @@ def main() -> int:
         section_dd_casing_design(tmp)
         section_de_real_gas(tmp)
         section_df_trusted_timestamp(tmp)
+        section_dg_casing_program(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

@@ -369,13 +369,10 @@ def _casing_path(ws) -> str:
 
 
 def casing(ws) -> Dict[str, List[dict]]:
-    """Each well's declared casing shoes, shallowest first: {well_id: [{size, shoe_md_ft, set, source}]}."""
-    try:
-        with open(_casing_path(ws), encoding='utf-8') as f:
-            d = json.load(f).get('wells', {})
-    except (OSError, ValueError):
-        return {}
-    return {k: sorted(v, key=lambda x: x['shoe_md_ft']) for k, v in d.items()}
+    """Each well's casing shoes, shallowest first, from its casing program (the Casing tab; shoes declared here before
+    v0.64 are carried into it): {well_id: [{size, shoe_md_ft, set, source}]}."""
+    from . import casing_design as CSG
+    return CSG.shoes(ws)
 
 
 def casing_record(ws, well_id: str, size: str, shoe_md_ft, source: str, set_time: Optional[str] = None) -> dict:
@@ -402,40 +399,23 @@ def casing_record(ws, well_id: str, size: str, shoe_md_ft, source: str, set_time
 
 
 def set_casing(ws, actor: str, well_id: str, size: str, shoe_md_ft, source: str, set_time: Optional[str] = None) -> dict:
-    """Declare (or replace, by size) a casing shoe of a well."""
+    """Declare (or change, by size) a casing shoe of a well: written into its casing program, keeping what the program
+    already holds about that string (its weight, grade, mud)."""
+    from . import casing_design as CSG
     rec = casing_record(ws, well_id, size, shoe_md_ft, source, set_time)
     with _LOCK:
-        try:
-            with open(_casing_path(ws), encoding='utf-8') as f:
-                d = json.load(f)
-        except (OSError, ValueError):
-            d = {'schema': 1, 'wells': {}}
-        lst = [x for x in d['wells'].get(well_id, []) if x['size'] != rec['size']] + [rec]
-        d['wells'][well_id] = sorted(lst, key=lambda x: x['shoe_md_ft'])
-        os.makedirs(os.path.dirname(_casing_path(ws)), exist_ok=True)
-        with open(_casing_path(ws) + '.tmp', 'w', encoding='utf-8') as f:
-            json.dump(d, f, indent=1)
-        os.replace(_casing_path(ws) + '.tmp', _casing_path(ws))
+        CSG.upsert_string(ws, actor, well_id, {'od_in': rec['size'], 'shoe_md_ft': rec['shoe_md_ft'], 'set': rec['set'], 'source': rec['source']},
+                          rec['source'])
         _MEMO.clear()
     ws.audit(actor, 'casing.declare', {'well': well_id, **rec})
     return rec
 
 
 def remove_casing(ws, actor: str, well_id: str, size: str) -> dict:
+    from . import casing_design as CSG
     with _LOCK:
-        try:
-            with open(_casing_path(ws), encoding='utf-8') as f:
-                d = json.load(f)
-        except (OSError, ValueError):
-            d = {'schema': 1, 'wells': {}}
-        lst = d['wells'].get(well_id, [])
-        if not any(x['size'] == size for x in lst):
-            raise KeyError(f'no {size} in casing declared for {well_id}')
-        d['wells'][well_id] = [x for x in lst if x['size'] != size]
-        with open(_casing_path(ws) + '.tmp', 'w', encoding='utf-8') as f:
-            json.dump(d, f, indent=1)
-        os.replace(_casing_path(ws) + '.tmp', _casing_path(ws))
-    ws.audit(actor, 'casing.remove', {'well': well_id, 'size': size})
+        CSG.remove_string(ws, actor, well_id, size)
+        _MEMO.clear()
     return {'removed': size}
 
 

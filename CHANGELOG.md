@@ -5,6 +5,47 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.64.0] - 2026-10-22 - One casing program
+
+### Changed
+- **A well's casing is declared in one place: its casing program.** Rig
+  time (its hole sections), hydraulics (the hole's diameters), torque and
+  drag (cased or open) and the casing design all read the same strings.
+  Before, the shoes (Rig time), the hole (Hydraulics) and the strings
+  (Casing) were three separate declarations.
+- **A string needs only its size and shoe.** Its weight gives the bore;
+  with its weight, grade, the hole and the mud it was run in it is
+  checked for burst, collapse and tension, and until then the Casing tab
+  lists it as not checked, saying what is missing. `gea casing --strings
+  "9-5/8:7000"` or `intermediate:9-5/8:::0-7000::`.
+- **Rig time's shoes go into the program** (`gea rig-time --casing`, the
+  Rig time tab, `POST /api/rig-time/casing`), keeping what the program
+  already holds about that string; when it was set is kept with it.
+- **Hydraulics reads its hole from the program**: at each depth the
+  innermost string's inside diameter (a liner from its top), then the
+  bit. Declaring the hole again for such a well is answered with where to
+  change it; a well with no program keeps the hole declared for it.
+- **The declarations sheet's `[casing]` is the program**: a row per
+  string (size and shoe needed; weight, grade, top, hole, mud, wall or
+  inside diameter, when set, source), a well's rows together replacing
+  its program. The old layout (size and shoe only) and `[casing_design]`
+  (v0.61 to v0.63) are read the same; the template writes `[casing]`
+  only, and leaves hydraulics' hole blank where the program gives it.
+
+### Added
+- **Carried over and cross-checked**: shoes declared for rig time before
+  v0.64 (`drillstring\casing.json`) are carried into the program; a
+  rig-time shoe that disagrees with a declared string is listed, not
+  carried; a hole declared for hydraulics is set against the program's
+  ("agrees" or "differs"). The Casing tab shows the cross-check and the
+  hole hydraulics reads.
+- The program checks that the strings nest: a shoe declared shallower
+  than a larger string's below it is answered (before v0.64 rig time took
+  any shoe); a size written `9 5/8` is read as 9-5/8.
+- Acceptance section DG (4 checks); section CQ's checks follow: a well's
+  casing rows are one step (its program), and its 7 in shoe sits below its
+  9-5/8.
+
 ## [v0.63.0] - 2026-10-22 - Trusted timestamps on the signed dossier
 
 ### Added

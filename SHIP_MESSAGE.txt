@@ -1,20 +1,20 @@
-v0.63.0 — TRUSTED TIMESTAMPS ON THE SIGNED DOSSIER
+v0.64.0 — ONE CASING PROGRAM
 
-A dossier's time no longer rests on the signing machine's clock alone.
+A well's casing is now declared in one place.
 
-- Trusted timestamps (RFC 3161): a public time-stamping authority signs,
-  at its own time, the SHA-256 of a dossier's signature, and the token
-  rides in the dossier. Only that hash and a random number leave the
-  machine. Off until the site names a service (DigiCert, Sectigo, or its
-  own) on the Reports tab or with gea dossier --timestamp-url.
-- The check - in the program and in every dossier's standalone checker -
-  verifies the authority's signature (RSA or ECDSA), its certificate, and
-  its chain to a root the reader's computer already trusts, and prints
-  the authority's time beside the machine's.
-- A service that cannot be reached leaves the dossier signed, marked not
-  stamped with why; Stamp adds the token later.
-- Checked against tokens OpenSSL made, and OpenSSL checks ours.
-- Kick tolerance now says when the open hole itself, not the shoe, is
-  the limit.
+- The casing program (the Casing & kick tolerance tab, gea casing, or the
+  declarations sheet's [casing] table) is read by rig time, hydraulics,
+  torque and drag and the casing design alike - no more declaring the
+  shoes, the hole and the strings three times.
+- A string needs only its size and shoe; its weight gives the bore; with
+  its weight, grade, hole and mud it is checked for burst, collapse and
+  tension, and until then the tab says what is missing.
+- A shoe declared on the Rig time tab goes into the program, keeping what
+  the program holds about that string.
+- Hydraulics reads the hole from the program: each depth's innermost
+  bore, a liner from its top, then the bit.
+- Nothing already declared is lost: earlier rig-time shoes are carried
+  in; a shoe or a hydraulics hole that disagrees is listed on the Casing
+  tab. The workbook's old [casing] layout and [casing_design] still read.
 
-Acceptance section DF (4 checks).
+Acceptance section DG (4 checks).

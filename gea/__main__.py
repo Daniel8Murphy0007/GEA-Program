@@ -2972,7 +2972,7 @@ def main(argv=None) -> int:
                 if not a.well:
                     raise ValueError("--casing needs --well")
                 c_ = _RS.set_casing(ws, a.actor, a.well, a.casing, a.shoe_md, a.source, a.set_time)
-                print(f"casing {c_['size']} in, shoe at {c_['shoe_md_ft']:,.0f} ft MD ({c_['source']})")
+                print(f"casing {c_['size']} in, shoe at {c_['shoe_md_ft']:,.0f} ft MD ({c_['source']}) - in the well's casing program (gea casing)")
                 return 0
             if a.w2w_min is not None or a.trip_in is not None or a.trip_out is not None or a.block_weight is not None:
                 if a.block_weight is not None and not a.well:

@@ -75,8 +75,9 @@ TABLES: Dict[str, dict] = {
                  'about': "the rig-time targets from the drilling program: weight-to-weight connection minutes and tripping speeds in and out (ft/h); blank keeps the pad's own best quarter"},
     'block_weights': {'cols': ('well', 'block_weight_klbf'), 'need': ('well', 'block_weight_klbf'),
                       'about': "a well's travelling block weight in klbf, where the rig-time estimate from the hook load is wrong"},
-    'casing': {'cols': ('well', 'size_in', 'shoe_md_ft', 'set', 'source'), 'need': ('well', 'size_in', 'shoe_md_ft', 'source'),
-               'about': "casing shoes: the size in inches as written (13-3/8, 9-5/8, 7), the shoe's measured depth in ft, when it was set (the recorder's clock; blank: when the hole is 50 ft past it) and the tally or report it came from"},
+    'casing': {'cols': ('well', 'what', 'size_in', 'weight_lbft', 'grade', 'top_md_ft', 'shoe_md_ft', 'hole_in', 'mw_ppg', 'wall_in', 'id_in', 'set', 'source'),
+               'need': ('well', 'size_in', 'shoe_md_ft', 'source'),
+               'about': "the casing program, one row per string - the one place a well's casing is declared: rig time, hydraulics, torque and drag and the casing design all read it. The size in inches as written (13-3/8, 9-5/8, 7) and the shoe's measured depth in ft are needed; the weight (lb/ft) and grade (H40 to Q125), the top (0 or blank to the surface; a liner's hanger depth), the hole it was run in (in) and the mud (ppg) let it be checked for burst, collapse and tension; the wall or inside diameter (in) for a size not in the program's table; when it was set (the recorder's clock; blank: when the hole is 50 ft past it); the tally or report it came from. A well's rows together are its program"},
     'settings': {'cols': ('setting', 'value'), 'need': ('setting', 'value'),
                  'about': "the program's settings: watch_enabled (yes/no), watch_every_min, watch_mode (operations/always), summary_enabled (yes/no), summary_at (HH:MM UTC), summary_send (yes/no)"},
 }
@@ -587,18 +588,7 @@ def plan(ws, text: str, base_dir: str = '') -> dict:
             add('block_weights', rec['_row'], wid, 'CHANGE' if wid in bw_have else 'NEW', f'block weight {v:g} klbf',
                 lambda actor, wid=wid, v=v: RS.set_settings(ws, actor, '', None, None, None, (wid, v)))
         guard('block_weights', rec, b)
-    cs_have = RS.casing(ws)
-    for rec in tables.get('casing', []):
-        def b(rec=rec):
-            wid = _well_id(ws, rec['well'], wells)
-            new = RS.casing_record(ws, wid, rec.get('size_in', ''), rec.get('shoe_md_ft'), rec.get('source', ''), rec.get('set') or None)
-            old = next((x for x in cs_have.get(wid, []) if x['size'] == new['size']), None)
-            if old == new:
-                add('casing', rec['_row'], wid, 'SAME', f"{new['size']} in shoe already declared")
-                return
-            add('casing', rec['_row'], wid, 'CHANGE' if old else 'NEW', f"{new['size']} in shoe at {new['shoe_md_ft']:,.0f} ft ({new['source']})",
-                lambda actor, wid=wid, rec=rec: RS.set_casing(ws, actor, wid, rec.get('size_in', ''), rec.get('shoe_md_ft'), rec.get('source', ''), rec.get('set') or None))
-        guard('casing', rec, b)
+    _plan_casing(ws, tables, wells, add, guard)
     sw_now, ps_now = SW.settings(ws), PS.settings(ws)
     yes = lambda v: str(v).strip().lower() in ('yes', 'y', 'true', '1', 'on')
     for rec in tables.get('settings', []):
@@ -796,9 +786,16 @@ def template(ws) -> str:
     for wid, v in rs_.get('block_weight_klbf', {}).items():
         w.writerow(['', wid, _g(v)])
     head('casing')
-    for wid, lst in RS.casing(ws).items():
-        for c in lst:
-            w.writerow(['', wid, c['size'], _g(c['shoe_md_ft']), c.get('set') or '', c['source']])
+    from . import casing_design as CSG_
+    for wl in ws.wells():
+        pr = CSG_.program(ws, wl['id'])
+        st_ = ((CSG_._load(ws).get('wells') or {}).get(wl['id']) or {})
+        for c in pr['strings']:
+            w.writerow(['', wl['id'], c['what'], c['size'], _g(c.get('weight_lbft')) if c.get('weight_lbft') is not None else '', c.get('grade') or '',
+                        _g(c['top_md_ft']), _g(c['shoe_md_ft']), _g(c.get('hole_in')) if c.get('hole_in') is not None else '',
+                        _g(c.get('mw_ppg')) if c.get('mw_ppg') is not None else '', _g(c['wall_in']) if c.get('wall_from') == 'declared' else '',
+                        _g(c['id_in']) if (c.get('id_in') is not None and c.get('wall_in') is None) else '', c.get('set') or '',
+                        c.get('source') or st_.get('strings_source') or st_.get('source') or ''])
     _template_engineering(ws, w, head)
     head('settings')
     sw, ps = SW.settings(ws), PS.settings(ws)
@@ -828,7 +825,7 @@ ENG_TABLES: Dict[str, dict] = {
                    'about': "the hydraulics: the string from the bit up (what:length_ft:od_in:bore_in; ...), the hole from the surface down (what:bottom_md_ft:inside_diameter_in; ..., the open hole last with no bottom), the mud weight, the viscometer dial (600=60 300=38 200=30 100=21 6=7 3=6), the pump rate, the nozzles in 32nds (14 14 14 14 14), the bit (in), the surface lines' loss (psi) at a rate, the motor and MWD (psi), the trip speed, and a pore pressure and fracture gradient for the hole when the Pore pressure tab has none"},
     'casing_design': {'cols': ('well', 'what', 'od_in', 'weight_lbft', 'grade', 'top_md_ft', 'shoe_md_ft', 'hole_in', 'mw_ppg', 'wall_in', 'source'),
                       'need': ('well', 'what', 'od_in', 'weight_lbft', 'grade', 'shoe_md_ft', 'hole_in', 'mw_ppg', 'source'),
-                      'about': "the casing program for casing design and kick tolerance: a row per string - its outside diameter (9.625 or 9-5/8), nominal weight (lb/ft), grade (H40 to Q125), top (0 to the surface) and shoe (ft MD), the hole it was run in (in), the mud it was run in (ppg), the wall (in) for a size not in the program's table; a well's rows together replace its program"},
+                      'about': "the casing program as v0.61 to v0.63 wrote it (od_in for size_in): read as [casing], which the template now writes"},
     'casing_loads': {'cols': ('well', 'td_md_ft', 'td_hole_in', 'td_mw_ppg', 'pp_ppg', 'fg_ppg', 'kick_intensity_ppg', 'gas_gradient_psi_ft', 'gas_sg',
                               'surface_temp_f', 'geothermal_f_100ft', 'backup_gradient_psi_ft', 'evacuation', 'df_burst', 'df_collapse', 'df_tension', 'overpull_klbf', 'bha_od_in', 'bha_length_ft', 'dp_od_in', 'source'),
                      'need': ('well', 'source'),
@@ -844,7 +841,7 @@ ENG_TABLES: Dict[str, dict] = {
                       'about': "the decline fit's and the value's terms: the terminal decline (0.08 = 8 % a year), the largest b, the month to fit from (YYYY-MM), the price basis (sec or flat) and flat prices, the net revenue interest, severance tax, operating cost a month (USD), the discount rate and the gas heat content"},
 }
 TABLES.update(ENG_TABLES)
-ENG_ORDER = ('survey_program', 'plans', 'pore_pressure', 'pressures', 'torque_drag', 'hydraulics', 'casing_design', 'casing_loads', 'frac_stages', 'frac_monitors', 'production', 'decline_terms')
+ENG_ORDER = ('survey_program', 'plans', 'pore_pressure', 'pressures', 'torque_drag', 'hydraulics', 'casing_loads', 'frac_stages', 'frac_monitors', 'production', 'decline_terms')
 ORDER = ORDER[:-1] + ENG_ORDER + ('settings',)
 APPLY_ORDER = APPLY_ORDER[:-1] + ENG_ORDER + ('settings',)
 
@@ -869,6 +866,42 @@ def _file_bytes(p: str, base_dir: str, what: str, where: str) -> bytes:
         raise SheetError(f'no {what} file {p!r} beside the sheet' + ('' if base_dir else f' (a sheet sent through the browser carries no files: attach it on {where} or from the command line)'))
     with open(path, 'rb') as f:
         return f.read()
+
+
+def _plan_casing(ws, tables, wells, add, guard) -> None:
+    """The [casing] table (and [casing_design], as v0.61 to v0.63 wrote it): a well's rows together are its casing
+    program, planned as one step that replaces it."""
+    from . import casing_design as CSG
+    groups: Dict[str, list] = {}
+    for tname, size_col in (('casing', 'size_in'), ('casing_design', 'od_in')):
+        for rec in tables.get(tname, []):
+            def b(rec=rec, tname=tname, size_col=size_col):
+                wid = _well_id(ws, rec['well'], wells)
+                row = {k: rec.get(k) for k in ('what', 'weight_lbft', 'grade', 'top_md_ft', 'shoe_md_ft', 'hole_in', 'mw_ppg', 'wall_in', 'id_in', 'set', 'source')}
+                row['od_in'] = rec.get(size_col)
+                CSG.check_strings([row])
+                groups.setdefault(wid, []).append((rec, row))
+            guard(tname, rec, b)
+    for wid, items in groups.items():
+        first = items[0][0]
+
+        def b(wid=wid, items=items):
+            strings = CSG.check_strings([r for _, r in items])
+            src = '; '.join(sorted({(rec.get('source') or '').strip() for rec, _ in items} - {''}))
+            cur = CSG.program(ws, wid)
+            stored = (((CSG._load(ws).get('wells') or {}).get(wid) or {}))
+            psrc = stored.get('strings_source') or stored.get('source') or ''
+            eff = lambda lst, dflt: [{**{k: v for k, v in x.items() if k != 'source'}, 'source': x.get('source') or dflt} for x in lst]
+            if cur['from'] == 'declared' and eff(cur['strings'], psrc) == eff(strings, src):
+                add('casing', first['_row'], wid, 'SAME', f'the casing program ({len(strings)} string(s)) already declared')
+                return
+            what = ', '.join(f"{x['size']} in to {x['shoe_md_ft']:,.0f} ft" + (f" ({x['weight_lbft']:g} lb/ft {x['grade']})" if x.get('weight_lbft') and x.get('grade') else '')
+                             for x in strings)
+            gone = [x['size'] for x in cur['strings'] if not any(CSG._same_od(x['od_in'], y['od_in']) for y in strings)]
+            add('casing', first['_row'], wid, 'CHANGE' if cur['strings'] else 'NEW',
+                f"casing program: {what}" + (f"; no longer listed: {', '.join(gone)} in" if gone else '') + f' ({src})',
+                lambda actor, wid=wid, strings=strings, src=src: CSG.set_well(ws, actor, wid, src, strings))
+        guard('casing', first, b)
 
 
 def _plan_engineering(ws, tables, wells, add, guard, base_dir: str) -> None:
@@ -995,11 +1028,21 @@ def _plan_engineering(ws, tables, wells, add, guard, base_dir: str) -> None:
                                                                                          vals['mu_open'], vals['block_klbf']))
         guard('torque_drag', rec, b)
 
+    from . import casing_design as CSG
+    sheet_casing = set()
+    for tname in ('casing', 'casing_design'):
+        for rec in tables.get(tname, []):
+            try:
+                sheet_casing.add(_well_id(ws, rec['well'], wells))
+            except (SheetError, KeyError, ValueError):
+                pass
     for rec in tables.get('hydraulics', []):
         def b(rec=rec):
             wid = _well_id(ws, rec['well'], wells)
             string = HY.parse_sections(rec['string'], 'string') if (rec.get('string') or '').strip() else None
             hole = HY.parse_sections(rec['hole'], 'hole') if (rec.get('hole') or '').strip() else None
+            if hole is not None and (wid in sheet_casing or CSG.program(ws, wid)['strings']):
+                raise SheetError("this well's hole comes from its casing program (the [casing] table): leave hole blank and give the bit (bit_in)")
             fann = None
             if (rec.get('fann') or '').strip():
                 fann = {}
@@ -1040,32 +1083,6 @@ def _plan_engineering(ws, tables, wells, add, guard, base_dir: str) -> None:
         guard('hydraulics', rec, b)
 
     from . import casing_design as CSG
-    groups: Dict[str, list] = {}
-    for rec in tables.get('casing_design', []):
-        def b(rec=rec):
-            wid = _well_id(ws, rec['well'], wells)
-            row = {k: rec.get(k) for k in ('what', 'od_in', 'weight_lbft', 'grade', 'top_md_ft', 'shoe_md_ft', 'hole_in', 'mw_ppg', 'wall_in')}
-            row['wall_in'] = row['wall_in'] if (row.get('wall_in') or '').strip() else None
-            row['top_md_ft'] = row['top_md_ft'] if (row.get('top_md_ft') or '').strip() else 0
-            CSG.check_strings([row])
-            groups.setdefault(wid, []).append((rec, row))
-        guard('casing_design', rec, b)
-    for wid, items in groups.items():
-        first = items[0][0]
-
-        def b(wid=wid, items=items, first=first):
-            strings = CSG.check_strings([r for _, r in items])
-            srcs = {rec['source'].strip() for rec, _ in items}
-            src = '; '.join(sorted(srcs))
-            cur = CSG.well_config(ws, wid)
-            if cur.get('strings') == strings and (cur.get('strings_source') or cur.get('source')) == src:
-                add('casing_design', first['_row'], wid, 'SAME', f'{len(strings)} string(s) already declared')
-                return
-            add('casing_design', first['_row'], wid, 'CHANGE' if cur.get('strings') else 'NEW',
-                f"{len(strings)} string(s): " + ', '.join(f"{x['what']} {x['od_in']:g} in {x['weight_lbft']:g} lb/ft {x['grade']} to {x['shoe_md_ft']:,.0f} ft" for x in strings) + f' ({src})',
-                lambda actor, wid=wid, strings=strings, src=src: CSG.set_well(ws, actor, wid, src, strings))
-        guard('casing_design', first, b)
-
     for rec in tables.get('casing_loads', []):
         def b(rec=rec):
             wid = _well_id(ws, rec['well'], wells)
@@ -1210,16 +1227,13 @@ def _template_engineering(ws, w, head) -> None:
     for wid, c in ((HY._load(ws).get('wells') or {})).items():
         if c.get('source'):
             st = '; '.join(f"{x['what']}:{_g(x['length_ft']) if x['length_ft'] is not None else ''}:{_g(x['od_in'])}:{_g(x['id_in'])}" for x in (c.get('string') or []))
-            ho = '; '.join(f"{x['what']}:{_g(x['bottom_md_ft']) if x['bottom_md_ft'] is not None else ''}:{_g(x['id_in'])}" for x in (c.get('hole') or []))
+            from . import casing_design as CSG_
+            ho = '' if HY.program_config(ws, wid).get('hole_from') == 'from the casing program' else \
+                '; '.join(f"{x['what']}:{_g(x['bottom_md_ft']) if x['bottom_md_ft'] is not None else ''}:{_g(x['id_in'])}" for x in (c.get('hole') or []))
             w.writerow(['', wid, st, ho, _g(c.get('mw_ppg')), ' '.join(f'{k}={_g(float(v))}' for k, v in (c.get('fann') or {}).items()), _g(c.get('flow_gpm')),
                         ' '.join(_g(float(x)) for x in (c.get('nozzles_32') or [])), _g(c.get('bit_in')), _g(c.get('surface_psi')), _g(c.get('surface_ref_gpm')),
                         _g(c.get('tools_psi')), _g(c.get('trip_ft_min')), _g(c.get('pp_ppg')), _g(c.get('fg_ppg')), c['source']])
     from . import casing_design as CSG
-    head('casing_design')
-    for wid, c in ((CSG._load(ws).get('wells') or {})).items():
-        for x in (c.get('strings') or []):
-            w.writerow(['', wid, x['what'], _g(x['od_in']), _g(x['weight_lbft']), x['grade'], _g(x['top_md_ft']), _g(x['shoe_md_ft']), _g(x['hole_in']),
-                        _g(x['mw_ppg']), _g(x['wall_in']) if x.get('wall_from') == 'declared' else '', c.get('strings_source') or c.get('source') or ''])
     head('casing_loads')
     for wid, c in ((CSG._load(ws).get('wells') or {})).items():
         if c.get('source') and any(k in c for k in CSG.LIMITS):
