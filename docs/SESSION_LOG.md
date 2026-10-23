@@ -2927,3 +2927,34 @@ stability; and motor specifications in the tool catalogue.
   desktop and phone width, no console errors, no sideways scroll.
 - Section DG (4 checks). Gate 498 on Python 3.13 and 3.14.
 
+
+## 2026-10-23 - The Windows installer (v0.65.0)
+
+- Asked (after the one casing program): a real Windows installer, with
+  the program in a window of its own, an icon in the notification area,
+  and signed when the certificate exists.
+- GEA-Program-Setup is Inno Setup 6 (on GitHub's Windows runner images)
+  over the same kit the zip carries, built in the kit's workflow from the
+  clean kit after the zip is attached, so a failure there never costs the
+  kit. Per user, no elevation: `{userpf}`, the user's Start menu, desktop
+  and Startup folder, the user's own Add/Remove Programs entry.
+- The workspace is asked for (an existing `C:\site` is offered when it
+  holds a workspace), remembered for upgrades, recorded in the kit as
+  `site-workspace.txt` by the program itself (UTF-8, so a folder name with
+  an accent survives), and never inside the program's folder, which an
+  upgrade replaces and the uninstaller removes.
+- `gea launch` starts the panel through the kit's own `start-dashboard.cmd`
+  (its restart loop and its window, minimised) and opens Edge's app window
+  at the address the service wrote in its run log; `gea tray` is the icon,
+  ctypes only, drawn in code (`gea/icon.py`).
+- Found on the way: `stop-dashboard.cmd` used `wmic`, which Windows 11 24H2
+  removed - it stopped nothing there, and with auto-restart on it would
+  have been undone by the window's loop anyway; it now stops the window
+  first. `register-service.cmd`'s task ran the loop itself and met Task
+  Scheduler's 72-hour default; it now runs the launcher, which returns.
+- The Inno compile and the Windows behaviour cannot run in this container
+  (no Inno Setup reachable to run here); the script is checked statically
+  by section DH, and the workflow installs, upgrades with the panel
+  running, and uninstalls the setup on the runner before attaching it.
+  The kit's gate runs DH on Windows with the real Win32 calls.
+- Section DH (6 checks). Gate 504 on Python 3.13 and 3.14.

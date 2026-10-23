@@ -4,6 +4,17 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.65.0 - 2026-10-23 - the Windows installer
+
+- **GEA-Program-Setup.exe**: the kit installed per user with no
+  administrator rights, shortcuts, an Add/Remove Programs entry, a start
+  at sign-in, upgrades in place; the workspace asked for and never
+  touched. The control panel in Edge's app window (`gea launch`), its icon
+  in the notification area (`gea tray`). Signed when the certificate
+  exists; installed, upgraded and uninstalled by the workflow before it is
+  attached. `stop-dashboard.cmd` without wmic; the logon task no longer
+  meets the three-day limit. Section DH; gate 504.
+
 ## v0.64.0 - 2026-10-22 - one casing program
 
 - **The casing is declared once.** Rig time, hydraulics, torque and drag

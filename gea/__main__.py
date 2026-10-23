@@ -815,6 +815,19 @@ def main(argv=None) -> int:
     p_sv.add_argument("--behind-proxy", action="store_true", help="a reverse proxy terminates TLS in front: trust X-Forwarded-For/-Proto, mark the cookie Secure (deploy/ has nginx and Caddy examples)")
     p_sv.add_argument("--no-browser", action="store_true", help="do not open the control panel in a browser once the service is listening (a scheduled start, a restart, a server with no desktop)")
 
+    p_la = sub.add_parser("launch", help="the control panel as a desktop program: start it when it is not running, open it in a window of its own (Edge's app window, else Chrome's, else the browser), put its icon in the notification area")
+    p_la.add_argument("--workspace", type=str, default=None, help="the workspace folder (default: GEA_WORKSPACE, else the installer's choice, else %%LOCALAPPDATA%%\\GEA-Program\\site)")
+    p_la.add_argument("--port", type=int, default=8765)
+    p_la.add_argument("--background", action="store_true", help="start the control panel and its icon without opening a window (the logon task)")
+    p_la.add_argument("--no-tray", action="store_true", help="no notification-area icon")
+    p_la.add_argument("--selftest", action="store_true", help="say what a launch would do here (the kit, the workspace, the window, the command), start nothing")
+    p_la.add_argument("--json", action="store_true")
+    p_la.add_argument("--set-workspace", type=str, default=None, help="record the site workspace for this installation (the installer runs it; never a folder inside the program's own)")
+    p_ty = sub.add_parser("tray", help="the program's icon in the Windows notification area: running or stopped, and a menu to open, start or stop the control panel")
+    p_ty.add_argument("--workspace", type=str, default=None, help="the workspace folder (as gea launch finds it)")
+    p_ty.add_argument("--port", type=int, default=8765)
+    p_ty.add_argument("--selftest", action="store_true", help="make the icon and its menu, show it for a moment and take it away")
+
     p_tl = sub.add_parser("tls", help="HTTPS for the dashboard: the site's own certificate, a self-signed one made here, or off; with no option, how it stands")
     p_tl.add_argument("--workspace", type=str, required=True)
     p_tl.add_argument("--site-cert", type=str, default=None, help="the site's certificate (PEM, the server's first, then any chain) - read from where it is at every start")
@@ -3211,6 +3224,12 @@ def main(argv=None) -> int:
                     if n.get(k):
                         print(f"    {k}: {n[k]}")
         return 0
+    elif a.cmd == "launch":
+        from .launcher import main as _launch
+        return _launch(a)
+    elif a.cmd == "tray":
+        from .tray import main as _tray
+        return _tray(a)
     elif a.cmd == "serve":
         from .service import Service
         from .workspace import WorkspaceError

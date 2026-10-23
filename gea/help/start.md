@@ -10,4 +10,4 @@
 
 **What this page will not call a measurement**: nothing the program computes is a gauge measurement. It reports the data it was given, the rules it applied and the numbers those rules produced, with the rule printed beside each number. The gauge aging band is a model band with no field validation on record, and every report that uses it says so.
 
-Related: `gea help site`, `gea help data-in`, `gea guide` (the click-by-click tester guide), `gea doctor`.
+Related: `gea help install` (the Windows setup), `gea help site`, `gea help data-in`, `gea guide` (the click-by-click tester guide), `gea doctor`.

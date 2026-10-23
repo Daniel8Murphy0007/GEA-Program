@@ -12768,7 +12768,7 @@ def section_cz_it_review(tmp: str) -> None:
             not_kit = "accepted"
         except SystemExit as e:
             not_kit = str(e)
-        readme = bi.README.format(version="9.9.9", target="Windows x64", pyline="p", install="i", start="s", verify="v", port="8765",
+        readme = bi.README.format(desktop=bi.WIN_DESKTOP.format(version="9.9.9"), version="9.9.9", target="Windows x64", pyline="p", install="i", start="s", verify="v", port="8765",
                                   service="sv", stop="st", uninstall="u", workspace="w", check=bi.WIN_CHECK.format(version="9.9.9"))
         build_src = (pkg.parent / "tools" / "build_installer.py").read_text(encoding="utf-8")
         c2 = {
@@ -14219,6 +14219,336 @@ def PR_read_ok(path) -> bool:
         return False
 
 
+def _iss_sections(text: str) -> dict:
+    """An Inno Setup script by section: {name: [lines]}, comments and blank lines left out; [Code] kept whole."""
+    out, cur = {}, None
+    for ln in text.splitlines():
+        st = ln.strip()
+        if st.startswith("[") and st.endswith("]") and (cur != "Code" or st == "[Code]"):
+            cur = st[1:-1]; out.setdefault(cur, []); continue
+        if cur is None or (cur != "Code" and (not st or st.startswith(";"))):
+            continue
+        out[cur].append(ln)
+    return out
+
+
+def _iss_entry(line: str) -> dict:
+    """`Name: "x"; Flags: a b` -> {'Name': 'x', 'Flags': 'a b'} - split on ';' outside double quotes, "" kept as "."""
+    parts, buf, q = [], "", False
+    for ch in line:
+        if ch == '"':
+            q = not q
+        if ch == ";" and not q:
+            parts.append(buf); buf = ""
+        else:
+            buf += ch
+    parts.append(buf)
+    out = {}
+    for p in parts:
+        if not p.strip():
+            continue
+        k, _, v = p.partition(":")
+        v = v.strip()
+        if v.startswith('"') and v.endswith('"') and len(v) >= 2:
+            v = v[1:-1].replace('""', '"')
+        out[k.strip()] = v
+    return out
+
+
+def section_dh_windows_installer(tmp: str) -> None:
+    """Section DH - the Windows installer: the icon drawn in code and read back as an .ico; the launcher's choices (the
+    kit, the workspace, the window, the command) and the workspace it records, never inside the program's folder; the
+    notification-area icon's menu and notices; the kit's scripts (a stop that needs no wmic and stops the restart loop
+    first, a logon start that returns); the Inno Setup script (per-user, nothing deleted outside the program's folder,
+    the control panel stopped before an upgrade and an uninstall, a failed install says so) and the workflow that
+    builds, signs, installs, upgrades and uninstalls it; the command line and the help."""
+    import importlib.util
+    import re as _re
+    import socket as _socket
+    import struct as _struct
+    import zlib as _zlib
+    from . import helplib as H
+    from . import icon as IC
+    from . import launcher as L
+    from . import tray as TR
+    from .doctor import kit_dir as _doctor_kit
+    pkg = Path(__file__).parent
+    d = Path(tmp, "windows_installer"); d.mkdir()
+    checkout = (pkg.parent / "pyproject.toml").exists() and (pkg.parent / "tools" / "installer.iss").exists()
+
+    # -- DH1 the icon ---------------------------------------------------------------------------------------------------------------
+    ico = IC.ico_bytes()
+    imgs = IC.read_ico(ico)
+    p256 = IC.png(256)
+    w, h = _struct.unpack(">II", p256[16:24])
+    idat_at = p256.index(b"IDAT")
+    raw = _zlib.decompress(p256[idat_at + 4:idat_at + 4 + _struct.unpack(">I", p256[idat_at - 4:idat_at])[0]])
+    run16, stop16 = IC.draw(16, True), IC.draw(16, False)
+    dib32 = IC.dib(32)
+    c1 = {
+        "sizes": [(x[0], x[3]) for x in imgs] == [(16, "dib"), (20, "dib"), (24, "dib"), (32, "dib"), (40, "dib"), (48, "dib"), (64, "dib"), (256, "png")],
+        "png": (w, h) == (256, 256) and len(raw) == 256 * (1 + 256 * 4),
+        "dib": len(dib32) == 40 + 32 * 32 * 4 + 4 * 32 and _struct.unpack("<IiiHH", dib32[:16]) == (40, 32, 64, 1, 32),
+        "shape": run16[0][0][3] == 0 and run16[8][3][3] == 255 and stop16[8][3][3] == 255,
+        "states": run16[12][3][:3] != stop16[12][3][:3] and run16[12][3][2] > run16[12][3][0] and abs(stop16[12][3][0] - stop16[12][3][2]) < 20,
+        "same_in_kit": True,
+    }
+    if checkout:
+        spec = importlib.util.spec_from_file_location("dh_installer", str(pkg.parent / "tools" / "build_installer.py"))
+        bi = importlib.util.module_from_spec(spec); spec.loader.exec_module(bi)
+        c1["same_in_kit"] = bi.icon_module().ico_bytes() == ico and "(kit / 'gea.ico').write_bytes(icon_module().ico_bytes())" in (pkg.parent / "tools" / "build_installer.py").read_text(encoding="utf-8")
+    else:
+        kd = _doctor_kit()
+        if kd and os.path.isfile(os.path.join(kd, "gea.ico")):
+            c1["same_in_kit"] = open(os.path.join(kd, "gea.ico"), "rb").read() == ico
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "DH1 the program's icon is drawn in code - a derrick and its crown block on a rounded square, teal while the control panel runs, grey "
+       "while it does not - and read back as an .ico of eight sizes (16 to 64 px as 32-bit images with their masks, 256 px as a PNG); the kit "
+       "carries the same icon for the installer and its shortcuts" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- DH2 the launcher -----------------------------------------------------------------------------------------------------------
+    kit = d / "Programs" / "GEA-Program"; (kit / "python").mkdir(parents=True)
+    (kit / "start-dashboard.cmd").write_text("@echo off\n", encoding="utf-8")
+    for n in ("python.exe", "pythonw.exe"):
+        (kit / "python" / n).write_bytes(b"MZ stand-in")
+    env0 = {"LOCALAPPDATA": str(d / "LocalAppData")}
+    ws_u = str(d / "Säntis site")
+    refused = {}
+    for why, path in (("inside", str(kit / "site")), ("contains", str(d / "Programs")), ("relative", "site"), ("root", os.path.abspath(os.sep)), ("empty", "")):
+        try:
+            L.set_workspace(kit, path); refused[why] = "accepted"
+        except L.LaunchError as e:
+            refused[why] = str(e)
+    w_default = L.resolve_workspace(None, env0, kit)
+    rec = L.set_workspace(kit, ws_u + os.sep)
+    raw_rec = (kit / L.WORKSPACE_FILE).read_bytes()
+    w_file = L.resolve_workspace(None, env0, kit)
+    w_env = L.resolve_workspace(None, dict(env0, GEA_WORKSPACE=str(d / "env site")), kit)
+    w_arg = L.resolve_workspace(str(d / "arg site"), dict(env0, GEA_WORKSPACE=str(d / "env site")), kit)
+    pf86 = r"C:\Program Files (x86)"
+    edge_known = os.path.join(pf86, r"Microsoft\Edge\Application", "msedge.exe")
+    reg = {"msedge.exe": r"C:\Edge\msedge.exe", "chrome.exe": r"C:\Chrome\chrome.exe"}
+    b_edge = L.find_app_browser(registry=reg.get, exists=lambda p: True, env={}, windows=True)
+    b_chrome = L.find_app_browser(registry=lambda e: reg["chrome.exe"] if e == "chrome.exe" else None, exists=lambda p: p == reg["chrome.exe"], env={}, windows=True)
+    b_known = L.find_app_browser(registry=lambda e: None, exists=lambda p: p == edge_known, env={"ProgramFiles(x86)": pf86}, windows=True)
+    b_none = L.find_app_browser(registry=lambda e: None, exists=lambda p: False, env={"ProgramFiles(x86)": pf86}, windows=True)
+    b_unix = L.find_app_browser(which=lambda e: "/usr/bin/chromium" if e == "chromium" else None, windows=False)
+    calls = []
+    def fake_popen(args, **kw):
+        calls.append(args); return None
+    def bad_popen(args, **kw):
+        raise OSError("not here")
+    opened = []
+    how_app = L.open_window("https://localhost:8765/", browser=("Microsoft Edge", r"C:\Edge\msedge.exe"), popen=fake_popen)
+    how_web = L.open_window("http://127.0.0.1:8765/", popen=fake_popen, web_open=lambda u, new=1: opened.append(u) or True, find=lambda: None)
+    how_fallback = L.open_window("http://127.0.0.1:8765/", browser=("Microsoft Edge", "x"), popen=bad_popen, web_open=lambda u, new=1: True)
+    wsr = d / "running site"; (wsr / "records").mkdir(parents=True)
+    (wsr / "records" / "runlog.jsonl").write_text(json.dumps({"utc": "2026-10-01T00:00:00Z", "event": "start", "pid": 1, "url": "http://127.0.0.1:8765/"}) + "\n"
+                                                    + json.dumps({"utc": "2026-10-02T00:00:00Z", "event": "start", "pid": 2, "url": "https://localhost:8765/"}) + "\n"
+                                                    + json.dumps({"utc": "2026-10-02T00:00:01Z", "event": "stop", "pid": 2}) + "\n", encoding="utf-8")
+    srv = _socket.socket(); srv.bind(("127.0.0.1", 0)); srv.listen(64); port = srv.getsockname()[1]
+    up = L.port_open(port)
+    started, windows_opened = [], []
+    saved = (L.start_service, L.start_tray, L.open_window)
+    try:
+        L.start_service = lambda k, ws, p, popen=None: started.append((k, ws, p)) or ["start"]
+        L.start_tray = lambda ws, p, popen=None: None
+        L.open_window = lambda url, **kw: windows_opened.append(url) or "app window"
+        rc_running = L.launch(str(wsr), port)
+        n_after_running = len(started)
+        srv.close()
+        down = not L.port_open(port)
+        rc_bg = L.launch(str(wsr), port, background=True)
+    finally:
+        L.start_service, L.start_tray, L.open_window = saved
+        try:
+            srv.close()
+        except OSError:
+            pass
+    sc_kit = L.service_command(kit, ws_u, 8765)
+    sc_pip = L.service_command(None, ws_u, 8766, executable=str(kit / "python" / "pythonw.exe"))
+    c2 = {
+        "kit": L.kit_dir(str(kit / "python" / "pythonw.exe")) == kit.resolve() and L.kit_dir(str(d / "elsewhere" / "python.exe")) is None,
+        "default": w_default == (os.path.join(str(d / "LocalAppData"), "GEA-Program", "site"), "the default"),
+        "recorded": rec == ws_u and raw_rec == ws_u.encode("utf-8") and w_file[0] == ws_u and "site-workspace.txt" in w_file[1],
+        "order": w_env == (str(d / "env site"), "GEA_WORKSPACE") and w_arg == (os.path.abspath(str(d / "arg site")), "--workspace"),
+        "refused": all(v != "accepted" for v in refused.values()) and "inside the program's own folder" in refused["inside"]
+                   and "is inside" in refused["contains"] and "not a full path" in refused["relative"] and "root of a drive" in refused["root"],
+        "browsers": b_edge == ("Microsoft Edge", reg["msedge.exe"]) and b_chrome == ("Google Chrome", reg["chrome.exe"])
+                    and b_known == ("Microsoft Edge", edge_known) and b_none is None and b_unix == ("Chromium", "/usr/bin/chromium"),
+        "app_window": how_app == "app window (Microsoft Edge)" and calls[0] == [r"C:\Edge\msedge.exe", "--app=https://localhost:8765/", "--window-size=1440,960"]
+                      and how_web == "the default browser" and opened == ["http://127.0.0.1:8765/"] and how_fallback == "the default browser",
+        "url": L.dashboard_url(str(wsr), 8765) == "https://localhost:8765/" and L.dashboard_url(str(wsr), 8770) == "http://127.0.0.1:8770/"
+               and L.dashboard_url(str(wsr), 8765, since_utc="2026-10-03T00:00:00Z") == "http://127.0.0.1:8765/",
+        "commands": sc_kit[1:] == ["/c", str(kit / "start-dashboard.cmd"), "--no-browser"]
+                    and sc_pip == [str(kit / "python" / "python.exe"), "-m", "gea", "serve", "--workspace", ws_u, "--port", "8766", "--no-browser"]
+                    and L.tray_command(ws_u, 8765, executable=str(kit / "python" / "python.exe"))[0] == str(kit / "python" / "pythonw.exe"),
+        "launch": up and rc_running == 0 and n_after_running == 0 and windows_opened == [L.dashboard_url(str(wsr), port)] and down
+                  and rc_bg == 0 and started == [(None if L.kit_dir() is None else L.kit_dir(), str(wsr), port)] and len(windows_opened) == 1,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "DH2 the launcher: the kit found from its own Python; the workspace from --workspace, else GEA_WORKSPACE, else the installer's choice "
+       "(recorded as UTF-8, a name with an accent whole), else %LOCALAPPDATA%\\GEA-Program\\site - and a folder inside the program's own, one "
+       "holding it, a relative path or a drive's root not taken; Edge's app window (from App Paths or where Edge installs), else Chrome's, else the "
+       "default browser; the address the running service wrote in its run log; a control panel already answering is opened, not started "
+       "again, and a stopped one is started in the kit's own window" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- DH3 the icon in the notification area ----------------------------------------------------------------------------------------
+    m_run, m_stop, m_nokit = TR.menu_items(True, str(kit)), TR.menu_items(False, str(kit)), TR.menu_items(True, None)
+    ids = lambda m: [x[0] for x in m if x]
+    tip = TR.tooltip(True, 8765, "C:\\" + "very long site name " * 10)
+    st_ok, st_lines = TR.selftest(str(wsr), 8765, str(kit), show=False)
+    c3 = {
+        "menu_running": ids(m_run) == [TR.CMD_STATUS, TR.CMD_OPEN, TR.CMD_STOP, TR.CMD_FOLDER, TR.CMD_HELP, TR.CMD_CLOSE] and m_run[0][2] is False
+                        and all(x[2] for x in m_run[2:] if x) and "keeps running" in m_run[-1][1],
+        "menu_stopped": ids(m_stop) == [TR.CMD_STATUS, TR.CMD_OPEN, TR.CMD_START, TR.CMD_FOLDER, TR.CMD_HELP, TR.CMD_CLOSE] and "Start and open" in m_stop[2][1],
+        "no_kit_no_stop": [x for x in m_nokit if x and x[0] == TR.CMD_STOP][0][2] is False,
+        "tooltip": len(tip) <= TR.TIP_MAX and "running (port 8765)" in tip,
+        "notices": TR.notice(None, True, False) is None and TR.notice(True, True, False) is None and TR.notice(True, False, True) is None
+                   and TR.notice(True, False, False)[2] is True and "stopped" in TR.notice(True, False, False)[1] and TR.notice(False, True, False)[2] is False,
+        "help": TR.help_url("https://localhost:8765/") == "https://localhost:8765/#/help/install" and "install" in [t[0] for t in H.INDEX],
+        "selftest": st_ok and any(x.startswith("icon: 2 images") for x in st_lines) and (L.is_windows() or any("Windows'" in x for x in st_lines))
+                    and (not L.is_windows() or any(x.startswith("window: made") for x in st_lines)),
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "DH3 the notification-area icon: its menu as the control panel stands (open, or start and open; stop - greyed where there is no kit to "
+       "stop it with - or start without a window; the workspace folder, help, close), a tooltip inside Windows' 127 characters, a notification "
+       "when the panel stops without being asked to from the icon and none when it was; on Windows the window, both icon images and the menu "
+       "made for real" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+    # -- DH4 the kit's scripts ----------------------------------------------------------------------------------------------------------
+    scripts = {}
+    if checkout:
+        scripts = dict(bi.WIN_SCRIPTS); where4 = "the checkout's templates"
+    else:
+        kd = _doctor_kit(); where4 = f"the installed kit at {kd}"
+        for n in ("start-dashboard.cmd", "stop-dashboard.cmd", "register-service.cmd", "open-dashboard.cmd", "uninstall.cmd"):
+            if kd and os.path.isfile(os.path.join(kd, n)):
+                scripts[n] = open(os.path.join(kd, n), encoding="utf-8", errors="replace").read()
+    if scripts.get("stop-dashboard.cmd"):
+        stop, start = scripts["stop-dashboard.cmd"], scripts.get("start-dashboard.cmd", "")
+        reg_, opn, unin = scripts.get("register-service.cmd", ""), scripts.get("open-dashboard.cmd", ""), scripts.get("uninstall.cmd", "")
+        ps = [ln for ln in stop.splitlines() if ln.lower().startswith("powershell")]
+        c4 = {
+            "no_wmic": "wmic " not in "\n".join(ln for ln in stop.splitlines() if not ln.strip().lower().startswith("rem ")).lower()
+                       and len(ps) == 1 and "Get-CimInstance Win32_Process" in ps[0] and "%" not in ps[0] and '"' not in ps[0].split('-Command "', 1)[1][:-1],
+            "loop_first": ps and ps[0].index("start-dashboard.cmd") < ps[0].index("' gea serve'") and "ParentProcessId" in ps[0] and "taskkill.exe /pid $p.ProcessId /t /f" in ps[0],
+            "own_kit": ps and "ExecutablePath.StartsWith($k, $ic)" in ps[0] and 'set "GEA_KIT=%~dp0"' in stop,
+            "all": 'if /i "%~1"=="--all" set "GEA_ALL=1"' in stop and ps and "' gea (tray|launch)'" in ps[0],
+            "workspace_file": "if not \"%GEA_WORKSPACE%\"==\"\" goto gea_ws_done" in start and 'set /p GEA_WORKSPACE=<"%~dp0site-workspace.txt"' in start
+                              and "chcp 65001" in start and start.index("gea_ws_done") < start.index("--action init"),
+            "logon_returns": "python\\pythonw.exe\\\" -m gea launch --background" in reg_ and "start-dashboard.cmd" not in reg_.split("schtasks /create", 1)[1].splitlines()[0],
+            "open": "python\\pythonw.exe\" -m gea launch" in opn,
+            "uninstall_stops": unin.index('stop-dashboard.cmd" --all') < unin.index("rmdir /s /q") if 'stop-dashboard.cmd" --all' in unin and "rmdir" in unin else False,
+        }
+    else:
+        c4 = {"no_kit": True}; where4 = "a pip-installed copy: the kit's scripts are checked in the checkout and in the kit"
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       f"DH4 ({where4}) the kit's scripts: stop-dashboard finds the processes with PowerShell's Get-CimInstance (Windows 11 24H2 has no wmic, "
+       "and the stop before v0.65 found nothing there), stops the window running start-dashboard first so its restart loop cannot start the "
+       "panel again, then this kit's own gea serve, and with --all its icon; start-dashboard reads the installer's workspace; the logon task "
+       "runs the launcher, which returns (a task running start-dashboard itself met Task Scheduler's three-day limit); uninstall stops "
+       "everything first" + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+    # -- DH5 the Inno Setup script and the workflow -------------------------------------------------------------------------------------
+    if checkout:
+        iss = (pkg.parent / "tools" / "installer.iss").read_text(encoding="utf-8")
+        sec = _iss_sections(iss)
+        setup = dict(ln.strip().split("=", 1) for ln in sec.get("Setup", []))
+        known = {"Tasks": {"Name", "Description", "GroupDescription", "Flags"},
+                 "InstallDelete": {"Type", "Name"}, "UninstallDelete": {"Type", "Name"},
+                 "Files": {"Source", "DestDir", "Flags"},
+                 "Icons": {"Name", "Filename", "Parameters", "WorkingDir", "IconFilename", "Comment", "Tasks"},
+                 "Run": {"Filename", "Parameters", "WorkingDir", "Description", "Flags"},
+                 "UninstallRun": {"Filename", "Parameters", "WorkingDir", "Flags", "RunOnceId"}}
+        entries = {s: [_iss_entry(ln) for ln in sec.get(s, [])] for s in known}
+        bad_keys = [(s, k) for s, es in entries.items() for e in es for k in e if k not in known[s]]
+        code = "\n".join(sec.get("Code", []))
+        code_nc = _re.sub(r"'[^']*'", "''", _re.sub(r"\{[^}]*\}", "", code))
+        n_begin, n_end = len(_re.findall(r"\bbegin\b", code_nc, _re.I)), len(_re.findall(r"\bend\b", code_nc, _re.I))
+        defined = set(_re.findall(r"^\s*function\s+(\w+)", code, _re.M | _re.I))
+        used_code = set(_re.findall(r"\{code:(\w+)", iss))
+        deletes = [e["Name"] for s in ("InstallDelete", "UninstallDelete") for e in entries[s]]
+        icons = {e["Name"]: e for e in entries["Icons"]}
+        wf = (pkg.parent / ".github" / "workflows" / "build-installer.yml").read_text(encoding="utf-8")
+        win = wf[wf.index("windows-kit:"):wf.index("linux-kit:")]
+        guid = setup.get("AppId", "").strip("{}")
+        order = [win.index(s) for s in ("Attach the kit to the release", "ISCC", "files: ${{ env.SETUP }}", "/d \"GEA-Program setup\" $env:SETUP",
+                                        "Get-AuthenticodeSignature $env:SETUP", "/VERYSILENT", "subject-path: dist/GEA-Program-Setup-*.exe",
+                                        'attach-kit.sh "${{ inputs.release_tag }}" "dist/GEA-Program-Setup-*.exe"')]
+        c5 = {
+            "per_user": setup.get("PrivilegesRequired") == "lowest" and setup.get("DefaultDirName") == "{userpf}\\GEA-Program" and "PrivilegesRequiredOverridesAllowed" not in setup
+                        and not _re.search(r"\{(pf|pf32|pf64|commonpf|commonprograms|commondesktop|commonstartup|sys|win)\}|HKLM|HKEY_LOCAL_MACHINE|\[Registry\]", iss),
+            "identity": _re.fullmatch(r"\{\{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\}", setup.get("AppId", "")) is not None
+                        and guid.strip("{") in win and setup.get("AppVersion") == "{#AppVersion}" and setup.get("OutputBaseFilename") == "GEA-Program-Setup-{#AppVersion}"
+                        and setup.get("UsePreviousAppDir") == "yes" and setup.get("ArchitecturesInstallIn64BitMode") == "x64compatible",
+            "parsed": not bad_keys and all(e.get("Name") or e.get("Filename") or e.get("Source") for es in entries.values() for e in es)
+                      and n_begin == n_end and used_code <= defined and {"NextButtonClick", "PrepareToInstall", "GetCustomSetupExitCode", "UpdateReadyMemo"} <= defined,
+            "deletes_inside": bool(deletes) and all(n.startswith("{app}\\") or (n == "{app}" and e["Type"] == "dirifempty") for s in ("InstallDelete", "UninstallDelete")
+                                                    for e in entries[s] for n in [e["Name"]]) and "{code:" not in " ".join(deletes),
+            "workspace_page": "CreateInputDirPage(wpSelectDir" in code and "{param:WORKSPACE|}" in code and "GetPreviousData('Workspace'" in code
+                              and "SetPreviousData(PreviousDataKey, 'Workspace'" in code and "IsInside(Ws, App)" in code and "IsInside(App, Ws)" in code
+                              and code.count("WorkspaceProblem(") == 3,
+            "stops_first": "stop-dashboard.cmd" in code.split("function PrepareToInstall", 1)[1].split("end;\n\nprocedure", 1)[0] and '--all"' in code
+                           and any("stop-dashboard.cmd" in e.get("Parameters", "") and "--all" in e.get("Parameters", "") and "runhidden" in e.get("Flags", "") for e in entries["UninstallRun"]),
+            "installs": "install.cmd" in code and "InstallFailed := True" in code and "if InstallFailed then Result := 8" in code
+                        and "-m gea launch --set-workspace" in code and "ssPostInstall" in code,
+            "shortcuts": icons.get("{autoprograms}\\GEA-Program\\GEA-Program", {}).get("Parameters") == "-m gea launch"
+                         and icons["{autoprograms}\\GEA-Program\\GEA-Program"]["Filename"] == "{app}\\python\\pythonw.exe"
+                         and icons.get("{userstartup}\\GEA-Program", {}).get("Parameters") == "-m gea launch --background"
+                         and icons["{userstartup}\\GEA-Program"].get("Tasks") == "startlogon" and icons.get("{autodesktop}\\GEA-Program", {}).get("Tasks") == "desktopicon"
+                         and any(e.get("Filename") == "{uninstallexe}" for e in entries["Icons"])
+                         and [e["Name"] for e in entries["Tasks"]] == ["desktopicon", "startlogon"] and "unchecked" in entries["Tasks"][1].get("Flags", ""),
+            "upgrade_clean": [e["Name"] for e in entries["InstallDelete"]][:2] == ["{app}\\python", "{app}\\wheels"],
+            "workflow_order": order == sorted(order) and "if: env.ARTIFACT_SIGNING_ACCOUNT != ''" in win.split("ISCC", 1)[1]
+                              and "INSTALLED.txt')) { throw 'the installer source is not the clean kit'" in win,
+            "workflow_test": all(x in win for x in ("InstallOnce 'install'", "InstallOnce 'upgrade'", "the upgrade did not stop the running control panel first",
+                                                    "unins000.exe", "the site workspace was touched by the uninstall", "ci-marker.txt",
+                                                    "gea launch --selftest", "gea tray --selftest", "the Add/Remove Programs entry is still there",
+                                                    "ships unsigned")),
+        }
+        where5 = "the checkout's installer script and workflow"
+    else:
+        c5 = {"installed": True}; where5 = "an installed copy: the installer script is checked in the checkout"
+    failed5 = [k for k, v in c5.items() if not v]
+    ok(not failed5,
+       f"DH5 ({where5}) the installer installs for the signed-in user alone (no elevation, the user's own program folder, nothing in the "
+       "machine's folders or registry), under one identity in every version; every entry reads as Inno Setup's; what it deletes is inside the "
+       "program's folder and never the workspace, which it asks for, remembers, and never takes inside the program's folder; it stops the control "
+       "panel and its icon before an upgrade and an uninstall, says when install.cmd failed (exit code 8), and its shortcuts open the app "
+       "window; the workflow builds it from the clean kit after the kit is attached, signs it only with a configured certificate, installs, "
+       "upgrades and uninstalls it silently with the panel running, then attests and attaches it" + (f" [failed: {', '.join(failed5)}]" if failed5 else ""))
+
+    # -- DH6 the command line and the help ----------------------------------------------------------------------------------------------
+    env_ws = dict(os.environ, GEA_WORKSPACE=str(wsr))
+    pkg_root = str(Path(__file__).resolve().parent.parent)
+    env_ws["PYTHONPATH"] = pkg_root + os.pathsep + env_ws.get("PYTHONPATH", "")
+    r1 = subprocess.run([sys.executable, "-m", "gea", "launch", "--selftest", "--port", "1"], capture_output=True, text=True, cwd=tmp, env=env_ws)
+    r2 = subprocess.run([sys.executable, "-m", "gea", "launch", "--help"], capture_output=True, text=True, cwd=tmp, env=env_ws)
+    r3 = subprocess.run([sys.executable, "-m", "gea", "tray", "--help"], capture_output=True, text=True, cwd=tmp, env=env_ws)
+    page = H.page("install") or ""
+    sec_txt = H.security_text()
+    c6 = {
+        "selftest": r1.returncode == 0 and f"workspace:  {wsr}  (from GEA_WORKSPACE" in r1.stdout and "nothing is listening: it would be started" in r1.stdout
+                    and "start:" in r1.stdout and "window:" in r1.stdout,
+        "help_cli": r2.returncode == 0 and "--background" in r2.stdout and "--set-workspace" in r2.stdout and r3.returncode == 0 and "--selftest" in r3.stdout,
+        "page": all(x in page for x in ("**The command**", "**What it writes**", "**The number to check**", "**What this page will not call a measurement**",
+                                        "/VERYSILENT", "msedge --app=", "notification area", "never delete", "Startup folder", "gh attestation verify GEA-Program-Setup"))
+                and ("never move it and never delete it" in page),
+        "security": "PrivilegesRequired=lowest" in sec_txt and "Shell_NotifyIconW" in sec_txt and "unins000.exe" in sec_txt,
+    }
+    failed6 = [k for k, v in c6.items() if not v]
+    ok(not failed6,
+       "DH6 `gea launch --selftest` says what a launch would do here (the kit, the workspace and where it came from, whether the control panel "
+       "answers, the window, the command) and starts nothing; `gea launch` and `gea tray` answer --help; the help page Install on Windows and "
+       "the IT overview say what the setup installs, where, what it never touches and how its signature and provenance are checked"
+       + (f" [failed: {', '.join(failed6)}]" if failed6 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -14333,6 +14663,7 @@ def main() -> int:
         section_de_real_gas(tmp)
         section_df_trusted_timestamp(tmp)
         section_dg_casing_program(tmp)
+        section_dh_windows_installer(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

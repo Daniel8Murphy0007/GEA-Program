@@ -5,6 +5,64 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.65.0] - 2026-10-23 - The Windows installer
+
+### Added
+- **GEA-Program-Setup-0.65.0.exe** on the release: the Windows kit
+  installed like any Windows program, built by Inno Setup 6 from
+  `tools/installer.iss` in the kit's own workflow. For the signed-in user
+  alone, with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`);
+  it asks for the site workspace (an existing one such as `C:\site` is
+  used as it is; a folder inside the program's own is refused), runs the
+  kit's `install.cmd` (no network), and adds Start-menu shortcuts
+  (GEA-Program, Stop, Verify, the workspace folder, Read me, Uninstall), a
+  desktop shortcut, an Add/Remove Programs entry and, when chosen, a start
+  at sign-in (a shortcut in the Startup folder). A newer setup installs
+  over the older one in place after stopping the control panel; the
+  uninstaller stops it and its icon, removes the program and what
+  `install.cmd` added, and leaves the workspace. A failed `install.cmd`
+  is reported (exit code 8 when silent). Silent: `/VERYSILENT
+  /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /TASKS="desktopicon"`.
+- **Signed when the certificate exists**: the setup is Authenticode-signed
+  and timestamped by Azure Artifact Signing or a PFX with the secrets the
+  catalog already uses; unsigned with a notice until then. Attested like
+  the kits.
+- **Tested before it is attached**: the workflow installs the setup
+  silently, starts the control panel, upgrades it in place while the panel
+  runs (and checks the upgrade stopped it), starts it again, uninstalls it
+  while it runs, and checks the program gone, the Add/Remove entry gone and
+  the workspace untouched.
+- **A window of its own** (`gea launch`, `open-dashboard.cmd`, the
+  shortcuts): starts the control panel when it is not running (the kit's
+  `start-dashboard.cmd`, minimised) and opens it in Microsoft Edge's app
+  window (`msedge --app=`), else Chrome's, else the default browser, at
+  the address the running service wrote in its run log (https:// once
+  HTTPS is on). `--background` starts it without a window; `--selftest`
+  says what it would do.
+- **The icon in the notification area** (`gea tray`, standard library
+  ctypes): teal while the control panel runs, grey while it does not, a
+  notification when it stops without being asked to; its menu opens,
+  starts or stops it, opens the workspace folder and the help. One per
+  port; put back when Explorer restarts. The icon is drawn in code
+  (`gea/icon.py`), and the kit carries it as `gea.ico`.
+- Help page **Install on Windows** (`gea help install`); IT_SECURITY.md
+  says what the setup writes and where.
+- Acceptance section DH (6 checks).
+
+### Fixed
+- **`stop-dashboard.cmd` stopped nothing on Windows 11 24H2**, which no
+  longer has `wmic`. It now finds the processes with PowerShell's
+  Get-CimInstance and stops the window running `start-dashboard.cmd`
+  first, so its restart loop (auto-restart on) cannot start the panel
+  again; `--all` also stops the icon.
+- **The logon task stopped the dashboard after three days**:
+  `register-service.cmd`'s task ran `start-dashboard.cmd` itself, which
+  Task Scheduler's default limit (72 hours) ends. The task now runs the
+  launcher, which starts the panel in a window of its own and returns.
+- `start-dashboard.cmd` reads the workspace the installer recorded
+  (`site-workspace.txt`, UTF-8) when GEA_WORKSPACE is not set;
+  `uninstall.cmd` stops everything before it removes the kit.
+
 ## [v0.64.0] - 2026-10-22 - One casing program
 
 ### Changed

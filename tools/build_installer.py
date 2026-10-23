@@ -21,9 +21,15 @@ What the Windows kit contains (dist/gea-program-<version>-win64/):
     start-dashboard.cmd  creates the site workspace if it is missing, starts the service, opens the browser
     stop-dashboard.cmd   stops the service started by start-dashboard
     register-service.cmd / unregister-service.cmd   a per-user scheduled task that starts the dashboard at logon
+    open-dashboard.cmd   the control panel in a window of its own (Edge's app window), started first when it is not running,
+                         and its icon in the notification area (gea launch, gea tray)
     verify.cmd           runs the acceptance gate from the installed kit (the client's own SAT evidence)
+    gea.ico              the program's icon (gea/icon.py), for the installer and its shortcuts
     uninstall.cmd        removes the kit's own files; the workspace (the client's data) is never touched
     README.txt, MANIFEST.json, SHA256SUMS.txt
+
+The build workflow also makes GEA-Program-Setup-<version>.exe from the same kit folder: tools/installer.iss
+(Inno Setup 6), a per-user installer with shortcuts, an Add/Remove Programs entry and in-place upgrades.
 
 The build runs here, with internet, in the repository (it builds the wheel
 from the checkout, so what ships is what the gate passed). The kit runs
@@ -178,7 +184,17 @@ endlocal
 title GEA - Operations Control Panel
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
+rem the workspace: GEA_WORKSPACE when it is set (the launcher sets it), else the folder the installer recorded in
+rem site-workspace.txt (UTF-8, read under code page 65001 so a folder name with accents arrives whole), else the default
+if not "%GEA_WORKSPACE%"=="" goto gea_ws_done
+if not exist "%~dp0site-workspace.txt" goto gea_ws_default
+for /f "tokens=2 delims=:." %%c in ('chcp') do set "GEA_CP=%%c"
+chcp 65001 >nul
+set /p GEA_WORKSPACE=<"%~dp0site-workspace.txt"
+chcp %GEA_CP% >nul
+:gea_ws_default
 if "%GEA_WORKSPACE%"=="" set GEA_WORKSPACE=%LOCALAPPDATA%\GEA-Program\site
+:gea_ws_done
 if "%GEA_PORT%"=="" set GEA_PORT=8765
 if not exist "%GEA_WORKSPACE%\workspace.json" (
   echo == creating the site workspace at %GEA_WORKSPACE%
@@ -242,23 +258,38 @@ endlocal & set GEA_RC=%GEA_RC%
 powershell.exe -NoLogo -NoExit -Command "Set-Location -LiteralPath '%~dp0'; Write-Host ''; Write-Host 'GEA - Operations Control Panel: stopped (exit %GEA_RC%).' -ForegroundColor Cyan; Write-Host 'Start it again:  .\start-dashboard.cmd' -ForegroundColor Cyan; Write-Host 'Run log:         %GEA_WORKSPACE%\records\runlog.jsonl' -ForegroundColor DarkGray; Write-Host ''"
 ''',
 'stop-dashboard.cmd': r'''@echo off
-echo == stopping any GEA-Program service started from this kit
-for /f "tokens=2" %%p in ('tasklist /fi "imagename eq python.exe" /fo list ^| findstr /i "PID"') do (
-  wmic process where "ProcessId=%%p" get CommandLine 2>nul | findstr /i "gea serve" >nul && taskkill /pid %%p /f >nul 2>&1 && echo    stopped pid %%p
-)
+rem Stops the control panel started from this kit: the window running start-dashboard.cmd first, so its restart
+rem loop cannot start the panel again, then any "gea serve" this kit's Python still runs. With --all also the
+rem notification-area icon (the installer stops everything before an upgrade and before it uninstalls).
+rem PowerShell's Get-CimInstance, not wmic: Windows 11 24H2 no longer has wmic, and the stop of v0.64 and
+rem before found nothing to stop there.
+setlocal
+set "GEA_KIT=%~dp0"
+set "GEA_ALL=0"
+if /i "%~1"=="--all" set "GEA_ALL=1"
+echo == stopping the GEA-Program control panel started from this kit
+powershell.exe -NoLogo -NoProfile -NonInteractive -Command "$k = $env:GEA_KIT; $all = $env:GEA_ALL -eq '1'; $ic = [StringComparison]::OrdinalIgnoreCase; $ps = @(Get-CimInstance Win32_Process); $mine = @($ps | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($k, $ic) -and $_.Name -like 'python*.exe' }); $kill = @($ps | Where-Object { $_.Name -eq 'cmd.exe' -and ([string]$_.CommandLine).IndexOf($k + 'start-dashboard.cmd', $ic) -ge 0 }); foreach ($s in @($mine | Where-Object { [string]$_.CommandLine -match ' gea serve' })) { $kill += @($ps | Where-Object { $_.ProcessId -eq $s.ParentProcessId -and $_.Name -eq 'cmd.exe' -and ([string]$_.CommandLine) -like '*start-dashboard.cmd*' }); $kill += $s }; if ($all) { $kill += @($mine | Where-Object { [string]$_.CommandLine -match ' gea (tray|launch)' }) }; $done = @{}; foreach ($p in $kill) { if (-not $done.ContainsKey($p.ProcessId)) { $done[$p.ProcessId] = 1; & taskkill.exe /pid $p.ProcessId /t /f 2>&1 | Out-Null; Write-Host ('   stopped pid ' + $p.ProcessId + ' (' + $p.Name + ')') } }"
 echo done
+endlocal
 ''',
 'register-service.cmd': r'''@echo off
 setlocal
 cd /d "%~dp0"
 echo == registering a per-user scheduled task "GEA-Program Dashboard" that starts the dashboard at logon
-schtasks /create /tn "GEA-Program Dashboard" /tr "\"%~dp0start-dashboard.cmd\" --no-browser" /sc onlogon /rl limited /f
+rem the task runs the launcher, which starts the control panel in a window of its own and returns: a task that ran
+rem start-dashboard.cmd itself was still "running" after three days and Task Scheduler's default limit stopped it
+schtasks /create /tn "GEA-Program Dashboard" /tr "\"%~dp0python\pythonw.exe\" -m gea launch --background" /sc onlogon /rl limited /f
 if errorlevel 1 ( echo could not register the task & exit /b 1 )
 echo    registered. It starts at your next logon; to start it now: schtasks /run /tn "GEA-Program Dashboard"
 endlocal
 ''',
 'unregister-service.cmd': r'''@echo off
 schtasks /delete /tn "GEA-Program Dashboard" /f
+''',
+'open-dashboard.cmd': r'''@echo off
+rem the control panel in a window of its own (Edge's app window, else Chrome's, else the browser), started first
+rem when it is not running, and its icon in the notification area - what the installer's GEA-Program shortcut runs
+start "" "%~dp0python\pythonw.exe" -m gea launch %*
 ''',
 'verify.cmd': r'''@echo off
 setlocal
@@ -283,6 +314,7 @@ echo This removes the kit's own files under %~dp0 (python\, wheels\ and these sc
 echo The site workspace (your wells, reports, records and accounts) is NOT touched.
 set /p OK=Type YES to continue:
 if /i not "%OK%"=="YES" ( echo cancelled & exit /b 0 )
+call "%~dp0stop-dashboard.cmd" --all
 schtasks /delete /tn "GEA-Program Dashboard" /f >nul 2>&1
 cd ..
 rmdir /s /q "%~dp0"
@@ -398,7 +430,7 @@ workspace) that this kit creates on first start and never deletes.
 5. report-samples\\  holds one rendered example of every report the program
    writes, from the build in this kit; SAMPLES.md names the command behind each.
 
-{service}
+{desktop}{service}
 
 Stopping: close the window, or {stop}.
 Updating: install a newer kit beside this one and start it; the workspace is
@@ -416,6 +448,18 @@ Contents are listed in MANIFEST.json; SHA256SUMS.txt holds the hash of every
 file so the kit can be verified after copying to the site.
 {check}
 Licence: Mozilla Public License 2.0. (c) 2026 Daniel T. Murphy / ENRGYONE.
+'''
+
+
+WIN_DESKTOP = '''A window of its own: open-dashboard.cmd starts the control panel when it is
+not running and opens it in Microsoft Edge's app window (no tabs, no address
+bar, its own taskbar button; Chrome's when Edge is missing, else a browser
+tab), with the program's icon in the notification area: running or stopped,
+and a menu to open, start or stop it. GEA-Program-Setup-{version}.exe (beside
+this kit on the release) installs this same kit for you with Start-menu and
+desktop shortcuts that do this, an Add/Remove Programs entry, a start at
+sign-in if you want one, and upgrades in place - no administrator rights.
+
 '''
 
 
@@ -437,6 +481,15 @@ Checking this kit before installing it: with the GitHub CLI, where the zip
 was saved:
     gh attestation verify gea-program-{version}-{tag}.zip -R Daniel8Murphy0007/GEA-Program
 '''
+
+
+def icon_module():
+    """gea/icon.py loaded on its own (it imports nothing from the program, which this build does not install)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('gea_icon', ROOT / 'gea' / 'icon.py')
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def rezip(kit: Path, beside: list) -> Path:
@@ -494,8 +547,9 @@ def main(argv=None) -> int:
         scripts = {k: v.replace('{version}', ver).replace('{extras}', a.extras) for k, v in WIN_SCRIPTS.items()}
         for name, body in scripts.items():
             (kit / name).write_text(body.replace('\n', '\r\n'), encoding='utf-8', newline='')
+        (kit / 'gea.ico').write_bytes(icon_module().ico_bytes())
         check = WIN_CHECK.format(version=ver)
-        readme = README.format(version=ver, target='Windows x64', pyline=f'its own Python {a.python}', install='Double-click install.cmd (about a minute).', check=check,
+        readme = README.format(desktop=WIN_DESKTOP.format(version=ver), version=ver, target='Windows x64', pyline=f'its own Python {a.python}', install='Double-click install.cmd (about a minute).', check=check,
                                start='Double-click start-dashboard.cmd.', verify='verify.cmd', port='8765',
                                service='To have the dashboard start at logon: register-service.cmd (unregister-service.cmd undoes it).',
                                stop='stop-dashboard.cmd', uninstall='uninstall.cmd', workspace='%LOCALAPPDATA%\\GEA-Program\\site')
@@ -506,7 +560,7 @@ def main(argv=None) -> int:
             p.write_text(body, encoding='utf-8')
             if not name.endswith('.service'):
                 p.chmod(0o755)
-        readme = README.format(version=ver, target='Linux', pyline='a virtual environment built from the machine\'s python3 (3.10 or newer)', install='./install.sh', check=LINUX_CHECK.format(version=ver, tag=tag),
+        readme = README.format(desktop='', version=ver, target='Linux', pyline='a virtual environment built from the machine\'s python3 (3.10 or newer)', install='./install.sh', check=LINUX_CHECK.format(version=ver, tag=tag),
                                start='./start-dashboard.sh', verify='./verify.sh', port='8765',
                                service='To run as a service: copy the kit to /opt/gea-program, edit gea-program.service if the paths differ, then\n  cp gea-program.service ~/.config/systemd/user/ && systemctl --user enable --now gea-program',
                                stop='Ctrl+C', uninstall='delete the kit folder', workspace='~/.local/share/gea-program/site')

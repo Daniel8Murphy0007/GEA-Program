@@ -1385,6 +1385,33 @@ builds the Windows and Linux kits in CI (`build-installer.yml`), installs
 them the way a client does, runs the gate from the installed kit, and
 attaches the zips to the GitHub release of that tag.
 
+### The Windows installer
+
+Every release also carries `GEA-Program-Setup-0.65.0.exe` (for 0.65.0): the
+same Windows kit installed like any Windows program, for the signed-in user
+alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
+It asks for the site workspace (an existing one such as `C:\site` is used as
+it is), runs the kit's `install.cmd` with no network, and adds Start-menu and
+desktop shortcuts, an Add/Remove Programs entry and, when chosen, a start at
+sign-in. The shortcut **GEA-Program** starts the control panel when it is not
+running and opens it in Microsoft Edge's app window (its own window and
+taskbar button; Chrome's, else a browser tab, where Edge is missing); the
+program's icon in the notification area says whether the panel is running
+and opens, starts or stops it (`gea launch`, `gea tray`). A newer setup
+installs over the older one after stopping the panel; the uninstaller stops
+it, removes the program and leaves the workspace. Silent, for a site's
+software deployment:
+
+```
+GEA-Program-Setup-0.65.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /TASKS="desktopicon"
+```
+
+The setup is built by Inno Setup 6 from `tools/installer.iss` in the same
+workflow, signed with the publisher's certificate when one is configured
+(unsigned, with a notice, until then), attested, and installed, upgraded in
+place with the control panel running, and uninstalled on the build machine
+before it is attached. `gea help install`.
+
 ## Layout
 
 ```
@@ -1396,7 +1423,7 @@ docs/report_samples/  one rendered example of every client report, from this bui
 docs/           TESTER_GUIDE.md, REQUIREMENTS_MATRIX.md (the scope-of-work mirror that shaped the reports), examples/ (port configs),
                 SESSION_LOG.md (the working record, session by session),
                 commercial/ (pilot proposal, bench readiness, commercial use), HISTORY.md (the ship-by-ship record)
-tools/          standalone_check.py (the self-contained guard; run by ci and ship.ps1), build_installer.py (the kit),
+tools/          standalone_check.py (the self-contained guard; run by ci and ship.ps1), build_installer.py (the kit), installer.iss (the Windows setup),
                 render_report_samples.py (docs/report_samples), seismic_reader_check.py (the reader against libmseed)
 CHANGELOG.md    per-release summary (a tag ships only with its section); SHIP_LOG.md is written by ship.ps1
 tests/          pytest wrapper around the acceptance suite and the standalone check

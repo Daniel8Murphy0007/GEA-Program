@@ -9,6 +9,10 @@ name: Build the standalone install kit
 # only where a kit is missing (a failed tag run's gap, filled by hand). A concurrency group on the commit
 # serialises a manual run that overlaps a tag run, so even then the two never write at once.
 #
+# The Windows installer (since v0.65.0): GEA-Program-Setup-<version>.exe, Inno Setup 6 (tools/installer.iss) over
+# the same kit, signed like the catalog when a certificate is configured, installed, upgraded and uninstalled
+# silently on the runner before it is attached.
+#
 # Provenance: each kit zip is attested by this build (GitHub artifact attestations, Sigstore, keyless):
 #   gh attestation verify gea-program-0.57.0-win64.zip -R Daniel8Murphy0007/GEA-Program
 #
@@ -131,6 +135,145 @@ jobs:
         with:
           name: gea-program-win64-kit
           path: dist/gea-program-*-win64.zip
+      # The installer: GEA-Program-Setup-<version>.exe, made by Inno Setup 6 (on the runner image) from the same kit,
+      # unpacked from the zip just attached - the clean kit, before install.cmd ran in it. Signed with the same
+      # certificate as the catalog when one is configured; unsigned, with a notice, until then. Then installed,
+      # upgraded in place while the control panel runs, started, and uninstalled, silently, the way a site's
+      # software deployment does it - and the site workspace checked untouched at the end.
+      - name: The installer - Inno Setup from the clean kit
+        shell: pwsh
+        run: |
+          $ver = (Select-String -Path pyproject.toml -Pattern '^version = "([^"]+)"').Matches[0].Groups[1].Value
+          if (-not $ver) { throw 'no version in pyproject.toml' }
+          $src = Join-Path $env:RUNNER_TEMP 'setup-src'
+          if (Test-Path $src) { Remove-Item $src -Recurse -Force }
+          $zip = Get-ChildItem dist -Filter 'gea-program-*-win64.zip' | Select-Object -First 1
+          python -c "import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" $zip.FullName $src
+          $kit = Get-ChildItem $src -Directory -Filter 'gea-program-*-win64' | Select-Object -First 1
+          if (-not $kit) { throw 'the kit folder is not in the zip' }
+          if (Test-Path (Join-Path $kit.FullName 'INSTALLED.txt')) { throw 'the installer source is not the clean kit' }
+          if (-not (Test-Path (Join-Path $kit.FullName 'gea.ico'))) { throw 'the kit has no gea.ico' }
+          $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) {
+            "::notice::Inno Setup is not on this runner image; installing it"
+            choco install innosetup -y --no-progress | Out-Host
+            $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+          }
+          $out = (Resolve-Path dist).Path
+          & $iscc /Qp "/DAppVersion=$ver" "/DKitDir=$($kit.FullName)" "/DOutDir=$out" tools\installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)" }
+          $setup = Join-Path $out "GEA-Program-Setup-$ver.exe"
+          if (-not (Test-Path $setup)) { throw "no $setup was written" }
+          "setup: $setup ($([math]::Round((Get-Item $setup).Length / 1MB, 1)) MB)"
+          "SETUP=$setup" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "SETUP_VER=$ver" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Sign the setup (Azure Artifact Signing)
+        if: env.ARTIFACT_SIGNING_ACCOUNT != ''
+        uses: azure/artifact-signing-action@v2
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ secrets.ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ secrets.ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.ARTIFACT_SIGNING_PROFILE }}
+          files: ${{ env.SETUP }}
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+      - name: Sign the setup (a PFX certificate)
+        if: env.ARTIFACT_SIGNING_ACCOUNT == '' && env.SIGNING_PFX_BASE64 != ''
+        shell: pwsh
+        env:
+          SIGNING_PFX_PASSWORD: ${{ secrets.SIGNING_PFX_PASSWORD }}
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP 'signing.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGNING_PFX_BASE64))
+          try {
+            $st = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter signtool.exe |
+                  Where-Object { $_.FullName -like '*\x64\*' } | Sort-Object FullName -Descending | Select-Object -First 1
+            if (-not $st) { throw 'signtool.exe not found in the Windows SDK' }
+            & $st.FullName sign /fd SHA256 /f $pfx /p $env:SIGNING_PFX_PASSWORD /tr http://timestamp.digicert.com /td SHA256 /d "GEA-Program setup" $env:SETUP
+            if ($LASTEXITCODE -ne 0) { throw "signtool failed ($LASTEXITCODE)" }
+          } finally { Remove-Item $pfx -Force -ErrorAction SilentlyContinue }
+      - name: Say whether the setup is signed
+        shell: pwsh
+        run: |
+          $sig = Get-AuthenticodeSignature $env:SETUP
+          "signature: $($sig.Status) $($sig.SignerCertificate.Subject)"
+          $configured = [bool]($env:ARTIFACT_SIGNING_ACCOUNT -or $env:SIGNING_PFX_BASE64)
+          if ($configured -and "$($sig.Status)" -ne 'Valid') { throw 'a certificate is configured but the setup is not validly signed' }
+          if (-not $configured) { "::notice::no signing certificate is configured: GEA-Program-Setup ships unsigned (Windows SmartScreen will say 'unknown publisher')" }
+      - name: Install with the setup, upgrade it in place while it runs, start it, uninstall it
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\GEA-Program'
+          $ws = Join-Path $env:RUNNER_TEMP 'gea-site'
+          $py = Join-Path $app 'python\python.exe'
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{10447A6D-DAB5-409D-9E26-A0A8AC96E138}_is1'
+          function PortOpen { try { $c = New-Object Net.Sockets.TcpClient; $c.Connect('127.0.0.1', 8765); $c.Close(); $true } catch { $false } }
+          function InstallOnce([string]$what) {
+            $log = Join-Path $env:RUNNER_TEMP "setup-$what.log"
+            $p = Start-Process -FilePath $env:SETUP -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/WORKSPACE=`"$ws`"", '/TASKS="desktopicon"', "/LOG=`"$log`"") -Wait -PassThru
+            if ($p.ExitCode -ne 0) {
+              Get-Content $log -Tail 40
+              if (Test-Path "$app\install.log") { Get-Content "$app\install.log" -Tail 40 }
+              throw "setup ($what) ended with exit code $($p.ExitCode)"
+            }
+            "setup ($what): done"
+          }
+          function WaitUp {
+            foreach ($i in 1..150) { if (PortOpen) { return }; Start-Sleep 1 }
+            if (Test-Path "$ws\records\runlog.jsonl") { Get-Content "$ws\records\runlog.jsonl" -Tail 20 }
+            throw 'the control panel did not answer on port 8765 within 150 s'
+          }
+          InstallOnce 'install'
+          $v = (& $py -c "import gea; print(gea.__version__)").Trim()
+          if ($v -ne $env:SETUP_VER) { throw "installed $v, expected $env:SETUP_VER" }
+          $rec = (Get-Content "$app\site-workspace.txt" -Raw).Trim()
+          if ($rec -ne $ws) { throw "site-workspace.txt holds '$rec', expected '$ws'" }
+          $u = Get-ItemProperty $key
+          "Add/Remove Programs: $($u.DisplayName) $($u.DisplayVersion), $($u.Publisher)"
+          foreach ($lnk in @((Join-Path ([Environment]::GetFolderPath('Programs')) 'GEA-Program\GEA-Program.lnk'), (Join-Path ([Environment]::GetFolderPath('Desktop')) 'GEA-Program.lnk'))) {
+            if (-not (Test-Path $lnk)) { throw "no shortcut $lnk" }
+          }
+          & $py -m gea launch --selftest
+          if ($LASTEXITCODE -ne 0) { throw 'gea launch --selftest failed' }
+          & $py -m gea tray --selftest
+          if ($LASTEXITCODE -ne 0) { throw 'gea tray --selftest failed' }
+          & $py -m gea launch --background --no-tray
+          WaitUp
+          $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 10 http://127.0.0.1:8765/
+          "control panel: HTTP $($r.StatusCode); workspace made: $(Test-Path "$ws\workspace.json")"
+          Set-Content -Path "$ws\records\ci-marker.txt" -Value 'the site data the installer must leave alone'
+          InstallOnce 'upgrade'
+          Start-Sleep 3
+          if (PortOpen) { throw 'the upgrade did not stop the running control panel first' }
+          if ((& $py -c "import gea; print(gea.__version__)").Trim() -ne $env:SETUP_VER) { throw 'the upgraded program does not import' }
+          & $py -m gea launch --background --no-tray
+          WaitUp
+          "control panel running again; uninstalling while it runs"
+          $p = Start-Process -FilePath (Join-Path $app 'unins000.exe') -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru
+          foreach ($i in 1..120) { if (-not (Test-Path (Join-Path $app 'python'))) { break }; Start-Sleep 1 }
+          if (Test-Path (Join-Path $app 'python')) { Get-ChildItem $app -Recurse | Select-Object -First 30 FullName; throw 'the uninstaller left the program in place' }
+          if (PortOpen) { throw 'the control panel is still running after the uninstall' }
+          if (Test-Path $key) { throw 'the Add/Remove Programs entry is still there' }
+          if (-not (Test-Path "$ws\workspace.json") -or -not (Test-Path "$ws\records\ci-marker.txt")) { throw 'the site workspace was touched by the uninstall' }
+          "uninstalled: program removed, workspace kept ($((Get-ChildItem $ws -Recurse -File).Count) files)"
+      - name: Attest where the setup was built (provenance)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/GEA-Program-Setup-*.exe
+      - name: Attach the setup to the release
+        shell: bash
+        run: bash .github/workflows/attach-kit.sh "${{ inputs.release_tag }}" "dist/GEA-Program-Setup-*.exe" "GEA-Program-Setup-"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gea-program-win64-setup
+          path: dist/GEA-Program-Setup-*.exe
   linux-kit:
     runs-on: ubuntu-latest
     steps:

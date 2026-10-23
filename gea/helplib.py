@@ -25,6 +25,7 @@ HELP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'help')
 # the index order: by the job a reader arrives with, never by module
 INDEX: List[tuple] = [
     ('start', 'Start', 'install, the first run, what the program will not claim'),
+    ('install', 'Install on Windows', 'GEA-Program-Setup: a per-user install with no administrator rights, the control panel in a window of its own, its icon in the notification area, shortcuts, upgrades in place, the site workspace left where it is'),
     ('data-in', 'Bring data in', 'CSV, LAS, SEG-Y, operator tables, WITS0, WITSML, OPC UA, MQTT, Modbus, the patch panel'),
     ('quality', 'Quality rules', 'RANGE, ROC, FLATLINE, SPIKE, STALE, GAP, each with the limit that fired'),
     ('drift', 'Drift', 'the datasheet aging rate, the labels, and the line NONE ON RECORD'),

@@ -1,20 +1,22 @@
-v0.64.0 — ONE CASING PROGRAM
+v0.65.0 — THE WINDOWS INSTALLER
 
-A well's casing is now declared in one place.
+GEA-Program now installs like any Windows program.
 
-- The casing program (the Casing & kick tolerance tab, gea casing, or the
-  declarations sheet's [casing] table) is read by rig time, hydraulics,
-  torque and drag and the casing design alike - no more declaring the
-  shoes, the hole and the strings three times.
-- A string needs only its size and shoe; its weight gives the bore; with
-  its weight, grade, hole and mud it is checked for burst, collapse and
-  tension, and until then the tab says what is missing.
-- A shoe declared on the Rig time tab goes into the program, keeping what
-  the program holds about that string.
-- Hydraulics reads the hole from the program: each depth's innermost
-  bore, a liner from its top, then the bit.
-- Nothing already declared is lost: earlier rig-time shoes are carried
-  in; a shoe or a hydraulics hole that disagrees is listed on the Casing
-  tab. The workbook's old [casing] layout and [casing_design] still read.
+- GEA-Program-Setup-0.65.0.exe on the release: installs for you alone,
+  with no administrator rights; asks where the site workspace is (an
+  existing one such as C:\site is used as it is) and never changes or
+  deletes it; adds Start-menu and desktop shortcuts, an Add/Remove
+  Programs entry and, if you want it, a start at sign-in. A newer setup
+  installs over the older one in place.
+- The GEA-Program shortcut starts the control panel when it is not
+  running and opens it in a window of its own (Microsoft Edge's app
+  window; Chrome's, else a browser tab, where Edge is missing).
+- The program's icon in the notification area says whether the control
+  panel is running and opens, starts or stops it.
+- Signed with the publisher's certificate once one is configured;
+  installed, upgraded with the panel running, and uninstalled on the
+  build machine before it is attached to the release.
+- Fixed: stop-dashboard.cmd found nothing to stop on Windows 11 24H2 (no
+  wmic there); the logon task stopped the dashboard after three days.
 
-Acceptance section DG (4 checks).
+Acceptance section DH (6 checks).

@@ -123,7 +123,7 @@ from .profile_catalog import (
     read_pangaea_txt,
 )
 
-__version__ = "0.64.0"
+__version__ = "0.65.0"
 __all__ = [
     "aging_rate", "rate_psi_yr", "accuracy_psi",
     "Sensor", "SimulatorConfig", "DownholeEngine",
