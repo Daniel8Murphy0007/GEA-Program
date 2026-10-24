@@ -4,6 +4,13 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.66.1 - 2026-10-24 - the shortcut starts the control panel
+
+- The Start-menu and desktop shortcuts start the control panel: the
+  launcher (pythonw.exe) no longer hands its window a dead output pipe.
+  The build's install test starts it from pythonw.exe as the shortcuts
+  do. Section DJ; gate 508.
+
 ## v0.66.0 - 2026-10-23 - the site's own name
 
 - **No kit names a site Pad 3 any more**: a workspace the launchers make

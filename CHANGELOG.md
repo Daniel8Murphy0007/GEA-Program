@@ -5,6 +5,21 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.66.1] - 2026-10-24 - The shortcut starts the control panel
+
+### Fixed
+- **The installed program's shortcut did not start the control panel**
+  ("did not start within 120 seconds"). The launcher runs under
+  pythonw.exe, which has no console and no standard handles; it passed
+  the panel's window one handle (stdin), so Python filled in the other
+  two with a pipe nobody reads, and the panel stopped at its first line
+  of output, before it opened its port. The launcher now passes no
+  handles: the panel's minimised window uses its own console. The
+  build's install test started the panel from python.exe, which has a
+  console, so it passed; it now starts it from pythonw.exe, as the
+  shortcuts do.
+- Acceptance section DJ (1 check).
+
 ## [v0.66.0] - 2026-10-23 - The site's own name
 
 ### Fixed

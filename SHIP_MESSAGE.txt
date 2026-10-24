@@ -1,15 +1,15 @@
-v0.66.0 — THE SITE'S OWN NAME
+v0.66.1 — THE SHORTCUT STARTS THE CONTROL PANEL
 
-Every install kit named a new workspace "Pad 3". It no longer does.
+The installed program's GEA-Program shortcut now starts the control panel.
 
-- A workspace the kit's launchers make is named after its folder.
-- The setup asks the site's name when it makes a new workspace and makes
-  it with that name; a workspace that already exists (C:\site) keeps its
-  own name, untouched. Silent installs: /SITENAME="...".
-- An administrator can rename the site in the control panel:
-  Administration -> Site settings -> Site name (also in the first-run
-  guide). The new name heads every report written from then on, and the
-  change is in the audit log.
-- The build workflows use the Node 24 versions of GitHub's actions.
+- Fixed: on v0.65.0 and v0.66.0 the shortcut said "The control panel did
+  not start within 120 seconds". The launcher gave the panel's window an
+  output pipe nobody read, and the panel stopped at its first line. It
+  now runs in its own minimised window with its own console.
+- The build's install test now starts the panel exactly the way the
+  shortcuts do, so this cannot pass the build again.
 
-Acceptance section DI (3 checks).
+Install it over the old one: GEA-Program-Setup-0.66.1.exe from the
+release. C:\site is kept as it is.
+
+Acceptance section DJ (1 check).

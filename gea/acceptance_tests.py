@@ -14679,6 +14679,44 @@ def section_di_site_name(tmp: str) -> None:
        "one audit line per change" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_dj_shortcut_start(tmp: str) -> None:
+    """Section DJ - the control panel started the way the shortcuts start it: from pythonw.exe, which has no console and
+    no standard handles. The launcher gives the panel's window a console of its own and passes no handles, so the
+    panel's output reaches that console (v0.65.0 and v0.66.0 passed one, Python filled in the others with a pipe nobody
+    read, and the panel stopped at its first line); the build's install test now starts it the same way."""
+    from . import launcher as L
+    pkg = Path(__file__).parent
+    kw_win, kw_posix = L.service_popen_kwargs(True), L.service_popen_kwargs(False)
+    calls = []
+    saved = L.is_windows
+    try:
+        L.is_windows = lambda: True
+        L.start_service(None, str(Path(tmp, "dj site")), 8765, popen=lambda cmd, **kw: calls.append((cmd, kw)))
+    finally:
+        L.is_windows = saved
+    src = (pkg / "launcher.py").read_text(encoding="utf-8")
+    body = src[src.index("def start_service("):src.index("def tray_command(")]
+    c1 = {
+        "no_handles": not ({"stdin", "stdout", "stderr"} & set(kw_win)) and kw_win["creationflags"] & L.CREATE_NEW_CONSOLE
+                      and kw_win["startupinfo"].wShowWindow == L.SW_SHOWMINNOACTIVE and kw_win["startupinfo"].dwFlags & L.STARTF_USESHOWWINDOW,
+        "used": len(calls) == 1 and not ({"stdin", "stdout", "stderr"} & set(calls[0][1])) and calls[0][1].get("env", {}).get("GEA_PORT") == "8765"
+                and "DEVNULL" not in body,
+        "posix": kw_posix.get("start_new_session") is True,
+    }
+    wf = pkg.parent / ".github" / "workflows" / "build-installer.yml"
+    if wf.exists():
+        y = wf.read_text(encoding="utf-8")
+        win = y[y.index("windows-kit:"):y.index("linux-kit:")]
+        c1["ci_like_shortcut"] = win.count("Join-Path $app 'python\\pythonw.exe') -ArgumentList @('-m', 'gea', 'launch', '--background', '--no-tray')") == 2 \
+                                 and "& $py -m gea launch --background" not in win
+    failed = [k for k, v in c1.items() if not v]
+    ok(not failed,
+       "DJ1 the shortcut's start: the launcher (pythonw.exe, no console, no standard handles) starts the control panel in a minimised "
+       "console of its own and passes it no handles, so its output reaches that console - one passed handle made Python give it a pipe "
+       "nobody read, and the panel stopped at its first line before it opened its port (v0.65.0, v0.66.0); the build's install test starts "
+       "it from pythonw.exe, as the shortcuts do" + (f" [failed: {', '.join(failed)}]" if failed else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -14795,6 +14833,7 @@ def main() -> int:
         section_dg_casing_program(tmp)
         section_dh_windows_installer(tmp)
         section_di_site_name(tmp)
+        section_dj_shortcut_start(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

@@ -245,7 +245,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'gea launch --selftest failed' }
           & $py -m gea tray --selftest
           if ($LASTEXITCODE -ne 0) { throw 'gea tray --selftest failed' }
-          & $py -m gea launch --background --no-tray
+          # started the way the shortcuts start it: pythonw.exe, a process with no console and no standard handles
+          # (v0.65.0 and v0.66.0 started it from python.exe here, which hid that the shortcut's start failed)
+          Start-Process -FilePath (Join-Path $app 'python\pythonw.exe') -ArgumentList @('-m', 'gea', 'launch', '--background', '--no-tray') -WorkingDirectory $app
           WaitUp
           $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 10 http://127.0.0.1:8765/
           "control panel: HTTP $($r.StatusCode); workspace made: $(Test-Path "$ws\workspace.json")"
@@ -255,7 +257,7 @@ jobs:
           if (PortOpen) { throw 'the upgrade did not stop the running control panel first' }
           if ((& $py -c "import gea; print(gea.__version__)").Trim() -ne $env:SETUP_VER) { throw 'the upgraded program does not import' }
           if ((Get-Content "$ws\workspace.json" -Raw | ConvertFrom-Json).name -ne 'CI Pad') { throw 'the upgrade changed the existing workspace' }
-          & $py -m gea launch --background --no-tray
+          Start-Process -FilePath (Join-Path $app 'python\pythonw.exe') -ArgumentList @('-m', 'gea', 'launch', '--background', '--no-tray') -WorkingDirectory $app
           WaitUp
           "control panel running again; uninstalling while it runs"
           $p = Start-Process -FilePath (Join-Path $app 'unins000.exe') -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru

@@ -292,19 +292,27 @@ def service_command(kit: Optional[Path], ws: str, port: int, executable: Optiona
     return [console_python(executable), '-m', 'gea', 'serve', '--workspace', ws, '--port', str(int(port)), '--no-browser']
 
 
-def _minimised_console() -> dict:
-    if not is_windows():
-        return {'start_new_session': True}
-    si = subprocess.STARTUPINFO()
+def service_popen_kwargs(windows: Optional[bool] = None) -> dict:
+    """How the control panel's window is started. On Windows: a console of its own, minimised, and NO standard
+    handles passed. Passing any of stdin, stdout or stderr makes Python hand the child the parent's other handles
+    too - and the launcher runs under pythonw.exe, which has none, so Python gives the child a pipe nobody reads:
+    the panel's first line of output then fails and it stops before it opens its port (v0.65.0 and v0.66.0: "did
+    not start within 120 seconds" from the Start-menu shortcut, while the build's test, run from a console,
+    passed). With no handles given, the new console's own are used."""
+    windows = is_windows() if windows is None else windows
+    if not windows:
+        return {'start_new_session': True, 'stdin': subprocess.DEVNULL, 'close_fds': True}
+    si_cls = getattr(subprocess, 'STARTUPINFO', None)           # Windows only; a stand-in where the check runs elsewhere
+    si = si_cls() if si_cls else __import__('types').SimpleNamespace(dwFlags=0, wShowWindow=0)
     si.dwFlags |= STARTF_USESHOWWINDOW
     si.wShowWindow = SW_SHOWMINNOACTIVE
-    return {'creationflags': CREATE_NEW_CONSOLE, 'startupinfo': si}
+    return {'creationflags': CREATE_NEW_CONSOLE, 'startupinfo': si, 'close_fds': True}
 
 
 def start_service(kit: Optional[Path], ws: str, port: int, popen: Callable = subprocess.Popen) -> list:
     cmd = service_command(kit, ws, port)
     env = dict(os.environ, GEA_WORKSPACE=ws, GEA_PORT=str(int(port)))
-    popen(cmd, cwd=str(kit) if kit else None, env=env, stdin=subprocess.DEVNULL, close_fds=True, **_minimised_console())
+    popen(cmd, cwd=str(kit) if kit else None, env=env, **service_popen_kwargs())
     return cmd
 
 

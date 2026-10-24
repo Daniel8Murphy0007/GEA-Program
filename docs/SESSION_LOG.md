@@ -2974,3 +2974,18 @@ stability; and motor specifications in the tool catalogue.
   actions moved to their Node 24 majors (checked against each action's
   action.yml).
 - Section DI (3 checks). Gate 507 on Python 3.13 and 3.14.
+
+## 2026-10-24 - The shortcut starts the control panel (v0.66.1)
+
+- Daniel installed GEA-Program-Setup-0.66.0.exe; the shortcut answered
+  "The control panel did not start within 120 seconds" and the run log
+  had no start line.
+- The installed package served a copy of the Pad 3 workspace normally in
+  the site VM, so the data and the code were sound; the difference was
+  how the window was started. `subprocess.Popen` on Windows fills in any
+  standard handle not given once one is given: the launcher passed stdin,
+  and under pythonw.exe (no handles) Python gave stdout and stderr a pipe
+  whose reading end it closes. The panel's first print failed.
+- Fixed by passing no handles to the panel's console; section DJ checks
+  it, and the build's install test now launches from pythonw.exe.
+- Section DJ (1 check). Gate 508 on Python 3.13 and 3.14.
