@@ -11,7 +11,7 @@ those warnings are harmless with this guide.)*
 ## PART 0 — IF YOU WERE GIVEN THE INSTALL KIT (a zip named gea-program-...-win64)
 
 You do not need Parts 1-3. Unzip it anywhere, double-click `install.cmd`,
-then double-click `start-dashboard.cmd`. Your browser opens the dashboard;
+then double-click `start-dashboard.cmd`. The dashboard opens in a window of its own (Edge's app window);
 create the administrator account and skip to "USING THE DASHBOARD IN A
 BROWSER" below. `verify.cmd` runs the full test from the kit.
 

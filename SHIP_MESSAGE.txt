@@ -1,15 +1,12 @@
-v0.66.1 — THE SHORTCUT STARTS THE CONTROL PANEL
+v0.66.2 — ITS OWN WINDOW HOWEVER IT STARTS
 
-The installed program's GEA-Program shortcut now starts the control panel.
+The control panel opens in a window of its own however it is started.
 
-- Fixed: on v0.65.0 and v0.66.0 the shortcut said "The control panel did
-  not start within 120 seconds". The launcher gave the panel's window an
-  output pipe nobody read, and the panel stopped at its first line. It
-  now runs in its own minimised window with its own console.
-- The build's install test now starts the panel exactly the way the
-  shortcuts do, so this cannot pass the build again.
+- Fixed: started from start-dashboard.cmd (or gea serve), the control
+  panel opened as a tab in the default browser. It now opens the same
+  window the Start-menu shortcut opens: Microsoft Edge's app window - no
+  tabs, no address bar, its own button on the taskbar - or Chrome's, or a
+  browser tab only where neither is installed.
 
-Install it over the old one: GEA-Program-Setup-0.66.1.exe from the
+Install it over the old one: GEA-Program-Setup-0.66.2.exe from the
 release. C:\site is kept as it is.
-
-Acceptance section DJ (1 check).

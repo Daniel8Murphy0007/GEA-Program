@@ -91,7 +91,7 @@ gea help drift                 # the help library, by the job (16 pages; the sam
 gea guide                      # the click-by-click tester guide (docs/TESTER_GUIDE.md)
 gea gui                        # the desktop window (pip install "gea-program[desktop]")
 gea workspace --path C:\site --action init --name "Pad 3"     # a site folder
-gea serve --workspace C:\site                                 # the dashboard as the door: opens http://127.0.0.1:8765/ in your browser
+gea serve --workspace C:\site                                 # the dashboard as the door: opens http://127.0.0.1:8765/ in a window of its own
 gea doctor --workspace C:\site                                # which code runs, can it serve, with every fix
 gea files --workspace C:\site --action list --root historian  # the import roots, detection by content, import, export, packs
 gea transient --file historian.csv --params params.json --out pta   # shut-ins and build-up analysis with a band
@@ -1387,7 +1387,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.66.1.exe` (for 0.66.1): the
+Every release also carries `GEA-Program-Setup-0.66.2.exe` (for 0.66.2): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1404,7 +1404,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.66.1.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.66.2.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

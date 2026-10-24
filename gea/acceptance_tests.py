@@ -14709,12 +14709,34 @@ def section_dj_shortcut_start(tmp: str) -> None:
         win = y[y.index("windows-kit:"):y.index("linux-kit:")]
         c1["ci_like_shortcut"] = win.count("Join-Path $app 'python\\pythonw.exe') -ArgumentList @('-m', 'gea', 'launch', '--background', '--no-tray')") == 2 \
                                  and "& $py -m gea launch --background" not in win
+    # -- the service's own start opens the same window -------------------------------------------------------------------------------
+    from .service import Service
+    from .workspace import Workspace
+    wsp = str(Path(tmp, "dj_ws")); Workspace.create(wsp, "DJ", actor="tester")
+    opened, saved_ow = [], L.open_window
+    svc = None
+    try:
+        L.open_window = lambda url, **kw: opened.append(url) or "app window (test)"
+        svc = Service(wsp, host="127.0.0.1", port=0, scheduler=False)
+        svc._open_browser_later(0.0)
+        for _ in range(40):
+            if opened:
+                break
+            time.sleep(0.05)
+    finally:
+        L.open_window = saved_ow
+        if svc is not None:
+            svc.httpd.server_close()
+    ssrc = (pkg / "service.py").read_text(encoding="utf-8")
+    opener = ssrc[ssrc.index("def _open_browser_later("):ssrc.index("def request_exit(")]
+    c1["serve_opens_window"] = opened == [svc.url] and "_L.open_window(self.url)" in opener and "webbrowser" not in opener
     failed = [k for k, v in c1.items() if not v]
     ok(not failed,
        "DJ1 the shortcut's start: the launcher (pythonw.exe, no console, no standard handles) starts the control panel in a minimised "
        "console of its own and passes it no handles, so its output reaches that console - one passed handle made Python give it a pipe "
        "nobody read, and the panel stopped at its first line before it opened its port (v0.65.0, v0.66.0); the build's install test starts "
-       "it from pythonw.exe, as the shortcuts do" + (f" [failed: {', '.join(failed)}]" if failed else ""))
+       "it from pythonw.exe, as the shortcuts do; and a start from start-dashboard.cmd (gea serve) opens the same window - Edge's app window, not a "
+       "tab in the default browser" + (f" [failed: {', '.join(failed)}]" if failed else ""))
 
 
 def main() -> int:

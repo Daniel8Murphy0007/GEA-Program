@@ -4,6 +4,11 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.66.2 - 2026-10-24 - its own window however it starts
+
+- `start-dashboard.cmd` and `gea serve` open the control panel in Edge's
+  app window, as the shortcut does, not a browser tab. Gate 508.
+
 ## v0.66.1 - 2026-10-24 - the shortcut starts the control panel
 
 - The Start-menu and desktop shortcuts start the control panel: the

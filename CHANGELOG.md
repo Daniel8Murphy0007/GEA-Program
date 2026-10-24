@@ -5,6 +5,17 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.66.2] - 2026-10-24 - Its own window however it starts
+
+### Fixed
+- **A start from `start-dashboard.cmd` (or `gea serve`) opened a tab in
+  the default browser**, not the control panel's own window. The service
+  now opens the same window the Start-menu shortcut does: Microsoft
+  Edge's app window (no tabs, no address bar, its own taskbar button),
+  else Chrome's, else the default browser. The console says which.
+- The kit's README, the tester guide and the help say so.
+- Section DJ's check covers it.
+
 ## [v0.66.1] - 2026-10-24 - The shortcut starts the control panel
 
 ### Fixed

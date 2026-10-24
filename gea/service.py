@@ -3310,15 +3310,16 @@ class Service:
         browser that cannot be opened is reported, never fatal - the address is on the console."""
         def _go():
             time.sleep(delay_s)
+            # the control panel's own window: Edge's app window (no tabs, no address bar, its own taskbar button),
+            # else Chrome's, else the default browser - the same window the Start-menu shortcut opens (gea launch).
+            # Before v0.66.2 a start from start-dashboard.cmd opened a tab in the default browser instead.
+            from . import launcher as _L
             try:
-                import webbrowser
-                ok = webbrowser.open(self.url, new=2)
+                how = _L.open_window(self.url)
             except Exception as e:
-                ok = False
-                self._console_line(f'could not open a browser ({e}); open {self.url} yourself')
+                self._console_line(f'could not open the control panel\'s window ({e}); open {self.url} yourself')
                 return
-            if not ok:
-                self._console_line(f'no browser could be opened from here; open {self.url} yourself')
+            self._console_line(f'opened the control panel in {how}')
         threading.Thread(target=_go, name='gea-open-browser', daemon=True).start()
 
     def request_exit(self, code: int, actor: str = 'system', reason: str = '') -> dict:

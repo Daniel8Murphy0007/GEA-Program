@@ -419,7 +419,9 @@ workspace) that this kit creates on first start and never deletes.
 
 1. {install}
 2. {start}
-   Your browser opens http://127.0.0.1:{port}/ (https:// once HTTPS is on:
+   The control panel opens in a window of its own (Microsoft Edge's app
+   window; a browser tab where Edge is missing) at http://127.0.0.1:{port}/
+   (https:// once HTTPS is on:
    see HTTPS on the Administration page); the first visit asks you to
    create the administrator account (name and a password of 8+ characters).
 3. Wells -> add a well from a file (historian CSV, LAS) or the catalogue.

@@ -2989,3 +2989,12 @@ stability; and motor specifications in the tool catalogue.
 - Fixed by passing no handles to the panel's console; section DJ checks
   it, and the build's install test now launches from pythonw.exe.
 - Section DJ (1 check). Gate 508 on Python 3.13 and 3.14.
+
+## 2026-10-24 - Its own window however it starts (v0.66.2)
+
+- Daniel, running the panel by the direct start (start-dashboard.cmd)
+  while v0.66.1 shipped: "it's still opening a browser window" - a
+  Firefox tab. The service opened `webbrowser`, the default browser; only
+  the launcher opened Edge's app window. The service now calls the
+  launcher's window, so every start looks the same.
+- Section DJ's check extended. Gate 508 on Python 3.13 and 3.14.
