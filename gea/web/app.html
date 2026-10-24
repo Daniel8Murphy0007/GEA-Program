@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GEA-Program</title>
+<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAFfklEQVR42u1bXYgbVRTue1yIr2Yfgm+uD75WfcmD6Ar90W7X7f5la/Yn26TVsLWL1opT2NStVKjuriDVrbDFahG1roJYNRK1WlBLbVmtoFl9EK1CQNsnkeP5hmRyb2YmyUzunU2WPfDBcM+555zvmzt3ZkJm06YN2zBP1jG4L8qIMYwWA3qK6iE9sDfMMBgFBrU4CqVew6rIZxhFHc1unug3oUkI9Jxp9qzndDR3+NDd9NtLN9ONxZAJHGNMkxA5z6uhYyDN5NMXGaQaizN3WMSrAZ+OmiUujYvQ0Z/OMUg17kv1uJIvAzE6aoNTo+QzmhqgN2dvqysAYnTVB7c65FNhRpFBOnDu2K11BUCMrvolbuFaAhgai7eCAIDhLsCuVIFBujA2dW9dARCjswdwdCMf1VzYxIXjna7k4QuiB3B1EGBPjEG6ERkapaun77GRxxh8QfQArk4CGEEU70xMEey/v1fp3x+XTOAYBl9AAtj3gY4+FqCPnZox/eoZKlvx+g0TZYMviB7A1UGASRZgknTjUuFXi/CpT8+bKBt8QfQArmsiwF3TMyTa/YefMyEaYtatAAvvf2QRXb32lzWO47IhZm0EeChpMEgnxOv9yJllaxzH4r6guw9wDVyAXc++KC3129MHLR+ORUPsuhPgVK6y2eWvXLX5MWZtjhy7BgJMsAATpAOduzPSGU4unLTFYEw0zNHVD7jaBehlAXrZqQHJ+ZPSNd458qgtBmPiHoE5uvoB10AFkO79uS9c4+CTngmCFOCm3nGDQarRlXpcvvc/fcw1Fj7RMFdHT+AamADz752r3Pv/+LNuPGLKhrnBCbCTBdjJTsUQCeEaz1/5oSbEfcAUTENP4BqIAH1HF6hZQ46ABBhjAcZIJZY++bxpAZBDdV/gql2ASHxfTWKXfv6Fsm+cNYHjWoZc+gXoYQF62KkIyblF6dpfvvCtjRjG3MalZwLOpbI3cHUQYJQFGCVVEM+quYx5LDn3ikSs2uBDDGLFywe5VPYGrloF6Jqcljey2TnLd+d+w1EEjMFXjsMc6ZmAc+oVYAcLsIOdCjC//KF8KyuNR4b3mrc6N4MPMeV46ZmAc6rqD1wdBEiwAAlSAXvjCep+6qjtzFf/JlgeQyzm2IVMqII+AWxLN3lAImKd7cvfmz4Ax9WGOfDZLqVWF0DcvHDWnG5x2dffsc3DmNOtUlxN5maqTYAHHzYY1AwiQ+mauzzImMvbZT58ImGnjRI1mu0TXLUIkHzhZdfml7/6hiKDqfoicgxi3Qw1WlYAp2u5TL770KwnuImAGi0pQNfEYxSUoZZ6AR7YbTDIL7Kn3w5MANRqpldwVS6AuHnhGEtVJarzt5QA3U8+Iy/R8f3NNmgDcoqGmooFGGEBRsgPlj7+TH5x8ZmnHqQXLK7ZRC4HAbazANvZ6RGRgT3yq+vzJ8hPnkaA3NIzAdf2mUudAGJT5o8X/ptqSGzpmcC/2E4CxFmAOHlF/vKKsCzz5CeHF6BG5ZlgxW8eNQJ0jU/JLytHjmsXADXkDXdKjQChbfEYg7wg+9pblWvyn+vkdb5foJb1TMA9+MgRcxIgGto2TF6w+vu1yuvr2Q/I63y/QC3rmYB78J4j7vxhBTsLbpNu6U/Su19+TfnvVixIr64/rUo+nUAt6f1A8KFH9FpDgILrP0XZabhNPHBiidrF0GsNAdz/KhvaOhxmFBlUje4nsm0jAHp14lDiVvu7gdDWoQyDnLD5kYOcfKalgR7d+ge3hr4Z4MBcjSTtilzDX4xwMF8KQxfXEXlw8fbdUGgLi7BlMMegNkcOXHx/PcYJMoxiGxJHz/4/m6sSAavBYBTagHih1KuaDycdxIgyYqUirQT0pOfT2Q1bx/Y/qqt0RQSY8N4AAAAASUVORK5CYII=">
 <style>
 [hidden] { display: none !important; }
 :root{color-scheme:light;--page:#f6f5f0;--surface:#fff;--ink:#141412;--ink2:#3d3c37;--muted:#77756e;--grid:#e3e1d8;--ring:rgba(0,0,0,.08);--accent:#1f5fb8;--accent-ink:#fff;--good:#1d7a4a;--warn:#a86a00;--serious:#b3261e;--track:#dfe8f7;--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--mono:ui-monospace,Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -172,10 +173,20 @@ const $ = (s, el=document) => el.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt = (v, d=2) => (v === null || v === undefined || v === '') ? '—' : (typeof v === 'number' ? (Number.isInteger(v) ? v : v.toFixed(d)) : esc(v));
 function toast(msg, kind='') { const t = document.createElement('div'); t.className = 'toast ' + kind; t.textContent = msg; $('#toasts').appendChild(t); setTimeout(() => t.remove(), 7000); }
+// ---------- a window that keeps no cookies --------------------------------------------------------
+// Some browsers are set (or told by policy) to keep no cookies at all - the Edge on the first site that installed the
+// program was. The page tests for it; where a cookie does not stay, the session is carried in the address instead
+// (/s/<token>/...): every request the page makes, every link it follows, the report pages and their own files.
+const COOKIES_OK = (() => { try { document.cookie = 'gea_probe=1; path=/; SameSite=Strict'; const k = document.cookie.indexOf('gea_probe=1') >= 0; document.cookie = 'gea_probe=; path=/; Max-Age=0'; return k && navigator.cookieEnabled; } catch (e) { return false; } })();
+let STOKEN = null;
+if (!COOKIES_OK) { const m = location.pathname.match(/^\/s\/([^/]+)\//); if (m) STOKEN = m[1]; else { try { STOKEN = sessionStorage.getItem('gea_st'); } catch (e) {} } }
+function withSt(u) { if (!STOKEN || typeof u !== 'string' || !u.startsWith('/') || u.startsWith('/s/') || u.startsWith('//')) return u; return '/s/' + STOKEN + u; }
+function setSt(t) { STOKEN = t || null; try { if (t) sessionStorage.setItem('gea_st', t); else sessionStorage.removeItem('gea_st'); } catch (e) {} }
+for (const evn of ['click', 'auxclick']) document.addEventListener(evn, ev => { if (!STOKEN) return; const a = ev.target && ev.target.closest ? ev.target.closest('a[href]') : null; if (!a) return; const h = a.getAttribute('href'); if (h && h.startsWith('/') && !h.startsWith('/s/') && !h.startsWith('//')) a.setAttribute('href', withSt(h)); }, true);
 async function api(method, path, body) {
   const opt = {method, headers: {'Content-Type': 'application/json'}};
   if (method === 'POST') { opt.headers['X-GEA-Action'] = '1'; opt.body = JSON.stringify(body || {}); }
-  const r = await fetch(path, opt);
+  const r = await fetch(withSt(path), opt);
   let d = {}; try { d = await r.json(); } catch (e) {}
   if (!r.ok) { const err = new Error(d.error || (r.status + ' ' + r.statusText)); err.status = r.status; throw err; }
   return d;
@@ -1038,7 +1049,7 @@ function sarPanelBind(sar) {
       const j = await post('/api/seismic/sar/run', {hours: +$('#sarHours').value, step_s: +$('#sarStep').value, band_hz: [+$('#sarLo').value, +$('#sarHi').value], method: $('#sarMethod').value, seed: +$('#sarSeed').value, scene: $('#sarScene').value});
       toast('SAR film started: job ' + j.id, 'ok'); $('#sarRunNote').textContent = 'rendering the film (job ' + j.id + ')…'; watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); run.disabled = false; } };
   if (!sar.film) { sarDrawEmpty(); return; }
-  const load = async () => { if (SAR.film && SAR.film._url === sar.url + '?' + sar.film.generated_utc) return SAR.film; const r = await fetch(sar.url + '?t=' + encodeURIComponent(sar.film.generated_utc), {credentials: 'same-origin'}); if (!r.ok) throw new Error('film not readable'); const film = await r.json(); film._url = sar.url + '?' + sar.film.generated_utc; SAR.film = film; return film; };
+  const load = async () => { if (SAR.film && SAR.film._url === sar.url + '?' + sar.film.generated_utc) return SAR.film; const r = await fetch(withSt(sar.url) + '?t=' + encodeURIComponent(sar.film.generated_utc), {credentials: 'same-origin'}); if (!r.ok) throw new Error('film not readable'); const film = await r.json(); film._url = sar.url + '?' + sar.film.generated_utc; SAR.film = film; return film; };
   const show = (i) => { if (!SAR.film) return; SAR.frame = Math.max(0, Math.min(i, SAR.film.frames.length - 1)); $('#sarScrub').value = SAR.frame; sarDraw(SAR.film, SAR.frame); };
   const stopTimer = () => { if (SAR.timer) { clearInterval(SAR.timer); SAR.timer = null; } $('#sarPause').disabled = true; $('#sarPlay').disabled = false; };
   $('#sarPlay').onclick = async () => { try { await load(); } catch (e) { return toast(e.message, 'err'); } stopTimer(); $('#sarPlay').disabled = true; $('#sarPause').disabled = false;
@@ -3403,9 +3414,11 @@ async function wallOnly(s) {
 }
 
 // ---------- auth screens ------------------------------------------------------------------
+function authNote(text, bad) { let p = document.getElementById('authNote'); if (!p) { p = document.createElement('p'); p.id = 'authNote'; p.setAttribute('role', 'status'); const f = document.getElementById('authForm'); if (f) f.before(p); else return; } p.className = 'small ' + (bad ? 'serious' : 'muted'); p.textContent = text; }
 function authScreen(first, company) {
   $('#main').innerHTML = `<div class="auth card"><h2>${first ? 'First administrator' : 'Sign in'}</h2><p class="small muted">${first ? 'This workspace has no accounts yet. Create the administrator; add everyone else under Administration.' : 'Workspace: ' + esc(workspaceName)}</p>${company && !first ? `<p><button type="button" id="aCompany">${esc(company.label)}</button></p><p class="small muted">or with a local account:</p>` : ''}<form id="authForm"><label>Name<input id="aName" autocomplete="username" required></label><label>Password<input id="aPw" type="password" autocomplete="${first ? 'new-password' : 'current-password'}" required minlength="${first ? 8 : 1}"></label><p><button type="submit">${first ? 'Create and sign in' : 'Sign in'}</button></p></form>${first ? '' : `<details><summary>This is a wall screen</summary><form id="wpEnter"><label>Wall pass<input id="wpCodeIn" autocomplete="off" required></label><p class="small muted">An administrator issues the pass under Control room. The screen keeps it until it expires or is revoked, and sees the wall and nothing else.</p><p><button type="submit">Show the wall</button></p></form></details>`}</div>`;
-  $('#authForm').onsubmit = async (ev) => { ev.preventDefault(); try { if (first) await post('/api/setup', {name: $('#aName').value, password: $('#aPw').value}); const r = await post('/api/login', {name: $('#aName').value, password: $('#aPw').value}); me = r.user; await boot(); } catch (e) { toast(e.message, 'err'); } };
+  $('#authForm').onsubmit = async (ev) => { ev.preventDefault(); try { if (first) await post('/api/setup', {name: $('#aName').value, password: $('#aPw').value}); const r = await post('/api/login', {name: $('#aName').value, password: $('#aPw').value, cookieless: !COOKIES_OK}); if (r.token) setSt(r.token); const chk = await get('/api/session'); if (!chk.user) { authNote(`Signed in as ${r.user.name}, but the next request arrived without the sign-in. Close this window and open GEA-Program again.`, true); return; } me = r.user; await boot(); } catch (e) { toast(e.message, 'err'); } };
+  if (!COOKIES_OK) authNote('This window keeps no cookies (its browser\'s settings block them), so the control panel holds the sign-in itself until the window is closed.');
   const ac = $('#aCompany'); if (ac) ac.onclick = () => { location.href = '/api/oidc/start'; };
   const wp = $('#wpEnter'); if (wp) wp.onsubmit = async (ev) => { ev.preventDefault(); try { await post('/api/wall/enter', {code: $('#wpCodeIn').value.trim()}); location.hash = '#/wall'; await boot(); } catch (e) { toast(e.message, 'err'); } };
   $('#aName').focus();
@@ -3454,7 +3467,7 @@ async function boot() {
 $('#searchForm').onsubmit = ev => { ev.preventDefault(); const q = $('#q').value.trim(); if (q.length >= 2) location.hash = '#/search?q=' + encodeURIComponent(q); };
 $('#helpBtn').onclick = async () => { PREFS.help_open = !PREFS.help_open; $('#helpBtn').setAttribute('aria-pressed', String(PREFS.help_open)); try { await post('/api/prefs', {prefs: {help_open: PREFS.help_open}}); } catch (e) {} route(); };
 document.addEventListener('keydown', ev => { if (ev.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) && me) { ev.preventDefault(); $('#q').focus(); } });
-$('#logoutBtn').onclick = async () => { await post('/api/logout'); me = null; boot(); };
+$('#logoutBtn').onclick = async () => { await post('/api/logout'); setSt(null); me = null; boot(); };
 window.addEventListener('hashchange', route);
 // theme: the account preference (Your preferences) unless this browser overrides it with the header button; otherwise the system
 let themeLocal = null; try { themeLocal = localStorage.getItem('gea-theme'); } catch (e) {}

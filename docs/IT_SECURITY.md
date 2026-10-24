@@ -90,7 +90,11 @@ declared extras.
   rounds, a salt per user; five failures lock the name and the address for
   15 minutes). Sessions are random 256-bit tokens in `HttpOnly;
   SameSite=Strict` cookies, 12 hours; an administrator sees every live
-  session and revokes any.
+  session and revokes any. Where the browser keeps no cookies (its
+  settings or a policy block them), the page says so and carries the token
+  in its own address (`/s/` and the token) instead, until the window is
+  closed; the token then appears in that window's history, and the
+  `Referrer-Policy: same-origin` header keeps it from other sites.
 - **Roles**: viewer < operator < approver < admin, enforced by the service
   on every request; a company account's role comes from the company's app
   roles or groups at each sign-in.

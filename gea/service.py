@@ -1673,12 +1673,30 @@ def make_handler(app: App):
             pass
 
         # -- plumbing ------------------------------------------------------------------
+        _path_token: Optional[str] = None
+
+        def parse_request(self) -> bool:
+            """A window that keeps no cookies (a browser whose settings or policy block them - the Edge on the first
+            site that installed the program did) carries its session in the address instead: /s/<token>/... is the
+            same page or file, signed in. The page switches to this only when its own cookie test fails."""
+            if not super().parse_request():
+                return False
+            self._path_token = None
+            if self.path.startswith('/s/'):
+                seg, _, rest = self.path[3:].partition('/')
+                if seg:
+                    self._path_token = seg
+                    self.path = '/' + rest
+            return True
+
         def _cookie(self, name: str = 'gea_session') -> Optional[str]:
             c = self.headers.get('Cookie', '')
             for part in c.split(';'):
                 k, _, v = part.strip().partition('=')
                 if k == name:
                     return v
+            if name == 'gea_session':                 # the cookieless window: the header the page sends, or the address
+                return self.headers.get('X-GEA-Session') or self._path_token
             return None
 
         def _wall_pass(self) -> Optional[dict]:
@@ -2270,7 +2288,10 @@ def make_handler(app: App):
                 body = self._body()
                 if path == '/api/login':
                     token, u = app.login(str(body.get('name', '')), str(body.get('password', '')), client=self._client())
-                    return self._json(200, {'user': u}, set_cookie=f'gea_session={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age={SESSION_HOURS * 3600}')
+                    out = {'user': u}
+                    if body.get('cookieless') is True:     # the page found it cannot keep cookies: it holds the session itself
+                        out['token'] = token
+                    return self._json(200, out, set_cookie=f'gea_session={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age={SESSION_HOURS * 3600}')
                 if path == '/api/logout':
                     app.logout(self._cookie())
                     return self._json(200, {'ok': True}, set_cookie='gea_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')

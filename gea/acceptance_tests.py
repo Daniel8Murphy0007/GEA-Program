@@ -14377,7 +14377,8 @@ def section_dh_windows_installer(tmp: str) -> None:
                    and "is inside" in refused["contains"] and "not a full path" in refused["relative"] and "root of a drive" in refused["root"],
         "browsers": b_edge == ("Microsoft Edge", reg["msedge.exe"]) and b_chrome == ("Google Chrome", reg["chrome.exe"])
                     and b_known == ("Microsoft Edge", edge_known) and b_none is None and b_unix == ("Chromium", "/usr/bin/chromium"),
-        "app_window": how_app == "app window (Microsoft Edge)" and calls[0] == [r"C:\Edge\msedge.exe", "--app=https://localhost:8765/", "--window-size=1440,960"]
+        "app_window": how_app == "app window (Microsoft Edge)" and calls[0][:3] == [r"C:\Edge\msedge.exe", "--app=https://localhost:8765/", "--window-size=1440,960"]
+                      and any(a.startswith("--user-data-dir=") and a.endswith(os.path.join("GEA-Program", "window")) for a in calls[0]) and "--disable-extensions" in calls[0]
                       and how_web == "the default browser" and opened == ["http://127.0.0.1:8765/"] and how_fallback == "the default browser",
         "url": L.dashboard_url(str(wsr), 8765) == "https://localhost:8765/" and L.dashboard_url(str(wsr), 8770) == "http://127.0.0.1:8770/"
                and L.dashboard_url(str(wsr), 8765, since_utc="2026-10-03T00:00:00Z") == "http://127.0.0.1:8765/",
@@ -14739,6 +14740,73 @@ def section_dj_shortcut_start(tmp: str) -> None:
        "tab in the default browser" + (f" [failed: {', '.join(failed)}]" if failed else ""))
 
 
+
+def section_dk_cookieless_window(tmp: str) -> None:
+    """Section DK - a window that keeps no cookies (a browser whose settings or policy block them: the Edge on the first
+    site that installed the program threw away every cookie, so every sign-in succeeded and was forgotten at once). The
+    page tests for it and carries the session in the address (/s/<token>/...) and its requests; the service reads the
+    session from the cookie, the X-GEA-Session header or the address, and hands the page its token only when the page
+    says it cannot keep the cookie. The app window has its own browser profile, without extensions, and the program's
+    icon."""
+    import http.cookiejar
+    import urllib.error
+    import urllib.request
+    from . import launcher as L
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    wsp = str(Path(tmp, "dk_ws")); Workspace.create(wsp, "Pad 3", actor="tester")
+    Users(str(Path(wsp, "users.json"))).add("adm", "admin-pass-123", "admin")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+
+    def call(method, path, body=None, headers=None, jar=False):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())) if jar else urllib.request.build_opener()
+        rq = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        for k, v in (headers or {}).items():
+            rq.add_header(k, v)
+        try:
+            with o.open(rq, timeout=60) as rr_:
+                ctype = rr_.headers.get("Content-Type", "")
+                raw = rr_.read()
+                return rr_.status, (json.loads(raw) if "json" in ctype else raw.decode("utf-8", "replace")), dict(rr_.headers)
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read() or b"{}"), dict(e.headers)
+    try:
+        s_plain, j_plain, _ = call("POST", "/api/login", {"name": "adm", "password": "admin-pass-123"})
+        s_ck, j_ck, h_ck = call("POST", "/api/login", {"name": "adm", "password": "admin-pass-123", "cookieless": True})
+        tok = j_ck.get("token") or ""
+        s_hdr, j_hdr, _ = call("GET", "/api/session", headers={"X-GEA-Session": tok})
+        s_path, j_path, _ = call("GET", f"/s/{tok}/api/session")
+        s_none, j_none, _ = call("GET", "/api/session")
+        s_bad, j_bad, _ = call("GET", "/s/not-a-session/api/session")
+        s_page, page, _ = call("GET", f"/s/{tok}/")
+        s_post, j_post, _ = call("POST", f"/s/{tok}/api/prefs", {"prefs": {"help_open": False}})
+    finally:
+        svc.stop()
+    src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    args = L.app_window_args(r"C:\Edge\msedge.exe", "http://127.0.0.1:8765/", profile=r"C:\Users\x\AppData\Local\GEA-Program\window")
+    c = {
+        "token_only_when_asked": s_plain == 200 and "token" not in j_plain and s_ck == 200 and len(tok) >= 32 and "HttpOnly" in h_ck.get("Set-Cookie", ""),
+        "header": s_hdr == 200 and (j_hdr.get("user") or {}).get("name") == "adm",
+        "address": s_path == 200 and (j_path.get("user") or {}).get("name") == "adm" and s_page == 200 and "<title>GEA-Program</title>" in page,
+        "post_by_address": s_post == 200,
+        "none_or_wrong": s_none == 200 and j_none.get("user") is None and s_bad == 200 and j_bad.get("user") is None,
+        "page_switches": all(x in src for x in ("const COOKIES_OK =", "function withSt(", "cookieless: !COOKIES_OK", "fetch(withSt(path), opt)",
+                                                 "a.setAttribute('href', withSt(h))", "setSt(null)", "keeps no cookies")),
+        "window_profile": args[:3] == [r"C:\Edge\msedge.exe", "--app=http://127.0.0.1:8765/", "--window-size=1440,960"]
+                          and r"--user-data-dir=C:\Users\x\AppData\Local\GEA-Program\window" in args and "--disable-extensions" in args and "--no-first-run" in args,
+        "icon": '<link rel="icon" type="image/png" href="data:image/png;base64,' in src,
+    }
+    failed = [k for k, v in c.items() if not v]
+    ok(not failed,
+       "DK1 a window that keeps no cookies still signs in: the page tests for it and, where a cookie does not stay, carries the session in "
+       "the address (/s/token/...) for every request, link and report page; the service takes the session from the cookie, the "
+       "X-GEA-Session header or the address, gives the page its token only when the page asks for it, and a missing or wrong one is no "
+       "session; the app window has a browser profile of its own without extensions, and the program's icon"
+       + (f" [failed: {', '.join(failed)}]" if failed else ""))
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -14856,6 +14924,7 @@ def main() -> int:
         section_dh_windows_installer(tmp)
         section_di_site_name(tmp)
         section_dj_shortcut_start(tmp)
+        section_dk_cookieless_window(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

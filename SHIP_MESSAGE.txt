@@ -1,12 +1,16 @@
-v0.66.2 — ITS OWN WINDOW HOWEVER IT STARTS
+v0.66.3 — SIGNING IN WHERE THE BROWSER KEEPS NO COOKIES
 
-The control panel opens in a window of its own however it is started.
+The control panel's window now signs in on a computer whose browser keeps no
+cookies.
 
-- Fixed: started from start-dashboard.cmd (or gea serve), the control
-  panel opened as a tab in the default browser. It now opens the same
-  window the Start-menu shortcut opens: Microsoft Edge's app window - no
-  tabs, no address bar, its own button on the taskbar - or Chrome's, or a
-  browser tab only where neither is installed.
+- Fixed: where Edge is set (or told by policy) to keep no cookies, every
+  sign-in succeeded and was forgotten at once - the window went straight
+  back to Sign in. The page now notices, says so, and holds the sign-in
+  itself until the window is closed. Reports and downloads work the same.
+- The control panel's window has a browser profile of its own, with no
+  extensions, and shows the program's icon.
 
-Install it over the old one: GEA-Program-Setup-0.66.2.exe from the
+Install it over the old one: GEA-Program-Setup-0.66.3.exe from the
 release. C:\site is kept as it is.
+
+Acceptance section DK (1 check).

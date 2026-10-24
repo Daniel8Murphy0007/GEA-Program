@@ -247,8 +247,21 @@ def find_app_browser(registry: Optional[Callable[[str], Optional[str]]] = None, 
     return None
 
 
-def app_window_args(exe: str, url: str, size: tuple = WINDOW_SIZE) -> list:
-    return [exe, f'--app={url}', f'--window-size={int(size[0])},{int(size[1])}']
+def window_profile_dir(env: Optional[dict] = None) -> str:
+    """The app window's own browser profile: %LOCALAPPDATA%\\GEA-Program\\window. The control panel's window does not
+    share the person's everyday Edge profile - its cookie settings, its extensions (a cookie or privacy blocker
+    there kept the sign-in from holding: the page signed in and came straight back to Sign in, v0.66.2), its
+    tabs and its sign-ins. It keeps its own session cookie and nothing else."""
+    env = os.environ if env is None else env
+    base = env.get('LOCALAPPDATA') or os.path.join(os.path.expanduser('~'), 'AppData', 'Local') if (is_windows() or env.get('LOCALAPPDATA')) \
+        else os.path.join(os.path.expanduser('~'), '.local', 'share')
+    return os.path.join(base, 'GEA-Program', 'window')
+
+
+def app_window_args(exe: str, url: str, size: tuple = WINDOW_SIZE, profile: Optional[str] = None) -> list:
+    profile = profile or window_profile_dir()
+    return [exe, f'--app={url}', f'--window-size={int(size[0])},{int(size[1])}', f'--user-data-dir={profile}',
+            '--no-first-run', '--no-default-browser-check', '--disable-extensions']
 
 
 def open_window(url: str, browser: Optional[tuple] = None, popen: Callable = subprocess.Popen, web_open: Optional[Callable] = None,

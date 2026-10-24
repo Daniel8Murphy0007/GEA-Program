@@ -4,6 +4,12 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.66.3 - 2026-10-24 - signing in where the browser keeps no cookies
+
+- The control panel signs in where the browser keeps no cookies: the
+  page notices and carries the session in the address. The app window
+  has its own profile and the program's icon. Section DK; gate 509.
+
 ## v0.66.2 - 2026-10-24 - its own window however it starts
 
 - `start-dashboard.cmd` and `gea serve` open the control panel in Edge's

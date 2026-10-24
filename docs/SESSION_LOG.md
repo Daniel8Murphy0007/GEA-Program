@@ -2998,3 +2998,18 @@ stability; and motor specifications in the tool catalogue.
   the launcher opened Edge's app window. The service now calls the
   launcher's window, so every start looks the same.
 - Section DJ's check extended. Gate 508 on Python 3.13 and 3.14.
+
+## 2026-10-24 - Signing in where the browser keeps no cookies (v0.66.3)
+
+- The installed program, its fix files put in place directly, opened in
+  its own window; Daniel's sign-in "doesn't respond". The audit log had
+  every sign-in as successful; the installed package, run on a copy of
+  Pad 3 in the site VM, kept a session across requests. The window did
+  not: a cookie probe written into the sign-in page showed the browser
+  dropping a test cookie, in his Edge profile and in a brand-new one.
+- The page now carries the session in the address where a cookie does
+  not stay; checked in Chromium with every cookie stripped (sign-in,
+  reload, a report and a link inside it). Put on his machine first; he
+  signed in and ran a backup from the panel.
+- The window's favicon is the program's icon (it showed a globe).
+- Section DK (1 check). Gate 509 on Python 3.13 and 3.14.

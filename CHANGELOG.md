@@ -5,6 +5,24 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.66.3] - 2026-10-24 - Signing in where the browser keeps no cookies
+
+### Fixed
+- **Signing in did nothing in a browser that keeps no cookies.** On the
+  first site's computer Edge threw away every cookie (its settings or a
+  policy), so each sign-in succeeded and the next request arrived
+  without it: the window went straight back to Sign in. The page now
+  tests whether a cookie stays; where it does not, it says so on the
+  sign-in page and carries the session in the window's address
+  (`/s/<token>/...`) for every request, link and report page, until the
+  window is closed. The service reads the session from the cookie, an
+  `X-GEA-Session` header or the address, and hands the page its token
+  only when the page reports it cannot keep the cookie.
+- The app window has a browser profile of its own
+  (`%LOCALAPPDATA%\GEA-Program\window`), without extensions, and the
+  program's icon instead of a blank globe.
+- Acceptance section DK (1 check); DH2 follows the window's arguments.
+
 ## [v0.66.2] - 2026-10-24 - Its own window however it starts
 
 ### Fixed
