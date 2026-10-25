@@ -4,6 +4,13 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.67.0 - 2026-10-25 - no console window
+
+- The installed control panel runs with no window (`gea supervise`, its
+  output in `records\console.log`); no console or PowerShell window opens.
+  Every page and button driven with and without cookies. Section DL;
+  gate 510.
+
 ## v0.66.3 - 2026-10-24 - signing in where the browser keeps no cookies
 
 - The control panel signs in where the browser keeps no cookies: the

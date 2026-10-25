@@ -14402,9 +14402,9 @@ def section_dh_windows_installer(tmp: str) -> None:
     tip = TR.tooltip(True, 8765, "C:\\" + "very long site name " * 10)
     st_ok, st_lines = TR.selftest(str(wsr), 8765, str(kit), show=False)
     c3 = {
-        "menu_running": ids(m_run) == [TR.CMD_STATUS, TR.CMD_OPEN, TR.CMD_STOP, TR.CMD_FOLDER, TR.CMD_HELP, TR.CMD_CLOSE] and m_run[0][2] is False
+        "menu_running": ids(m_run) == [TR.CMD_STATUS, TR.CMD_OPEN, TR.CMD_STOP, TR.CMD_FOLDER, TR.CMD_LOG, TR.CMD_HELP, TR.CMD_CLOSE] and m_run[0][2] is False
                         and all(x[2] for x in m_run[2:] if x) and "keeps running" in m_run[-1][1],
-        "menu_stopped": ids(m_stop) == [TR.CMD_STATUS, TR.CMD_OPEN, TR.CMD_START, TR.CMD_FOLDER, TR.CMD_HELP, TR.CMD_CLOSE] and "Start and open" in m_stop[2][1],
+        "menu_stopped": ids(m_stop) == [TR.CMD_STATUS, TR.CMD_OPEN, TR.CMD_START, TR.CMD_FOLDER, TR.CMD_LOG, TR.CMD_HELP, TR.CMD_CLOSE] and "Start and open" in m_stop[2][1],
         "no_kit_no_stop": [x for x in m_nokit if x and x[0] == TR.CMD_STOP][0][2] is False,
         "tooltip": len(tip) <= TR.TIP_MAX and "running (port 8765)" in tip,
         "notices": TR.notice(None, True, False) is None and TR.notice(True, True, False) is None and TR.notice(True, False, True) is None
@@ -14807,6 +14807,92 @@ def section_dk_cookieless_window(tmp: str) -> None:
        "session; the app window has a browser profile of its own without extensions, and the program's icon"
        + (f" [failed: {', '.join(failed)}]" if failed else ""))
 
+def section_dl_windowless(tmp: str) -> None:
+    """Section DL - the installed program's control panel runs with no window: gea supervise (under pythonw.exe) runs
+    gea serve hidden, its output appended to records/console.log, starts it again on 86, stops on 0, restarts a death
+    only when auto-restart is on (five times at most); the launcher starts the keeper for an installed kit, its timeout
+    message quotes the log, the Stop shortcut and the icon's menu need no window, and stop-dashboard stops the keeper
+    first."""
+    import signal as _signal
+    from . import launcher as L
+    from . import supervisor as SV
+    from . import tray as TR
+    pkg = Path(__file__).parent
+    d = Path(tmp, "windowless"); d.mkdir()
+    ws = str(d / "site")
+    # -- the keeper's decisions, on a stand-in run
+    seq = iter([86, 3, 3, 0]); runs = []
+    L.supervise(ws, 8765, run=lambda c, l: 0, sleep=lambda s: None)          # makes the workspace, then stops on 0
+    SV.set_auto_restart(ws, True)
+    rc_on = L.supervise(ws, 8765, run=lambda c, l: (runs.append(c), l.write(b"serving\n"), next(seq))[2], sleep=lambda s: None)
+    SV.set_auto_restart(ws, False)
+    rc_off = L.supervise(ws, 8765, run=lambda c, l: 7, sleep=lambda s: None)
+    SV.set_auto_restart(ws, True)
+    rc_cap = L.supervise(ws, 8765, run=lambda c, l: 9, sleep=lambda s: None, max_fails=2)
+    log = Path(L.console_log_path(ws)).read_text(encoding="utf-8")
+    # -- the launcher starts the keeper for an installed kit
+    calls = []
+    saved = L.is_windows
+    try:
+        L.is_windows = lambda: True
+        sc = L.start_service(Path(tmp), ws, 8765, popen=lambda cmd, **kw: calls.append((cmd, kw)))
+    finally:
+        L.is_windows = saved
+    # -- a real keeper and panel on this machine
+    import socket as _socket
+    s0 = _socket.socket(); s0.bind(("127.0.0.1", 0)); port = s0.getsockname()[1]; s0.close()
+    ws2 = str(d / "real")
+    env = dict(os.environ, PYTHONPATH=str(pkg.parent) + os.pathsep + os.environ.get("PYTHONPATH", ""))
+    kw = {"creationflags": 0x00000200} if os.name == "nt" else {"start_new_session": True}
+    proc = subprocess.Popen([sys.executable, "-m", "gea", "supervise", "--workspace", ws2, "--port", str(port)], env=env,
+                            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **kw)
+    up = False
+    try:
+        for _ in range(240):
+            if L.port_open(port):
+                up = True
+                break
+            time.sleep(0.25)
+        real_log = ""
+        for _ in range(120):                       # the port opens as the panel binds it; its "listening" line follows
+            real_log = Path(L.console_log_path(ws2)).read_text(encoding="utf-8", errors="replace") if Path(L.console_log_path(ws2)).exists() else ""
+            if "listening at http" in real_log:
+                break
+            time.sleep(0.25)
+    finally:
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/pid", str(proc.pid), "/t", "/f"], capture_output=True)
+        else:
+            try:
+                os.killpg(proc.pid, _signal.SIGTERM)
+            except OSError:
+                pass
+        try:
+            proc.wait(timeout=20)
+        except Exception:
+            pass
+    tail = L.console_tail(ws2, 3)
+    iss = (pkg.parent / "tools" / "installer.iss").read_text(encoding="utf-8") if (pkg.parent / "tools" / "installer.iss").exists() else None
+    bi_src = (pkg.parent / "tools" / "build_installer.py").read_text(encoding="utf-8") if (pkg.parent / "tools" / "build_installer.py").exists() else None
+    c = {
+        "decisions": rc_on == 0 and len(runs) == 4 and rc_off == 7 and rc_cap == 9 and Path(ws, "workspace.json").exists()
+                     and "restart asked for from the control panel" in log and "auto-restart is on, attempt 2 of 5" in log
+                     and "auto-restart is off - not started again" in log and "2 times in a row - not started again" in log,
+        "keeper_started": len(calls) == 1 and sc[1:4] == ["-m", "gea", "supervise"] and calls[0][1].get("creationflags", 0) & L.DETACHED_PROCESS,
+        "real": up and "starting the control panel on port" in real_log and "listening at http" in real_log and bool(tail),
+        "menu_log": any(it and it[0] == TR.CMD_LOG for it in TR.menu_items(True, "k")),
+        "stop_shortcut": iss is None or 'Filename: "{app}\\python\\pythonw.exe"; Parameters: "-m gea launch --stop"' in iss,
+        "stop_keeper_first": bi_src is None or ("' gea supervise'" in bi_src and bi_src.index("' gea supervise'") < bi_src.index("' gea serve'")),
+        "timeout_quotes_log": "console_tail(ws)" in (pkg / "launcher.py").read_text(encoding="utf-8"),
+    }
+    failed = [k for k, v in c.items() if not v]
+    ok(not failed,
+       "DL1 the installed control panel runs with no window: gea supervise runs it hidden, its output in records/console.log, starts it "
+       "again when it asks (86), stops with it (0), and restarts a death only with auto-restart on, five times at most; the launcher "
+       "starts the keeper for an installed kit and quotes the log when the panel does not come up; Stop and the icon's menu (with the "
+       "log) need no window; stop-dashboard stops the keeper before the panel" + (f" [failed: {', '.join(failed)}]" if failed else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -14925,6 +15011,7 @@ def main() -> int:
         section_di_site_name(tmp)
         section_dj_shortcut_start(tmp)
         section_dk_cookieless_window(tmp)
+        section_dl_windowless(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

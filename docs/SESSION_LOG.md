@@ -3013,3 +3013,23 @@ stability; and motor specifications in the tool catalogue.
   signed in and ran a backup from the panel.
 - The window's favicon is the program's icon (it showed a globe).
 - Section DK (1 check). Gate 509 on Python 3.13 and 3.14.
+
+## 2026-10-25 - No console window (v0.67.0)
+
+- Asked: test every button; does the program make the right support
+  files; does it still run on PowerShell.
+- Buttons: the UI sweep over a populated workspace, twice - with cookies,
+  and with every cookie stripped (Daniel's Edge keeps none): 41 pages, 301
+  buttons and selectors, no page errors, the same answers both ways; the
+  ones behind closed sections opened and clicked separately. Destructive
+  ones (Stop, Restart, Remove, Revoke, Disable, Reset) are the acceptance
+  suite's.
+- Support files on his machine: the installed program held all 106 kit
+  files unchanged, plus what setup and install.cmd add; the leftovers of
+  the day's hand updates (two replaced version folders, two superseded
+  installers) removed with his permission.
+- PowerShell: the panel ran in a minimised console window that became a
+  PowerShell prompt when it stopped. Now `gea supervise` keeps it hidden
+  and writes its output to records\console.log; start-dashboard.cmd
+  keeps the console for anyone who wants it.
+- Section DL (1 check). Gate 510 on Python 3.13 and 3.14.

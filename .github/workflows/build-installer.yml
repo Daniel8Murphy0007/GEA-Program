@@ -250,6 +250,8 @@ jobs:
           Start-Process -FilePath (Join-Path $app 'python\pythonw.exe') -ArgumentList @('-m', 'gea', 'launch', '--background', '--no-tray') -WorkingDirectory $app
           WaitUp
           $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 10 http://127.0.0.1:8765/
+          # the installed program's control panel runs with no window: gea supervise keeps it, its output in records\console.log
+          if (-not (Select-String -Path "$ws\records\console.log" -Pattern 'listening at http' -Quiet)) { throw 'the windowless control panel wrote no console.log' }
           "control panel: HTTP $($r.StatusCode); workspace made: $(Test-Path "$ws\workspace.json")"
           Set-Content -Path "$ws\records\ci-marker.txt" -Value 'the site data the installer must leave alone'
           InstallOnce 'upgrade'

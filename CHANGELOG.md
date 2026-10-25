@@ -5,6 +5,36 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.67.0] - 2026-10-25 - No console window
+
+### Changed
+- **The installed program's control panel runs with no window.** Started
+  from the Start menu, the desktop icon, the notification-area icon or at
+  sign-in, it is kept by `gea supervise` (under pythonw.exe): `gea serve`
+  runs hidden, everything it would have printed in its console - the
+  start, sign-ins, jobs, a stop and why - goes to `records\console.log`
+  in the workspace, a Restart from the control panel (exit 86) starts it
+  again at once, a Stop (exit 0) ends it, and a death starts it again only
+  with auto-restart on, five times in a row at most. No console or
+  PowerShell window opens. The kit's `start-dashboard.cmd` still runs it in
+  a console window, for a site that wants to watch it there.
+- When the panel does not come up, the launcher's message quotes the last
+  lines of `records\console.log` instead of pointing at a window.
+- The notification-area icon's menu gains **The control panel's log**; the
+  Start menu's **Stop GEA-Program** stops it with no window
+  (`gea launch --stop`); `stop-dashboard.cmd` stops the keeper before the
+  panel, so it cannot start it again.
+- The Administration page and the Stop confirmation say how the panel
+  runs, instead of describing a PowerShell window.
+- Acceptance section DL (1 check); DH3 follows the icon's menu.
+
+### Checked
+- Every page and every non-destructive button of the control panel driven
+  in headless Chromium, with cookies and with every cookie blocked (as on
+  the first site's Edge): 41 pages, 301 buttons and selectors, no page
+  errors; an empty form is answered with what it needs. The buttons
+  inside closed sections opened and clicked one by one.
+
 ## [v0.66.3] - 2026-10-24 - Signing in where the browser keeps no cookies
 
 ### Fixed

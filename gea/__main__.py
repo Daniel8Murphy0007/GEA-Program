@@ -822,8 +822,12 @@ def main(argv=None) -> int:
     p_la.add_argument("--no-tray", action="store_true", help="no notification-area icon")
     p_la.add_argument("--selftest", action="store_true", help="say what a launch would do here (the kit, the workspace, the window, the command), start nothing")
     p_la.add_argument("--json", action="store_true")
+    p_la.add_argument("--stop", action="store_true", help="stop the control panel this installation started (and its keeper), with no window")
     p_la.add_argument("--set-workspace", type=str, default=None, help="record the site workspace for this installation (the installer runs it; never a folder inside the program's own)")
     p_la.add_argument("--site-name", type=str, default=None, help="with --set-workspace: make the workspace with this name when there is none there yet (an existing one is left as it is; empty names it after its folder)")
+    p_su = sub.add_parser("supervise", help="keep the control panel running with no window: gea serve, hidden, its output in records\\console.log, started again when it asks to (what the Start-menu shortcut runs)")
+    p_su.add_argument("--workspace", type=str, default=None, help="the workspace folder (as gea launch finds it)")
+    p_su.add_argument("--port", type=int, default=8765)
     p_ty = sub.add_parser("tray", help="the program's icon in the Windows notification area: running or stopped, and a menu to open, start or stop the control panel")
     p_ty.add_argument("--workspace", type=str, default=None, help="the workspace folder (as gea launch finds it)")
     p_ty.add_argument("--port", type=int, default=8765)
@@ -3228,6 +3232,9 @@ def main(argv=None) -> int:
     elif a.cmd == "launch":
         from .launcher import main as _launch
         return _launch(a)
+    elif a.cmd == "supervise":
+        from .launcher import supervise_main as _sup
+        return _sup(a)
     elif a.cmd == "tray":
         from .tray import main as _tray
         return _tray(a)

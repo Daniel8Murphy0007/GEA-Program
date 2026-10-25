@@ -1387,7 +1387,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.66.3.exe` (for 0.66.3): the
+Every release also carries `GEA-Program-Setup-0.67.0.exe` (for 0.67.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1398,13 +1398,15 @@ sign-in. The shortcut **GEA-Program** starts the control panel when it is not
 running and opens it in Microsoft Edge's app window (its own window and
 taskbar button; Chrome's, else a browser tab, where Edge is missing); the
 program's icon in the notification area says whether the panel is running
-and opens, starts or stops it (`gea launch`, `gea tray`). A newer setup
+and opens, starts or stops it (`gea launch`, `gea tray`). The panel itself
+runs with no window (`gea supervise`; its output in `records\console.log`):
+no console or PowerShell window opens. A newer setup
 installs over the older one after stopping the panel; the uninstaller stops
 it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.66.3.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.67.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

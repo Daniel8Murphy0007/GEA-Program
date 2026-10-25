@@ -322,7 +322,118 @@ def service_popen_kwargs(windows: Optional[bool] = None) -> dict:
     return {'creationflags': CREATE_NEW_CONSOLE, 'startupinfo': si, 'close_fds': True}
 
 
+CONSOLE_LOG = os.path.join('records', 'console.log')
+CONSOLE_LOG_MAX = 5_000_000
+RESTART_WAIT_S = 5
+
+
+def console_log_path(ws: str) -> str:
+    """Where the control panel's own output goes when it runs with no window: what its console window used to
+    show - the start, the sign-ins, the jobs, a stop and why."""
+    return os.path.join(ws, CONSOLE_LOG)
+
+
+def console_tail(ws: str, n: int = 12) -> str:
+    try:
+        with open(console_log_path(ws), 'rb') as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - 16384))
+            lines = f.read().decode('utf-8', 'replace').splitlines()
+    except OSError:
+        return ''
+    return '\n'.join(ln for ln in lines[-n:] if ln.strip())
+
+
+def supervisor_command(ws: str, port: int, executable: Optional[str] = None) -> list:
+    """The installed program's control panel with no window: gea supervise, under pythonw.exe, runs gea serve hidden,
+    its output in records\\console.log, and starts it again when it asks to (exit 86) - what start-dashboard.cmd's
+    window did, without the window."""
+    return [gui_python(executable), '-m', 'gea', 'supervise', '--workspace', ws, '--port', str(int(port))]
+
+
+def start_supervisor(ws: str, port: int, popen: Callable = subprocess.Popen) -> list:
+    cmd = supervisor_command(ws, port)
+    popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True,
+          creationflags=(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP) if is_windows() else 0,
+          **({} if is_windows() else {'start_new_session': True}))
+    return cmd
+
+
+def _note(log, text: str) -> None:
+    try:
+        log.write(f'== {_utc_now()}  {text}\n'.encode('utf-8'))
+        log.flush()
+    except (OSError, ValueError):
+        pass
+
+
+def _run_hidden(cmd: list, log) -> int:
+    kw = {'stdin': subprocess.DEVNULL, 'stdout': log, 'stderr': subprocess.STDOUT, 'close_fds': True}
+    if is_windows():
+        kw['creationflags'] = CREATE_NO_WINDOW
+    env = dict(os.environ, PYTHONUNBUFFERED='1', PYTHONIOENCODING='utf-8')
+    return subprocess.call(cmd, env=env, **kw)
+
+
+def supervise(ws: str, port: int = DEFAULT_PORT, run: Optional[Callable] = None, sleep: Callable = time.sleep,
+              executable: Optional[str] = None, max_fails: Optional[int] = None) -> int:
+    """Keep the control panel running with no window. It is started; when it ends with 86 (Restart, from the
+    control panel) it is started again at once; when it ends with 0 (Stop) this ends too; when it dies, it is started
+    again only if the operator turned auto-restart on (records\\auto_restart.flag), five times in a row at most.
+    Everything it prints, and every one of these decisions, is appended to records\\console.log."""
+    from . import supervisor as SV
+    max_fails = SV.AUTO_MAX if max_fails is None else max_fails
+    run = run or _run_hidden
+    if not os.path.isfile(os.path.join(ws, 'workspace.json')):
+        from .workspace import Workspace
+        Workspace.create(ws, os.path.basename(os.path.normpath(ws)), actor='installer')
+    os.makedirs(os.path.dirname(console_log_path(ws)), exist_ok=True)
+    cmd = [console_python(executable), '-m', 'gea', 'serve', '--workspace', ws, '--port', str(int(port)), '--no-browser']
+    fails = 0
+    while True:
+        p = console_log_path(ws)
+        try:
+            if os.path.getsize(p) > CONSOLE_LOG_MAX:
+                os.replace(p, p + '.1')
+        except OSError:
+            pass
+        with open(p, 'ab') as log:
+            _note(log, f'starting the control panel on port {int(port)} (no window; this file is its output)')
+            rc = run(cmd, log)
+            if rc == SV.EXIT_RESTART:
+                fails = 0
+                _note(log, 'restart asked for from the control panel - starting it again')
+                continue
+            if rc == SV.EXIT_CLEAN:
+                _note(log, 'the control panel stopped (exit 0)')
+                return 0
+            if not SV.auto_restart(ws):
+                _note(log, f'the control panel stopped unexpectedly (exit {rc}); auto-restart is off - not started again')
+                return rc
+            fails += 1
+            if fails > max_fails:
+                _note(log, f'the control panel stopped unexpectedly {max_fails} times in a row - not started again')
+                return rc
+            _note(log, f'the control panel stopped unexpectedly (exit {rc}) - auto-restart is on, attempt {fails} of {max_fails}')
+        sleep(RESTART_WAIT_S)
+
+
+def _single_instance(name: str):
+    """A named mutex on Windows (None when another holder exists); elsewhere always granted."""
+    if not is_windows():
+        return True
+    import ctypes
+    k = ctypes.WinDLL('kernel32', use_last_error=True)
+    k.CreateMutexW.restype = ctypes.c_void_p
+    h = k.CreateMutexW(None, False, name)
+    if ctypes.get_last_error() == 183:
+        return None
+    return h
+
+
 def start_service(kit: Optional[Path], ws: str, port: int, popen: Callable = subprocess.Popen) -> list:
+    if kit is not None and is_windows():
+        return start_supervisor(ws, port, popen=popen)
     cmd = service_command(kit, ws, port)
     env = dict(os.environ, GEA_WORKSPACE=ws, GEA_PORT=str(int(port)))
     popen(cmd, cwd=str(kit) if kit else None, env=env, **service_popen_kwargs())
@@ -428,9 +539,11 @@ def launch(workspace: Optional[str] = None, port: int = DEFAULT_PORT, background
     deadline = time.monotonic() + wait_s
     while not port_open(port):
         if time.monotonic() > deadline:
-            say('GEA-Program', f'The control panel did not start within {int(wait_s)} seconds. Its window '
-                               f'("GEA - Operations Control Panel", minimised on the taskbar) says why; the run log is '
-                               f'{os.path.join(ws, "records", "runlog.jsonl")}.', error=True)
+            tail = console_tail(ws)
+            say('GEA-Program', f'The control panel did not start within {int(wait_s)} seconds.'
+                               + (f' The last lines it wrote ({console_log_path(ws)}):\n\n{tail}' if tail else
+                                  f' Its output is in {console_log_path(ws)}; the run log is {os.path.join(ws, "records", "runlog.jsonl")}.'),
+                error=True)
             return 1
         time.sleep(0.5)
     url = dashboard_url(ws, port)
@@ -448,7 +561,21 @@ def launch(workspace: Optional[str] = None, port: int = DEFAULT_PORT, background
     return 0
 
 
+def supervise_main(a) -> int:
+    kit = kit_dir()
+    ws, _ = resolve_workspace(a.workspace, kit=kit)
+    holder = _single_instance(f'Local\\GEA-Program-Supervisor-{int(a.port)}')
+    if holder is None:
+        return 0                                   # one keeper per port: this one is already running
+    return supervise(ws, a.port)
+
+
 def main(a) -> int:
+    if getattr(a, 'stop', False):
+        if not stop_service(kit_dir(), with_tray=False):
+            say('GEA-Program', 'There is no installed program here to stop the control panel with; close its window or press Ctrl+C in it.', error=True)
+            return 2
+        return 0
     if getattr(a, 'set_workspace', None):
         try:
             path = set_workspace(kit_dir(), a.set_workspace)

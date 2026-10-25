@@ -258,8 +258,9 @@ endlocal & set GEA_RC=%GEA_RC%
 powershell.exe -NoLogo -NoExit -Command "Set-Location -LiteralPath '%~dp0'; Write-Host ''; Write-Host 'GEA - Operations Control Panel: stopped (exit %GEA_RC%).' -ForegroundColor Cyan; Write-Host 'Start it again:  .\start-dashboard.cmd' -ForegroundColor Cyan; Write-Host 'Run log:         %GEA_WORKSPACE%\records\runlog.jsonl' -ForegroundColor DarkGray; Write-Host ''"
 ''',
 'stop-dashboard.cmd': r'''@echo off
-rem Stops the control panel started from this kit: the window running start-dashboard.cmd first, so its restart
-rem loop cannot start the panel again, then any "gea serve" this kit's Python still runs. With --all also the
+rem Stops the control panel started from this kit: the window running start-dashboard.cmd and the windowless keeper
+rem (gea supervise, what the Start-menu shortcut starts) first, so neither can start the panel again, then any
+rem "gea serve" this kit's Python still runs. With --all also the
 rem notification-area icon (the installer stops everything before an upgrade and before it uninstalls).
 rem PowerShell's Get-CimInstance, not wmic: Windows 11 24H2 no longer has wmic, and the stop of v0.64 and
 rem before found nothing to stop there.
@@ -268,7 +269,7 @@ set "GEA_KIT=%~dp0"
 set "GEA_ALL=0"
 if /i "%~1"=="--all" set "GEA_ALL=1"
 echo == stopping the GEA-Program control panel started from this kit
-powershell.exe -NoLogo -NoProfile -NonInteractive -Command "$k = $env:GEA_KIT; $all = $env:GEA_ALL -eq '1'; $ic = [StringComparison]::OrdinalIgnoreCase; $ps = @(Get-CimInstance Win32_Process); $mine = @($ps | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($k, $ic) -and $_.Name -like 'python*.exe' }); $kill = @($ps | Where-Object { $_.Name -eq 'cmd.exe' -and ([string]$_.CommandLine).IndexOf($k + 'start-dashboard.cmd', $ic) -ge 0 }); foreach ($s in @($mine | Where-Object { [string]$_.CommandLine -match ' gea serve' })) { $kill += @($ps | Where-Object { $_.ProcessId -eq $s.ParentProcessId -and $_.Name -eq 'cmd.exe' -and ([string]$_.CommandLine) -like '*start-dashboard.cmd*' }); $kill += $s }; if ($all) { $kill += @($mine | Where-Object { [string]$_.CommandLine -match ' gea (tray|launch)' }) }; $done = @{}; foreach ($p in $kill) { if (-not $done.ContainsKey($p.ProcessId)) { $done[$p.ProcessId] = 1; & taskkill.exe /pid $p.ProcessId /t /f 2>&1 | Out-Null; Write-Host ('   stopped pid ' + $p.ProcessId + ' (' + $p.Name + ')') } }"
+powershell.exe -NoLogo -NoProfile -NonInteractive -Command "$k = $env:GEA_KIT; $all = $env:GEA_ALL -eq '1'; $ic = [StringComparison]::OrdinalIgnoreCase; $ps = @(Get-CimInstance Win32_Process); $mine = @($ps | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($k, $ic) -and $_.Name -like 'python*.exe' }); $kill = @($ps | Where-Object { $_.Name -eq 'cmd.exe' -and ([string]$_.CommandLine).IndexOf($k + 'start-dashboard.cmd', $ic) -ge 0 }); $kill += @($mine | Where-Object { [string]$_.CommandLine -match ' gea supervise' }); foreach ($s in @($mine | Where-Object { [string]$_.CommandLine -match ' gea serve' })) { $kill += @($ps | Where-Object { $_.ProcessId -eq $s.ParentProcessId -and $_.Name -eq 'cmd.exe' -and ([string]$_.CommandLine) -like '*start-dashboard.cmd*' }); $kill += $s }; if ($all) { $kill += @($mine | Where-Object { [string]$_.CommandLine -match ' gea (tray|launch)' }) }; $done = @{}; foreach ($p in $kill) { if (-not $done.ContainsKey($p.ProcessId)) { $done[$p.ProcessId] = 1; & taskkill.exe /pid $p.ProcessId /t /f 2>&1 | Out-Null; Write-Host ('   stopped pid ' + $p.ProcessId + ' (' + $p.Name + ')') } }"
 echo done
 endlocal
 ''',

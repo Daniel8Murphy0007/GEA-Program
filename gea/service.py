@@ -2986,7 +2986,7 @@ def make_handler(app: App):
                                             'launcher_reads': _SV.auto_restart(app.ws.path),
                                             'detail': ('the launcher will start the control panel again by itself if it stops unexpectedly'
                                                        if on else
-                                                       'the launcher will hand the window to a PowerShell prompt when the control panel stops')})
+                                                       'the launcher leaves the control panel stopped when it stops unexpectedly (the GEA-Program icon starts it again)')})
                 if path == '/api/month-end/run':
                     App.require(user, 'operator')
                     from . import month_end as ME
@@ -3356,7 +3356,7 @@ class Service:
         threading.Thread(target=self.httpd.shutdown, name='gea-exit', daemon=True).start()
         return {'event': event, 'code': int(code), 'reason': reason,
                 'detail': ('the launcher will start the control panel again' if event == 'restart'
-                           else 'the launcher will hand this window to a PowerShell prompt')}
+                           else 'the control panel stops; the GEA-Program icon starts it again')}
 
     @property
     def url(self) -> str:

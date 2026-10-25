@@ -1,16 +1,18 @@
-v0.66.3 — SIGNING IN WHERE THE BROWSER KEEPS NO COOKIES
+v0.67.0 — NO CONSOLE WINDOW
 
-The control panel's window now signs in on a computer whose browser keeps no
-cookies.
+The installed program's control panel now runs with no window at all.
 
-- Fixed: where Edge is set (or told by policy) to keep no cookies, every
-  sign-in succeeded and was forgotten at once - the window went straight
-  back to Sign in. The page now notices, says so, and holds the sign-in
-  itself until the window is closed. Reports and downloads work the same.
-- The control panel's window has a browser profile of its own, with no
-  extensions, and shows the program's icon.
+- Started from the Start menu, the desktop icon, the notification-area
+  icon or at sign-in, the control panel runs in the background with no
+  console and no PowerShell window. What it used to print in that window
+  goes to records\console.log in the workspace; the icon's menu opens it.
+- A Restart from the control panel starts it again by itself; Stop
+  GEA-Program (Start menu) and the icon's Stop stop it, with no window.
+- If it does not come up, the message quotes the last lines of its log.
+- Every page and button of the control panel was driven, with cookies and
+  with every cookie blocked: no page errors.
 
-Install it over the old one: GEA-Program-Setup-0.66.3.exe from the
+Install it over the old one: GEA-Program-Setup-0.67.0.exe from the
 release. C:\site is kept as it is.
 
-Acceptance section DK (1 check).
+Acceptance section DL (1 check).

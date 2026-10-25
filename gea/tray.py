@@ -26,7 +26,7 @@ from .icon import dib, ico_bytes, read_ico
 
 POLL_MS = 3000
 TIP_MAX = 127
-CMD_STATUS, CMD_OPEN, CMD_START, CMD_STOP, CMD_FOLDER, CMD_HELP, CMD_CLOSE = 100, 101, 102, 103, 104, 105, 109
+CMD_STATUS, CMD_OPEN, CMD_START, CMD_STOP, CMD_FOLDER, CMD_HELP, CMD_LOG, CMD_CLOSE = 100, 101, 102, 103, 104, 105, 106, 109
 
 # ---------------------------------------------------------------------------- what the icon says (any platform)
 
@@ -38,7 +38,7 @@ def menu_items(running: bool, kit: Optional[str] = None) -> list:
         items.append((CMD_STOP, 'Stop the control panel', kit is not None))
     else:
         items.append((CMD_START, 'Start the control panel (no window)', True))
-    items += [None, (CMD_FOLDER, 'Open the site workspace folder', True), (CMD_HELP, 'Help', True), None,
+    items += [None, (CMD_FOLDER, 'Open the site workspace folder', True), (CMD_LOG, "The control panel's log", True), (CMD_HELP, 'Help', True), None,
               (CMD_CLOSE, 'Close this icon (the control panel keeps running)' if running else 'Close this icon', True)]
     return items
 
@@ -266,6 +266,10 @@ class Tray:
         elif cid == CMD_FOLDER:
             if os.path.isdir(self.ws):
                 os.startfile(self.ws)
+        elif cid == CMD_LOG:
+            p = L.console_log_path(self.ws)
+            if os.path.isfile(p):
+                os.startfile(p)
         elif cid == CMD_HELP:
             if self.running:
                 L.open_window(help_url(L.dashboard_url(self.ws, self.port)))
