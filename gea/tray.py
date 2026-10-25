@@ -255,7 +255,7 @@ class Tray:
     def command(self, cid: int) -> None:
         if cid == CMD_OPEN:
             if self.running:
-                L.open_window(L.dashboard_url(self.ws, self.port))
+                threading.Thread(target=L.open_window, args=(L.dashboard_url(self.ws, self.port),), daemon=True).start()
             else:
                 self._spawn_launch(background=False)
         elif cid == CMD_START:
@@ -272,7 +272,7 @@ class Tray:
                 os.startfile(p)
         elif cid == CMD_HELP:
             if self.running:
-                L.open_window(help_url(L.dashboard_url(self.ws, self.port)))
+                threading.Thread(target=L.open_window, args=(help_url(L.dashboard_url(self.ws, self.port)),), daemon=True).start()
             elif self.kit:
                 os.startfile(os.path.join(str(self.kit), 'README.txt'))
         elif cid == CMD_CLOSE:
@@ -317,6 +317,7 @@ class Tray:
         self.create()
         self.running = L.port_open(self.port)
         self.add()
+        threading.Thread(target=promote_icon, daemon=True).start()
         a.user32.SetTimer(self.hwnd, 1, POLL_MS, None)
         msg = a.W.MSG()
         while a.user32.GetMessageW(a.c.byref(msg), None, 0, 0) > 0:
@@ -325,6 +326,68 @@ class Tray:
         for h in self.icons.values():
             a.user32.DestroyIcon(h)
         return 0
+
+
+KNOWN_FOLDERS = {'{F1B32785-6FBA-4FCF-9D55-7B8E7F157091}': 'LOCALAPPDATA', '{6D809377-6AF0-444B-8957-A3773F02200E}': 'ProgramW6432',
+                 '{7C5A40EF-A0FB-4BFC-874A-C0F2E0B9FA8E}': 'ProgramFiles(x86)', '{F38BF404-1D43-42F2-9305-67DE0B28FC23}': 'SystemRoot'}
+
+
+def _known_folder_path(path: str, env: Optional[dict] = None) -> str:
+    """Windows writes a notification icon's program path with a known folder's GUID in front
+    ({F1B32785-...}\\\\Programs\\\\GEA-Program\\\\...) - the same path, normalised for comparing."""
+    env = os.environ if env is None else env
+    p = path.strip().strip('"')
+    for guid, var in KNOWN_FOLDERS.items():
+        if p.upper().startswith(guid) and env.get(var):
+            p = env[var] + p[len(guid):]
+            break
+    p = os.path.expandvars(p)
+    return os.path.normcase(os.path.normpath(p)) if os.name == 'nt' else os.path.normpath(p.replace('\\', '/'))
+
+
+def promote_icon(executable: Optional[str] = None, wait_s: float = 10.0, registry=None) -> int:
+    """Windows 11 puts a new program's notification-area icon behind the ^ (hidden icons) until the person drags it
+    out; the GEA icon is the program's way back to its window, so it is shown on the taskbar the first time. Windows
+    keeps one entry per icon under HKCU\\\\Control Panel\\\\NotifyIconSettings with the program's path; the entry for this
+    pythonw.exe is marked IsPromoted=1 only where no choice has been made yet (a person who hid it keeps it hidden).
+    Returns the number of entries promoted."""
+    import time as _t
+    if registry is None:
+        try:
+            import winreg as registry
+        except ImportError:
+            return 0
+    exe = _known_folder_path(executable or L.gui_python())
+    n = 0
+    deadline = _t.monotonic() + wait_s
+    while True:
+        try:
+            with registry.OpenKey(registry.HKEY_CURRENT_USER, r'Control Panel\NotifyIconSettings') as root:
+                i = 0
+                while True:
+                    try:
+                        sub = registry.EnumKey(root, i)
+                    except OSError:
+                        break
+                    i += 1
+                    try:
+                        with registry.OpenKey(root, sub, 0, registry.KEY_READ | registry.KEY_SET_VALUE) as k:
+                            path, _ = registry.QueryValueEx(k, 'ExecutablePath')
+                            if _known_folder_path(str(path)) != exe:
+                                continue
+                            try:
+                                registry.QueryValueEx(k, 'IsPromoted')
+                                continue                       # a choice was made already: left as it is
+                            except OSError:
+                                registry.SetValueEx(k, 'IsPromoted', 0, registry.REG_DWORD, 1)
+                                n += 1
+                    except OSError:
+                        continue
+        except OSError:
+            pass
+        if n or _t.monotonic() > deadline:
+            return n
+        _t.sleep(1.0)
 
 
 def _log(line: str) -> None:

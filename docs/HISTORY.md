@@ -4,6 +4,12 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.67.1 - 2026-10-25 - the derrick on the taskbar
+
+- The control panel's window is GEA-Program on the taskbar (its own
+  AppUserModelID, icon and relaunch command), not Edge; the icon by the
+  clock comes out from behind the hidden icons. Section DM; gate 511.
+
 ## v0.67.0 - 2026-10-25 - no console window
 
 - The installed control panel runs with no window (`gea supervise`, its

@@ -265,16 +265,25 @@ def app_window_args(exe: str, url: str, size: tuple = WINDOW_SIZE, profile: Opti
 
 
 def open_window(url: str, browser: Optional[tuple] = None, popen: Callable = subprocess.Popen, web_open: Optional[Callable] = None,
-                find: Callable = find_app_browser) -> str:
+                find: Callable = find_app_browser, claim: bool = True) -> str:
     """Open the control panel in an app window when a browser here makes one, else in the default browser.
     Says which."""
     b = browser if browser is not None else find()
     if b:
         try:
             popen(app_window_args(b[1], url), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
-            return f'app window ({b[0]})'
         except OSError:
-            pass
+            b = None
+        if b:
+            if claim and is_windows():
+                # the window's taskbar button: GEA-Program and its derrick, not Edge's logo (gea.winident)
+                try:
+                    from . import winident as _WI
+                    k = kit_dir()
+                    _WI.claim_window(str(k) if k else None, exe_name=os.path.basename(b[1]))
+                except Exception:
+                    pass                           # the window works the same without it
+            return f'app window ({b[0]})'
     if web_open is None:
         import webbrowser
         web_open = webbrowser.open

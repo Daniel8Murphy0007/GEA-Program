@@ -19,7 +19,7 @@
 ; existing workspace is used exactly as it is, its name included (renamed on the Administration page, if at all).
 ;
 ; Silent install, for a site's software deployment (the CI test runs exactly this):
-;   GEA-Program-Setup-0.67.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+;   GEA-Program-Setup-0.67.1.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ; (/SITENAME names a workspace the setup makes; a workspace that exists keeps its own name)
 
 #ifndef AppVersion
@@ -81,13 +81,13 @@ Type: files; Name: "{app}\INSTALLED.txt"
 Source: "{#KitDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\GEA-Program\GEA-Program"; Filename: "{app}\python\pythonw.exe"; Parameters: "-m gea launch"; WorkingDir: "{app}"; IconFilename: "{app}\gea.ico"; Comment: "Open the GEA-Program control panel (starts it when it is not running)"
+Name: "{autoprograms}\GEA-Program\GEA-Program"; Filename: "{app}\python\pythonw.exe"; Parameters: "-m gea launch"; WorkingDir: "{app}"; IconFilename: "{app}\gea.ico"; AppUserModelID: "ENRGYONE.GEAProgram"; Comment: "Open the GEA-Program control panel (starts it when it is not running)"
 Name: "{autoprograms}\GEA-Program\Stop GEA-Program"; Filename: "{app}\python\pythonw.exe"; Parameters: "-m gea launch --stop"; WorkingDir: "{app}"; IconFilename: "{app}\gea.ico"; Comment: "Stop the GEA-Program control panel"
 Name: "{autoprograms}\GEA-Program\Verify GEA-Program (acceptance gate)"; Filename: "{cmd}"; Parameters: "/k ""{app}\verify.cmd"""; WorkingDir: "{app}"; Comment: "Run every check of the acceptance gate from this installation"
 Name: "{autoprograms}\GEA-Program\Site workspace folder"; Filename: "{code:WorkspaceDir}"; Comment: "The site's data: wells, reports, records, accounts"
 Name: "{autoprograms}\GEA-Program\Read me"; Filename: "{app}\README.txt"
 Name: "{autoprograms}\GEA-Program\Uninstall GEA-Program"; Filename: "{uninstallexe}"; Comment: "Remove the program (the site workspace stays)"
-Name: "{autodesktop}\GEA-Program"; Filename: "{app}\python\pythonw.exe"; Parameters: "-m gea launch"; WorkingDir: "{app}"; IconFilename: "{app}\gea.ico"; Comment: "Open the GEA-Program control panel"; Tasks: desktopicon
+Name: "{autodesktop}\GEA-Program"; Filename: "{app}\python\pythonw.exe"; Parameters: "-m gea launch"; WorkingDir: "{app}"; IconFilename: "{app}\gea.ico"; AppUserModelID: "ENRGYONE.GEAProgram"; Comment: "Open the GEA-Program control panel"; Tasks: desktopicon
 Name: "{userstartup}\GEA-Program"; Filename: "{app}\python\pythonw.exe"; Parameters: "-m gea launch --background"; WorkingDir: "{app}"; IconFilename: "{app}\gea.ico"; Comment: "Start the GEA-Program control panel at sign-in"; Tasks: startlogon
 
 [Run]

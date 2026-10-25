@@ -14463,7 +14463,7 @@ def section_dh_windows_installer(tmp: str) -> None:
         known = {"Tasks": {"Name", "Description", "GroupDescription", "Flags"},
                  "InstallDelete": {"Type", "Name"}, "UninstallDelete": {"Type", "Name"},
                  "Files": {"Source", "DestDir", "Flags"},
-                 "Icons": {"Name", "Filename", "Parameters", "WorkingDir", "IconFilename", "Comment", "Tasks"},
+                 "Icons": {"Name", "Filename", "Parameters", "WorkingDir", "IconFilename", "AppUserModelID", "Comment", "Tasks"},
                  "Run": {"Filename", "Parameters", "WorkingDir", "Description", "Flags"},
                  "UninstallRun": {"Filename", "Parameters", "WorkingDir", "Flags", "RunOnceId"}}
         entries = {s: [_iss_entry(ln) for ln in sec.get(s, [])] for s in known}
@@ -14893,6 +14893,77 @@ def section_dl_windowless(tmp: str) -> None:
        "log) need no window; stop-dashboard stops the keeper before the panel" + (f" [failed: {', '.join(failed)}]" if failed else ""))
 
 
+def section_dm_taskbar_identity(tmp: str) -> None:
+    """Section DM - GEA-Program on the taskbar, not Microsoft Edge: the launcher finds the control panel's window once
+    Edge has opened it and gives it the program's AppUserModelID (ENRGYONE.GEAProgram), its icon and its relaunch
+    command - the identity the installer gives the Start-menu and desktop shortcuts - so its taskbar button is the
+    derrick and pinning it pins the program; the notification-area icon is shown on the taskbar the first time
+    instead of behind the hidden icons, unless the person has chosen otherwise."""
+    from . import launcher as L
+    from . import tray as TR
+    from . import winident as WI
+    pkg = Path(__file__).parent
+    calls, done = [], set()
+    n1 = WI.claim_window(r"C:\Users\x\AppData\Local\Programs\GEA-Program", find=lambda p, e: [(11, "GEA-Program - Pad 3")] if p == "GEA-Program" and e == "msedge.exe" else [],
+                         setter=lambda *a: calls.append(a) or True, sleep=lambda s: None, done=done)
+    n2 = WI.claim_window(r"C:\k", find=lambda p, e: [(11, "GEA-Program")], setter=lambda *a: calls.append(a) or True, sleep=lambda s: None, done=done, timeout_s=0)
+    waited = []
+    n3 = WI.claim_window(None, find=lambda p, e: [], setter=lambda *a: True, sleep=lambda s: waited.append(s), timeout_s=0.05)
+    hw, aumid, icon, cmd, name = calls[0]
+    # the notification-area icon: promoted once, only where no choice was made
+    class FakeKey:
+        def __init__(self, vals): self.vals = vals
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    class FakeReg:
+        HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, REG_DWORD = 1, 2, 4, 4
+        def __init__(self, entries): self.entries = entries
+        def OpenKey(self, root, sub, *a):
+            return FakeKey(self.entries) if root == 1 else FakeKey(self.entries[sub])
+        def EnumKey(self, key, i):
+            names = sorted(key.vals)
+            if i >= len(names):
+                raise OSError("no more")
+            return names[i]
+        def QueryValueEx(self, key, name):
+            if name not in key.vals:
+                raise OSError(name)
+            return key.vals[name], 1
+        def SetValueEx(self, key, name, _r, _t, value):
+            key.vals[name] = value
+    exe = r"C:\Users\x\AppData\Local\Programs\GEA-Program\python\pythonw.exe"
+    env_saved = os.environ.get("LOCALAPPDATA")
+    os.environ["LOCALAPPDATA"] = r"C:\Users\x\AppData\Local"
+    try:
+        reg = FakeReg({"a": {"ExecutablePath": "{F1B32785-6FBA-4FCF-9D55-7B8E7F157091}\\Programs\\GEA-Program\\python\\pythonw.exe"},
+                       "b": {"ExecutablePath": "{F1B32785-6FBA-4FCF-9D55-7B8E7F157091}\\Programs\\GEA-Program\\python\\pythonw.exe", "IsPromoted": 0},
+                       "c": {"ExecutablePath": r"C:\Program Files\Other\other.exe"}})
+        promoted = TR.promote_icon(executable=exe, wait_s=0, registry=reg)
+        kf = TR._known_folder_path("{F1B32785-6FBA-4FCF-9D55-7B8E7F157091}\\Programs\\GEA-Program\\python\\pythonw.exe")
+    finally:
+        if env_saved is None:
+            os.environ.pop("LOCALAPPDATA", None)
+        else:
+            os.environ["LOCALAPPDATA"] = env_saved
+    iss = (pkg.parent / "tools" / "installer.iss").read_text(encoding="utf-8") if (pkg.parent / "tools" / "installer.iss").exists() else None
+    lsrc = (pkg / "launcher.py").read_text(encoding="utf-8")
+    c = {
+        "claimed": n1 == 1 and n2 == 1 and len(calls) == 1 and n3 == 0 and hw == 11 and aumid == "ENRGYONE.GEAProgram" == WI.AUMID and name == "GEA-Program"
+                   and icon.endswith("GEA-Program\\gea.ico,0") and cmd.endswith('python\\pythonw.exe" -m gea launch') and bool(waited),
+        "launcher_claims": "_WI.claim_window(" in lsrc and "claim and is_windows()" in lsrc,
+        "promoted_once": promoted == 1 and reg.entries["a"].get("IsPromoted") == 1 and reg.entries["b"]["IsPromoted"] == 0 and "IsPromoted" not in reg.entries["c"],
+        "known_folder": kf.replace("\\", "/").lower() == "c:/users/x/appdata/local/programs/gea-program/python/pythonw.exe",
+        "shortcuts_same_identity": iss is None or iss.count('AppUserModelID: "ENRGYONE.GEAProgram"') == 2,
+        "elsewhere_nothing": os.name == "nt" or WI.claim_window(None, timeout_s=0) == 0,
+    }
+    failed = [k for k, v in c.items() if not v]
+    ok(not failed,
+       "DM1 the control panel's window is GEA-Program on the taskbar: the launcher waits for Edge's window and gives it the program's "
+       "AppUserModelID, icon, name and relaunch command - the identity of the installer's shortcuts - so its button shows the derrick, "
+       "not Edge's logo, and pinning it pins the program; the notification-area icon is brought out from behind the hidden icons the "
+       "first time, and left where a person put it" + (f" [failed: {', '.join(failed)}]" if failed else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -15012,6 +15083,7 @@ def main() -> int:
         section_dj_shortcut_start(tmp)
         section_dk_cookieless_window(tmp)
         section_dl_windowless(tmp)
+        section_dm_taskbar_identity(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

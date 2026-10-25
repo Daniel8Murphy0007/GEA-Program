@@ -3033,3 +3033,17 @@ stability; and motor specifications in the tool catalogue.
   and writes its output to records\console.log; start-dashboard.cmd
   keeps the console for anyone who wants it.
 - Section DL (1 check). Gate 510 on Python 3.13 and 3.14.
+
+## 2026-10-25 - The derrick on the taskbar (v0.67.1)
+
+- "Why is my tray icon the Edge symbol?" The window's favicon was the
+  derrick, but Windows takes a taskbar button from the window's
+  AppUserModelID, and Edge's app window keeps Edge's; the program's own
+  notification icon was hidden behind the ^.
+- `gea/winident.py` sets the window's AppUserModelID, relaunch icon,
+  command and name through its property store once Edge has opened it;
+  the installer's shortcuts carry the same ID. Put on Daniel's machine
+  first: the window opened from the icon showed the derrick.
+- The tray marks its own NotifyIconSettings entry IsPromoted the first
+  time, never over a choice already made.
+- Section DM (1 check). Gate 511 on Python 3.13 and 3.14.

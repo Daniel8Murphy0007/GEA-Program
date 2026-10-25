@@ -1,18 +1,14 @@
-v0.67.0 — NO CONSOLE WINDOW
+v0.67.1 — THE DERRICK ON THE TASKBAR
 
-The installed program's control panel now runs with no window at all.
+The GEA-Program window now shows the program's derrick on the taskbar.
 
-- Started from the Start menu, the desktop icon, the notification-area
-  icon or at sign-in, the control panel runs in the background with no
-  console and no PowerShell window. What it used to print in that window
-  goes to records\console.log in the workspace; the icon's menu opens it.
-- A Restart from the control panel starts it again by itself; Stop
-  GEA-Program (Start menu) and the icon's Stop stop it, with no window.
-- If it does not come up, the message quotes the last lines of its log.
-- Every page and button of the control panel was driven, with cookies and
-  with every cookie blocked: no page errors.
+- Fixed: the control panel's taskbar button showed Microsoft Edge's logo,
+  and pinning it pinned Edge. The window is now GEA-Program on the
+  taskbar - the derrick, and a pin that opens GEA-Program.
+- The GEA icon by the clock is brought out from behind the hidden icons
+  (^) the first time it starts.
 
-Install it over the old one: GEA-Program-Setup-0.67.0.exe from the
+Install it over the old one: GEA-Program-Setup-0.67.1.exe from the
 release. C:\site is kept as it is.
 
-Acceptance section DL (1 check).
+Acceptance section DM (1 check).

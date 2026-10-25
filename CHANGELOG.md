@@ -5,6 +5,27 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.67.1] - 2026-10-25 - The derrick on the taskbar
+
+### Fixed
+- **The control panel's taskbar button showed Microsoft Edge's logo**, and
+  pinning it pinned Edge: Edge's app window keeps Edge's taskbar identity
+  however the page's own icon reads. The launcher now finds the window
+  once Edge has opened it and gives it GEA-Program's identity
+  (`gea/winident.py`: AppUserModelID `ENRGYONE.GEAProgram`, the
+  program's `gea.ico`, its name and `pythonw -m gea launch` as the
+  relaunch command); the installer's Start-menu and desktop shortcuts
+  carry the same AppUserModelID, so the window and a pinned shortcut are
+  one program with the derrick.
+- **The notification-area icon sat behind the hidden icons (^)** on
+  Windows 11. The first time it starts it is shown on the taskbar
+  (`NotifyIconSettings`, `IsPromoted`), and stays wherever a person has
+  put it since.
+- Opening the control panel from the icon's menu no longer holds the
+  icon's menu while the window is claimed.
+- Acceptance section DM (1 check); DH5 reads the shortcuts'
+  AppUserModelID.
+
 ## [v0.67.0] - 2026-10-25 - No console window
 
 ### Changed
