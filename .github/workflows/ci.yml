@@ -14,4 +14,8 @@ jobs:
       - run: pip install -e . pytest
       - run: python -m gea accept
       - run: python tools/standalone_check.py
+      - name: GEA Reader reads every dossier as verify_dossier.py does
+        run: |
+          python tools/reader_fixtures.py "$RUNNER_TEMP/reader"
+          node tools/reader_check.mjs "$RUNNER_TEMP/reader"
       - run: pytest -q

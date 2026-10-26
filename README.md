@@ -644,6 +644,35 @@ catalogue well is added only from an entry that carries a downhole gauge
 series, with a well inside it and its gauge depth; a live seismic station
 whose feed has written nothing yet is listed as having no recording yet.
 
+### GEA Reader, for your clients
+
+A client who receives a signed dossier can check it without Python: GEA
+Reader is one HTML file (Reports tab -> Signed dossiers -> Download GEA
+Reader for your clients, or `gea reader --workspace C:\site`) that opens in
+any current browser, offline, makes the checks the dossier's own
+`verify_dossier.py` makes - the signature, every file's hash, nothing
+unsigned, the key hand-overs - and shows the reports as they were signed. A
+reader made from the workspace knows the site's key fingerprints, so it
+says whether a dossier is the site's; it allows no network request, and it
+leaves the trusted time-stamp to `verify_dossier.py`. `gea help reader`.
+
+### The rock inventory
+
+The Rocks tab shows the 17 rocks, minerals and fluid the strata survey
+ranks a log against, with their published density and velocity ranges and
+sources, a lookup for a measured density (and velocity) that lists every
+entry holding it and never names one rock, and the inventory against the
+Volve core plugs and the KTB logs. `gea rocks`; `gea help rocks`.
+
+### The operator window
+
+`gea operator`, or the Start menu's GEA-Program operator window: one
+well at a time on the desktop - a catalogue well with a measured
+temperature log, a toolstring checked against its ratings (a tool over its
+rating blocks the run), the run's pressure and temperature, the datasheet
+aging, the Volve F-12 reconciliation and its alerts, with every source on
+view. `gea help install`.
+
 ### Trusted timestamps
 
 A signed dossier's time is the signing machine's clock. With a public
@@ -1387,7 +1416,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.67.1.exe` (for 0.67.1): the
+Every release also carries `GEA-Program-Setup-0.68.0.exe` (for 0.68.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1406,7 +1435,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.67.1.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.68.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

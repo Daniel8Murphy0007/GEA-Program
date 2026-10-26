@@ -41,6 +41,7 @@ INDEX: List[tuple] = [
     ('notifications', 'Notifications', 'rules, channels, the delivery log'),
     ('structure', 'Mapped structure', 'the nearest fault and fold to a well from a structure layer the site brought, by distance and bearing'),
     ('catalog', 'The catalogue', 'every shipped public dataset, what in this program reads it or that nothing does; the measured friction envelope; the core check; any log through the survey'),
+    ('rocks', 'The rock inventory', 'the published density and velocity range of each rock, mineral and fluid the strata survey ranks against; a lookup for a measured density; the inventory against real cores and logs'),
     ('edr', 'The drilling recorder', 'the rig\'s one-second EDR export read as delivered - sections, depths, hours on bottom, the rate of penetration, the recorder\'s MD-TVD table - and what the record will not say'),
     ('dlis', 'The DLIS log', 'a well log as it is delivered (API RP66 V1), read as the standard lays it out: the frames, the channels, what was skipped; into the strata survey'),
     ('historian', 'The historian pull', 'an operator\'s gauge history out of the PI System through PI Web API, read-only, every value with its archive time and flags'),
@@ -55,6 +56,7 @@ INDEX: List[tuple] = [
     ('report-history', 'Report history', 'every version of every client report kept in a dated folder with its SHA-256, when the next one replaces it'),
     ('pad-summary', 'The daily pad summary', 'one page each morning - what changed since the last one, what is due, what is still missing - kept in report history and sent through the notification rules'),
     ('dossier', 'The signed dossier', "a well's or the pad's reports, declarations, audit log and source hashes in one zip signed with the site's Ed25519 key, with a checker anyone can run without GEA, and a public time-stamping authority's word for its time when the site uses one"),
+    ('reader', 'GEA Reader, for your clients', 'one HTML file a client opens in any browser, offline, to check a signed dossier the way verify_dossier.py does and read its reports as signed; the site\'s key fingerprints carried in it'),
     ('collision', 'Well collision checks', "every well scanned against every other, planned wells along their plans: the closest approach and the ISCWSA separation factor, the travelling cylinder, each well's position uncertainty by its survey program's ISCWSA / OWSG tool models, the field by WMM2025; the Volve template as the worked example"),
     ('plan', 'Plan vs actual', "a well against its directional plan: the distance high or low and right or left at each survey against the survey's own uncertainty, the bit projected, the one arc back to the plan and its toolface; each well's survey program by tool model"),
     ('frac-hits', 'Frac hits', "what each fracturing stage did to the pressure in the wells around it - none, poroelastic, mixed or a frac hit - the first response and the fluid pumped by then, the distance and the earthquakes beside each stage"),
@@ -97,7 +99,7 @@ REQUIRED_LINES = ('**The command**', '**What it writes**', '**The number to chec
 VIEW_TOPIC: Dict[str, str] = {
     'home': 'start', 'wells': 'data-in', 'well': 'drift', 'live': 'patches', 'patch': 'patches', 'files': 'files', 'alarms': 'alarms',
     'approvals': 'well-tests', 'config': 'site', 'reports': 'drift', 'verify': 'start', 'survey': 'data-in', 'jobs': 'site',
-    'admin': 'site', 'prefs': 'site', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'sar': 'seismic', 'sites': 'sites', 'setup': 'setup', 'map': 'map', '3d': 'well3d', 'simulation': 'simulation', 'drillstring': 'drillstring', 'completion': 'penetrator', 'opseis': 'opseis', 'economics': 'economics', 'invoices': 'invoice-check', 'rigtime': 'rig-time', 'collision': 'collision', 'plan': 'plan', 'frac': 'frac-hits', 'porepressure': 'pore-pressure', 'torquedrag': 'torque-drag', 'hydraulics': 'hydraulics', 'casing': 'casing', 'decline': 'decline', 'control': 'control-room', 'wall': 'control-room', 'audit': 'audit-update', 'tools': 'tools', 'catalog': 'catalog',
+    'admin': 'site', 'prefs': 'site', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'sar': 'seismic', 'sites': 'sites', 'setup': 'setup', 'map': 'map', '3d': 'well3d', 'simulation': 'simulation', 'drillstring': 'drillstring', 'completion': 'penetrator', 'opseis': 'opseis', 'economics': 'economics', 'invoices': 'invoice-check', 'rigtime': 'rig-time', 'collision': 'collision', 'plan': 'plan', 'frac': 'frac-hits', 'porepressure': 'pore-pressure', 'torquedrag': 'torque-drag', 'hydraulics': 'hydraulics', 'casing': 'casing', 'decline': 'decline', 'control': 'control-room', 'wall': 'control-room', 'audit': 'audit-update', 'tools': 'tools', 'catalog': 'catalog', 'rocks': 'rocks',
 }
 
 

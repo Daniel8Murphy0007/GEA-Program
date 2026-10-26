@@ -449,6 +449,9 @@ This zip is a signed record. To check it you need Python 3.8 or later and nothin
 
 (add --sources FOLDER to check the source records it lists by hash against your copies.)
 
+Without Python: open the dossier in GEA Reader (GEA-Reader.html, which the site can give you once). It runs in any
+current browser, offline, makes the same checks except the trusted time-stamp, and shows the reports as signed.
+
 It prints VALID when the signature over manifest.json verifies and every file listed there is present with the
 size and SHA-256 the manifest gives, and INVALID otherwise, with the reason.
 

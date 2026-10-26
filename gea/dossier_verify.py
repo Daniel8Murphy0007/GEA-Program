@@ -61,6 +61,13 @@ def check(zip_path: str, sources_dir: str = '', anchors=None) -> dict:
         if not add('the file is a dossier', 'manifest.json' in names and 'signature.json' in names,
                    'manifest.json and signature.json present' if 'manifest.json' in names and 'signature.json' in names else 'no manifest.json or signature.json'):
             return out
+        seen, dupes = set(), []
+        for n in z.namelist():                               # a second entry under one name: another zip reader may show the other copy
+            if n in seen and n not in dupes:
+                dupes.append(n)
+            seen.add(n)
+        if dupes:
+            add('every name in the zip is used once', False, 'two entries share a name: ' + ', '.join(dupes[:5]))
         mb = z.read('manifest.json')
         try:
             sig = json.loads(z.read('signature.json').decode('utf-8'))

@@ -5,6 +5,61 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.68.0] - 2026-10-26 - GEA Reader
+
+### Added
+- **GEA Reader, a companion program for the site's clients**: one HTML
+  file (`GEA-Reader.html`, about 40 KB) that a client opens in any current
+  browser - on Windows, a Mac or a tablet, offline, with nothing to
+  install - to check a signed dossier and read it. It makes the checks
+  `verify_dossier.py` makes, with the same names in the same order: the
+  Ed25519 signature over the manifest (RFC 8032 in the page's own
+  arithmetic, self-tested against the RFC's vectors each time it opens),
+  every file's size and SHA-256, nothing unsigned riding along, the key
+  hand-overs. Then it shows every file the dossier holds - a report as it
+  was signed, in a frame that runs no script; a PDF in the browser's
+  viewer; a table or log as text - and saves copies. A reader made from
+  the workspace carries the site's name and the fingerprints of every key
+  it has signed with (public halves only), so the verdict says whether a
+  dossier is signed with the site's key, with a newer key the site's key
+  handed over to, or with a key the client was not given. The page allows
+  no network request of any kind. It does not check the RFC 3161
+  time-stamp, and says so. Reports tab -> Signed dossiers -> **Download
+  GEA Reader for your clients**, or `gea reader --workspace C:\site`.
+  CI runs the reader's own script on nine dossiers and requires the
+  Python checker's verdicts (`tools/reader_fixtures.py`,
+  `tools/reader_check.mjs`). Help: `gea help reader`.
+- **The Rocks tab**: the rock inventory the strata survey ranks against -
+  17 rocks, minerals and fluid, each with its published density and
+  velocity range and their sources - drawn so the overlaps show; a lookup
+  for a measured density (and velocity) that lists every entry holding
+  it, nearest first, and never names one rock; the inventory against the
+  Volve core plugs (65 of 70 in the sandstone range) and the KTB logs.
+  `gea rocks`, `gea rocks --density 2.9 --vp 6900`. Help: `gea help rocks`.
+- **The operator window has a Start-menu shortcut** (GEA-Program operator
+  window) and an item on the notification-area icon's menu, its own
+  taskbar button with the derrick, and a message box when it cannot open.
+
+### Fixed
+- **The operator window could not open on any computer without the
+  operator-tier data** (every client's): building its well list stopped
+  on the private well whose files are absent. Such a well is now left out
+  of the list. The gate had let the error pass as a display problem; it
+  now fails on anything but a missing display.
+- **The operator window's Start run stopped at the first chart step**
+  (it read an engine history that no longer exists). It now draws each
+  station's pressure and temperature. The gate presses Hang, Start run
+  and Reconcile in the window.
+- **`verify_dossier.py` checked only the last of two zip entries with the
+  same name**, while another zip tool may show the first. A dossier with
+  two entries under one name is now INVALID, in the checker and the
+  reader alike.
+
+### Changed
+- The window title reads "GEA-Program - operator window"; the citations
+  pane reads as sentences rather than raw data.
+- Acceptance section DN (4 checks); E9.
+
 ## [v0.67.1] - 2026-10-25 - The derrick on the taskbar
 
 ### Fixed

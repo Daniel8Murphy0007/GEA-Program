@@ -403,3 +403,106 @@ def vp_inventory() -> Dict:
             'residual_pct': abs(v - anchor) / anchor * 100.0,
         }
     return out
+
+
+# ---------------------------------------------------------------------------
+# THE ROCK INVENTORY PAGE - the Rocks tab and `gea rocks`
+# ---------------------------------------------------------------------------
+SOURCES = [
+    {'key': 'telford1990', 'cites': 'density anchors and ranges',
+     'text': 'Telford, W. M., Geldart, L. P. & Sheriff, R. E. (1990). Applied Geophysics, 2nd ed. Cambridge University Press - density tables'},
+    {'key': 'schoen2015', 'cites': 'density and velocity ranges',
+     'text': 'Schoen, J. H. (2015). Physical Properties of Rocks: Fundamentals and Principles of Petrophysics, 2nd ed. Elsevier - density and elastic-wave velocity tables'},
+    {'key': 'christensen1995', 'cites': 'compressional-velocity ranges',
+     'text': 'Christensen, N. I. & Mooney, W. D. (1995). Seismic velocity structure and composition of the continental crust. '
+             'Journal of Geophysical Research 100(B6), 9761-9788'},
+]
+_PAGE_CACHE: Dict = {}
+
+
+def table() -> List[Dict]:
+    """One row per entry: density anchor and range (g/cc), compressional-velocity range and midpoint (km/s)."""
+    inv, vp = rock_inventory(), vp_inventory()
+    order = {'rock': 0, 'mineral': 1, 'fluid': 2}
+    rows = []
+    for name, e in sorted(inv.items(), key=lambda kv: (order.get(kv[1]['tier'], 9), kv[1]['anchor'])):
+        v = vp.get(name) or {}
+        rows.append({'name': name, 'kind': e['tier'], 'density_gcc': e['anchor'], 'density_range_gcc': [e['lo'], e['hi']],
+                     'vp_mid_km_s': v.get('anchor_km_s'), 'vp_range_km_s': [v.get('lo_km_s'), v.get('hi_km_s')] if v else None,
+                     'sources': ['telford1990', 'schoen2015'] + (['christensen1995', 'schoen2015'] if v else [])})
+    return rows
+
+
+def lookup(rho_gcc: float, vp_m_s: Optional[float] = None) -> Dict:
+    """The entries whose published ranges hold a measured density (and velocity, when given), nearest first."""
+    if not (0.5 <= rho_gcc <= 4.5):
+        raise ValueError('a bulk density in g/cc between 0.5 and 4.5 (water is 1.0, granite about 2.67)')
+    if vp_m_s is not None and not (1000 <= vp_m_s <= 9000):
+        raise ValueError('a compressional velocity in m/s between 1000 and 9000 (granite is about 5900)')
+    r = classify_joint(rho_gcc, vp_m_s) if vp_m_s is not None else classify_density(rho_gcc)
+    cands = [{'name': h['name'], 'kind': h['tier'], 'density_range_gcc': list(h.get('rho_range') or h.get('range')),
+              'vp_range_km_s': [x / 1000.0 for x in h['vp_range']] if h.get('vp_range') else None} for h in r['candidates']]
+    if not cands:
+        what = 'no entry\'s published range holds this density' + (' and this velocity together' if vp_m_s is not None else '')
+    elif len(cands) == 1:
+        what = 'one entry\'s published range holds it'
+    else:
+        what = (f'{len(cands)} entries\' published ranges hold it; they are listed nearest first, and density'
+                + (' and velocity together still do' if vp_m_s is not None else ' alone does') + ' not name one rock')
+    out = {'density_gcc': rho_gcc, 'vp_m_s': vp_m_s, 'candidates': cands, 'statement': what}
+    if vp_m_s is not None:
+        out['twins_split'] = r['twins_split_here']
+    return out
+
+
+def page() -> Dict:
+    """Everything the Rocks tab shows: the table, the sources, and the inventory against real cores and logs."""
+    if 'page' not in _PAGE_CACHE:
+        k = ktb_lithology_validation()
+        j = ktb_joint_validation()
+        c = core_check()
+        _PAGE_CACHE['page'] = {
+            'rows': table(), 'sources': SOURCES,
+            'counts': {'entries': len(_f()), 'rocks': sum(e['tier'] == 'rock' for e in _f().values()),
+                       'minerals': sum(e['tier'] == 'mineral' for e in _f().values()), 'fluids': sum(e['tier'] == 'fluid' for e in _f().values()),
+                       'with_vp': len(VP_RANGES)},
+            'checks': [
+                {'name': 'Volve 15/9-19 A core plugs against the sandstone range', 'entry': c.get('entry'),
+                 'result': (f"{c['inside']} of {c['n_plugs']} plugs inside {c['sandstone_range'][0]}-{c['sandstone_range'][1]} g/cc" if c.get('status') == 'OK' else c.get('status')),
+                 'how': c.get('how', ''), 'source': c.get('source', ''), 'license': c.get('license', ''),
+                 'agrees': (c['inside'] >= 0.9 * c['n_plugs']) if c.get('status') == 'OK' else False,
+                 'tile': ['Volve core plugs', (f"{c['inside']} of {c['n_plugs']} in range" if c.get('status') == 'OK' else 'no core entry'), 'inside the published sandstone range']},
+                {'name': 'KTB main hole, density log against the published lithology', 'entry': 'ktb_hb_complog_6020_excerpt',
+                 'result': ', '.join(f'{n} {v}' for n, v in k['column_vote_top3']) + f" (votes over {k['n_stations']} stations)",
+                 'how': ('the published section is paragneiss with amphibolite: gneiss ranks first' + (' and a mafic rock is in the top three' if k['mafic_twin_present'] else '')
+                         + '; amphibolite and basalt have overlapping density ranges, so density alone cannot tell them apart'),
+                 'agrees': bool(k['gneiss_top_ranked'] and k['mafic_twin_present']),
+                 'tile': ['KTB density log', 'gneiss first' if k['gneiss_top_ranked'] else k['column_vote_top3'][0][0] + ' first', 'the published section is gneiss with amphibolite']},
+                {'name': 'KTB main hole, density and velocity together', 'entry': 'ktb_hb_complog_6020_excerpt',
+                 'result': ', '.join(f'{n} {v}' for n, v in j['family_vote']) + ' (families)',
+                 'how': ('felsic and mafic families both appear, as in the published banding; laboratory velocity ranges read high '
+                         'against fractured rock in the hole, so some stations fit no entry'),
+                 'agrees': bool(j['both_published_families_present']),
+                 'tile': ['KTB density + velocity', 'both families' if j['both_published_families_present'] else 'one family', 'felsic and mafic, as published']},
+            ],
+            'limits': ['A rock is a range, not a number: the ranges overlap, so a measured density gives a short list, nearest first, never one name.',
+                       'Velocity ranges are laboratory values; rock in the hole is fractured and reads slower.',
+                       'The entries are the published tables\' values; none is fitted to a well.'],
+        }
+    return _PAGE_CACHE['page']
+
+
+def text() -> str:
+    p = page()
+    L = [f"The rock inventory: {p['counts']['entries']} entries ({p['counts']['rocks']} rocks, {p['counts']['minerals']} minerals, {p['counts']['fluids']} fluid), published densities and velocities", '',
+         f"{'entry':<12} {'kind':<8} {'density g/cc':>12} {'range':>12} {'Vp km/s':>8} {'range':>11}"]
+    for r in p['rows']:
+        vr = r['vp_range_km_s']
+        L.append(f"{r['name']:<12} {r['kind']:<8} {r['density_gcc']:>12.3f} {r['density_range_gcc'][0]:>5.2f}-{r['density_range_gcc'][1]:<6.2f}"
+                 + (f" {r['vp_mid_km_s']:>8.2f} {vr[0]:>5.2f}-{vr[1]:<5.2f}" if vr else ''))
+    L += ['', 'Against real cores and logs:']
+    for c in p['checks']:
+        L.append(f"  {c['name']}: {c['result']}")
+        L.append(f"    {c['how']}")
+    L += ['', 'Sources:'] + [f"  {s['text']}" for s in p['sources']]
+    return '\n'.join(L)

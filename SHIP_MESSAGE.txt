@@ -1,14 +1,23 @@
-v0.67.1 — THE DERRICK ON THE TASKBAR
+v0.68.0 — GEA READER
 
-The GEA-Program window now shows the program's derrick on the taskbar.
+A companion program for your clients, the rock inventory on a tab of its
+own, and the operator window in the Start menu.
 
-- Fixed: the control panel's taskbar button showed Microsoft Edge's logo,
-  and pinning it pinned Edge. The window is now GEA-Program on the
-  taskbar - the derrick, and a pin that opens GEA-Program.
-- The GEA icon by the clock is brought out from behind the hidden icons
-  (^) the first time it starts.
+- GEA Reader: one HTML file your clients open in any browser, offline,
+  to check a dossier you signed and read its reports. It makes the same
+  checks as the checker inside every dossier, knows your site's key, and
+  says plainly when a dossier is not valid or not yours. Reports tab ->
+  Signed dossiers -> Download GEA Reader for your clients.
+- Rocks tab: the 17 rocks, minerals and fluid the strata survey compares
+  a log against, their published density and velocity ranges, a lookup
+  for a measured density, and the checks against real cores.
+- GEA-Program operator window in the Start menu and on the icon's menu.
+  Fixed: it could not open on a computer without the operator-tier data,
+  and its Start run stopped at the first chart.
+- Fixed: the dossier checker now refuses a zip with two files under one
+  name.
 
-Install it over the old one: GEA-Program-Setup-0.67.1.exe from the
+Install it over the old one: GEA-Program-Setup-0.68.0.exe from the
 release. C:\site is kept as it is.
 
-Acceptance section DM (1 check).
+Acceptance section DN (4 checks) and E9.

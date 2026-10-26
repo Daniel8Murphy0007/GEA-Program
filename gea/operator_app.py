@@ -57,7 +57,10 @@ class OperatorSession:
     def wells(self) -> Dict[str, dict]:
         out = {}
         for name, maker in sorted(BUILTIN_ASSEMBLIES.items()):
-            a = maker()
+            try:
+                a = maker()
+            except (KeyError, FileNotFoundError, NotImplementedError, ValueError):
+                continue                    # an operator-tier well whose private data is not on this computer
             out[name] = {
                 "site": a.site,
                 "components": {r: (c.entry, c.channel, c.coverage())
@@ -230,14 +233,54 @@ class OperatorSession:
         return out
 
 
+def citations_text(c: dict) -> str:
+    """The citations pane as an operator reads it: the aging statement, the gauge datasheet, each data stream's
+    source and licence, each hung tool's source."""
+    L = [f"Aging: {c.get('aging', '')}"]
+    if c.get('gauge_spec'):
+        L.append(f"Gauge datasheet: {c['gauge_spec']}")
+    for role, p in (c.get('well_provenance') or {}).items():
+        L.append(f"Well data, {role}: {p.get('entry', '')} - {p.get('source', '')} [{p.get('license', '')}]")
+    for tool, src in (c.get('tools') or {}).items():
+        L.append(f"Tool {tool}: {src}")
+    if len(L) == 1:
+        L.append('Load a well to see where its data comes from.')
+    return '\n'.join(L)
+
+
+AUMID = 'ENRGYONE.GEAProgram.Operator'
+
+
+def main() -> int:
+    """`gea operator` and the Start-menu shortcut: the window, its own taskbar identity on Windows, and a message
+    box instead of a silent exit when it cannot open (pythonw has no console to print to)."""
+    import os as _os
+    if _os.name == 'nt':
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(AUMID)
+        except Exception:
+            pass
+    from .launcher import say
+    try:
+        return launch_operator_app() or 0
+    except NotImplementedError as e:
+        say('GEA-Program operator window', f'The operator window cannot open here: {e}', error=True)
+        return 1
+    except Exception as e:                  # pragma: no cover - shown to the operator, not swallowed
+        say('GEA-Program operator window', f'The operator window stopped: {type(e).__name__}: {e}', error=True)
+        return 1
+
+
 # --------------------------------------------------------------------------
 # The Qt6 view. Thin: every button calls one OperatorSession method.
 # --------------------------------------------------------------------------
-def launch_operator_app(run: bool = True) -> int:
+def launch_operator_app(run: bool = True, exercise: bool = False) -> int:
     """One operator window over OperatorSession. Refuses without PyQt6
     (pip hint), same pattern as the live-protocol port.
 
-    `run=False` builds the window and returns without entering the event loop - for a check that the
+    `run=False` builds the window and returns without entering the event loop (`exercise=True` also presses
+    Hang, Start run, draws three steps and reconciles, as an operator would first) - for a check that the
     view constructs on this host. The acceptance gate uses it: with PyQt6 installed on a desktop, the
     loop would open the operator's window and wait for a person to close it, and a gate that waits for a
     person is a gate that never finishes. That is exactly what it did on a Windows ship."""
@@ -262,7 +305,14 @@ def launch_operator_app(run: bool = True) -> int:
     class OperatorWindow(QMainWindow):
         def __init__(self):
             super().__init__()
-            self.setWindowTitle("GEA Downhole - Operator")
+            self.setWindowTitle("GEA-Program - operator window")
+            try:
+                from PyQt6.QtGui import QIcon, QPixmap
+                from . import icon as _IC
+                pm = QPixmap(); pm.loadFromData(_IC.png(256))
+                self.setWindowIcon(QIcon(pm))
+            except Exception:
+                pass
             root = QWidget(); self.setCentralWidget(root)
             outer = QVBoxLayout(root)
             body = QHBoxLayout(); outer.addLayout(body, stretch=1)
@@ -317,11 +367,12 @@ def launch_operator_app(run: bool = True) -> int:
             b_run.clicked.connect(self._run)
             b_rec.clicked.connect(self._reconcile)
             b_ing.clicked.connect(self._ingest)
+            if self.well_box.count():
+                self._load()                    # open on the first well, so the depth box holds its measured window
             self._refresh_citations()
 
         def _refresh_citations(self):
-            import json
-            self.cite.setPlainText(json.dumps(session.citations(), indent=1))
+            self.cite.setPlainText(citations_text(session.citations()))
             self.log_view.setPlainText("\n".join(session.log[-40:]))
 
         def _load(self):
@@ -363,14 +414,17 @@ def launch_operator_app(run: bool = True) -> int:
             session.step(1)
             eng = session.engine
             self.fig.clear()
-            ax = self.fig.add_subplot(111)
-            hist = eng.history
-            if hist:
-                t = [row["time_s"] for row in hist]
-                for i in range(len(eng.sensors)):
-                    ax.plot(t, [row[f"P_S{i+1}"] for row in hist], lw=0.8)
-                ax.set_xlabel("t, s"); ax.set_ylabel("P, psi")
-                ax.set_title(session.config.profile.name, fontsize=8)
+            ax_p = self.fig.add_subplot(211)
+            ax_t = self.fig.add_subplot(212, sharex=ax_p)
+            t = list(eng.history_t)
+            for i, sn in enumerate(eng.sensors):
+                ax_p.plot(t, [row[i] for row in eng.history_P], lw=0.9, label=f"{sn.name} {sn.depth_ft:,.0f} ft")
+                ax_t.plot(t, [row[i] for row in eng.history_T], lw=0.9)
+            ax_p.set_ylabel("pressure, psi"); ax_t.set_ylabel("temperature, F"); ax_t.set_xlabel("time, s")
+            ax_p.set_title(session.config.profile.name, fontsize=8)
+            if eng.sensors:
+                ax_p.legend(fontsize=7, loc="upper right")
+            self.fig.tight_layout()
             self.canvas.draw_idle()
             ag = eng.aging_summary()
             self.dfig.clear()
@@ -395,7 +449,7 @@ def launch_operator_app(run: bool = True) -> int:
                     f"ingest[{port}]: {st.name} - {len(st.index)} samples, "
                     f"channels: {', '.join(list(st.channels)[:6])}")
             except Exception as e:
-                session.log.append(f"ingest REFUSED: {str(e)[:160]}")
+                session.log.append(f"ingest: not read - {str(e)[:160]}")
             self._refresh_citations()
 
         def _reconcile(self):
@@ -417,6 +471,11 @@ def launch_operator_app(run: bool = True) -> int:
     app = QApplication.instance() or QApplication(_sys.argv)
     win = OperatorWindow(); win.resize(1100, 700)
     if not run:
+        if exercise:                        # every button an operator presses first, without a person: hang, run, draw, reconcile
+            win._hang(); win._run()
+            for _ in range(3):
+                win._tick()
+            win.timer.stop(); win._reconcile()
         win.close()
         return 0
     win.show()

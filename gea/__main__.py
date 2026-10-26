@@ -108,7 +108,16 @@ def main(argv=None) -> int:
     p_rep = sub.add_parser("report", help="generate the client survey report (Part 7)")
     p_rep.add_argument("--out", default="survey_report", help="output directory")
 
-    sub.add_parser("operator", help="launch the operator GUI (requires PyQt6+matplotlib)")
+    sub.add_parser("operator", help="the operator window: a catalogue well, a toolstring checked against its ratings, a run, service life, a LAS file in, the reconciliation and its alerts, the sources always on view (PyQt6 and matplotlib, in the Windows installer)")
+
+    p_rd = sub.add_parser("reader", help="write GEA Reader: the one HTML file your clients open, in any browser and offline, to check a signed dossier and read its reports")
+    p_rd.add_argument("--out", type=str, default="GEA-Reader.html", help="the file to write (or a folder: GEA-Reader.html goes in it)")
+    p_rd.add_argument("--workspace", type=str, default="", help="the site workspace: the reader then carries the site's name and its signing keys' fingerprints")
+
+    p_rk = sub.add_parser("rocks", help="the rock inventory: the published density and velocity range of each rock, mineral and fluid the strata survey ranks against, and the inventory against real cores and logs")
+    p_rk.add_argument("--density", type=float, default=None, help="look up a measured bulk density, g/cc")
+    p_rk.add_argument("--vp", type=float, default=None, help="with --density: a measured compressional velocity, m/s")
+    p_rk.add_argument("--json", action="store_true")
 
     sub.add_parser("accept", help="run the simulator ACCEPTANCE suite (product gate)")
 
@@ -1217,8 +1226,31 @@ def main(argv=None) -> int:
         from .acceptance_tests import main as _accept
         return _accept()
     elif a.cmd == "operator":
-        from .operator_app import launch_operator_app
-        return launch_operator_app()
+        from .operator_app import main as _op
+        return _op()
+    elif a.cmd == "reader":
+        from .reader import main as _rd
+        return _rd(["--out", a.out] + (["--workspace", a.workspace] if a.workspace else []))
+    elif a.cmd == "rocks":
+        import json as _json
+        from . import rock_inventory as _RI
+        if a.density is None:
+            if a.vp is not None:
+                raise SystemExit("--vp goes with --density (a velocity alone is not looked up)")
+            print(_json.dumps(_RI.page(), indent=1, default=str) if a.json else _RI.text())
+            return 0
+        try:
+            r = _RI.lookup(a.density, a.vp)
+        except ValueError as e:
+            raise SystemExit(str(e))
+        if a.json:
+            print(_json.dumps(r, indent=1))
+            return 0
+        print(f"{a.density} g/cc" + (f", {a.vp:g} m/s" if a.vp is not None else "") + f": {r['statement']}")
+        for i, c in enumerate(r["candidates"], 1):
+            vr = c["vp_range_km_s"]
+            print(f"  {i}. {c['name']:<12} {c['kind']:<8} {c['density_range_gcc'][0]}-{c['density_range_gcc'][1]} g/cc" + (f"  {vr[0]}-{vr[1]} km/s" if vr else ""))
+        return 0
     elif a.cmd == "report":
         from .project import generate_report
         r = generate_report(a.out)

@@ -4,6 +4,18 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.68.0 - 2026-10-26 - GEA Reader
+
+- GEA Reader, the companion program for clients: one HTML file that checks a
+  signed dossier in any browser, offline, as `verify_dossier.py` does, and
+  shows its reports as signed; it knows the site's key fingerprints. The
+  Rocks tab shows the rock inventory with a lookup and its checks against
+  real cores. The operator window gets a Start-menu shortcut, an icon menu
+  item and its own taskbar button, and opens on computers without the
+  operator-tier data (it could not before); its run chart works again.
+  Duplicate zip entry names make a dossier INVALID. Section DN and E9;
+  gate 516.
+
 ## v0.67.1 - 2026-10-25 - the derrick on the taskbar
 
 - The control panel's window is GEA-Program on the taskbar (its own

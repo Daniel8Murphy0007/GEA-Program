@@ -3047,3 +3047,27 @@ stability; and motor specifications in the tool catalogue.
 - The tray marks its own NotifyIconSettings entry IsPromoted the first
   time, never over a choice already made.
 - Section DM (1 check). Gate 511 on Python 3.13 and 3.14.
+
+## 2026-10-26 - GEA Reader (v0.68.0)
+
+- Daniel asked whether the rock catalogue is in the program, whether there
+  is a separate operator window, and what would make a good companion
+  program; then said yes to all three as v0.68.0.
+- Companion program: GEA Reader, `gea/web/reader.html` + `gea/reader.py`. A
+  static page (CSP default-src 'none') with its own zip reader, SHA-256 from
+  Web Crypto and Ed25519 in BigInt arithmetic ported from `ed25519.py`,
+  self-tested on RFC 8032's vectors at every open. Checked in Node against
+  verify_dossier.py's verdicts on nine dossiers (`tools/reader_fixtures.py`,
+  `tools/reader_check.mjs`, now a CI step) and in Chromium (file://, no
+  network request, report shown in a sandboxed frame).
+- Writing it found that verify_dossier.py checked only the last of two zip
+  entries with one name; both now call such a dossier INVALID.
+- Rocks tab and `gea rocks` over `rock_inventory` (table, lookup, the Volve
+  core and KTB checks, sources).
+- Operator window: building it raised KeyError on the operator-tier Retama
+  assembly wherever that data is absent, and its run tick read
+  `engine.history`, which no longer exists; section E's window check had
+  passed both as a display problem. Fixed, a Start-menu shortcut
+  (AppUserModelID ENRGYONE.GEAProgram.Operator), an icon menu item, a
+  message box on failure. Rendered offscreen in the cloud with PyQt6.
+- Section DN (4 checks) and E9. Gate 516 on Python 3.13 and 3.14.

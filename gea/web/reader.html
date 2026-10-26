@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; frame-src blob: data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="generator" content="GEA Reader">
+<title>GEA Reader</title>
+<link rel="icon" type="image/png" href="__ICON__">
+<style>
+:root{color-scheme:light;--page:#f6f5f0;--surface:#fff;--ink:#141412;--ink2:#3d3c37;--muted:#6f6d66;--grid:#e3e1d8;--accent:#1f5fb8;--good:#1d7a4a;--good-bg:#e5f3ea;--warn:#8a5600;--warn-bg:#fbf0dc;--bad:#b3261e;--bad-bg:#fbe7e5;--mono:ui-monospace,Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+@media (prefers-color-scheme:dark){:root{color-scheme:dark;--page:#0d0d0d;--surface:#1a1a19;--ink:#fff;--ink2:#c3c2b7;--muted:#9a988f;--grid:#2c2c2a;--accent:#5b9ded;--good:#5ec48f;--good-bg:#12291c;--warn:#e2a93b;--warn-bg:#2d2412;--bad:#ee6a62;--bad-bg:#2f1615}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:15px/1.5 var(--sans)}
+header{display:flex;align-items:center;gap:12px;padding:14px 20px;background:var(--surface);border-bottom:1px solid var(--grid)}
+header img{width:34px;height:34px}
+header h1{font-size:19px;margin:0}
+header p{margin:0;color:var(--muted);font-size:13px}
+main{max-width:1100px;margin:0 auto;padding:18px 16px 40px}
+.card{background:var(--surface);border:1px solid var(--grid);border-radius:10px;padding:16px 18px;margin:0 0 16px}
+.card h2{font-size:16px;margin:0 0 8px}
+#drop{border:2px dashed var(--grid);text-align:center;padding:28px 16px}
+#drop.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
+button,.btn{font:inherit;font-size:14px;padding:7px 14px;border-radius:7px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;text-decoration:none;display:inline-block}
+button.secondary,.btn.secondary{background:transparent;color:var(--accent)}
+button:disabled{opacity:.5;cursor:default}
+input[type=text]{font:inherit;font-size:14px;padding:6px 9px;border:1px solid var(--grid);border-radius:6px;background:var(--page);color:var(--ink);width:min(30em,100%)}
+.muted{color:var(--muted)}.small{font-size:13px}.mono{font-family:var(--mono);font-size:13px}
+.verdict{border-radius:10px;padding:16px 18px;margin:0 0 16px;border:1px solid}
+.verdict h2{margin:0 0 4px;font-size:22px}
+.v-good{background:var(--good-bg);border-color:var(--good)}.v-good h2{color:var(--good)}
+.v-warn{background:var(--warn-bg);border-color:var(--warn)}.v-warn h2{color:var(--warn)}
+.v-bad{background:var(--bad-bg);border-color:var(--bad)}.v-bad h2{color:var(--bad)}
+ul.checks{list-style:none;padding:0;margin:0}
+ul.checks li{padding:6px 0;border-top:1px solid var(--grid);display:flex;gap:10px}
+ul.checks li:first-child{border-top:0}
+.mark{flex:0 0 auto;font-weight:700;width:3.2em}
+.ok{color:var(--good)}.no{color:var(--bad)}.na{color:var(--warn)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:5px 8px;border-top:1px solid var(--grid);vertical-align:top}
+th{color:var(--muted);font-weight:600;border-top:0}
+tr.file{cursor:pointer}tr.file:hover td{background:color-mix(in srgb,var(--accent) 7%,transparent)}
+tr.file.sel td{background:color-mix(in srgb,var(--accent) 14%,transparent)}
+#view{display:none}
+#view iframe{width:100%;height:75vh;border:1px solid var(--grid);border-radius:6px;background:#fff}
+#view pre{max-height:75vh;overflow:auto;background:var(--page);border:1px solid var(--grid);border-radius:6px;padding:10px;font:12px/1.45 var(--mono);white-space:pre-wrap;word-break:break-word}
+#view img{max-width:100%;background:#fff;border-radius:6px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid}
+.p-good{color:var(--good);border-color:var(--good)}.p-bad{color:var(--bad);border-color:var(--bad)}.p-warn{color:var(--warn);border-color:var(--warn)}
+footer{max-width:1100px;margin:0 auto;padding:0 16px 30px;color:var(--muted);font-size:12px}
+@media (max-width:640px){th.hide,td.hide{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <img alt="" src="__ICON__">
+  <div><h1>GEA Reader</h1><p>Checks a signed GEA dossier and shows what it holds. It works offline: nothing you open here leaves this computer.</p></div>
+</header>
+<main>
+  <section class="card" id="drop">
+    <p style="margin:0 0 10px"><b>Drop a dossier here</b> (the .zip file the site sent you), or</p>
+    <label class="btn">Choose a dossier…<input type="file" id="pick" accept=".zip,application/zip" hidden></label>
+    <p class="small muted" style="margin:10px 0 0" id="dropNote">The reader checks the site's signature and every file against the hash it was signed with. It cannot change the dossier.</p>
+  </section>
+  <section class="card" id="siteCard"></section>
+  <section id="out"></section>
+</main>
+<footer id="foot"></footer>
+
+<script id="gea-site" type="application/json">null</script>
+
+<script id="gea-core">
+/* The checks, with no page attached: the same steps as verify_dossier.py, which every dossier carries. */
+var GEAReader = (function () {
+  'use strict';
+  var VERSION = '__VERSION__';
+  // the files a dossier carries outside the signature: the checker, the README, and the authority's own signed token
+  var UNCOVERED = ['verify_dossier.py', 'README.txt', 'timestamp.tsr'];
+  var enc = new TextEncoder();
+
+  function hex(u8) { var s = ''; for (var i = 0; i < u8.length; i++) s += (u8[i] < 16 ? '0' : '') + u8[i].toString(16); return s; }
+  function unhex(s) {
+    s = String(s || '');
+    if (s.length % 2 || /[^0-9a-fA-F]/.test(s)) throw new Error('not hexadecimal');
+    var u = new Uint8Array(s.length / 2);
+    for (var i = 0; i < u.length; i++) u[i] = parseInt(s.substr(i * 2, 2), 16);
+    return u;
+  }
+  function cat() { var n = 0, i; for (i = 0; i < arguments.length; i++) n += arguments[i].length; var o = new Uint8Array(n), k = 0; for (i = 0; i < arguments.length; i++) { o.set(arguments[i], k); k += arguments[i].length; } return o; }
+  async function digest(alg, u8) { return new Uint8Array(await crypto.subtle.digest(alg, u8)); }
+  async function sha256hex(u8) { return hex(await digest('SHA-256', u8)); }
+
+  // ---- Ed25519 (RFC 8032), the same arithmetic as the program's own ed25519.py ----
+  var P = (1n << 255n) - 19n;
+  var LQ = (1n << 252n) + 27742317777372353535851937790883648493n;
+  function md(a) { a %= P; return a < 0n ? a + P : a; }
+  function powm(b, e) { var r = 1n; b = md(b); while (e > 0n) { if (e & 1n) r = r * b % P; b = b * b % P; e >>= 1n; } return r; }
+  function inv(x) { return powm(x, P - 2n); }
+  var D = md(-121665n * inv(121666n));
+  var SQRT_M1 = powm(2n, (P - 1n) / 4n);
+  function padd(p, q) {
+    var A = md((p[1] - p[0]) * (q[1] - q[0])), B = md((p[1] + p[0]) * (q[1] + q[0]));
+    var C = md(2n * p[3] * q[3] * D), DD = md(2n * p[2] * q[2]);
+    var E = B - A, F = DD - C, G = DD + C, H = B + A;
+    return [md(E * F), md(G * H), md(F * G), md(E * H)];
+  }
+  function pmul(s, p) { var q = [0n, 1n, 1n, 0n]; while (s > 0n) { if (s & 1n) q = padd(q, p); p = padd(p, p); s >>= 1n; } return q; }
+  function peq(p, q) { return md(p[0] * q[2] - q[0] * p[2]) === 0n && md(p[1] * q[2] - q[1] * p[2]) === 0n; }
+  function recoverX(y, sign) {
+    if (y >= P) return null;
+    var x2 = md((y * y - 1n) * inv(D * y * y + 1n));
+    if (x2 === 0n) return sign ? null : 0n;
+    var x = powm(x2, (P + 3n) / 8n);
+    if (md(x * x - x2) !== 0n) x = md(x * SQRT_M1);
+    if (md(x * x - x2) !== 0n) return null;
+    if (Number(x & 1n) !== sign) x = P - x;
+    return x;
+  }
+  var GY = md(4n * inv(5n)), GX = recoverX(GY, 0), BASE = [GX, GY, 1n, md(GX * GY)];
+  function le(u8) { var n = 0n; for (var i = u8.length - 1; i >= 0; i--) n = (n << 8n) | BigInt(u8[i]); return n; }
+  function decompress(s) {
+    if (s.length !== 32) return null;
+    var y = le(s), sign = Number(y >> 255n);
+    y &= (1n << 255n) - 1n;
+    var x = recoverX(y, sign);
+    return x === null ? null : [x, y, 1n, md(x * y)];
+  }
+  async function ed25519Verify(pub, msg, sig) {
+    if (pub.length !== 32 || sig.length !== 64) return false;
+    var A = decompress(pub); if (!A) return false;
+    var Rs = sig.slice(0, 32), R = decompress(Rs); if (!R) return false;
+    var s = le(sig.slice(32)); if (s >= LQ) return false;
+    var h = le(await digest('SHA-512', cat(Rs, pub, msg))) % LQ;
+    return peq(pmul(s, BASE), padd(R, pmul(h, A)));
+  }
+  async function fingerprint(pub) {
+    var h = (await sha256hex(pub)).slice(0, 32), g = [];
+    for (var i = 0; i < 32; i += 4) g.push(h.slice(i, i + 4));
+    return g.join(' ');
+  }
+  function normFp(s) { return String(s || '').toLowerCase().replace(/[^0-9a-f]/g, ''); }
+
+  // RFC 8032 section 7.1, tests 1 to 3: the reader checks its own arithmetic every time it opens
+  var VECTORS = [
+    ['d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a', '', 'e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b'],
+    ['3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c', '72', '92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00'],
+    ['fc51cd8e6218a1a38da47ed00230f0580816ed13ba3303ac5deb911548908025', 'af82', '6291d657deec24024827e69c3abe01a30ce548a284743a445e3680d7db5ac3ac18ff9b538d16f290ae67f760984dc6594a7c15e9716ed28dc027beceea1ec40a']
+  ];
+  async function selfTest() {
+    if (!(globalThis.crypto && crypto.subtle)) return {ok: false, detail: 'this browser offers no hashing (Web Crypto): open the reader in a current Edge, Chrome, Firefox or Safari'};
+    if (typeof DecompressionStream === 'undefined') return {ok: false, detail: 'this browser cannot unzip (no DecompressionStream): open the reader in a current Edge, Chrome, Firefox or Safari'};
+    try {
+      for (var i = 0; i < VECTORS.length; i++) {
+        var v = VECTORS[i];
+        if (!(await ed25519Verify(unhex(v[0]), unhex(v[1]), unhex(v[2])))) return {ok: false, detail: 'RFC 8032 test ' + (i + 1) + ' does not verify'};
+      }
+      var bad = unhex(VECTORS[0][2]); bad[63] ^= 1;
+      if (await ed25519Verify(unhex(VECTORS[0][0]), new Uint8Array(0), bad)) return {ok: false, detail: 'a changed signature verified'};
+      if (await ed25519Verify(unhex(VECTORS[0][0]), enc.encode('x'), unhex(VECTORS[0][2]))) return {ok: false, detail: 'a changed message verified'};
+    } catch (e) { return {ok: false, detail: String(e && e.message || e)}; }
+    return {ok: true, detail: 'RFC 8032 test vectors 1-3 verify; a changed message and a changed signature do not'};
+  }
+
+  // ---- the program's canonical JSON (sorted keys, no spaces, ASCII only), for the key-rotation statements ----
+  function pyStr(s) { return JSON.stringify(s).replace(/[\u007f-￿]/g, function (c) { return '\\u' + ('000' + c.charCodeAt(0).toString(16)).slice(-4); }); }
+  function canon(v) {
+    if (v === null || v === undefined) return 'null';
+    if (typeof v === 'boolean') return v ? 'true' : 'false';
+    if (typeof v === 'number') return String(v);
+    if (typeof v === 'string') return pyStr(v);
+    if (Array.isArray(v)) return '[' + v.map(canon).join(',') + ']';
+    var ks = Object.keys(v).sort();
+    return '{' + ks.map(function (k) { return pyStr(k) + ':' + canon(v[k]); }).join(',') + '}';
+  }
+
+  // ---- reading the zip: stored and deflated entries, zip64 sizes ----
+  function u16(b, o) { return b[o] | (b[o + 1] << 8); }
+  function u32(b, o) { return (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16)) + b[o + 3] * 16777216; }
+  function u64(b, o) { return u32(b, o) + u32(b, o + 4) * 4294967296; }
+  var utf8 = new TextDecoder('utf-8');
+  function openZip(buf) {
+    var b = new Uint8Array(buf), e = -1;
+    for (var i = b.length - 22; i >= Math.max(0, b.length - 65557); i--) if (b[i] === 0x50 && b[i + 1] === 0x4b && b[i + 2] === 5 && b[i + 3] === 6) { e = i; break; }
+    if (e < 0) throw new Error('not a zip file');
+    var count = u16(b, e + 10), cdOff = u32(b, e + 16);
+    if ((count === 0xffff || cdOff === 0xffffffff) && e >= 20 && u32(b, e - 20) === 0x07064b50) {
+      var z = u64(b, e - 12);
+      if (u32(b, z) !== 0x06064b50) throw new Error('the zip64 directory is damaged');
+      count = u64(b, z + 32); cdOff = u64(b, z + 48);
+    }
+    var entries = [], p = cdOff;
+    for (var n = 0; n < count; n++) {
+      if (u32(b, p) !== 0x02014b50) throw new Error('the zip directory is damaged');
+      var flags = u16(b, p + 8), method = u16(b, p + 10), csize = u32(b, p + 20), usize = u32(b, p + 24);
+      var nl = u16(b, p + 28), xl = u16(b, p + 30), cl = u16(b, p + 32), off = u32(b, p + 42);
+      var name = utf8.decode(b.subarray(p + 46, p + 46 + nl));
+      var x = p + 46 + nl, xe = x + xl;
+      while (x + 4 <= xe) {
+        var id = u16(b, x), sz = u16(b, x + 2), q = x + 4;
+        if (id === 1) {
+          if (usize === 0xffffffff) { usize = u64(b, q); q += 8; }
+          if (csize === 0xffffffff) { csize = u64(b, q); q += 8; }
+          if (off === 0xffffffff) { off = u64(b, q); q += 8; }
+        }
+        x += 4 + sz;
+      }
+      entries.push({name: name, flags: flags, method: method, csize: csize, usize: usize, offset: off});
+      p += 46 + nl + xl + cl;
+    }
+    var byName = new Map(), dupes = [];
+    entries.forEach(function (en) { if (byName.has(en.name)) dupes.push(en.name); byName.set(en.name, en); });
+    async function read(name) {
+      var en = byName.get(name);
+      if (!en) throw new Error('no ' + name + ' in the zip');
+      if (en.flags & 1) throw new Error(name + ' is encrypted');
+      if (u32(b, en.offset) !== 0x04034b50) throw new Error(name + ': the zip entry is damaged');
+      var start = en.offset + 30 + u16(b, en.offset + 26) + u16(b, en.offset + 28);
+      var raw = b.subarray(start, start + en.csize);
+      if (en.method === 0) return raw.slice();
+      if (en.method !== 8) throw new Error(name + ': compression method ' + en.method + ' is not one a dossier uses');
+      var s = new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      return new Uint8Array(await new Response(s).arrayBuffer());
+    }
+    return {names: entries.map(function (en) { return en.name; }), has: function (n) { return byName.has(n); }, read: read, dupes: dupes};
+  }
+
+  // ---- the check: the same steps, the same names and the same order as verify_dossier.py ----
+  async function check(buf, label) {
+    var out = {dossier: label || 'dossier.zip', checks: [], status: 'INVALID', files: {}, notes: []};
+    function add(name, ok, detail) { out.checks.push({check: name, ok: ok, detail: detail}); return ok; }
+    var z;
+    try { z = openZip(buf); } catch (e) { add('the file is a dossier', false, 'not a zip file: ' + e.message); return out; }
+    var names = new Set(z.names);
+    var both = names.has('manifest.json') && names.has('signature.json');
+    if (!add('the file is a dossier', both, both ? 'manifest.json and signature.json present' : 'no manifest.json or signature.json')) return out;
+    if (z.dupes.length) add('every name in the zip is used once', false, 'two entries share a name: ' + z.dupes.slice(0, 5).join(', '));
+    var mb, sig, man;
+    try {
+      mb = await z.read('manifest.json');
+      sig = JSON.parse(new TextDecoder('utf-8', {fatal: true}).decode(await z.read('signature.json')));
+      man = JSON.parse(new TextDecoder('utf-8', {fatal: true}).decode(mb));
+    } catch (e) { add('the manifest and signature read', false, String(e.message || e)); return out; }
+    var pub;
+    try { pub = unhex(sig.public_key || ''); } catch (e) { pub = new Uint8Array(0); }
+    out.fingerprint = pub.length === 32 ? await fingerprint(pub) : null;
+    out.public_key = sig.public_key || null;
+    out.dossier_id = man.dossier_id; out.signed_utc = man.created_utc; out.scope = man.scope; out.generator = man.generator;
+    out.n_files = (man.files || []).length; out.manifest = man;
+    add('the signature is Ed25519', sig.algorithm === 'Ed25519', String(sig.algorithm));
+    var same = ((man.signer || {}).public_key) === sig.public_key;
+    add('the signature names the manifest\'s signer', same, same ? 'the public key in signature.json is the one manifest.json names' : 'signature.json and manifest.json name different keys');
+    var mh = await sha256hex(mb);
+    add('the manifest hash', sig.manifest_sha256 === mh, 'sha256 ' + mh);
+    var good = false;
+    try { good = await ed25519Verify(pub, mb, unhex(sig.signature || '')); } catch (e) { good = false; }
+    add('the signature verifies', good, good ? 'the manifest is byte-for-byte what was signed' : 'the manifest was changed after signing, or was signed by another key');
+    var bad = [], missing = [];
+    for (var f of (man.files || [])) {
+      if (!names.has(f.path)) { missing.push(f.path); out.files[f.path] = 'MISSING'; continue; }
+      var fb;
+      try { fb = await z.read(f.path); } catch (e) { bad.push(f.path); out.files[f.path] = 'UNREADABLE'; continue; }
+      if (fb.length !== f.bytes || (await sha256hex(fb)) !== f.sha256) { bad.push(f.path); out.files[f.path] = 'CHANGED'; }
+      else out.files[f.path] = 'MATCH';
+    }
+    add('every file is present', !missing.length, !missing.length ? 'all present' : 'missing: ' + missing.slice(0, 10).join(', '));
+    add('every file matches its hash', !bad.length, !bad.length ? ((man.files || []).length - bad.length - missing.length) + ' file(s) match' : 'changed: ' + bad.slice(0, 10).join(', '));
+    var listed = new Set((man.files || []).map(function (f) { return f.path; }).concat(['manifest.json', 'signature.json']));
+    var extra = z.names.filter(function (n) { return !listed.has(n) && n.slice(-1) !== '/' && UNCOVERED.indexOf(n) < 0; }).sort();
+    add('nothing unsigned rides along', !extra.length, !extra.length ? 'only the checker, the README and a time-stamp token are outside the signature' : 'not covered by the signature: ' + extra.slice(0, 10).join(', '));
+    if (names.has('timestamp.tsr')) {
+      out.timestamp_present = true;
+      add('the trusted timestamp verifies', null, 'the dossier carries a time-stamp token; this reader does not check it (that needs the authority\'s certificates and this computer\'s trusted roots): verify_dossier.py inside the dossier does');
+    }
+    if (names.has('keys/rotations.json')) {
+      var rots = null, chain = [];
+      try { rots = JSON.parse(utf8.decode(await z.read('keys/rotations.json'))).rotations || []; } catch (e) { rots = null; }
+      if (rots === null) add('the key rotations verify', false, 'keys/rotations.json does not read');
+      else {
+        var goodAll = true;
+        for (var r of rots) {
+          var st = r.statement || {}, sb = enc.encode(canon(st)), old = st.old || {}, nw = st['new'] || {}, okNew = false, okOld = null;
+          try { okNew = await ed25519Verify(unhex(nw.public_key || ''), sb, unhex(r.new_signature || '')); } catch (e) { okNew = false; }
+          if (r.old_signature && old.public_key) {
+            try { okOld = await ed25519Verify(unhex(old.public_key), sb, unhex(r.old_signature)); } catch (e) { okOld = false; }
+          }
+          goodAll = goodAll && okNew && okOld !== false;
+          chain.push({utc: st.utc, old: old.fingerprint || st.old_fingerprint, 'new': nw.fingerprint, reason: st.reason || '', signed_by_old: okOld, signed_by_new: okNew});
+        }
+        var last = rots.length ? ((rots[rots.length - 1].statement || {})['new'] || {}).public_key : null;
+        var ends = chain.length > 0 && last === sig.public_key;
+        var links = chain.every(function (c, i) { return i === chain.length - 1 || c['new'] === chain[i + 1].old; });
+        out.key_chain = chain;
+        add('the key rotations verify', goodAll && ends && links,
+          goodAll && ends && links ? (chain.length + ' rotation(s), each signed by the new key' + (chain.every(function (c) { return c.signed_by_old; }) ? '' : '; one or more not signed by the retired key (it was lost), so that step rests on the site\'s word') + ', ending at the key that signed this dossier')
+            : (!goodAll ? 'a rotation statement does not verify' : !ends ? 'the chain does not end at the key that signed this dossier' : 'the rotations do not follow one another'));
+      }
+    }
+    out.sources = man.sources || [];
+    out.status = out.checks.every(function (c) { return c.ok !== false; }) ? 'VALID' : 'INVALID';
+    out.unchecked = out.checks.filter(function (c) { return c.ok === null; }).map(function (c) { return c.check; });
+    out._zip = z;
+    return out;
+  }
+
+  // the site the reader was made for: is this dossier signed with one of its keys, or with a key its rotations lead to
+  function whose(result, site, typed) {
+    var known = [];
+    if (site && site.fingerprints) site.fingerprints.forEach(function (f) { known.push({fp: normFp(f), from: 'this reader'}); });
+    if (typed) known.push({fp: normFp(typed), from: 'you'});
+    if (!result.fingerprint || !known.length) return {state: 'unknown'};
+    var fp = normFp(result.fingerprint);
+    var direct = known.find(function (k) { return k.fp === fp; });
+    if (direct) return {state: 'match', from: direct.from};
+    var chain = result.key_chain || [];
+    var rotOk = result.checks.some(function (c) { return c.check === 'the key rotations verify' && c.ok; });
+    if (rotOk) {
+      for (var i = 0; i < chain.length; i++) {
+        var k = known.find(function (k) { return k.fp === normFp(chain[i].old); });
+        if (k) return {state: 'via-rotation', from: k.from, old: chain[i].old};
+      }
+    }
+    return {state: 'other'};
+  }
+
+  async function hashFile(file) { return sha256hex(new Uint8Array(await file.arrayBuffer())); }
+
+  return {VERSION: VERSION, UNCOVERED: UNCOVERED, check: check, whose: whose, ed25519Verify: ed25519Verify, fingerprint: fingerprint,
+          canon: canon, selfTest: selfTest, sha256hex: sha256hex, hashFile: hashFile, unhex: unhex, normFp: normFp};
+})();
+if (typeof module !== 'undefined') module.exports = GEAReader;
+</script>
+
+<script id="gea-page">
+(function () {
+  'use strict';
+  if (typeof document === 'undefined') return;
+  var R = GEAReader, $ = function (s) { return document.querySelector(s); };
+  var SITE = null;
+  try { SITE = JSON.parse($('#gea-site').textContent); } catch (e) { SITE = null; }
+  var TEST = null, LAST = null, TYPED = '';
+  try { TYPED = sessionStorage.getItem('gea-reader-fp') || ''; } catch (e) {}
+  function esc(s) { return String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
+  function size(n) { return n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(1) + ' MB'; }
+
+  function siteCard() {
+    var h = '<h2>Who signed it</h2>';
+    if (SITE && SITE.fingerprints && SITE.fingerprints.length) {
+      h += '<p class="small">This reader was made by <b>' + esc(SITE.name || 'the site') + '</b> on ' + esc(SITE.made_utc || '') + '. It knows ' + (SITE.fingerprints.length === 1 ? 'the site\'s signing key' : 'the site\'s ' + SITE.fingerprints.length + ' signing keys') + ':</p><p class="mono">' + SITE.fingerprints.map(esc).join('<br>') + '</p>'
+        + '<p class="small muted">Check these against the fingerprint the site gave you by email, phone or contract. A reader can be passed on by anyone; the fingerprint you were told separately is what shows who holds the key.</p>';
+    } else {
+      h += '<p class="small">A valid signature shows the files have not changed since the key\'s holder signed them. To know that holder is the site you deal with, enter the fingerprint the site gave you separately (by email, phone or contract):</p>';
+    }
+    h += '<div class="row"><input type="text" id="fp" placeholder="e.g. 3f2a 9c01 …" value="' + esc(TYPED) + '" aria-label="The fingerprint the site gave you"><button class="secondary" id="fpSet" type="button">Use this fingerprint</button></div>';
+    $('#siteCard').innerHTML = h;
+    $('#fpSet').onclick = function () { TYPED = $('#fp').value.trim(); try { sessionStorage.setItem('gea-reader-fp', TYPED); } catch (e) {} if (LAST) render(LAST); };
+  }
+
+  function verdict(r) {
+    var w = R.whose(r, SITE, TYPED);
+    var sc = r.scope || {}, what = esc(sc.display || sc.kind || 'dossier');
+    if (r.status !== 'VALID') {
+      return '<div class="verdict v-bad"><h2>Not valid</h2><p>This dossier does not check out: ' + esc((r.checks.find(function (c) { return c.ok === false; }) || {}).detail || '') + '. Do not rely on it; ask the site to send it again.</p></div>';
+    }
+    var who = w.state === 'match' ? ' It is signed with the site key ' + (w.from === 'you' ? 'you entered' : 'this reader was given') + '.'
+      : w.state === 'via-rotation' ? ' It is signed with a newer key that the site key ' + (w.from === 'you' ? 'you entered' : 'this reader was given') + ' handed over to, and both signed the hand-over.'
+      : w.state === 'other' ? '' : '';
+    var cls = (w.state === 'match' || w.state === 'via-rotation') ? 'v-good' : 'v-warn';
+    var head = w.state === 'other' ? 'Valid, but signed by a key you were not given' : w.state === 'unknown' ? 'Valid signature — compare the fingerprint' : 'Valid';
+    var p = '<p>The files below are byte-for-byte what was signed on ' + esc(r.signed_utc || '') + ' (' + what + ').' + who + '</p>';
+    if (w.state === 'other') p += '<p><b>The signer\'s fingerprint is not the one you were given.</b> The dossier has not changed since it was signed, but it may not have been signed by the site. Ask the site which key it uses.</p>';
+    if (w.state === 'unknown') p += '<p class="small">Compare the signer\'s fingerprint, <span class="mono">' + esc(r.fingerprint) + '</span>, with the one the site gave you.</p>';
+    if (r.unchecked && r.unchecked.length) p += '<p class="small muted">Not checked here: the trusted time-stamp. The time above is the signing computer\'s own clock.</p>';
+    else p += '<p class="small muted">The time above is the signing computer\'s own clock (the dossier carries no trusted time-stamp).</p>';
+    return '<div class="verdict ' + cls + '"><h2>' + head + '</h2>' + p + '</div>';
+  }
+
+  var ROLE = {report: 'Reports', declaration: 'Declarations', result: 'Results', audit: 'Audit log', source: 'Source records', key: 'Keys'};
+  function render(r) {
+    LAST = r;
+    var h = verdict(r);
+    var g = r.generator || {};
+    h += '<section class="card"><h2>The checks</h2><p class="small muted">Dossier <span class="mono">' + esc(r.dossier_id || '') + '</span> · ' + esc(r.dossier) + (g.program ? ' · made by ' + esc(g.program) + ' ' + esc(g.version || '') : '') + '</p><ul class="checks">'
+      + r.checks.map(function (c) { return '<li><span class="mark ' + (c.ok === true ? 'ok">ok' : c.ok === false ? 'no">NO' : 'na">—') + '</span><span><b>' + esc(c.check) + '</b><br><span class="small muted">' + esc(c.detail) + '</span></span></li>'; }).join('')
+      + '</ul>' + (r.fingerprint ? '<p class="small">The signer\'s key fingerprint: <b class="mono">' + esc(r.fingerprint) + '</b></p>' : '')
+      + (r.key_chain && r.key_chain.length ? '<details class="small"><summary>Key hand-overs (' + r.key_chain.length + ')</summary><table><thead><tr><th>When</th><th>From</th><th>To</th><th>Why</th><th>Signed by</th></tr></thead><tbody>' + r.key_chain.map(function (c) { return '<tr><td>' + esc(c.utc) + '</td><td class="mono">' + esc(c.old || '—') + '</td><td class="mono">' + esc(c['new']) + '</td><td>' + esc(c.reason) + '</td><td>' + (c.signed_by_old && c.signed_by_new ? 'both keys' : c.signed_by_old === null && c.signed_by_new ? 'the new key only (the old one was lost)' : 'NOT VALID') + '</td></tr>'; }).join('') + '</tbody></table></details>' : '')
+      + '</section>';
+    var man = r.manifest || {};
+    if (man.files && man.files.length) {
+      var groups = {};
+      man.files.forEach(function (f) { (groups[f.role] = groups[f.role] || []).push(f); });
+      h += '<section class="card"><h2>What it holds</h2><p class="small muted">Click a file to read it. Reports open as they were signed; nothing here can be edited.</p><div style="overflow-x:auto"><table><thead><tr><th>File</th><th class="hide">Kind</th><th>Size</th><th>Check</th></tr></thead><tbody>';
+      var order = Object.keys(ROLE);
+      Object.keys(groups).sort(function (a, b) { var i = order.indexOf(a), j = order.indexOf(b); return (i < 0 ? 99 : i) - (j < 0 ? 99 : j); }).forEach(function (role) {
+        h += '<tr><th colspan="4" style="padding-top:12px">' + esc(ROLE[role] || role) + '</th></tr>';
+        groups[role].forEach(function (f) {
+          var s = r.files[f.path] || '';
+          h += '<tr class="file" data-p="' + esc(f.path) + '"><td class="mono">' + esc(f.path) + '</td><td class="hide">' + esc(role) + (f.history ? ' · ' + esc(f.history.report_id || '') : '') + '</td><td>' + size(f.bytes) + '</td><td>' + (s === 'MATCH' ? '<span class="pill p-good">matches</span>' : '<span class="pill p-bad">' + esc(s.toLowerCase() || 'unknown') + '</span>') + '</td></tr>';
+        });
+      });
+      h += '</tbody></table></div></section><section class="card" id="view"></section>';
+    }
+    var src = (r.sources || []).filter(function (s) { return !s.embedded; });
+    if (src.length) {
+      h += '<section class="card"><h2>Source records it lists by hash</h2><p class="small">The dossier names ' + src.length + ' source file' + (src.length === 1 ? '' : 's') + ' by SHA-256 without carrying ' + (src.length === 1 ? 'it' : 'them') + '. If the site gave you copies, choose them here and the reader checks each against its hash.</p>'
+        + '<div class="row"><label class="btn secondary">Choose source files…<input type="file" id="srcPick" multiple hidden></label></div><div id="srcOut"></div></section>';
+    }
+    $('#out').innerHTML = h;
+    document.querySelectorAll('tr.file').forEach(function (tr) { tr.onclick = function () { show(tr.dataset.p, tr); }; });
+    var sp = $('#srcPick');
+    if (sp) sp.onchange = function () { checkSources(src, sp.files); };
+    $('#out').scrollIntoView({behavior: 'smooth', block: 'start'});
+  }
+
+  async function checkSources(src, files) {
+    var byPath = new Map(), byBase = new Map();
+    Array.from(files).forEach(function (f) { byPath.set(f.webkitRelativePath || f.name, f); byBase.set(f.name, f); });
+    $('#srcOut').innerHTML = '<p class="small muted">Hashing…</p>';
+    var rows = [];
+    for (var s of src) {
+      var base = String(s.path).split('/').pop(), f = byPath.get(s.path) || byBase.get(base);
+      if (!f) { rows.push([s.path, 'MISSING']); continue; }
+      rows.push([s.path, (await R.hashFile(f)) === s.sha256 ? 'MATCH' : 'DIFFERS']);
+    }
+    var m = rows.filter(function (x) { return x[1] === 'MATCH'; }).length;
+    $('#srcOut').innerHTML = '<p class="small"><b>' + m + ' of ' + rows.length + ' match.</b></p><table><tbody>' + rows.map(function (x) { return '<tr><td><span class="pill ' + (x[1] === 'MATCH' ? 'p-good' : x[1] === 'MISSING' ? 'p-warn' : 'p-bad') + '">' + x[1].toLowerCase() + '</span></td><td class="mono">' + esc(x[0]) + '</td></tr>'; }).join('') + '</tbody></table>';
+  }
+
+  var URLS = [];
+  function blobUrl(bytes, type) { var u = URL.createObjectURL(new Blob([bytes], {type: type})); URLS.push(u); return u; }
+  var TYPES = {pdf: 'application/pdf', svg: 'image/svg+xml', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', html: 'text/html', json: 'application/json', csv: 'text/csv', txt: 'text/plain', md: 'text/markdown'};
+  var TEXT = ['json', 'jsonl', 'csv', 'txt', 'md', 'las', 'xml', 'log', 'tsv', 'ini', 'toml', 'yaml', 'yml'];
+  async function show(path, tr) {
+    var r = LAST, v = $('#view');
+    document.querySelectorAll('tr.file.sel').forEach(function (x) { x.classList.remove('sel'); });
+    tr.classList.add('sel');
+    while (URLS.length) URL.revokeObjectURL(URLS.pop());
+    var bytes;
+    try { bytes = await r._zip.read(path); } catch (e) { v.style.display = 'block'; v.innerHTML = '<p class="no">' + esc(e.message) + '</p>'; return; }
+    var ext = (path.split('.').pop() || '').toLowerCase(), name = path.split('/').pop();
+    var state = r.files[path], warn = state === 'MATCH' ? '' : '<p class="no"><b>This file does not match its signed hash: it was changed after signing.</b></p>';
+    var save = '<a class="btn secondary" download="' + esc(name) + '" href="' + blobUrl(bytes, TYPES[ext] || 'application/octet-stream') + '">Save a copy</a>';
+    var h = '<div class="row" style="justify-content:space-between"><h2 class="mono" style="margin:0">' + esc(path) + '</h2>' + save + '</div>' + warn;
+    if (ext === 'html' || ext === 'htm') {
+      h += '<iframe sandbox="" title="' + esc(name) + '" id="frame"></iframe>';
+    } else if (ext === 'pdf') {
+      h += '<p class="small">A PDF opens in the browser\'s own viewer.</p><a class="btn" target="_blank" rel="noopener" href="' + blobUrl(bytes, 'application/pdf') + '">Open the PDF</a>';
+    } else if (ext === 'svg' || ext === 'png' || ext === 'jpg' || ext === 'jpeg') {
+      h += '<img alt="' + esc(name) + '" src="' + blobUrl(bytes, TYPES[ext]) + '">';
+    } else if (TEXT.indexOf(ext) >= 0) {
+      var t = new TextDecoder('utf-8').decode(bytes.subarray(0, 2000000));
+      if (ext === 'json') { try { t = JSON.stringify(JSON.parse(t), null, 1); } catch (e) {} }
+      h += '<pre>' + esc(t) + (bytes.length > 2000000 ? '\n\n… the rest of this file is in the saved copy' : '') + '</pre>';
+    } else {
+      h += '<p class="small muted">This kind of file is not shown here; save a copy to open it.</p>';
+    }
+    v.innerHTML = h; v.style.display = 'block';
+    var fr = $('#frame');
+    if (fr) fr.srcdoc = new TextDecoder('utf-8').decode(bytes);
+    v.scrollIntoView({behavior: 'smooth', block: 'start'});
+  }
+
+  async function open(file) {
+    if (!TEST || !TEST.ok) { $('#out').innerHTML = '<div class="verdict v-bad"><h2>This browser cannot check dossiers</h2><p>' + esc(TEST ? TEST.detail : '') + '</p></div>'; return; }
+    $('#out').innerHTML = '<p class="muted">Checking ' + esc(file.name) + '…</p>';
+    try { render(await R.check(await file.arrayBuffer(), file.name)); }
+    catch (e) { $('#out').innerHTML = '<div class="verdict v-bad"><h2>Not valid</h2><p>' + esc(e.message || e) + '</p></div>'; }
+  }
+  $('#pick').onchange = function () { if (this.files[0]) open(this.files[0]); };
+  var dz = $('#drop');
+  ['dragenter', 'dragover'].forEach(function (ev) { document.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.add('over'); }); });
+  ['dragleave', 'drop'].forEach(function (ev) { document.addEventListener(ev, function (e) { e.preventDefault(); if (ev === 'drop' || e.target === document.documentElement) dz.classList.remove('over'); }); });
+  document.addEventListener('drop', function (e) { var f = e.dataTransfer && e.dataTransfer.files[0]; if (f) open(f); });
+  siteCard();
+  R.selfTest().then(function (t) {
+    TEST = t;
+    $('#foot').innerHTML = 'GEA Reader ' + esc(R.VERSION) + ' · self-check: ' + (t.ok ? 'passed — ' : '<b class="no">FAILED</b> — ') + esc(t.detail) + ' · Every dossier also carries verify_dossier.py, which checks the same with Python 3.8 or later.';
+    if (!t.ok) $('#dropNote').innerHTML = '<b class="no">' + esc(t.detail) + '</b>';
+  });
+})();
+</script>
+</body>
+</html>

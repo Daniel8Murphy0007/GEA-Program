@@ -1912,6 +1912,19 @@ def make_handler(app: App):
                     self.end_headers()
                     self.wfile.write(pem)
                     return None
+                if path == '/api/reader':
+                    from . import reader as RDR
+                    body = RDR.page(app.ws).encode('utf-8')
+                    app.ws.audit(user['name'], 'reader.download', {'fingerprints': (RDR.site_info(app.ws) or {}).get('fingerprints', [])})
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'text/html; charset=utf-8')
+                    self.send_header('Content-Disposition', 'attachment; filename="' + RDR.FILENAME + '"')
+                    self.send_header('Content-Length', str(len(body)))
+                    self.send_header('Cache-Control', 'no-store')
+                    self._secure_headers()
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return None
                 if path.startswith('/api/wells/') and path.endswith('/instruments'):
                     return self._json(200, app.instruments(path[len('/api/wells/'):-len('/instruments')]))
                 if path == '/api/since':
@@ -2021,6 +2034,17 @@ def make_handler(app: App):
                 if path == '/api/tools/fleet':
                     from . import tool_taxonomy as _TX
                     return self._json(200, {'tools': _TX.fleet_list(app.ws.path)})
+                if path == '/api/rocks':
+                    from . import rock_inventory as _RI
+                    return self._json(200, _RI.page())
+                if path == '/api/rocks/lookup':
+                    from . import rock_inventory as _RI
+                    try:
+                        rho = float(qs.get('density', [''])[0])
+                        vp = (qs.get('vp', [''])[0] or '').strip()
+                        return self._json(200, _RI.lookup(rho, float(vp) if vp else None))
+                    except ValueError as e:
+                        raise ApiError(400, str(e) if 'between' in str(e) else 'a density in g/cc, and optionally a velocity in m/s')
                 if path == '/api/catalog/map':
                     from . import catalog_map as _CM, catalog_register as _CR
                     reg = {r['entry']: r for r in _CR.register()}

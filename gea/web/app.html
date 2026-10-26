@@ -930,6 +930,50 @@ function ckBind(ck) {
       if (k === 'confirm') { await post('/api/setup/confirm', {item: f.dataset.item, note: fd.get('note')}); return after('Confirmed'); }
     } catch (e) { toast(e.message, 'err'); } };
 }
+// ---------- the rock inventory: the published densities and velocities the strata survey ranks rocks by ----------
+function rkChart(rows, mark) {
+  const W = 760, rowH = 18, top = 26, left = 108, right = 16, n = rows.length, H = top + n * rowH + 30, x0 = 0.8, x1 = 3.5;
+  const X = v => left + (v - x0) / (x1 - x0) * (W - left - right);
+  const col = {rock: 'var(--s1)', mineral: 'var(--s2)', fluid: 'var(--s3)'};
+  let g = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Published density range of each entry, g/cc" style="width:100%;height:auto;max-height:${H}px">`;
+  for (let t = 1.0; t <= 3.5001; t += 0.5) g += `<line x1="${X(t)}" x2="${X(t)}" y1="${top - 6}" y2="${H - 24}" stroke="var(--grid)"/><text x="${X(t)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--muted)">${t.toFixed(1)}</text>`;
+  g += `<text x="${W - right}" y="14" text-anchor="end" font-size="11" fill="var(--muted)">bulk density, g/cc</text>`;
+  rows.forEach((r, i) => {
+    const y = top + i * rowH, lo = r.density_range_gcc[0], hi = r.density_range_gcc[1];
+    const hit = mark !== null && lo <= mark && mark <= hi;
+    g += `<text x="${left - 8}" y="${y + 12}" text-anchor="end" font-size="12" fill="${hit ? 'var(--ink)' : 'var(--ink2)'}" ${hit ? 'font-weight="700"' : ''}>${esc(r.name)}</text>`;
+    g += `<rect x="${X(lo)}" y="${y + 3}" width="${Math.max(2, X(hi) - X(lo))}" height="${rowH - 7}" rx="3" fill="${col[r.kind] || 'var(--s4)'}" opacity="${mark === null || hit ? 0.85 : 0.3}"><title>${esc(r.name)}: ${lo}-${hi} g/cc, published value ${r.density_gcc}</title></rect>`;
+    g += `<line x1="${X(r.density_gcc)}" x2="${X(r.density_gcc)}" y1="${y + 1}" y2="${y + rowH - 2}" stroke="var(--ink)" stroke-width="1.5"/>`;
+  });
+  if (mark !== null) g += `<line x1="${X(mark)}" x2="${X(mark)}" y1="${top - 8}" y2="${H - 24}" stroke="var(--serious)" stroke-width="2"/><text x="${X(mark) + 4}" y="${top - 10}" font-size="11" fill="var(--serious)">${mark} g/cc</text>`;
+  return g + `</svg>`;
+}
+VIEWS.rocks = async () => {
+  const P = await get('/api/rocks');
+  const c = P.counts, rows = P.rows;
+  let h = `<h2>The rock inventory</h2>` + help('rocks');
+  h += `<p class="small muted">The ${c.entries} rocks, minerals and fluid the strata survey ranks a measured log against: each one's published bulk density and compressional velocity, as a range, from the tables cited below. The survey reads a LAS file (the Survey tab); this page shows what it compares against.</p>`;
+  h += `<div class="tiles">` + tile('Entries', String(c.entries), 'neutral', '#/rocks', `${c.rocks} rocks, ${c.minerals} minerals, ${c.fluids} fluid`)
+     + tile('With a velocity range', String(c.with_vp), 'neutral', '#/rocks', 'the second channel that splits rocks density cannot')
+     + P.checks.map(k => tile(k.tile[0], k.tile[1], k.agrees ? 'good' : 'warn', '#/rocks', k.tile[2])).join('') + `</div>`;
+  h += `<div class="card"><h3>Look up a measurement</h3><div class="row"><label>Bulk density (g/cc)<input id="rkRho" type="number" step="0.01" min="0.5" max="4.5" value="2.65"></label><label>Compressional velocity (m/s, optional)<input id="rkVp" type="number" step="10" min="1000" max="9000" placeholder="e.g. 5900"></label><button id="rkGo" type="button">Which entries hold it</button></div><div id="rkOut" class="small"></div></div>`;
+  h += `<div class="card"><h3>Density ranges</h3><div id="rkChart">${rkChart(rows, null)}</div><p class="small muted">Each bar is the published range; the dark tick is the published value. <span style="color:var(--s1)">■</span> rock <span style="color:var(--s2)">■</span> mineral <span style="color:var(--s3)">■</span> fluid. The ranges overlap: a density alone gives a short list, never one name.</p></div>`;
+  h += `<div class="card"><h3>The table</h3><div style="overflow-x:auto"><table><thead><tr><th>Entry</th><th>Kind</th><th>Density (g/cc)</th><th>Range (g/cc)</th><th>Vp midpoint (km/s)</th><th>Vp range (km/s)</th></tr></thead><tbody>${rows.map(r => `<tr><td><b>${esc(r.name)}</b></td><td>${esc(r.kind)}</td><td class="mono">${r.density_gcc.toFixed(3)}</td><td class="mono">${r.density_range_gcc[0].toFixed(2)} – ${r.density_range_gcc[1].toFixed(2)}</td><td class="mono">${r.vp_mid_km_s !== null ? r.vp_mid_km_s.toFixed(2) : '—'}</td><td class="mono">${r.vp_range_km_s ? r.vp_range_km_s[0].toFixed(2) + ' – ' + r.vp_range_km_s[1].toFixed(2) : '—'}</td></tr>`).join('')}</tbody></table></div>
+    <p class="small muted">From a terminal: <span class="mono">gea rocks</span> prints this table; <span class="mono">gea rocks --density 2.9 --vp 6900</span> looks up a measurement.</p></div>`;
+  h += `<div class="card"><h3>Against real cores and logs</h3><p class="small muted">The inventory was not fitted to these; each is a check it could fail.</p><table class="small"><tbody>${P.checks.map(k => `<tr><td>${statusPill(k.agrees ? 'good' : 'warn', k.agrees ? 'agrees' : 'does not agree')}</td><td><b>${esc(k.name)}</b><br>${esc(k.result)}<br><span class="muted">${esc(k.how)}${k.source ? ' · ' + esc(k.source) : ''}</span> <span class="mono muted">${esc(k.entry || '')}</span></td></tr>`).join('')}</tbody></table></div>`;
+  h += `<div class="card"><h3>Sources and limits</h3><ul class="small">${P.sources.map(x => `<li>${esc(x.text)} <span class="muted">(${esc(x.cites)})</span></li>`).join('')}</ul><ul class="small muted">${P.limits.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
+  $('#main').innerHTML = h;
+  const go = async () => {
+    const rho = $('#rkRho').value, vp = $('#rkVp').value;
+    try {
+      const r = await get('/api/rocks/lookup?density=' + encodeURIComponent(rho) + (vp ? '&vp=' + encodeURIComponent(vp) : ''));
+      $('#rkChart').innerHTML = rkChart(rows, +rho);
+      $('#rkOut').innerHTML = `<p><b>${esc(r.statement.charAt(0).toUpperCase() + r.statement.slice(1))}.</b>${r.twins_split === true ? ' With the velocity, amphibolite and basalt are told apart here.' : ''}</p>` + (r.candidates.length ? `<table><thead><tr><th>#</th><th>Entry</th><th>Kind</th><th>Density range</th><th>Vp range</th></tr></thead><tbody>${r.candidates.map((x, i) => `<tr><td>${i + 1}</td><td><b>${esc(x.name)}</b></td><td>${esc(x.kind)}</td><td class="mono">${x.density_range_gcc[0]} – ${x.density_range_gcc[1]} g/cc</td><td class="mono">${x.vp_range_km_s ? x.vp_range_km_s[0] + ' – ' + x.vp_range_km_s[1] + ' km/s' : '—'}</td></tr>`).join('')}</tbody></table>` : '');
+    } catch (e) { toast(e.message, 'err'); }
+  };
+  $('#rkGo').onclick = go;
+  [$('#rkRho'), $('#rkVp')].forEach(i => i.onkeydown = ev => { if (ev.key === 'Enter') go(); });
+};
 VIEWS.catalog = async () => {
   const c = await get('/api/catalog/map');
   const k = c.counts;
@@ -1680,6 +1724,7 @@ async function rpCards() {
   RP.data = D; const k = D.key, H = D.history;
   let h = `<div class="card" id="dzCard"><h3>Signed dossiers <span class="small muted">a well's, or the pad's, reports, declarations, audit log and source hashes in one zip, signed with this site's key; anyone can check one without GEA</span></h3>`;
   h += `<p class="small">${k ? `This site's signing key: <b class="mono">${esc(k.fingerprint)}</b> (Ed25519, made ${tz(k.created_utc)}). Give this fingerprint to your clients by email or contract, separately from the dossiers: it is how they know a dossier is yours.` : 'No signing key yet: the first dossier makes one on this machine, kept in the workspace and never sent anywhere.'}</p>`;
+  h += `<div class="row" id="rdRow" style="margin:4px 0 14px"><a class="btn secondary" id="rdGet" href="/api/reader" download="GEA-Reader.html">Download GEA Reader for your clients</a><span class="small muted">One HTML file your clients open in any browser, offline, to check a dossier and read its reports — nothing to install, no Python. ${k ? 'It carries this site\'s name and the fingerprints of its signing keys.' : 'Sign a dossier first and the reader will carry this site\'s key fingerprint.'} <a href="#/help/reader">How it works</a></span></div>`;
   if (can('operator')) h += `<div class="row"><button type="button" class="dz-sign" data-w="">Sign a dossier for the pad</button>${D.wells.map(w => `<button type="button" class="secondary dz-sign" data-w="${esc(w.id)}">${esc(w.display)}</button>`).join('')}<label class="small ck-chk"><input type="checkbox" id="dzSrc"> embed the source records (otherwise listed by hash)</label></div>`;
   const KH = D.key_history || {keys: [], rotations: []};
   if (KH.keys.length > 1 || KH.rotations.length) h += `<details class="small"><summary>Key history: ${KH.keys.length} key${KH.keys.length === 1 ? '' : 's'}, ${KH.rotations.length} rotation${KH.rotations.length === 1 ? '' : 's'}</summary><table class="small"><thead><tr><th>Fingerprint</th><th>Made (UTC)</th><th>Retired</th><th>Why</th></tr></thead><tbody>${KH.keys.slice().reverse().map(x => `<tr><td class="mono">${esc(x.fingerprint)}</td><td>${x.created_utc ? tz(x.created_utc) : '—'}</td><td>${x.retired_utc ? tz(x.retired_utc) : statusPill('good', 'CURRENT')}</td><td>${esc(x.reason || '')}</td></tr>`).join('')}</tbody></table>${KH.rotations.map(r => `<p class="small">${tz(r.utc)}: <span class="mono">${esc(r.old)}</span> → <span class="mono">${esc(r.new)}</span>, ${r.signed_by_old ? 'signed by both keys' : '<b>not signed by the old key</b> (it was lost): tell your clients the new fingerprint directly'} — by ${esc(r.by)}.</p>`).join('')}<p class="small muted">Dossiers signed with a retired key before it was retired still check out here and anywhere. Every later dossier carries the rotations, so a client who knows an earlier fingerprint can follow them to the current one.</p></details>`;
@@ -3425,7 +3470,7 @@ function authScreen(first, company) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/frac', 'Frac hits'], ['#/porepressure', 'Pore pressure'], ['#/torquedrag', 'Torque & drag'], ['#/hydraulics', 'Hydraulics & ECD'], ['#/casing', 'Casing & kick tolerance'], ['#/decline', 'Decline curves'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/frac', 'Frac hits'], ['#/porepressure', 'Pore pressure'], ['#/torquedrag', 'Torque & drag'], ['#/hydraulics', 'Hydraulics & ECD'], ['#/casing', 'Casing & kick tolerance'], ['#/decline', 'Decline curves'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/rocks', 'Rocks'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w'], '#/control': b => [b.handover_unacked, 'w']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }

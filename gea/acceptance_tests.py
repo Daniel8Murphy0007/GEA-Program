@@ -286,15 +286,24 @@ def section_e_operator(tmp: str) -> None:
        and cit["well_provenance"] and cit["tools"],
        "E7 operator: citations pane content - the aging rate named as the datasheet's with nothing added, the datasheet's source, "
        "well provenance and tool sources present")
+    from .well_assembler import BUILTIN_ASSEMBLIES as _BA
+    wl = OperatorSession().wells()
+    ok("ktb_hb" in wl and all(n in _BA for n in wl) and all(w["engine_ready"] in (True, False) for w in wl.values()),
+       "E9 operator: the well list builds on a computer without the operator-tier data - a well whose private files are absent is left out, "
+       f"not an error that stops the window opening ({len(wl)} of {len(_BA)} wells here)")
+    if os.name != "nt" and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+        if not os.environ.get("QT_QPA_PLATFORM"):
+            os.environ["QT_QPA_PLATFORM"] = "offscreen"          # no screen here: Qt would end the process rather than raise
     try:
-        launch_operator_app(run=False)       # build the window, never enter the event loop: a gate must not wait for a person
-        ok(True, "E8 operator GUI: the window constructs (PyQt6 present); the gate does not enter its event loop")
+        launch_operator_app(run=False, exercise=True)   # build the window and press its first buttons, never enter the event loop: a gate must not wait for a person
+        ok(True, "E8 operator GUI: the window constructs, hangs a tool, runs, draws the live chart and reconciles (PyQt6 present); the gate does not enter its event loop")
     except NotImplementedError as e:
         ok("pip install PyQt6" in str(e),
            "E8 operator GUI: refuses with the pip hint where PyQt6 is absent")
-    except Exception:
-        ok(True, "E8 operator GUI: Qt import succeeded (display-level error "
-                 "on this host is not a product failure)")
+    except Exception as e:
+        disp = any(w in str(e).lower() for w in ("display", "platform plugin", "xcb", "wayland", "could not connect"))
+        ok(disp, "E8 operator GUI: Qt imported; " + ("this host has no display for it (not a product failure)" if disp
+                 else f"the window failed to build: {type(e).__name__}: {str(e)[:160]}"))
 
 
 def section_f_ports() -> None:
@@ -14402,9 +14411,9 @@ def section_dh_windows_installer(tmp: str) -> None:
     tip = TR.tooltip(True, 8765, "C:\\" + "very long site name " * 10)
     st_ok, st_lines = TR.selftest(str(wsr), 8765, str(kit), show=False)
     c3 = {
-        "menu_running": ids(m_run) == [TR.CMD_STATUS, TR.CMD_OPEN, TR.CMD_STOP, TR.CMD_FOLDER, TR.CMD_LOG, TR.CMD_HELP, TR.CMD_CLOSE] and m_run[0][2] is False
+        "menu_running": ids(m_run) == [TR.CMD_STATUS, TR.CMD_OPEN, TR.CMD_STOP, TR.CMD_OPERATOR, TR.CMD_FOLDER, TR.CMD_LOG, TR.CMD_HELP, TR.CMD_CLOSE] and m_run[0][2] is False
                         and all(x[2] for x in m_run[2:] if x) and "keeps running" in m_run[-1][1],
-        "menu_stopped": ids(m_stop) == [TR.CMD_STATUS, TR.CMD_OPEN, TR.CMD_START, TR.CMD_FOLDER, TR.CMD_LOG, TR.CMD_HELP, TR.CMD_CLOSE] and "Start and open" in m_stop[2][1],
+        "menu_stopped": ids(m_stop) == [TR.CMD_STATUS, TR.CMD_OPEN, TR.CMD_START, TR.CMD_OPERATOR, TR.CMD_FOLDER, TR.CMD_LOG, TR.CMD_HELP, TR.CMD_CLOSE] and "Start and open" in m_stop[2][1],
         "no_kit_no_stop": [x for x in m_nokit if x and x[0] == TR.CMD_STOP][0][2] is False,
         "tooltip": len(tip) <= TR.TIP_MAX and "running (port 8765)" in tip,
         "notices": TR.notice(None, True, False) is None and TR.notice(True, True, False) is None and TR.notice(True, False, True) is None
@@ -14964,6 +14973,165 @@ def section_dm_taskbar_identity(tmp: str) -> None:
        "first time, and left where a person put it" + (f" [failed: {', '.join(failed)}]" if failed else ""))
 
 
+def section_dn_reader_rocks_operator(tmp: str) -> None:
+    """Section DN - the client reader, the rock inventory's tab and the operator window. GEA Reader: one HTML file a
+    client opens in a browser to check a dossier - its page allows no network request, its checks carry
+    verify_dossier.py's names in verify_dossier.py's order, its self-test vectors are RFC 8032's, and a reader made
+    from a workspace carries the site's name and every signing key's fingerprint (never the seed), however the name
+    is spelled; the Reports tab hands it out and the CLI writes it. (Its script is run against Python's verdicts on
+    nine dossiers by tools/reader_check.mjs in CI: the gate has no browser.) The Rocks tab: the table, the lookup and
+    the checks against real cores and logs, by API, CLI and page. The operator window: the Start menu shortcut with
+    its own taskbar identity, the icon's menu item, and a message box rather than a silent exit."""
+    import http.cookiejar
+    import re as _re
+    import subprocess as _sp
+    import urllib.error
+    import urllib.request
+    from . import __version__
+    from . import dossier as DZ
+    from . import dossier_verify as DV
+    from . import ed25519 as ED
+    from . import helplib as H
+    from . import reader as RD
+    from . import rock_inventory as RI
+    from . import tray as TR
+    from . import drill_string as DS
+    from . import well_report as WR
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    src = (pkg / "web" / "reader.html").read_text(encoding="utf-8")
+    core = _re.search(r'<script id="gea-core">([\s\S]*?)</script>', src)
+    core = core.group(1) if core else ""
+    csp = _re.search(r'http-equiv="Content-Security-Policy" content="([^"]+)"', src)
+    csp = csp.group(1) if csp else ""
+    py_src = (pkg / "dossier_verify.py").read_text(encoding="utf-8")
+    py_checks = [c_ for c_ in dict.fromkeys(m_.replace("\\'", "'") for m_ in _re.findall(r"add\('((?:[^'\\]|\\.)+)'", py_src))
+                 if c_ != "the source files match"]          # the reader checks a client's source copies in a panel of its own
+    js_checks = list(dict.fromkeys(m.replace("\\'", "'") for m in _re.findall(r"add\('((?:[^'\\]|\\.)+)'", core)))
+    pos = [js_checks.index(c) if c in js_checks else -1 for c in py_checks]
+    vec = _re.findall(r"\['([0-9a-f]{64})', '([0-9a-f]*)', '([0-9a-f]{128})'\]", core)
+    unc = _re.search(r"var UNCOVERED = \[([^\]]*)\]", core)
+    unc = _re.findall(r"'([^']+)'", unc.group(1)) if unc else []
+    plain = RD.page(None)
+    c1 = {
+        "no_network": "default-src 'none'" in csp and "connect-src" not in csp and "form-action 'none'" in csp
+                      and not _re.search(r'(?:src|href)="(?:https?:)?//', src)
+                      and not any(x in src for x in ("fetch(", "XMLHttpRequest", "WebSocket", "EventSource", "sendBeacon", "import(")),
+        "same_checks": py_checks and all(p_ >= 0 for p_ in pos) and pos == sorted(pos) and "every name in the zip is used once" in py_checks,
+        "rfc_vectors": len(vec) == 3 and all(ED.verify(bytes.fromhex(a), bytes.fromhex(m), bytes.fromhex(g)) for a, m, g in vec),
+        "uncovered": unc == list(DV.UNCOVERED),
+        "sandboxed_reports": 'sandbox=""' in src and "srcdoc" in src,
+        "plain_page": '<script id="gea-site" type="application/json">null</script>' in plain and "__ICON__" not in plain
+                      and "__VERSION__" not in plain and f"'{__version__}'" in plain and "data:image/png;base64," in plain,
+        "help": not H.check("reader") and any(t["topic"] == "reader" for t in H.topics()),
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "DN1 GEA Reader, the file a client opens: its page allows no network request of any kind (Content-Security-Policy default-src 'none', "
+       "no remote source, no request call in its script); its checks are verify_dossier.py's, by name and in order, the duplicate-name check "
+       "included; its self-test vectors verify as RFC 8032's in the program's own Ed25519; the files it leaves outside the signature are "
+       "the checker's; a report opens in a frame that runs no script" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- DN2 a reader made from a workspace: the site's name and key fingerprints, nothing secret -------------------------
+    d = Path(tmp, "dn"); d.mkdir()
+    syn = DS.synthetic_motor_record(str(d))
+    wsp = str(d / "ws")
+    ws = Workspace.create(wsp, 'Pad </script><script>alert(1)</script> & "Ü"', actor="tester")
+    none_yet = RD.site_info(ws)
+    w = ws.add_well_file(syn["path"], display="SYNTHETIC well", actor="tester")
+    ws.refresh_dashboard(actor="tester")
+    WR.write_well(ws, w["id"], __version__, actor="tester")
+    DZ.build(ws, "tester", __version__, w["id"])
+    fp1 = DZ.key_info(ws)["fingerprint"]
+    DZ.rotate_key(ws, "tester", "a scheduled change")
+    fp2 = DZ.key_info(ws)["fingerprint"]
+    html = RD.page(ws)
+    m = _re.search(r'<script id="gea-site" type="application/json">([\s\S]*?)</script>', html)
+    info = json.loads(m.group(1)) if m else {}
+    seed = json.loads(Path(wsp, "keys", "dossier_ed25519.json").read_text(encoding="utf-8"))["seed"]
+    c2 = {
+        "name_and_keys": info.get("name") == ws.manifest["name"] and info.get("fingerprints") == [fp1, fp2] and info.get("current") == fp2,
+        "stays_data": html.count("<script>alert(1)") == 0 and html.count('<script id="gea-site"') == 1 and len(_re.findall(r"<script\b", html)) == 3,
+        "no_seed": seed not in html and seed.lower() not in html.lower(),
+        "no_key_yet": none_yet == {"name": ws.manifest["name"], "fingerprints": [], "current": None, "made_utc": none_yet["made_utc"]},
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "DN2 a reader made from a workspace carries the site's name and the fingerprint of every key it has signed with, the retired one first "
+       "and the current one last, and never the signing seed; a site name with markup in it stays data inside the page"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- DN3 the Reports tab hands it out; the CLI writes it; the Rocks tab -------------------------------------------------
+    Users(str(Path(wsp, "users.json"))).add("adm", "admin-pass-123", "admin")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        rq = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(rq, timeout=60) as rr_:
+                raw = rr_.read()
+                return rr_.status, (json.loads(raw) if "json" in rr_.headers.get("Content-Type", "") else raw.decode("utf-8")), dict(rr_.headers)
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read() or b"{}"), dict(e.headers)
+    try:
+        s_anon, _, _ = call("GET", "/api/reader")
+        call("POST", "/api/login", {"name": "adm", "password": "admin-pass-123"})
+        s_rd, body, h_rd = call("GET", "/api/reader")
+        s_rk, rk, _ = call("GET", "/api/rocks")
+        s_lk, lk, _ = call("GET", "/api/rocks/lookup?density=2.9&vp=6900")
+        s_l1, l1, _ = call("GET", "/api/rocks/lookup?density=2.65")
+        s_bad, _, _ = call("GET", "/api/rocks/lookup?density=12")
+    finally:
+        svc.stop()
+    out = d / "GEA-Reader.html"
+    cli = _sp.run([sys.executable, "-m", "gea", "reader", "--workspace", wsp, "--out", str(out)], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_rk = _sp.run([sys.executable, "-m", "gea", "rocks", "--density", "2.65"], capture_output=True, text=True, cwd=str(pkg.parent))
+    app_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    acts = [a["action"] for a in ws.audit_log(500)]
+    cdisp = h_rd.get("Content-Disposition", "")
+    c3 = {
+        "api_reader": s_anon in (401, 403) and s_rd == 200 and 'filename="GEA-Reader.html"' in cdisp and fp2 in str(body) and "reader.download" in acts,
+        "cli_reader": cli.returncode == 0 and out.is_file() and fp1 in out.read_text(encoding="utf-8") and "2 signing key(s)" in cli.stdout and "reader.write" in [a["action"] for a in Workspace(wsp).audit_log(500)],
+        "tab_button": "/api/reader" in app_src and "Download GEA Reader for your clients" in app_src,
+        "rocks_api": s_rk == 200 and rk["counts"]["entries"] == 17 and rk["counts"]["with_vp"] == 17 and len(rk["rows"]) == 17 and len(rk["checks"]) == 3
+                     and rk["checks"][0]["result"].startswith("65 of 70") and all(x["agrees"] for x in rk["checks"]) and len(rk["sources"]) == 3,
+        "lookup": s_lk == 200 and [c_["name"] for c_ in lk["candidates"]] == ["amphibolite", "dolomite"] and lk["twins_split"] is True
+                  and s_l1 == 200 and {"limestone", "granite", "gneiss", "quartz"} <= {c_["name"] for c_ in l1["candidates"]} and "not name one rock" in l1["statement"]
+                  and s_bad == 400,
+        "rocks_cli": cli_rk.returncode == 0 and "limestone" in cli_rk.stdout and "not name one rock" in cli_rk.stdout,
+        "rocks_page": "VIEWS.rocks = " in app_src and "['#/rocks', 'Rocks']" in app_src and "/api/rocks/lookup" in app_src and H.VIEW_TOPIC.get("rocks") == "rocks"
+                      and not H.check("rocks") and bool(RI.lookup(2.6)["candidates"]),
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "DN3 the Reports tab hands the reader out (signed in only, as GEA-Reader.html, with the site's key, audited) and `gea reader` writes it; "
+       "the Rocks tab: 17 entries each with a density and a velocity range, the three checks against real cores and logs (65 of 70 Volve "
+       "plugs in the sandstone range), a lookup that lists every entry holding a value and never names one rock, a value out of range refused"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+    # -- DN4 the operator window: a shortcut, an icon menu item, its own identity, a message instead of silence ---------
+    iss_p = pkg.parent / "tools" / "installer.iss"
+    iss = iss_p.read_text(encoding="utf-8") if iss_p.is_file() else None
+    op_src = (pkg / "operator_app.py").read_text(encoding="utf-8")
+    m_run = TR.menu_items(True, "k")
+    c4 = {
+        "shortcut": iss is None or ('Parameters: "-m gea operator"' in iss and 'AppUserModelID: "ENRGYONE.GEAProgram.Operator"' in iss and "GEA-Program operator window" in iss),
+        "tray_item": any(it and it[0] == TR.CMD_OPERATOR and it[2] for it in m_run) and "'-m', 'gea', 'operator'" in (pkg / "tray.py").read_text(encoding="utf-8"),
+        "identity": "SetCurrentProcessExplicitAppUserModelID(AUMID)" in op_src and "AUMID = 'ENRGYONE.GEAProgram.Operator'" in op_src and "setWindowIcon" in op_src,
+        "says_why": "say('GEA-Program operator window'" in op_src and "return _op()" in (pkg / "__main__.py").read_text(encoding="utf-8"),
+        "help": "GEA-Program operator window" in H.page("install") and "Open the operator window" in H.page("install"),
+    }
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       "DN4 the operator window is a program of its own: a Start-menu shortcut and an item on the icon's menu open it, with its own taskbar "
+       "identity and the derrick, and when it cannot open a message box says why instead of nothing happening"
+       + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -15084,6 +15252,7 @@ def main() -> int:
         section_dk_cookieless_window(tmp)
         section_dl_windowless(tmp)
         section_dm_taskbar_identity(tmp)
+        section_dn_reader_rocks_operator(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

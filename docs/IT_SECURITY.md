@@ -54,6 +54,13 @@ declared extras.
   report, an export, an evidence pack or a signed dossier, or sent by the
   service. The backup copies them with the rest of the workspace: protect
   the backup location accordingly.
+- **GEA Reader** (`GEA-Reader.html`, the file the site gives its clients to
+  check a dossier) carries the site's name and the fingerprints of its
+  signing keys - public halves only, never a seed. It is a static page whose
+  Content-Security-Policy allows no network request of any kind; it reads
+  only the zip the client chooses, in memory, opens a report in a frame
+  that runs no script, and writes nothing but the copies a client saves.
+  Each download is in the audit log (`reader.download`).
 - **Outbound connections** - none at install, none unless the site turns a
   feature on or a person asks:
 
@@ -111,7 +118,9 @@ and the SHA-256 of its inputs; sign-ins and failures with the address and
 the reason. The log is append-only; `gea housekeeping` segments it, never
 truncates it. A signed dossier carries the audit chain's head and lets
 anyone verify, without GEA, that the reports and the log have not changed
-since it was signed.
+since it was signed - with `verify_dossier.py` inside the dossier, or in a
+browser with GEA Reader. A dossier with two zip entries under one name is
+INVALID in both, so no zip tool can show a copy other than the one checked.
 
 ## What is installed, and from where
 
