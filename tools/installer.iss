@@ -19,7 +19,7 @@
 ; existing workspace is used exactly as it is, its name included (renamed on the Administration page, if at all).
 ;
 ; Silent install, for a site's software deployment (the CI test runs exactly this):
-;   GEA-Program-Setup-0.68.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+;   GEA-Program-Setup-0.69.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ; (/SITENAME names a workspace the setup makes; a workspace that exists keeps its own name)
 
 #ifndef AppVersion

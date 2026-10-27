@@ -307,17 +307,20 @@ var GEAReader = (function () {
   function whose(result, site, typed) {
     var known = [];
     if (site && site.fingerprints) site.fingerprints.forEach(function (f) { known.push({fp: normFp(f), from: 'this reader'}); });
-    if (typed) known.push({fp: normFp(typed), from: 'you'});
+    (Array.isArray(typed) ? typed : (typed ? [typed] : [])).forEach(function (x) {
+      var f = normFp(typeof x === 'string' ? x : x.fp);
+      if (f) known.push({fp: f, from: 'you', label: typeof x === 'string' ? '' : (x.label || '')});
+    });
     if (!result.fingerprint || !known.length) return {state: 'unknown'};
     var fp = normFp(result.fingerprint);
     var direct = known.find(function (k) { return k.fp === fp; });
-    if (direct) return {state: 'match', from: direct.from};
+    if (direct) return {state: 'match', from: direct.from, label: direct.label || ''};
     var chain = result.key_chain || [];
     var rotOk = result.checks.some(function (c) { return c.check === 'the key rotations verify' && c.ok; });
     if (rotOk) {
       for (var i = 0; i < chain.length; i++) {
         var k = known.find(function (k) { return k.fp === normFp(chain[i].old); });
-        if (k) return {state: 'via-rotation', from: k.from, old: chain[i].old};
+        if (k) return {state: 'via-rotation', from: k.from, label: k.label || '', old: chain[i].old};
       }
     }
     return {state: 'other'};
@@ -338,8 +341,9 @@ if (typeof module !== 'undefined') module.exports = GEAReader;
   var R = GEAReader, $ = function (s) { return document.querySelector(s); };
   var SITE = null;
   try { SITE = JSON.parse($('#gea-site').textContent); } catch (e) { SITE = null; }
-  var TEST = null, LAST = null, TYPED = '';
-  try { TYPED = sessionStorage.getItem('gea-reader-fp') || ''; } catch (e) {}
+  var TEST = null, LAST = null, TRUST = [];
+  try { TRUST = JSON.parse(localStorage.getItem('gea-reader-trusted') || '[]'); if (!Array.isArray(TRUST)) TRUST = []; } catch (e) { TRUST = []; }
+  function saveTrust() { try { localStorage.setItem('gea-reader-trusted', JSON.stringify(TRUST)); return true; } catch (e) { return false; } }
   function esc(s) { return String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
   function size(n) { return n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(1) + ' MB'; }
 
@@ -351,19 +355,30 @@ if (typeof module !== 'undefined') module.exports = GEAReader;
     } else {
       h += '<p class="small">A valid signature shows the files have not changed since the key\'s holder signed them. To know that holder is the site you deal with, enter the fingerprint the site gave you separately (by email, phone or contract):</p>';
     }
-    h += '<div class="row"><input type="text" id="fp" placeholder="e.g. 3f2a 9c01 …" value="' + esc(TYPED) + '" aria-label="The fingerprint the site gave you"><button class="secondary" id="fpSet" type="button">Use this fingerprint</button></div>';
+    if (TRUST.length) h += '<p class="small"><b>Fingerprints you saved on this computer:</b></p><table class="small"><tbody>' + TRUST.map(function (t, i) { return '<tr><td>' + esc(t.label || '—') + '</td><td class="mono">' + esc(t.fp) + '</td><td><button class="secondary fpDel" data-i="' + i + '" type="button" style="padding:2px 10px;font-size:12px">Forget</button></td></tr>'; }).join('') + '</tbody></table>';
+    h += '<div class="row" style="margin-top:8px"><input type="text" id="fp" placeholder="the fingerprint, e.g. 3f2a 9c01 …" aria-label="The fingerprint the site gave you"><input type="text" id="fpLabel" placeholder="whose it is, e.g. the site\'s name" aria-label="Whose fingerprint it is" style="width:min(16em,100%)"><button class="secondary" id="fpSet" type="button">Remember this fingerprint</button></div><p class="small muted" id="fpNote"></p>';
     $('#siteCard').innerHTML = h;
-    $('#fpSet').onclick = function () { TYPED = $('#fp').value.trim(); try { sessionStorage.setItem('gea-reader-fp', TYPED); } catch (e) {} if (LAST) render(LAST); };
+    $('#fpSet').onclick = function () {
+      var fp = $('#fp').value.trim(), n = R.normFp(fp);
+      if (n.length !== 32) { $('#fpNote').textContent = 'A fingerprint is 32 letters and digits (0-9, a-f), usually in eight groups of four.'; return; }
+      var g = []; for (var i = 0; i < 32; i += 4) g.push(n.slice(i, i + 4));
+      TRUST = TRUST.filter(function (t) { return R.normFp(t.fp) !== n; }).concat([{fp: g.join(' '), label: $('#fpLabel').value.trim()}]);
+      var kept = saveTrust(); siteCard();
+      $('#fpNote').textContent = kept ? 'Saved on this computer: the reader will recognise dossiers signed with it.' : 'Used for now; this browser does not keep it after the window closes.';
+      if (LAST) render(LAST);
+    };
+    document.querySelectorAll('.fpDel').forEach(function (b) { b.onclick = function () { TRUST.splice(+b.dataset.i, 1); saveTrust(); siteCard(); if (LAST) render(LAST); }; });
   }
 
   function verdict(r) {
-    var w = R.whose(r, SITE, TYPED);
+    var w = R.whose(r, SITE, TRUST);
     var sc = r.scope || {}, what = esc(sc.display || sc.kind || 'dossier');
     if (r.status !== 'VALID') {
       return '<div class="verdict v-bad"><h2>Not valid</h2><p>This dossier does not check out: ' + esc((r.checks.find(function (c) { return c.ok === false; }) || {}).detail || '') + '. Do not rely on it; ask the site to send it again.</p></div>';
     }
-    var who = w.state === 'match' ? ' It is signed with the site key ' + (w.from === 'you' ? 'you entered' : 'this reader was given') + '.'
-      : w.state === 'via-rotation' ? ' It is signed with a newer key that the site key ' + (w.from === 'you' ? 'you entered' : 'this reader was given') + ' handed over to, and both signed the hand-over.'
+    var src = w.from === 'you' ? 'you saved' + (w.label ? ' for ' + esc(w.label) : '') : 'this reader was given';
+    var who = w.state === 'match' ? ' It is signed with the key ' + src + '.'
+      : w.state === 'via-rotation' ? ' It is signed with a newer key that the key ' + src + ' handed over to, and both signed the hand-over.'
       : w.state === 'other' ? '' : '';
     var cls = (w.state === 'match' || w.state === 'via-rotation') ? 'v-good' : 'v-warn';
     var head = w.state === 'other' ? 'Valid, but signed by a key you were not given' : w.state === 'unknown' ? 'Valid signature — compare the fingerprint' : 'Valid';
@@ -460,9 +475,21 @@ if (typeof module !== 'undefined') module.exports = GEAReader;
     v.scrollIntoView({behavior: 'smooth', block: 'start'});
   }
 
+  function embedded() {
+    var el = document.getElementById('gea-open');
+    if (!el) return null;
+    var b64 = (el.textContent || '').replace(/\s+/g, ''), parts = [], step = 4 * 1048576;
+    for (var i = 0; i < b64.length; i += step) {
+      var bin = atob(b64.slice(i, i + step)), u = new Uint8Array(bin.length);
+      for (var j = 0; j < bin.length; j++) u[j] = bin.charCodeAt(j);
+      parts.push(u);
+    }
+    return {name: el.dataset.name || 'dossier.zip', note: el.dataset.note || '', blob: new Blob(parts)};
+  }
   async function open(file) {
     if (!TEST || !TEST.ok) { $('#out').innerHTML = '<div class="verdict v-bad"><h2>This browser cannot check dossiers</h2><p>' + esc(TEST ? TEST.detail : '') + '</p></div>'; return; }
     $('#out').innerHTML = '<p class="muted">Checking ' + esc(file.name) + '…</p>';
+    document.title = 'GEA Reader - ' + file.name;
     try { render(await R.check(await file.arrayBuffer(), file.name)); }
     catch (e) { $('#out').innerHTML = '<div class="verdict v-bad"><h2>Not valid</h2><p>' + esc(e.message || e) + '</p></div>'; }
   }
@@ -476,6 +503,10 @@ if (typeof module !== 'undefined') module.exports = GEAReader;
     TEST = t;
     $('#foot').innerHTML = 'GEA Reader ' + esc(R.VERSION) + ' · self-check: ' + (t.ok ? 'passed — ' : '<b class="no">FAILED</b> — ') + esc(t.detail) + ' · Every dossier also carries verify_dossier.py, which checks the same with Python 3.8 or later.';
     if (!t.ok) $('#dropNote').innerHTML = '<b class="no">' + esc(t.detail) + '</b>';
+    var em = null;
+    try { em = embedded(); } catch (e) { em = {note: 'the dossier could not be read: ' + (e.message || e)}; }
+    if (em && em.note) $('#dropNote').innerHTML = '<b class="no">' + esc(em.note) + '</b>';
+    else if (em && em.blob) { em.blob.name = em.name; open({name: em.name, arrayBuffer: function () { return em.blob.arrayBuffer(); }}); }
   });
 })();
 </script>

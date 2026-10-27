@@ -1,23 +1,17 @@
-v0.68.0 — GEA READER
+v0.69.0 — GEA READER, THE PROGRAM
 
-A companion program for your clients, the rock inventory on a tab of its
-own, and the operator window in the Start menu.
+GEA Reader is now a Windows program your clients can install.
 
-- GEA Reader: one HTML file your clients open in any browser, offline,
-  to check a dossier you signed and read its reports. It makes the same
-  checks as the checker inside every dossier, knows your site's key, and
-  says plainly when a dossier is not valid or not yours. Reports tab ->
-  Signed dossiers -> Download GEA Reader for your clients.
-- Rocks tab: the 17 rocks, minerals and fluid the strata survey compares
-  a log against, their published density and velocity ranges, a lookup
-  for a measured density, and the checks against real cores.
-- GEA-Program operator window in the Start menu and on the icon's menu.
-  Fixed: it could not open on a computer without the operator-tier data,
-  and its Start run stopped at the first chart.
-- Fixed: the dossier checker now refuses a zip with two files under one
-  name.
+- GEA-Reader-Setup-0.69.0.exe on the release: GEA Reader in the Start
+  menu and on the desktop, with its own icon (a page with a green seal)
+  and its own taskbar button - not Edge's. Right-click a dossier and
+  choose "Check with GEA Reader" to check it at once.
+- A client saves your site's fingerprint once; from then on every
+  dossier you sign reads Valid with your name on it.
+- Nothing of GEA-Program is installed with it, no administrator rights,
+  no network. A portable zip of the same program is on the release too.
 
-Install it over the old one: GEA-Program-Setup-0.68.0.exe from the
-release. C:\site is kept as it is.
+GEA-Program itself: install GEA-Program-Setup-0.69.0.exe over the old
+one. C:\site is kept as it is.
 
-Acceptance section DN (4 checks) and E9.
+Acceptance section DO (3 checks).

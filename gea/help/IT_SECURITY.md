@@ -60,7 +60,12 @@ declared extras.
   Content-Security-Policy allows no network request of any kind; it reads
   only the zip the client chooses, in memory, opens a report in a frame
   that runs no script, and writes nothing but the copies a client saves.
-  Each download is in the audit log (`reader.download`).
+  Each download is in the audit log (`reader.download`). The installable
+  GEA Reader (GEA-Reader-Setup) is the same page in an Edge app window of its
+  own: per-user, no administrator rights, nothing of GEA-Program, no network;
+  it keeps its pages and its window's browser profile under
+  `%LOCALAPPDATA%\GEA-Reader` and a right-click entry for .zip files under
+  `HKCU\Software\Classes`, removed when it is uninstalled.
 - **Outbound connections** - none at install, none unless the site turns a
   feature on or a person asks:
 

@@ -1,9 +1,11 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""icon - the program's icon, drawn in code: a derrick with its crown block on a rounded square, teal while the
-control panel runs and grey while it does not. `ico_bytes()` is the .ico the installer and its shortcuts use;
-`dib()` one image as the notification area takes it. Standard library only and no imports from the program, so the
+"""icon - the program's icons, drawn in code. GEA-Program's: a derrick with its crown block on a rounded square, teal
+while the control panel runs and grey while it does not. GEA Reader's (`kind='reader'`): a signed page - a white sheet
+with a folded corner on a blue rounded square, a green seal with a check on it - so the client's program never looks
+like the site's. `ico_bytes()` is the .ico an installer and its shortcuts use; `dib()` one image as the notification
+area takes it. Standard library only and no imports from the program, so the
 kit's build (tools/build_installer.py) can load this file on its own."""
 
 from __future__ import annotations
@@ -16,6 +18,10 @@ TEAL = (14, 92, 110)
 GREY = (110, 116, 122)
 WHITE = (255, 255, 255)
 AMBER = (245, 158, 11)
+READER_BLUE = (27, 74, 140)
+SEAL_GREEN = (22, 150, 72)
+PAGE_FOLD = (196, 210, 230)
+PAGE_LINE = (138, 154, 182)
 
 
 def _seg_dist(px, py, ax, ay, bx, by) -> float:
@@ -51,11 +57,46 @@ def _pixel(u: float, v: float, size: int, bg: tuple, segs) -> tuple:
     return (int(bg[0] * shade), int(bg[1] * shade), int(bg[2] * shade), 255)
 
 
-def draw(size: int, running: bool = True) -> list:
+_CHECK = [(0.585, 0.725, 0.665, 0.805), (0.665, 0.805, 0.815, 0.645)]
+
+
+def _reader_pixel(u: float, v: float, size: int, bg: tuple, segs) -> tuple:
+    """GEA Reader: a white page with a folded corner and three lines of text, a green seal with a white check."""
+    m, r = 0.04, 0.2
+    qx, qy = abs(u - 0.5) - (0.5 - m - r), abs(v - 0.5) - (0.5 - m - r)
+    if math.hypot(max(qx, 0), max(qy, 0)) + min(max(qx, qy), 0) - r > 0:
+        return (0, 0, 0, 0)
+    w = max(0.06, 1.3 / size)
+    small = size < 28
+    sr = 0.25 if small else 0.215
+    dseal = math.hypot(u - 0.70, v - 0.72)
+    if dseal <= sr:
+        if any(_seg_dist(u, v, *c) <= (max(w * 0.62, 1.15 / size)) for c in _CHECK):
+            return WHITE + (255,)
+        if not small and dseal >= sr - max(0.025, 0.9 / size):
+            return WHITE + (255,)                         # a white rim parts the seal from the page
+        return SEAL_GREEN + (255,)
+    x0, x1, y0, y1, c = 0.22, 0.70, 0.14, 0.86, 0.15
+    if x0 <= u <= x1 and y0 <= v <= y1:
+        cu, cv = u - (x1 - c), v - y0                     # the folded corner, top right
+        if cu > 0 and cv < c:
+            if cu > cv:
+                return bg + (255,)
+            return PAGE_FOLD + (255,)
+        if size >= 24 and 0.29 <= u <= 0.60 and any(abs(v - yl) <= w * 0.42 for yl in (0.38, 0.50, 0.62)) and not (v > 0.55 and u > 0.48):
+            return PAGE_LINE + (255,)
+        return WHITE + (255,)
+    shade = 1.0 - 0.18 * v
+    return (int(bg[0] * shade), int(bg[1] * shade), int(bg[2] * shade), 255)
+
+
+def draw(size: int, running: bool = True, kind: str = 'gea') -> list:
     """size x size RGBA rows (top row first), supersampled so the small sizes stay legible."""
     ss = 4 if size <= 64 else 2
-    bg = TEAL if running else GREY
-    segs = _derrick_segments()
+    if kind == 'reader':
+        bg, segs, pixel = READER_BLUE, None, _reader_pixel
+    else:
+        bg, segs, pixel = (TEAL if running else GREY), _derrick_segments(), _pixel
     rows = []
     for y in range(size):
         row = []
@@ -63,7 +104,7 @@ def draw(size: int, running: bool = True) -> list:
             acc = [0, 0, 0, 0]
             for j in range(ss):
                 for i in range(ss):
-                    p = _pixel((x + (i + 0.5) / ss) / size, (y + (j + 0.5) / ss) / size, size, bg, segs)
+                    p = pixel((x + (i + 0.5) / ss) / size, (y + (j + 0.5) / ss) / size, size, bg, segs)
                     acc[0] += p[0] * p[3]; acc[1] += p[1] * p[3]; acc[2] += p[2] * p[3]; acc[3] += p[3]
             n = ss * ss
             a = acc[3] / n
@@ -73,18 +114,18 @@ def draw(size: int, running: bool = True) -> list:
     return rows
 
 
-def dib(size: int, running: bool = True) -> bytes:
+def dib(size: int, running: bool = True, kind: str = 'gea') -> bytes:
     """One icon image as Windows keeps it in an .ico (and as CreateIconFromResourceEx takes it): a 32-bit
     BITMAPINFOHEADER image of twice the height, bottom row first, then an all-clear AND mask."""
-    rows = draw(size, running)
+    rows = draw(size, running, kind)
     mask_row = ((size + 31) // 32) * 4
     head = struct.pack('<IiiHHIIiiII', 40, size, size * 2, 1, 32, 0, size * size * 4 + mask_row * size, 0, 0, 0, 0)
     px = b''.join(bytes((p[2], p[1], p[0], p[3])) for row in reversed(rows) for p in row)
     return head + px + b'\x00' * (mask_row * size)
 
 
-def png(size: int, running: bool = True) -> bytes:
-    rows = draw(size, running)
+def png(size: int, running: bool = True, kind: str = 'gea') -> bytes:
+    rows = draw(size, running, kind)
     raw = b''.join(b'\x00' + b''.join(bytes(p) for p in row) for row in rows)
     def chunk(t, d):
         return struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d) & 0xffffffff)
@@ -95,9 +136,9 @@ def png(size: int, running: bool = True) -> bytes:
 ICO_SIZES = (16, 20, 24, 32, 40, 48, 64, 256)
 
 
-def ico_bytes(sizes=ICO_SIZES, running: bool = True) -> bytes:
+def ico_bytes(sizes=ICO_SIZES, running: bool = True, kind: str = 'gea') -> bytes:
     """The .ico: every size as a DIB, 256 as a PNG (as Windows Vista and later read it)."""
-    images = [(s, png(s, running) if s >= 256 else dib(s, running)) for s in sizes]
+    images = [(s, png(s, running, kind) if s >= 256 else dib(s, running, kind)) for s in sizes]
     out = struct.pack('<HHH', 0, 1, len(images))
     off = 6 + 16 * len(images)
     for s, data in images:

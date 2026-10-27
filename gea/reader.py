@@ -63,7 +63,7 @@ def page(ws=None, version: Optional[str] = None) -> str:
         html = f.read()
     if SITE_MARK not in html:
         raise RuntimeError('reader.html has lost its site marker')
-    icon = 'data:image/png;base64,' + base64.b64encode(IC.png(64)).decode('ascii')
+    icon = 'data:image/png;base64,' + base64.b64encode(IC.png(64, kind='reader')).decode('ascii')
     html = html.replace('__ICON__', icon).replace('__VERSION__', version or __version__)
     info = site_info(ws)
     if info is not None:

@@ -282,6 +282,137 @@ jobs:
         with:
           name: gea-program-win64-setup
           path: dist/GEA-Program-Setup-*.exe
+  # GEA Reader (since v0.69.0): the program a site gives its clients to check a dossier, as a Windows program of its
+  # own - tools/build_reader.py (embeddable Python, the reader page, its launcher, its icon) and
+  # tools/reader_installer.iss. Built, signed like the GEA-Program setup when a certificate is configured,
+  # installed, checked, upgraded and uninstalled silently on the runner, then attached with a portable zip.
+  windows-reader:
+    runs-on: windows-latest
+    env:
+      ARTIFACT_SIGNING_ACCOUNT: ${{ secrets.ARTIFACT_SIGNING_ACCOUNT }}
+      SIGNING_PFX_BASE64: ${{ secrets.SIGNING_PFX_BASE64 }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Build the reader kit and its portable zip
+        run: python tools/build_reader.py
+      - name: The reader's setup - Inno Setup from the kit
+        shell: pwsh
+        run: |
+          $ver = (Select-String -Path pyproject.toml -Pattern '^version = "([^"]+)"').Matches[0].Groups[1].Value
+          $kit = Get-ChildItem dist -Directory -Filter 'gea-reader-*-win64' | Select-Object -First 1
+          if (-not $kit) { throw 'no reader kit under dist' }
+          foreach ($f in @('reader.ico', 'GEA-Reader.html', 'app\gea_reader.py', 'app\winident.py', 'python\pythonw.exe')) {
+            if (-not (Test-Path (Join-Path $kit.FullName $f))) { throw "the reader kit has no $f" }
+          }
+          $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) {
+            choco install innosetup -y --no-progress | Out-Host
+            $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+          }
+          $out = (Resolve-Path dist).Path
+          & $iscc /Qp "/DAppVersion=$ver" "/DKitDir=$($kit.FullName)" "/DOutDir=$out" tools\reader_installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)" }
+          $setup = Join-Path $out "GEA-Reader-Setup-$ver.exe"
+          if (-not (Test-Path $setup)) { throw "no $setup was written" }
+          "setup: $setup ($([math]::Round((Get-Item $setup).Length / 1MB, 1)) MB)"
+          "SETUP=$setup" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "SETUP_VER=$ver" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Sign the reader's setup (Azure Artifact Signing)
+        if: env.ARTIFACT_SIGNING_ACCOUNT != ''
+        uses: azure/artifact-signing-action@v2
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ secrets.ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ secrets.ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.ARTIFACT_SIGNING_PROFILE }}
+          files: ${{ env.SETUP }}
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+      - name: Sign the reader's setup (a PFX certificate)
+        if: env.ARTIFACT_SIGNING_ACCOUNT == '' && env.SIGNING_PFX_BASE64 != ''
+        shell: pwsh
+        env:
+          SIGNING_PFX_PASSWORD: ${{ secrets.SIGNING_PFX_PASSWORD }}
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP 'signing.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGNING_PFX_BASE64))
+          try {
+            $st = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter signtool.exe |
+                  Where-Object { $_.FullName -like '*\x64\*' } | Sort-Object FullName -Descending | Select-Object -First 1
+            if (-not $st) { throw 'signtool.exe not found in the Windows SDK' }
+            & $st.FullName sign /fd SHA256 /f $pfx /p $env:SIGNING_PFX_PASSWORD /tr http://timestamp.digicert.com /td SHA256 /d "GEA Reader setup" $env:SETUP
+            if ($LASTEXITCODE -ne 0) { throw "signtool failed ($LASTEXITCODE)" }
+          } finally { Remove-Item $pfx -Force -ErrorAction SilentlyContinue }
+      - name: Say whether the reader's setup is signed
+        shell: pwsh
+        run: |
+          $sig = Get-AuthenticodeSignature $env:SETUP
+          "signature: $($sig.Status) $($sig.SignerCertificate.Subject)"
+          $configured = [bool]($env:ARTIFACT_SIGNING_ACCOUNT -or $env:SIGNING_PFX_BASE64)
+          if ($configured -and "$($sig.Status)" -ne 'Valid') { throw 'a certificate is configured but the setup is not validly signed' }
+          if (-not $configured) { "::notice::no signing certificate is configured: GEA-Reader-Setup ships unsigned" }
+      - name: Install the reader, check it, upgrade it, uninstall it
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\GEA Reader'
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{9DCF59D6-4FC4-4CE3-B1C6-8399A4502268}_is1'
+          $verb = 'HKCU:\Software\Classes\SystemFileAssociations\.zip\shell\GEAReader'
+          function InstallOnce([string]$what) {
+            $log = Join-Path $env:RUNNER_TEMP "reader-$what.log"
+            $p = Start-Process -FilePath $env:SETUP -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/TASKS="desktopicon,zipverb"', "/LOG=`"$log`"") -Wait -PassThru
+            if ($p.ExitCode -ne 0) { Get-Content $log -Tail 40; throw "reader setup ($what) ended with exit code $($p.ExitCode)" }
+            "reader setup ($what): done"
+          }
+          InstallOnce 'install'
+          & (Join-Path $app 'python\python.exe') -m gea_reader --selftest
+          if ($LASTEXITCODE -ne 0) { throw 'gea_reader --selftest failed in the installed reader' }
+          $u = Get-ItemProperty $key
+          if ($u.DisplayName -ne "GEA Reader $env:SETUP_VER") { throw "Add/Remove Programs says '$($u.DisplayName)'" }
+          "Add/Remove Programs: $($u.DisplayName), $($u.Publisher)"
+          foreach ($lnk in @((Join-Path ([Environment]::GetFolderPath('Programs')) 'GEA Reader.lnk'), (Join-Path ([Environment]::GetFolderPath('Desktop')) 'GEA Reader.lnk'))) {
+            if (-not (Test-Path $lnk)) { throw "no shortcut $lnk" }
+          }
+          $cmd = (Get-ItemProperty "$verb\command").'(default)'
+          if ($cmd -notlike '*pythonw.exe" -m gea_reader "%1"') { throw "the right-click command is '$cmd'" }
+          "right-click: $((Get-ItemProperty $verb).'(default)') -> $cmd"
+          if (Test-Path (Join-Path $env:LOCALAPPDATA 'Programs\GEA-Program\python')) { throw 'the reader installed GEA-Program' }
+          InstallOnce 'upgrade'
+          & (Join-Path $app 'python\python.exe') -m gea_reader --selftest
+          if ($LASTEXITCODE -ne 0) { throw 'the upgraded reader fails its self-test' }
+          $p = Start-Process -FilePath (Join-Path $app 'unins000.exe') -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru
+          foreach ($i in 1..60) { if (-not (Test-Path (Join-Path $app 'python'))) { break }; Start-Sleep 1 }
+          if (Test-Path (Join-Path $app 'python')) { throw 'the uninstaller left the reader in place' }
+          if (Test-Path $key) { throw 'the Add/Remove Programs entry is still there' }
+          if (Test-Path $verb) { throw 'the right-click entry is still there' }
+          "uninstalled: program, shortcuts and right-click entry removed"
+      - name: Attest where the reader was built (provenance)
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            dist/GEA-Reader-Setup-*.exe
+            dist/GEA-Reader-portable-*.zip
+      - name: Attach the reader to the release
+        shell: bash
+        run: |
+          bash .github/workflows/attach-kit.sh "${{ inputs.release_tag }}" "dist/GEA-Reader-Setup-*.exe" "GEA-Reader-Setup-"
+          bash .github/workflows/attach-kit.sh "${{ inputs.release_tag }}" "dist/GEA-Reader-portable-*.zip" "GEA-Reader-portable-"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/upload-artifact@v6
+        with:
+          name: gea-reader-win64
+          path: |
+            dist/GEA-Reader-Setup-*.exe
+            dist/GEA-Reader-portable-*.zip
   linux-kit:
     runs-on: ubuntu-latest
     steps:

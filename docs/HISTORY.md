@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.69.0 - 2026-10-26 - GEA Reader, the program
+
+- GEA Reader as a Windows program of its own (GEA-Reader-Setup and a
+  portable zip on every release): its own icon, window and taskbar
+  identity, a right-click Check with GEA Reader on dossiers, fingerprints
+  a client saves kept on that computer; built, installed, checked,
+  upgraded and uninstalled by the build workflow. Section DO; gate 519.
+
 ## v0.68.0 - 2026-10-26 - GEA Reader
 
 - GEA Reader, the companion program for clients: one HTML file that checks a

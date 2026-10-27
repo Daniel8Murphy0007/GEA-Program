@@ -122,20 +122,23 @@ def set_identity(hwnd: int, aumid: str, icon: str, command: str, name: str) -> b
 
 
 def claim_window(kit_dir: Optional[str], timeout_s: float = 20.0, sleep: Callable = time.sleep, find: Callable = windows_with_title,
-                 setter: Callable = set_identity, done: Optional[set] = None, exe_name: str = 'msedge.exe') -> int:
-    """Wait for the control panel's window (Edge, titled GEA-Program...) and give it GEA-Program's identity. Returns
-    how many windows were claimed. Windows only; elsewhere 0."""
+                 setter: Callable = set_identity, done: Optional[set] = None, exe_name: str = 'msedge.exe',
+                 aumid: str = AUMID, title_prefix: str = TITLE_PREFIX, name: str = 'GEA-Program', icon_file: str = 'gea.ico',
+                 command_args: str = '-m gea launch') -> int:
+    """Wait for the program's window (Edge, its title starting with title_prefix) and give it the program's identity:
+    GEA-Program's by default, GEA Reader's when the reader passes its own. Returns how many windows were claimed.
+    Windows only; elsewhere 0. Stays self-contained: GEA Reader's kit carries this file on its own."""
     if os.name != 'nt' and find is windows_with_title:
         return 0
     import ntpath                                  # Windows paths, whatever the platform the check runs on
-    icon = ntpath.join(kit_dir, 'gea.ico') + ',0' if kit_dir else ''
+    icon = ntpath.join(kit_dir, icon_file) + ',0' if kit_dir else ''
     pyw = ntpath.join(kit_dir, 'python', 'pythonw.exe') if kit_dir else ''
-    command = f'"{pyw}" -m gea launch' if pyw else ''
+    command = f'"{pyw}" {command_args}' if pyw else ''
     done = set() if done is None else done
     deadline = time.monotonic() + timeout_s
     while True:
-        for hwnd, _title in find(TITLE_PREFIX, exe_name):
-            if hwnd not in done and setter(hwnd, AUMID, icon, command, 'GEA-Program'):
+        for hwnd, _title in find(title_prefix, exe_name):
+            if hwnd not in done and setter(hwnd, aumid, icon, command, name):
                 done.add(hwnd)
         if done or time.monotonic() > deadline:
             return len(done)

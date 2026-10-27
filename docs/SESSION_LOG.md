@@ -3071,3 +3071,24 @@ stability; and motor specifications in the tool catalogue.
   (AppUserModelID ENRGYONE.GEAProgram.Operator), an icon menu item, a
   message box on failure. Rendered offscreen in the cloud with PyQt6.
 - Section DN (4 checks) and E9. Gate 516 on Python 3.13 and 3.14.
+
+## 2026-10-26 - GEA Reader, the program (v0.69.0)
+
+- Daniel: "Build the reader as a standalone program, with a separate reader
+  icon, that is not the standard edge icon. Then scope the sealed-settlement
+  idea."
+- The program: `gea/reader_app.py` (stdlib only) writes the page - with a
+  right-clicked dossier inside it, base64, up to 150 MB - opens it in Edge's
+  app window with a profile of its own and claims the window as
+  ENRGYONE.GEAReader through `winident.claim_window`, now parameterised.
+  `tools/build_reader.py` makes the kit (embeddable Python, ._pth adds
+  ..\app), `tools/reader_installer.iss` the setup (its own AppId, shortcuts,
+  HKCU right-click verb), a new `windows-reader` job builds, installs,
+  self-tests, upgrades and uninstalls it. python.org is not reachable from
+  the cloud, so the kit was built here on a stand-in Python and the page
+  driven in Chromium (a right-clicked dossier opened at once; a saved
+  fingerprint kept across a reload).
+- The icon: a white page with a folded corner and a green seal on blue,
+  drawn in `gea/icon.py` beside the derrick.
+- The sealed-settlement idea scoped in a document.
+- Section DO (3 checks). Gate 519 on Python 3.13 and 3.14.

@@ -15132,6 +15132,147 @@ def section_dn_reader_rocks_operator(tmp: str) -> None:
        + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
 
 
+def section_do_reader_program(tmp: str) -> None:
+    """Section DO - GEA Reader as a Windows program of its own: its own icon (a signed page with a green seal, not the
+    derrick and not Edge's), its own window and taskbar identity (ENRGYONE.GEAReader through winident.py), a dossier
+    handed to the window from Explorer's right-click, its kit (embeddable Python, the program, the page, the icon)
+    and its installer (its own AppId, Start-menu and desktop shortcuts, the right-click entry), built, installed,
+    checked, upgraded and uninstalled by the build workflow before it is attached."""
+    import importlib.util as _ilu
+    import re as _re
+    import subprocess as _sp
+    import zipfile as _zf
+    from . import __version__
+    from . import icon as IC
+    from . import reader as RD
+    from . import reader_app as RA
+    from . import winident as WI
+    pkg = Path(__file__).parent
+    d = Path(tmp, "do"); d.mkdir()
+
+    # -- DO1 its own icon ------------------------------------------------------------------------------------------------
+    ico = IC.ico_bytes(kind="reader")
+    rows, grows = IC.draw(32, kind="reader"), IC.draw(32)
+    sizes = [x[0] for x in IC.read_ico(ico)]
+    page = RD.page(None)
+    c1 = {
+        "ico": sizes == list(IC.ICO_SIZES) and ico != IC.ico_bytes(),
+        "blue_not_teal": rows[4][16][:3] != grows[4][16][:3] and rows[4][16][2] > rows[4][16][1] > rows[4][16][0],
+        "page_and_seal": rows[10][10][:3] == IC.WHITE and rows[23][22][:3] in (IC.SEAL_GREEN, IC.WHITE),
+        "corners_clear": rows[0][0][3] == 0 and rows[31][31][3] == 0,
+        "page_icon": "data:image/png;base64," + __import__("base64").b64encode(IC.png(64, kind="reader")).decode("ascii") in page,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "DO1 GEA Reader has an icon of its own - a white page with a folded corner and a green seal with a check, on blue - in every size an "
+       ".ico carries, not GEA-Program's derrick, and the reader page shows it" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- DO2 the program: a window of its own, its taskbar identity, a dossier handed to it ---------------------------------
+    z = d / "dossier.zip"
+    with _zf.ZipFile(z, "w") as zz:
+        zz.writestr("manifest.json", "{}")
+    html, note = RA.page_with(page, str(z))
+    big = d / "big.zip"
+    big.write_bytes(b"PK\x05\x06" + b"\x00" * 18)
+    keep = RA.MAX_EMBED
+    try:
+        RA.MAX_EMBED = 10
+        html_big, note_big = RA.page_with(page, str(big))
+    finally:
+        RA.MAX_EMBED = keep
+    pages = d / "pages"
+    out1, _ = RA.write_page(str(z), None, pages)
+    old = pages / "open-000000000000.html"
+    old.write_text("x", encoding="utf-8")
+    os.utime(old, (time.time() - 3600, time.time() - 3600))
+    out2, _ = RA.write_page(None, None, pages)
+    args = RA.window_args(r"C:\Edge\msedge.exe", out2, Path(r"C:\Users\x\AppData\Local\GEA-Reader\window"))
+    seen = []
+    claimed = RA.claim(Path(r"C:\Programs\GEA Reader"), r"C:\Edge\msedge.exe", claim_window=lambda kit, **kw: seen.append((kit, kw)) or 1)
+    got = []
+    n = WI.claim_window(r"C:\Programs\GEA Reader", find=lambda prefix, exe: [(7, "GEA Reader - x.zip")] if prefix == "GEA Reader" else [(8, "GEA-Program")],
+                        setter=lambda h, a, i, c, nm: got.append((h, a, i, c, nm)) or True, sleep=lambda s_: None, timeout_s=0,
+                        aumid=RA.AUMID, title_prefix=RA.NAME, name=RA.NAME, icon_file=RA.ICON, command_args="-m gea_reader")
+    m = _re.search(r'<script id="gea-open" type="application/octet-stream" data-name="dossier.zip">([A-Za-z0-9+/=]+)</script>\n<script id="gea-core">', html)
+    c2 = {
+        "embedded": not note and m is not None and __import__("base64").b64decode(m.group(1)) == z.read_bytes(),
+        "too_large": note_big and 'data-note="' in html_big and "too large" in note_big and "UEsFBg" not in html_big,
+        "pages": out1.name.startswith("open-") and out1.is_file() and out2.name == "GEA-Reader.html" and not old.exists(),
+        "window": args[1].startswith("--app=file:") and args[1].endswith("GEA-Reader.html") and any(a_.startswith("--user-data-dir=") and "GEA-Reader" in a_ for a_ in args)
+                  and "--disable-extensions" in args,
+        "identity": claimed == 1 and seen and seen[0][1]["aumid"] == "ENRGYONE.GEAReader" and seen[0][1]["icon_file"] == "reader.ico"
+                    and seen[0][1]["title_prefix"] == "GEA Reader" and seen[0][1]["exe_name"] == "msedge.exe",
+        "winident": n == 1 and got == [(7, "ENRGYONE.GEAReader", "C:\\Programs\\GEA Reader\\reader.ico,0",
+                                       '"C:\\Programs\\GEA Reader\\python\\pythonw.exe" -m gea_reader', "GEA Reader")]
+                    and WI.AUMID == "ENRGYONE.GEAProgram",
+        "page_opens_it": "getElementById('gea-open')" in page and "document.title = 'GEA Reader - '" in page
+                         and "localStorage.setItem('gea-reader-trusted'" in page,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "DO2 the reader program opens the page in a window of its own - Edge's app window with a browser profile of its own - and gives that "
+       "window GEA Reader's taskbar identity (ENRGYONE.GEAReader, reader.ico, its relaunch command), not Edge's and not GEA-Program's; a "
+       "dossier named on its command line (Explorer's right-click) is handed to the window inside the page and opened at once, one too large "
+       "for that is named and chosen in the window; fingerprints a client saves stay on that computer"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- DO3 the kit, the installer, the build workflow ----------------------------------------------------------------------
+    tools = pkg.parent / "tools"
+    if not (tools / "build_reader.py").is_file():
+        ok(True, "DO3 the reader's kit and installer are built from a checkout (tools/build_reader.py); this installation has none to check")
+        return
+    spec = _ilu.spec_from_file_location("gea_build_reader", tools / "build_reader.py")
+    BR = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(BR)
+    fake = d / "python-embed.zip"
+    with _zf.ZipFile(fake, "w") as zz:
+        zz.writestr("python312._pth", "python312.zip\n.\n\n#import site\n")
+        zz.writestr("pythonw.exe", "stand-in")
+        zz.writestr("python.exe", "stand-in")
+    with __import__("contextlib").redirect_stdout(__import__("io").StringIO()):
+        kit = BR.build(d / "dist", "3.12.7", fake)
+    names = sorted(p_.relative_to(kit).as_posix() for p_ in kit.rglob("*") if p_.is_file())
+    sums = (kit / "SHA256SUMS.txt").read_text(encoding="utf-8")
+    port = next((d / "dist").glob("GEA-Reader-portable-*.zip"), None)
+    st = _sp.run([sys.executable, str(kit / "app" / "gea_reader.py"), "--selftest", "--json"], capture_output=True, text=True,
+                 env={**os.environ, "LOCALAPPDATA": str(d / "lad"), "PYTHONPATH": ""}, cwd=str(d))
+    stj = json.loads(st.stdout) if st.stdout.strip().startswith("{") else {}
+    iss = (tools / "reader_installer.iss").read_text(encoding="utf-8")
+    gea_iss = (tools / "installer.iss").read_text(encoding="utf-8")
+    wf = (pkg.parent / ".github" / "workflows" / "build-installer.yml").read_text(encoding="utf-8")
+    marks = _re.findall(r'attach-kit\.sh "[^"]*" "[^"]+" "([^"]+)"', wf)
+    v = __version__
+    assets = [f"gea-program-{v}-win64.zip", f"GEA-Program-Setup-{v}.exe", f"gea-program-{v}-linux-x86_64.zip", f"GEA-Reader-Setup-{v}.exe", f"GEA-Reader-portable-{v}.zip"]
+    app_id = _re.search(r"AppId=\{\{([0-9A-F-]+)\}", iss)
+    c3 = {
+        "kit": {"GEA-Reader.html", "GEA-Reader.cmd", "README.txt", "MANIFEST.json", "SHA256SUMS.txt", "reader.ico", "app/gea_reader.py", "app/winident.py",
+                "python/python312._pth", "python/pythonw.exe"} <= set(names)
+               and (kit / "app" / "gea_reader.py").read_bytes() == (pkg / "reader_app.py").read_bytes()
+               and (kit / "app" / "winident.py").read_bytes() == (pkg / "winident.py").read_bytes()
+               and (kit / "python" / "python312._pth").read_text(encoding="utf-8").rstrip().endswith("..\\app")
+               and all(f"  {n_}" in sums for n_ in names if n_ not in ("SHA256SUMS.txt", "MANIFEST.json")),
+        "same_page": (kit / "GEA-Reader.html").read_text(encoding="utf-8") == RD.page(None),
+        "no_gea": not any(n_.startswith(("gea/", "wheels/")) for n_ in names) and sum((kit / n_).stat().st_size for n_ in names) < 2_000_000,
+        "portable": port is not None and all(n_.startswith("GEA Reader/") for n_ in _zf.ZipFile(port).namelist()),
+        "selftest": st.returncode == 0 and stj.get("ok") is True and len(stj.get("checks", [])) == 4,
+        "installer": app_id is not None and app_id.group(1) not in gea_iss and "OutputBaseFilename=GEA-Reader-Setup-{#AppVersion}" in iss
+                     and iss.count('AppUserModelID: "ENRGYONE.GEAReader"') == 2 and iss.count('Parameters: "-m gea_reader"') == 3
+                     and "SetupIconFile={#KitDir}\\reader.ico" in iss and "PrivilegesRequired=lowest" in iss
+                     and 'SystemFileAssociations\\.zip\\shell\\GEAReader"; ValueType: string; ValueName: ""; ValueData: "Check with GEA Reader"; Flags: uninsdeletekey' in iss
+                     and '-m gea_reader ""%1""' in iss,
+        "workflow": "windows-reader:" in wf and "tools/build_reader.py" in wf and "tools\\reader_installer.iss" in wf and "-m gea_reader --selftest" in wf
+                    and "the right-click entry is still there" in wf
+                    and all(sum(mk in a_ for mk in marks) == 1 for a_ in assets) and len(marks) == 5,
+    }
+    failed3 = [k for k, v_ in c3.items() if not v_]
+    ok(not failed3,
+       "DO3 the reader's kit holds an embeddable Python whose path reaches the program and nothing else, the program and winident.py as the "
+       "package carries them, the same page `gea reader` writes, its icon and a SHA-256 list - no GEA-Program, under 2 MB before Python - and "
+       "passes its own self-test; its installer has an identity of its own (not GEA-Program's AppId), Start-menu and desktop shortcuts with "
+       "the reader's taskbar identity and a right-click entry removed with it; the build workflow installs, checks, upgrades and uninstalls it "
+       "and attaches it and a portable zip under names no other asset shares" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -15253,6 +15394,7 @@ def main() -> int:
         section_dl_windowless(tmp)
         section_dm_taskbar_identity(tmp)
         section_dn_reader_rocks_operator(tmp)
+        section_do_reader_program(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

@@ -5,6 +5,42 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.69.0] - 2026-10-26 - GEA Reader, the program
+
+### Added
+- **GEA Reader as a Windows program of its own**:
+  `GEA-Reader-Setup-<version>.exe` on every release (and
+  `GEA-Reader-portable-<version>.zip`, the same folder to unzip). It
+  installs for the signed-in user with no administrator rights and
+  nothing of GEA-Program: a small embeddable Python, the reader page and
+  its launcher (`gea/reader_app.py`). GEA Reader in the Start menu and on
+  the desktop opens the page in Edge's app window with a browser profile
+  of its own, and gives that window GEA Reader's own taskbar identity
+  (AppUserModelID `ENRGYONE.GEAReader`, through `winident.py`), so the
+  taskbar shows the reader's icon, not Edge's. **Check with GEA Reader**
+  on the right-click menu of .zip files opens a dossier at once.
+  `python\python.exe -m gea_reader --selftest` in the installed folder
+  checks it without opening a window.
+- **The reader's own icon**: a white page with a folded corner and a green
+  seal with a check, on blue (`gea/icon.py`, `kind='reader'`) - on the
+  program, its shortcuts, its setup, its taskbar button and the reader
+  page, wherever it comes from.
+- **Fingerprints a client saves**: Remember this fingerprint (with whose
+  it is) keeps it on that computer; every later dossier signed with that
+  key reads Valid with the name the client gave it. Forget removes it.
+- The build workflow builds the reader (`tools/build_reader.py`,
+  `tools/reader_installer.iss`), signs it when a certificate is
+  configured, installs it, runs its self-test, checks its shortcuts and
+  right-click entry, upgrades it, uninstalls it, then attaches it with a
+  provenance attestation.
+
+### Changed
+- `winident.claim_window` takes the program's identity as arguments
+  (GEA-Program's by default).
+- The Reports tab points clients who want the reader installed to
+  GEA-Reader-Setup on the release page.
+- Acceptance section DO (3 checks).
+
 ## [v0.68.0] - 2026-10-26 - GEA Reader
 
 ### Added
