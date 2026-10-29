@@ -12522,7 +12522,7 @@ def section_cy_company_sign_in(tmp: str) -> None:
         return r.status, json.loads(b or b"{}"), r.headers.get_all("Set-Cookie") or []
 
     def local(name, pw):
-        return [x for x in api("POST", "/api/login", {"name": name, "password": pw})[2] if x.startswith("gea_session")][0].split(";")[0]
+        return [x for x in api("POST", "/api/login", {"name": name, "password": pw})[2] if x.startswith("gea_session-")][0].split(";")[0]
 
     def round_trip(user=None, fault=None, keep_cookie=True):
         """The browser's path: start -> the provider -> back. (status, the page, the session cookie or None, the callback URL, the flow cookie)"""
@@ -12533,7 +12533,7 @@ def section_cy_company_sign_in(tmp: str) -> None:
         flow = ck1[0].split(";")[0] if ck1 else None
         s2, loc2, _, _ = get(loc1, ctx=idp.client_ctx)
         s3, _, ck3, b3 = get(loc2, cookie=(flow if keep_cookie else None))
-        sess = next((x.split(";")[0] for x in ck3 if x.startswith("gea_session=") and not x.startswith("gea_session=;")), None)
+        sess = next((x.split(";")[0] for x in ck3 if x.startswith("gea_session-") and "=;" not in x.split(";")[0] + ";"), None)
         return s3, b3.decode("utf-8", "replace"), sess, loc2, flow, (s1, s2, ck1)
     olga = {"sub": "sub-olga", "preferred_username": "olga@example.com", "roles": ["GEA.Operator"]}
     try:
@@ -15458,6 +15458,58 @@ def section_dp_records_workspaces(tmp: str) -> None:
             os.environ.pop("GEA_WORKSPACES_FILE", None)
         else:
             os.environ["GEA_WORKSPACES_FILE"] = keep_env
+
+    # -- DP7 two control panels on one computer, one browser ---------------------------------------------------------------
+    import http.client as _hc
+    jar = {}                                                     # a browser's jar: cookies by host, not by port
+
+    def b_call(port, method, path, body=None):
+        c_ = _hc.HTTPConnection("127.0.0.1", port, timeout=30)
+        h_ = {"Content-Type": "application/json", "X-GEA-Action": "1"}
+        if jar:
+            h_["Cookie"] = "; ".join(f"{k_}={v_}" for k_, v_ in jar.items())
+        c_.request(method, path, body=(json.dumps(body) if body is not None else None), headers=h_)
+        r_ = c_.getresponse()
+        for k_, v_ in r_.getheaders():
+            if k_.lower() == "set-cookie":
+                nm, _, val = v_.split(";")[0].partition("=")
+                if val:
+                    jar[nm] = val
+                else:
+                    jar.pop(nm, None)
+        out_ = json.loads(r_.read() or b"{}")
+        c_.close()
+        return r_.status, out_
+    pads = []
+    for nm_ in ("pad", "demo2"):
+        p_ = str(d / nm_)
+        Workspace.create(p_, nm_, actor="tester")
+        Users(str(Path(p_, "users.json"))).add("adm", "admin-pass-123", "admin")
+        pads.append(Service(p_, port=0, scheduler=False).start())
+    try:
+        pa, pb = (int(x.url.rstrip("/").rsplit(":", 1)[1]) for x in pads)
+        b_call(pb, "POST", "/api/login", {"name": "adm", "password": "admin-pass-123"})
+        b_call(pa, "POST", "/api/login", {"name": "adm", "password": "admin-pass-123"})
+        sa = b_call(pa, "GET", "/api/session")[1].get("user")
+        sb = b_call(pb, "GET", "/api/session")[1].get("user")
+        names = sorted(jar)
+        b_call(pa, "POST", "/api/logout", {})
+        sb2 = b_call(pb, "GET", "/api/session")[1].get("user")
+    finally:
+        for x in pads:
+            x.stop()
+    c7 = {
+        "names": names == sorted([f"gea_session-{pa}", f"gea_session-{pb}"]),
+        "both_signed_in": bool(sa) and bool(sb),
+        "sign_out_one": bool(sb2) and f"gea_session-{pa}" not in jar,
+        "forms_kept": all(t_ in app_src for t_ in ("REC_DRAFT", "keepOthers('recSv')", "keepOthers('recGt')")),
+        "chart_on_white": ".gt-svg{background:#fff" in app_src,
+    }
+    failed7 = [k_ for k_, v_ in c7.items() if not v_]
+    ok(not failed7,
+       "DP7 two control panels on one computer (the site's and another workspace's) keep their own sign-ins in one browser - each "
+       "panel's cookie carries its port - so signing in or out of one leaves the other as it was; keeping one form on a records well "
+       "leaves what was typed in the others, and the test's chart stays readable in the dark theme" + (f" [failed: {', '.join(failed7)}]" if failed7 else ""))
 
     # -- DP6 never started inside a copy of its source ----------------------------------------------------------------------
     srcs = {n_: _insp.getsource(getattr(L, n_)) for n_ in ("start_supervisor", "_run_hidden", "start_tray", "start_service")}

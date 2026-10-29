@@ -1,22 +1,15 @@
-v0.70.0 — A WELL FROM ITS RECORDS, BY CLICKING
+v0.70.1 — TWO CONTROL PANELS, ONE BROWSER
 
-Load a well from its paper records without typing a command.
+Fixes from loading the Gilbert 3-A into the demo workspace.
 
-- Wells tab, "Add a well from its records": name the well and attach the
-  well file (PDF). Then fill its page form by form - who and where, the
-  completion, the inclination survey, the gas well tests - each with the
-  document it came from. "Fill the forms with the worked example" shows
-  how with a public Texas well file.
-- The page checks the papers against themselves: the survey's depth and
-  displacement, the gas test's curve, its rates and its shut-in pressure.
-  "Write the records review" writes the report; the well's signed dossier
-  carries it with the document.
-- Administration, "Workspaces": make a separate workspace for a demo or a
-  client's well and open it in a window of its own, so it never mixes
-  with Pad 3.
-- The program starts correctly whatever folder it is started from.
+- The Pad 3 control panel and the demo's no longer sign each other out,
+  so "Write the records review" opens the report instead of "sign in
+  first". After installing, sign in once more in each window.
+- Keeping one form on a records well no longer empties the others: fill
+  with the worked example, Keep the survey, then Add the test.
+- The gas test's chart is readable in the dark theme.
 
-Install GEA-Program-Setup-0.70.0.exe over the old one. C:\site is kept
-as it is. GEA-Reader-Setup-0.70.0.exe is on the release too.
+Install GEA-Program-Setup-0.70.1.exe over the old one. C:\site and the
+demo workspace are kept as they are.
 
-Acceptance section DP (6 checks).
+Acceptance DP7.

@@ -1718,11 +1718,18 @@ def make_handler(app: App):
                     self.path = '/' + rest
             return True
 
+        def _ck(self, base: str) -> str:
+            """The cookie's name for this control panel. A browser keeps cookies by host and not by port, so two
+            control panels on one computer (another workspace's, on 8766) named theirs alike would sign each other
+            out: each panel's cookies carry its port."""
+            return f'{base}-{int(self.server.server_address[1])}'
+
         def _cookie(self, name: str = 'gea_session') -> Optional[str]:
             c = self.headers.get('Cookie', '')
+            want = self._ck(name)
             for part in c.split(';'):
                 k, _, v = part.strip().partition('=')
-                if k == name:
+                if k == want:
                     return v
             if name == 'gea_session':                 # the cookieless window: the header the page sends, or the address
                 return self.headers.get('X-GEA-Session') or self._path_token
@@ -1809,7 +1816,7 @@ def make_handler(app: App):
             self.send_header('Cache-Control', 'no-store')
             self._secure_headers()
             if clear_flow:
-                self.send_header('Set-Cookie', 'gea_oidc=; HttpOnly; SameSite=Lax; Path=/api/oidc; Max-Age=0' + ('; Secure' if self._https() else ''))
+                self.send_header('Set-Cookie', f'{self._ck("gea_oidc")}=; HttpOnly; SameSite=Lax; Path=/api/oidc; Max-Age=0' + ('; Secure' if self._https() else ''))
             self.end_headers()
             self.wfile.write(body)
 
@@ -1851,7 +1858,7 @@ def make_handler(app: App):
                         return self._page_note(400, 'Company sign-in', str(e))
                     self.send_response(302)
                     self.send_header('Location', url)
-                    self.send_header('Set-Cookie', f'gea_oidc={binding}; HttpOnly; SameSite=Lax; Path=/api/oidc; Max-Age={_OI.FLOW_S}'
+                    self.send_header('Set-Cookie', f'{self._ck("gea_oidc")}={binding}; HttpOnly; SameSite=Lax; Path=/api/oidc; Max-Age={_OI.FLOW_S}'
                                      + ('; Secure' if self._https() else ''))
                     self.send_header('Content-Length', '0')
                     self.send_header('Cache-Control', 'no-store')
@@ -1881,8 +1888,8 @@ def make_handler(app: App):
                     # the session cookie is SameSite=Strict, and this answer is the end of a navigation that began at the
                     # company's sign-in page: a redirect would carry that cross-site start to the next page and the browser
                     # would not send the new cookie with it. A page that moves on by itself starts a navigation of its own.
-                    self.send_header('Set-Cookie', f'gea_session={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age={SESSION_HOURS * 3600}{sec}')
-                    self.send_header('Set-Cookie', f'gea_oidc=; HttpOnly; SameSite=Lax; Path=/api/oidc; Max-Age=0{sec}')
+                    self.send_header('Set-Cookie', f'{self._ck("gea_session")}={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age={SESSION_HOURS * 3600}{sec}')
+                    self.send_header('Set-Cookie', f'{self._ck("gea_oidc")}=; HttpOnly; SameSite=Lax; Path=/api/oidc; Max-Age=0{sec}')
                     self.end_headers()
                     self.wfile.write(body)
                     return None
@@ -2357,10 +2364,10 @@ def make_handler(app: App):
                     out = {'user': u}
                     if body.get('cookieless') is True:     # the page found it cannot keep cookies: it holds the session itself
                         out['token'] = token
-                    return self._json(200, out, set_cookie=f'gea_session={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age={SESSION_HOURS * 3600}')
+                    return self._json(200, out, set_cookie=f'{self._ck("gea_session")}={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age={SESSION_HOURS * 3600}')
                 if path == '/api/logout':
                     app.logout(self._cookie())
-                    return self._json(200, {'ok': True}, set_cookie='gea_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
+                    return self._json(200, {'ok': True}, set_cookie=f'{self._ck("gea_session")}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
                 if path == '/api/setup':
                     # first administrator, only while the workspace has no users at all
                     if app.users.count() > 0:
@@ -2375,9 +2382,9 @@ def make_handler(app: App):
                     from datetime import datetime as _dt, timezone as _tz
                     age = max(60, int((_dt.fromisoformat(p['expires_utc'].replace('Z', '+00:00')) - _dt.now(_tz.utc)).total_seconds()))
                     return self._json(200, {'wall_pass': {k: p[k] for k in ('id', 'label', 'expires_utc')}},
-                                      set_cookie=f'gea_wall={code}; HttpOnly; SameSite=Strict; Path=/; Max-Age={age}')
+                                      set_cookie=f'{self._ck("gea_wall")}={code}; HttpOnly; SameSite=Strict; Path=/; Max-Age={age}')
                 if path == '/api/wall/leave':
-                    return self._json(200, {'ok': True}, set_cookie='gea_wall=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
+                    return self._json(200, {'ok': True}, set_cookie=f'{self._ck("gea_wall")}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
                 user = self._user()
                 if path == '/api/handover':
                     App.require(user, 'operator')

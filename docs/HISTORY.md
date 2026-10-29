@@ -4,6 +4,13 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.70.1 - 2026-10-29 - two control panels, one browser
+
+- Each control panel's cookies carry its port, so the site's panel and a
+  demo workspace's no longer sign each other out; keeping one form on a
+  records well keeps what was typed in the others; the gas test's chart on
+  white in the dark theme. DP7; gate 526.
+
 ## v0.70.0 - 2026-10-28 - a well from its records, by clicking
 
 - A well from its records, entered by clicking on the Wells tab with each

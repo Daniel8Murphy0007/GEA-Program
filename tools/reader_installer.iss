@@ -5,17 +5,17 @@
 ; GEA-Reader-Setup-<version>.exe - GEA Reader, the program a site gives its clients to check a signed dossier, as a
 ; Windows program of its own: built from the reader kit (tools/build_reader.py) by Inno Setup 6 in the build workflow:
 ;
-;   ISCC.exe /DAppVersion=0.70.0 /DKitDir=dist\gea-reader-0.70.0-win64 /DOutDir=dist tools\reader_installer.iss
+;   ISCC.exe /DAppVersion=0.70.1 /DKitDir=dist\gea-reader-0.70.1-win64 /DOutDir=dist tools\reader_installer.iss
 ;
 ; What it does: copies the kit for the signed-in user alone (no administrator rights), adds GEA Reader to the Start
 ; menu (and, when chosen, the desktop) with its own icon and taskbar identity, and "Check with GEA Reader" to the
 ; right-click menu of .zip files. Nothing of GEA-Program is installed, and the reader reaches no network.
 ;
 ; Silent install, for a client's software deployment (the CI test runs exactly this):
-;   GEA-Reader-Setup-0.70.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /TASKS="desktopicon,zipverb"
+;   GEA-Reader-Setup-0.70.1.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /TASKS="desktopicon,zipverb"
 
 #ifndef AppVersion
-  #error AppVersion is not defined: ISCC /DAppVersion=0.70.0 /DKitDir=... /DOutDir=... tools\reader_installer.iss
+  #error AppVersion is not defined: ISCC /DAppVersion=0.70.1 /DKitDir=... /DOutDir=... tools\reader_installer.iss
 #endif
 #ifndef KitDir
   #error KitDir is not defined: the reader kit folder made by tools/build_reader.py

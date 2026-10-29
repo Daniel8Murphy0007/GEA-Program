@@ -5,6 +5,26 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.70.1] - 2026-10-29 - two control panels, one browser
+
+### Fixed
+- **Two control panels signed each other out**: the site's control panel
+  and another workspace's (opened from Administration, Workspaces) run on
+  one computer in one browser profile, and a browser keeps cookies by host,
+  not by port; both named their sign-in cookie alike, so signing in to one
+  signed the other out, and a report opened from the second panel asked to
+  sign in first. Each panel's cookies now carry its port
+  (`gea_session-8765`, `gea_session-8766`); everyone signs in once more
+  after the upgrade.
+- **Keeping one form on a records well emptied the others**: the page is
+  drawn again after Keep, and what was typed in the other forms - the
+  worked example's gas test, for one - was lost. It is kept.
+- **The gas test's chart in the dark theme**: its title, key and axis
+  labels were dark on dark. The chart sits on white, as it prints.
+
+### Acceptance
+- DP7.
+
 ## [v0.70.0] - 2026-10-28 - a well from its records, by clicking
 
 ### Added

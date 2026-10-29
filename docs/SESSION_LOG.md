@@ -3117,3 +3117,19 @@ stability; and motor specifications in the tool catalogue.
   console errors, no horizontal scroll.
 - Section DP (6 checks).
 
+## 2026-10-29 - two control panels, one browser (v0.70.1)
+
+- Daniel loaded the Gilbert 3-A into a demo workspace by clicking
+  (Administration, Workspaces, then the records forms). Three faults on
+  his screen: Add the test stopped on empty required fields (Keep on the
+  survey had drawn the page again and emptied the test form the example
+  had filled); the chart's labels were unreadable in the dark theme; and
+  Write the records review opened a tab answering "sign in first".
+- The last: both panels (8765, 8766) on 127.0.0.1 in the one window
+  profile, both cookies named `gea_session`; a browser keys cookies by
+  host, so the later sign-in replaced the earlier. Cookies now
+  `gea_session-<port>` (and the wall and company sign-in cookies alike).
+- Driven in Chromium with two services in one browser context, dark
+  theme: both stay signed in, the test form survives Keep, the report
+  opens. DP7.
+

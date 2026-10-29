@@ -137,7 +137,7 @@ body.wallmode{--wbg:#fff;--wink:#000;--wmut:#2b2b2b;--wline:#000;--wsr:#b00020;-
 .ds-life{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.ds-lb{display:inline-block;width:110px;height:8px;border-radius:4px;background:var(--track);overflow:hidden}.ds-lb>span{display:block;height:100%;border-radius:4px}
 .ds-leg{display:inline-flex;flex-wrap:wrap;gap:4px 12px;margin-left:8px}.ds-crow{margin:8px 0;padding:8px 10px}.ds-cbtn{display:inline-flex;gap:6px;margin-left:auto}.ds-ch{margin:10px 0}
 .sim-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:12px;align-items:start}@media (max-width:900px){.sim-grid{grid-template-columns:minmax(0,1fr)}}
-.gt-svg svg{max-width:100%;height:auto}#wsCard .mono{word-break:break-all}.sim-stage{height:min(70vh,700px)}.sim-panel{position:relative;height:min(70vh,700px);min-height:340px;overflow-x:auto;overflow-y:hidden;border:1px solid var(--grid);border-radius:10px;background:var(--surface)}.sim-panel canvas{display:block;cursor:crosshair}
+.gt-svg{background:#fff;border-radius:8px;padding:8px;color-scheme:light;width:fit-content;max-width:100%;box-sizing:border-box}.gt-svg svg{max-width:100%;height:auto;display:block}#wsCard .mono{word-break:break-all}.sim-stage{height:min(70vh,700px)}.sim-panel{position:relative;height:min(70vh,700px);min-height:340px;overflow-x:auto;overflow-y:hidden;border:1px solid var(--grid);border-radius:10px;background:var(--surface)}.sim-panel canvas{display:block;cursor:crosshair}
 .sim-tr label>select{min-width:5em}.sim-read{margin-top:12px}.sim-rh{font-size:15px;margin-bottom:2px}.sim-comp{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:8px 0}
 .sim-bar{display:inline-flex;width:min(320px,100%);height:14px;border-radius:4px;overflow:hidden;gap:1px;background:var(--surface)}.sim-bar>span{display:block;height:100%}
 .sim-tab{width:auto;min-width:min(420px,100%)}.sim-tab td{padding:3px 10px 3px 0;border:0}.sim-tab td.num{text-align:right;font-variant-numeric:tabular-nums}.w3-bar label>select{min-width:9em}
@@ -306,7 +306,7 @@ VIEWS.wells = async () => {
 };
 
 // ---------- a well known from its records: what the papers say, each with its source, and what their own figures show ----------
-const REC_EX = {};
+const REC_DRAFT = {};   // what was typed in the other forms when one is kept: the page is drawn again, and those come back
 async function recordsView(id, w) {
   const P = await get('/api/wells/' + id + '/records'); const c = P.completion || {}, idn = w.identity || {}, sf = w.surface || {}, op = can('operator');
   const v = (x) => x === undefined || x === null ? '' : esc(String(x));
@@ -348,14 +348,18 @@ async function recordsView(id, w) {
   h += `</div>`;
   $('#main').innerHTML = h;
   if (!op) return;
+  const FORMS = ['recId', 'recComp', 'recSv', 'recGt'];
+  const dr = REC_DRAFT[id]; delete REC_DRAFT[id];
+  if (dr) for (const [fid, v] of Object.entries(dr)) { const f = $('#' + fid); if (f) for (const [k, x] of Object.entries(v)) if (f[k] && f[k].type !== 'file') f[k].value = x; }
+  const keepOthers = kept => { REC_DRAFT[id] = Object.fromEntries(FORMS.filter(f => f !== kept && $('#' + f)).map(f => [f, Object.fromEntries([...new FormData($('#' + f)).entries()].map(([k, x]) => [k, String(x)]))])); };
   const vals = f => Object.fromEntries([...new FormData(f).entries()].map(([k, x]) => [k, String(x).trim()]));
-  $('#recId').onsubmit = async ev => { ev.preventDefault(); const x = vals(ev.target); const body = {identity: {api_number: x.api_number, well_name: x.well_name, operator: x.operator}}; if (x.lat || x.lon) body.surface = {lat: x.lat === '' ? null : +x.lat, lon: x.lon === '' ? null : +x.lon, datum: x.datum}; try { await post('/api/wells/' + id + '/declare', body); toast('Kept', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } };
-  $('#recComp').onsubmit = async ev => { ev.preventDefault(); const x = vals(ev.target); const source = x.source; delete x.source; try { await post('/api/wells/' + id + '/records/completion', {values: x, source}); toast('Kept', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } };
-  $('#recSv').onsubmit = async ev => { ev.preventDefault(); const x = vals(ev.target); try { await post('/api/wells/' + id + '/records/survey', {text: x.text, source: x.source, stated_disp_ft: x.stated_disp_ft || null}); toast('Kept', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } };
-  const gt = $('#recGt'); if (gt) gt.onsubmit = async ev => { ev.preventDefault(); const x = vals(ev.target); const source = x.source; delete x.source; try { await post('/api/wells/' + id + '/records/gas-test', {values: x, source}); toast('Test added', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } };
-  document.querySelectorAll('.gtDel').forEach(b => b.onclick = async () => { if (!confirm('Remove this test from the well?')) return; try { await post('/api/wells/' + id + '/records/gas-test/remove', {index: +b.dataset.i}); route(); } catch (e) { toast(e.message, 'err'); } });
-  $('#recRep').onclick = async () => { try { const r = await post('/api/wells/' + id + '/records/report', {}); toast('Written: ' + r.report_id, 'ok'); window.open('/' + r.html, '_blank', 'noopener'); route(); } catch (e) { toast(e.message, 'err'); } };
-  $('#recEx').onclick = async () => { const E = await get('/api/records/example'); const sv = $('#recSv'); sv.text.value = E.survey; sv.stated_disp_ft.value = E.stated_disp_ft; sv.source.value = E.survey_source; const g = $('#recGt'); for (const [k, x] of Object.entries(E.test)) if (g[k]) g[k].value = x; g.source.value = E.test_source; toast('The forms hold the worked example (' + E.well.split(':')[0] + '). Check them against your document, then Keep and Add.', 'ok'); };
+  $('#recId').onsubmit = async ev => { ev.preventDefault(); const x = vals(ev.target); const body = {identity: {api_number: x.api_number, well_name: x.well_name, operator: x.operator}}; if (x.lat || x.lon) body.surface = {lat: x.lat === '' ? null : +x.lat, lon: x.lon === '' ? null : +x.lon, datum: x.datum}; try { await post('/api/wells/' + id + '/declare', body); toast('Kept', 'ok'); keepOthers('recId'); route(); } catch (e) { toast(e.message, 'err'); } };
+  $('#recComp').onsubmit = async ev => { ev.preventDefault(); const x = vals(ev.target); const source = x.source; delete x.source; try { await post('/api/wells/' + id + '/records/completion', {values: x, source}); toast('Kept', 'ok'); keepOthers('recComp'); route(); } catch (e) { toast(e.message, 'err'); } };
+  $('#recSv').onsubmit = async ev => { ev.preventDefault(); const x = vals(ev.target); try { await post('/api/wells/' + id + '/records/survey', {text: x.text, source: x.source, stated_disp_ft: x.stated_disp_ft || null}); toast('Kept', 'ok'); keepOthers('recSv'); route(); } catch (e) { toast(e.message, 'err'); } };
+  const gt = $('#recGt'); if (gt) gt.onsubmit = async ev => { ev.preventDefault(); const x = vals(ev.target); const source = x.source; delete x.source; try { await post('/api/wells/' + id + '/records/gas-test', {values: x, source}); toast('Test added', 'ok'); keepOthers('recGt'); route(); } catch (e) { toast(e.message, 'err'); } };
+  document.querySelectorAll('.gtDel').forEach(b => b.onclick = async () => { if (!confirm('Remove this test from the well?')) return; try { await post('/api/wells/' + id + '/records/gas-test/remove', {index: +b.dataset.i}); keepOthers(null); route(); } catch (e) { toast(e.message, 'err'); } });
+  $('#recRep').onclick = async () => { try { const r = await post('/api/wells/' + id + '/records/report', {}); toast('Written: ' + r.report_id, 'ok'); window.open('/' + r.html, '_blank', 'noopener'); keepOthers(null); route(); } catch (e) { toast(e.message, 'err'); } };
+  $('#recEx').onclick = async () => { const E = await get('/api/records/example'); const sv = $('#recSv'); sv.text.value = E.survey; sv.stated_disp_ft.value = E.stated_disp_ft; sv.source.value = E.survey_source; const g = $('#recGt'); for (const [k, x] of Object.entries(E.test)) if (g[k]) g[k].value = x; g.source.value = E.test_source; toast('The forms hold the worked example (' + E.well.split(':')[0] + '). Check them against your document, then Keep the survey and Add the test, in either order.', 'ok'); };
 }
 VIEWS.well = async (id) => {
   const d = await get('/api/wells/' + id); const w = d.well, R = d.reports, dir = 'wells/' + id;

@@ -118,7 +118,9 @@ declared extras.
   settings or a policy block them), the page says so and carries the token
   in its own address (`/s/` and the token) instead, until the window is
   closed; the token then appears in that window's history, and the
-  `Referrer-Policy: same-origin` header keeps it from other sites.
+  `Referrer-Policy: same-origin` header keeps it from other sites. Each
+  control panel names its cookies with its port (`gea_session-8765`), so
+  two panels on one computer keep their sign-ins apart (since 0.70.1).
 - **Roles**: viewer < operator < approver < admin, enforced by the service
   on every request; a company account's role comes from the company's app
   roles or groups at each sign-in.
