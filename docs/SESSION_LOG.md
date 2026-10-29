@@ -3092,3 +3092,28 @@ stability; and motor specifications in the tool catalogue.
   drawn in `gea/icon.py` beside the derrick.
 - The sealed-settlement idea scoped in a document.
 - Section DO (3 checks). Gate 519 on Python 3.13 and 3.14.
+
+## 2026-10-28 - a well from its records, by clicking (v0.70.0)
+
+- Daniel, after the PowerShell instructions for loading the Gilbert 3-A
+  well file into a demo workspace: "I didn't build this program to fuck
+  with powershell." Then: "Go" on the plan - a point-and-click records
+  well, a Workspaces menu, the gas deliverability test, launch from any
+  folder.
+- `gea/well_records.py`: completion, inclination survey (W-12 accumulated
+  displacement and minimum-curvature TVD), back-pressure test analysis,
+  the records review. On the public Gilbert 3-A file: TVD 4,134.1 ft,
+  displacement 154.49 ft against the form's 154.82 (its rounded sine
+  tables); the 1994 test fits n = 2.15 (unstabilized), open flow between
+  1,097 and 1,260 Mcf/d through the highest rate against 1,270 stated; the
+  rates at the wellhead pressure 449/403/315/218 Mcf/d; the tubing pressure
+  gives 918 psia at 2,380 ft against 870 stated.
+- `gea/workspaces.py` and Administration's Workspaces card; the service
+  opens another workspace's panel detached with `gea launch --no-tray`.
+- `launcher.neutral_cwd()`: v0.69.0's first launch from the repository
+  folder printed BLOCK because `python -m gea` imported the checkout.
+- Driven in Chromium at 1400 and 390 px: add the well with its document,
+  fill from the example, keep, add the test, write the review - no
+  console errors, no horizontal scroll.
+- Section DP (6 checks).
+

@@ -5,6 +5,52 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.70.0] - 2026-10-28 - a well from its records, by clicking
+
+### Added
+- **Add a well from its records** (Wells tab): a well known from paper -
+  the regulator's well file, the completion report, an inclination
+  survey, a gas test - added with its name and the document (kept
+  verbatim, hashed, carried in the dossier), then entered on its page
+  form by form, each value with the document it came from: who and where
+  (API number, operator, position), the completion (depths, producing
+  interval, formation, nearest lease line), the casing (Casing tab), the
+  inclination survey (depth and inclination, fractions as the form writes
+  them) and gas well back-pressure tests (`gea/well_records.py`).
+- **The papers checked against themselves**: the survey's TVD (minimum
+  curvature on one azimuth) and accumulated displacement against the
+  form's own, and the farthest the hole can be from vertical at the pay
+  against the lease line; each back-pressure test fitted
+  q = C (Pr^2 - Pwf^2)^n in log-log, an exponent outside 0.5 to 1.0
+  flagged and the open flow bounded through the highest rate at n = 1.0
+  and 0.5, each rate recomputed from the form's own figures and at the
+  wellhead pressure, the shut-in tubing pressure carried down a real-gas
+  column against the stated shut-in pressure, the pressure gradient
+  against fresh water's; a log-log chart per test.
+- **The records review** (Write the records review): the well on record,
+  its casing, the survey, each gas test with its chart, and what the
+  review does not establish; signed in the well's dossier.
+- **Fill the forms with the worked example**: a public Texas well file's
+  survey and test, to try it.
+- **Workspaces** (Administration): every workspace this computer has used,
+  with whether its control panel is running; **Make it and open it** makes
+  a new workspace beside the site's (the same accounts when ticked) and
+  opens its control panel in a window of its own on the next free port;
+  **Open in its own window** opens one again (`gea/workspaces.py`,
+  `%LOCALAPPDATA%\GEA-Program\workspaces.json`).
+- Help page `records`; install's page covers other workspaces.
+
+### Fixed
+- The control panel, its supervisor and its icon start in the install
+  kit's folder, never the folder the program was started from: started
+  from inside a checkout, `python -m gea` ran the checkout's code and
+  refused to serve (`launcher.neutral_cwd`).
+- The build's provenance attestations no longer fail the release while
+  the repository is private (`continue-on-error` on a private repository).
+
+### Acceptance
+- Section DP (6 checks).
+
 ## [v0.69.0] - 2026-10-26 - GEA Reader, the program
 
 ### Added

@@ -66,6 +66,14 @@ def kit_dir(executable: Optional[str] = None) -> Optional[Path]:
     return d if (d / 'start-dashboard.cmd').is_file() and exe.parent.name.lower() == 'python' else None
 
 
+def neutral_cwd(executable: Optional[str] = None) -> str:
+    """A folder to start the program's own processes in that is never a copy of its source: the install kit, else the
+    folder of the Python that runs it. `python -m gea` imports from the folder it starts in first, so a control panel
+    started from inside a checkout would run the checkout's code and refuse to serve (v0.69.0, on the first site)."""
+    k = kit_dir(executable)
+    return str(k) if k else str(Path(executable or sys.executable).resolve().parent)
+
+
 def default_workspace(env: Optional[dict] = None) -> str:
     env = os.environ if env is None else env
     if is_windows() or env.get('LOCALAPPDATA'):
@@ -362,7 +370,7 @@ def supervisor_command(ws: str, port: int, executable: Optional[str] = None) -> 
 
 def start_supervisor(ws: str, port: int, popen: Callable = subprocess.Popen) -> list:
     cmd = supervisor_command(ws, port)
-    popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True,
+    popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True, cwd=neutral_cwd(),
           creationflags=(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP) if is_windows() else 0,
           **({} if is_windows() else {'start_new_session': True}))
     return cmd
@@ -381,7 +389,7 @@ def _run_hidden(cmd: list, log) -> int:
     if is_windows():
         kw['creationflags'] = CREATE_NO_WINDOW
     env = dict(os.environ, PYTHONUNBUFFERED='1', PYTHONIOENCODING='utf-8')
-    return subprocess.call(cmd, env=env, **kw)
+    return subprocess.call(cmd, env=env, cwd=neutral_cwd(), **kw)
 
 
 def supervise(ws: str, port: int = DEFAULT_PORT, run: Optional[Callable] = None, sleep: Callable = time.sleep,
@@ -445,7 +453,7 @@ def start_service(kit: Optional[Path], ws: str, port: int, popen: Callable = sub
         return start_supervisor(ws, port, popen=popen)
     cmd = service_command(kit, ws, port)
     env = dict(os.environ, GEA_WORKSPACE=ws, GEA_PORT=str(int(port)))
-    popen(cmd, cwd=str(kit) if kit else None, env=env, **service_popen_kwargs())
+    popen(cmd, cwd=str(kit) if kit else neutral_cwd(), env=env, **service_popen_kwargs())
     return cmd
 
 
@@ -458,7 +466,7 @@ def start_tray(ws: str, port: int, popen: Callable = subprocess.Popen) -> Option
     if not is_windows():
         return None
     cmd = tray_command(ws, port)
-    popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True,
+    popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True, cwd=neutral_cwd(),
           creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)
     return cmd
 

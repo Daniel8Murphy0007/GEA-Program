@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.70.0 - 2026-10-28 - a well from its records, by clicking
+
+- A well from its records, entered by clicking on the Wells tab with each
+  value's source: the inclination survey and back-pressure tests checked
+  against themselves, a records review signed in the dossier. Workspaces
+  made and opened from Administration in windows of their own. The
+  program's processes start in the kit, never in a checkout. Section DP;
+  gate 525.
+
 ## v0.69.0 - 2026-10-26 - GEA Reader, the program
 
 - GEA Reader as a Windows program of its own (GEA-Reader-Setup and a

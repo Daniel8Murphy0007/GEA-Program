@@ -292,6 +292,31 @@ class Workspace:
                 'station_md_ft': station_md_ft}
         return self._register(well, actor)
 
+    def add_well_records(self, display: str, actor: str = 'system', document_path: Optional[str] = None,
+                         filename: Optional[str] = None) -> dict:
+        """A well known from its records alone (a regulator's well file, a completion report): no data stream. The
+        document, when given, is copied in verbatim and hashed as the well's source; what it says is declared on the
+        well's page (well_records.py, the Casing tab, the well's identity and position)."""
+        display = (display or '').strip()
+        if not display:
+            raise WorkspaceError('name the well (as on its permit: lease and number)')
+        wid = slug(display)
+        files, src = [], {}
+        if document_path:
+            if not os.path.isfile(document_path):
+                raise WorkspaceError(f'file not found: {document_path}')
+            fn = os.path.basename(filename or document_path)
+            d = os.path.join(self.path, 'wells', wid, 'source')
+            if wid in self.manifest.get('wells', []):
+                raise WorkspaceError(f'well already exists: {wid}')
+            os.makedirs(d, exist_ok=True)
+            dst = os.path.join(d, fn)
+            shutil.copyfile(document_path, dst)
+            files = [fn]
+            src = {'original_path': os.path.abspath(document_path), 'sha256': sha256_file(dst), 'bytes': os.path.getsize(dst)}
+        well = {'id': wid, 'display': display, 'kind': 'records', 'files': files, 'source': src, 'station_md_ft': None}
+        return self._register(well, actor)
+
     def add_well_catalog(self, entry: str, well_tag: str, station_md_ft: float, actor: str = 'system', display: Optional[str] = None) -> dict:
         from . import CATALOG
         if entry not in CATALOG:

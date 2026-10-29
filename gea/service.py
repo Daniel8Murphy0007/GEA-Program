@@ -940,6 +940,35 @@ class App:
         return q
 
     # -- actions ---------------------------------------------------------------------------------
+    def add_well_records(self, user: dict, display: str, filename: str, content_b64: str) -> dict:
+        """A well known from its records: its name, and the document (a well file, a completion report) when one is given."""
+        if not display.strip():
+            raise ApiError(400, 'name the well (as on its permit: lease and number)')
+        tmp = None
+        if content_b64:
+            if not filename or '/' in filename or '\\' in filename:
+                raise ApiError(400, 'a plain file name is required')
+            tmp_dir = os.path.join(self.ws.path, 'jobs', '_uploads')
+            os.makedirs(tmp_dir, exist_ok=True)
+            tmp = os.path.join(tmp_dir, f'{secrets.token_hex(4)}_{filename}')
+            with open(tmp, 'wb') as f:
+                f.write(base64.b64decode(content_b64))
+        try:
+            w = self.ws.add_well_records(display, actor=user['name'], document_path=tmp, filename=filename or None)
+        except WorkspaceError as e:
+            raise ApiError(409, str(e))
+        finally:
+            if tmp:
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+        if w.get('source'):
+            w['source']['original_path'] = f'uploaded: {filename}'
+            with open(os.path.join(self.ws.well_dir(w['id']), 'well.json'), 'w', encoding='utf-8') as f:
+                json.dump(w, f, indent=1)
+        return w
+
     def add_well_file(self, user: dict, display: str, filename: str, content_b64: str, station_md: Optional[float]) -> dict:
         if not filename or '/' in filename or '\\' in filename:
             raise ApiError(400, 'a plain file name is required')
@@ -2034,6 +2063,19 @@ def make_handler(app: App):
                 if path == '/api/tools/fleet':
                     from . import tool_taxonomy as _TX
                     return self._json(200, {'tools': _TX.fleet_list(app.ws.path)})
+                if path.startswith('/api/wells/') and path.endswith('/records') and path.count('/') == 4:
+                    from . import well_records as _WR
+                    try:
+                        return self._json(200, _WR.page(app.ws, path.split('/')[3]))
+                    except WorkspaceError as e:
+                        raise ApiError(404, str(e))
+                if path == '/api/records/example':
+                    from . import well_records as _WR
+                    return self._json(200, _WR.EXAMPLE)
+                if path == '/api/workspaces':
+                    App.require(user, 'admin')
+                    from . import workspaces as _WSS
+                    return self._json(200, {'workspaces': _WSS.listing(app.ws.path, self.server.server_address[1]), 'registry': _WSS.registry_path()})
                 if path == '/api/rocks':
                     from . import rock_inventory as _RI
                     return self._json(200, _RI.page())
@@ -2361,6 +2403,56 @@ def make_handler(app: App):
                     App.require(user, 'operator')
                     return self._json(200, app.add_well_file(user, str(body.get('display', '')), str(body.get('filename', '')),
                                                              str(body.get('content_b64', '')), body.get('station_md')))
+                if path == '/api/wells/records':
+                    App.require(user, 'operator')
+                    return self._json(200, app.add_well_records(user, str(body.get('display', '')), str(body.get('filename', '') or ''),
+                                                                str(body.get('content_b64', '') or '')))
+                if path.startswith('/api/wells/') and '/records/' in path and path.count('/') in (5, 6):
+                    App.require(user, 'operator')
+                    from . import well_records as _WR
+                    parts = path.split('/')
+                    wid, what = parts[3], '/'.join(parts[5:])
+                    b = body or {}
+                    try:
+                        if what == 'completion':
+                            return self._json(200, _WR.set_completion(app.ws, user['name'], wid, b.get('values') or {}, b.get('source')))
+                        if what == 'survey':
+                            return self._json(200, _WR.set_survey(app.ws, user['name'], wid, str(b.get('text') or ''), b.get('source'), b.get('stated_disp_ft')))
+                        if what == 'gas-test':
+                            return self._json(200, _WR.add_gas_test(app.ws, user['name'], wid, b.get('values') or {}, b.get('source')))
+                        if what == 'report':
+                            from . import __version__ as _V
+                            r = _WR.write_report(app.ws, wid, _V, actor=user['name'])
+                            return self._json(200, {'report_id': r['report_id'], 'html': f'reports/wells/{wid}/records_review.html',
+                                                    'pdf': f'reports/wells/{wid}/records_review.pdf' if r['paths'].get('pdf') else None})
+                        if what == 'gas-test/remove':
+                            _WR.remove_gas_test(app.ws, user['name'], wid, int(b.get('index', -1)))
+                            return self._json(200, {'removed': True})
+                    except WorkspaceError as e:
+                        raise ApiError(404, str(e))
+                    except (ValueError, TypeError) as e:
+                        raise ApiError(400, str(e))
+                    raise ApiError(404, f'no such records action: {what}')
+                if path in ('/api/workspaces/new', '/api/workspaces/open'):
+                    App.require(user, 'admin')
+                    from . import workspaces as _WSS
+                    b = body or {}
+                    try:
+                        if path == '/api/workspaces/new':
+                            made = _WSS.create(str(b.get('path') or ''), str(b.get('name') or ''), user['name'],
+                                               copy_users_from=app.ws.path if b.get('copy_accounts', True) else None, current_path=app.ws.path)
+                            app.ws.audit(user['name'], 'workspace.made_elsewhere', {'path': made['path'], 'name': made['name'], 'accounts_copied': made['accounts_copied']})
+                            if not b.get('open', True):
+                                return self._json(200, made)
+                            b = {'path': made['path']}
+                        r = _WSS.open_workspace(str(b.get('path') or ''), app.ws.path, self.server.server_address[1], actor=user['name'])
+                    except WorkspaceError as e:
+                        raise ApiError(400, str(e))
+                    except OSError as e:
+                        raise ApiError(409, str(e))
+                    app.ws.audit(user['name'], 'workspace.open_other', {'path': r['path'], 'port': r['port']})
+                    r.pop('command', None)
+                    return self._json(200, r)
                 if path == '/api/wells/catalog':
                     App.require(user, 'operator')
                     try:

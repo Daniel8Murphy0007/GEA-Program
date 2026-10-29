@@ -274,6 +274,8 @@ def _gather(ws, well_id: Optional[str]) -> Dict[str, List[tuple]]:
         wd = os.path.join(ws.path, 'wells', w['id'])
         if os.path.isfile(os.path.join(wd, 'well.json')):
             out_list.append((os.path.join(wd, 'well.json'), f"declarations/wells/{w['id']}/well.json"))
+        if os.path.isfile(os.path.join(wd, 'well_records.json')):      # a well known from its records: what they say, with their sources
+            out_list.append((os.path.join(wd, 'well_records.json'), f"declarations/wells/{w['id']}/well_records.json"))
         files_in(os.path.join(wd, 'trajectory'), f"declarations/wells/{w['id']}/trajectory")
         files_in(os.path.join(wd, 'plan'), f"declarations/wells/{w['id']}/plan")
     for rel in (('economics', 'costs.json'), ('drillstring', 'runs.json'), ('completion', 'esp.json'), ('seismicity', 'operations.json'),

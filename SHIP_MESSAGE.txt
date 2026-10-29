@@ -1,17 +1,22 @@
-v0.69.0 — GEA READER, THE PROGRAM
+v0.70.0 — A WELL FROM ITS RECORDS, BY CLICKING
 
-GEA Reader is now a Windows program your clients can install.
+Load a well from its paper records without typing a command.
 
-- GEA-Reader-Setup-0.69.0.exe on the release: GEA Reader in the Start
-  menu and on the desktop, with its own icon (a page with a green seal)
-  and its own taskbar button - not Edge's. Right-click a dossier and
-  choose "Check with GEA Reader" to check it at once.
-- A client saves your site's fingerprint once; from then on every
-  dossier you sign reads Valid with your name on it.
-- Nothing of GEA-Program is installed with it, no administrator rights,
-  no network. A portable zip of the same program is on the release too.
+- Wells tab, "Add a well from its records": name the well and attach the
+  well file (PDF). Then fill its page form by form - who and where, the
+  completion, the inclination survey, the gas well tests - each with the
+  document it came from. "Fill the forms with the worked example" shows
+  how with a public Texas well file.
+- The page checks the papers against themselves: the survey's depth and
+  displacement, the gas test's curve, its rates and its shut-in pressure.
+  "Write the records review" writes the report; the well's signed dossier
+  carries it with the document.
+- Administration, "Workspaces": make a separate workspace for a demo or a
+  client's well and open it in a window of its own, so it never mixes
+  with Pad 3.
+- The program starts correctly whatever folder it is started from.
 
-GEA-Program itself: install GEA-Program-Setup-0.69.0.exe over the old
-one. C:\site is kept as it is.
+Install GEA-Program-Setup-0.70.0.exe over the old one. C:\site is kept
+as it is. GEA-Reader-Setup-0.70.0.exe is on the release too.
 
-Acceptance section DO (3 checks).
+Acceptance section DP (6 checks).

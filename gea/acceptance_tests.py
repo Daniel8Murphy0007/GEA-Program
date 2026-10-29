@@ -15273,6 +15273,210 @@ def section_do_reader_program(tmp: str) -> None:
        "and attaches it and a portable zip under names no other asset shares" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_dp_records_workspaces(tmp: str) -> None:
+    """Section DP - a well from its records, by clicking: the regulator's well file entered form by form, each value
+    with its source document; the inclination survey's depths and displacement and the back-pressure test's curve,
+    rates and shut-in pressure checked against themselves (the worked example a public Texas well file); the records
+    review, signed in the well's dossier. Workspaces: another workspace made and opened in a control panel of its own
+    from Administration. And the program's own processes start in a folder that is never a copy of its source."""
+    import http.cookiejar
+    import inspect as _insp
+    import urllib.error
+    import urllib.request
+    from . import __version__
+    from . import casing_design as CD
+    from . import dossier as DZ
+    from . import helplib as H
+    from . import launcher as L
+    from . import well_records as WRC
+    from . import workspaces as WSS
+    from .workspace import Workspace
+    from .service import Service, Users
+    pkg = Path(__file__).parent
+    d = Path(tmp, "dp"); d.mkdir()
+    keep_env = os.environ.get("GEA_WORKSPACES_FILE")
+    os.environ["GEA_WORKSPACES_FILE"] = str(d / "workspaces.json")
+    try:
+        wsp = str(d / "demo")
+        ws = Workspace.create(wsp, "Demo wells", actor="tester")
+        doc = d / "well file.pdf"
+        doc.write_bytes(b"%PDF-1.4\n% a scanned well file\n")
+        E_ = WRC.EXAMPLE
+
+        # -- DP1 the well and its survey ---------------------------------------------------------------------------------
+        w = ws.add_well_records("Gilbert 3-A", actor="tester", document_path=str(doc))
+        wid = w["id"]
+        bad_src = False
+        try:
+            WRC.set_survey(ws, "tester", wid, E_["survey"], "")
+        except Exception:
+            bad_src = True
+        sv = WRC.set_survey(ws, "tester", wid, E_["survey"], E_["survey_source"], E_["stated_disp_ft"])
+        frac = WRC.parse_stations("MD, inclination\n1289, 1 1/4\n1600, 1-3/4\n2100, 2")
+        WRC.set_completion(ws, "tester", wid, {"perf_top_ft": "2368", "perf_base_ft": "2378", "td_md_ft": "4150", "lease_line_ft": "330"}, "Form G-1")
+        perf_bad = False
+        try:
+            WRC.set_completion(ws, "tester", wid, {"perf_top_ft": "2400", "perf_base_ft": "2300"}, "Form G-1")
+        except Exception:
+            perf_bad = True
+        CD.set_well(ws, "tester", wid, source="Form G-1", strings=CD.parse_strings("surface:8-5/8:24::0-540::;production:4-1/2:10.5::0-2540::"))
+        pg = WRC.page(ws, wid)
+        k = pg["survey"]["calc"]
+        src = Path(wsp, "wells", wid, "source", "well file.pdf")
+        c1 = {
+            "well": w["kind"] == "records" and src.is_file() and src.read_bytes() == doc.read_bytes() and pg["well"]["source"].get("sha256") == __import__("hashlib").sha256(doc.read_bytes()).hexdigest(),
+            "fractions": [r_[1] for r_ in frac] == [1.25, 1.75, 2.0],
+            "survey": abs(k["td_tvd_ft"] - 4134.1) < 0.15 and abs(k["accum_disp_ft"] - 154.49) < 0.02 and pg["survey"]["agrees"] is True,
+            "at_pay": pg["survey"]["at_pay"] and abs(pg["survey"]["at_pay"]["max_disp_ft"] - 56.5) < 0.2 and pg["survey"]["inside_lease"] is True,
+            "casing": [(c_["size"], c_["shoe_md_ft"]) for c_ in pg["casing"]] == [("8-5/8", 540.0), ("4-1/2", 2540.0)],
+            "refusals": bad_src and perf_bad,
+        }
+        failed1 = [k_ for k_, v_ in c1.items() if not v_]
+        ok(not failed1,
+           "DP1 a well added from its records keeps the document verbatim and hashed; the inclination survey (fractions as the form writes them) "
+           "gives 4,134.1 ft TVD and 154.49 ft accumulated displacement, agreeing with the form's 154.82, 56.5 ft at the top of the pay inside "
+           "the 330 ft lease line; the casing comes from the casing program; a value with no source is refused" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+        # -- DP2 the back-pressure test ---------------------------------------------------------------------------------
+        WRC.add_gas_test(ws, "tester", wid, dict(E_["test"]), E_["test_source"])
+        a = WRC.page(ws, wid)["gas_tests"][0]["analysis"]
+        whats = " ".join(f_["what"] for f_ in a["findings"])
+        rq = [round(p_["q_at_pw"]) for p_ in a["points"]]
+        two = WRC.fit([{"q_mcfd": 1000, "pwf_psia": 500}, {"q_mcfd": 500, "pwf_psia": 700}], 870)
+        c2 = {
+            "fit": abs(a["fit"]["n"] - 2.15) < 0.01 and abs(a["aof_n10_mcfd"] - 1260) < 10 and abs(a["aof_n05_mcfd"] - 1097) < 10,
+            "curve": "deliverability curve" in whats,
+            "rates": all(abs(x - y) <= 2 for x, y in zip(rq, (449, 403, 315, 218))) and "rates were computed" in whats,
+            "shut_in": abs(a["shut_in_check"]["expected_psia"] - 918.4) < 2 and "shut-in pressures do not agree" in whats,
+            "gradient": abs(a["gradient_psi_ft"] - 0.366) < 0.002,
+            "two_points": 0.5 <= two["n"] <= 1.6,
+            "svg": WRC.page(ws, wid)["gas_tests"][0]["svg"].startswith("<svg") and "open flow" in WRC.page(ws, wid)["gas_tests"][0]["svg"],
+        }
+        failed2 = [k_ for k_, v_ in c2.items() if not v_]
+        ok(not failed2,
+           "DP2 the 1994 back-pressure test: the fitted exponent 2.15 is outside a stabilized well's 0.5 to 1.0, so the open flow is bounded "
+           "through the highest rate (1,260 Mcf/d at n = 1.0, 1,097 at n = 0.5); the form's rates recomputed at the wellhead pressure "
+           "(449, 403, 315, 218 Mcf/d); the tubing pressure gives 918 psia at the gauge, not the stated 870; 0.366 psi/ft" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+        # -- DP3 the review, the dossier, the dashboard ------------------------------------------------------------------
+        r = WRC.write_report(ws, wid, __version__, actor="tester")
+        md = Path(r["paths"]["markdown"]).read_text(encoding="utf-8")
+        e = DZ.build(ws, "tester", __version__, wid, include_sources=True)
+        zp = os.path.join(ws.reports_dir, e["path"])
+        v = DZ.verify(zp, ws)
+        import zipfile as _zf
+        names = _zf.ZipFile(zp).namelist()
+        dash = ws.refresh_dashboard(actor="tester")
+        acts = [x["action"] for x in ws.audit_log(500)]
+        c3 = {
+            "report": r["report_id"].startswith(f"REC-{wid}-") and Path(r["paths"]["html"]).is_file() and "Gas well test 1" in md and "What this review does not establish" in md,
+            "dossier": v["status"] == "VALID" and f"declarations/wells/{wid}/well_records.json" in names and f"reports/wells/{wid}/records_review.html" in names
+                       and any(n_.endswith("well file.pdf") for n_ in names),
+            "dashboard": isinstance(dash, dict) and Path(dash["index"]).is_file(),
+            "audit": {"well.add", "well.records.survey", "well.records.completion", "well.records.gas_test", "report.records_review"} <= set(acts),
+        }
+        failed3 = [k_ for k_, v_ in c3.items() if not v_]
+        ok(not failed3,
+           "DP3 the records review is written and signed in the well's dossier with the document and what the forms hold (VALID); the "
+           "dashboard refreshes with a records well in the workspace; each form is in the audit log" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+        # -- DP4 the control panel: the forms, the example, the review ----------------------------------------------------
+        Users(str(Path(wsp, "users.json"))).add("adm", "admin-pass-123", "admin")
+        svc = Service(wsp, port=0, scheduler=False).start()
+        base = svc.url.rstrip("/")
+        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+        def call(method, path, body=None):
+            rq_ = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+            rq_.add_header("Content-Type", "application/json"); rq_.add_header("X-GEA-Action", "1")
+            try:
+                with opener.open(rq_, timeout=60) as rr_:
+                    return rr_.status, json.loads(rr_.read())
+            except urllib.error.HTTPError as e_:
+                return e_.code, json.loads(e_.read() or b"{}")
+        popen_seen = []
+        keep_popen = WSS.subprocess.Popen
+        try:
+            call("POST", "/api/login", {"name": "adm", "password": "admin-pass-123"})
+            s_add, w2 = call("POST", "/api/wells/records", {"display": "Second well", "filename": "file.pdf", "content_b64": __import__("base64").b64encode(b"%PDF-1.4\n").decode()})
+            s_ex, ex = call("GET", "/api/records/example")
+            s_sv, _ = call("POST", f"/api/wells/{w2.get('id')}/records/survey", {"text": ex["survey"], "source": ex["survey_source"], "stated_disp_ft": ex["stated_disp_ft"]})
+            s_gt, _ = call("POST", f"/api/wells/{w2.get('id')}/records/gas-test", {"values": ex["test"], "source": ex["test_source"]})
+            s_rp, rp = call("POST", f"/api/wells/{w2.get('id')}/records/report", {})
+            s_pg, pg2 = call("GET", f"/api/wells/{w2.get('id')}/records")
+            s_rm, _ = call("POST", f"/api/wells/{w2.get('id')}/records/gas-test/remove", {"index": 0})
+            s_pg3, pg3 = call("GET", f"/api/wells/{w2.get('id')}/records")
+            # -- workspaces from Administration
+            WSS.subprocess.Popen = lambda cmd, **kw: popen_seen.append((cmd, kw))
+            s_wl, wl = call("GET", "/api/workspaces")
+            other = str(d / "other")
+            s_new, nw = call("POST", "/api/workspaces/new", {"path": other, "name": "Client look", "copy_accounts": True})
+            s_nest, _ = call("POST", "/api/workspaces/new", {"path": os.path.join(wsp, "inner"), "name": "x"})
+            s_again, _ = call("POST", "/api/workspaces/new", {"path": other, "name": "again"})
+            s_wl2, wl2 = call("GET", "/api/workspaces")
+        finally:
+            WSS.subprocess.Popen = keep_popen
+            svc.stop()
+        app_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+        cmd, kw = popen_seen[0] if popen_seen else ([], {})
+        c4 = {
+            "add": s_add == 200 and w2.get("kind") == "records",
+            "forms": s_ex == 200 and s_sv == 200 and s_gt == 200 and s_pg == 200 and len(pg2["gas_tests"]) == 1 and pg2["survey"]["agrees"] is True,
+            "review": s_rp == 200 and rp["html"].endswith("records_review.html") and pg2["report"]["html"] == rp["html"],
+            "remove": s_rm == 200 and s_pg3 == 200 and pg3["gas_tests"] == [],
+            "ui": all(t_ in app_src for t_ in ("Add a well from its records", "recordsView(", "Fill the forms with the worked example", "Write the records review",
+                                               "/api/records/example", "/records/gas-test/remove", "Inclination survey", "Gas well tests"))
+                  and H.VIEW_TOPIC.get("records") == "records" and not H.check("records"),
+        }
+        failed4 = [k_ for k_, v_ in c4.items() if not v_]
+        ok(not failed4,
+           "DP4 the control panel: Add a well from its records takes the name and the document; the well's page fills the survey and the test "
+           "from the worked example, keeps them, writes the review and removes a test - all by clicking; its help page has the four lines" + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+        # -- DP5 workspaces ------------------------------------------------------------------------------------------------
+        names_ = [x["name"] for x in wl2.get("workspaces", [])] if s_wl2 == 200 else []
+        port_used = []
+        reg = WSS.open_workspace(other, wsp, 8766, actor="tester", popen=lambda c_, **k_: port_used.append(c_), taken=lambda p_: p_ in (8766, 8767))
+        c5 = {
+            "listing": s_wl == 200 and len(wl["workspaces"]) == 1 and wl["workspaces"][0]["current"] is True,
+            "made": s_new == 200 and Path(other, "workspace.json").is_file() and nw.get("name") == "Client look" and Path(other, "users.json").is_file(),
+            "opened": bool(cmd) and cmd[1:4] == ["-m", "gea", "launch"] and "--no-tray" in cmd and os.path.normcase(os.path.abspath(cmd[cmd.index("--workspace") + 1])) == os.path.normcase(os.path.abspath(other))
+                      and kw.get("cwd") == L.neutral_cwd() and kw.get("stdin") is not None and cmd[cmd.index("--port") + 1] != base.rsplit(":", 1)[1],
+            "refused": s_nest == 400 and s_again == 400,
+            "listed": "Client look" in names_ and "Demo wells" in names_,
+            "port": port_used and port_used[0][port_used[0].index("--port") + 1] == "8768" and reg["port"] == 8768,
+            "registry": Path(d / "workspaces.json").is_file() and "Client look" in Path(d / "workspaces.json").read_text(encoding="utf-8"),
+            "ui": all(t_ in app_src for t_ in ("wsCardLoad()", "/api/workspaces/new", "/api/workspaces/open", "Open in its own window", "Make it and open it")),
+        }
+        failed5 = [k_ for k_, v_ in c5.items() if not v_]
+        ok(not failed5,
+           "DP5 Administration's Workspaces: a new workspace beside the site's, with the same accounts, opened in a control panel of its own on "
+           "the next free port with no tray icon of its own; one inside the workspace, or over an existing one, is refused; the list is kept "
+           "for the computer" + (f" [failed: {', '.join(failed5)}]" if failed5 else ""))
+    finally:
+        if keep_env is None:
+            os.environ.pop("GEA_WORKSPACES_FILE", None)
+        else:
+            os.environ["GEA_WORKSPACES_FILE"] = keep_env
+
+    # -- DP6 never started inside a copy of its source ----------------------------------------------------------------------
+    srcs = {n_: _insp.getsource(getattr(L, n_)) for n_ in ("start_supervisor", "_run_hidden", "start_tray", "start_service")}
+    fake = str(d / "py" / "python.exe")
+    c6 = {
+        "neutral": L.neutral_cwd(fake) in (str((d / "py").resolve()), str(L.kit_dir(fake))),
+        "supervisor": "cwd=neutral_cwd()" in srcs["start_supervisor"],
+        "hidden": "cwd=neutral_cwd()" in srcs["_run_hidden"],
+        "tray": "cwd=neutral_cwd()" in srcs["start_tray"],
+        "service": "neutral_cwd()" in srcs["start_service"],
+        "workspaces": "cwd': L.neutral_cwd()" in _insp.getsource(WSS.open_workspace),
+    }
+    failed6 = [k_ for k_, v_ in c6.items() if not v_]
+    ok(not failed6,
+       "DP6 the control panel, its supervisor, its icon and another workspace's panel start in the install kit (else the folder of the "
+       "Python that runs them), never in the folder the program was started from, so a start from inside a checkout runs the installed "
+       "program" + (f" [failed: {', '.join(failed6)}]" if failed6 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -15395,6 +15599,7 @@ def main() -> int:
         section_dm_taskbar_identity(tmp)
         section_dn_reader_rocks_operator(tmp)
         section_do_reader_program(tmp)
+        section_dp_records_workspaces(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

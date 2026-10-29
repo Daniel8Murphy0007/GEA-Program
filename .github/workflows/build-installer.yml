@@ -124,6 +124,7 @@ jobs:
           call verify.cmd || exit /b 1
       - name: Attest where the kit was built (provenance)
         uses: actions/attest-build-provenance@v3
+        continue-on-error: ${{ github.event.repository.private }}   # attestations need a public repository (or a paid plan)
         with:
           subject-path: dist/gea-program-*-win64.zip
       - name: Attach the kit to the release
@@ -271,6 +272,7 @@ jobs:
           "uninstalled: program removed, workspace kept ($((Get-ChildItem $ws -Recurse -File).Count) files)"
       - name: Attest where the setup was built (provenance)
         uses: actions/attest-build-provenance@v3
+        continue-on-error: ${{ github.event.repository.private }}   # attestations need a public repository (or a paid plan)
         with:
           subject-path: dist/GEA-Program-Setup-*.exe
       - name: Attach the setup to the release
@@ -396,6 +398,7 @@ jobs:
           "uninstalled: program, shortcuts and right-click entry removed"
       - name: Attest where the reader was built (provenance)
         uses: actions/attest-build-provenance@v3
+        continue-on-error: ${{ github.event.repository.private }}   # attestations need a public repository (or a paid plan)
         with:
           subject-path: |
             dist/GEA-Reader-Setup-*.exe
@@ -429,6 +432,7 @@ jobs:
           cd dist/gea-program-*-linux-*/ && ./install.sh && ./verify.sh
       - name: Attest where the kit was built (provenance)
         uses: actions/attest-build-provenance@v3
+        continue-on-error: ${{ github.event.repository.private }}   # attestations need a public repository (or a paid plan)
         with:
           subject-path: dist/gea-program-*-linux-*.zip
       - name: Attach to the release

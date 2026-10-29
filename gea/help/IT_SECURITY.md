@@ -34,6 +34,18 @@ app window (`msedge --app=` on the local address); its notification-area
 icon (standard library `ctypes`, `Shell_NotifyIconW`) reads only whether the
 control panel's port answers on this computer.
 
+**Other workspaces** (since 0.70.0): an administrator may make and open
+further workspaces from Administration (Workspaces) - a demonstration, a
+well looked at for a client - each a folder of its own beside the site's
+(never inside it or around it), with its own wells, reports, keys and
+records, and with the site's accounts file copied in when asked. Its
+control panel runs exactly as the site's does, on the next free local port
+from 8766, bound to this computer as the site's is. The list of workspaces
+this computer has used (folder, name, port, when last opened) is kept in
+`%LOCALAPPDATA%\GEA-Program\workspaces.json`; nothing else is written
+outside the workspaces. The program's own processes start in the install
+kit's folder, never in the folder it was started from.
+
 `tools/standalone_check.py` (run by the acceptance gate) fails the build if
 any module imports anything outside the standard library, numpy and the
 declared extras.

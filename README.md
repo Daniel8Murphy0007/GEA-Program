@@ -634,6 +634,33 @@ and the decline terms. A well with no directional survey is read on the
 drilling recorder's own Interpolated TVD where one is needed, labelled as
 the recorder's interpolation. `gea help declare`.
 
+### A well from its records
+
+A well known from paper - the regulator's well file, the completion report,
+an inclination survey, an old gas test - is added on the Wells tab (Add a
+well from its records: its name and the document, kept verbatim and
+hashed) and entered on its page form by form, each value with the document
+it came from: who and where, the completion, the casing (on the Casing
+tab), the inclination survey and the back-pressure tests. The page checks
+the papers against themselves: the survey's true vertical depth and
+accumulated displacement against the form's own, the farthest the hole can
+be from vertical at the pay against the lease line; each gas test's
+deliverability curve (Rawlins and Schellhardt; an exponent outside 0.5 to
+1.0 bounded through the highest rate instead), its rates recomputed from
+the form's own figures, its shut-in pressure carried down a real-gas column
+from the tubing pressure. Write the records review writes the report, and
+the well's signed dossier carries it with the document. Fill the forms with
+the worked example tries it on a public Texas well file. `gea help records`.
+
+### Other workspaces
+
+A site's report and dossier cover every well in its workspace, so a
+demonstration well, or one looked at for a client, goes in a workspace of
+its own: Administration, Workspaces, Make it and open it - a folder beside
+the site's, the same accounts when ticked - and its control panel opens in
+a window of its own on the next free port. Open in its own window opens one
+again; the list is kept on the computer. `gea help install`.
+
 ### When one well cannot be reported
 
 Refresh every report goes on past a well it cannot read: that well is
@@ -655,7 +682,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.69.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.70.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1420,7 +1447,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.69.0.exe` (for 0.69.0): the
+Every release also carries `GEA-Program-Setup-0.70.0.exe` (for 0.70.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1439,7 +1466,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.69.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.70.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same
