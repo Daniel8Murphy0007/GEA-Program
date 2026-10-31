@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gea-recorder"
+version = "0.71.0"
+description = "GEA Recorder - the field recorder (the black box) for a drilling site, on a Raspberry Pi, feeding GEA-Program"
+readme = "README.md"
+license = {text = "MPL-2.0"}
+requires-python = ">=3.9"
+dependencies = ["numpy>=1.21"]
+
+[project.optional-dependencies]
+pi = ["spidev>=3.5", "lgpio>=0.2", "pyserial>=3.5"]
+
+[project.scripts]
+gea-recorder = "gea_recorder.__main__:main"
+
+[tool.setuptools]
+packages = ["gea_recorder"]

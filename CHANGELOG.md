@@ -5,6 +5,71 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.71.0] - 2026-10-31 - the black box, and the image
+
+### Added
+- **GEA Recorder, the black box** (`recorder/`, a program of its own;
+  `GEA-Recorder-<version>.tar.gz` on every release): a field recorder for
+  a drilling site on a Raspberry Pi, feeding GEA. It records the ground
+  channels - geophones, accelerometers, electrode dipoles - through the
+  ADS1256 24-bit SPI ADC (the Waveshare HAT; a simulator and a CSV replay
+  for the bench) and the rig's WITS0 feed (serial or TCP, read only,
+  logged raw and as a depth CSV), every sample on one clock disciplined by
+  chrony from a GPS pulse-per-second, into hourly miniSEED files (512-byte
+  INT32 records, blockette 1000, blockette 1001 carrying the timing
+  quality: 100 locked to the PPS, 0 the box's own clock) with a SHA-256
+  beside each, a manifest of every closed file and a sensors CSV with each
+  sensor's position; a channel below the ADC rate is averaged down.
+  Samples are appended every five seconds in whole records; a file is
+  split at its boundary; a USB mirror is copied to as each file closes;
+  the box never deletes and stops at a disk floor, saying so. One status
+  page on the pad network (port 8780, read-only: the state, the clock and
+  what its time is worth, each channel, the rig, the disk, the files).
+  `sudo sh install.sh` once: a systemd service from the next boot;
+  `gea-recorder selftest` records the test signal and reads every sample
+  back. Standard library plus numpy; spidev, lgpio and pyserial only where
+  the hardware is. Nothing to type on the pad.
+- **GEA pulls from the box** (`gea/field_pull.py`; the Seismic page's card
+  **Field recorder**; `gea workspace --action field-pull --box ...`): from
+  the box's address or the mirror's folder, GEA fetches the manifest and
+  every file it lacks, checks each against its SHA-256 (a file altered
+  after the box wrote it is not taken), keeps them under `field\<box>\`
+  byte for byte, joins each sensor's files into one record, and makes or
+  updates in place the ground array station (8-80 Hz, the sensors'
+  positions) and the electrode station. Help page `recorder`.
+- **The image** (`gea/bit_seismic.py`; the Seismic page's card): the
+  drilling itself as the seismic source of known position - the survey and
+  the depth against time put the bit within feet every second - recorded
+  from stations on the ground around the pad with nothing on the rig. Each
+  station is cross-correlated against the one beside the substructure, which
+  gives the difference in arrival time with no knowledge of the bit's own
+  signal; the differences, over every bit position the well passed, are
+  inverted for the rock's velocity cell by cell (Gauss-Newton in slowness,
+  Snell's rays, the ray path lengths as derivatives, second-difference
+  smoothing); the two-way arrivals scanned over depth place the first layer
+  below the bit. Run end to end on a labelled scene the program never sees
+  (a layered earth, a well built to horizontal in the pay, 24 stations in
+  three rings to 6,000 ft, white ground noise) and judged against the
+  scene's own figures: picks good to half a millisecond with none wrong,
+  the column within 3% RMS over 27 cells of 100 ft, every interface at its
+  cell and none invented, the layer below the bit within a quarter
+  wavelength. Every figure is stamped SIMULATION_SELF_TEST.
+- **The property column**: each recovered layer read with standard
+  relations - Gardner's density, the overburden against hydrostatic, the
+  rocks of the inventory whose velocity range holds it, Wyllie's time-average
+  porosity for the reservoir rocks among them - each marked as what a log
+  at the well calibrates.
+- **What a field recorder must capture**: stations and spread, the reference
+  station's place, sample rate, window, GPS timing to a stated precision,
+  the bit-depth log, sensors, files, dynamic range - every figure from the
+  run; the specification the recorder program is built to.
+- The report `reports\seismic\SIMULATION\bit_image.*` with the section and
+  moveout drawings; `gea seismic --action bit-image` (exit 0 when every
+  verdict holds); `gea workspace --action bit-image`; help page `bit-image`.
+
+### Acceptance
+- Sections DQ (4 checks) and DR (3 checks).
+
 ## [v0.70.1] - 2026-10-29 - two control panels, one browser
 
 ### Fixed

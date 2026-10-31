@@ -2134,6 +2134,11 @@ def make_handler(app: App):
                                             'stations': [app.ws.seismic_station(sid) for sid in tk['stations'] if sid in app.ws.manifest.get('seismic', [])]})
                 if path == '/api/seismic/sar':
                     return self._json(200, {'film': app.ws.sar_film_summary(), 'url': f'/reports/seismic/{app.ws.SAR_ID}/sar_film.json', 'label': 'SIMULATION_SELF_TEST'})
+                if path == '/api/field':
+                    from . import field_pull as _FP
+                    return self._json(200, {'pulls': _FP.last_pulls(app.ws)})
+                if path == '/api/seismic/image':
+                    return self._json(200, {'image': app.ws.bit_image_summary(), 'label': 'SIMULATION_SELF_TEST', 'dir': f'seismic/{app.ws.SAR_ID}'})
                 if path.startswith('/api/seismic/'):
                     sid = path[len('/api/seismic/'):]
                     try:
@@ -3036,6 +3041,23 @@ def make_handler(app: App):
                     except WorkspaceError as e:
                         raise ApiError(404, str(e))
                     return self._json(200, {'ok': True})
+                if path == '/api/field/pull':
+                    App.require(user, 'operator')
+                    src = str(body.get('source') or '').strip()
+                    if not src or len(src) > 500:
+                        raise ApiError(400, "field-pull: the box's address (http://192.168.1.50:8780) or the mirror's folder")
+                    args = ['workspace', '--path', app.ws.path, '--action', 'field-pull', '--box', src, '--actor', user['name']]
+                    if body.get('display'):
+                        args += ['--name', str(body['display'])[:80]]
+                    return self._json(200, app._job(args, user, f'Field recorder: pull from {src}'))
+                if path == '/api/seismic/image/run':
+                    App.require(user, 'operator')
+                    n = int(body.get('n_stations', 24)); radius = float(body.get('radius_ft', 6000.0)); noise = float(body.get('noise', 1.0)); seed = int(body.get('seed', 1))
+                    if not (6 <= n <= 96 and 1000.0 <= radius <= 30000.0 and 0.0 <= noise <= 20.0 and 0 <= seed <= 10 ** 6):
+                        raise ApiError(400, 'bit-image: stations 6-96, radius 1,000-30,000 ft, noise 0-20, seed 0-1000000')
+                    args = ['workspace', '--path', app.ws.path, '--action', 'bit-image', '--n-stations', str(n), '--radius', str(radius), '--noise', str(noise),
+                            '--seed', str(seed), '--actor', user['name']]
+                    return self._json(200, app._job(args, user, 'The image: drill-bit seismic (synthetic scene)'))
                 if path == '/api/seismic/sar/run':
                     App.require(user, 'operator')
                     hours = float(body.get('hours', 8.0)); step = float(body.get('step_s', 600.0)); seed = int(body.get('seed', 5))

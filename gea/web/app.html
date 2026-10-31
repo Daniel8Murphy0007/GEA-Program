@@ -1094,7 +1094,7 @@ VIEWS.sites = async () => {
 
 VIEWS.seismic = async () => {
   const _sl = await get('/api/seismic'); const stations = _sl.stations, siteReports = _sl.site_reports || {};
-  const sar = await get('/api/seismic/sar'); const {tracks} = await get('/api/tracks'); const live = await get('/api/seismic/live');
+  const sar = await get('/api/seismic/sar'); const {tracks} = await get('/api/tracks'); const live = await get('/api/seismic/live'); const img = await get('/api/seismic/image'); const field = await get('/api/field');
   let h = `<h2>Seismic - the second leg</h2><p class="muted small">A station's record in, its spectrum and persistent lines out, and the detectability test against the rigs on its list; an array adds the direction. Every refresh is a job; the report is under Reports.</p>`;
   h += `<table><thead><tr><th>Station</th><th>Kind</th><th>Records</th><th>Unit</th><th>Lines</th><th>Detectability</th><th>Array</th><th>Last refresh</th><th></th></tr></thead><tbody>`;
   for (const s of stations) { const m = s.summary || {};
@@ -1108,14 +1108,18 @@ VIEWS.seismic = async () => {
   const layers = await get('/api/layers');
   h += layersCardHtml(layers.layers);
   h += stressCardHtml(layers.stress || null, layers.stress_map || null);
+  h += fieldCardHtml(field);
   h += liveCardHtml(live);
   h += tracksCardHtml(tracks, stations);
   h += sarPanelHtml(sar);
+  h += imageCardHtml(img);
   $('#main').innerHTML = h;
   layersCardBind(); stressCardBind();
+  fieldCardBind();
   liveCardBind(live);
   tracksCardBind(stations);
   sarPanelBind(sar);
+  imageCardBind();
   document.querySelectorAll('[data-sref]').forEach(b => b.onclick = async () => { b.disabled = true; try { const j = await post(`/api/seismic/${b.dataset.sref}/refresh`); toast('Refresh started: job ' + j.id, 'ok'); watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); } b.disabled = false; });
   document.querySelectorAll('[data-srm]').forEach(b => b.onclick = async () => { if (!confirm(`Remove ${b.dataset.srm}? Its folder is kept, renamed.`)) return; try { await post(`/api/seismic/${b.dataset.srm}/remove`); toast('Removed', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
   const add = $('#sAdd'); if (!add) return;
@@ -1137,6 +1141,45 @@ VIEWS.sar = async () => {
   $('#main').innerHTML = h;
   sarPanelBind(sar);
 };
+// ---------- the field recorder: the black box on the pad, its files pulled into the workspace ----------
+function fieldCardHtml(field) {
+  const P = field.pulls || [];
+  let h = `<div class="card" id="fieldCard"><h3>Field recorder <span class="small muted">the black box on the pad (GEA Recorder): its files pulled in, checked against their hashes, as stations</span></h3>
+    <p class="small muted">The recorder writes hourly miniSEED files with a SHA-256 beside each, a manifest and the sensors' positions, every sample on its GPS clock. Give its address on the pad network (http://the-box:8780), or the folder of the USB mirror carried in, and Pull: GEA fetches what it does not have, checks each file, and makes or updates the array station of the ground sensors and the electrode station, every record byte for byte as the box wrote it.</p>`;
+  if (can('operator')) h += `<div class="row"><label>The box's address or the mirror folder<input id="fieldSrc" placeholder="http://192.168.1.50:8780" style="min-width:min(26em,100%)" value="${esc(P.length ? P[P.length - 1].source : '')}"></label><label>Station name (optional)<input id="fieldName" placeholder="Pad 3 field"></label><button id="fieldPull" type="button">Pull</button><span id="fieldNote" class="small muted"></span></div>`;
+  if (P.length) h += `<table class="small"><thead><tr><th>Box</th><th>Site</th><th>Pulled</th><th>Files</th><th>New</th><th>Stations</th><th>Rig rows</th><th>Failed hash</th></tr></thead><tbody>${P.map(p => `<tr><td>${esc(p.box)}</td><td>${esc(p.site || '')}</td><td>${esc(p.pulled_utc)}</td><td>${p.n_files}</td><td>${p.fetched}</td><td>${(p.stations || []).map(s => `<a href="#/seismic/${esc(s.id)}">${esc(s.display)}</a> (${s.sensors.length} sensors, ${s.hours} spans)`).join('; ')}</td><td>${p.rig_rows}</td><td>${(p.bad || []).length ? statusPill('serious', String(p.bad.length)) : '0'}</td></tr>`).join('')}</tbody></table>`;
+  else h += `<p class="small muted">Nothing pulled yet. The recorder's kit (GEA-Recorder-&lt;version&gt;.tar.gz) is on every release; its README says how to set the box up.</p>`;
+  return h + `</div>`;
+}
+function fieldCardBind() {
+  const b = $('#fieldPull'); if (!b) return;
+  b.onclick = async () => { const src = $('#fieldSrc').value.trim(); if (!src) return toast("The box's address or the mirror folder", 'err'); b.disabled = true; try {
+      const j = await post('/api/field/pull', {source: src, display: $('#fieldName').value.trim() || undefined});
+      toast('Pulling: job ' + j.id, 'ok'); $('#fieldNote').textContent = 'pulling (job ' + j.id + ')…'; watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); b.disabled = false; } };
+}
+// ---------- the image: the drilling itself as the seismic source, recorded from the ground around the rig ----------
+function imageCardHtml(img) {
+  const r = img.image, dir = img.dir;
+  let h = `<div class="card" id="imgCard"><h3>The image <span class="small muted">drill-bit seismic from the ground: the velocity column and the layer below the bit, on a labelled scene</span></h3>
+    <p class="small muted">While a well is drilled the bit's position is known every second, so the rig is a seismic source of known position moving along the well. Stations on the ground around the pad, each correlated against the one beside the substructure (nothing on the rig), give the time differences that resolve the rock's velocity layer by layer and place the first layer below the bit. This runs it end to end on a scene the program never sees - a layered earth, a well built to horizontal in the pay - and says what it recovered against the scene's own figures. Every figure is stamped ${esc(img.label)}; none is any ground.</p>
+    <div class="row"><label>Ground stations<input id="imgN" type="number" value="${r ? r.params.n_stations : 24}" min="6" max="96" step="1" style="width:5em"></label><label>Outer ring, ft<input id="imgR" type="number" value="${r ? r.params.radius_ft : 6000}" min="1000" max="30000" step="500" style="width:7em"></label><label>Ground noise<input id="imgNoise" type="number" value="${r ? r.params.noise : 1}" min="0" max="20" step="0.5" style="width:5em" title="against a reference arrival of 50"></label><label>Seed<input id="imgSeed" type="number" value="${r ? r.params.seed : 1}" min="0" step="1" style="width:5em"></label>${can('operator') ? '<button id="imgRun" type="button">Run the scene</button>' : ''}<span id="imgRunNote" class="small muted"></span></div>`;
+  if (r) {
+    const co = r.column, cr = r.correlation, rf = r.reflector, vd = r.verdict;
+    h += `<div class="tiles">${tile('Velocity column', co.cell_error_rms_pct.toFixed(1) + '% RMS', vd.column ? 'good' : 'serious', '#/seismic', `${co.tops_ft.length} cells of ${r.params.dz_ft} ft; worst ${co.cell_error_max_pct}%`)}${tile('Interfaces', co.interfaces_matched.map(m => m.found_ft === null ? '—' : (m.error_ft >= 0 ? '+' : '') + m.error_ft + ' ft').join(' · '), vd.column ? 'good' : 'warn', '#/seismic', co.interfaces_matched.map(m => fmt(m.true_ft, 0) + ' ft').join(', ') + ' in the scene')}${rf ? tile('Layer below the bit', fmt(rf.found_ft, 0) + ' ft', vd.reflector ? 'good' : 'warn', '#/seismic', `scene ${fmt(rf.true_ft, 0)} ft; ${rf.error_ft >= 0 ? '+' : ''}${rf.error_ft} ft against a quarter wavelength of ${rf.quarter_wavelength_ft} ft`) : ''}${tile('Picks', cr.pick_precision_ms.toFixed(2) + ' ms', vd.picks ? 'good' : 'warn', '#/seismic', `${cr.usable} of ${cr.pairs} pairs usable; farthest ${fmt(cr.farthest_usable_ft, 0)} ft`)}</div>`;
+    const fig = (n) => `<img src="/reports/${esc(dir)}/${n}.svg?t=${encodeURIComponent(r.generated_utc)}" alt="${n}" style="width:100%;max-width:960px;display:block;background:#fff;border-radius:8px;margin:8px 0">`;
+    h += fig('section') + fig('moveout');
+    h += `<details class="small"><summary>The property column, read with standard relations (what a log at the well calibrates)</summary><table><thead><tr><th>Top (ft)</th><th>Base (ft)</th><th>Velocity (ft/s)</th><th>Density (Gardner)</th><th>Overburden at base (psi)</th><th>Rocks fitting</th><th>Porosity (Wyllie)</th></tr></thead><tbody>${r.layers.map(l => `<tr><td>${fmt(l.top_ft, 0)}</td><td>${fmt(l.base_ft, 0)}</td><td>${fmt(l.v_ft_s, 0)}</td><td>${l.rho_gcc}</td><td>${fmt(l.overburden_base_psi, 0)}</td><td>${esc(l.rocks.join(', ') || '—')}</td><td>${esc(Object.entries(l.porosity).filter(([k, v]) => v !== null).map(([k, v]) => k + ' ' + Math.round(100 * v) + '%').join(', ') || '—')}</td></tr>`).join('')}</tbody></table></details>`;
+    h += `<details class="small"><summary>What a field recorder must capture (from this run)</summary><table><thead><tr><th>Item</th><th>Value</th><th>Why</th></tr></thead><tbody>${r.recorder.map(x => `<tr><td>${esc(x.item)}</td><td>${esc(x.value)}</td><td>${esc(x.why)}</td></tr>`).join('')}</tbody></table></details>`;
+    h += `<p class="small">${reportLinks(dir, 'bit_image')} · ${esc(r.report_id)} · ${esc(r.generated_utc)} · resolution: a quarter wavelength, ${r.resolution.quarter_wavelength_ft} ft at ${r.resolution.dominant_hz} Hz - more stations lower the noise, not this limit.</p>`;
+  } else h += `<p class="small muted">No run yet. Run the scene: about ten seconds.</p>`;
+  return h + `</div>`;
+}
+function imageCardBind() {
+  const run = $('#imgRun'); if (!run) return;
+  run.onclick = async () => { run.disabled = true; try {
+      const j = await post('/api/seismic/image/run', {n_stations: +$('#imgN').value, radius_ft: +$('#imgR').value, noise: +$('#imgNoise').value, seed: +$('#imgSeed').value});
+      toast('The image: job ' + j.id, 'ok'); $('#imgRunNote').textContent = 'running the scene (job ' + j.id + ')…'; watch(j.id, () => route()); } catch (e) { toast(e.message, 'err'); run.disabled = false; } };
+}
 function sarPanelHtml(sar) {
   const f = sar.film;
   let h = `<div class="card" id="sarPanel"><h3>SAR panel <span class="small muted">the second leg's arithmetic, played forward in time on a labelled synthetic scene</span></h3>

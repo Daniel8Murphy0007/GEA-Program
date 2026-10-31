@@ -416,6 +416,38 @@ jobs:
           path: |
             dist/GEA-Reader-Setup-*.exe
             dist/GEA-Reader-portable-*.zip
+  recorder:
+    # GEA Recorder, the black box for the Pi: built, self-tested on the built kit, attached as GEA-Recorder-<version>.tar.gz
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Build the recorder kit and run its self-test
+        run: |
+          pip install numpy
+          python tools/build_recorder.py
+      - name: Install it as the Pi would and run the self-test from the install
+        run: |
+          cd dist && tar xzf GEA-Recorder-*.tar.gz && cd gea-recorder-*/
+          python -m venv /tmp/rec && /tmp/rec/bin/pip install -q gea_recorder-*.whl && /tmp/rec/bin/gea-recorder selftest --seconds 10
+          /tmp/rec/bin/gea-recorder config --write /tmp/rec/config.json && /tmp/rec/bin/gea-recorder config --check /tmp/rec/config.json
+      - name: Attest where the recorder was built (provenance)
+        uses: actions/attest-build-provenance@v3
+        continue-on-error: ${{ github.event.repository.private }}   # attestations need a public repository (or a paid plan)
+        with:
+          subject-path: dist/GEA-Recorder-*.tar.gz
+      - name: Attach the recorder to the release
+        run: bash .github/workflows/attach-kit.sh "${{ inputs.release_tag }}" "dist/GEA-Recorder-*.tar.gz" "GEA-Recorder-"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/upload-artifact@v6
+        with:
+          name: gea-recorder
+          path: dist/GEA-Recorder-*.tar.gz
   linux-kit:
     runs-on: ubuntu-latest
     steps:

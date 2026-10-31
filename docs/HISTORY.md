@@ -4,6 +4,19 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.71.0 - 2026-10-31 - the black box, and the image
+
+- GEA Recorder: the field recorder for the Pi, a program of its own on
+  every release - the ground channels and the rig feed on one GPS clock
+  into hourly miniSEED files with hashes and a manifest, a read-only
+  status page, a systemd service, a self-test on the built kit; GEA pulls
+  its files in, checks every hash and makes stations of them. Section DR.
+- The drilling as the seismic source of known position, recorded from the
+  ground with nothing on the rig: station-against-reference correlation,
+  the velocity column by Snell-ray tomography, the layer below the bit,
+  the property column, the recorder's specification - end to end on a
+  labelled scene, judged against it. Section DQ; gate 533 with DR.
+
 ## v0.70.1 - 2026-10-29 - two control panels, one browser
 
 - Each control panel's cookies carry its port, so the site's panel and a

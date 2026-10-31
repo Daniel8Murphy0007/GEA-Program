@@ -36,6 +36,8 @@ INDEX: List[tuple] = [
     ('transients', 'Shut-ins and build-ups', 'the first-look build-up analysis and its band'),
     ('sites', 'Sites - the engagement', 'the wells, stations and tracks of one client\'s ground, and the one report for all of it'),
     ('seismic', 'Seismic - the second leg', 'miniSEED/SAC in, spectra and persistent lines out, the detectability test against known rigs'),
+    ('bit-image', 'The image - drill-bit seismic from the ground', "the drilling itself as the seismic source of known position: ground stations correlated against the one beside the rig, the velocity column layer by layer, the layer below the bit, the property column, and what a field recorder must capture - end to end on a labelled scene"),
+    ('recorder', 'The field recorder - the black box', "GEA Recorder on a Raspberry Pi in the pad: the ground channels and the rig feed on one GPS clock into hourly miniSEED files with hashes and a manifest; GEA pulls them in and makes stations of them"),
     ('patches', 'Patches', 'supervised live connections, their states and records'),
     ('files', 'Files', 'import and export roots, detection by content, the evidence pack'),
     ('notifications', 'Notifications', 'rules, channels, the delivery log'),

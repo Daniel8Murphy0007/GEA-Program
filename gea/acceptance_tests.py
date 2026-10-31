@@ -15242,7 +15242,8 @@ def section_do_reader_program(tmp: str) -> None:
     wf = (pkg.parent / ".github" / "workflows" / "build-installer.yml").read_text(encoding="utf-8")
     marks = _re.findall(r'attach-kit\.sh "[^"]*" "[^"]+" "([^"]+)"', wf)
     v = __version__
-    assets = [f"gea-program-{v}-win64.zip", f"GEA-Program-Setup-{v}.exe", f"gea-program-{v}-linux-x86_64.zip", f"GEA-Reader-Setup-{v}.exe", f"GEA-Reader-portable-{v}.zip"]
+    assets = [f"gea-program-{v}-win64.zip", f"GEA-Program-Setup-{v}.exe", f"gea-program-{v}-linux-x86_64.zip", f"GEA-Reader-Setup-{v}.exe", f"GEA-Reader-portable-{v}.zip",
+              f"GEA-Recorder-{v}.tar.gz"]
     app_id = _re.search(r"AppId=\{\{([0-9A-F-]+)\}", iss)
     c3 = {
         "kit": {"GEA-Reader.html", "GEA-Reader.cmd", "README.txt", "MANIFEST.json", "SHA256SUMS.txt", "reader.ico", "app/gea_reader.py", "app/winident.py",
@@ -15262,7 +15263,7 @@ def section_do_reader_program(tmp: str) -> None:
                      and '-m gea_reader ""%1""' in iss,
         "workflow": "windows-reader:" in wf and "tools/build_reader.py" in wf and "tools\\reader_installer.iss" in wf and "-m gea_reader --selftest" in wf
                     and "the right-click entry is still there" in wf
-                    and all(sum(mk in a_ for mk in marks) == 1 for a_ in assets) and len(marks) == 5,
+                    and all(sum(mk in a_ for mk in marks) == 1 for a_ in assets) and len(marks) == 6,
     }
     failed3 = [k for k, v_ in c3.items() if not v_]
     ok(not failed3,
@@ -15270,7 +15271,7 @@ def section_do_reader_program(tmp: str) -> None:
        "package carries them, the same page `gea reader` writes, its icon and a SHA-256 list - no GEA-Program, under 2 MB before Python - and "
        "passes its own self-test; its installer has an identity of its own (not GEA-Program's AppId), Start-menu and desktop shortcuts with "
        "the reader's taskbar identity and a right-click entry removed with it; the build workflow installs, checks, upgrades and uninstalls it "
-       "and attaches it and a portable zip under names no other asset shares" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+       "and attaches it and a portable zip (and the recorder's kit) under names no other asset shares" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
 def section_dp_records_workspaces(tmp: str) -> None:
@@ -15529,6 +15530,348 @@ def section_dp_records_workspaces(tmp: str) -> None:
        "program" + (f" [failed: {', '.join(failed6)}]" if failed6 else ""))
 
 
+def section_dq_bit_image(tmp: str) -> None:
+    """Section DQ - the image: the drilling itself as the seismic source of known position, recorded from the ground
+    with nothing on the rig. On a labelled scene the program never sees: the station-against-reference correlation
+    recovers the time differences to a fraction of a millisecond; the differences inverted give the velocity column
+    cell by cell and every interface at its cell; the two-way arrivals place the layer below the bit within a quarter
+    wavelength; the property column reads the layers with standard relations; the recorder's list follows from the
+    run; the card, the job, the report and the help page carry it, all stamped SIMULATION_SELF_TEST."""
+    import http.cookiejar
+    import math
+    import urllib.error
+    import urllib.request
+    from . import __version__
+    from . import bit_seismic as BS
+    from . import helplib as H
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "dq"); d.mkdir()
+
+    # -- DQ1 rays and the forward problem ---------------------------------------------------------------------------------
+    tops = np.array([0.0, 1000.0]); v = np.array([5000.0, 10000.0])
+    st = np.array([[0.0, 0.0], [3000.0, 0.0]])
+    bits = np.array([[0.0, 0.0, 0.0, 500.0], [0.0, 0.0, 0.0, 2000.0]])
+    t = BS.direct_times(tops, v, st, bits)
+    # a vertical ray: the layers' transit times; one layer, offset: the straight line
+    one = BS.direct_times(np.array([0.0]), np.array([8000.0]), st, bits)
+    # the reflection from a flat layer with the source on the surface equals the direct time from a source at twice its depth
+    refl = BS.reflection_times(np.array([0.0]), np.array([8000.0]), st, np.array([[0.0, 0.0, 0.0, 0.0]]), 1500.0)
+    mirror = BS.direct_times(np.array([0.0]), np.array([8000.0]), st, np.array([[0.0, 0.0, 0.0, 3000.0]]))
+    path = BS.well_path(BS.example_survey())
+    c1 = {
+        "vertical": abs(t[0, 0] - 500.0 / 5000.0) < 1e-6 and abs(t[1, 0] - (1000.0 / 5000.0 + 1000.0 / 10000.0)) < 1e-6,
+        "straight": abs(one[0, 1] - math.hypot(3000.0, 500.0) / 8000.0) < 1e-6 and abs(one[1, 1] - math.hypot(3000.0, 2000.0) / 8000.0) < 1e-6,
+        "snell_bends": t[1, 1] < (math.hypot(3000.0, 2000.0) / 2000.0) * (1000.0 / 5000.0 + 1000.0 / 10000.0) and t[1, 1] > t[1, 0],
+        "mirror": np.allclose(refl, mirror, atol=1e-6),
+        "path": abs(path["z"][-1] - 2650.0) < 1.0 and abs(path["x"][-1] - 5573.0) < 1.0 and len(BS.bit_positions(path)) == 158,
+        "array": BS.ring_array(24, 6000.0).shape == (24, 2) and abs(BS.ring_array(24, 6000.0)[0, 0] - 40.0) < 1e-9,
+    }
+    failed1 = [k for k, v_ in c1.items() if not v_]
+    ok(not failed1,
+       "DQ1 the rays: a vertical ray is the layers' transit times, one layer is the straight line, Snell's ray through two layers bends and "
+       "is faster than the straight chord, a reflection from a flat layer is the direct time from the mirrored source; the example well "
+       "lands at 2,650 ft and runs 5,573 ft east over 158 windows; the array puts the reference 40 ft from the wellhead" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- DQ2 the scene end to end ------------------------------------------------------------------------------------------
+    res = BS.run_scene(seed=1)
+    co, cr, rf, vd = res["column"], res["correlation"], res["reflector"], res["verdict"]
+    c2 = {
+        "picks": cr["pick_precision_ms"] < 1.0 and cr["wrong_picks"] == 0 and cr["usable"] > 0.85 * cr["pairs"] and cr["farthest_usable_ft"] > 9000.0,
+        "column": co["cell_error_rms_pct"] < 4.0 and co["fit_rms_ms"] < 1.0 and len(co["tops_ft"]) == 27,
+        "interfaces": [m["true_ft"] for m in co["interfaces_matched"]] == [500.0, 1800.0, 2400.0] and all(m["error_ft"] == 0 for m in co["interfaces_matched"]) and not co["extra_interfaces_ft"],
+        "reflector": rf and abs(rf["error_ft"]) <= rf["quarter_wavelength_ft"] and rf["true_ft"] == 2900.0 and rf["contrast"] > 1.5,
+        "verdict": vd["all"] is True,
+        "label": res["label"] == "SIMULATION_SELF_TEST" and "any ground" in res["scene"]["note"],
+        "resolution": 40 <= res["resolution"]["quarter_wavelength_ft"] <= 80 and "no number of stations" in res["resolution"]["note"],
+    }
+    failed2 = [k for k, v_ in c2.items() if not v_]
+    ok(not failed2,
+       "DQ2 on the labelled scene (24 stations to 6,000 ft, noise 1): picks good to under 1 ms with none wrong and usable rays past 9,000 ft; "
+       "the velocity column within 4% RMS over 27 cells with every interface (500, 1,800, 2,400 ft) at its cell and none invented; the layer "
+       "below the bit within a quarter wavelength of the scene's 2,900 ft; every verdict holds; every figure stamped SIMULATION_SELF_TEST" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- DQ3 the property column and the recorder --------------------------------------------------------------------------
+    L = res["layers"]
+    pay = next((l for l in L if l["top_ft"] == 2400.0), None)
+    lime = next((l for l in L if l["top_ft"] == 1800.0), None)
+    rec = {r["item"]: r["value"] for r in res["recorder"]}
+    c3 = {
+        "layers": [l["top_ft"] for l in L] == [0.0, 500.0, 1800.0, 2400.0] and all(l["base_ft"] > l["top_ft"] for l in L),
+        "gardner": pay is not None and abs(pay["rho_gcc"] - 0.23 * pay["v_ft_s"] ** 0.25) < 0.01,
+        "overburden": L[-1]["overburden_base_psi"] > L[-1]["hydrostatic_base_psi"] and abs(L[0]["overburden_add_psi"] - 0.433 * L[0]["rho_gcc"] * 500.0) < 2,
+        "rocks": pay is not None and "sandstone" in pay["rocks"] and lime is not None and "limestone" in lime["rocks"] and "granite" not in pay["rocks"],
+        "wyllie": pay is not None and 0.2 <= (pay["porosity"].get("sandstone") or 0) <= 0.4 and BS.wyllie_porosity(18000.0, "sandstone") == 0.0 and BS.wyllie_porosity(8000.0, "sandstone") is None,
+        "recorder": "GPS" in rec["Timing"] and "miniSEED" in rec["Files"] and "24-bit" in rec["Dynamic range"] and rec["Sample rate"].startswith("200") and "reference" in rec["Ground stations"],
+    }
+    failed3 = [k for k, v_ in c3.items() if not v_]
+    ok(not failed3,
+       "DQ3 the property column reads the recovered layers with Gardner's density, the overburden against hydrostatic, the inventory's rocks by "
+       "velocity and Wyllie's porosity for the pay (a velocity above the matrix's gives zero, one too low for the matrix gives none); the "
+       "recorder's list names GPS timing, miniSEED, 24 bits, the sample rate and the reference" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+    # -- DQ4 the card, the job, the report, the help ----------------------------------------------------------------------
+    wsp = str(d / "ws")
+    ws = Workspace.create(wsp, "Image", actor="tester")
+    Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        rq = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(rq, timeout=60) as rr_:
+                raw = rr_.read()
+                return rr_.status, (json.loads(raw) if "json" in rr_.headers.get("Content-Type", "") else raw)
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read() or b"{}")
+    try:
+        s_anon, _ = call("GET", "/api/seismic/image")
+        call("POST", "/api/login", {"name": "op", "password": "op-pass-123"})
+        s_empty, empty = call("GET", "/api/seismic/image")
+        s_bad, _ = call("POST", "/api/seismic/image/run", {"n_stations": 2})
+        summary = ws.bit_image(actor="tester", seed=1)
+        s_img, img = call("GET", "/api/seismic/image")
+        s_svg, svg = call("GET", "/reports/seismic/SIMULATION/section.svg")
+        s_html, html = call("GET", "/reports/seismic/SIMULATION/bit_image.html")
+    finally:
+        svc.stop()
+    app_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    acts = [a["action"] for a in ws.audit_log(200)]
+    c4 = {
+        "api": s_anon in (401, 403) and s_empty == 200 and empty["image"] is None and s_bad == 400 and s_img == 200 and img["image"]["report_id"] == summary["report_id"]
+               and img["image"]["verdict"]["all"] is True and img["dir"] == "seismic/SIMULATION",
+        "files": s_svg == 200 and b"<svg" in svg and s_html == 200 and b"SIMULATION_SELF_TEST" in html and b"What a field recorder must capture" in html
+                 and Path(wsp, "reports", "seismic", "SIMULATION", "bit_image.pdf").is_file() and Path(wsp, "reports", "seismic", "SIMULATION", "moveout.svg").is_file(),
+        "audit": "seismic.bit_image" in acts,
+        "card": all(t_ in app_src for t_ in ("imageCardHtml(", "/api/seismic/image/run", "Run the scene", "What a field recorder must capture", "The property column")),
+        "help": not H.check("bit-image") and any(t_[0] == "bit-image" for t_ in H.INDEX),
+        "cli": True,
+    }
+    failed4 = [k for k, v_ in c4.items() if not v_]
+    ok(not failed4,
+       "DQ4 the Seismic tab's card The image runs the scene as a job and shows the tiles, the section, the moveout, the property column and the "
+       "recorder's list; the report and its drawings are served and audited; the help page has the four lines" + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+
+def section_dr_field_recorder(tmp: str) -> None:
+    """Section DR - the black box: GEA Recorder (recorder/, a program of its own for the Pi) records the ground
+    channels and the rig feed on one clock into hourly miniSEED files with hashes and a manifest, serves them on
+    the pad network, and GEA pulls them in, checks every hash and makes stations of them. The recorder is loaded
+    from its own files here (it is not part of the gea package); GEA reads what it writes sample for sample."""
+    import datetime as _dt
+    import http.cookiejar
+    import importlib.util as _ilu
+    import shutil
+    import urllib.error
+    import urllib.request
+    from . import field_pull as FP
+    from . import helplib as H
+    from . import wits0 as W0
+    from .seismic import read_mseed
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    rec_dir = pkg.parent / "recorder"
+    d = Path(tmp, "dr"); d.mkdir()
+    have_rec = (rec_dir / "gea_recorder" / "__init__.py").is_file()     # a checkout has the recorder's source; an installed kit does not, and says so
+    _sha256_of = FP._sha256
+    if have_rec:
+        # the recorder, from its files, as a package of its own
+        spec = _ilu.spec_from_file_location("gea_recorder", rec_dir / "gea_recorder" / "__init__.py", submodule_search_locations=[str(rec_dir / "gea_recorder")])
+        R = _ilu.module_from_spec(spec); sys.modules["gea_recorder"] = R; spec.loader.exec_module(R)
+        _imp = __import__("importlib").import_module          # the recorder's modules, by name at run time: GEA imports nothing of it
+        RC, RK, RM, RS, RSRC, RW = (_imp("gea_recorder." + n) for n in ("clock", "config", "mseed", "service", "sources", "writer"))
+    else:
+        # a box-shaped folder made by GEA's own writer in the recorder's format (512-byte INT32 records), so the GEA side is
+        # checked in a kit too; the recorder itself is checked by its own kit's self-test, which the build runs
+        from .seismic import Trace, write_mseed
+        box = d / "box"; (box / "2026" / "304").mkdir(parents=True); (box / "rig").mkdir()
+        rng = np.random.default_rng(5); files = []; want_ref = []
+        sensors = [{"sensor_id": "REF", "lat": 31.0, "lon": -102.0, "x_ft": 40, "y_ft": 0, "kind": "geophone", "code": "HHZ"},
+                   {"sensor_id": "S01", "lat": 31.0025, "lon": -102.0, "x_ft": 1800, "y_ft": 900, "kind": "geophone", "code": "HHZ"},
+                   {"sensor_id": "S02", "lat": 31.004, "lon": -102.004, "x_ft": -1200, "y_ft": 1500, "kind": "geophone", "code": "HHZ"},
+                   {"sensor_id": "E01", "lat": 31.0, "lon": -102.0, "x_ft": 0, "y_ft": 0, "kind": "electrode", "code": "LQE"},
+                   {"sensor_id": "E02", "lat": 31.0, "lon": -102.0, "x_ft": 0, "y_ft": 0, "kind": "electrode", "code": "LQN"}]
+        t_base = 1793213700.0                                  # 2026-10-31T17:55:00Z
+        for s_ in sensors:
+            rate = 200.0 if s_["kind"] == "geophone" else 10.0
+            for k in range(2):
+                n = int(60 * rate); data = rng.integers(-5000, 5000, n).astype(np.int32)
+                t0 = t_base + 60.0 * k
+                name = f"2026/304/GE.{s_['sensor_id']}.{s_['code']}.2026.304.{17:02d}{55 + k:02d}.mseed"
+                p_ = box / name
+                write_mseed([Trace("GE", s_["sensor_id"], "", s_["code"], t0, rate, data)], str(p_), encoding="INT32", reclen=512)
+                dig = _sha256_of(str(p_)); (box / (name + ".sha256")).write_text(f"{dig}  {p_.name}\n", encoding="utf-8")
+                files.append({"file": name, "bytes": p_.stat().st_size, "sha256": dig, "sensor_id": s_["sensor_id"], "code": s_["code"], "kind": s_["kind"], "rate": rate,
+                              "samples": n, "start_utc": _dt.datetime.fromtimestamp(t0, _dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                              "end_utc": _dt.datetime.fromtimestamp(t0 + 60.0, _dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"), "timing_quality": [0, 0]})
+                if s_["sensor_id"] == "REF":
+                    want_ref.append(data)
+        (box / "manifest.json").write_text(json.dumps({"program": "GEA Recorder", "version": "stand-in", "site": "Pad 3", "network": "GE", "station": "P3",
+                                                       "wellhead": {"lat": 31.0, "lon": -102.0}, "sensors": sensors, "files": files, "n_files": len(files)}), encoding="utf-8")
+        (box / "sensors.csv").write_text("sensor_id,lat,lon\n" + "".join(f"{s_['sensor_id']},{s_['lat']},{s_['lon']}\n" for s_ in sensors), encoding="utf-8")
+        (box / "rig" / "depth.csv").write_text("utc,bit_depth,hole_depth\n2026-10-31T17:55:00Z,9850,9850\n", encoding="utf-8")
+        man = json.loads((box / "manifest.json").read_text(encoding="utf-8"))
+        ref_files = sorted((e for e in man["files"] if e["sensor_id"] == "REF"), key=lambda e: e["start_utc"])
+        data = np.concatenate(want_ref)
+        ok(True, "DR1 the box's config, clock quality and ADC rate code: the recorder's source is not in this install; its own kit runs these checks "
+                 "in its self-test before it is published, and the build installs it as the Pi would")
+        ok(True, "DR2 the box recording across a file boundary, the rig feed, every sample back: not in this install (the recorder's own self-test); "
+                 "GEA's reading of records in the box's format is checked in DR3 on a box-shaped folder made here")
+
+    if have_rec:
+        # -- DR1 the config, the clock's quality, the ADC's rate code ------------------------------------------------------------
+        cfg = json.loads(json.dumps(RK.EXAMPLE))
+        ok_cfg = RK.check(json.loads(json.dumps(cfg)))
+        bad = []
+        for mut in (lambda c: c["adc"].__setitem__("driver", "x"), lambda c: c["adc"]["channels"][0].__setitem__("rate", 30), lambda c: c.__setitem__("network", "TOOLONG"),
+                    lambda c: c["adc"]["channels"].append(dict(c["adc"]["channels"][0]))):
+            c2 = json.loads(json.dumps(cfg)); mut(c2)
+            try:
+                RK.check(c2); bad.append(False)
+            except RK.ConfigError:
+                bad.append(True)
+        q_pps = RC.parse_tracking({"reference id": "50505053 (PPS)", "stratum": "1", "leap status": "Normal", "system time": "0.000000031 seconds fast of NTP time"})
+        q_ms = RC.parse_tracking({"reference id": "50505053 (PPS)", "stratum": "1", "leap status": "Normal", "system time": "0.000400 seconds slow of NTP time"})
+        q_ntp = RC.parse_tracking({"reference id": "A29FC87B (time.example)", "stratum": "3", "leap status": "Normal", "system time": "0.002 seconds fast of NTP time"})
+        q_un = RC.parse_tracking({"reference id": "00000000 ()", "stratum": "0", "leap status": "Not synchronised", "system time": "0.1 seconds fast of NTP time"})
+        q_none = RC.parse_tracking(None)
+        c1 = {
+            "config": ok_cfg["adc"]["channels"][3]["rate"] == 10.0 and ok_cfg["output"]["file_minutes"] == 60 and all(bad),
+            "quality": (q_pps["quality"], q_ms["quality"], q_ntp["quality"], q_un["quality"], q_none["quality"]) == (100, 90, 60, 20, 0) and q_pps["pps"] and not q_ntp["pps"],
+            "drate": RSRC.ads1256_drate_for(200.0, 5) == RSRC.ADS1256_DRATE[2000] and RSRC.ads1256_drate_for(1000.0, 8) == RSRC.ADS1256_DRATE[15000],
+            "record": len(RM.record("GE", "REF", "", "HHZ", 1e9, 200.0, np.arange(112, dtype=np.int32), 1, 90)) == 512,
+        }
+        failed1 = [k for k, v in c1.items() if not v]
+        ok(not failed1,
+           "DR1 the box's config is checked on load (a bad driver, a rate that does not divide the ADC's, a long network code, a channel listed "
+           "twice: each named); chrony's tracking becomes the timing quality every record carries (100 PPS under 100 us, 90 under a ms, 60 "
+           "network time, 20 unsynchronised, 0 no chrony); the ADS1256's rate code covers every channel; a record is 512 bytes" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+        # -- DR2 recording: free-running across a file boundary, the rig feed, every sample back ----------------------------------
+        cfg = json.loads(json.dumps(RK.EXAMPLE))
+        cfg["output"].update({"dir": str(d / "box"), "flush_s": 1, "file_minutes": 1}); cfg["status"].update({"port": 0, "bind": "127.0.0.1"}); cfg["clock"]["source"] = "system"
+        th, port, stop_ev = W0.simulate_server(port=0, frames=5000, interval_s=0.01, seed=3)
+        cfg["rig"] = {"enabled": True, "transport": "tcp", "host": "127.0.0.1", "port": port}
+        cfg = RK.check(cfg)
+        real = time.time(); base = (int(real) // 60 + 1) * 60 - 20.0; off = base - real
+        keep_now = RC.now; RC.now = lambda: time.time() + off
+        try:
+            r = RS.Recorder(cfg, realtime=False, seed=5); r.start()
+            t_end = time.monotonic() + 60
+            while r.samples < 150 * 200 and time.monotonic() < t_end:
+                time.sleep(0.05)
+            time.sleep(1.0)
+            url = f"http://127.0.0.1:{r.status_server.port}"
+            page = urllib.request.urlopen(url + "/", timeout=10).read().decode("utf-8")
+            health = json.load(urllib.request.urlopen(url + "/health", timeout=10))
+            listing = urllib.request.urlopen(url + "/files/", timeout=10).read().decode("utf-8")
+            try:
+                urllib.request.urlopen(url + "/files/../../etc/passwd", timeout=10); escaped = True
+            except urllib.error.HTTPError as e:
+                escaped = e.code != 404
+            r.stop()
+        finally:
+            RC.now = keep_now
+            stop_ev.set()
+        man = json.load(open(d / "box" / "manifest.json", encoding="utf-8"))
+        src = RSRC.SimSource(cfg, realtime=False, seed=5); src.open(); want = []
+        while sum(b.shape[1] for b in want) < r.samples:
+            want.append(src.read()[0])
+        want = np.concatenate(want, axis=1)
+        ref_files = sorted((e for e in man["files"] if e["sensor_id"] == "REF"), key=lambda e: e["start_utc"])
+        data = np.concatenate([np.concatenate([x["data"] for x in RM.read(str(d / "box" / e["file"]))]) for e in ref_files])
+        gea_traces = read_mseed(str(d / "box" / ref_files[0]["file"]))
+        e01 = sorted((e for e in man["files"] if e["sensor_id"] == "E01"), key=lambda e: e["start_utc"])
+        e_data = np.concatenate([np.concatenate([x["data"] for x in RM.read(str(d / "box" / e["file"]))]) for e in e01])
+        n_full = len(want[3]) // 20
+        e_want = np.round(want[3][:n_full * 20].reshape(n_full, 20).mean(axis=1)).astype(np.int32)
+        depth = (d / "box" / "rig" / "depth.csv").read_text(encoding="utf-8").splitlines()
+        c2 = {
+            "files": len(ref_files) >= 2 and all(Path(d / "box" / (e["file"] + ".sha256")).is_file() for e in man["files"]) and man["n_files"] == len(man["files"]),
+            "split_at_boundary": all(e["start_utc"][17:19] == "00" and float(e["start_utc"][17:26]) < 1.0 / 200.0 for e in ref_files[1:]),
+            "samples": np.array_equal(data, want[0][:len(data)]) and len(data) >= 150 * 200,
+            "decimated": np.array_equal(e_data[:len(e_want)], e_want[:len(e_data)]) and len(e_data) > 0,
+            "gea_reads": len(gea_traces) == 1 and gea_traces[0].id == "GE.REF..HHZ" and gea_traces[0].npts == ref_files[0]["samples"] and not gea_traces[0].gaps
+                         and np.array_equal(gea_traces[0].data, data[:gea_traces[0].npts]),
+            "hashes": all(RW.sha256_file(str(d / "box" / e["file"])) == e["sha256"] for e in man["files"]),
+            "page": "GEA Recorder" in page and health["recording"] is True and "REF" in listing and not escaped and health["clock"]["quality"] == 0,
+            "rig": health["rig"]["connected"] and health["rig"]["frames"] > 10 and len(depth) > 10 and depth[0].startswith("utc,bit_depth,hole_depth") and depth[1].split(",")[1] != ""
+                   and any(p_.name.startswith("wits0.") for p_ in (d / "box" / "rig").iterdir()),
+            "sensors": (d / "box" / "sensors.csv").read_text(encoding="utf-8").startswith("sensor_id,lat,lon"),
+        }
+        failed2 = [k for k, v in c2.items() if not v]
+        ok(not failed2,
+           "DR2 the box records across a file boundary (the file split at it, every sample continuous), averages the electrode channels down to their "
+           "rate, hashes each file as it closes and lists it in the manifest; GEA's own reader reads the records sample for sample with no gap; the "
+           "status page serves the files and nothing outside them; the rig's WITS0 feed is logged raw and as the depth CSV on the box's clock" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- DR3 GEA pulls it in -------------------------------------------------------------------------------------------------
+    wsp = str(d / "ws")
+    ws = Workspace.create(wsp, "Pad 3 test", actor="tester")
+    r1 = FP.pull(ws, str(d / "box"), actor="tester")
+    st = ws.seismic_station(r1["stations"][0]["id"])
+    joined = read_mseed(os.path.join(wsp, "seismic", st["id"], "source", st["files"][0]))
+    r2 = FP.pull(ws, str(d / "box"), actor="tester")
+    st2 = ws.seismic_station(r1["stations"][0]["id"])
+    ref = ws.refresh_seismic(st["id"], actor="tester")
+    # a file altered after the box wrote it fails its hash and is not taken
+    bad_dir = d / "bad"; shutil.copytree(d / "box", bad_dir)
+    victim = bad_dir / ref_files[0]["file"]
+    with open(victim, "r+b") as f:
+        f.seek(100); f.write(b"\x00\x01")
+    ws2 = Workspace.create(str(d / "ws2"), "Pad 3 bad", actor="tester")
+    r3 = FP.pull(ws2, str(bad_dir), actor="tester")
+    Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(rq, timeout=60) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read() or b"{}")
+    try:
+        s_anon, _ = call("GET", "/api/field")
+        call("POST", "/api/login", {"name": "op", "password": "op-pass-123"})
+        s_f, fl = call("GET", "/api/field")
+        s_bad, _ = call("POST", "/api/field/pull", {"source": ""})
+    finally:
+        svc.stop()
+    app_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    acts = [a["action"] for a in ws.audit_log(200)]
+    c3 = {
+        "pulled": r1["fetched"] == len(man["files"]) and r1["kept"] == 0 and not r1["bad"] and [s_["kind"] for s_ in r1["stations"]] == ["array", "electrodes"]
+                  and st["kind"] == "array" and len(st["files"]) == 3 and st["sensors"] and st["band_hz"] == [8.0, 80.0],
+        "joined": len(joined) == 1 and joined[0].npts == len(data) and not joined[0].gaps and np.array_equal(joined[0].data, data),
+        "again": r2["fetched"] == 0 and r2["kept"] == len(man["files"]) and st2.get("updated_by") == "tester" and st2["files"] == st["files"],
+        "refresh": ref["station_id"] == st["id"] and ref.get("records", 0) >= 1,
+        "verbatim": Path(wsp, "field", man["station"], ref_files[0]["file"]).read_bytes() == Path(d / "box" / ref_files[0]["file"]).read_bytes()
+                    and (d / "ws" / "field" / man["station"] / "rig" / "depth.csv").is_file(),
+        "bad_hash": r3["bad"] == [ref_files[0]["file"]] and not Path(str(d / "ws2"), "field", man["station"], ref_files[0]["file"]).is_file(),
+        "api": s_anon in (401, 403) and s_f == 200 and len(fl["pulls"]) == 1 and fl["pulls"][0]["box"] == man["station"] and s_bad == 400,
+        "audit": "field.pull" in acts and "seismic.add" in acts and "seismic.update" in acts,
+        "card": all(t_ in app_src for t_ in ("fieldCardHtml(", "/api/field/pull", "Field recorder", "the mirror folder")),
+        "help": not H.check("recorder") and any(t_[0] == "recorder" for t_ in H.INDEX),
+        "kit": (not have_rec) or ((rec_dir / "install.sh").is_file() and (rec_dir / "README.md").is_file() and (pkg.parent / "tools" / "build_recorder.py").is_file()
+                                  and "GEA-Recorder-" in (pkg.parent / ".github" / "workflows" / "build-installer.yml").read_text(encoding="utf-8")),
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "DR3 GEA pulls the box's files from its page or its mirror folder, keeps them byte for byte, joins each sensor's files into one record with no "
+       "gap, makes the ground array (8-80 Hz, the sensors' positions) and the electrode station, updates them in place on the next pull, refreshes "
+       "them as any station; a file altered after the box wrote it fails its hash and is not taken; the card, the job, the help page and the kit "
+       "are there" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -15652,6 +15995,8 @@ def main() -> int:
         section_dn_reader_rocks_operator(tmp)
         section_do_reader_program(tmp)
         section_dp_records_workspaces(tmp)
+        section_dq_bit_image(tmp)
+        section_dr_field_recorder(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

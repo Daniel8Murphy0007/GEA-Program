@@ -46,6 +46,15 @@ this computer has used (folder, name, port, when last opened) is kept in
 outside the workspaces. The program's own processes start in the install
 kit's folder, never in the folder it was started from.
 
+**The field recorder** (GEA Recorder, since 0.71.0) is a program of its
+own on a Raspberry Pi at the site. It listens on one port (8780) on the
+pad network, read-only: the status page and the files it has written;
+no action can be taken through it. It reads the rig's WITS0 feed and
+never writes to the rig. It writes only under its data folder and the
+USB mirror, never deletes, and stops at a disk floor. GEA pulls from an
+address or folder an operator gives, verifies every file against the
+manifest's SHA-256 before keeping it, and keeps nothing that fails.
+
 `tools/standalone_check.py` (run by the acceptance gate) fails the build if
 any module imports anything outside the standard library, numpy and the
 declared extras.

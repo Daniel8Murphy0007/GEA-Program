@@ -370,7 +370,7 @@ def main(argv=None) -> int:
     p_ws.add_argument("--path", type=str, required=True, help="the workspace folder")
     p_ws.add_argument("--action", type=str, default="list",
                       choices=["init", "add-file", "add-catalog", "add-live", "remove", "list", "migrate", "refresh", "audit",
-                               "add-seismic", "refresh-seismic", "remove-seismic", "sar-film", "refresh-all", "add-track", "refresh-track", "remove-track",
+                               "add-seismic", "refresh-seismic", "remove-seismic", "sar-film", "bit-image", "field-pull", "refresh-all", "add-track", "refresh-track", "remove-track",
                                "seismic-dataset", "seismic-field", "add-site", "sites", "site-report", "remove-site", "rename",
                                "set-well", "sra-define", "sra-report", "associate", "osdu-export", "quakeml-export", "well-identity", "vibration-report",
                                "add-live-station", "live-fold", "live-run", "month-end", "add-layer", "layers", "remove-layer", "structure", "interval",
@@ -428,6 +428,10 @@ def main(argv=None) -> int:
     p_ws.add_argument("--truth", type=str, default=None, help="add-track: ground truth CSV (point_id, lat, lon, utc[, note])")
     p_ws.add_argument("--track", type=str, default=None, help="refresh-track / remove-track: the track id")
     p_ws.add_argument("--win", type=float, default=600.0, help="add-track: the window length, s (default 600)")
+    p_ws.add_argument("--box", type=str, default=None, help="field-pull: the recorder's address (http://192.168.1.50:8780, as its page shows) or its mirror folder")
+    p_ws.add_argument("--n-stations", type=int, default=24, help="bit-image: ground stations, the reference among them")
+    p_ws.add_argument("--radius", type=float, default=6000.0, help="bit-image: the array's outer ring, ft")
+    p_ws.add_argument("--noise", type=float, default=1.0, help="bit-image: ground noise against a reference arrival of 50")
     p_ws.add_argument("--hours", type=float, default=8.0, help="sar-film: the synthetic scene's length, h")
     p_ws.add_argument("--step", type=float, default=600.0, help="sar-film: seconds per frame")
     p_ws.add_argument("--seed", type=int, default=5, help="sar-film: the scene's seed")
@@ -1023,7 +1027,7 @@ def main(argv=None) -> int:
 
     p_se = sub.add_parser("seismic", help="the second leg's ingest: miniSEED/SAC in, spectra and persistent lines out, an FDSN fetch, and the detectability test against known rigs")
     p_se.add_argument("--action", choices=["info", "spectrum", "lines", "fetch", "stations", "detect", "selftest", "convert", "response", "remove-response",
-                                           "beam", "array-detect", "locate", "array-selftest", "sar-film", "bearings", "track", "track-selftest",
+                                           "beam", "array-detect", "locate", "array-selftest", "sar-film", "bit-image", "bearings", "track", "track-selftest",
                                            "signatures", "multi-beam", "multi-bearings", "multi-track", "signature-selftest", "field-selftest",
                                            "harmonics", "harmonic-selftest", "datum", "geodesy-selftest", "array-qc", "qc-selftest", "unlisted", "unlisted-selftest", "bearing-sigma", "coverage", "uncertainty-selftest",
                                            "assoc-selftest"], default="info")
@@ -1035,6 +1039,9 @@ def main(argv=None) -> int:
     p_se.add_argument("--hours", type=float, default=8.0, help="sar-film: the synthetic scene's length, h (default 8: four rigs, each working alone for an hour)")
     p_se.add_argument("--step", type=float, default=600.0, help="sar-film: one frame per this many seconds (default 600)")
     p_se.add_argument("--seed", type=int, default=5, help="sar-film: the scene's random seed")
+    p_se.add_argument("--stations", type=int, default=24, help="bit-image: ground stations, the reference among them")
+    p_se.add_argument("--radius", type=float, default=6000.0, help="bit-image: the array's outer ring, ft")
+    p_se.add_argument("--noise", type=float, default=1.0, help="bit-image: ground noise against a reference arrival of 50")
     p_se.add_argument("--files", type=str, nargs="+", default=None, help="beam/array-detect: one record per sensor, in the order of --sensors")
     p_se.add_argument("--sensors", type=str, default=None, help="beam/array-detect: CSV of the array's sensors (sensor_id, lat, lon[, elevation_m])")
     p_se.add_argument("--bearings", type=str, default=None, help="locate: CSV of arrays' bearings (lat, lon, back_azimuth_deg, sigma_deg)")
@@ -1548,6 +1555,14 @@ def main(argv=None) -> int:
                 print(f"seismic: response of {chan.id} removed ({chan.sensor or 'sensor unnamed'}); the record is now in {note['unit']}", file=sys.stderr)
             return trs, tr
         band = (float(a.band[0]), float(a.band[1]))
+        if a.action == "bit-image":
+            from . import bit_seismic as BS
+            res = BS.run_scene(n_stations=a.stations, radius_ft=a.radius, noise=a.noise, seed=a.seed)
+            if a.json:
+                print(_json.dumps({k: v for k, v in res.items() if not k.startswith('_')}, indent=1))
+            else:
+                print(BS.report_text(res))
+            return 0 if res['verdict']['all'] else 1
         if a.action == "sar-film":
             from . import seismic_film as FM
             film = FM.sar_film(seed=a.seed, hours=a.hours, step_s=a.step, band=(float(a.band[0]), float(a.band[1])) if a.band != [1.0, 50.0] else (1.0, 20.0), method=a.method, scene=a.scene)
@@ -3430,6 +3445,18 @@ def main(argv=None) -> int:
                 if not a.track:
                     raise SystemExit("remove-track needs --track TRACK_ID")
                 ws.remove_track(a.track, actor=a.actor); print("removed (folder kept):", a.track); return 0
+            elif a.action == "field-pull":
+                from . import field_pull as FP
+                if not a.box:
+                    raise SystemExit("field-pull needs --box http://192.168.1.50:8780 (or the mirror folder)")
+                r = FP.pull(ws, a.box, actor=a.actor, display=a.name)
+                print(f"field-pull: {r['box']} ({r['site']}): {r['fetched']} file(s) fetched, {r['kept']} already here, {len(r['bad'])} failed their hash; "
+                      f"stations: {', '.join(s_['id'] + ' (' + str(len(s_['sensors'])) + ' sensors, ' + str(s_['hours']) + ' file span(s))' for s_ in r['stations']) or 'none'}")
+                return 0 if not r['bad'] else 1
+            elif a.action == "bit-image":
+                from . import bit_seismic as BS
+                r = ws.bit_image(actor=a.actor, n_stations=a.n_stations, radius_ft=a.radius, noise=a.noise, seed=a.seed)
+                print(BS.report_text(r)); print(f"  report: {r['paths'].get('html')}"); return 0
             elif a.action == "sar-film":
                 r = ws.sar_film(actor=a.actor, seed=a.seed, hours=a.hours, step_s=a.step, band=tuple(a.band) if a.band else (1.0, 20.0), method=a.method, scene=a.scene)
                 print(f"sar-film: {r['label']}, {r['frames']} frames over {r['hours']} h; verdicts {r['verdicts']}\n  film: {r['path']}"); return 0

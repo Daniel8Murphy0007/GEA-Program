@@ -540,6 +540,36 @@ class Workspace:
                    inputs=[os.path.join(d, n) for n in list(names) + list(extras.values())])
         return station
 
+    def update_seismic_station(self, station_id: str, files: List[str], filenames: Optional[List[str]] = None, sensors_csv: Optional[str] = None,
+                               note: Optional[str] = None, actor: str = 'system') -> dict:
+        """A station's records replaced with newer ones (a field recorder pulled again: the same sensors, more
+        hours): the station keeps its id, name, band and datum; its source files and hashes are the new ones, and
+        its reports are made again at the next refresh."""
+        self.refresh()
+        st = self.seismic_station(station_id)
+        d = os.path.join(self.path, 'seismic', station_id, 'source')
+        for old in list(st.get('files') or []) + [st.get('sensors')] if True else []:
+            if old and os.path.isfile(os.path.join(d, old)):
+                os.remove(os.path.join(d, old))
+        names, hashes = [], {}
+        for i, f in enumerate(files):
+            name = os.path.basename((filenames or [None] * len(files))[i] or f)
+            shutil.copyfile(f, os.path.join(d, name))
+            names.append(name); hashes[name] = sha256_file(os.path.join(d, name))
+        if sensors_csv:
+            name = os.path.basename(sensors_csv)
+            shutil.copyfile(sensors_csv, os.path.join(d, name))
+            st['sensors'] = name; hashes[name] = sha256_file(os.path.join(d, name))
+        st['files'] = names
+        st['sha256'] = hashes
+        if note is not None:
+            st['note'] = note
+        st['updated_utc'] = utc_now_iso(); st['updated_by'] = actor
+        with open(os.path.join(self.path, 'seismic', station_id, 'station.json'), 'w', encoding='utf-8') as f:
+            json.dump(st, f, indent=1)
+        self.audit(actor, 'seismic.update', {'id': station_id, 'files': names}, inputs=[os.path.join(d, n) for n in names])
+        return st
+
     def remove_seismic_station(self, station_id: str, actor: str = 'system') -> None:
         self.refresh()
         if station_id not in self.manifest.get('seismic', []):
@@ -1113,6 +1143,17 @@ class Workspace:
             json.dump(summary, fh, indent=1)
         self.audit(actor, 'seismic.sar_film', {'label': summary['label'], 'frames': summary['frames'], 'hours': hours, 'method': method, 'seed': seed, 'scene': scene})
         return summary
+
+    def bit_image(self, actor: str = 'system', **params) -> dict:
+        """The image: drill-bit seismic from the ground on the labelled scene (bit_seismic), the report under
+        reports/seismic/SIMULATION/. Never a real record."""
+        from . import bit_seismic as BS
+        from . import __version__
+        return BS.write_image(self, __version__, actor=actor, **params)
+
+    def bit_image_summary(self) -> Optional[dict]:
+        from . import bit_seismic as BS
+        return BS.image_summary(self)
 
     def sar_film_summary(self) -> Optional[dict]:
         p = os.path.join(self.path, 'reports', 'seismic', self.SAR_ID, 'sar_film.summary.json')

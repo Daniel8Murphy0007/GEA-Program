@@ -3133,3 +3133,47 @@ stability; and motor specifications in the tool catalogue.
   theme: both stay signed in, the test form survives Keep, the report
   opens. DP7.
 
+## 2026-10-31 - the image: drill-bit seismic from the ground (v0.71.0)
+
+- After the crash hunt (a damaged C: file table, repaired; not GEA), Daniel
+  set the next program: a field recorder for the raw data at a drilling
+  site, high and low frequency, with electrode arrays in the ground; then,
+  "I want to coordinate all of this data to clarify the SAR 3D image in GEA
+  and estimate reservoir data." Settled in discussion: satellites image
+  neither strata nor ULF from the ground (the Khafre claims rest on a
+  retracted method); the layers come from the ground array; the target is
+  porosity, saturation, thickness and pressure, not density for its own
+  sake; the sensor can go only on the ground, not on the rig. "GGO."
+- The band is the processing chain first, because it defines what the
+  recorder must capture: `gea/bit_seismic.py`, ground-only drill-bit
+  seismic on a labelled scene. Numbers on the example scene (24 stations to
+  6,000 ft, noise 1 against a reference arrival of 50): picks 0.47 ms RMS,
+  none wrong, usable rays to 10,900 ft; the column 2.7% RMS over 27 cells,
+  interfaces 500/1,800/2,400 ft each at its cell; the layer below the bit
+  found at 2,860 ft against 2,900 (the velocity below the bit assumed), a
+  quarter wavelength 55 ft. Stable over five seeds. A Gauss-Newton step
+  without a line search diverged at low smoothing; the step is halved when
+  it would raise the misfit.
+- The card on the Seismic page runs it as a job (about ten seconds) and
+  shows the tiles, the section, the moveout, the property column and the
+  recorder's list; driven in Chromium at 1400 and 390 px, no errors.
+- Section DQ (4 checks).
+- Daniel: "What are you doing? This is a 'Black Box' program to run as a
+  standalone on a raspberry computer, and supposed to feed data to GEA. Do
+  it again." The recorder, built in the same version: `recorder/`
+  (gea_recorder: config, clock, sources with the ADS1256 driver and a
+  simulator, the miniSEED writer, the hourly writer with hashes and the
+  manifest, the WITS0 rig logger, the status page, the service, the CLI
+  with install and selftest), `tools/build_recorder.py`, a `recorder` CI
+  job that builds, installs as the Pi would and self-tests, and attaches
+  `GEA-Recorder-<version>.tar.gz`; `gea/field_pull.py` and the Seismic
+  page's Field recorder card on the GEA side. Driven end to end in the
+  cloud: the box recording free-running across file boundaries with GEA's
+  own WITS0 simulator as the EDR, GEA pulling over HTTP and from the
+  folder, stations made and updated, refreshed, the joined records read
+  with no gap. The ADS1256 driver has run only against the simulator; the
+  first Pi with the HAT verifies its rate. Section DR (3 checks).
+- The first ship stopped in the gate on Windows: the recorder's disk check
+  used os.statvfs, which Windows has not (the box is Linux, the gate is
+  not); shutil.disk_usage instead. Re-prepared under the same version.
+

@@ -408,6 +408,42 @@ were dropped and why, and how many end dates it assumed (a permit rarely says
 when drilling stopped). The Seismic page's add form takes a permit export in
 place of the rigs CSV and keeps both.
 
+### The field recorder: the black box
+
+GEA Recorder (`recorder/`; `GEA-Recorder-<version>.tar.gz` on every
+release) is the program on the pad: a Raspberry Pi in a sealed box that
+records the ground channels - geophones, accelerometers, electrode
+dipoles - through the ADS1256 24-bit SPI ADC and the rig's WITS0 feed,
+every sample on one clock disciplined by chrony from a GPS pulse-per-second,
+into hourly miniSEED files with a SHA-256 beside each, a manifest and the
+sensors' positions, and serves one read-only status page on the pad
+network. `sudo sh install.sh` once; it records from the next boot; nothing
+to type. The Seismic page's card **Field recorder** pulls its files in -
+from the box's address or the USB mirror carried in - checks every hash,
+keeps them byte for byte and makes the array and electrode stations of
+them. `gea help recorder`; the box's README has the parts, the wiring and
+the clock.
+
+### The image: drill-bit seismic from the ground
+
+While a well is drilled the program knows where the bit is - the survey and
+the depth against time - so the rig is a seismic source of known position
+moving along the well. Stations on the ground around the pad, each
+correlated against the one beside the substructure and nothing on the rig,
+give the differences in arrival time that resolve the rock's velocity layer
+by layer and place the first layer below the bit (drill-bit seismic; Rector
+and Marion 1991; Poletto and Miranda 2004). The Seismic page's card **The
+image** runs it end to end on a labelled scene the program never sees - a
+layered earth, a well built to horizontal in the pay, 24 stations to 6,000
+ft - and says what it recovered against the scene's own figures: the column
+within 3% RMS, every interface at its cell, the layer below the bit within a
+quarter wavelength, picks good to half a millisecond; then the property
+column (Gardner, Wyllie, the rock inventory) and what a field recorder must
+capture for the real thing, every figure from the run. Everything is stamped
+SIMULATION_SELF_TEST; the resolution it states - a quarter wavelength at the
+band's dominant frequency - is the physics' limit, not the program's promise.
+`gea help bit-image`; `gea seismic --action bit-image`.
+
 ### Several rigs at once
 
 One bearing is one direction for every machine in the band, so when two rigs
@@ -682,7 +718,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.70.1.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.71.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1447,7 +1483,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.70.1.exe` (for 0.70.1): the
+Every release also carries `GEA-Program-Setup-0.71.0.exe` (for 0.71.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1466,7 +1502,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.70.1.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.71.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same
