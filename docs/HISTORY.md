@@ -4,6 +4,13 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.73.0 - 2026-11-01 - the box on this computer
+
+- The recorder runs on this computer as a simulated box from the control
+  panel, its monitor opens in a window, its files pull in, it stops
+  cleanly; any real box's monitor opens from its address; the kit carries
+  the recorder's wheel. DR4; gate 534.
+
 ## v0.72.0 - 2026-11-01 - the monitor on the box
 
 - The live view on the recorder: a screen on the Pi's HDMI port, full

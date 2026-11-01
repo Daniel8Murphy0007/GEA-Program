@@ -5,6 +5,25 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.73.0] - 2026-11-01 - the box on this computer
+
+### Added
+- **A simulated box on this computer** (`gea/recorder_link.py`; the Field
+  recorder card): **Start the simulated box** runs the recorder's own
+  program here, with its test signal in place of the ADC, as a process of
+  its own - its files under `field\sim-box\` in the workspace, its page on
+  port 8781; **Open its monitor** shows the live screen the attendant will
+  see; **Pull from it** brings its files in as stations; **Stop it**
+  closes every file and lists them (a STOP file the box watches, so it
+  stops cleanly on Windows too, where no signal reaches a detached
+  process). **Open the box's monitor** opens any real box's live screen
+  from its address. The kit and the setup now install the recorder's wheel
+  beside GEA's (`gea-recorder`, the same version); GEA imports nothing of
+  it and finds it by name at run time.
+
+### Acceptance
+- DR4.
+
 ## [v0.72.0] - 2026-11-01 - the monitor on the box
 
 ### Added

@@ -2136,7 +2136,8 @@ def make_handler(app: App):
                     return self._json(200, {'film': app.ws.sar_film_summary(), 'url': f'/reports/seismic/{app.ws.SAR_ID}/sar_film.json', 'label': 'SIMULATION_SELF_TEST'})
                 if path == '/api/field':
                     from . import field_pull as _FP
-                    return self._json(200, {'pulls': _FP.last_pulls(app.ws)})
+                    from . import recorder_link as _RL
+                    return self._json(200, {'pulls': _FP.last_pulls(app.ws), 'sim': _RL.status(app.ws)})
                 if path == '/api/seismic/image':
                     return self._json(200, {'image': app.ws.bit_image_summary(), 'label': 'SIMULATION_SELF_TEST', 'dir': f'seismic/{app.ws.SAR_ID}'})
                 if path.startswith('/api/seismic/'):
@@ -3041,6 +3042,12 @@ def make_handler(app: App):
                     except WorkspaceError as e:
                         raise ApiError(404, str(e))
                     return self._json(200, {'ok': True})
+                if path in ('/api/field/sim/start', '/api/field/sim/stop'):
+                    App.require(user, 'operator')
+                    from . import recorder_link as _RL
+                    if path.endswith('start'):
+                        return self._json(200, _RL.start_sim(app.ws, actor=user['name']))
+                    return self._json(200, _RL.stop_sim(app.ws, actor=user['name']))
                 if path == '/api/field/pull':
                     App.require(user, 'operator')
                     src = str(body.get('source') or '').strip()

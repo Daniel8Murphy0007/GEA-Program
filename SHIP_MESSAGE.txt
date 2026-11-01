@@ -1,16 +1,15 @@
-v0.72.0 — THE MONITOR ON THE BOX
+v0.73.0 — THE BOX ON THIS COMPUTER
 
-A screen on the recorder for the person on the pad.
+See the recorder's monitor today, before there is a Pi.
 
-- Plug any HDMI monitor into the Pi and run kiosk.sh once: from then on
-  the screen shows RECORDING in green, or what is wrong in red, the GPS
-  clock, the rig's bit depth, the disk, and every channel's last minute
-  with the ground sensors' spectrogram. Nothing to press.
-- The same view is on the box's page at /live from any browser on the
-  pad network.
+- Seismic tab, Field recorder card: "Start the simulated box" runs the
+  recorder on this computer with its test signal; "Open its monitor"
+  shows the screen the attendant will see on the pad; "Pull from it"
+  brings its files in as stations; "Stop it" closes them.
+- "Open the box's monitor" opens any real box's live screen from its
+  address.
 
-GEA-Recorder-0.72.0.tar.gz on the release carries it. GEA-Program itself
-is unchanged in use; install GEA-Program-Setup-0.72.0.exe over the old
-one to keep the versions together. C:\site is kept as it is.
+Install GEA-Program-Setup-0.73.0.exe over the old one (it carries the
+recorder's program for this). C:\site is kept as it is.
 
-Acceptance: section DR extended.
+Acceptance DR4.

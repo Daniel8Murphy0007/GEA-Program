@@ -3189,3 +3189,16 @@ stability; and motor specifications in the tool catalogue.
   `kiosk.sh` for the Pi's desktop autostart. Rendered at 1920x1080 in
   Chromium: five channels fill the screen, no console errors.
 
+## 2026-11-01 - the box on this computer (v0.73.0)
+
+- v0.72.0 shipped. Daniel: "where is the operator monitor for the
+  Recorder?" - the monitor is the Pi's screen, and there is no Pi yet;
+  nothing in GEA showed it. `recorder_link.py`: the recorder started here
+  as a simulated box (detached, PYTHONPATH to the checkout's recorder/ in
+  a checkout, the installed wheel in a kit), its monitor opened, pulled
+  from, stopped by a STOP file the box watches (CTRL_BREAK cannot reach a
+  detached process on Windows); `build_installer.py` builds the
+  recorder's wheel into the kit's wheels/ and install.cmd/install.sh
+  install it. Driven in Chromium: start, the monitor's RECORDING, pull
+  after a minute, stop. DR4.
+

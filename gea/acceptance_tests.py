@@ -15888,6 +15888,45 @@ def section_dr_field_recorder(tmp: str) -> None:
        "them as any station; a file altered after the box wrote it fails its hash and is not taken; the card, the job, the help page and the kit "
        "(with the monitor's kiosk script) are there" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
+    # -- DR4 a simulated box on this computer, and the monitor of any box ---------------------------------------------------
+    from . import recorder_link as RL
+    prog = RL.program()
+    ws3 = Workspace.create(str(d / "ws3"), "Pad 3 sim", actor="tester")
+    port = 8790 + (os.getpid() % 7)
+    if prog is None:
+        ok(True, "DR4 the simulated box and the monitor: the recorder's program is not installed beside GEA in this install (the kit and the setup "
+                 "carry it); nothing to start here")
+    else:
+        st = RL.start_sim(ws3, actor="tester", port=port)
+        live = None
+        try:
+            if st["running"]:
+                live = json.load(urllib.request.urlopen(f"http://127.0.0.1:{port}/live.json", timeout=10))
+                time.sleep(3.0)
+        finally:
+            sp = RL.stop_sim(ws3, actor="tester", port=port)
+        man_p = Path(RL.sim_dir(ws3), "data", "manifest.json")
+        man3 = json.loads(man_p.read_text(encoding="utf-8")) if man_p.is_file() else {"files": []}
+        r4 = FP.pull(ws3, str(Path(RL.sim_dir(ws3), "data")), actor="tester") if man3["files"] else {"stations": []}
+        acts3 = [a["action"] for a in ws3.audit_log(50)]
+        c4 = {
+            "started": st["running"] is True and st["pid"] and st["already_running"] is False and st["health"]["station"] == "SIM" and st["health"]["site"] == "Pad 3 sim",
+            "live": live is not None and live["recording"] is True and len(live["channels"]) == 6,
+            "stopped": sp["stopped"] is True and sp["running"] is False and RL.health(port, timeout=0.5) is None,
+            "closed": len(man3["files"]) == 6 and all(Path(RL.sim_dir(ws3), "data", e["file"]).is_file() for e in man3["files"]),
+            "pulled": [s_["kind"] for s_ in r4["stations"]] == ["array", "electrodes"] and len(r4["stations"][0]["sensors"]) == 4,
+            "monitor_url": RL.monitor_url("192.168.1.50") == "http://192.168.1.50:8780/live" and RL.monitor_url("http://192.168.1.50:8780/") == "http://192.168.1.50:8780/live",
+            "audit": "field.sim_start" in acts3 and "field.sim_stop" in acts3,
+            "card": all(t_ in app_src for t_ in ("/api/field/sim/start", "/api/field/sim/stop", "Start the simulated box", "Open its monitor", "Open the box's monitor")),
+            "routes": "/api/field/sim/start" in (pkg / "service.py").read_text(encoding="utf-8"),
+            "kit_wheel": "gea-recorder=={version}" in (pkg.parent / "tools" / "build_installer.py").read_text(encoding="utf-8") if (pkg.parent / "tools" / "build_installer.py").is_file() else True,
+        }
+        failed4 = [k for k, v in c4.items() if not v]
+        ok(not failed4,
+           "DR4 the control panel starts the recorder on this computer as a simulated box (the test signal in place of the ADC, a process of its own), "
+           "its monitor answers, it stops the way systemd would with every file closed and listed, and the pull makes the stations from them; the "
+           "card opens any box's monitor by its address; the kit installs the recorder's wheel beside GEA's" + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
 
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")

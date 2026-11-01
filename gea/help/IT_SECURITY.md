@@ -55,6 +55,11 @@ USB mirror, never deletes, and stops at a disk floor. GEA pulls from an
 address or folder an operator gives, verifies every file against the
 manifest's SHA-256 before keeping it, and keeps nothing that fails.
 
+GEA can run the recorder's program on this computer as a simulated box
+(since 0.73.0): a process of the signed-in user, its page on 127.0.0.1
+port 8781 only, its files under the workspace's `field\sim-box\`,
+stopped by a file it watches; it opens no port on the network.
+
 `tools/standalone_check.py` (run by the acceptance gate) fails the build if
 any module imports anything outside the standard library, numpy and the
 declared extras.

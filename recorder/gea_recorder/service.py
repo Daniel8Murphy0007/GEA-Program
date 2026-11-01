@@ -4,7 +4,8 @@
 """service - the box running: the source read block by block on one thread, every block handed to the writer,
 the rig feed on its own thread, the status page on its own; the clock asked every ten seconds what its time is
 worth, and that written into every record. Started by systemd at boot (gea-recorder.service), stopped by it at
-shutdown, which closes every file and writes the manifest. A source that fails is reopened after five seconds and
+shutdown, which closes every file and writes the manifest (a file named STOP in the data folder does the same, for a bench run
+stopped from GEA on Windows). A source that fails is reopened after five seconds and
 the page says so; nothing else stops the box but the disk filling, and then it stops recording and says so."""
 from __future__ import annotations
 
@@ -112,19 +113,28 @@ class Recorder:
 
         def _sig(*a):
             done.set()
-        for s in (signal.SIGTERM, signal.SIGINT):
+        for s in (signal.SIGTERM, signal.SIGINT, getattr(signal, 'SIGBREAK', None)):      # SIGBREAK: Windows, a bench run stopped from GEA
+            if s is None:
+                continue
             try:
                 signal.signal(s, _sig)
             except (ValueError, OSError):
                 pass
+        stop_file = os.path.join(self.cfg['output']['dir'], 'STOP')       # a bench stop from GEA on Windows, where no signal reaches a detached process
         self.start()
         try:
             while not done.is_set():
                 done.wait(1.0)
+                if os.path.isfile(stop_file):
+                    break
                 if self.acq_thread and not self.acq_thread.is_alive() and self.state.startswith('the replay'):
                     break
         finally:
             self.stop()
+            try:
+                os.remove(stop_file)
+            except OSError:
+                pass
         return 0
 
 
