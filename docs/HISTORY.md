@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.72.0 - 2026-11-01 - the monitor on the box
+
+- The live view on the recorder: a screen on the Pi's HDMI port, full
+  screen from boot, showing whether the box records and what is wrong,
+  the clock, the rig's depth, every channel's last minute and the ground
+  sensors' spectrogram; the same view on the pad network. DR extended;
+  gate 533.
+
 ## v0.71.0 - 2026-10-31 - the black box, and the image
 
 - GEA Recorder: the field recorder for the Pi, a program of its own on

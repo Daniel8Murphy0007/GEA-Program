@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""status - the box's one page, on the pad network (port 8780): recording or not and why, the clock and what its
+"""status - the box's one page, on the pad network (port 8780), and the live screen (/live, monitor.py): recording or not and why, the clock and what its
 time is worth, each channel's level, the rig feed's last depth, the disk, the hours closed; and the files for
 GEA to pull: /manifest.json, /sensors.csv, /rig/depth.csv, /files/<path>. Read-only: the page has no button.
 Standard library; one thread."""
@@ -26,7 +26,7 @@ PAGE = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport"
 <table><tr><th>Sensor</th><th>Code</th><th>Kind</th><th>Rate</th><th>Current file</th><th>Samples in it</th></tr>{rows}</table>
 <p>Rig feed: {rig}</p>
 <p>Disk: {free:,.0f} MB free in {dir} · {n_files} files closed ({mb_total:,.0f} MB){mirror}</p>
-<p class="muted">Files: <a href="/manifest.json">manifest.json</a> · <a href="/sensors.csv">sensors.csv</a> · <a href="/rig/depth.csv">rig/depth.csv</a> · <a href="/files/">files</a> · <a href="/health">health</a>. This page refreshes every 5 s and has nothing to press: the box records when it has power.</p>
+<p class="muted"><a href="/live"><b>The live screen</b></a> (what the monitor on the box shows) · Files: <a href="/manifest.json">manifest.json</a> · <a href="/sensors.csv">sensors.csv</a> · <a href="/rig/depth.csv">rig/depth.csv</a> · <a href="/files/">files</a> · <a href="/health">health</a>. This page refreshes every 5 s and has nothing to press: the box records when it has power.</p>
 </body></html>"""
 
 
@@ -36,9 +36,10 @@ def _fmt_up(s: float) -> str:
 
 
 class StatusServer:
-    def __init__(self, cfg: dict, health: Callable[[], dict], data_dir: str):
+    def __init__(self, cfg: dict, health: Callable[[], dict], data_dir: str, live: Optional[Callable[[], dict]] = None):
         self.cfg = cfg
         self.health = health
+        self.live = live
         self.data_dir = os.path.abspath(data_dir)
         st = cfg.get('status') or {}
         self.port = int(st.get('port', 8780)); self.bind = str(st.get('bind', '0.0.0.0'))
@@ -88,6 +89,13 @@ class StatusServer:
                     return self._send(200, server.render().encode('utf-8'), 'text/html; charset=utf-8')
                 if path == '/health':
                     return self._send(200, json.dumps(server.health(), indent=1).encode(), 'application/json')
+                if path == '/live':
+                    from .monitor import LIVE_PAGE
+                    return self._send(200, LIVE_PAGE.encode('utf-8'), 'text/html; charset=utf-8')
+                if path == '/live.json':
+                    if server.live is None:
+                        return self._send(404, b'no live view', 'text/plain')
+                    return self._send(200, json.dumps(server.live()).encode(), 'application/json')
                 if path in ('/manifest.json', '/sensors.csv', '/rig/depth.csv'):
                     return self._file(path.lstrip('/'))
                 if path.startswith('/files/'):

@@ -1,21 +1,16 @@
-v0.71.0 — THE BLACK BOX, AND THE IMAGE
+v0.72.0 — THE MONITOR ON THE BOX
 
-GEA Recorder: the field recorder for a drilling site, on a Raspberry Pi,
-feeding GEA. GEA-Recorder-0.71.0.tar.gz is on the release.
+A screen on the recorder for the person on the pad.
 
-- Records the ground sensors (geophones, electrodes) through a 24-bit ADC
-  and the rig's WITS0 feed, every sample on one GPS clock, into hourly
-  miniSEED files with a hash beside each and a manifest. One status page
-  on the pad network. Nothing to type: power it and it records.
-- Seismic tab, "Field recorder": the box's address, Pull. GEA fetches
-  the files, checks every hash and makes the stations.
-- "The image" on the same tab: the drilling itself as the seismic source,
-  resolving the rock layer by layer from the ground stations - run end to
-  end on a labelled scene, and the list of what the recorder must
-  capture, which the recorder is built to.
+- Plug any HDMI monitor into the Pi and run kiosk.sh once: from then on
+  the screen shows RECORDING in green, or what is wrong in red, the GPS
+  clock, the rig's bit depth, the disk, and every channel's last minute
+  with the ground sensors' spectrogram. Nothing to press.
+- The same view is on the box's page at /live from any browser on the
+  pad network.
 
-Install GEA-Program-Setup-0.71.0.exe over the old one. C:\site is kept as
-it is. The recorder's README (in its kit) has the parts list and the
-install, one command on the Pi.
+GEA-Recorder-0.72.0.tar.gz on the release carries it. GEA-Program itself
+is unchanged in use; install GEA-Program-Setup-0.72.0.exe over the old
+one to keep the versions together. C:\site is kept as it is.
 
-Acceptance sections DQ (4 checks) and DR (3 checks).
+Acceptance: section DR extended.

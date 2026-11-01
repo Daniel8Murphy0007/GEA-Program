@@ -5,6 +5,29 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.72.0] - 2026-11-01 - the monitor on the box
+
+### Added
+- **The monitor on the box** (`recorder/gea_recorder/monitor.py`; `/live`
+  on the box's page; `kiosk.sh` in the kit): a screen on the Pi's HDMI port
+  is the box's own instrument panel for the person on the pad, with
+  nothing to press - RECORDING in green or what is wrong in red (not
+  recording, the clock below 90, the rig feed down, the disk under 2 GB,
+  a channel with no signal or clipping); the clock and what its time is
+  worth; the rig's bit depth and hole depth as they come in; the disk and
+  the files closed; every channel's last minute scrolling by with its
+  level, and a five-minute spectrogram (1-80 Hz) for the ground sensors.
+  The box keeps the last two minutes of each channel as min/max per tenth
+  of a second, the level per second and one spectrum column per second,
+  in memory only; the page asks for them once a second. `sudo sh kiosk.sh`
+  once sets the Pi to open the view full-screen at boot (labwc, wayfire
+  and X covered) with screen blanking off. The same view is at `/live`
+  from any browser on the pad network.
+
+### Acceptance
+- DR1 (the ring: quiet and clipping), DR2 (the live view served with every
+  channel, its spectrum and the problems named), DR3 (the kiosk script).
+
 ## [v0.71.0] - 2026-10-31 - the black box, and the image
 
 ### Added

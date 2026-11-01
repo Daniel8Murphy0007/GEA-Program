@@ -15740,9 +15740,16 @@ def section_dr_field_recorder(tmp: str) -> None:
         q_ntp = RC.parse_tracking({"reference id": "A29FC87B (time.example)", "stratum": "3", "leap status": "Normal", "system time": "0.002 seconds fast of NTP time"})
         q_un = RC.parse_tracking({"reference id": "00000000 ()", "stratum": "0", "leap status": "Not synchronised", "system time": "0.1 seconds fast of NTP time"})
         q_none = RC.parse_tracking(None)
+        RMON = _imp("gea_recorder.monitor")
+        _rq = RMON.ChannelRing({"id": "X", "code": "HHZ", "kind": "geophone"}, 200.0); _rq.add(np.zeros(200 * 12, dtype=np.int32), 1000.0)
+        _ring_quiet = _rq.snapshot(0)["quiet"] is True and len(_rq.snapshot(0)["trace"]) == 120
+        _rc = RMON.ChannelRing({"id": "Y", "code": "HHZ", "kind": "geophone"}, 200.0)
+        _rc.add((np.sin(np.arange(2400) / 200 * 2 * np.pi * 5) * 2 ** 23).astype(np.int32), 1000.0)
+        _ring_clips = _rc.snapshot(0)["clips_10s"] > 0 and _rc.snapshot(0)["quiet"] is False
         c1 = {
             "config": ok_cfg["adc"]["channels"][3]["rate"] == 10.0 and ok_cfg["output"]["file_minutes"] == 60 and all(bad),
             "quality": (q_pps["quality"], q_ms["quality"], q_ntp["quality"], q_un["quality"], q_none["quality"]) == (100, 90, 60, 20, 0) and q_pps["pps"] and not q_ntp["pps"],
+        "monitor": _ring_quiet and _ring_clips,
             "drate": RSRC.ads1256_drate_for(200.0, 5) == RSRC.ADS1256_DRATE[2000] and RSRC.ads1256_drate_for(1000.0, 8) == RSRC.ADS1256_DRATE[15000],
             "record": len(RM.record("GE", "REF", "", "HHZ", 1e9, 200.0, np.arange(112, dtype=np.int32), 1, 90)) == 512,
         }
@@ -15750,7 +15757,8 @@ def section_dr_field_recorder(tmp: str) -> None:
         ok(not failed1,
            "DR1 the box's config is checked on load (a bad driver, a rate that does not divide the ADC's, a long network code, a channel listed "
            "twice: each named); chrony's tracking becomes the timing quality every record carries (100 PPS under 100 us, 90 under a ms, 60 "
-           "network time, 20 unsynchronised, 0 no chrony); the ADS1256's rate code covers every channel; a record is 512 bytes" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+           "network time, 20 unsynchronised, 0 no chrony); the ADS1256's rate code covers every channel; a record is 512 bytes; the monitor's ring "
+       "calls a flat channel quiet and a saturated one clipping" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
 
         # -- DR2 recording: free-running across a file boundary, the rig feed, every sample back ----------------------------------
         cfg = json.loads(json.dumps(RK.EXAMPLE))
@@ -15769,6 +15777,8 @@ def section_dr_field_recorder(tmp: str) -> None:
             url = f"http://127.0.0.1:{r.status_server.port}"
             page = urllib.request.urlopen(url + "/", timeout=10).read().decode("utf-8")
             health = json.load(urllib.request.urlopen(url + "/health", timeout=10))
+            live = json.load(urllib.request.urlopen(url + "/live.json", timeout=10))
+            live_page = urllib.request.urlopen(url + "/live", timeout=10).read().decode("utf-8")
             listing = urllib.request.urlopen(url + "/files/", timeout=10).read().decode("utf-8")
             try:
                 urllib.request.urlopen(url + "/files/../../etc/passwd", timeout=10); escaped = True
@@ -15803,12 +15813,17 @@ def section_dr_field_recorder(tmp: str) -> None:
             "rig": health["rig"]["connected"] and health["rig"]["frames"] > 10 and len(depth) > 10 and depth[0].startswith("utc,bit_depth,hole_depth") and depth[1].split(",")[1] != ""
                    and any(p_.name.startswith("wits0.") for p_ in (d / "box" / "rig").iterdir()),
             "sensors": (d / "box" / "sensors.csv").read_text(encoding="utf-8").startswith("sensor_id,lat,lon"),
+            "live": live["recording"] is True and len(live["channels"]) == 5 and all(len(c_["trace"]) > 0 and c_["rms"] is not None and not c_["quiet"] and c_["clips_10s"] == 0 for c_ in live["channels"])
+                    and live["channels"][0]["spectrum"] is not None and len(live["channels"][0]["freqs"]) == len(live["channels"][0]["spectrum"][1]) == 48
+                    and live["channels"][3]["spectrum"] is None and any("clock" in p_ for p_ in live["problems"]) and live["spectrum_band_hz"] == [1.0, 80.0]
+                    and "RECORDING" in live_page and "/live.json" in live_page and "Nothing to press" in live_page,
         }
         failed2 = [k for k, v in c2.items() if not v]
         ok(not failed2,
            "DR2 the box records across a file boundary (the file split at it, every sample continuous), averages the electrode channels down to their "
            "rate, hashes each file as it closes and lists it in the manifest; GEA's own reader reads the records sample for sample with no gap; the "
-           "status page serves the files and nothing outside them; the rig's WITS0 feed is logged raw and as the depth CSV on the box's clock" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+           "status page serves the files and nothing outside them; the rig's WITS0 feed is logged raw and as the depth CSV on the box's clock; the live "
+       "view carries every channel's last minute, level and quiet/clipping state, a 48-bin spectrum for the ground sensors, and names what is wrong" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
 
     # -- DR3 GEA pulls it in -------------------------------------------------------------------------------------------------
     wsp = str(d / "ws")
@@ -15861,7 +15876,9 @@ def section_dr_field_recorder(tmp: str) -> None:
         "audit": "field.pull" in acts and "seismic.add" in acts and "seismic.update" in acts,
         "card": all(t_ in app_src for t_ in ("fieldCardHtml(", "/api/field/pull", "Field recorder", "the mirror folder")),
         "help": not H.check("recorder") and any(t_[0] == "recorder" for t_ in H.INDEX),
-        "kit": (not have_rec) or ((rec_dir / "install.sh").is_file() and (rec_dir / "README.md").is_file() and (pkg.parent / "tools" / "build_recorder.py").is_file()
+        "kit": (not have_rec) or ((rec_dir / "install.sh").is_file() and (rec_dir / "kiosk.sh").is_file() and "--kiosk" in (rec_dir / "kiosk.sh").read_text(encoding="utf-8")
+                                  and "kiosk.sh" in (pkg.parent / "tools" / "build_recorder.py").read_text(encoding="utf-8")
+                                  and (rec_dir / "README.md").is_file() and (pkg.parent / "tools" / "build_recorder.py").is_file()
                                   and "GEA-Recorder-" in (pkg.parent / ".github" / "workflows" / "build-installer.yml").read_text(encoding="utf-8")),
     }
     failed3 = [k for k, v in c3.items() if not v]
@@ -15869,7 +15886,7 @@ def section_dr_field_recorder(tmp: str) -> None:
        "DR3 GEA pulls the box's files from its page or its mirror folder, keeps them byte for byte, joins each sensor's files into one record with no "
        "gap, makes the ground array (8-80 Hz, the sensors' positions) and the electrode station, updates them in place on the next pull, refreshes "
        "them as any station; a file altered after the box wrote it fails its hash and is not taken; the card, the job, the help page and the kit "
-       "are there" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+       "(with the monitor's kiosk script) are there" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
 def main() -> int:

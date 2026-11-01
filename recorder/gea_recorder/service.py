@@ -15,7 +15,7 @@ import time
 import traceback
 from typing import Optional
 
-from . import NAME, __version__, clock, rig as _rig, sources, status as _status, writer as _writer
+from . import NAME, __version__, clock, monitor as _monitor, rig as _rig, sources, status as _status, writer as _writer
 
 
 class Recorder:
@@ -24,9 +24,10 @@ class Recorder:
         self.realtime = realtime
         self.seed = seed
         self.writer = _writer.Writer(cfg)
+        self.monitor = _monitor.Monitor(cfg)
         self.source: Optional[sources.Source] = None
         self.rig = _rig.RigLogger(cfg, cfg['output']['dir']) if (cfg.get('rig') or {}).get('enabled') else None
-        self.status_server = _status.StatusServer(cfg, self.health, cfg['output']['dir'])
+        self.status_server = _status.StatusServer(cfg, self.health, cfg['output']['dir'], live=lambda: self.monitor.live(self.health()))
         self.t_started = time.time()
         self.clock_state = clock.status(str((cfg.get('clock') or {}).get('source', 'chrony')))
         self.clock_checked = time.monotonic()
@@ -62,6 +63,7 @@ class Recorder:
                         self.clock_state = clock.status(str((self.cfg.get('clock') or {}).get('source', 'chrony')))
                         self.clock_checked = time.monotonic()
                     self.writer.add_block(block, t_first, int(self.clock_state['quality']))
+                    self.monitor.add_block(block, t_first)
                     self.blocks += 1; self.samples += int(block.shape[1])
                     if self.writer.stopped_reason:
                         self.state = self.writer.stopped_reason; self.recording = False

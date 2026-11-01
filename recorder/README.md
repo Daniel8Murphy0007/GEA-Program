@@ -17,6 +17,7 @@ every file is closed and listed. It never deletes anything.
 | Sensors | Vertical geophones (4.5 or 10 Hz), buried; non-polarising electrodes (copper-copper sulphate) in pairs 50-100 ft apart | the geophone's own frequency sits below the band GEA uses (8-80 Hz) |
 | Power | 5 V 3 A; a 12 V battery with a buck converter runs it a week | 3-5 W |
 | Enclosure | A sealed box with cable glands; the GPS antenna outside | |
+| Monitor | Any HDMI screen; a 7-10 inch panel in the enclosure lid, or the doghouse TV | optional; kiosk.sh |
 
 Nothing on the rig. The reference sensor is buried within 40 ft of the substructure; the rig feed, when the
 operator gives it, is a serial line or a TCP port from the EDR, read only.
@@ -82,6 +83,19 @@ Samples are appended every five seconds in whole records, so a power cut loses a
 file. When a USB stick is mounted at the configured mirror, each closed file and the manifest are copied to it.
 When free space falls under the floor (500 MB) the box stops recording and the page says so; it deletes nothing.
 
+## The monitor on the box
+
+A screen on the Pi's HDMI port is the box's own instrument panel. After `install.sh`, once:
+
+    sudo sh kiosk.sh
+
+and from the next boot the screen shows the live view full-screen with nothing to press: RECORDING in green or
+what is wrong in red (not recording, the clock below 90, the rig feed down, the disk under 2 GB, a channel with
+no signal - a cable off - or clipping); the clock and what its time is worth; the rig's bit depth and hole depth
+as they come in; the disk and the files closed; and for every channel the last minute of signal scrolling by with
+its level, with a five-minute spectrogram (1-80 Hz) for the ground sensors. The same view is at
+port 8780 of the box's address, `/live` (`http://192.168.1.50:8780/live` when that is its address), from any browser on the pad network, and the plain status page at `/`.
+
 ## Getting the files into GEA
 
 On the pad network, GEA pulls them: the Seismic tab's card **Field recorder**, the box's address
@@ -95,6 +109,7 @@ Off the network, the USB mirror carried to the office is the same folder.
     gea-recorder run --config /etc/gea-recorder/config.json   record until stopped (what the service runs)
     gea-recorder selftest [--seconds 20]                     the test signal recorded, read back, every sample checked
     gea-recorder status                                      what the running box says
+    sudo sh kiosk.sh                                         the live view full-screen on the HDMI port from boot
     gea-recorder config --write FILE | --check FILE          the example config; check one
     sudo systemctl status gea-recorder                       the service
 

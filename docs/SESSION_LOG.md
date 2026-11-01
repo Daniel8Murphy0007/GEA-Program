@@ -3177,3 +3177,15 @@ stability; and motor specifications in the tool catalogue.
   used os.statvfs, which Windows has not (the box is Linux, the gate is
   not); shutil.disk_usage instead. Re-prepared under the same version.
 
+## 2026-11-01 - the monitor on the box (v0.72.0)
+
+- v0.71.0 shipped (all six assets on the release; the three kits fetched
+  into C:\site\installers). Daniel: "Can you attach an active monitor to
+  the recorder so that it can be viewed on site by the attendant?"
+- `monitor.py`: a ring per channel (min/max per 0.1 s for two minutes,
+  the level per second, a 48-bin spectrum column per second for the
+  ground sensors), `/live.json` and the `/live` page (canvas, dark, large
+  type, rows sized to the screen), the problems named in a red band;
+  `kiosk.sh` for the Pi's desktop autostart. Rendered at 1920x1080 in
+  Chromium: five channels fill the screen, no console errors.
+

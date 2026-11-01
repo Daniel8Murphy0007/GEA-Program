@@ -45,7 +45,7 @@ def build(out: Path, no_selftest: bool = False) -> Path:
     print(f'== GEA Recorder {ver}')
     subprocess.run([sys.executable, '-m', 'pip', 'wheel', str(SRC), '--no-deps', '-w', str(kit), '-q'], check=True)
     shutil.copytree(SRC / 'gea_recorder', kit / 'gea_recorder', ignore=shutil.ignore_patterns('__pycache__'))
-    for n in ('pyproject.toml', 'README.md', 'install.sh'):
+    for n in ('pyproject.toml', 'README.md', 'install.sh', 'kiosk.sh'):
         shutil.copyfile(SRC / n, kit / n)
     sys.path.insert(0, str(SRC))
     from gea_recorder import config as C          # noqa: E402
