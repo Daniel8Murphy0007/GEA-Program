@@ -1,15 +1,15 @@
-v0.73.0 — THE BOX ON THIS COMPUTER
+v0.74.0 — NEW VERSIONS FROM INSIDE THE PROGRAM
 
-See the recorder's monitor today, before there is a Pi.
+No more asking where the new version is.
 
-- Seismic tab, Field recorder card: "Start the simulated box" runs the
-  recorder on this computer with its test signal; "Open its monitor"
-  shows the screen the attendant will see on the pad; "Pull from it"
-  brings its files in as stations; "Stop it" closes them.
-- "Open the box's monitor" opens any real box's live screen from its
-  address.
+- Audit/Update tab, "The release": the newest version on GitHub against
+  the one running. "Fetch the kits" brings the three kits into
+  C:\site\installers, each checked against GitHub's own hash. "Install
+  now" runs the setup from there: the control panel stops for about a
+  minute and comes back on its own.
+- The recorder's kit comes down with them, for the Pi.
 
-Install GEA-Program-Setup-0.73.0.exe over the old one (it carries the
-recorder's program for this). C:\site is kept as it is.
+This one last time: install GEA-Program-Setup-0.74.0.exe over the old one.
+From then on, three clicks from inside the program.
 
-Acceptance DR4.
+Acceptance section DS (3 checks).

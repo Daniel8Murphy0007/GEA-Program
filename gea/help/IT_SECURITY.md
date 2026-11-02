@@ -60,6 +60,12 @@ GEA can run the recorder's program on this computer as a simulated box
 port 8781 only, its files under the workspace's `field\sim-box\`,
 stopped by a file it watches; it opens no port on the network.
 
+The release card (since 0.74.0) reaches api.github.com and
+github.com, read-only, when an administrator asks; a fetched kit is kept
+only when its SHA-256 is the one GitHub recorded for it; the setup runs
+only from the workspace's `installers\` folder, only a verified kit,
+only when an administrator clicks Install.
+
 `tools/standalone_check.py` (run by the acceptance gate) fails the build if
 any module imports anything outside the standard library, numpy and the
 declared extras.

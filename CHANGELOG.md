@@ -5,6 +5,26 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.74.0] - 2026-11-02 - new versions from inside the program
+
+### Added
+- **The release card** (Audit/Update; `gea/updates.py`): the newest
+  release on GitHub against the running version; **Fetch the kits**
+  brings `GEA-Program-Setup`, `GEA-Reader-Setup` and `GEA-Recorder` into
+  the workspace's `installers\` folder as a job, each checked against the
+  SHA-256 GitHub recorded for it (a kit altered after that is not kept;
+  older kits move to `installers\_older`); **Install now** runs the
+  program's setup from there silently with this workspace, and the
+  reader's setup with it, through a helper outside the program that
+  starts the launcher after them - the control panel stops for about a
+  minute and comes back. `installers\fetched.json` and `install.json`
+  record what was fetched and installed; audit lines `update.fetch` and
+  `update.install`. `gea update --release | --fetch | --install <version>
+  --workspace C:\site` do the same.
+
+### Acceptance
+- Section DS (3 checks).
+
 ## [v0.73.0] - 2026-11-01 - the box on this computer
 
 ### Added

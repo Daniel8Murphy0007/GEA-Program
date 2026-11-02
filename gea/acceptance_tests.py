@@ -2334,15 +2334,15 @@ def section_ah_band2(tmp: str) -> None:
 
     # -- certificates --------------------------------------------------------------------------------------
     cr = CertificateRegister(str(Path(tmp, "ah_certs.jsonl")), warn_days=60)
-    cr.add("P_raw_psi_S1", "SN-1", "CERT-1", "2026-01-01", "2027-01-01", "tester", "LabX", 0.02, 10000, "psi")
+    cr.add("P_raw_psi_S1", "SN-1", "CERT-1", "2026-01-01", "2029-01-01", "tester", "LabX", 0.02, 10000, "psi")
     cr.add("P_raw_psi_S2", "SN-OLD", "CERT-OLD", "2025-01-01", "2026-01-01", "tester", "LabX", 0.05, 10000, "psi")
     cr.add("P_raw_psi_S2", "SN-NEW", "CERT-77", "2026-03-01", "2026-04-20", "tester", "LabX", 0.02, 10000, "psi")
     now = D.datetime(2026, 3, 10, tzinfo=D.timezone.utc)
     st = cr.status(["P_raw_psi_S1", "P_raw_psi_S2", "P_raw_psi_S9"], now=now, serial_by_tag={"P_raw_psi_S2": "SN-NEW"})
     st_old = cr.status(["P_raw_psi_S2"], now=now, serial_by_tag={"P_raw_psi_S2": "SN-OLD"})
     bad_c = []
-    for fn in (lambda: cr.add("P_raw_psi_S1", "SN-1", "CERT-1", "2026-01-01", "2027-01-01", "tester"), lambda: cr.add("P_raw_psi_S1", "SN-1", "CERT-2", "2027-01-01", "2026-01-01", "tester"),
-               lambda: cr.add("P_raw_psi_S1", "SN-1", "CERT-3", "2026-01-01", "2027-01-01", "tester", accuracy_pct_fs=50)):
+    for fn in (lambda: cr.add("P_raw_psi_S1", "SN-1", "CERT-1", "2026-01-01", "2029-01-01", "tester"), lambda: cr.add("P_raw_psi_S1", "SN-1", "CERT-2", "2029-01-01", "2026-01-01", "tester"),
+               lambda: cr.add("P_raw_psi_S1", "SN-1", "CERT-3", "2026-01-01", "2029-01-01", "tester", accuracy_pct_fs=50)):
         try:
             fn(); bad_c.append(False)
         except ValueError:
@@ -2413,7 +2413,7 @@ def section_ah_band2(tmp: str) -> None:
         call("POST", "/api/login", {"name": "op1", "password": "operator-pass-1"})
         s_sw, jsw = call("POST", f"/api/wells/{w1['id']}/swaps", {"tag_id": "P_raw_psi_S2", "swap_utc": "2026-03-09T00:00:00Z", "old_serial": "SN-OLD", "new_serial": "SN-NEW", "certificate_id": "CERT-77", "note": "replaced"})
         s_bad = call("POST", f"/api/wells/{w1['id']}/swaps", {"tag_id": "P_raw_psi_S2", "swap_utc": "2026-03-09T00:00:00Z", "new_serial": "SN-NEW"})[0]
-        s_c1 = call("POST", f"/api/wells/{w1['id']}/certificates", {"tag_id": "P_raw_psi_S1", "serial": "SN-1", "certificate_id": "CERT-1", "issued_utc": "2026-01-01", "valid_until_utc": "2027-01-01", "lab": "LabX", "accuracy_pct_fs": 0.02, "full_scale": 10000, "unit": "psi", "filename": "cert1.txt", "content_b64": "Y2VydA=="})[0]
+        s_c1 = call("POST", f"/api/wells/{w1['id']}/certificates", {"tag_id": "P_raw_psi_S1", "serial": "SN-1", "certificate_id": "CERT-1", "issued_utc": "2026-01-01", "valid_until_utc": "2029-01-01", "lab": "LabX", "accuracy_pct_fs": 0.02, "full_scale": 10000, "unit": "psi", "filename": "cert1.txt", "content_b64": "Y2VydA=="})[0]
         s_c2 = call("POST", f"/api/wells/{w1['id']}/certificates", {"tag_id": "P_raw_psi_S2", "serial": "SN-NEW", "certificate_id": "CERT-77", "issued_utc": "2026-03-01", "valid_until_utc": "2028-01-01", "accuracy_pct_fs": 0.02, "full_scale": 10000, "unit": "psi"})[0]
         s_pr, jpr = call("POST", f"/api/wells/{w1['id']}/transient-params", {"params": params})
         s_pbad = call("POST", f"/api/wells/{w1['id']}/transient-params", {"params": {"q_stb_d": -1}})[0]
@@ -5369,21 +5369,21 @@ def section_bi_conformance(tmp: str) -> None:
 
     # -- the register: the fields recorded from the paper, nothing invented ------------------------------
     reg = CertificateRegister(str(d / "certs.jsonl"))
-    e1 = reg.add("P1", "S1", "C-1", "2026-01-10", "2027-01-10", "tester", "Acme Cal", 0.1, 10000.0, "psi",
+    e1 = reg.add("P1", "S1", "C-1", "2026-01-10", "2029-01-10", "tester", "Acme Cal", 0.1, 10000.0, "psi",
                  uncertainty=2.5, uncertainty_k=2.0, uncertainty_probability=0.95, traceability="NIST via DWT 1234", conditions="23 ± 1 °C",
                  calibrated_utc="2026-01-09", method="comparison", authorised_by="J. Doe", adjustment="as found / as left", decision_rule="simple acceptance")
-    e2 = reg.add("P2", "S2", "C-2", "2026-01-10", "2027-01-10", "tester", "Acme Cal", 0.1, 10000.0, "psi")
+    e2 = reg.add("P2", "S2", "C-2", "2026-01-10", "2029-01-10", "tester", "Acme Cal", 0.1, 10000.0, "psi")
     bad = []
     for kw in ({"uncertainty_k": 0}, {"uncertainty_probability": 1.5}, {"uncertainty": -1}, {"nonsense": "x"}):
         try:
-            reg.add("P3", "S3", "C-3", "2026-01-10", "2027-01-10", "tester", **kw); bad.append(False)
+            reg.add("P3", "S3", "C-3", "2026-01-10", "2029-01-10", "tester", **kw); bad.append(False)
         except ValueError:
             bad.append(True)
     st = {x["tag_id"]: x for x in reg.status(["P1", "P2"], now=D.datetime(2026, 6, 1, tzinfo=D.timezone.utc))}
     conf = reg.conformance()
     r1 = _sp.run([sys.executable, "-m", "gea", "certificates", "--register", str(d / "certs.jsonl"), "--action", "conformance"], capture_output=True, text=True)
     r2 = _sp.run([sys.executable, "-m", "gea", "certificates", "--register", str(d / "cli.jsonl"), "--action", "add", "--tag", "P9", "--serial", "S9", "--certificate", "C-9",
-                  "--issued", "2026-01-10", "--valid-until", "2027-01-10", "--lab", "Cal Lab GmbH", "--accuracy-pct-fs", "0.05", "--full-scale", "5000", "--unit", "psi", "--uncertainty", "1.2",
+                  "--issued", "2026-01-10", "--valid-until", "2029-01-10", "--lab", "Cal Lab GmbH", "--accuracy-pct-fs", "0.05", "--full-scale", "5000", "--unit", "psi", "--uncertainty", "1.2",
                   "--k", "2", "--probability", "0.95", "--traceability", "PTB via transfer standard 7", "--conditions", "21 °C", "--calibrated", "2026-01-08",
                   "--method", "comparison", "--authorised-by", "A. B."], capture_output=True, text=True)
     r3 = _sp.run([sys.executable, "-m", "gea", "certificates", "--register", str(d / "cli.jsonl"), "--action", "conformance"], capture_output=True, text=True)
@@ -5434,11 +5434,11 @@ def section_bi_conformance(tmp: str) -> None:
     try:
         call("POST", "/api/login", {"name": "op1", "password": "operator-pass-1"})
         s_c1, _ = call("POST", f"/api/wells/{w1['id']}/certificates", {"tag_id": "P_raw_psi_S1", "serial": "SN-1", "certificate_id": "CERT-A", "issued_utc": "2026-01-01",
-                                                                       "valid_until_utc": "2027-01-01", "lab": "LabX", "accuracy_pct_fs": 0.02, "full_scale": 10000, "unit": "psi",
+                                                                       "valid_until_utc": "2029-01-01", "lab": "LabX", "accuracy_pct_fs": 0.02, "full_scale": 10000, "unit": "psi",
                                                                        "uncertainty": "0.5", "uncertainty_k": "2", "uncertainty_probability": "0.95", "traceability": "NIST via DWT",
                                                                        "conditions": "23 °C", "calibrated_utc": "2025-12-30", "method": "comparison", "authorised_by": "Q. A."})
         s_c2, _ = call("POST", f"/api/wells/{w1['id']}/certificates", {"tag_id": "P_raw_psi_S2", "serial": "SN-2", "certificate_id": "CERT-B", "issued_utc": "2026-01-01",
-                                                                       "valid_until_utc": "2027-01-01", "lab": "LabX", "accuracy_pct_fs": 0.02, "full_scale": 10000, "unit": "psi"})
+                                                                       "valid_until_utc": "2029-01-01", "lab": "LabX", "accuracy_pct_fs": 0.02, "full_scale": 10000, "unit": "psi"})
         call("POST", "/api/refresh", {})
         svc.app.runner.wait(svc.app.runner.list(1)[0]["id"], 600)
         inst = call("GET", f"/api/wells/{w1['id']}/instruments")[1]
@@ -15928,6 +15928,143 @@ def section_dr_field_recorder(tmp: str) -> None:
            "card opens any box's monitor by its address; the kit installs the recorder's wheel beside GEA's" + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
 
 
+def section_ds_updates(tmp: str) -> None:
+    """Section DS - the program's own new versions from inside the program: the newest release read from GitHub's
+    answer, the kits fetched into the workspace's installers folder and each checked against the SHA-256 GitHub
+    recorded (one altered in transit is not kept; older kits move aside), the setup run from there by a helper
+    outside the program with the launcher after it, the card and the commands - all without the network here: a
+    stand-in GitHub on this machine answers in GitHub's shape."""
+    import hashlib
+    import http.cookiejar
+    import threading
+    import urllib.error
+    import urllib.request
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    from . import __version__
+    from . import helplib as H
+    from . import updates as UP
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ds"); d.mkdir()
+    ws = Workspace.create(str(d / "ws"), "Pad 3 up", actor="tester")
+    blobs = {"GEA-Program-Setup-9.9.9.exe": os.urandom(40000), "GEA-Reader-Setup-9.9.9.exe": os.urandom(6000), "GEA-Recorder-9.9.9.tar.gz": os.urandom(2000),
+             "gea-program-9.9.9-win64.zip": os.urandom(500)}
+    state = {"port": 0}
+
+    class GH(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            n = self.path.rsplit("/", 1)[1]
+            if n in blobs:
+                b = blobs[n]
+            elif self.path.endswith("/latest"):
+                b = json.dumps({"tag_name": "v9.9.9", "published_at": "2026-11-02T00:00:00Z", "html_url": "https://example.invalid/r", "name": "v9.9.9",
+                                "assets": [{"name": k, "size": len(v), "digest": "sha256:" + hashlib.sha256(v).hexdigest(), "browser_download_url": f"http://127.0.0.1:{state['port']}/dl/{k}", "updated_at": "2026-11-02T00:00:00Z"}
+                                           for k, v in blobs.items()]}).encode()
+            else:
+                self.send_response(404); self.end_headers(); return
+            self.send_response(200); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+    gh = HTTPServer(("127.0.0.1", 0), GH); state["port"] = gh.server_address[1]
+    threading.Thread(target=gh.serve_forever, daemon=True).start()
+
+    def fetch(url, timeout):
+        u = f"http://127.0.0.1:{state['port']}/latest" if url.startswith("https://api.github.com") else url
+        with urllib.request.urlopen(u, timeout=timeout) as r:
+            return r.read()
+    try:
+        # -- DS1 the release read, the kits fetched and checked, older kits aside ----------------------------------------------
+        rel = UP.latest(fetch=fetch)
+        down = UP.latest(fetch=lambda u, t: (_ for _ in ()).throw(OSError("no route")))
+        inst = UP.installers_dir(ws); os.makedirs(inst)
+        (Path(inst) / "GEA-Program-Setup-0.1.0.exe").write_bytes(b"old")
+        rec = UP.fetch_kits(ws, "tester", release=rel, fetch=fetch)
+        st = UP.state(ws, "0.1.0", fetch=fetch)
+        st_cur = UP.state(ws, "9.9.9", fetch=fetch)
+        blobs["GEA-Reader-Setup-9.9.9.exe"] = os.urandom(6000)                      # altered after GitHub recorded its hash
+        os.remove(os.path.join(inst, "GEA-Reader-Setup-9.9.9.exe"))
+        rec2 = UP.fetch_kits(ws, "tester", release=rel, fetch=fetch)
+        on = UP.on_hand(ws)
+        c1 = {
+            "release": rel["version"] == "9.9.9" and [a["kit"] for a in rel["assets"]] == ["GEA-Program-Setup-", "GEA-Reader-Setup-", "GEA-Recorder-"] and all(a["sha256"] for a in rel["assets"]),
+            "unreachable": down.get("error") and down["version"] is None,
+            "fetched": all(f["verified"] and f["fetched"] for f in rec["files"]) and len(rec["files"]) == 3 and rec["moved_aside"] == ["GEA-Program-Setup-0.1.0.exe"]
+                       and Path(inst, "_older", "GEA-Program-Setup-0.1.0.exe").is_file() and all(Path(inst, f["name"]).read_bytes() == blobs[f["name"]] for f in rec["files"] if f["name"] != "GEA-Reader-Setup-9.9.9.exe"),
+            "state": st["state"] == "behind" and all(st["newest_on_hand"].values()) and st_cur["state"] == "current" and st["last_fetch"]["version"] == "9.9.9",
+            "tampered": [f["name"] for f in rec2["files"] if f.get("rejected")] == ["GEA-Reader-Setup-9.9.9.exe"] and not Path(inst, "GEA-Reader-Setup-9.9.9.exe").exists()
+                        and [f["name"] for f in rec2["files"] if f["verified"] and not f["fetched"]] == ["GEA-Program-Setup-9.9.9.exe", "GEA-Recorder-9.9.9.tar.gz"],
+            "on_hand": {h["name"]: h["verified"] for h in on} == {"GEA-Program-Setup-9.9.9.exe": True, "GEA-Recorder-9.9.9.tar.gz": True},
+            "audit": "update.fetch" in [a["action"] for a in ws.audit_log(20)],
+        }
+        failed1 = [k for k, v in c1.items() if not v]
+        ok(not failed1,
+           "DS1 the newest release is read from GitHub's answer (the three kits, each with the SHA-256 GitHub recorded; GitHub unreachable is said, "
+           "not guessed); Fetch brings them into the workspace's installers folder, checks each against its SHA-256, moves older kits aside, and "
+           "a kit altered after GitHub recorded its hash is not kept; the state says behind or current" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+        # -- DS2 the install: the helper's command, the record, the refusals ---------------------------------------------------
+        seen = []
+        r_ok = UP.install(ws, "tester", "9.9.9", popen=lambda cmd, **kw: seen.append((cmd, kw)))
+        cmd = seen[0][0]
+        bad = []
+        for ver in ("9.9.8", "0.1.0"):
+            try:
+                UP.install(ws, "tester", ver, popen=lambda cmd, **kw: None); bad.append(False)
+            except RuntimeError:
+                bad.append(True)
+        line = cmd[2]
+        c2 = {
+            "command": cmd[:2] == ["cmd", "/c"] and f'/wait "{os.path.join(inst, "GEA-Program-Setup-9.9.9.exe")}" /SILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="{ws.path}"' in line
+                       and "GEA-Reader-Setup-9.9.9.exe" not in line and line.rstrip().endswith("-m gea launch") and "/LOG=" in line,
+            "detached": seen[0][1].get("stdin") is not None and "cwd" in seen[0][1],
+            "record": r_ok["version"] == "9.9.9" and r_ok["from_version"] == __version__ and UP._last_install(ws)["version"] == "9.9.9",
+            "refused": all(bad),
+            "audit": "update.install" in [a["action"] for a in ws.audit_log(20)],
+        }
+        failed2 = [k for k, v in c2.items() if not v]
+        ok(not failed2,
+           "DS2 Install runs the fetched setup silently with this workspace through a helper outside the program, the reader's setup when its kit is "
+           "on hand, and the launcher after them; a version not fetched, or not verified, is not run; what was installed over what is recorded" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+    finally:
+        gh.shutdown(); gh.server_close()
+
+    # -- DS3 the card, the routes, the commands, the help ------------------------------------------------------------------
+    Users(str(Path(ws.path, "users.json"))).add("adm", "admin-pass-123", "admin")
+    svc = Service(ws.path, port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(method, path, body=None):
+        rq = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(rq, timeout=60) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read() or b"{}")
+    try:
+        call("POST", "/api/login", {"name": "adm", "password": "admin-pass-123"})
+        s_u, u = call("GET", "/api/update?check=0")
+        s_bad, _ = call("POST", "/api/update/install", {"version": "x"})
+        s_none, _ = call("POST", "/api/update/install", {"version": "9.9.8"})
+    finally:
+        svc.stop()
+    app_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    main_src = (pkg / "__main__.py").read_text(encoding="utf-8")
+    c3 = {
+        "api": s_u == 200 and "release" in u and u["release"]["installers_dir"] == inst and any(h["name"] == "GEA-Program-Setup-9.9.9.exe" for h in u["release"]["on_hand"]) and s_bad == 400 and s_none == 409,
+        "card": all(t_ in app_src for t_ in ("/api/update/fetch", "/api/update/install", "Fetch the ", "Install ", "The release", "checked against its SHA-256")),
+        "cli": all(t_ in main_src for t_ in ('"--release"', '"--fetch"', '"--install"', "UP.fetch_kits", "UP.install")),
+        "help": not H.check("audit-update") and "Fetch the kits" in (pkg / "help" / "audit-update.md").read_text(encoding="utf-8"),
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "DS3 the Audit/Update page's release card, its routes (a bad version 400, one not fetched 409), the update command's --release, --fetch and "
+       "--install, and the help page carry it" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -16053,6 +16190,7 @@ def main() -> int:
         section_dp_records_workspaces(tmp)
         section_dq_bit_image(tmp)
         section_dr_field_recorder(tmp)
+        section_ds_updates(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

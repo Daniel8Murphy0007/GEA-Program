@@ -1017,6 +1017,11 @@ def main(argv=None) -> int:
     p_up.add_argument("--check", action="store_true", help="only report the running and the newest version")
     p_up.add_argument("--extras", type=str, default="live,plotting,xls,desktop", help="the extras to carry through the upgrade (default live,plotting,xls,desktop)")
     p_up.add_argument("--json", action="store_true")
+    p_up.add_argument("--workspace", type=str, default=None, help="--release/--fetch/--install: the workspace whose installers\\ folder the kits go in")
+    p_up.add_argument("--release", action="store_true", help="the newest release on GitHub against the running version, and the kits on hand")
+    p_up.add_argument("--fetch", action="store_true", help="fetch the newest release's kits into the workspace's installers\\ folder, each checked against its SHA-256")
+    p_up.add_argument("--install", type=str, default=None, help="run the fetched GEA-Program-Setup of this version (Windows): the control panel stops and comes back")
+    p_up.add_argument("--actor", type=str, default="cli")
 
     p_nt = sub.add_parser("notify", help="notification rules: validate the configuration, send a test message, show the delivery log")
     p_nt.add_argument("--workspace", type=str, default=None)
@@ -2322,6 +2327,35 @@ def main(argv=None) -> int:
         print(_json.dumps(note, indent=1) if a.json else PM.report_text(note))
         return 0
     elif a.cmd == "update":
+        if a.release or a.fetch or a.install:
+            import json as _json
+            from . import updates as UP
+            from .workspace import Workspace, WorkspaceError
+            wsp = a.workspace or os.environ.get("GEA_WORKSPACE")
+            if not wsp:
+                raise SystemExit("--release, --fetch and --install need --workspace C:\\site")
+            ws = Workspace(wsp)
+            if a.fetch:
+                rec = UP.fetch_kits(ws, actor=a.actor, progress=lambda m: print("  " + m, flush=True))
+                print(f"fetched {rec['version']}: {sum(1 for f in rec['files'] if f['verified'])} of {len(rec['files'])} kits verified in {rec['dir']}"
+                      + (f"; moved aside: {', '.join(rec['moved_aside'])}" if rec['moved_aside'] else ""))
+                return 0 if all(f['verified'] for f in rec['files']) else 1
+            if a.install:
+                rec = UP.install(ws, a.actor, a.install)
+                print(f"installing {rec['version']} over {rec['from_version']}: the control panel stops while the setup runs and the launcher starts it again; the setup's log: {rec['log']}")
+                return 0
+            st = UP.state(ws, __version__)
+            if a.json:
+                print(_json.dumps(st, indent=1)); return 0
+            rel = st["release"]
+            if rel.get("error"):
+                print(f"running {__version__}; GitHub not reached: {rel['error']}")
+            else:
+                print(f"running {__version__}; newest release {rel['version']} ({rel.get('published_utc')}): {st['state']}")
+                for x in rel["assets"]:
+                    print(f"  {x['name']}  {x['bytes'] / 1e6:.1f} MB  {'sha256 ' + x['sha256'][:12] if x['sha256'] else 'no digest'}")
+            print(f"on hand in {st['installers_dir']}: " + (", ".join(f"{h['name']}{'' if h['verified'] else ' (unverified)'}" for h in st["on_hand"]) or "nothing"))
+            return 0
         from .doctor import update as _update
         return _update(check_only=a.check, extras=a.extras, as_json=a.json)
     elif a.cmd == "checklist":

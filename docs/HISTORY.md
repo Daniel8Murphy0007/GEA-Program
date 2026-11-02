@@ -4,6 +4,13 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.74.0 - 2026-11-02 - new versions from inside the program
+
+- The release card: the newest release fetched into the workspace's
+  installers folder with every kit checked against GitHub's SHA-256, and
+  installed from there by clicking, the control panel back afterwards.
+  Section DS; gate 537.
+
 ## v0.73.0 - 2026-11-01 - the box on this computer
 
 - The recorder runs on this computer as a simulated box from the control

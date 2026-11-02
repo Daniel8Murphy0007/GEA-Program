@@ -2326,7 +2326,11 @@ def make_handler(app: App):
                     actions = sorted({str(r.get('action', '')) for r in app.ws.audit_log()})
                     return self._json(200, {'entries': rows[-limit:] if limit else rows, 'total': total, 'actors': actors, 'actions': actions})
                 if path == '/api/update':
-                    return self._json(200, app.update_view(qs.get('check', ['1'])[0] != '0'))
+                    from . import updates as _UP
+                    from . import __version__ as _V
+                    v = app.update_view(qs.get('check', ['1'])[0] != '0')
+                    v['release'] = _UP.state(app.ws, _V, check=qs.get('check', ['1'])[0] != '0', timeout=6.0)
+                    return self._json(200, v)
                 if path == '/api/backup':
                     App.require(user, 'admin')
                     return self._json(200, app.backup_view())
@@ -3173,6 +3177,19 @@ def make_handler(app: App):
                     cfg = app.backup_config()
                     args = app.backup_args() + ['--actor', 'schedule']
                     return self._json(200, app.scheduler.add('backup-daily', args, user['name'], daily_at=cfg['daily_at']))
+                if path == '/api/update/fetch':
+                    App.require(user, 'admin')
+                    return self._json(200, app._job(['update', '--fetch', '--workspace', app.ws.path, '--actor', user['name']], user, "the newest release's kits into installers\\"))
+                if path == '/api/update/install':
+                    App.require(user, 'admin')
+                    from . import updates as _UP
+                    ver = str(body.get('version') or '').strip()
+                    if not re.match(r'^\d+\.\d+\.\d+$', ver):
+                        raise ApiError(400, 'the version to install, as fetched (0.74.0)')
+                    try:
+                        return self._json(200, _UP.install(app.ws, user['name'], ver))
+                    except RuntimeError as e:
+                        raise ApiError(409, str(e))
                 if path == '/api/update/program':
                     App.require(user, 'admin')
                     extras = body.get('extras') or 'live,plotting,xls,desktop'

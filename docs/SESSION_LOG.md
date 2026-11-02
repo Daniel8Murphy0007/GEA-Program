@@ -3202,3 +3202,18 @@ stability; and motor specifications in the tool catalogue.
   install it. Driven in Chromium: start, the monitor's RECORDING, pull
   after a minute, stop. DR4.
 
+## 2026-11-02 - new versions from inside the program (v0.74.0)
+
+- v0.73.0 shipped. Daniel: "Why do I have to keep asking where my new
+  versions are?" - because the ship happens where I cannot see it, and I
+  waited to be told. The program fetches its own now: `updates.py`
+  (GitHub's latest release, the kits into installers\ with their SHA-256
+  checked, the setup run through a detached cmd helper with `gea launch`
+  after it), the release card on Audit/Update, `gea update --release /
+  --fetch / --install`. Proven against a stand-in GitHub on the machine
+  (a kit altered after its hash was recorded is not kept). Section DS.
+- The gate caught a date: the certificate CERT-1 of sections AH and BB,
+  valid to 2027-01-01, entered its 60-day warning window today and read
+  EXPIRING; the test data's expiry dates moved to 2029 (the one period
+  meant to be invalid left as it was).
+
