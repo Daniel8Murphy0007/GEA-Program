@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.75.0 - 2026-11-02 - GEA-VPN
+
+- The programs on separate computers in separate places joined into one
+  private WireGuard network managed from the control panel: a hub of the
+  site's own, a key and a configuration per computer, the office reaching
+  each box at a fixed private address, members never seeing one another;
+  the program's own X25519 against the RFC's vectors. Section DT; gate 541.
+
 ## v0.74.0 - 2026-11-02 - new versions from inside the program
 
 - The release card: the newest release fetched into the workspace's

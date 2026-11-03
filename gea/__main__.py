@@ -1023,6 +1023,19 @@ def main(argv=None) -> int:
     p_up.add_argument("--install", type=str, default=None, help="run the fetched GEA-Program-Setup of this version (Windows): the control panel stops and comes back")
     p_up.add_argument("--actor", type=str, default="cli")
 
+    p_vp = sub.add_parser("vpn", help="GEA-VPN: the private WireGuard network the programs talk over - make it, add and remove members, write the hub installer and every member's configuration (the Administration card does the same by clicking)")
+    p_vp.add_argument("--workspace", type=str, default=None, help="the workspace (C:\\site); keys in keys\\vpn\\network.json, files under exports\\vpn")
+    p_vp.add_argument("--create", type=str, default=None, metavar="HOST", help="make the network with the hub at this public name or address (vpn.pad3site.com or 203.0.113.10); the office member is made with it")
+    p_vp.add_argument("--port", type=int, default=None, help="with --create or --hub: the hub's UDP port (default 51820)")
+    p_vp.add_argument("--subnet", type=str, default=None, help="with --create: the private subnet (default 10.77.0.0/24)")
+    p_vp.add_argument("--hub", type=str, default=None, metavar="HOST", help="change the hub's public name or address; every configuration is written again")
+    p_vp.add_argument("--add", type=str, default=None, metavar="NAME", help="add a member of this name (Pad 3 box) of the --kind")
+    p_vp.add_argument("--kind", type=str, default="box", help="with --add: office, box, operator, reader or other (default box)")
+    p_vp.add_argument("--remove", type=str, default=None, metavar="ID", help="remove the member of this id (pad-3-box); run the hub installer again after")
+    p_vp.add_argument("--bundles", action="store_true", help="write the hub installer and every member's configuration again")
+    p_vp.add_argument("--json", action="store_true")
+    p_vp.add_argument("--actor", type=str, default="cli")
+
     p_nt = sub.add_parser("notify", help="notification rules: validate the configuration, send a test message, show the delivery log")
     p_nt.add_argument("--workspace", type=str, default=None)
     p_nt.add_argument("--test", type=str, default=None, help="send a test message through this channel name")
@@ -2358,6 +2371,40 @@ def main(argv=None) -> int:
             return 0
         from .doctor import update as _update
         return _update(check_only=a.check, extras=a.extras, as_json=a.json)
+    elif a.cmd == "vpn":
+        import json as _json
+        from . import vpn as VP
+        from .workspace import Workspace
+        wsp = a.workspace or os.environ.get("GEA_WORKSPACE")
+        if not wsp:
+            raise SystemExit("vpn needs --workspace C:\\site")
+        ws = Workspace(wsp)
+        try:
+            if a.create:
+                VP.create(ws, a.actor, a.create, hub_port=a.port or VP.DEFAULT_PORT, subnet=a.subnet or VP.DEFAULT_SUBNET)
+                print(f"the network is made; hub {a.create}:{a.port or VP.DEFAULT_PORT}")
+            if a.hub:
+                VP.set_hub(ws, a.actor, a.hub, a.port)
+                print(f"the hub is now {a.hub}")
+            if a.add:
+                m = VP.add_member(ws, a.actor, a.add, a.kind)
+                print(f"added {m['name']} ({m['kind']}) at {m['address']}: gea-vpn-{m['id']}.zip; run the hub installer again")
+            if a.remove:
+                m = VP.remove_member(ws, a.actor, a.remove)
+                print(f"removed {m['name']} ({m['address']}); run the hub installer again")
+            if a.bundles:
+                b = VP.write_bundles(ws, a.actor)
+                print("written: " + ", ".join(sorted(b)))
+        except VP.VpnError as e:
+            raise SystemExit(f"vpn: {e}")
+        if a.json:
+            print(_json.dumps(VP.status(ws, probes=False), indent=1))
+        else:
+            print(VP.text(ws))
+            st = VP.status(ws, probes=False)
+            if st["network"]:
+                print(f"  files: {st['exports_dir']}")
+        return 0
     elif a.cmd == "checklist":
         import json as _json
         from . import setup_checklist as _SC

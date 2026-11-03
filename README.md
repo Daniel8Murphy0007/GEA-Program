@@ -424,6 +424,29 @@ keeps them byte for byte and makes the array and electrode stations of
 them. `gea help recorder`; the box's README has the parts, the wiring and
 the clock.
 
+### GEA-VPN: the programs on separate computers, one private network
+
+The control panel, each pad's recorder, the operator's window and the
+client's reader run on separate computers in separate places. GEA-VPN
+(since 0.75.0; the Administration tab's card, `gea help vpn`) joins them
+into one private WireGuard network over the internet: the office reaches
+every box at a fixed private address (`http://10.77.0.3:8780`) as if it
+sat on the pad's cable - the pull, the live monitor - and nothing else on
+the internet can see any of them. One hub is needed, a small Debian or
+Ubuntu server of the site's own with a public address (UDP 51820); every
+member connects out to it and it forwards between the office and each
+member - members never see one another. GEA makes every key and writes
+every configuration: enter the hub's address, **Make the network**, copy
+`gea-vpn-hub.zip` to the hub and run `sudo sh install-hub.sh`; install
+WireGuard on the office PC from wireguard.com and import the office's
+`gea-vpn.conf`; add a member per computer and hand it its zip (a box's
+holds `vpn.sh`, run once on the Pi; a window imports its `gea-vpn.conf`),
+then run the hub installer again. The keys stay in
+`keys\vpn\network.json`, owner-only, in the backup and never in the
+dossier. From a terminal: `gea vpn --workspace C:\site --create
+vpn.pad3site.com`, `gea vpn --workspace C:\site --add "Pad 3 box" --kind
+box`, `gea vpn --workspace C:\site`.
+
 ### The image: drill-bit seismic from the ground
 
 While a well is drilled the program knows where the bit is - the survey and
@@ -718,7 +741,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.74.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.75.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1483,7 +1506,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.74.0.exe` (for 0.74.0): the
+Every release also carries `GEA-Program-Setup-0.75.0.exe` (for 0.75.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1502,7 +1525,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.74.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.75.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

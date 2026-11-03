@@ -9,5 +9,5 @@ manifest GEA reads, and serves a status page on the pad network. It runs as a se
 and nothing to type: power it, and it records. Standard library plus numpy; the hardware drivers (spidev, lgpio)
 are imported only where the hardware is.
 """
-__version__ = "0.74.0"
+__version__ = "0.75.0"
 NAME = "GEA Recorder"

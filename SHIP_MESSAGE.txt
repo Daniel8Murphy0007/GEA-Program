@@ -1,15 +1,22 @@
-v0.74.0 — NEW VERSIONS FROM INSIDE THE PROGRAM
+v0.75.0 — GEA-VPN: THE PROGRAMS ON SEPARATE COMPUTERS, ONE PRIVATE NETWORK
 
-No more asking where the new version is.
+The control panel, each pad's recorder, the operator's window and the
+client's reader run on separate computers in separate places. GEA-VPN joins
+them into one private network over the internet - WireGuard, with every key
+and every configuration written by GEA, nothing typed on a pad.
 
-- Audit/Update tab, "The release": the newest version on GitHub against
-  the one running. "Fetch the kits" brings the three kits into
-  C:\site\installers, each checked against GitHub's own hash. "Install
-  now" runs the setup from there: the control panel stops for about a
-  minute and comes back on its own.
-- The recorder's kit comes down with them, for the Pi.
+- Administration tab, "GEA-VPN": enter the hub's address, "Make the
+  network". Download gea-vpn-hub.zip, copy it to the hub, run
+  "sudo sh install-hub.sh" once (and again after a member is added or
+  removed). Install WireGuard on this PC from wireguard.com, import the
+  office's gea-vpn.conf, Activate.
+- Add a member per computer; hand it its zip. A box runs "sudo sh vpn.sh"
+  once; a Windows member imports gea-vpn.conf once. The card shows each
+  member's last handshake and whether its program answers.
+- The office then pulls from a box at http://10.77.0.3:8780 from anywhere.
+- The hub is the one thing GEA cannot make: a small Debian or Ubuntu
+  server of the site's own with a public address, UDP 51820 open.
 
-This one last time: install GEA-Program-Setup-0.74.0.exe over the old one.
-From then on, three clicks from inside the program.
+Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
 
-Acceptance section DS (3 checks).
+Acceptance section DT (4 checks).

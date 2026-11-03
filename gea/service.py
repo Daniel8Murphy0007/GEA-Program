@@ -2079,6 +2079,31 @@ def make_handler(app: App):
                 if path == '/api/records/example':
                     from . import well_records as _WR
                     return self._json(200, _WR.EXAMPLE)
+                if path == '/api/vpn':
+                    App.require(user, 'admin')
+                    from . import vpn as _VPN
+                    return self._json(200, _VPN.status(app.ws, probes=qs.get('probe', ['1'])[0] != '0', office_port=self.server.server_address[1]))
+                if path.startswith('/api/vpn/bundle/'):
+                    App.require(user, 'admin')
+                    from . import vpn as _VPN
+                    name = path[len('/api/vpn/bundle/'):]
+                    if not re.match(r'^gea-vpn-[a-z0-9\-]+\.zip$', name):
+                        raise ApiError(404, 'no such bundle')
+                    zp = os.path.join(app.ws.path, 'exports', 'vpn', name)
+                    if not os.path.isfile(zp):
+                        raise ApiError(404, 'no such bundle: make the bundles first')
+                    with open(zp, 'rb') as f:
+                        body = f.read()
+                    app.ws.audit(user['name'], 'vpn.bundle.download', {'bundle': name})
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/zip')
+                    self.send_header('Content-Disposition', f'attachment; filename="{name}"')
+                    self.send_header('Content-Length', str(len(body)))
+                    self.send_header('Cache-Control', 'no-store')
+                    self._secure_headers()
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return None
                 if path == '/api/workspaces':
                     App.require(user, 'admin')
                     from . import workspaces as _WSS
@@ -3046,6 +3071,33 @@ def make_handler(app: App):
                     except WorkspaceError as e:
                         raise ApiError(404, str(e))
                     return self._json(200, {'ok': True})
+                if path.startswith('/api/vpn/'):
+                    App.require(user, 'admin')
+                    from . import vpn as _VPN
+                    try:
+                        if path == '/api/vpn/create':
+                            net = _VPN.create(app.ws, user['name'], str(body.get('hub_host') or ''), int(body.get('hub_port') or _VPN.DEFAULT_PORT),
+                                              str(body.get('subnet') or _VPN.DEFAULT_SUBNET), (str(body.get('name') or '').strip() or None))
+                            _VPN.write_bundles(app.ws, user['name'])
+                            return self._json(200, {'ok': True, 'name': net['name'], 'members': len(net['members'])})
+                        if path == '/api/vpn/hub':
+                            _VPN.set_hub(app.ws, user['name'], str(body.get('host') or ''), int(body['port']) if body.get('port') else None)
+                            _VPN.write_bundles(app.ws, user['name'])
+                            return self._json(200, {'ok': True})
+                        if path == '/api/vpn/members':
+                            m = _VPN.add_member(app.ws, user['name'], str(body.get('name') or ''), str(body.get('kind') or ''))
+                            _VPN.write_bundles(app.ws, user['name'])
+                            return self._json(200, {'id': m['id'], 'address': m['address'], 'public_key': m['public_key']})
+                        if path.endswith('/remove') and path.startswith('/api/vpn/members/'):
+                            m = _VPN.remove_member(app.ws, user['name'], path[len('/api/vpn/members/'):-len('/remove')])
+                            _VPN.write_bundles(app.ws, user['name'])
+                            return self._json(200, {'removed': m['id']})
+                        if path == '/api/vpn/bundles':
+                            w = _VPN.write_bundles(app.ws, user['name'], body.get('member') or None)
+                            return self._json(200, {'written': sorted(w)})
+                    except _VPN.VpnError as e:
+                        raise ApiError(400, str(e))
+                    raise ApiError(404, 'not here')
                 if path in ('/api/field/sim/start', '/api/field/sim/stop'):
                     App.require(user, 'operator')
                     from . import recorder_link as _RL

@@ -3217,3 +3217,27 @@ stability; and motor specifications in the tool catalogue.
   EXPIRING; the test data's expiry dates moved to 2029 (the one period
   meant to be invalid left as it was).
 
+## 2026-11-02 - GEA-VPN (v0.75.0)
+
+- v0.74.0 shipped and its kits fetched. Daniel: "build GEA-VPN so these
+  programs can communicate through the cloud privately; where each of
+  these individual computers are separately running each program."
+  WireGuard, managed from GEA rather than reinvented: `x25519.py` (RFC
+  7748's ladder, checked against the RFC's vectors and `wg pubkey`),
+  `vpn.py` (the network file with every key, owner-only; the hub's
+  configuration with its forwarding rules - office<->member, nothing
+  member<->member - and an idempotent installer; a member's configuration
+  per kind, with a pre-shared key and a keepalive for the cellular modem;
+  the bundles as zips; the status from `wg show` and a TCP probe of each
+  member's program), the routes, the Administration card, `gea vpn`,
+  `help/vpn.md`, IT_SECURITY. The hub is a server of the site's own with
+  a public address - the one thing GEA cannot make; the design assumes
+  the smallest rented Debian/Ubuntu machine. Validated here with the real
+  tools: `wg-quick strip` reads every configuration back, `sh -n` both
+  scripts. Section DT (4 checks).
+- A removed member's folder and zip now go with it, and a full rewrite of
+  the bundles drops anything left over (the gate caught the leftovers).
+- The ship stopped on DR4 on Daniel's machine: `closed` expected exactly
+  six files from the simulated box, and a run that crosses a minute writes
+  twelve (the simulated box splits its files every minute - the check
+  depended on the second it started). Six channels, six or twelve files.

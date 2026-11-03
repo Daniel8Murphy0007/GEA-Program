@@ -104,6 +104,13 @@ against its SHA-256, and adds or refreshes the array station with the sensors' p
 Seismic tab as any station's. From a terminal: `gea workspace --path C:\site --action field-pull --box http://192.168.1.50:8780`.
 Off the network, the USB mirror carried to the office is the same folder.
 
+**From the office, over the internet** (since 0.75.0): GEA-VPN. The office's control panel makes a private WireGuard
+network - a hub on a small server of the site's own, a key and a configuration per computer - and the box's zip
+(`gea-vpn-pad-3-box.zip` for a box called `Pad 3 box`) holds `vpn.sh`: copy it to the Pi and run `sudo sh vpn.sh`
+once. The box then connects out through the pad's cellular modem to the hub, keeps the tunnel up with a keepalive
+every 25 s, and the office pulls from it at its private address (`http://10.77.0.3:8780`) as if it sat on the pad's
+cable; nothing else on the internet can reach the box's page. `gea help vpn` in GEA.
+
 ## Commands
 
     gea-recorder run --config /etc/gea-recorder/config.json   record until stopped (what the service runs)

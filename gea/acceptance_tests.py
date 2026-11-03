@@ -15913,7 +15913,8 @@ def section_dr_field_recorder(tmp: str) -> None:
             "started": st["running"] is True and st["pid"] and st["already_running"] is False and st["health"]["station"] == "SIM" and st["health"]["site"] == "Pad 3 sim",
             "live": live is not None and live["recording"] is True and len(live["channels"]) == 6,
             "stopped": sp["stopped"] is True and sp["running"] is False and RL.health(port, timeout=0.5) is None,
-            "closed": len(man3["files"]) == 6 and all(Path(RL.sim_dir(ws3), "data", e["file"]).is_file() for e in man3["files"]),
+            # six channels, a file each - two each when the run crossed a minute (the simulated box splits its files every minute)
+            "closed": len({e["sensor_id"] for e in man3["files"]}) == 6 and len(man3["files"]) in (6, 12) and all(Path(RL.sim_dir(ws3), "data", e["file"]).is_file() for e in man3["files"]),
             "pulled": [s_["kind"] for s_ in r4["stations"]] == ["array", "electrodes"] and len(r4["stations"][0]["sensors"]) == 4,
             "monitor_url": RL.monitor_url("192.168.1.50") == "http://192.168.1.50:8780/live" and RL.monitor_url("http://192.168.1.50:8780/") == "http://192.168.1.50:8780/live",
             "audit": "field.sim_start" in acts3 and "field.sim_stop" in acts3,
@@ -16065,6 +16066,218 @@ def section_ds_updates(tmp: str) -> None:
        "--install, and the help page carry it" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_dt_vpn(tmp: str) -> None:
+    """Section DT - GEA-VPN: the programs on separate computers in separate places joined by a WireGuard network GEA
+    manages. The key agreement against RFC 7748's test vectors (and against `wg pubkey` where the tools are here);
+    a network made, members added and removed with the refusals (a second office, a name twice, a public subnet,
+    a bad host); every configuration's contents (what each kind may reach, the pre-shared key, the keepalive, the
+    hub's forwarding rules); the installer and member bundles, read back by wg-quick where it is installed and by
+    sh -n; the private keys in one owner-only file that the backup carries; the routes, the card, the command and
+    the help."""
+    import base64
+    import http.cookiejar
+    import io
+    import shutil
+    import stat
+    import subprocess
+    import urllib.error
+    import urllib.request
+    import zipfile
+    from . import backup as BK
+    from . import helplib as H
+    from . import vpn as VP
+    from . import x25519 as X
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "dt"); d.mkdir()
+    # -- DT1 the key agreement -----------------------------------------------------------------------------------------------
+    k1 = bytes.fromhex("a546e36bf0527c9d3b16154b82465edd62144c0ac1fc5a18506a2244ba449ac4")
+    u1 = bytes.fromhex("e6db6867583030db3594c1a424b15f7c726624ec26b3353b10a903a6d0ab1c4c")
+    r1 = "c3da55379de9c6908e94ea4df28d084f32eccf03491c71f754b4075577a28552"
+    a_priv = bytes.fromhex("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a")
+    b_priv = bytes.fromhex("5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb")
+    a_pub = "8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a"
+    b_pub = "de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f"
+    shared = "4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742"
+    pub_a = X.public_key(a_priv); pub_b = X.public_key(b_priv)
+    wg = shutil.which("wg")
+    wg_same = None
+    if wg:
+        try:
+            wg_same = all(subprocess.run([wg, "pubkey"], input=pv, capture_output=True, text=True, timeout=5).stdout.strip() == pb
+                          for pv, pb in [X.keypair_b64() for _ in range(3)])
+        except Exception:
+            wg_same = False
+    kp = X.keypair_b64()
+    c1 = {
+        "rfc_vector": X.x25519(k1, u1).hex() == r1,
+        "rfc_alice_bob": pub_a.hex() == a_pub and pub_b.hex() == b_pub and X.x25519(a_priv, pub_b).hex() == shared and X.x25519(b_priv, pub_a).hex() == shared,
+        "keys_32": len(base64.b64decode(kp[0])) == 32 and len(base64.b64decode(kp[1])) == 32 and X.public_from_b64(kp[0]) == kp[1],
+        "clamped": (base64.b64decode(kp[0])[0] & 7) == 0 and (base64.b64decode(kp[0])[31] & 0xC0) == 0x40,
+        "wg_agrees": wg_same in (None, True),
+        "two_differ": X.keypair_b64()[0] != X.keypair_b64()[0] and len(X.preshared_b64()) == 44,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "DT1 the program's own X25519 reproduces RFC 7748's test vector and its Alice/Bob exchange, makes clamped 32-byte key pairs whose public key "
+       + ("the WireGuard tool here agrees with" if wg else "the RFC's ladder gives") + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+    # -- DT2 the network: made, members, refusals, the files ---------------------------------------------------------------
+    ws = Workspace.create(str(d / "ws"), "Pad 3 vpn", actor="tester")
+    refusals = {}
+    for nm, fn in (("host", lambda: VP.create(ws, "tester", "not a host!")), ("subnet", lambda: VP.create(ws, "tester", "vpn.example.com", subnet="8.8.8.0/24")),
+                   ("member_before", lambda: VP.add_member(ws, "tester", "Box", "box"))):
+        try:
+            fn(); refusals[nm] = False
+        except VP.VpnError:
+            refusals[nm] = True
+    net = VP.create(ws, "tester", "vpn.example.com")
+    box = VP.add_member(ws, "tester", "Pad 3 box", "box")
+    rd = VP.add_member(ws, "tester", "Client reader", "reader")
+    for nm, fn in (("twice", lambda: VP.create(ws, "tester", "vpn.example.com")), ("name_twice", lambda: VP.add_member(ws, "tester", "pad 3 BOX", "box")),
+                   ("second_office", lambda: VP.add_member(ws, "tester", "Office 2", "office")), ("kind", lambda: VP.add_member(ws, "tester", "X", "laptop")),
+                   ("remove_office", lambda: VP.remove_member(ws, "tester", "office")), ("remove_none", lambda: VP.remove_member(ws, "tester", "nobody"))):
+        try:
+            fn(); refusals[nm] = False
+        except VP.VpnError:
+            refusals[nm] = True
+    raw = json.loads(Path(ws.path, VP.FILE).read_text(encoding="utf-8"))
+    office = next(m for m in raw["members"] if m["kind"] == "office")
+    bm = next(m for m in raw["members"] if m["id"] == box["id"])
+    mc_box = VP.member_conf(raw, bm); mc_off = VP.member_conf(raw, office); hc = VP.hub_conf(raw)
+    mode_ok = True
+    if os.name != "nt":
+        mode_ok = stat.S_IMODE(os.stat(Path(ws.path, VP.FILE)).st_mode) == 0o600
+    st = VP.status(ws, probes=False)
+    pub_json = json.dumps(st)
+    c2 = {
+        "refusals": all(refusals.values()) and len(refusals) == 9,
+        "addresses": office["address"] == "10.77.0.2" and box["address"] == "10.77.0.3" and rd["address"] == "10.77.0.4" and raw["hub"]["address"] == "10.77.0.1",
+        "keys_private": mode_ok and all(m.get("private_key") and m.get("preshared_key") for m in raw["members"]) and raw["hub"]["private_key"]
+                        and all(X.public_from_b64(m["private_key"]) == m["public_key"] for m in raw["members"]) and X.public_from_b64(raw["hub"]["private_key"]) == raw["hub"]["public_key"],
+        "status_no_keys": "private_key" not in pub_json and "preshared_key" not in pub_json and len(st["network"]["members"]) == 3,
+        "box_conf": f"PrivateKey = {bm['private_key']}" in mc_box and f"PresharedKey = {bm['preshared_key']}" in mc_box and "AllowedIPs = 10.77.0.1/32, 10.77.0.2/32" in mc_box
+                    and "Endpoint = vpn.example.com:51820" in mc_box and "PersistentKeepalive = 25" in mc_box and f"PublicKey = {raw['hub']['public_key']}" in mc_box,
+        "office_conf": "AllowedIPs = 10.77.0.0/24" in mc_off and "Address = 10.77.0.2/32" in mc_off,
+        "hub_conf": "ListenPort = 51820" in hc and hc.count("[Peer]") == 3 and all(f"PublicKey = {m['public_key']}" in hc and f"AllowedIPs = {m['address']}/32" in hc for m in raw["members"])
+                    and "-s 10.77.0.2/32 -j ACCEPT" in hc and "-d 10.77.0.2/32 -j ACCEPT" in hc and "-o gea-vpn -j DROP" in hc and "PostDown" in hc and raw["hub"]["private_key"] in hc,
+        "audit": {"vpn.create", "vpn.member.add"} <= {a["action"] for a in ws.audit_log()},
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "DT2 a network made with its office; a box and a reader added at the next addresses; nine refusals (a bad host, a public subnet, a member before "
+       "a network, a second network, a name twice, a second office, an unknown kind, removing the office, removing nobody); every private key in one "
+       "owner-only file and nowhere in the status; a box reaches the hub and the office only, the office the whole subnet, every member with a "
+       "pre-shared key and a keepalive; the hub lists every member and forwards office<->member only" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+    # -- DT3 the bundles -----------------------------------------------------------------------------------------------------
+    written = VP.write_bundles(ws, "tester")
+    root = Path(ws.path, "exports", "vpn")
+    hub_zip = root / "gea-vpn-hub.zip"; box_zip = root / f"gea-vpn-{box['id']}.zip"; rd_zip = root / f"gea-vpn-{rd['id']}.zip"
+    with zipfile.ZipFile(hub_zip) as z:
+        hub_names = sorted(n.split("/", 1)[1] for n in z.namelist()); install_sh = z.read("gea-vpn-hub/install-hub.sh").decode()
+    with zipfile.ZipFile(box_zip) as z:
+        box_names = sorted(n.split("/", 1)[1] for n in z.namelist()); box_conf_z = z.read(f"gea-vpn-{box['id']}/gea-vpn.conf").decode(); vpn_sh = z.read(f"gea-vpn-{box['id']}/vpn.sh").decode()
+    with zipfile.ZipFile(rd_zip) as z:
+        rd_names = sorted(n.split("/", 1)[1] for n in z.namelist())
+    sh = shutil.which("sh")
+    sh_ok = None
+    if sh:
+        sh_ok = all(subprocess.run([sh, "-n", str(root / f)], capture_output=True, timeout=10).returncode == 0 for f in ("hub/install-hub.sh", f"{box['id']}/vpn.sh"))
+    wgq = shutil.which("wg-quick")
+    strip_ok = None
+    if wgq:
+        strip_ok = all(subprocess.run([wgq, "strip", str(root / f)], capture_output=True, timeout=10).returncode == 0 for f in ("hub/gea-vpn.conf", f"{box['id']}/gea-vpn.conf", "office/gea-vpn.conf"))
+    removed = VP.remove_member(ws, "tester", rd["id"])
+    rd_gone_at_once = not rd_zip.exists() and not (root / rd["id"]).exists()
+    VP.write_bundles(ws, "tester")
+    after = VP.status(ws, probes=False)
+    hc2 = (root / "hub" / "gea-vpn.conf").read_text(encoding="utf-8")
+    c3 = {
+        "written": set(written) == {"hub", "office", box["id"], rd["id"]},
+        "hub_zip": hub_names == ["README.txt", "gea-vpn.conf", "install-hub.sh"] and "wg syncconf" in install_sh and "PORT=51820" in install_sh and "$PORT/udp" in install_sh and "ip_forward" in install_sh and "IFACE=gea-vpn" in install_sh and "wg-quick@$IFACE" in install_sh,
+        "box_zip": box_names == ["gea-vpn.conf", "vpn.sh"] and box_conf_z == (root / box["id"] / "gea-vpn.conf").read_text(encoding="utf-8") and "IFACE=gea-vpn" in vpn_sh and "wg-quick@$IFACE" in vpn_sh and "wireguard" in vpn_sh,
+        "reader_zip": rd_names == ["README.txt", "gea-vpn.conf"],
+        "sh_n": sh_ok in (None, True),
+        "wg_quick_strip": strip_ok in (None, True),
+        "removed": removed["id"] == rd["id"] and rd_gone_at_once and f"gea-vpn-{rd['id']}.zip" not in after["bundles"] and not rd_zip.exists() and rd["public_key"] not in hc2
+                   and len(after["network"]["members"]) == 2 and box["public_key"] in hc2,
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "DT3 the hub bundle (the configuration, an idempotent installer that opens 51820/udp, turns forwarding on and syncs a running tunnel, a README) "
+       "and a bundle per member (a box's with vpn.sh, a window's with a README)" + (", read back by wg-quick strip" if wgq else "") + (", sh -n clean" if sh else "")
+       + "; a member removed leaves the hub's configuration and the files without it" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+    # -- DT4 the backup carries the keys; the routes; the card; the command; the help --------------------------------------
+    bk = BK.make(ws.path, str(d / "bk"), actor="tester")
+    with zipfile.ZipFile(bk["path"]) as z:
+        bk_names = z.namelist()
+    Users(str(Path(ws.path, "users.json"))).add("adm", "admin-pass-123", "admin")
+    Users(str(Path(ws.path, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(ws.path, port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+
+    def opener_():
+        return urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(op, method, path, body=None, raw_=False):
+        rq = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with op.open(rq, timeout=60) as rr_:
+                data = rr_.read()
+                return rr_.status, (data if raw_ else json.loads(data)), rr_.headers
+        except urllib.error.HTTPError as e:
+            return e.code, (e.read() if raw_ else json.loads(e.read() or b"{}")), e.headers
+    try:
+        anon = opener_()
+        s_anon, _, _ = call(anon, "GET", "/api/vpn")
+        op_ = opener_(); call(op_, "POST", "/api/login", {"name": "op", "password": "op-pass-123"})
+        s_op, _, _ = call(op_, "GET", "/api/vpn")
+        s_opz, _, _ = call(op_, "GET", "/api/vpn/bundle/gea-vpn-hub.zip", raw_=True)
+        adm = opener_(); call(adm, "POST", "/api/login", {"name": "adm", "password": "admin-pass-123"})
+        s_st, st_, _ = call(adm, "GET", "/api/vpn?probe=0")
+        s_add, added, _ = call(adm, "POST", "/api/vpn/members", {"name": "Operator window", "kind": "operator"})
+        s_dup, _, _ = call(adm, "POST", "/api/vpn/members", {"name": "Operator window", "kind": "operator"})
+        s_bad, _, _ = call(adm, "POST", "/api/vpn/create", {"hub_host": "x"})
+        s_z, zbytes, zh = call(adm, "GET", "/api/vpn/bundle/gea-vpn-operator-window.zip", raw_=True)
+        s_trav, _, _ = call(adm, "GET", "/api/vpn/bundle/..%2fnetwork.json", raw_=True)
+        s_other, _, _ = call(adm, "GET", "/api/vpn/bundle/gea-vpn-nobody.zip", raw_=True)
+        s_rm, _, _ = call(adm, "POST", f"/api/vpn/members/{added.get('id', 'operator-window')}/remove")
+        s_hub, hub_, _ = call(adm, "POST", "/api/vpn/hub", {"host": "203.0.113.10", "port": 51821})
+        s_b, _, _ = call(adm, "POST", "/api/vpn/bundles")
+    finally:
+        svc.stop()
+    zip_ok = False
+    try:
+        with zipfile.ZipFile(io.BytesIO(zbytes)) as z:
+            zip_ok = "gea-vpn-operator-window/gea-vpn.conf" in z.namelist()
+    except Exception:
+        pass
+    app_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    main_src = (pkg / "__main__.py").read_text(encoding="utf-8")
+    sec_doc = (pkg / "help" / "IT_SECURITY.md").read_text(encoding="utf-8")
+    final = VP.status(ws, probes=False)
+    c4 = {
+        "backup_keys": "keys/vpn/network.json" in bk_names,
+        "anon_op": s_anon in (401, 403) and s_op == 403 and s_opz == 403,
+        "status": s_st == 200 and st_["network"]["hub"]["host"] == "vpn.example.com" and "private_key" not in json.dumps(st_) and "gea-vpn-hub.zip" in st_["bundles"],
+        "add": s_add == 200 and s_dup == 400 and s_bad == 400,
+        "download": s_z == 200 and zip_ok and "attachment" in str(zh.get("Content-Disposition", "")) and s_trav in (400, 404) and s_other == 404,
+        "remove_hub": s_rm == 200 and s_hub == 200 and s_b == 200 and final["network"]["hub"]["host"] == "203.0.113.10" and final["network"]["hub"]["port"] == 51821
+                      and len(final["network"]["members"]) == 2 and "203.0.113.10:51821" in (root / "office" / "gea-vpn.conf").read_text(encoding="utf-8"),
+        "audit_download": {"vpn.bundle.download", "vpn.bundles", "vpn.member.remove", "vpn.hub"} <= {a["action"] for a in ws.audit_log()},
+        "card": all(t_ in app_src for t_ in ("vpnCardLoad", "/api/vpn/create", "/api/vpn/members", "/api/vpn/bundle/", "Make the network", "Add the member", "Make the files again", "gea-vpn-hub.zip")),
+        "cli": all(t_ in main_src for t_ in ('add_parser("vpn"', '"--create"', '"--add"', '"--remove"', '"--bundles"', "VP.add_member")),
+        "help": not H.check("vpn") and any(t_ == "vpn" for t_, _, _ in H.INDEX) and "GEA-VPN" in sec_doc and "51820" in sec_doc and "keys\\vpn\\network.json" in sec_doc,
+    }
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       "DT4 the backup carries keys/vpn/network.json; the routes are admin-only (anonymous and operator refused, a bundle too), the status never "
+       "carries a private key, a name twice and a bad host are 400, a bundle downloads as an attachment and is audited, a path outside the folder "
+       "and an unknown bundle are refused, a member removed and the hub changed rewrite every file; the Administration card, the vpn command "
+       "and the help page carry it" + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -16191,6 +16404,7 @@ def main() -> int:
         section_dq_bit_image(tmp)
         section_dr_field_recorder(tmp)
         section_ds_updates(tmp)
+        section_dt_vpn(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

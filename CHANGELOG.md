@@ -5,6 +5,38 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.75.0] - 2026-11-02 - GEA-VPN: the programs on separate computers, one private network
+
+### Added
+- **GEA-VPN** (`gea/vpn.py`, `gea/x25519.py`; the Administration tab's
+  card; `gea vpn`): the control panel, each pad's recorder, the operator's
+  window and the client's reader run on separate computers in separate
+  places, and GEA now joins them into one private WireGuard network over
+  the internet. One hub - a Debian or Ubuntu server of the site's own with
+  a public address, UDP 51820 - that every member connects out to; it
+  forwards between the office and each member and members never see one
+  another. GEA makes every key pair (X25519 by `wg genkey` where it is
+  installed, else its own RFC 7748 implementation, checked against the
+  RFC's vectors in the gate) and a pre-shared key per member, assigns the
+  private addresses (`10.77.0.0/24`; hub `.1`, office `.2`), and writes
+  every configuration: the hub's with its forwarding rules and an
+  idempotent installer (`gea-vpn-hub.zip`: `sudo sh install-hub.sh`,
+  again after a member is added or removed), a box's with `vpn.sh` for
+  the Pi (`sudo sh vpn.sh` once), a window's with the WireGuard-for-Windows
+  steps. The card shows the tunnel's state on this computer, every
+  member's last handshake and whether its program answers through the
+  tunnel. The private keys are in `keys\vpn\network.json` (owner-only;
+  in the backup, never in the dossier); the files under `exports\vpn\`;
+  audit lines `vpn.create`, `vpn.hub`, `vpn.member.add`,
+  `vpn.member.remove`, `vpn.bundles`, `vpn.bundle.download`. Routes
+  `/api/vpn`, `/api/vpn/bundle/<zip>`, `/api/vpn/create|hub|members|
+  members/<id>/remove|bundles` (admin). `gea help vpn`.
+- The box's README and help page say how a box joins; IT_SECURITY has
+  the network's section.
+
+### Acceptance
+- Section DT (4 checks).
+
 ## [v0.74.0] - 2026-11-02 - new versions from inside the program
 
 ### Added

@@ -37,6 +37,7 @@ INDEX: List[tuple] = [
     ('sites', 'Sites - the engagement', 'the wells, stations and tracks of one client\'s ground, and the one report for all of it'),
     ('seismic', 'Seismic - the second leg', 'miniSEED/SAC in, spectra and persistent lines out, the detectability test against known rigs'),
     ('bit-image', 'The image - drill-bit seismic from the ground', "the drilling itself as the seismic source of known position: ground stations correlated against the one beside the rig, the velocity column layer by layer, the layer below the bit, the property column, and what a field recorder must capture - end to end on a labelled scene"),
+    ('vpn', 'GEA-VPN - the private network between the programs', "WireGuard managed from GEA: the hub on a small server of the site's own, a key and a configuration per computer, the office reaching each box at a fixed private address; nothing typed on a pad"),
     ('recorder', 'The field recorder - the black box', "GEA Recorder on a Raspberry Pi in the pad: the ground channels and the rig feed on one GPS clock into hourly miniSEED files with hashes and a manifest; GEA pulls them in and makes stations of them"),
     ('patches', 'Patches', 'supervised live connections, their states and records'),
     ('files', 'Files', 'import and export roots, detection by content, the evidence pack'),

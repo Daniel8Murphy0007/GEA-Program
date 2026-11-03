@@ -148,6 +148,25 @@ declared extras.
   every response carries a Content-Security-Policy (`default-src 'self'`,
   `frame-ancestors 'none'`), `X-Frame-Options: DENY`, `nosniff` and a
   same-origin referrer policy. The page loads nothing from the internet.
+- **GEA-VPN** (since 0.75.0, `gea help vpn`): the programs run on separate
+  computers in separate places and talk over a WireGuard network GEA
+  manages. One hub, a Debian or Ubuntu server of the site's own with a
+  public address, listens on UDP 51820 and forwards between the office and
+  each member (`iptables` FORWARD rule: office to any member and back
+  ACCEPT, everything else DROP, so members never reach one another);
+  members only connect out (a box behind a cellular modem opens no inbound
+  port; a keepalive every 25 s holds the tunnel). Every key pair is made by
+  GEA (X25519 by `wg genkey` where it is installed, else the program's own
+  RFC 7748 implementation checked against the RFC's vectors in the gate) and
+  every member has a pre-shared key besides. The private keys are in
+  `keys\vpn\network.json`, owner-only (0600), carried by the backup and
+  never by the dossier; a member's configuration file holds that member's
+  private key and is handed over by a channel of its own. The hub installer
+  and the member files are under `exports\vpn\`; the card's downloads are
+  admin-only and audited (`vpn.bundle.download`). The tunnel encrypts and
+  addresses; the programs' own sign-in, roles and hashes apply through it
+  unchanged, and the box's page is still bound to the pad network and the
+  tunnel address only.
 
 ## What it records
 
