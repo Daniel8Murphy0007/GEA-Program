@@ -5,6 +5,21 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.75.1] - 2026-11-03 - the Windows kit's gate
+
+### Fixed
+- The Windows kit job of v0.75.0 failed in its gate: section DT ran the
+  hub and box scripts through `sh -n` and the configurations through
+  `wg-quick strip` wherever those tools were found, and GitHub's Windows
+  machines carry Git's `sh.exe`; the scripts are for Linux hosts and are
+  checked on the Linux kit and recorder jobs, so these checks are now
+  Linux-only (and a tool that fails to run is "not here", never a failed
+  check). v0.75.0 on GitHub has the Reader and Recorder kits but no
+  GEA-Program setup; this version carries all three.
+
+### Acceptance
+- Section DT unchanged in count (4 checks).
+
 ## [v0.75.0] - 2026-11-02 - GEA-VPN: the programs on separate computers, one private network
 
 ### Added

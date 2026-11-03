@@ -1,22 +1,11 @@
-v0.75.0 — GEA-VPN: THE PROGRAMS ON SEPARATE COMPUTERS, ONE PRIVATE NETWORK
+v0.75.1 — GEA-VPN, WITH THE WINDOWS KIT
 
-The control panel, each pad's recorder, the operator's window and the
-client's reader run on separate computers in separate places. GEA-VPN joins
-them into one private network over the internet - WireGuard, with every key
-and every configuration written by GEA, nothing typed on a pad.
-
-- Administration tab, "GEA-VPN": enter the hub's address, "Make the
-  network". Download gea-vpn-hub.zip, copy it to the hub, run
-  "sudo sh install-hub.sh" once (and again after a member is added or
-  removed). Install WireGuard on this PC from wireguard.com, import the
-  office's gea-vpn.conf, Activate.
-- Add a member per computer; hand it its zip. A box runs "sudo sh vpn.sh"
-  once; a Windows member imports gea-vpn.conf once. The card shows each
-  member's last handshake and whether its program answers.
-- The office then pulls from a box at http://10.77.0.3:8780 from anywhere.
-- The hub is the one thing GEA cannot make: a small Debian or Ubuntu
-  server of the site's own with a public address, UDP 51820 open.
+The same program as v0.75.0 - GEA-VPN, the private network between the
+programs on their separate computers - with the Windows setup this time:
+v0.75.0's Windows kit job failed in its gate on a script check that only
+GitHub's Windows machine ran (Git's sh.exe); the check is Linux-only now.
 
 Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
+Then: Administration tab, "GEA-VPN" - gea help vpn.
 
-Acceptance section DT (4 checks).
+Acceptance section DT (4 checks); gate 541.

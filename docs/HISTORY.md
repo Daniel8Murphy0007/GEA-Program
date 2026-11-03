@@ -4,6 +4,12 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.75.1 - 2026-11-03 - the Windows kit's gate
+
+- v0.75.0's Windows kit job failed in its gate on the script checks that
+  only a Windows machine with Git's sh.exe would run; Linux-only now. The
+  kits of 0.75.0 reissued under 0.75.1. Gate 541.
+
 ## v0.75.0 - 2026-11-02 - GEA-VPN
 
 - The programs on separate computers in separate places joined into one

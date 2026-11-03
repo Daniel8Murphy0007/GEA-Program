@@ -16101,7 +16101,7 @@ def section_dt_vpn(tmp: str) -> None:
     b_pub = "de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f"
     shared = "4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742"
     pub_a = X.public_key(a_priv); pub_b = X.public_key(b_priv)
-    wg = shutil.which("wg")
+    wg = shutil.which("wg") if os.name != "nt" else None
     wg_same = None
     if wg:
         try:
@@ -16179,14 +16179,20 @@ def section_dt_vpn(tmp: str) -> None:
         box_names = sorted(n.split("/", 1)[1] for n in z.namelist()); box_conf_z = z.read(f"gea-vpn-{box['id']}/gea-vpn.conf").decode(); vpn_sh = z.read(f"gea-vpn-{box['id']}/vpn.sh").decode()
     with zipfile.ZipFile(rd_zip) as z:
         rd_names = sorted(n.split("/", 1)[1] for n in z.namelist())
-    sh = shutil.which("sh")
+    sh = shutil.which("sh") if os.name != "nt" else None          # the scripts run on Linux hosts; Git's sh.exe on a Windows machine is not that
     sh_ok = None
     if sh:
-        sh_ok = all(subprocess.run([sh, "-n", str(root / f)], capture_output=True, timeout=10).returncode == 0 for f in ("hub/install-hub.sh", f"{box['id']}/vpn.sh"))
-    wgq = shutil.which("wg-quick")
+        try:
+            sh_ok = all(subprocess.run([sh, "-n", str(root / f)], capture_output=True, timeout=10).returncode == 0 for f in ("hub/install-hub.sh", f"{box['id']}/vpn.sh"))
+        except (OSError, subprocess.SubprocessError):
+            sh_ok = None
+    wgq = shutil.which("wg-quick") if os.name != "nt" else None
     strip_ok = None
     if wgq:
-        strip_ok = all(subprocess.run([wgq, "strip", str(root / f)], capture_output=True, timeout=10).returncode == 0 for f in ("hub/gea-vpn.conf", f"{box['id']}/gea-vpn.conf", "office/gea-vpn.conf"))
+        try:
+            strip_ok = all(subprocess.run([wgq, "strip", str(root / f)], capture_output=True, timeout=10).returncode == 0 for f in ("hub/gea-vpn.conf", f"{box['id']}/gea-vpn.conf", "office/gea-vpn.conf"))
+        except (OSError, subprocess.SubprocessError):
+            strip_ok = None
     removed = VP.remove_member(ws, "tester", rd["id"])
     rd_gone_at_once = not rd_zip.exists() and not (root / rd["id"]).exists()
     VP.write_bundles(ws, "tester")

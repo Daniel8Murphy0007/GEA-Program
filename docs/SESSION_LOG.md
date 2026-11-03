@@ -3241,3 +3241,15 @@ stability; and motor specifications in the tool catalogue.
   six files from the simulated box, and a run that crosses a minute writes
   twelve (the simulated box splits its files every minute - the check
   depended on the second it started). Six channels, six or twelve files.
+
+## 2026-11-03 - the Windows kit's gate (v0.75.1)
+
+- v0.75.0 shipped: ci, PyPI, the reader and recorder kits green; the
+  Windows kit job red in its gate, after 20 minutes. The log needs a
+  GitHub sign-in that none of my browsers had. The one check in DT that
+  runs only on that machine: `sh -n` of the two scripts where `sh` is
+  found - GitHub's Windows images carry Git's sh.exe, Daniel's PATH and
+  the cloud gates never took that path. The scripts are for Linux hosts
+  and the Linux kit and recorder jobs check them; on Windows the check is
+  skipped now, and a tool that fails to run counts as absent. The tag
+  v0.75.0 stays where it is; v0.75.1 carries the same program.
