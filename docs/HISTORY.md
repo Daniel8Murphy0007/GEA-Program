@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.76.0 - 2026-11-04 - the tutorial
+
+- Every step of GEA and the programs around it as 27 lessons on a
+  Tutorial tab, the office's and the pad attendant's, each with the page,
+  the steps, the buttons as the page names them and how you know it
+  worked; ticked off per account; printable as one handout. Section DU;
+  gate 543.
+
 ## v0.75.1 - 2026-11-03 - the Windows kit's gate
 
 - v0.75.0's Windows kit job failed in its gate on the script checks that

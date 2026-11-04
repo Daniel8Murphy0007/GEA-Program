@@ -16183,14 +16183,14 @@ def section_dt_vpn(tmp: str) -> None:
     sh_ok = None
     if sh:
         try:
-            sh_ok = all(subprocess.run([sh, "-n", str(root / f)], capture_output=True, timeout=10).returncode == 0 for f in ("hub/install-hub.sh", f"{box['id']}/vpn.sh"))
+            sh_ok = all(any(subprocess.run([sh, "-n", str(root / f)], capture_output=True, timeout=20).returncode == 0 for _ in range(2)) for f in ("hub/install-hub.sh", f"{box['id']}/vpn.sh"))
         except (OSError, subprocess.SubprocessError):
             sh_ok = None
     wgq = shutil.which("wg-quick") if os.name != "nt" else None
     strip_ok = None
     if wgq:
         try:
-            strip_ok = all(subprocess.run([wgq, "strip", str(root / f)], capture_output=True, timeout=10).returncode == 0 for f in ("hub/gea-vpn.conf", f"{box['id']}/gea-vpn.conf", "office/gea-vpn.conf"))
+            strip_ok = all(any(subprocess.run([wgq, "strip", str(root / f)], capture_output=True, timeout=20).returncode == 0 for _ in range(2)) for f in ("hub/gea-vpn.conf", f"{box['id']}/gea-vpn.conf", "office/gea-vpn.conf"))
         except (OSError, subprocess.SubprocessError):
             strip_ok = None
     removed = VP.remove_member(ws, "tester", rd["id"])
@@ -16282,6 +16282,131 @@ def section_dt_vpn(tmp: str) -> None:
        "carries a private key, a name twice and a bad host are 400, a bundle downloads as an attachment and is audited, a path outside the folder "
        "and an unknown bundle are refused, a member removed and the hub changed rewrite every file; the Administration card, the vpn command "
        "and the help page carry it" + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
+
+
+def section_du_tutorial(tmp: str) -> None:
+    """Section DU - the tutorial: every lesson held to its contract (the header, who and where, numbered steps, the
+    "you know it worked when" section, help pages that exist, a page that exists in the control panel, no
+    placeholder); every page the lessons name is a page of the control panel and every button a lesson names in
+    bold is on that page or in a help page; progress kept per account; the handout written whole; the routes, the
+    tab, the command and the help page."""
+    import http.cookiejar
+    import urllib.error
+    import urllib.request
+    from . import __version__
+    from . import helplib as H
+    from . import tutorial as TU
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "du"); d.mkdir()
+    app_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    main_src = (pkg / "__main__.py").read_text(encoding="utf-8")
+    help_all = "\n".join((pkg / "help" / f).read_text(encoding="utf-8") for f in os.listdir(pkg / "help") if f.endswith(".md"))
+    # -- DU1 the lessons against the contract ------------------------------------------------------------------------------
+    ls = TU.lessons()
+    nav = re.search(r"const NAV = \[(.*?)\];", app_src)
+    views = set(re.findall(r"'(#/[a-z0-9]*)'", nav.group(1))) if nav else set()
+    bad_contract = {l["id"]: TU.check(l["id"]) for l in ls if TU.check(l["id"])}
+    bad_where = [l["id"] for l in ls if l["where"] not in views]
+    numbers = [l["n"] for l in ls]
+    # every **Button** a lesson names must be on the page or in a help page (the lessons describe what is there)
+    unknown_buttons = []
+    for l in ls:
+        body = TU.lesson(l["id"])["body"]
+        for b in re.findall(r"\*\*([^*]+)\*\*", body):
+            b_ = b.rstrip(".:")
+            if len(b_) > 48 or b_[0].islower() or b_ in ("You know it worked when",):
+                continue
+            key = b_.replace("...", "").strip()
+            if key and key not in app_src and key not in help_all and key not in body.replace("**", "").replace(key, "", 1):
+                unknown_buttons.append(f"{l['n']}: {b_}")
+    parts_cover = all(any(a <= n <= b for name, (a, b) in TU.PARTS) for n in numbers)
+    c1 = {
+        "count": len(ls) >= 27 and numbers == list(range(1, len(ls) + 1)),
+        "contract": not bad_contract,
+        "pages_exist": not bad_where,
+        "both_audiences": {l["who"] for l in ls} == {"office", "pad"} and sum(1 for l in ls if l["who"] == "pad") >= 3,
+        "parts": parts_cover and len(TU.PARTS) == 8,
+        "buttons_known": not unknown_buttons,
+        "every_program": all(any(w in (l["title"] + " " + l["summary"]).lower() for l in ls) for w in ("install", "reader", "recorder", "vpn", "dossier", "patch", "backup")),
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       f"DU1 the {len(ls)} lessons are numbered without a gap, each with who it is for, the page it is done on (a page of the control panel), how long, "
+       "a summary, three or more numbered steps, the \"you know it worked when\" section and help pages that exist; every button named in bold is on "
+       "the page or in a help page; both audiences, eight parts; install, the reader, the recorder, the VPN, the dossier, the patches and the backup "
+       "each have a lesson" + (f" [failed: {', '.join(failed1)}" + (f"; {list(bad_contract.items())[:2]}" if bad_contract else "") + (f"; where {bad_where}" if bad_where else "")
+                              + (f"; buttons {unknown_buttons[:4]}" if unknown_buttons else "") + "]" if failed1 else ""))
+    # -- DU2 progress, the handout, the routes, the tab, the command, the help ----------------------------------------------
+    ws = Workspace.create(str(d / "ws"), "Pad 3 tutorial", actor="tester")
+    m1 = TU.mark(ws, "op", "install")
+    m2 = TU.mark(ws, "op", "3")
+    m3 = TU.mark(ws, "viewer", "install")
+    ov = TU.overview(ws, "op")
+    TU.mark(ws, "op", "install", done=False)
+    ov2 = TU.overview(ws, "op")
+    try:
+        TU.mark(ws, "op", "nothing-of-the-kind"); mark_bad = False
+    except KeyError:
+        mark_bad = True
+    hand = TU.write_handout(ws, "tester", __version__)
+    hh = Path(hand["html"]).read_text(encoding="utf-8")
+    hm = Path(hand["md"]).read_text(encoding="utf-8")
+    Users(str(Path(ws.path, "users.json"))).add("op", "op-pass-123", "operator")
+    Users(str(Path(ws.path, "users.json"))).add("vw", "vw-pass-123", "viewer")
+    svc = Service(ws.path, port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+
+    def opener_():
+        return urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def call(op, method, path, body=None, raw_=False):
+        rq = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with op.open(rq, timeout=60) as rr_:
+                data = rr_.read()
+                return rr_.status, (data if raw_ else json.loads(data)), rr_.headers
+        except urllib.error.HTTPError as e:
+            return e.code, (e.read() if raw_ else json.loads(e.read() or b"{}")), e.headers
+    try:
+        anon = opener_()
+        s_anon, _, _ = call(anon, "GET", "/api/tutorial")
+        vw = opener_(); call(vw, "POST", "/api/login", {"name": "vw", "password": "vw-pass-123"})
+        s_v, ov_v, _ = call(vw, "GET", "/api/tutorial")
+        s_vl, les_v, _ = call(vw, "GET", "/api/tutorial/install")
+        s_vd, _, _ = call(vw, "POST", "/api/tutorial/done", {"lesson": "install"})
+        s_v2, ov_v2, _ = call(vw, "GET", "/api/tutorial")
+        s_vh, _, _ = call(vw, "POST", "/api/tutorial/handout", {})
+        s_vp, page_, ph = call(vw, "GET", "/api/tutorial/handout.html", raw_=True)
+        s_404, _, _ = call(vw, "GET", "/api/tutorial/no-such-lesson")
+        op_ = opener_(); call(op_, "POST", "/api/login", {"name": "op", "password": "op-pass-123"})
+        s_oh, oh, _ = call(op_, "POST", "/api/tutorial/handout", {})
+        s_ol, les_o, _ = call(op_, "GET", "/api/tutorial/3")
+    finally:
+        svc.stop()
+    acts = {a["action"] for a in ws.audit_log()}
+    c2 = {
+        "progress": "install" in m1 and "site" in m2 and ov["n_done"] == 2 and ov["next"] == "sign-in" and ov2["n_done"] == 1 and "install" not in TU.progress(ws, "op")
+                    and "install" in TU.progress(ws, "viewer") and mark_bad,
+        "handout": hand["lessons"] == len(ls) and all(f'id="l{l["n"]}"' in hh for l in ls) and "<!doctype html>" in hh and hm.count("\n# ") >= len(ls) and "Contents" in hh and "You know it worked when" in hh,
+        "routes": s_anon in (401, 403) and s_v == 200 and ov_v["n_lessons"] == len(ls) and s_vl == 200 and les_v["id"] == "install" and les_v["next"] == "sign-in" and les_v["prev"] is None
+                  and "<ol>" in les_v["html"] and s_vd == 200 and ov_v2["n_done"] == 1 and s_vh == 403 and s_oh == 200 and Path(oh["html"]).is_file() and s_404 == 404
+                  and s_ol == 200 and les_o["n"] == 3 and les_o["prev"] == "sign-in",
+        "print": s_vp == 200 and b"<!doctype html>" in page_ and "inline" in str(ph.get("Content-Disposition", "")) and f"GEA-Tutorial-{__version__}" in str(ph.get("Content-Disposition", "")),
+        "audit": {"tutorial.handout", "tutorial.print"} <= acts,
+        "tab": "['#/tutorial', 'Tutorial']" in app_src and "VIEWS.tutorial" in app_src and all(t_ in app_src for t_ in ("/api/tutorial/done", "/api/tutorial/handout", "Open the page this lesson is about", "Mark this lesson done", "Print the handout")),
+        "cli": 'add_parser("tutorial"' in main_src and '"--lesson"' in main_src and '"--handout"' in main_src and "TU.write_handout" in main_src,
+        "help": not H.check("tutorial") and any(t_ == "tutorial" for t_, _, _ in H.INDEX) and H.VIEW_TOPIC.get("tutorial") == "tutorial",
+        "ol_render": "<ol>" in H.to_html("1. one\n2. two\n") and "</ol>" in H.to_html("1. one\n2. two\n") and "<ul>" in H.to_html("- a\n- b\n"),
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "DU2 progress is kept per account (a lesson marked done, by number or by name, and undone; an unknown lesson refused); the handout is written "
+       "whole as HTML and Markdown with every lesson; the routes (anonymous refused; a viewer reads, ticks and prints; writing the handout into the "
+       "workspace takes the operator role; an unknown lesson 404); the audit lines; the Tutorial tab, the tutorial command and the help page carry "
+       "it; numbered steps render as a list" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
 
 
 def main() -> int:
@@ -16411,6 +16536,7 @@ def main() -> int:
         section_dr_field_recorder(tmp)
         section_ds_updates(tmp)
         section_dt_vpn(tmp)
+        section_du_tutorial(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

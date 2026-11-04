@@ -1,11 +1,12 @@
-v0.75.1 — GEA-VPN, WITH THE WINDOWS KIT
+v0.76.0 — THE TUTORIAL
 
-The same program as v0.75.0 - GEA-VPN, the private network between the
-programs on their separate computers - with the Windows setup this time:
-v0.75.0's Windows kit job failed in its gate on a script check that only
-GitHub's Windows machine ran (Git's sh.exe); the check is Linux-only now.
+A new tab, Tutorial: every step of GEA and the programs around it as 27
+lessons - the office's first, the pad attendant's after. Each lesson names
+who it is for, the page it is done on (a button opens it), how long it
+takes, what you press, and how you know it worked. Tick them off as you
+go; "Print the handout" gives the whole course as one page for the people
+on the pad.
 
 Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
-Then: Administration tab, "GEA-VPN" - gea help vpn.
 
-Acceptance section DT (4 checks); gate 541.
+Acceptance section DU (2 checks); gate 543.

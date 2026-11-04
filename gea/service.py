@@ -1909,6 +1909,31 @@ def make_handler(app: App):
                     return self._json(200, app.overview())
                 if path == '/api/badges':
                     return self._json(200, app.badges())
+                if path == '/api/tutorial' or path.startswith('/api/tutorial/'):
+                    from . import __version__
+                    from . import tutorial as TU
+                    if path == '/api/tutorial':
+                        return self._json(200, TU.overview(app.ws, user['name']))
+                    if path == '/api/tutorial/handout.html':
+                        body = TU.handout_html(__version__, str(app.ws.manifest.get('name') or '')).encode('utf-8')
+                        app.ws.audit(user['name'], 'tutorial.print', {'lessons': len(TU.lessons())})
+                        self.send_response(200)
+                        self.send_header('Content-Type', 'text/html; charset=utf-8')
+                        self.send_header('Content-Disposition', f'inline; filename="GEA-Tutorial-{__version__}.html"')
+                        self.send_header('Content-Length', str(len(body)))
+                        self.send_header('Cache-Control', 'no-store')
+                        self._secure_headers()
+                        self.end_headers()
+                        self.wfile.write(body)
+                        return None
+                    les = TU.lesson(path[len('/api/tutorial/'):])
+                    if les is None:
+                        raise ApiError(404, 'no such lesson')
+                    pr = TU.progress(app.ws, user['name'])
+                    ls = TU.lessons()
+                    i = next(k for k, l in enumerate(ls) if l['id'] == les['id'])
+                    return self._json(200, {k: v for k, v in les.items() if k not in ('path', 'markdown')} | {'done_utc': pr.get(les['id']),
+                                            'prev': ls[i - 1]['id'] if i > 0 else None, 'next': ls[i + 1]['id'] if i + 1 < len(ls) else None})
                 if path == '/api/help' or path.startswith('/api/help/'):
                     from . import helplib as H
                     if path == '/api/help':
@@ -3071,6 +3096,18 @@ def make_handler(app: App):
                     except WorkspaceError as e:
                         raise ApiError(404, str(e))
                     return self._json(200, {'ok': True})
+                if path == '/api/tutorial/done':
+                    from . import tutorial as TU
+                    try:
+                        mine = TU.mark(app.ws, user['name'], str(body.get('lesson') or ''), bool(body.get('done', True)))
+                    except KeyError as e:
+                        raise ApiError(404, str(e))
+                    return self._json(200, {'done': mine})
+                if path == '/api/tutorial/handout':
+                    App.require(user, 'operator')
+                    from . import __version__
+                    from . import tutorial as TU
+                    return self._json(200, TU.write_handout(app.ws, user['name'], __version__))
                 if path.startswith('/api/vpn/'):
                     App.require(user, 'admin')
                     from . import vpn as _VPN

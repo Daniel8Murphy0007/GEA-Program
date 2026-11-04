@@ -95,7 +95,7 @@ dialog.tl-dlg::backdrop{background:rgba(0,0,0,.45)}
 nav a .b{display:inline-block;min-width:18px;padding:0 5px;margin-left:5px;border-radius:9px;background:var(--serious);color:#fff;font-size:11px;line-height:18px;text-align:center;font-weight:600}nav a .b.w{background:var(--warn)}nav a[aria-current=page] .b{background:#fff;color:var(--accent)}
 header .search{display:flex;gap:4px;align-items:center}header .search input{font:inherit;padding:6px 8px;border:1px solid var(--grid);border-radius:6px;background:var(--surface);color:var(--ink);width:200px}
 .help{background:var(--surface);border:1px dashed var(--accent);border-radius:10px;padding:10px 14px;margin:8px 0 12px;font-size:14px}.help h4{margin:0 0 4px;font-size:14px}.help p{margin:4px 0}
-.helppage h2{margin-top:4px}.helppage p{max-width:80ch}.helppage code{font-family:var(--mono);font-size:13px;background:var(--page);padding:1px 4px;border-radius:4px}
+.tutorial ol li{margin:6px 0}.tutorial h3{margin-top:18px}.helppage h2{margin-top:4px}.helppage p{max-width:80ch}.helppage code{font-family:var(--mono);font-size:13px;background:var(--page);padding:1px 4px;border-radius:4px}
 .since{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;background:var(--track);border-radius:10px;padding:8px 14px;margin:8px 0;font-size:14px}.since b{font-weight:600}
 .wizard ol{padding-left:20px}.wizard li{margin:6px 0}.steps{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.steps span{padding:4px 10px;border-radius:14px;background:var(--track);font-size:13px}.steps span.on{background:var(--accent);color:var(--accent-ink)}
 .hit{display:flex;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--grid)}.hit .k{min-width:120px;color:var(--muted);font-size:13px}
@@ -2062,9 +2062,33 @@ VIEWS.admin = async () => {
   document.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { if (!confirm('Remove schedule ' + b.dataset.rm + '?')) return; try { await post('/api/schedule/remove', {name: b.dataset.rm}); route(); } catch (e) { toast(e.message, 'err'); } });
 };
 
+VIEWS.tutorial = async (ident) => {
+  if (ident) {
+    let L; try { L = await get('/api/tutorial/' + encodeURIComponent(ident)); } catch (e) { $('#main').innerHTML = `<h2>Tutorial</h2><p class="serious">${esc(e.message)}</p><p><a href="#/tutorial">All lessons</a></p>`; return; }
+    const who = {office: 'the office', pad: 'the pad attendant'}[L.who] || L.who;
+    let h = `<h2>Lesson ${L.n}: ${esc(L.title)}</h2><p class="small muted">${esc(L.part)} · for ${esc(who)} · ${esc(L.takes)} · <a href="#/tutorial">all lessons</a></p>`;
+    h += `<div class="row" style="margin:6px 0 10px"><a class="btn" href="${esc(L.where)}">Open the page this lesson is about</a><button type="button" id="tuDone" class="${L.done_utc ? 'secondary' : ''}">${L.done_utc ? 'Done ✓ — mark it not done' : 'Mark this lesson done'}</button>${L.done_utc ? `<span class="small muted">done ${tz(L.done_utc)}</span>` : ''}</div>`;
+    h += `<div class="card helppage tutorial">${L.html}</div>`;
+    h += `<p class="small muted">The detail: ${L.help.map(t => `<a href="#/help/${esc(t)}">gea help ${esc(t)}</a>`).join(' · ')}</p>`;
+    h += `<div class="row">${L.prev ? `<a class="btn secondary" href="#/tutorial/${esc(L.prev)}">← Previous lesson</a>` : ''}${L.next ? `<a class="btn" href="#/tutorial/${esc(L.next)}">Next lesson →</a>` : '<span class="small muted">That was the last lesson.</span>'}</div>`;
+    $('#main').innerHTML = h;
+    $('#tuDone').onclick = async () => { try { await post('/api/tutorial/done', {lesson: L.id, done: !L.done_utc}); toast(L.done_utc ? 'Marked not done' : `Lesson ${L.n} done`, 'ok'); route(); } catch (e) { toast(e.message, 'err'); } };
+    return;
+  }
+  const o = await get('/api/tutorial');
+  let h = `<h2>Tutorial</h2>${help('tutorial')}<p class="small muted">Every step of GEA and the programs around it, lesson by lesson - the office's lessons first, the pad attendant's after. Each names the page it is done on, what you press, and how you know it worked. Tick them off as you go; ${o.n_done} of ${o.n_lessons} done.${o.next ? ` <a href="#/tutorial/${esc(o.next)}">Continue with the next one</a>.` : ' All done.'}</p>`;
+  h += `<div class="row" style="margin:0 0 12px"><a class="btn secondary" href="${esc(withSt('/api/tutorial/handout.html'))}" target="_blank" rel="noopener">Print the handout</a>${can('operator') ? `<button type="button" class="secondary" id="tuWrite">Write the handout into exports\\tutorial</button>` : ''}<span class="small muted">one page with every lesson, for the people who do not sit at this screen; the browser's Print makes the PDF</span></div>`;
+  for (const p of o.parts) {
+    h += `<div class="card"><h3>${esc(p.name)} <span class="small muted">${p.done} of ${p.lessons.length} done</span></h3>`;
+    for (const l of p.lessons) h += `<div class="hit"><span class="k">${l.done_utc ? statusPill('good', 'done') : `<span class="muted">${l.n}</span>`}</span><a href="#/tutorial/${esc(l.id)}">${l.n}. ${esc(l.title)}</a><span class="small muted">${esc(l.summary)} <i>${esc(o.who[l.who] || l.who)} · ${esc(l.takes)}</i></span></div>`;
+    h += `</div>`;
+  }
+  $('#main').innerHTML = h;
+  const w = $('#tuWrite'); if (w) w.onclick = async () => { try { const r = await post('/api/tutorial/handout', {}); toast(`Written: ${r.html}`, 'ok'); } catch (e) { toast(e.message, 'err'); } };
+};
 VIEWS.help = async (topic) => {
   const idx = await loadHelp();
-  let h = `<h2>Help</h2><p class="small muted">By the job you came with. The same text prints with <span class="mono">gea help drift</span> (any topic in the index); the tester guide with <span class="mono">gea guide</span>.</p>`;
+  let h = `<h2>Help</h2><p class="small muted">By the job you came with. The same text prints with <span class="mono">gea help drift</span> (any topic in the index); the tester guide with <span class="mono">gea guide</span>. New here? The <a href="#/tutorial">Tutorial</a> walks every step.</p>`;
   if (topic) { try { const pg = await get('/api/help/' + encodeURIComponent(topic)); h += `<div class="card helppage">${pg.html}</div><p><a href="#/help">All topics</a></p>`; } catch (e) { h += `<p class="serious">${esc(e.message)}</p>`; } }
   else h += `<div class="card">${idx.topics.map(t => `<div class="hit"><span class="k">${esc(t.topic)}</span><a href="#/help/${esc(t.topic)}">${esc(t.title)}</a><span class="small muted">${esc(t.summary)}</span></div>`).join('')}</div>`;
   $('#main').innerHTML = h;
@@ -3629,7 +3653,7 @@ function authScreen(first, company) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/frac', 'Frac hits'], ['#/porepressure', 'Pore pressure'], ['#/torquedrag', 'Torque & drag'], ['#/hydraulics', 'Hydraulics & ECD'], ['#/casing', 'Casing & kick tolerance'], ['#/decline', 'Decline curves'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/rocks', 'Rocks'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/frac', 'Frac hits'], ['#/porepressure', 'Pore pressure'], ['#/torquedrag', 'Torque & drag'], ['#/hydraulics', 'Hydraulics & ECD'], ['#/casing', 'Casing & kick tolerance'], ['#/decline', 'Decline curves'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/rocks', 'Rocks'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/tutorial', 'Tutorial'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w'], '#/control': b => [b.handover_unacked, 'w']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }

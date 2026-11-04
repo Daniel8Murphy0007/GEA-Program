@@ -25,6 +25,7 @@ HELP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'help')
 # the index order: by the job a reader arrives with, never by module
 INDEX: List[tuple] = [
     ('start', 'Start', 'install, the first run, what the program will not claim'),
+    ('tutorial', 'The tutorial', "Every step of GEA and the programs around it as 27 lessons on the Tutorial tab - the office's first, the pad attendant's after - each with the page, the steps, and how you know it worked; printable as one handout"),
     ('install', 'Install on Windows', 'GEA-Program-Setup: a per-user install with no administrator rights, the control panel in a window of its own, its icon in the notification area, shortcuts, upgrades in place, the site workspace left where it is, other workspaces opened from Administration'),
     ('data-in', 'Bring data in', 'CSV, LAS, SEG-Y, operator tables, WITS0, WITSML, OPC UA, MQTT, Modbus, the patch panel'),
     ('quality', 'Quality rules', 'RANGE, ROC, FLATLINE, SPIKE, STALE, GAP, each with the limit that fired'),
@@ -103,7 +104,7 @@ REQUIRED_LINES = ('**The command**', '**What it writes**', '**The number to chec
 VIEW_TOPIC: Dict[str, str] = {
     'home': 'start', 'wells': 'data-in', 'well': 'drift', 'live': 'patches', 'patch': 'patches', 'files': 'files', 'alarms': 'alarms',
     'approvals': 'well-tests', 'config': 'site', 'reports': 'drift', 'verify': 'start', 'survey': 'data-in', 'jobs': 'site',
-    'admin': 'site', 'prefs': 'site', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'sar': 'seismic', 'sites': 'sites', 'setup': 'setup', 'map': 'map', '3d': 'well3d', 'simulation': 'simulation', 'drillstring': 'drillstring', 'completion': 'penetrator', 'opseis': 'opseis', 'economics': 'economics', 'invoices': 'invoice-check', 'rigtime': 'rig-time', 'collision': 'collision', 'plan': 'plan', 'frac': 'frac-hits', 'porepressure': 'pore-pressure', 'torquedrag': 'torque-drag', 'hydraulics': 'hydraulics', 'casing': 'casing', 'records': 'records', 'decline': 'decline', 'control': 'control-room', 'wall': 'control-room', 'audit': 'audit-update', 'tools': 'tools', 'catalog': 'catalog', 'rocks': 'rocks',
+    'admin': 'site', 'prefs': 'site', 'tutorial': 'tutorial', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'sar': 'seismic', 'sites': 'sites', 'setup': 'setup', 'map': 'map', '3d': 'well3d', 'simulation': 'simulation', 'drillstring': 'drillstring', 'completion': 'penetrator', 'opseis': 'opseis', 'economics': 'economics', 'invoices': 'invoice-check', 'rigtime': 'rig-time', 'collision': 'collision', 'plan': 'plan', 'frac': 'frac-hits', 'porepressure': 'pore-pressure', 'torquedrag': 'torque-drag', 'hydraulics': 'hydraulics', 'casing': 'casing', 'records': 'records', 'decline': 'decline', 'control': 'control-room', 'wall': 'control-room', 'audit': 'audit-update', 'tools': 'tools', 'catalog': 'catalog', 'rocks': 'rocks',
 }
 
 
@@ -198,7 +199,7 @@ def to_html(md: str) -> str:
                 out.append('<table><thead><tr>' + ''.join(f'<th>{inline(c)}</th>' for c in cells[0]) + '</tr></thead><tbody>'
                            + ''.join('<tr>' + ''.join(f'<td>{inline(c)}</td>' for c in r) + '</tr>' for r in cells[1:]) + '</tbody></table>')
             table = []
-    in_list = False
+    in_list = False          # False, 'ul' or 'ol'
     for line in md.splitlines():
         if line.startswith('|'):
             if para:
@@ -207,15 +208,19 @@ def to_html(md: str) -> str:
             continue
         if table and not line.startswith('|'):
             flush()
-        if line.startswith('- '):
+        m_ol = re.match(r'^(\d+)\. (.*)$', line)
+        if line.startswith('- ') or m_ol:
+            kind = 'ol' if m_ol else 'ul'
             if para:
                 flush()
+            if in_list and in_list != kind:
+                out.append(f'</{in_list}>'); in_list = False
             if not in_list:
-                out.append('<ul>'); in_list = True
-            out.append('<li>' + inline(line[2:]) + '</li>')
+                out.append('<ol>' if kind == 'ol' else '<ul>'); in_list = kind
+            out.append('<li>' + inline(m_ol.group(2) if m_ol else line[2:]) + '</li>')
             continue
         if in_list:
-            out.append('</ul>'); in_list = False
+            out.append(f'</{in_list}>'); in_list = False
         if line.startswith('# '):
             flush(); out.append('<h2>' + inline(line[2:]) + '</h2>')
         elif line.startswith('## '):
@@ -227,6 +232,6 @@ def to_html(md: str) -> str:
         else:
             para.append(line)
     if in_list:
-        out.append('</ul>')
+        out.append(f'</{in_list}>')
     flush()
     return '\n'.join(out)

@@ -5,6 +5,33 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.76.0] - 2026-11-04 - the tutorial
+
+### Added
+- **The Tutorial tab** (`gea/tutorial.py`, `gea/help/tutorial/`): every
+  step of GEA and the programs around it as 27 lessons in eight parts -
+  Getting started, Wells and their data, Watching the pad, The engineering
+  pages, Seismic, Reports for the client, Keeping it running, and On the
+  pad for the attendant (the box, its install, its monitor, the mirror and
+  the VPN). Each lesson names who it is for, the page it is done on (with
+  a button that opens it), how long it takes, the numbered steps with the
+  buttons as the page names them, and "You know it worked when". Each
+  account ticks lessons off (`records\tutorial_progress.json`); the list
+  says how many are done and which is next. **Print the handout** opens
+  the whole course as one page (the browser's Print makes the PDF);
+  **Write the handout into exports\tutorial** (operator) writes it as
+  HTML and Markdown. Routes `/api/tutorial`, `/api/tutorial/<lesson>`,
+  `/api/tutorial/handout.html`, POST `/api/tutorial/done`,
+  `/api/tutorial/handout`; `gea tutorial [--lesson N] [--handout]`;
+  `gea help tutorial`. The help renderer now draws numbered lists.
+
+### Acceptance
+- Section DU (2 checks): every lesson against its contract - the header,
+  a page that exists in the control panel, three or more steps, the
+  "worked" section, help pages that exist, every bold button on the page
+  or in a help page, no placeholder - and progress, the handout, the
+  routes by role, the tab, the command and the help page.
+
 ## [v0.75.1] - 2026-11-03 - the Windows kit's gate
 
 ### Fixed

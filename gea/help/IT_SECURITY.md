@@ -167,6 +167,11 @@ declared extras.
   addresses; the programs' own sign-in, roles and hashes apply through it
   unchanged, and the box's page is still bound to the pad network and the
   tunnel address only.
+- **The tutorial** (since 0.76.0): the lessons are files inside the
+  program; reading one writes nothing. A person's ticks are kept in the
+  workspace (`records\tutorial_progress.json`, by account name, no more);
+  the handout is written only on request into `exports\tutorial\` and
+  carries nothing of the site but its name. Both are audit lines.
 
 ## What it records
 

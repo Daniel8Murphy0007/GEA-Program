@@ -424,6 +424,26 @@ keeps them byte for byte and makes the array and electrode stations of
 them. `gea help recorder`; the box's README has the parts, the wiring and
 the clock.
 
+### The tutorial
+
+Every step of GEA and the programs around it, as 27 lessons on the
+**Tutorial** tab (since 0.76.0; `gea help tutorial`): the office's lessons
+first - install, sign in, set up the site, bring wells and data in, the
+well page, the declarations sheet, the patch panel, alarms and
+notifications, the control room, the daily summary and the month-end
+packet, the map and the 3D view, the drilling and production pages,
+seismic, the recorder from the office, reports, the signed dossier and the
+Reader, users and HTTPS, backups and the gate, new versions from inside
+the program, GEA-VPN - and the pad attendant's after: the box and its
+parts, installing the recorder on the Pi, the monitor, the USB mirror and
+joining the VPN. Each lesson names who it is for, the page it is done on
+(a button opens it), how long it takes, the numbered steps with the
+buttons as the page names them, and how you know it worked; each account
+ticks lessons off. **Print the handout** gives the whole course as one
+page for the people who do not sit at the screen. From a terminal:
+`gea tutorial`, `gea tutorial --lesson 3`, `gea tutorial --handout
+--workspace C:\site`.
+
 ### GEA-VPN: the programs on separate computers, one private network
 
 The control panel, each pad's recorder, the operator's window and the
@@ -741,7 +761,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.75.1.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.76.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1506,7 +1526,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.75.1.exe` (for 0.75.1): the
+Every release also carries `GEA-Program-Setup-0.76.0.exe` (for 0.76.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1525,7 +1545,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.75.1.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.76.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

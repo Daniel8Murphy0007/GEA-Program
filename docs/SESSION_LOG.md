@@ -3253,3 +3253,18 @@ stability; and motor specifications in the tool catalogue.
   and the Linux kit and recorder jobs check them; on Windows the check is
   skipped now, and a tool that fails to run counts as absent. The tag
   v0.75.0 stays where it is; v0.75.1 carries the same program.
+
+## 2026-11-04 - the tutorial (v0.76.0)
+
+- v0.75.1 shipped with all six kits. Daniel: "build a tutorial about GEA,
+  to guide users through every step of GEA and the associated programs in
+  this suite" - inside the program and as a handout, for the office and
+  the pad attendant. Twenty-seven lessons written from the help pages'
+  own "The command" lines and the page's own button names (the gate now
+  checks every bold button a lesson names against the page and the help:
+  it caught four that were headings in bold and one button named from
+  memory rather than from the page). `tutorial.py` lists, checks and
+  renders them, keeps each account's ticks, and writes the handout; the
+  tab, the routes, `gea tutorial`, `help/tutorial.md`; the help renderer
+  draws numbered lists now. The handout printed to PDF here is 29 pages.
+  Section DU (2 checks).

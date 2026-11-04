@@ -1023,6 +1023,15 @@ def main(argv=None) -> int:
     p_up.add_argument("--install", type=str, default=None, help="run the fetched GEA-Program-Setup of this version (Windows): the control panel stops and comes back")
     p_up.add_argument("--actor", type=str, default="cli")
 
+    p_tu = sub.add_parser("tutorial", help="the tutorial: every step of GEA and the programs around it as lessons - list them, print one, write the handout (the Tutorial tab does the same by clicking)")
+    p_tu.add_argument("--lesson", type=str, default=None, help="print one lesson by its number (3) or its name (install)")
+    p_tu.add_argument("--handout", action="store_true", help="write the whole course as one printable HTML page (and Markdown)")
+    p_tu.add_argument("--workspace", type=str, default=None, help="with --handout: the workspace whose exports\\tutorial folder gets it (C:\\site); with a workspace, --user shows that person's progress")
+    p_tu.add_argument("--out", type=str, default=None, help="with --handout and no workspace: the HTML file to write (C:\\site\\GEA-Tutorial.html)")
+    p_tu.add_argument("--user", type=str, default="", help="whose progress to show")
+    p_tu.add_argument("--actor", type=str, default="cli")
+    p_tu.add_argument("--json", action="store_true")
+
     p_vp = sub.add_parser("vpn", help="GEA-VPN: the private WireGuard network the programs talk over - make it, add and remove members, write the hub installer and every member's configuration (the Administration card does the same by clicking)")
     p_vp.add_argument("--workspace", type=str, default=None, help="the workspace (C:\\site); keys in keys\\vpn\\network.json, files under exports\\vpn")
     p_vp.add_argument("--create", type=str, default=None, metavar="HOST", help="make the network with the hub at this public name or address (vpn.pad3site.com or 203.0.113.10); the office member is made with it")
@@ -2371,6 +2380,34 @@ def main(argv=None) -> int:
             return 0
         from .doctor import update as _update
         return _update(check_only=a.check, extras=a.extras, as_json=a.json)
+    elif a.cmd == "tutorial":
+        import json as _json
+        from . import tutorial as TU
+        ws = None
+        if a.workspace or os.environ.get("GEA_WORKSPACE"):
+            from .workspace import Workspace
+            ws = Workspace(a.workspace or os.environ.get("GEA_WORKSPACE"))
+        if a.handout:
+            if ws is not None:
+                r = TU.write_handout(ws, a.actor, __version__)
+                print(f"written: {r['html']} and {r['md']} ({r['lessons']} lessons); open the HTML and print it for the PDF")
+                return 0
+            out = a.out or f"GEA-Tutorial-{__version__}.html"
+            with open(out, "w", encoding="utf-8") as f:
+                f.write(TU.handout_html(__version__))
+            print(f"written: {out} ({len(TU.lessons())} lessons); open it and print it for the PDF")
+            return 0
+        if a.lesson:
+            les = TU.lesson(a.lesson)
+            if les is None:
+                raise SystemExit(f"tutorial: no lesson {a.lesson}; `gea tutorial` lists them")
+            print(_json.dumps({k: v for k, v in les.items() if k not in ("path", "html")}, indent=1) if a.json else les["markdown"])
+            return 0
+        if a.json:
+            print(_json.dumps(TU.overview(ws, a.user), indent=1))
+        else:
+            print(TU.text(ws, a.user))
+        return 0
     elif a.cmd == "vpn":
         import json as _json
         from . import vpn as VP
