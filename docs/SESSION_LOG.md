@@ -3296,3 +3296,32 @@ stability; and motor specifications in the tool catalogue.
   run at round four - the seed is taken modulo now. The shipped policy
   (about ten million twin steps) holds the layer 72% of a lateral against
   the textbook driller's 41% and an oracle's 82% on the held-out scenes. Section DV (4 checks).
+
+## 2026-11-05 - the position filter (v0.78.0)
+
+- v0.77.0 shipped; the four kits fetched. Daniel asked what to refine in
+  GEA Driller; the list given was the position estimate first, shadow mode
+  on a real well second, the third dimension third, a vibration index
+  from the feed, a stronger textbook, the vendor's downlink. He said:
+  continue in order. `position.py`: a particle filter over the layer's
+  offset from the model, its dip error and its thickness - predicted by
+  the dip and an undulation walk with a fault's jump now and then,
+  updated by the gamma (the layer's value inside a transition zone of the
+  boundaries) and the deep-resistivity distance - giving the probability
+  of in, above and below, the distances with their spread, and the layer
+  ahead. On twenty scenes it classifies the bit's position right about
+  96% of the time. Six observations added; the twin runs it, the advisor
+  runs the same code on the feed, the screen draws its band. The textbook
+  driller rewritten as a geosteerer that aims at the filter's middle of
+  the layer: 60% in the layer against 41% before - the bar the agent is
+  held to rose with it. A random policy in training drove the inclination
+  past 180 degrees and a negative step killed the filter: the lateral is
+  held to 70-110 degrees now. The policy retrained on the new observation:
+  78% of the hole in the layer on the held-out scenes against the new
+  textbook's 60% and the oracle's 82%; reward 120 against 88.
+- The ship stopped on Daniel's machine on DR4 (the simulated box did not
+  start) and AD10 (the wits0 command line). DR4 took its port from
+  8790-8796 - where the driller's twin sits since 0.77.0 when it is left
+  running from the card; a free port now, and 25 s for a first start on a
+  PC scanning new files. Both checks print the return codes and the
+  console's last lines when they fail, so the next stop names itself.

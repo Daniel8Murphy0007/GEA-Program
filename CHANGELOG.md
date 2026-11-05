@@ -5,6 +5,29 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.78.0] - 2026-11-05 - GEA Driller: the position filter
+
+### Added
+- **The position filter** (`driller/gea_driller/position.py`): where the
+  bit sits in the layer, estimated the way a geosteerer does it - a
+  particle filter over the layer's offset from the pre-drill model, its
+  dip error and its thickness, moved every decision as undulation and
+  faults would move it and kept to the guesses that explain the gamma and
+  the deep-resistivity distance. It gives the probability the bit is in
+  the layer, above or below it, the distance to the top and the base with
+  their spread, and the layer ahead of the bit. The twin feeds it to the
+  agent (six more observations), the rig's advisor runs the same code on
+  the feed, the screen draws its band and its tiles and the recommendation's
+  reasons lead with it. The textbook driller the agent is judged against
+  now steers by the filter too, as a competent geosteerer would, and
+  rises from 41% to 60% of the hole in the layer on the held-out scenes;
+  the policy was retrained on the new observation.
+
+### Acceptance
+- Section DV grows to 5 checks: DV5 the filter's classification, its
+  distance error, its response to readings, the layer ahead, and the
+  textbook driller lifted by it; DV3 checks the estimate on the screen.
+
 ## [v0.77.0] - 2026-11-05 - GEA Driller: the directional driller's agent
 
 ### Added

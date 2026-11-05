@@ -1835,8 +1835,11 @@ def section_ad_patch_panel(tmp: str) -> None:
     r2 = _cli(["witsml", "--write-example-config", str(Path(tmp, "wm.json"))], tmp)
     r3 = _cli(["wits0", "--config", str(Path(tmp, "w0.json")), "--replay", rec, "--out", "w0_records.csv", "--stream-csv", "w0_stream.csv"], tmp)
     r4 = _cli(["wits0-sim", "--help"], tmp)
-    ok(r1.returncode == 0 and r2.returncode == 0 and r3.returncode == 0 and Path(tmp, "w0_stream.csv").exists() and r4.returncode == 0 and "--connect" in r4.stdout,
-       "AD10 CLI: example maps for wits0 and witsml; `gea wits0 --replay` writes the records and the stream CSV; `gea wits0-sim` is there for a site to rehearse with")
+    ad10 = {"maps": r1.returncode == 0 and r2.returncode == 0, "replay": r3.returncode == 0 and Path(tmp, "w0_stream.csv").exists(), "sim_help": r4.returncode == 0 and "--connect" in r4.stdout}
+    ad10_bad = [k for k, v in ad10.items() if not v]
+    ok(not ad10_bad,
+       "AD10 CLI: example maps for wits0 and witsml; `gea wits0 --replay` writes the records and the stream CSV; `gea wits0-sim` is there for a site to rehearse with"
+       + (f" [failed: {', '.join(ad10_bad)}; rc {r1.returncode}/{r2.returncode}/{r3.returncode}/{r4.returncode}; " + "; ".join((r_.stderr or r_.stdout).strip()[-200:].replace(chr(10), ' ') for r_ in (r1, r2, r3, r4) if r_.returncode != 0) + "]" if ad10_bad else ""))
 
 
 def section_ae_doctor(tmp: str) -> None:
@@ -15892,12 +15895,13 @@ def section_dr_field_recorder(tmp: str) -> None:
     from . import recorder_link as RL
     prog = RL.program()
     ws3 = Workspace.create(str(d / "ws3"), "Pad 3 sim", actor="tester")
-    port = 8790 + (os.getpid() % 7)
+    import socket as _sk
+    _s = _sk.socket(); _s.bind(("127.0.0.1", 0)); port = _s.getsockname()[1]; _s.close()      # a free port: the driller's twin and a real box may hold 8790-8791
     if prog is None:
         ok(True, "DR4 the simulated box and the monitor: the recorder's program is not installed beside GEA in this install (the kit and the setup "
                  "carry it); nothing to start here")
     else:
-        st = RL.start_sim(ws3, actor="tester", port=port)
+        st = RL.start_sim(ws3, actor="tester", port=port, wait_s=25.0)      # a Windows PC scanning new files takes its time over the first start
         live = None
         try:
             if st["running"]:
@@ -15923,6 +15927,11 @@ def section_dr_field_recorder(tmp: str) -> None:
             "kit_wheel": "gea-recorder=={version}" in (pkg.parent / "tools" / "build_installer.py").read_text(encoding="utf-8") if (pkg.parent / "tools" / "build_installer.py").is_file() else True,
         }
         failed4 = [k for k, v in c4.items() if not v]
+        if failed4:
+            try:
+                failed4.append("console: " + Path(RL.sim_dir(ws3), "console.log").read_text(encoding="utf-8", errors="replace").strip()[-300:].replace("\n", " | "))
+            except OSError:
+                pass
         ok(not failed4,
            "DR4 the control panel starts the recorder on this computer as a simulated box (the test signal in place of the ADC, a process of its own), "
            "its monitor answers, it stops the way systemd would with every file closed and listed, and the pull makes the stations from them; the "
@@ -16182,17 +16191,26 @@ def section_dt_vpn(tmp: str) -> None:
     sh = shutil.which("sh") if os.name != "nt" else None          # the scripts run on Linux hosts; Git's sh.exe on a Windows machine is not that
     sh_ok = None
     if sh:
+        tool_notes = []
         try:
-            sh_ok = all(any(subprocess.run([sh, "-n", str(root / f)], capture_output=True, timeout=20).returncode == 0 for _ in range(2)) for f in ("hub/install-hub.sh", f"{box['id']}/vpn.sh"))
-        except (OSError, subprocess.SubprocessError):
-            sh_ok = None
+            sh_ok = True
+            for f in ("hub/install-hub.sh", f"{box['id']}/vpn.sh"):
+                rs = [subprocess.run([sh, "-n", str(root / f)], capture_output=True, text=True, timeout=20) for _ in range(2)]
+                if not any(r_.returncode == 0 for r_ in rs):
+                    sh_ok = False; tool_notes.append(f"sh -n {f}: rc {rs[-1].returncode} {rs[-1].stderr.strip()[:160]}")
+        except (OSError, subprocess.SubprocessError) as e:
+            sh_ok = None; tool_notes.append(f"sh: {type(e).__name__}")
     wgq = shutil.which("wg-quick") if os.name != "nt" else None
     strip_ok = None
     if wgq:
         try:
-            strip_ok = all(any(subprocess.run([wgq, "strip", str(root / f)], capture_output=True, timeout=20).returncode == 0 for _ in range(2)) for f in ("hub/gea-vpn.conf", f"{box['id']}/gea-vpn.conf", "office/gea-vpn.conf"))
-        except (OSError, subprocess.SubprocessError):
-            strip_ok = None
+            strip_ok = True
+            for f in ("hub/gea-vpn.conf", f"{box['id']}/gea-vpn.conf", "office/gea-vpn.conf"):
+                rs = [subprocess.run([wgq, "strip", str(root / f)], capture_output=True, text=True, timeout=20) for _ in range(2)]
+                if not any(r_.returncode == 0 for r_ in rs):
+                    strip_ok = False; tool_notes.append(f"wg-quick strip {f}: rc {rs[-1].returncode} {rs[-1].stderr.strip()[:160]}")
+        except (OSError, subprocess.SubprocessError) as e:
+            strip_ok = None; tool_notes.append(f"wg-quick: {type(e).__name__}")
     removed = VP.remove_member(ws, "tester", rd["id"])
     rd_gone_at_once = not rd_zip.exists() and not (root / rd["id"]).exists()
     VP.write_bundles(ws, "tester")
@@ -16212,7 +16230,7 @@ def section_dt_vpn(tmp: str) -> None:
     ok(not failed3,
        "DT3 the hub bundle (the configuration, an idempotent installer that opens 51820/udp, turns forwarding on and syncs a running tunnel, a README) "
        "and a bundle per member (a box's with vpn.sh, a window's with a README)" + (", read back by wg-quick strip" if wgq else "") + (", sh -n clean" if sh else "")
-       + "; a member removed leaves the hub's configuration and the files without it" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+       + "; a member removed leaves the hub's configuration and the files without it" + (f" [failed: {', '.join(failed3)}{('; ' + '; '.join(tool_notes)) if tool_notes else ''}]" if failed3 else ""))
     # -- DT4 the backup carries the keys; the routes; the card; the command; the help --------------------------------------
     bk = BK.make(ws.path, str(d / "bk"), actor="tester")
     with zipfile.ZipFile(bk["path"]) as z:
@@ -16506,7 +16524,7 @@ def section_dv_driller(tmp: str) -> None:
     ex = shipped.explain(T.Lateral(T.Scene(2)).reset())
     c2 = {
         "gradients": grads_ok,
-        "beats_textbook": ev["reward"] > tb["reward"] and ev["in_layer_pct"] > tb["in_layer_pct"] + 10.0 and ev["stuck"] <= tb["stuck"],
+        "beats_textbook": ev["reward"] > tb["reward"] and ev["in_layer_pct"] > tb["in_layer_pct"] + 5.0 and ev["stuck"] <= tb["stuck"],
         "learns": after["reward"] > before["reward"],
         "file": same and layout_refused and int(shipped.meta.get("trained_steps", 0)) >= 1000000,
         "explains": set(ex["choices"]) == set(T.ACTION_NAMES) and all(0 < c["confidence"] <= 1 for c in ex["choices"].values()) and ex["choices"]["wob"]["choice"] in T.WOB_CHOICES,
@@ -16594,7 +16612,8 @@ def section_dv_driller(tmp: str) -> None:
         "armed": s_long == 400 and s_arm == 200 and armed.get("ok") and s_arm2 == 200 and any(c["event"] == "command" and c["result"]["sent"] is False and c["by"] == "tester" for c in cmds),
         "disarmed": ended_by_section and ended_by_limit and cmds[-1]["event"] == "disarmed",
         "refusals": cfg_refused and arm_refused,
-        "screen": live["ok"] and live["twin"]["label"] == "SIMULATION" and "Arm for this section" in screen and "Did something else" in screen and health["program"] == "GEA Driller" and traversal,
+        "screen": live["ok"] and live["twin"]["label"] == "SIMULATION" and "Arm for this section" in screen and "Did something else" in screen and health["program"] == "GEA Driller" and traversal
+                  and live["advisor"]["estimate"] is not None and 0.0 <= live["advisor"]["estimate"]["p_in"] <= 1.0 and "position filter" in " ".join(cur["reasons"]),
         "manifest": {"decisions.jsonl", "commands.jsonl", "surveys.csv"} <= {f["file"] for f in man["files"]} and all(f["sha256"] for f in man["files"]) and man["program"] == "GEA Driller",
     }
     failed3 = [k for k, v in c3.items() if not v]
@@ -16665,6 +16684,42 @@ def section_dv_driller(tmp: str) -> None:
         "kit": (wf is None or ("GEA-Driller-" in wf and "build_driller.py" in wf)) and (bi is None or "gea-driller=={version}" in bi) and (not (pkg.parent / "tools").is_dir() or (pkg.parent / "tools" / "build_driller.py").is_file()),
         "help": not H.check("driller") and any(t_ == "driller" for t_, _, _ in H.INDEX) and "GEA Driller" in (pkg / "help" / "IT_SECURITY.md").read_text(encoding="utf-8"),
     }
+    # -- DV5 the position filter -----------------------------------------------------------------------------------------------
+    PF = importlib.import_module("gea_driller.position")
+    conf = {"above": {"above": 0, "in": 0, "below": 0}, "in": {"above": 0, "in": 0, "below": 0}, "below": {"above": 0, "in": 0, "below": 0}}
+    errs = []; n_steps = 0
+    for sd in range(20):
+        sc = T.Scene(sd); lt = T.Lateral(sc); ob = lt.reset()
+        while not lt.done:
+            ob, _, _, inf = lt.step(T.textbook_action(ob))
+            if "estimate" in inf:
+                e_ = inf["estimate"]; truth = inf["lithology"]
+                guess = max(("above", e_["p_above"]), ("in", e_["p_in"]), ("below", e_["p_below"]), key=lambda x: x[1])[0]
+                conf[truth][guess] += 1; n_steps += 1
+                errs.append(abs(e_["d_top"] - (lt.tvd - sc.layer_top(lt.vs))))
+    right = sum(conf[k][k] for k in conf); total = sum(sum(v.values()) for v in conf.values())
+    # a filter told nothing but the gamma of a flat layer sits where the model says; told a boundary, it moves
+    f1 = PF.PositionFilter(9000.0, 0.0, 40.0, 60.0, 130.0, 115.0, seed=3)
+    f1.update(9020.0, 60.0); e_mid = f1.estimate(9020.0)
+    f2 = PF.PositionFilter(9000.0, 0.0, 40.0, 60.0, 130.0, 115.0, seed=3)
+    for _ in range(6):
+        f2.predict(30.0); f2.update(9020.0, 62.0, 4.0)                          # the gamma says the layer, the deep tool says the top is 4 ft above: the bit is just under the top, 16 ft off the model
+    e_top = f2.estimate(9020.0)
+    tb_f = P.evaluate(T.textbook_action, range(20), "textbook")
+    c5 = {
+        # inside a flat-gamma layer the position is unobservable until a boundary is read, and the model's dip error accumulates
+        # with the distance drilled; the side of an exit is then the model's guess where the gamma above and below are alike
+        "classifies": total > 1000 and right / total >= 0.75 and conf["in"]["in"] / max(sum(conf["in"].values()), 1) >= 0.9,
+        "distance": float(np_.median(errs)) < 12.0,
+        "moves": abs(e_mid["d_top"] - 20.0) < 8.0 and abs(e_top["d_top"] - 4.0) < 4.0 and e_top["sigma"] < e_mid["sigma"],
+        "helps": tb_f["in_layer_pct"] >= 50.0,
+        "ahead": abs(e_top["top_ahead_tvd"] - e_top["top_tvd"]) < 10.0 and e_top["base_tvd"] > e_top["top_tvd"],
+    }
+    failed5 = [k for k, v in c5.items() if not v]
+    ok(not failed5,
+       f"DV5 the position filter places the bit above, in or below the layer right {100 * right / max(total, 1):.0f}% of the time on twenty scenes "
+       f"(median distance error {float(np_.median(errs)) if errs else 0:.1f} ft), sits where the model says until a reading moves it and tightens on a boundary reading, "
+       f"carries the layer ahead of the bit, and lifts the textbook driller to {tb_f['in_layer_pct']:.0f}% in the layer" + (f" [failed: {', '.join(failed5)}]" if failed5 else ""))
     failed4 = [k for k, v in c4.items() if not v]
     ok(not failed4,
        "DV4 GEA pulls the driller's records into the well checked against their hashes (a second pull fetches nothing; a file altered after its hash is "

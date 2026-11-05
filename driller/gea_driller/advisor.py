@@ -21,6 +21,7 @@ import numpy as np
 
 from . import __version__, twin as T
 from .policy import Policy
+from .position import PositionFilter
 
 
 def _utc() -> str:
@@ -137,6 +138,9 @@ class Advisor:
         self.armed: Optional[dict] = None
         self.arm_log: List[dict] = []
         self.stopped_reason: Optional[str] = None
+        self.filter: Optional[PositionFilter] = None
+        self.filter_md: Optional[float] = None
+        self.est: Optional[dict] = None
 
     # -- the observation from the rig -----------------------------------------------------------------------------
     def observation(self, snap: dict) -> Tuple[Optional[np.ndarray], dict]:
@@ -162,6 +166,16 @@ class Advisor:
         deep = st.get('deep_res_dist'); have = deep is not None and bool(m.get('deep_resistivity_tool', False))
         gi = abs(g - float(m['gamma_in'])); ga = abs(g - float(m['gamma_above'])); gb = abs(g - float(m['gamma_below']))
         belief = 1.0 if gi < min(ga, gb) else 0.0
+        # the position filter: the geosteerer's estimate of where the bit sits in the layer, from the readings
+        if self.filter is None:
+            self.filter = PositionFilter(float(m['layer_top_tvd_ft']), float(m['dip_deg']), float(m['thickness_ft']), float(m['gamma_in']), float(m['gamma_above']), float(m['gamma_below']),
+                                         deep_range=float(m.get('deep_range_ft', 15.0)), seed=1)
+            self.filter_md = md
+        elif md > self.filter_md:
+            self.filter.predict(md - self.filter_md); self.filter_md = md
+        self.filter.update(tvd, g, float(deep) if have else None)
+        self.est = self.filter.estimate(tvd)
+        e = self.est
         rop = float(st.get('rop') or 0.0); vib = float(st.get('vibration') or 0.0)
         flow = float(st.get('flow_in') or 500.0); rpm = float(st.get('rpm') or 120.0); wob = float(st.get('wob') or 25.0)
         ecd = float(st['ecd']) if st.get('ecd') is not None else float(lim['mud_weight_ppg']) + 0.4 * (flow / 500.0) ** 2 + 0.8 * self.bed
@@ -171,8 +185,9 @@ class Advisor:
             trend / 10.0, (float(inc) - 90.0) / 5.0, d_top / 30.0, d_base / 30.0,
             (float(deep) / 15.0) if have else 0.0, 1.0 if have else 0.0, self.last_build / 3.0,
             rop / 100.0, vib / 1.5, (float(lim['frac_gradient_ppg']) - ecd) / 1.0, self.bed, self.balling, self.wear,
-            dp / 600.0, vs / float(m.get('lateral_length_ft', 4000.0)), belief, float(m['thickness_ft']) / 50.0], dtype=np.float64)
-        ctx = {'md': md, 'vs': vs, 'tvd': tvd, 'inc': inc, 'model_top': model_top, 'model_base': model_top + float(m['thickness_ft']), 'gamma': g, 'trend': trend,
+            dp / 600.0, vs / float(m.get('lateral_length_ft', 4000.0)), belief, float(m['thickness_ft']) / 50.0,
+            e['p_in'], e['p_above'], e['p_below'], e['d_top'] / 30.0, e['d_base'] / 30.0, e['sigma'] / 15.0], dtype=np.float64)
+        ctx = {'md': md, 'vs': vs, 'tvd': tvd, 'inc': inc, 'model_top': model_top, 'model_base': model_top + float(m['thickness_ft']), 'gamma': g, 'trend': trend, 'estimate': dict(e),
                'deep': deep if have else None, 'belief': belief, 'rop': rop, 'vibration': vib, 'ecd': ecd, 'dp': dp, 'wob': wob, 'rpm': rpm, 'flow': flow,
                'bed': self.bed, 'balling': self.balling, 'wear': self.wear}
         return obs, ctx
@@ -229,7 +244,7 @@ class Advisor:
                 'words': self._words(build, wob, rpm, flow, cond, ctx, ch),
             },
             'confidence': {k: round(v['confidence'], 3) for k, v in ch.items()}, 'value': round(ex['value'], 2),
-            'reasons': self._reasons(ctx, ch), 'context': {k: (round(v, 2) if isinstance(v, float) else v) for k, v in ctx.items()},
+            'reasons': self._reasons(ctx, ch), 'context': {k: (round(v, 2) if isinstance(v, float) else ({kk: round(vv, 3) for kk, vv in v.items()} if isinstance(v, dict) else v)) for k, v in ctx.items()},
             'action': [ch[n]['index'] for n in T.ACTION_NAMES], 'clipped': clipped, 'answer': None, 'armed': bool(self.armed), 'policy': self.policy.meta.get('trained_utc'),
         }
         with self.lock:
@@ -260,6 +275,10 @@ class Advisor:
     def _reasons(self, ctx, ch) -> List[str]:
         out = []
         m = self.cfg['model']
+        e = ctx.get('estimate')
+        if e:
+            where = 'in the layer' if e['p_in'] >= 0.5 else ('above the layer' if e['p_above'] > e['p_below'] else 'below the layer')
+            out.append(f"the position filter puts the bit {where} ({e['p_in']:.0%} in, {e['p_above']:.0%} above, {e['p_below']:.0%} below): {e['d_top']:.1f} ft below the top, {e['d_base']:.1f} ft above the base, ±{e['sigma']:.1f} ft")
         if ctx['deep'] is not None:
             out.append(f"the deep-resistivity tool puts the {'top' if ctx['deep'] > 0 else 'base'} {abs(ctx['deep']):.1f} ft {'above' if ctx['deep'] > 0 else 'below'} the bit")
         out.append(f"gamma {ctx['gamma']:.0f} API, {'in the layer' if ctx['belief'] else 'not the layer'} by the model's values ({m['gamma_in']:.0f} in, {m['gamma_above']:.0f} above, {m['gamma_below']:.0f} below)" + (f", trending {ctx['trend']:+.1f} API a decision" if abs(ctx['trend']) >= 2 else ''))
@@ -386,5 +405,5 @@ class Advisor:
             hist = [{k: r[k] for k in ('utc', 'md', 'recommend', 'answer', 'confidence', 'armed')} for r in self.history[-40:]]
             return {'current': cur, 'history': hist, 'answers': dict(self.answers), 'armed': dict(self.armed) if self.armed else None,
                     'arm_log': self.arm_log[-10:], 'closed_loop_allowed': bool(self.cfg['closed_loop'].get('allowed')), 'downlink': self.downlink.describe(),
-                    'hole_model': {'bed': self.bed, 'balling': self.balling, 'wear': self.wear}, 'decisions': self.records.counts['decisions'],
+                    'hole_model': {'bed': self.bed, 'balling': self.balling, 'wear': self.wear}, 'decisions': self.records.counts['decisions'], 'estimate': dict(self.est) if self.est else None,
                     'policy': {k: self.policy.meta.get(k) for k in ('trained_steps', 'iterations', 'trained_utc', 'version')}}

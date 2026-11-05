@@ -18,6 +18,8 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from .position import PositionFilter
+
 STEP_FT = 30.0
 BUILD_CHOICES = (-3.0, -1.5, 0.0, 1.5, 3.0)            # deg per 100 ft asked of the tool
 WOB_CHOICES = (15.0, 25.0, 35.0)                       # klb
@@ -26,10 +28,11 @@ FLOW_CHOICES = (400.0, 500.0, 600.0)                   # gpm
 COND_CHOICES = ('drill', 'circulate', 'ream_wash')
 ACTION_SIZES = (len(BUILD_CHOICES), len(WOB_CHOICES), len(RPM_CHOICES), len(FLOW_CHOICES), len(COND_CHOICES))
 ACTION_NAMES = ('build', 'wob', 'rpm', 'flow', 'conditioning')
-OBS_SIZE = 22
+OBS_SIZE = 28
 OBS_NAMES = ('gamma_now', 'gamma_1', 'gamma_2', 'gamma_3', 'gamma_4', 'gamma_trend', 'inclination_minus_90', 'model_dist_top', 'model_dist_base',
              'deep_res_dist', 'deep_res_available', 'last_build', 'rop', 'vibration', 'ecd_margin', 'cuttings_bed', 'balling', 'bit_wear',
-             'motor_dp', 'progress', 'in_layer_belief', 'layer_thickness_model')
+             'motor_dp', 'progress', 'in_layer_belief', 'layer_thickness_model',
+             'filter_p_in', 'filter_p_above', 'filter_p_below', 'filter_dist_top', 'filter_dist_base', 'filter_sigma')
 VIB_LIMIT = 1.2
 DP_LIMIT = 600.0
 DAY_LIMIT = 12.0
@@ -70,6 +73,9 @@ class Scene:
         self.model_top_error = r.normal(0.0, 10.0)      # the pre-drill model's error at the heel
         self.model_dip_error = r.normal(0.0, 0.7)
         self.model_thickness = self.thickness * r.uniform(0.85, 1.15)
+        self.model_g_in = self.g_in + r.normal(0.0, 5.0)              # the model's gamma values, as the offset wells gave them
+        self.model_g_above = self.g_above + r.normal(0.0, 8.0)
+        self.model_g_below = self.g_below + r.normal(0.0, 8.0)
         self.balling_prone = r.uniform(0.3, 1.0)
         self.start_incl = 90.0 + r.uniform(-2.0, 2.0)
         self.start_offset = r.uniform(0.25, 0.75)       # where in the layer the heel lands (fraction from the top)
@@ -170,6 +176,11 @@ class Lateral:
         self.ecd_excess = 0.0
         self.belief = 1.0
         self.path: List[Tuple[float, float, float]] = [(self.vs, self.tvd, self.incl)]
+        self.filter = PositionFilter(s.model_top(0.0), s.dip_deg + s.model_dip_error, s.model_thickness, s.model_g_in, s.model_g_above, s.model_g_below,
+                                     deep_range=s.deep_range, seed=(s.seed * 31 + 7) % (2 ** 32 - 1))
+        deep, have = s.deep_distance(self.vs, self.tvd, self.r)
+        self.filter.update(self.tvd, self.gammas[-1], deep if have else None)
+        self.est = self.filter.estimate(self.tvd)
         return self.observe()
 
     # -- the observation -------------------------------------------------------------------------------------------
@@ -182,14 +193,16 @@ class Lateral:
         d_base = (mt + s.model_thickness) - self.tvd
         deep, have = s.deep_distance(self.vs, self.tvd, self.r)
         # a belief the agent can lean on: gamma near the layer's own value says inside
-        gi = abs(g[-1] - s.g_in); ga = abs(g[-1] - s.g_above); gb = abs(g[-1] - s.g_below)
+        gi = abs(g[-1] - s.model_g_in); ga = abs(g[-1] - s.model_g_above); gb = abs(g[-1] - s.model_g_below)
         self.belief = float(1.0 if gi < min(ga, gb) else 0.0)
+        e = self.est
         obs = np.array([
             (g[-1] - 100.0) / 50.0, (g[-2] - 100.0) / 50.0, (g[-3] - 100.0) / 50.0, (g[-4] - 100.0) / 50.0, (g[-5] - 100.0) / 50.0,
             trend / 10.0, (self.incl - 90.0) / 5.0, d_top / 30.0, d_base / 30.0,
             deep / 15.0 if have else 0.0, 1.0 if have else 0.0, self.last_build / 3.0,
             self.rop / 100.0, self.vib / 1.5, (s.frac_gradient - self.ecd) / 1.0, self.bed, self.balling, self.wear,
-            self.dp / 600.0, self.vs / s.length_ft, self.belief, s.model_thickness / 50.0], dtype=np.float64)
+            self.dp / 600.0, self.vs / s.length_ft, self.belief, s.model_thickness / 50.0,
+            e['p_in'], e['p_above'], e['p_below'], e['d_top'] / 30.0, e['d_base'] / 30.0, e['sigma'] / 15.0], dtype=np.float64)
         return obs
 
     # -- one decision ------------------------------------------------------------------------------------------------
@@ -234,7 +247,8 @@ class Lateral:
         b_eff = build + s.tendency + self.r.normal(0, s.tool_noise)
         b_eff = max(-DLS_MAX_TOOL, min(DLS_MAX_TOOL, b_eff))
         d_incl = b_eff * STEP_FT / 100.0
-        incl_new = self.incl + d_incl
+        incl_new = max(70.0, min(110.0, self.incl + d_incl))          # a lateral: the tool is not asked past these
+        d_incl = incl_new - self.incl
         dls = abs(b_eff)
         self.dls_sum += dls; self.max_dls = max(self.max_dls, dls)
         self.tortuosity += abs(d_incl)
@@ -303,7 +317,11 @@ class Lateral:
             reward -= 8.0; self.hours += 24.0
             self.done = True; self.ended = 'stuck pipe'
         self.gammas.append(s.gamma(self.vs, self.tvd, self.r)); self.gammas = self.gammas[-5:]
-        info.update({'hours': hrs, 'rop': rop, 'in_layer': in_layer, 'sweet': sweet, 'dls': dls, 'lithology': new_lith, 'tvd': self.tvd, 'vs': self.vs,
+        self.filter.predict(dh)
+        deep_r, have_r = s.deep_distance(self.vs, self.tvd, self.r)
+        self.filter.update(self.tvd, self.gammas[-1], deep_r if have_r else None)
+        self.est = self.filter.estimate(self.tvd)
+        info.update({'hours': hrs, 'rop': rop, 'estimate': dict(self.est), 'in_layer': in_layer, 'sweet': sweet, 'dls': dls, 'lithology': new_lith, 'tvd': self.tvd, 'vs': self.vs,
                      'layer_top': top, 'layer_base': base, 'vibration': self.vib, 'ecd': self.ecd, 'bed': self.bed, 'balling': self.balling, 'dp': self.dp})
         self.path.append((self.vs, self.tvd, self.incl))
         return self._finish(reward, info)
@@ -334,32 +352,23 @@ class Lateral:
 # -- the textbook driller, to be beaten ----------------------------------------------------------------------------------
 
 def textbook_action(obs: np.ndarray, state: Optional[dict] = None) -> Tuple[int, ...]:
-    """What a careful directional driller does by the book from the same observation: steer by the gamma's trend and
-    the model's bracket, 25 klb at 120 rpm and 500 gpm, circulate when the hole fills, wash a balled bit."""
-    g = obs[0] * 50 + 100; trend = obs[5] * 10
-    d_top = obs[7] * 30; d_base = obs[8] * 30
-    deep = obs[9] * 15; have = obs[10] > 0.5
-    belief = obs[20] > 0.5
+    """What a careful directional driller and geosteerer do by the book from the same observation: aim the well at
+    the middle of the layer as the position filter places it (the deep-resistivity tool's distance when it has
+    one), a build or drop in proportion to the miss and capped, 25 klb at 120 rpm and 500 gpm, lighter and faster
+    when the vibration limit is crossed, circulate when the hole fills, wash a balled bit."""
+    deep = obs[9] * 15; have = obs[10] > 0.5; incl = 90.0 + obs[6] * 5
     bed = obs[15]; balling = obs[16]; vib = obs[13] * 1.5
-    # steering
-    if have:
-        if deep > 0 and deep < 6:          # the top is close above: drop
-            bi = 1
-        elif deep < 0 and -deep < 6:       # the base is close below: build
-            bi = 3
-        else:
-            bi = 2
-    elif not belief:
-        # out of the layer: the gamma says which way
-        bi = 3 if g > 95 and d_base < d_top else 1
-        if trend < -3:                     # coming back in: hold
-            bi = 2
+    d_top = obs[25] * 30; d_base = obs[26] * 30; thick = obs[21] * 50
+    if have and 0 < deep < 6:                  # the top close above: aim down to the middle
+        e = -(thick / 2 - deep)
+    elif have and 0 < -deep < 6:               # the base close below: aim up
+        e = thick / 2 + deep
     else:
-        bi = 2
-        if d_top < 8:
-            bi = 1
-        elif d_base < 8:
-            bi = 3
+        e = d_top - d_base                     # positive: nearer the base, so go up
+    e = max(-60.0, min(60.0, e))
+    target = 90.0 + max(-4.0, min(4.0, e * 0.12))
+    d = target - incl
+    bi = 4 if d > 0.6 else 3 if d > 0.15 else 1 if d < -0.15 else 0 if d < -0.6 else 2
     wi, ri, fi = 1, 1, 1
     if vib > VIB_LIMIT:
         wi, ri = 0, 1

@@ -1,26 +1,18 @@
-v0.77.0 — GEA DRILLER: THE DIRECTIONAL DRILLER'S AGENT
+v0.78.0 — GEA DRILLER: THE POSITION FILTER
 
-A third program, for the rig PC. It reads the EDR's feed and the pre-drill
-model and, every 30 ft, recommends in the driller's units what to do next -
-build, drop or hold with toolface and steering ratio, the weight, the
-speed, the flow, drill on or condition the hole - with its reasons and its
-confidence. The driller accepts, rejects or records what was done instead;
-everything is on record with its hash and GEA pulls it in.
+The driller's agent now knows where it is. A position filter - the
+geosteerer's estimate, as a particle filter over how the real layer differs
+from the pre-drill model - reads the gamma and the deep-resistivity distance
+and puts the bit in the layer, above it or below it, with the distance to
+the top and the base and how sure it is. The screen draws the band it puts
+the layer in, sixty feet ahead; the agent steers by it; so does the
+textbook driller it is judged against, which rises from 41% to 60% of the
+hole in the layer - and the agent clears that bar.
 
-The agent is a policy trained by reinforcement learning (PPO) in a physics
-twin of the lateral, on thousands of scenes drawn fresh, and judged on
-scenes it never saw against a textbook driller: about 70% of the hole in
-the layer against the textbook's 41% (a simulation's figures, labelled so).
-
-- Drill string tab, "GEA Driller": "Start the twin as the rig", "Open its
-  screen" - the driller's screen with a lateral drilling itself; Accept,
-  Reject, "Did something else"; arm the closed loop for a section and
-  watch it disarm itself. "Pull from it" brings the records into a well.
-- The closed loop ships as a design with a switch: this version's only
-  downlink keeps every command and sends none.
-- GEA-Driller-0.77.0.tar.gz on the release, with the trained policy inside.
-  Tutorial lessons 28 and 29.
+- Drill string tab, "GEA Driller", "Start the twin as the rig", "Open its
+  screen": the orange band is the filter; the tile says how sure.
+- The policy retrained on the new observation; GEA-Driller-0.78.0.tar.gz.
 
 Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
 
-Acceptance section DV (4 checks); gate 547.
+Acceptance section DV (5 checks); gate 548.

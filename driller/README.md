@@ -8,6 +8,12 @@ weight on bit, the rotary speed, the flow rate, and whether to drill on, circula
 driller accepts, rejects, or records what was done instead; every recommendation, every answer and every
 command is on record with its hash, and GEA pulls the record in.
 
+Where the bit sits in the layer is estimated the way a geosteerer does it, by a position filter: a few hundred
+guesses at how the real layer differs from the model - the top's offset, the dip's error, the thickness - moved
+every decision as undulation and faults would move them and kept to the ones that explain the gamma and the
+deep-resistivity distance. The screen shows the band it puts the layer in and how sure it is; the agent reads the
+same estimate.
+
 The agent is a reinforcement-learning policy - a small neural network trained by proximal policy optimization in a
 physics twin of the lateral: a target layer whose top rolls with dip, undulation and faults; the gamma and the
 deep-resistivity boundary the near-bit tools read of it; a steering tool with a tendency and a cap; a bit whose
