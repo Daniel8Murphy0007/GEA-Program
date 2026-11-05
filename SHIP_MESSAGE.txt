@@ -1,17 +1,9 @@
-v0.78.0 — GEA DRILLER: THE POSITION FILTER
+v0.78.1 — THE POSITION FILTER, WITH A GREEN CI
 
-The driller's agent now knows where it is. A position filter - the
-geosteerer's estimate, as a particle filter over how the real layer differs
-from the pre-drill model - reads the gamma and the deep-resistivity distance
-and puts the bit in the layer, above it or below it, with the distance to
-the top and the base and how sure it is. The screen draws the band it puts
-the layer in, sixty feet ahead; the agent steers by it; so does the
-textbook driller it is judged against, which rises from 41% to 60% of the
-hole in the layer - and the agent clears that bar.
-
-- Drill string tab, "GEA Driller", "Start the twin as the rig", "Open its
-  screen": the orange band is the filter; the tile says how sure.
-- The policy retrained on the new observation; GEA-Driller-0.78.0.tar.gz.
+The same program as v0.78.0 - the driller's agent with the position filter.
+ci had gone red on Python 3.10 on one timing check in the new section
+(a fixed 1.5 s wait for the twin's next decision); it waits for the
+decision now.
 
 Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
 

@@ -16561,7 +16561,9 @@ def section_dv_driller(tmp: str) -> None:
         s_noname, _ = call("/api/answer", {"what": "accept", "by": ""})
         s_acc, _ = call("/api/answer", {"what": "accept", "by": "tester"})
         s_twice, _ = call("/api/answer", {"what": "accept", "by": "tester"})
-        time.sleep(1.5)
+        t_end = time.monotonic() + 15                                   # the next decision, however slow the machine
+        while time.monotonic() < t_end and not drl.advisor.current:
+            time.sleep(0.2)
         s_ov, _ = call("/api/answer", {"what": "override", "by": "tester", "note": "held", "override": {"build_deg_100ft": 0.0, "wob_klb": 25}})
         md = drl.feed.snapshot()["state"]["hole_depth"]
         s_long, _ = call("/api/arm", {"by": "tester", "to_md": md + 5000})

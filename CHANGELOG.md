@@ -5,6 +5,16 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.78.1] - 2026-11-05 - the gate on a slow runner
+
+### Fixed
+- ci went red on Python 3.10 twice for v0.78.0 while 3.12 passed: section
+  DV3 slept a fixed 1.5 s for the twin's next decision before recording
+  an override, and a two-core runner can be slower than that. It waits
+  for the decision now (up to 15 s). The same program as 0.78.0.
+- The version bump of 0.78.0 had turned the VPN's example addresses
+  `10.77.0.x` into `10.78.0.x` in the README and four help pages; put back.
+
 ## [v0.78.0] - 2026-11-05 - GEA Driller: the position filter
 
 ### Added

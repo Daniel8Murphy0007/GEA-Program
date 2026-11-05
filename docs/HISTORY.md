@@ -4,6 +4,11 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.78.1 - 2026-11-05 - the gate on a slow runner
+
+- DV3 waits for the twin's next decision instead of sleeping 1.5 s; the
+  same program as 0.78.0. Gate 548.
+
 ## v0.78.0 - 2026-11-05 - the position filter
 
 - The geosteerer's estimate of where the bit sits in the layer as a

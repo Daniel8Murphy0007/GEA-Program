@@ -3325,3 +3325,11 @@ stability; and motor specifications in the tool catalogue.
   running from the card; a free port now, and 25 s for a first start on a
   PC scanning new files. Both checks print the return codes and the
   console's last lines when they fail, so the next stop names itself.
+- v0.78.0 shipped; ci went red on Python 3.10 only, twice, after about
+  twenty minutes, and passed on 3.12 and here on 3.10 (548). The one check
+  with a clock in it: DV3 answered a recommendation and then slept 1.5 s
+  for the next one before recording an override - a two-core runner can
+  be slower than that. It waits for the decision now. Reissued as 0.78.1.
+- The bump's `sed 's/0.77.0/0.78.0/g'` had also rewritten the VPN's
+  example addresses 10.77.0.x to 10.78.0.x in the README and four help
+  pages. Put back; the bump is bounded by non-digits from now on.

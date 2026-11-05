@@ -12,7 +12,7 @@ Takes: 15 minutes
 ## The network
 4. On the pad's switch, the office pulls from the box at its address on port 8780 - nothing to do on the box.
 5. Behind a cellular modem the box joins **GEA-VPN** (lesson 23): the office hands you `gea-vpn-pad-3-box.zip` by a channel of its own - it holds this box's key. Copy it to the Pi, unpack it, and once: `sudo sh vpn.sh`. It installs WireGuard, puts the box's configuration in place and starts the tunnel at boot. The box connects out to the hub; nothing is opened on the modem.
-6. From then on the office pulls from the box at its private address (`http://10.78.0.3:8780`) and watches its monitor at `/live` there. On the box, `sudo wg show gea-vpn` prints the last handshake with the hub; a handshake under three minutes old means the tunnel is up.
+6. From then on the office pulls from the box at its private address (`http://10.77.0.3:8780`) and watches its monitor at `/live` there. On the box, `sudo wg show gea-vpn` prints the last handshake with the hub; a handshake under three minutes old means the tunnel is up.
 7. A lost stick or a lost zip: tell the office. A stick is only copies; a zip is a key, and the office removes the member and makes a new one.
 
 ## You know it worked when
