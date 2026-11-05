@@ -2188,6 +2188,16 @@ def make_handler(app: App):
                     from . import field_pull as _FP
                     from . import recorder_link as _RL
                     return self._json(200, {'pulls': _FP.last_pulls(app.ws), 'sim': _RL.status(app.ws)})
+                if path == '/api/driller':
+                    from . import driller_link as _DL
+                    return self._json(200, {'wells': _DL.wells_with_records(app.ws), 'sim': _DL.status(app.ws), 'all_wells': [{'id': w['id'], 'display': w.get('display', w['id'])} for w in app.ws.wells()]})
+                if path.startswith('/api/driller/'):
+                    from . import driller_link as _DL
+                    wid = path[len('/api/driller/'):]
+                    lp = _DL.last_pull(app.ws, wid)
+                    if lp is None:
+                        raise ApiError(404, f'no driller record pulled for {wid}')
+                    return self._json(200, lp)
                 if path == '/api/seismic/image':
                     return self._json(200, {'image': app.ws.bit_image_summary(), 'label': 'SIMULATION_SELF_TEST', 'dir': f'seismic/{app.ws.SAR_ID}'})
                 if path.startswith('/api/seismic/'):
@@ -3141,6 +3151,22 @@ def make_handler(app: App):
                     if path.endswith('start'):
                         return self._json(200, _RL.start_sim(app.ws, actor=user['name']))
                     return self._json(200, _RL.stop_sim(app.ws, actor=user['name']))
+                if path in ('/api/driller/sim/start', '/api/driller/sim/stop'):
+                    App.require(user, 'operator')
+                    from . import driller_link as _DL
+                    if path.endswith('start'):
+                        seed = int(body.get('seed', 7)); pace = float(body.get('pace_s', 3.0))
+                        if not (0 <= seed <= 10 ** 6 and 0.2 <= pace <= 60.0):
+                            raise ApiError(400, 'driller: seed 0-1000000, a step every 0.2-60 s')
+                        return self._json(200, _DL.start_sim(app.ws, actor=user['name'], seed=seed, pace_s=pace, closed_loop=bool(body.get('closed_loop', True))))
+                    return self._json(200, _DL.stop_sim(app.ws, actor=user['name']))
+                if path == '/api/driller/pull':
+                    App.require(user, 'operator')
+                    src = str(body.get('source') or '').strip(); wid = str(body.get('well') or '').strip()
+                    if not src or len(src) > 500 or not wid:
+                        raise ApiError(400, "driller-pull: the rig PC's address (http://192.168.1.60:8790) and the well it is drilling")
+                    args = ['workspace', '--path', app.ws.path, '--action', 'driller-pull', '--box', src, '--well', wid, '--actor', user['name']]
+                    return self._json(200, app._job(args, user, f'GEA Driller: pull from {src} into {wid}'))
                 if path == '/api/field/pull':
                     App.require(user, 'operator')
                     src = str(body.get('source') or '').strip()

@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.77.0 - 2026-11-05 - GEA Driller
+
+- The directional driller's agent on the rig PC: a policy trained by PPO
+  in a physics twin of the lateral, recommending every 30 ft in the
+  driller's units with its reasons, answered by name, armed for a section
+  through a downlink that ships disconnected; its records pulled into GEA;
+  the fourth kit. Section DV; gate 547.
+
 ## v0.76.0 - 2026-11-04 - the tutorial
 
 - Every step of GEA and the programs around it as 27 lessons on a

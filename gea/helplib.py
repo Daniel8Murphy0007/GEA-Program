@@ -25,7 +25,7 @@ HELP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'help')
 # the index order: by the job a reader arrives with, never by module
 INDEX: List[tuple] = [
     ('start', 'Start', 'install, the first run, what the program will not claim'),
-    ('tutorial', 'The tutorial', "Every step of GEA and the programs around it as 27 lessons on the Tutorial tab - the office's first, the pad attendant's after - each with the page, the steps, and how you know it worked; printable as one handout"),
+    ('tutorial', 'The tutorial', "Every step of GEA and the programs around it as 29 lessons on the Tutorial tab - the office's first, the pad attendant's after - each with the page, the steps, and how you know it worked; printable as one handout"),
     ('install', 'Install on Windows', 'GEA-Program-Setup: a per-user install with no administrator rights, the control panel in a window of its own, its icon in the notification area, shortcuts, upgrades in place, the site workspace left where it is, other workspaces opened from Administration'),
     ('data-in', 'Bring data in', 'CSV, LAS, SEG-Y, operator tables, WITS0, WITSML, OPC UA, MQTT, Modbus, the patch panel'),
     ('quality', 'Quality rules', 'RANGE, ROC, FLATLINE, SPIKE, STALE, GAP, each with the limit that fired'),
@@ -39,6 +39,7 @@ INDEX: List[tuple] = [
     ('seismic', 'Seismic - the second leg', 'miniSEED/SAC in, spectra and persistent lines out, the detectability test against known rigs'),
     ('bit-image', 'The image - drill-bit seismic from the ground', "the drilling itself as the seismic source of known position: ground stations correlated against the one beside the rig, the velocity column layer by layer, the layer below the bit, the property column, and what a field recorder must capture - end to end on a labelled scene"),
     ('vpn', 'GEA-VPN - the private network between the programs', "WireGuard managed from GEA: the hub on a small server of the site's own, a key and a configuration per computer, the office reaching each box at a fixed private address; nothing typed on a pad"),
+    ('driller', "GEA Driller - the directional driller's agent", "A policy trained by reinforcement learning in a physics twin, on the rig PC against the EDR's feed: build, drop or hold, the weight, the speed, the flow, condition the hole - recommended, answered by the driller, or commanded when armed; the records pulled into GEA"),
     ('recorder', 'The field recorder - the black box', "GEA Recorder on a Raspberry Pi in the pad: the ground channels and the rig feed on one GPS clock into hourly miniSEED files with hashes and a manifest; GEA pulls them in and makes stations of them"),
     ('patches', 'Patches', 'supervised live connections, their states and records'),
     ('files', 'Files', 'import and export roots, detection by content, the evidence pack'),

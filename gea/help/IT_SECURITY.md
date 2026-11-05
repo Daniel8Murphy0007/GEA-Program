@@ -172,6 +172,15 @@ declared extras.
   workspace (`records\tutorial_progress.json`, by account name, no more);
   the handout is written only on request into `exports\tutorial\` and
   carries nothing of the site but its name. Both are audit lines.
+- **GEA Driller** (since 0.77.0, `gea help driller`): the agent on the rig
+  PC reads the EDR's feed and sends nothing to it; its screen on port 8790
+  is read-only but for the driller's answers and the closed-loop switch,
+  which the config keeps off (`closed_loop.allowed` false) and which, on,
+  arms by a named operator for one section and disarms itself on a stale
+  feed, a crossed limit or the section's end; this version's only downlink
+  keeps every command on record and sends none. The records carry no
+  secret; GEA pulls them checked against their hashes. The twin as the rig
+  on the office PC binds to 127.0.0.1 only.
 
 ## What it records
 

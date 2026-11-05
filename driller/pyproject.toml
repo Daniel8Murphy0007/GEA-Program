@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gea-driller"
+version = "0.77.0"
+description = "GEA Driller - the directional driller's agent on the rig PC: a policy trained in a physics twin, advisory or armed, feeding GEA-Program"
+readme = "README.md"
+license = {text = "MPL-2.0"}
+requires-python = ">=3.9"
+dependencies = ["numpy>=1.21"]
+
+[project.optional-dependencies]
+serial = ["pyserial>=3.5"]
+
+[project.scripts]
+gea-driller = "gea_driller.__main__:main"
+
+[tool.setuptools]
+packages = ["gea_driller"]
+package-data = {gea_driller = ["policy.json"]}

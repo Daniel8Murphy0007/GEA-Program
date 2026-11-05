@@ -370,7 +370,7 @@ def main(argv=None) -> int:
     p_ws.add_argument("--path", type=str, required=True, help="the workspace folder")
     p_ws.add_argument("--action", type=str, default="list",
                       choices=["init", "add-file", "add-catalog", "add-live", "remove", "list", "migrate", "refresh", "audit",
-                               "add-seismic", "refresh-seismic", "remove-seismic", "sar-film", "bit-image", "field-pull", "refresh-all", "add-track", "refresh-track", "remove-track",
+                               "add-seismic", "refresh-seismic", "remove-seismic", "sar-film", "bit-image", "field-pull", "driller-pull", "refresh-all", "add-track", "refresh-track", "remove-track",
                                "seismic-dataset", "seismic-field", "add-site", "sites", "site-report", "remove-site", "rename",
                                "set-well", "sra-define", "sra-report", "associate", "osdu-export", "quakeml-export", "well-identity", "vibration-report",
                                "add-live-station", "live-fold", "live-run", "month-end", "add-layer", "layers", "remove-layer", "structure", "interval",
@@ -428,7 +428,7 @@ def main(argv=None) -> int:
     p_ws.add_argument("--truth", type=str, default=None, help="add-track: ground truth CSV (point_id, lat, lon, utc[, note])")
     p_ws.add_argument("--track", type=str, default=None, help="refresh-track / remove-track: the track id")
     p_ws.add_argument("--win", type=float, default=600.0, help="add-track: the window length, s (default 600)")
-    p_ws.add_argument("--box", type=str, default=None, help="field-pull: the recorder's address (http://192.168.1.50:8780, as its page shows) or its mirror folder")
+    p_ws.add_argument("--box", type=str, default=None, help="field-pull: the recorder's address (http://192.168.1.50:8780, as its page shows) or its mirror folder; driller-pull: the rig PC's address (http://192.168.1.60:8790)")
     p_ws.add_argument("--n-stations", type=int, default=24, help="bit-image: ground stations, the reference among them")
     p_ws.add_argument("--radius", type=float, default=6000.0, help="bit-image: the array's outer ring, ft")
     p_ws.add_argument("--noise", type=float, default=1.0, help="bit-image: ground noise against a reference arrival of 50")
@@ -1039,7 +1039,7 @@ def main(argv=None) -> int:
     p_vp.add_argument("--subnet", type=str, default=None, help="with --create: the private subnet (default 10.77.0.0/24)")
     p_vp.add_argument("--hub", type=str, default=None, metavar="HOST", help="change the hub's public name or address; every configuration is written again")
     p_vp.add_argument("--add", type=str, default=None, metavar="NAME", help="add a member of this name (Pad 3 box) of the --kind")
-    p_vp.add_argument("--kind", type=str, default="box", help="with --add: office, box, operator, reader or other (default box)")
+    p_vp.add_argument("--kind", type=str, default="box", help="with --add: office, box, driller, operator, reader or other (default box)")
     p_vp.add_argument("--remove", type=str, default=None, metavar="ID", help="remove the member of this id (pad-3-box); run the hub installer again after")
     p_vp.add_argument("--bundles", action="store_true", help="write the hub installer and every member's configuration again")
     p_vp.add_argument("--json", action="store_true")
@@ -3563,6 +3563,19 @@ def main(argv=None) -> int:
                 if not a.track:
                     raise SystemExit("remove-track needs --track TRACK_ID")
                 ws.remove_track(a.track, actor=a.actor); print("removed (folder kept):", a.track); return 0
+            elif a.action == "driller-pull":
+                from . import driller_link as DL
+                if not a.box or not a.well:
+                    raise SystemExit("driller-pull needs --box http://192.168.1.60:8790 (the rig PC, or the folder of its records) and --well SWD-1")
+                try:
+                    r = DL.pull(ws, a.box, a.well, actor=a.actor)
+                except ValueError as e:
+                    raise SystemExit(f"driller-pull: {e}")
+                sm = r['summary']
+                print(f"driller-pull: {r['source']} ({r['rig_well']}) into {r['well']}: {len(r['fetched'])} file(s) fetched, {len(r['kept'])} already here, {len(r['bad'])} failed their hash; "
+                      f"{sm['decisions']} decisions ({sm['answers']['accept']} accepted, {sm['answers']['reject']} rejected, {sm['answers']['override']} done otherwise), "
+                      f"{sm['armed_sections']} armed section(s), {sm['commands']} command(s), {sm['commands_sent']} sent")
+                return 0 if not r['bad'] else 1
             elif a.action == "field-pull":
                 from . import field_pull as FP
                 if not a.box:

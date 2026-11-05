@@ -4,7 +4,7 @@
 """updates - the program's own new versions, from inside the program.
 
 Every version is a release on GitHub with the kits attached - GEA-Program-Setup-<v>.exe, GEA-Reader-Setup-<v>.exe,
-GEA-Recorder-<v>.tar.gz - each with the SHA-256 GitHub recorded when it was uploaded. This module asks GitHub
+GEA-Recorder-<v>.tar.gz, GEA-Driller-<v>.tar.gz - each with the SHA-256 GitHub recorded when it was uploaded. This module asks GitHub
 what the newest release is, fetches the kits into the workspace's `installers\\` folder (each checked against its
 recorded SHA-256 before it is kept; older kits moved to `installers\\_older\\`), and installs the setup from there by
 clicking: the setup stops the control panel, installs over the old version, keeps the workspace, and the control
@@ -27,7 +27,7 @@ from typing import Callable, Dict, List, Optional
 
 REPO = 'Daniel8Murphy0007/GEA-Program'
 API = f'https://api.github.com/repos/{REPO}/releases/latest'
-KITS = ('GEA-Program-Setup-', 'GEA-Reader-Setup-', 'GEA-Recorder-')
+KITS = ('GEA-Program-Setup-', 'GEA-Reader-Setup-', 'GEA-Recorder-', 'GEA-Driller-')
 INSTALLERS = 'installers'
 
 
@@ -80,7 +80,7 @@ def on_hand(ws) -> List[dict]:
     out = []
     if os.path.isdir(d):
         for n in sorted(os.listdir(d)):
-            m = re.match(r'(GEA-Program-Setup-|GEA-Reader-Setup-|GEA-Recorder-)(\d+\.\d+\.\d+)', n)
+            m = re.match(r'(GEA-Program-Setup-|GEA-Reader-Setup-|GEA-Recorder-|GEA-Driller-)(\d+\.\d+\.\d+)', n)
             if m and os.path.isfile(os.path.join(d, n)):
                 out.append({'name': n, 'kit': m.group(1), 'version': m.group(2), 'bytes': os.path.getsize(os.path.join(d, n)), 'verified': n in rec and rec[n].get('verified', False)})
     return out

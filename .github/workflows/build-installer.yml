@@ -448,6 +448,39 @@ jobs:
         with:
           name: gea-recorder
           path: dist/GEA-Recorder-*.tar.gz
+  driller:
+    # GEA Driller, the agent on the rig PC: built with the trained policy inside, self-tested on the built kit, attached as GEA-Driller-<version>.tar.gz
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Build the driller kit and run its self-test
+        run: |
+          pip install numpy
+          python tools/build_driller.py
+      - name: Install it as the rig PC would and run the self-test and the evaluation from the install
+        run: |
+          cd dist && tar xzf GEA-Driller-*.tar.gz && cd gea-driller-*/
+          python -m venv /tmp/drl && /tmp/drl/bin/pip install -q gea_driller-*.whl && /tmp/drl/bin/gea-driller selftest --seconds 8
+          /tmp/drl/bin/gea-driller evaluate --scenes 20
+          /tmp/drl/bin/gea-driller config --write /tmp/drl/config.json
+      - name: Attest where the driller was built (provenance)
+        uses: actions/attest-build-provenance@v3
+        continue-on-error: ${{ github.event.repository.private }}
+        with:
+          subject-path: dist/GEA-Driller-*.tar.gz
+      - name: Attach the driller to the release
+        run: bash .github/workflows/attach-kit.sh "${{ inputs.release_tag }}" "dist/GEA-Driller-*.tar.gz" "GEA-Driller-"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/upload-artifact@v6
+        with:
+          name: gea-driller
+          path: dist/GEA-Driller-*.tar.gz
   linux-kit:
     runs-on: ubuntu-latest
     steps:

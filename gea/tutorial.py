@@ -33,6 +33,7 @@ PARTS = [
     ('Reports for the client', (18, 19)),
     ('Keeping it running', (20, 23)),
     ('On the pad: the attendant', (24, 27)),
+    ("The driller's agent", (28, 29)),
 ]
 META_KEYS = ('Who', 'Where', 'Takes', 'Help')
 WORKED = '## You know it worked when'
@@ -193,7 +194,7 @@ def handout_html(version: str, site_name: str = '') -> str:
     out.append(f'<div class="cover"><h1>GEA-Program</h1><p style="font-size:1.4em">The tutorial: every step of GEA and the programs around it</p>'
                f'<p class="muted">Version {esc(version)}{(" · " + esc(site_name)) if site_name else ""} · {len(ls)} lessons, {sum(l["steps"] for l in ls)} steps · printed {_utc()[:10]}</p>'
                f'<p>Lessons 1 to 23 are for the office - whoever installs the program, brings the data in, watches the pad and hands the reports over. '
-               f'Lessons 24 to 27 are for the attendant on the pad - whoever builds the box, keeps it recording and carries the files in. '
+               f'Lessons 24 to 27 are for the attendant on the pad - whoever builds the box, keeps it recording and carries the files in; lessons 28 and 29 are the driller\'s agent, for the office and for whoever sets up the rig PC. '
                f'Each lesson names the page it is done on, how long it takes, what you press, and how you know it worked. The same lessons are on the control panel\'s Tutorial tab, where each person ticks them off.</p></div>')
     out.append('<h2 class="toc-h">Contents</h2><div class="toc">')
     for name, (a, b) in PARTS:

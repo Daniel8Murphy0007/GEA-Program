@@ -15243,7 +15243,7 @@ def section_do_reader_program(tmp: str) -> None:
     marks = _re.findall(r'attach-kit\.sh "[^"]*" "[^"]+" "([^"]+)"', wf)
     v = __version__
     assets = [f"gea-program-{v}-win64.zip", f"GEA-Program-Setup-{v}.exe", f"gea-program-{v}-linux-x86_64.zip", f"GEA-Reader-Setup-{v}.exe", f"GEA-Reader-portable-{v}.zip",
-              f"GEA-Recorder-{v}.tar.gz"]
+              f"GEA-Recorder-{v}.tar.gz", f"GEA-Driller-{v}.tar.gz"]
     app_id = _re.search(r"AppId=\{\{([0-9A-F-]+)\}", iss)
     c3 = {
         "kit": {"GEA-Reader.html", "GEA-Reader.cmd", "README.txt", "MANIFEST.json", "SHA256SUMS.txt", "reader.ico", "app/gea_reader.py", "app/winident.py",
@@ -15263,7 +15263,7 @@ def section_do_reader_program(tmp: str) -> None:
                      and '-m gea_reader ""%1""' in iss,
         "workflow": "windows-reader:" in wf and "tools/build_reader.py" in wf and "tools\\reader_installer.iss" in wf and "-m gea_reader --selftest" in wf
                     and "the right-click entry is still there" in wf
-                    and all(sum(mk in a_ for mk in marks) == 1 for a_ in assets) and len(marks) == 6,
+                    and all(sum(mk in a_ for mk in marks) == 1 for a_ in assets) and len(marks) == 7,
     }
     failed3 = [k for k, v_ in c3.items() if not v_]
     ok(not failed3,
@@ -15949,7 +15949,7 @@ def section_ds_updates(tmp: str) -> None:
     pkg = Path(__file__).parent
     d = Path(tmp, "ds"); d.mkdir()
     ws = Workspace.create(str(d / "ws"), "Pad 3 up", actor="tester")
-    blobs = {"GEA-Program-Setup-9.9.9.exe": os.urandom(40000), "GEA-Reader-Setup-9.9.9.exe": os.urandom(6000), "GEA-Recorder-9.9.9.tar.gz": os.urandom(2000),
+    blobs = {"GEA-Program-Setup-9.9.9.exe": os.urandom(40000), "GEA-Reader-Setup-9.9.9.exe": os.urandom(6000), "GEA-Recorder-9.9.9.tar.gz": os.urandom(2000), "GEA-Driller-9.9.9.tar.gz": os.urandom(2500),
              "gea-program-9.9.9-win64.zip": os.urandom(500)}
     state = {"port": 0}
 
@@ -15989,14 +15989,14 @@ def section_ds_updates(tmp: str) -> None:
         rec2 = UP.fetch_kits(ws, "tester", release=rel, fetch=fetch)
         on = UP.on_hand(ws)
         c1 = {
-            "release": rel["version"] == "9.9.9" and [a["kit"] for a in rel["assets"]] == ["GEA-Program-Setup-", "GEA-Reader-Setup-", "GEA-Recorder-"] and all(a["sha256"] for a in rel["assets"]),
+            "release": rel["version"] == "9.9.9" and [a["kit"] for a in rel["assets"]] == ["GEA-Program-Setup-", "GEA-Reader-Setup-", "GEA-Recorder-", "GEA-Driller-"] and all(a["sha256"] for a in rel["assets"]),
             "unreachable": down.get("error") and down["version"] is None,
-            "fetched": all(f["verified"] and f["fetched"] for f in rec["files"]) and len(rec["files"]) == 3 and rec["moved_aside"] == ["GEA-Program-Setup-0.1.0.exe"]
+            "fetched": all(f["verified"] and f["fetched"] for f in rec["files"]) and len(rec["files"]) == 4 and rec["moved_aside"] == ["GEA-Program-Setup-0.1.0.exe"]
                        and Path(inst, "_older", "GEA-Program-Setup-0.1.0.exe").is_file() and all(Path(inst, f["name"]).read_bytes() == blobs[f["name"]] for f in rec["files"] if f["name"] != "GEA-Reader-Setup-9.9.9.exe"),
             "state": st["state"] == "behind" and all(st["newest_on_hand"].values()) and st_cur["state"] == "current" and st["last_fetch"]["version"] == "9.9.9",
             "tampered": [f["name"] for f in rec2["files"] if f.get("rejected")] == ["GEA-Reader-Setup-9.9.9.exe"] and not Path(inst, "GEA-Reader-Setup-9.9.9.exe").exists()
-                        and [f["name"] for f in rec2["files"] if f["verified"] and not f["fetched"]] == ["GEA-Program-Setup-9.9.9.exe", "GEA-Recorder-9.9.9.tar.gz"],
-            "on_hand": {h["name"]: h["verified"] for h in on} == {"GEA-Program-Setup-9.9.9.exe": True, "GEA-Recorder-9.9.9.tar.gz": True},
+                        and [f["name"] for f in rec2["files"] if f["verified"] and not f["fetched"]] == ["GEA-Program-Setup-9.9.9.exe", "GEA-Recorder-9.9.9.tar.gz", "GEA-Driller-9.9.9.tar.gz"],
+            "on_hand": {h["name"]: h["verified"] for h in on} == {"GEA-Driller-9.9.9.tar.gz": True, "GEA-Program-Setup-9.9.9.exe": True, "GEA-Recorder-9.9.9.tar.gz": True},
             "audit": "update.fetch" in [a["action"] for a in ws.audit_log(20)],
         }
         failed1 = [k for k, v in c1.items() if not v]
@@ -16327,9 +16327,9 @@ def section_du_tutorial(tmp: str) -> None:
         "contract": not bad_contract,
         "pages_exist": not bad_where,
         "both_audiences": {l["who"] for l in ls} == {"office", "pad"} and sum(1 for l in ls if l["who"] == "pad") >= 3,
-        "parts": parts_cover and len(TU.PARTS) == 8,
+        "parts": parts_cover and len(TU.PARTS) == 9,
         "buttons_known": not unknown_buttons,
-        "every_program": all(any(w in (l["title"] + " " + l["summary"]).lower() for l in ls) for w in ("install", "reader", "recorder", "vpn", "dossier", "patch", "backup")),
+        "every_program": all(any(w in (l["title"] + " " + l["summary"]).lower() for l in ls) for w in ("install", "reader", "recorder", "vpn", "dossier", "patch", "backup", "driller")),
     }
     failed1 = [k for k, v in c1.items() if not v]
     ok(not failed1,
@@ -16407,6 +16407,270 @@ def section_du_tutorial(tmp: str) -> None:
        "whole as HTML and Markdown with every lesson; the routes (anonymous refused; a viewer reads, ticks and prints; writing the handout into the "
        "workspace takes the operator role; an unknown lesson 404); the audit lines; the Tutorial tab, the tutorial command and the help page carry "
        "it; numbered steps render as a list" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+
+def section_dv_driller(tmp: str) -> None:
+    """Section DV - GEA Driller: the twin's arithmetic (a seed repeats, building turns the bit up, circulating cleans
+    without footage, the limits penalize, a filled hole sticks the pipe), the policy's gradients against finite
+    differences, the shipped policy against the textbook driller on held-out scenes and a short training that
+    learns; the service with the twin as the rig - a decision from the feed, the operator's answers with a name,
+    the records with their hashes, the closed loop armed by name, commanding through the null downlink that sends
+    nothing, disarmed by a crossed limit and by the section's end, refused when not allowed; GEA's pull of the
+    records with a tampered file refused, the summary, the routes, the card, the command, the kit and the help."""
+    import http.cookiejar
+    import importlib
+    import urllib.error
+    import urllib.request
+    from . import __version__
+    from . import driller_link as DL
+    from . import helplib as H
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "dv"); d.mkdir()
+    prog = DL.program()
+    if prog is None:
+        ok(True, "DV the driller's program (gea-driller) is not installed beside GEA in this install; the kit and the setup carry it - nothing to check here")
+        return
+    if prog["env"] and prog["env"] not in sys.path:
+        sys.path.insert(0, prog["env"])
+    T = importlib.import_module("gea_driller.twin"); P = importlib.import_module("gea_driller.policy"); A = importlib.import_module("gea_driller.advisor")
+    C = importlib.import_module("gea_driller.config"); S = importlib.import_module("gea_driller.service")
+    np_ = importlib.import_module("numpy")
+    # -- DV1 the twin ------------------------------------------------------------------------------------------------------
+    r1 = T.run_episode(T.Lateral(T.Scene(0)), T.textbook_action); r2 = T.run_episode(T.Lateral(T.Scene(0)), T.textbook_action)
+    lb = T.Lateral(T.Scene(3)); lb.reset(); lh = T.Lateral(T.Scene(3)); lh.reset()
+    for _ in range(8):
+        lb.step((4, 1, 1, 1, 0)); lh.step((2, 1, 1, 1, 0))
+    lc = T.Lateral(T.Scene(3)); lc.reset(); lc.bed = 0.6; o_, rc, _, ic = lc.step((2, 1, 1, 1, 1))
+    lw = T.Lateral(T.Scene(3)); lw.reset(); lw.bed = 0.05; _, rw, _, _ = lw.step((2, 1, 1, 1, 1))            # conditioning a clean hole costs more
+    # a hole left to fill sticks the pipe, sooner or later, under heavy weight and little flow
+    stuck = 0
+    for sd in range(8):
+        l_ = T.Lateral(T.Scene(100 + sd)); l_.reset(); l_.bed = 0.9
+        while not l_.done and l_.steps < 80:
+            l_.step((2, 2, 0, 0, 0))
+        stuck += 1 if l_.ended == "stuck pipe" else 0
+    # the vibration limit: heavy weight at slow rotation in the shale above costs reward
+    lv = T.Lateral(T.Scene(5)); lv.reset(); lv.tvd = lv.scene.layer_top(0.0) - 15.0
+    _, r_heavy, _, i_heavy = lv.step((2, 2, 0, 1, 0))
+    c1 = {
+        "repeats": abs(r1["reward"] - r2["reward"]) < 1e-9 and r1["footage_ft"] == r2["footage_ft"],
+        "builds": lb.incl > lh.incl + 1.5 and lb.tvd < lh.tvd,
+        "conditioning": lc.bed < 0.6 and lc.footage == 0.0 and rc > rw,
+        "stuck": stuck >= 6,
+        "vibration": i_heavy["vibration"] > T.VIB_LIMIT and r_heavy < 0,
+        "obs": len(T.OBS_NAMES) == T.OBS_SIZE == lb.observe().shape[0] and all(np_.isfinite(lb.observe())),
+        "scene_random": T.Scene(1).thickness != T.Scene(2).thickness and T.Scene(1).describe()["seed"] == 1,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "DV1 the twin repeats itself for a seed, building turns the bit upward against holding, conditioning takes no footage and is cheap only when the "
+       "hole needs it, a hole left to fill under heavy weight and little flow sticks the pipe, heavy weight at slow rotation in the shale costs the "
+       "vibration limit, the observation is finite and named, and scenes differ by seed" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+    # -- DV2 the policy ------------------------------------------------------------------------------------------------------
+    pol0 = P.Policy(seed=1)
+    lat = T.Lateral(T.Scene(5)); o = lat.reset(); obs = []; acts = []
+    rr = np_.random.RandomState(0)
+    for _ in range(30):
+        a, lp, v = pol0.act(o, rr); obs.append(o); acts.append(a); o, _, dn, _ = lat.step(a)
+        if dn:
+            o = lat.reset()
+    obs = np_.array(obs); acts = np_.array(acts)
+    old = np_.array([pol0.act(ob, rr)[1] for ob in obs]); adv = rr.normal(size=30); ret = rr.normal(size=30)
+
+    def loss_of(pol):
+        logits, v, _, _ = pol.forward(obs); logp = np_.zeros(30); ent = np_.zeros(30)
+        for hi, sl in enumerate(P.HEAD_SLICES):
+            p_ = P._softmax(logits[:, sl]); logp += np_.log(p_[np_.arange(30), acts[:, hi]]); ent += -(p_ * np_.log(p_)).sum(1)
+        ratio = np_.exp(logp - old)
+        return -np_.mean(np_.minimum(ratio * adv, np_.clip(ratio, 0.8, 1.2) * adv)) + 0.5 * 0.5 * np_.mean((v - ret) ** 2) - 0.01 * ent.mean()
+    g, _ = P._loss_and_grads(pol0, obs, acts, old, adv, ret, 0.2, 0.5, 0.01)
+    grads_ok = True
+    for k in ("W1", "W2", "W3", "b1", "b3"):
+        i = tuple(0 for _ in pol0.p[k].shape); eps = 1e-6
+        pol0.p[k][i] += eps; lp_ = loss_of(pol0); pol0.p[k][i] -= 2 * eps; lm_ = loss_of(pol0); pol0.p[k][i] += eps
+        num = (lp_ - lm_) / (2 * eps)
+        grads_ok = grads_ok and abs(num - g[k][i]) <= 1e-5 * max(1.0, abs(num))
+    shipped = P.Policy.load(S.SHIPPED_POLICY)
+    ev = P.evaluate(P.policy_act_fn(shipped), range(20), "agent"); tb = P.evaluate(T.textbook_action, range(20), "textbook")
+    fresh = P.Policy(seed=5); before = P.evaluate(P.policy_act_fn(fresh), range(10, 14), "fresh")
+    P.train(fresh, seconds=10.0, batch_steps=2048, n_envs=8, scene_seed0=600000)
+    after = P.evaluate(P.policy_act_fn(fresh), range(10, 14), "trained")
+    rt = P.Policy.from_json(shipped.to_json())
+    same = all(np_.allclose(rt.p[k], shipped.p[k]) for k in shipped.p)
+    try:
+        bad = shipped.to_json(); bad["action_sizes"] = [1]; P.Policy.from_json(bad); layout_refused = False
+    except ValueError:
+        layout_refused = True
+    ex = shipped.explain(T.Lateral(T.Scene(2)).reset())
+    c2 = {
+        "gradients": grads_ok,
+        "beats_textbook": ev["reward"] > tb["reward"] and ev["in_layer_pct"] > tb["in_layer_pct"] + 10.0 and ev["stuck"] <= tb["stuck"],
+        "learns": after["reward"] > before["reward"],
+        "file": same and layout_refused and int(shipped.meta.get("trained_steps", 0)) >= 1000000,
+        "explains": set(ex["choices"]) == set(T.ACTION_NAMES) and all(0 < c["confidence"] <= 1 for c in ex["choices"].values()) and ex["choices"]["wob"]["choice"] in T.WOB_CHOICES,
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       f"DV2 the policy's written-out gradients agree with finite differences; the shipped policy ({int(shipped.meta.get('trained_steps', 0)):,} twin steps) beats the "
+       f"textbook driller on twenty held-out scenes (in the layer {ev['in_layer_pct']:.0f}% against {tb['in_layer_pct']:.0f}%, reward {ev['reward']:.0f} against {tb['reward']:.0f}, "
+       "SIMULATION); ten seconds of training raise a fresh policy's return; the file round-trips and another layout is refused; a decision explains itself in "
+       "operational units with a confidence per choice" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+    # -- DV3 the service with the twin as the rig ------------------------------------------------------------------------
+    cfg = json.loads(json.dumps(C.EXAMPLE)); cfg["output"]["dir"] = str(d / "rig"); cfg["status"]["port"] = 0; cfg["status"]["bind"] = "127.0.0.1"
+    cfg["rig"]["transport"] = "sim"; cfg["closed_loop"]["allowed"] = True; cfg["closed_loop"]["stale_s"] = 30; cfg["limits"]["vibration_index"] = 1.2
+    cfg = C.check(cfg)
+    try:
+        C.check(json.loads(json.dumps(cfg)) | {"closed_loop": {"allowed": True, "downlink": "acme"}}); cfg_refused = False
+    except C.ConfigError:
+        cfg_refused = True
+    drl = S.Driller(cfg, policy=shipped, twin_seed=11, twin_pace_s=0.6)
+    drl.start()
+    try:
+        t_end = time.monotonic() + 20
+        while time.monotonic() < t_end and not drl.advisor.current:
+            time.sleep(0.2)
+        cur = dict(drl.advisor.current) if drl.advisor.current else None
+
+        def call(path, body):
+            rq = urllib.request.Request(drl.url + path, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}, method="POST")
+            try:
+                with urllib.request.urlopen(rq, timeout=5) as r_:
+                    return r_.status, json.load(r_)
+            except urllib.error.HTTPError as e:
+                return e.code, json.loads(e.read() or b"{}")
+        s_noname, _ = call("/api/answer", {"what": "accept", "by": ""})
+        s_acc, _ = call("/api/answer", {"what": "accept", "by": "tester"})
+        s_twice, _ = call("/api/answer", {"what": "accept", "by": "tester"})
+        time.sleep(1.5)
+        s_ov, _ = call("/api/answer", {"what": "override", "by": "tester", "note": "held", "override": {"build_deg_100ft": 0.0, "wob_klb": 25}})
+        md = drl.feed.snapshot()["state"]["hole_depth"]
+        s_long, _ = call("/api/arm", {"by": "tester", "to_md": md + 5000})
+        s_arm, armed = call("/api/arm", {"by": "tester", "to_md": md + 150})
+        t_end = time.monotonic() + 30
+        while time.monotonic() < t_end and drl.advisor.armed is not None:
+            time.sleep(0.3)
+        ended_by_section = drl.advisor.arm_log[-1]["event"] == "disarmed" and "drilled" in drl.advisor.arm_log[-1]["reason"]
+        # a crossed limit disarms it at once
+        md = drl.feed.snapshot()["state"]["hole_depth"]
+        s_arm2, _ = call("/api/arm", {"by": "tester", "to_md": md + 400})
+        drl.cfg["limits"]["vibration_index"] = 0.01                      # the limit lowered under the running loop: the next look disarms it
+        t_end = time.monotonic() + 8
+        while time.monotonic() < t_end and drl.advisor.armed is not None:
+            time.sleep(0.2)
+        drl.cfg["limits"]["vibration_index"] = 1.2
+        ended_by_limit = drl.advisor.arm_log[-1]["event"] == "disarmed" and "vibration" in drl.advisor.arm_log[-1]["reason"]
+        with urllib.request.urlopen(drl.url + "/live.json", timeout=5) as r_:
+            live = json.load(r_)
+        with urllib.request.urlopen(drl.url + "/live", timeout=5) as r_:
+            screen = r_.read().decode("utf-8")
+        with urllib.request.urlopen(drl.url + "/health", timeout=5) as r_:
+            health = json.load(r_)
+        s_404 = urllib.request.urlopen(urllib.request.Request(drl.url + "/files/../config.json"), timeout=5) if False else None
+        try:
+            urllib.request.urlopen(drl.url + "/files/../../etc/passwd", timeout=5); traversal = False
+        except urllib.error.HTTPError as e:
+            traversal = e.code == 404
+    finally:
+        drl.stop()
+    cmds = [json.loads(l) for l in open(d / "rig" / "commands.jsonl", encoding="utf-8")]
+    decs = [json.loads(l) for l in open(d / "rig" / "decisions.jsonl", encoding="utf-8")]
+    man = json.load(open(d / "rig" / "manifest.json", encoding="utf-8"))
+    # advisory only: arming refused when the config does not allow it
+    cfg2 = json.loads(json.dumps(cfg)); cfg2["output"]["dir"] = str(d / "rig2"); cfg2["closed_loop"]["allowed"] = False
+    drl2 = S.Driller(C.check(cfg2), policy=shipped, twin_seed=12, twin_pace_s=1.0)
+    try:
+        arm_refused = False
+        try:
+            drl2.advisor.arm("tester", 10200.0, 10300.0)
+        except ValueError as e:
+            arm_refused = "not allowed" in str(e)
+    finally:
+        drl2.stop()
+    c3 = {
+        "decision": cur is not None and cur["recommend"]["words"] and cur["recommend"]["wob_klb"] in T.WOB_CHOICES and len(cur["reasons"]) >= 2 and cur["recommend"]["conditioning"] in T.COND_CHOICES,
+        "answers": s_noname == 400 and s_acc == 200 and s_twice == 400 and s_ov == 200 and any((x.get("answer") or {}).get("what") == "override" and x["answer"]["by"] == "tester" for x in decs),
+        "armed": s_long == 400 and s_arm == 200 and armed.get("ok") and s_arm2 == 200 and any(c["event"] == "command" and c["result"]["sent"] is False and c["by"] == "tester" for c in cmds),
+        "disarmed": ended_by_section and ended_by_limit and cmds[-1]["event"] == "disarmed",
+        "refusals": cfg_refused and arm_refused,
+        "screen": live["ok"] and live["twin"]["label"] == "SIMULATION" and "Arm for this section" in screen and "Did something else" in screen and health["program"] == "GEA Driller" and traversal,
+        "manifest": {"decisions.jsonl", "commands.jsonl", "surveys.csv"} <= {f["file"] for f in man["files"]} and all(f["sha256"] for f in man["files"]) and man["program"] == "GEA Driller",
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "DV3 with the twin as the rig the service makes a decision from the feed in the driller's units with its reasons; answers need a name and come once; "
+       "a section longer than allowed is refused, an armed section's decisions go to the null downlink as commands with the operator's name and nothing sent, "
+       "and the loop disarms itself at the section's end and at a crossed vibration limit; a downlink that does not exist and arming when the config forbids it "
+       "are refused; the screen carries the switch and the answers, the file route refuses a path outside the folder; the manifest names every record with its hash"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+    # -- DV4 GEA's side: the pull, the twin on this computer, the routes, the card, the command, the kit, the help --------------
+    ws = Workspace.create(str(d / "ws"), "Pad 3 driller", actor="tester")
+    w = ws.add_well_records("Pad 3 H-1", actor="tester")
+    r1_ = DL.pull(ws, str(d / "rig"), w["id"], actor="tester")
+    r2_ = DL.pull(ws, str(d / "rig"), w["id"], actor="tester")
+    with open(d / "rig" / "decisions.jsonl", "a", encoding="utf-8") as f:
+        f.write('{"tampered": true}\n')
+    os.remove(Path(ws.path, "wells", w["id"], "driller", "decisions.jsonl"))          # the copy here gone, the altered one is fetched and refused
+    r3_ = DL.pull(ws, str(d / "rig"), w["id"], actor="tester")
+    sm = r1_["summary"]
+    try:
+        DL.pull(ws, str(d / "rig"), "no-such-well", actor="tester"); nowell = False
+    except ValueError:
+        nowell = True
+    try:
+        DL.pull(ws, str(d / "ws"), w["id"], actor="tester"); notdriller = False
+    except (ValueError, OSError):
+        notdriller = True
+    Users(str(Path(ws.path, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(ws.path, port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def gcall(method, path, body=None):
+        rq = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(rq, timeout=60) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read() or b"{}")
+    try:
+        s_anon, _ = gcall("GET", "/api/driller")
+        gcall("POST", "/api/login", {"name": "op", "password": "op-pass-123"})
+        s_d, dd = gcall("GET", "/api/driller")
+        s_w, dw = gcall("GET", f"/api/driller/{w['id']}")
+        s_bad, _ = gcall("POST", "/api/driller/pull", {"source": "", "well": w["id"]})
+        s_job, job = gcall("POST", "/api/driller/pull", {"source": str(d / "rig"), "well": w["id"]})
+        s_sim_bad, _ = gcall("POST", "/api/driller/sim/start", {"seed": -1})
+    finally:
+        svc.stop()
+    app_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    main_src = (pkg / "__main__.py").read_text(encoding="utf-8")
+    wf = (pkg.parent / ".github" / "workflows" / "build-installer.yml").read_text(encoding="utf-8") if (pkg.parent / ".github" / "workflows" / "build-installer.yml").is_file() else None
+    bi = (pkg.parent / "tools" / "build_installer.py").read_text(encoding="utf-8") if (pkg.parent / "tools" / "build_installer.py").is_file() else None
+    from . import vpn as VP
+    c4 = {
+        "pull": set(r1_["fetched"]) == {"decisions.jsonl", "commands.jsonl", "surveys.csv"} and not r1_["bad"] and set(r2_["kept"]) == set(r1_["fetched"]) and not r2_["fetched"],
+        "tampered": r3_["bad"] == ["decisions.jsonl"] and not Path(ws.path, "wells", w["id"], "driller", "decisions.jsonl").is_file() and Path(ws.path, "wells", w["id"], "driller", "commands.jsonl").is_file(),
+        "summary": sm["decisions"] >= 3 and sm["answers"]["accept"] == 1 and sm["answers"]["override"] == 1 and sm["armed_sections"] == 2 and sm["commands"] >= 1 and sm["commands_sent"] == 0
+                   and sm["hole_under_advice_ft"] > 0 and sm["answered_by"].get("tester") == 2 and len(sm["last"]) >= 3 and len(sm["disarmed"]) == 2,
+        "refusals": nowell and notdriller,
+        "routes": s_anon in (401, 403) and s_d == 200 and len(dd["wells"]) == 1 and dd["sim"]["label"] == "SIMULATION" and s_w == 200 and dw["well"] == w["id"]
+                  and s_bad == 400 and s_job == 200 and "id" in job and s_sim_bad == 400,
+        "audit": {"driller.pull"} <= {a["action"] for a in ws.audit_log()},
+        "card": all(t_ in app_src for t_ in ("drillerCardHtml", "/api/driller/pull", "/api/driller/sim/start", "GEA Driller", "Start the twin as the rig", "Open the driller's screen")),
+        "cli": '"driller-pull"' in main_src and "DL.pull" in main_src,
+        "vpn": VP.KINDS.get("driller") and VP.PORTS.get("driller") == 8790,
+        "kit": (wf is None or ("GEA-Driller-" in wf and "build_driller.py" in wf)) and (bi is None or "gea-driller=={version}" in bi) and (not (pkg.parent / "tools").is_dir() or (pkg.parent / "tools" / "build_driller.py").is_file()),
+        "help": not H.check("driller") and any(t_ == "driller" for t_, _, _ in H.INDEX) and "GEA Driller" in (pkg / "help" / "IT_SECURITY.md").read_text(encoding="utf-8"),
+    }
+    failed4 = [k for k, v in c4.items() if not v]
+    ok(not failed4,
+       "DV4 GEA pulls the driller's records into the well checked against their hashes (a second pull fetches nothing; a file altered after its hash is "
+       "named and not taken), summarizes the decisions, the answers by name, the armed sections and the commands; an unknown well and a folder that is not "
+       "a driller's are refused; the routes (anonymous refused, a bad source 400, the pull as a job, a bad seed 400), the audit line, the Drill string "
+       "card, the workspace command, the VPN kind, the kit and the workflow, and the help page carry it" + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
 
 
 def main() -> int:
@@ -16537,6 +16801,7 @@ def main() -> int:
         section_ds_updates(tmp)
         section_dt_vpn(tmp)
         section_du_tutorial(tmp)
+        section_dv_driller(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

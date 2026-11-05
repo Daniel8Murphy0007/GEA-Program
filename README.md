@@ -424,9 +424,36 @@ keeps them byte for byte and makes the array and electrode stations of
 them. `gea help recorder`; the box's README has the parts, the wiring and
 the clock.
 
+### GEA Driller: the directional driller's agent
+
+GEA Driller (`driller/`; `GEA-Driller-<version>.tar.gz` on every release;
+since 0.77.0; `gea help driller`) is the program on the rig PC. It reads
+the EDR's WITS0 feed and the pre-drill model of the target layer and, every
+30 ft of new hole, recommends in the driller's units what to do next:
+build, drop or hold and by how much (toolface and steering ratio for a
+rotary steerable system), the weight on bit, the rotary speed, the flow
+rate, and whether to drill on, circulate, or ream and wash first - with its
+reasons and the confidence of each choice. The driller accepts, rejects or
+records what was done instead, by name; every recommendation, answer and
+command is on record with its hash, and GEA pulls the records into the
+well from the **Drill string** tab's card (`gea workspace --path C:\site
+--action driller-pull --box http://192.168.1.60:8790 --well SWD-1`). The
+agent is a policy trained by proximal policy optimization in a physics
+twin of the lateral - the layer rolling with dip, undulation and faults,
+the gamma and the deep-resistivity boundary the tools read of it, the
+steering tool, the bit, the hydraulics, the hole - on scenes drawn fresh,
+judged against a textbook driller on scenes it never saw; the figures of
+that judgement are a simulation's and are labelled so. Advisory by
+default; the closed loop ships as a design with a switch, armed by a named
+operator for one section, disarming itself on a stale feed, a crossed
+limit or the section's end, through a downlink that keeps every command and
+sends none - no vendor's protocol ships with this version. Before there is
+a rig PC, **Start the twin as the rig** on the same card runs the driller's
+program on the office PC with a scene drilling itself.
+
 ### The tutorial
 
-Every step of GEA and the programs around it, as 27 lessons on the
+Every step of GEA and the programs around it, as 29 lessons on the
 **Tutorial** tab (since 0.76.0; `gea help tutorial`): the office's lessons
 first - install, sign in, set up the site, bring wells and data in, the
 well page, the declarations sheet, the patch panel, alarms and
@@ -436,7 +463,7 @@ seismic, the recorder from the office, reports, the signed dossier and the
 Reader, users and HTTPS, backups and the gate, new versions from inside
 the program, GEA-VPN - and the pad attendant's after: the box and its
 parts, installing the recorder on the Pi, the monitor, the USB mirror and
-joining the VPN. Each lesson names who it is for, the page it is done on
+joining the VPN - and GEA Driller from the office and on the rig PC. Each lesson names who it is for, the page it is done on
 (a button opens it), how long it takes, the numbered steps with the
 buttons as the page names them, and how you know it worked; each account
 ticks lessons off. **Print the handout** gives the whole course as one
@@ -761,7 +788,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.76.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.77.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1526,7 +1553,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.76.0.exe` (for 0.76.0): the
+Every release also carries `GEA-Program-Setup-0.77.0.exe` (for 0.77.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1545,7 +1572,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.76.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.77.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

@@ -3268,3 +3268,31 @@ stability; and motor specifications in the tool catalogue.
   tab, the routes, `gea tutorial`, `help/tutorial.md`; the help renderer
   draws numbered lists now. The handout printed to PDF here is 29 pages.
   Section DU (2 checks).
+
+## 2026-11-05 - GEA Driller (v0.77.0)
+
+- v0.76.0 shipped; the kits fetched. Daniel: "design operational active
+  code ware, as a standalone program named GEA-Driller, to master the new
+  GEA reinforcement algorithm" - from a note on directional drilling AI
+  (closed-loop control, AI geosteering, PPO agents in physics simulators,
+  digital twins). Asked and answered: closed loop with a switch, all three
+  problems (geosteering, parameters, conditioning), on the rig PC over the
+  VPN. Built as a third program, `driller/gea_driller`, after the
+  recorder's pattern: `twin.py` (the lateral with its layer, tools, bit,
+  hydraulics and hole, every scene seeded and randomized; a textbook
+  driller from the same observation to be beaten), `policy.py` (PPO in
+  numpy with the gradients written out and checked against finite
+  differences; a one-file policy), `rig.py` (WITS0 over TCP or serial;
+  the twin as the rig for the office), `advisor.py` (the observation from
+  the feed and the model, the decision in the driller's words, the
+  answers, the records with hashes, the closed loop and the null
+  downlink), `status.py` (the screen), `service.py`, the kit and its CI
+  job; GEA's `driller_link.py`, the card on Drill string, the pull, the
+  VPN kind. The first training rewarded idling: conditioning cost less
+  than drilling out of the layer, so the agent conditioned 350 steps of
+  400 and never drilled; the reward now pays footage in the layer, charges
+  conditioning a clean hole, and charges running out of days. Then a
+  scene seed overflowed numpy's 32-bit limit and killed a long training
+  run at round four - the seed is taken modulo now. The shipped policy
+  (about ten million twin steps) holds the layer 72% of a lateral against
+  the textbook driller's 41% and an oracle's 82% on the held-out scenes. Section DV (4 checks).

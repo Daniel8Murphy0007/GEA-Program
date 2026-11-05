@@ -5,6 +5,53 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.77.0] - 2026-11-05 - GEA Driller: the directional driller's agent
+
+### Added
+- **GEA Driller** (`driller/`; `GEA-Driller-<version>.tar.gz` on every
+  release; the wheel inside the kit): a program for the rig PC that reads
+  the EDR's WITS0 feed and the pre-drill model and, every 30 ft of new
+  hole, recommends in the driller's units what to do next - build, drop
+  or hold with toolface and steering ratio, the weight on bit, the rotary
+  speed, the flow rate, drill on or circulate or ream and wash - with its
+  reasons and the confidence of each choice; the driller accepts, rejects
+  or records what was done instead, by name. The agent is a policy trained
+  by proximal policy optimization (numpy, the gradients written out) in a
+  physics twin of the lateral - a layer rolling with dip, undulation and
+  faults, the gamma and the deep-resistivity boundary the tools read of
+  it, a steering tool with a tendency and a cap, a bit whose rate, wear
+  and balling follow the parameters, the hydraulics against the fracture
+  gradient, the cuttings bed and the stuck pipe it leads to, the hours -
+  on scenes drawn fresh for every batch, judged against a textbook driller
+  on scenes it never saw; the shipped policy beats it on twenty held-out
+  scenes, and the self-test refuses one that does not. The driller's
+  screen on port 8790; `decisions.jsonl`, `commands.jsonl`, `surveys.csv`
+  with their hashes and a manifest. The closed loop ships as a design
+  with a switch: `closed_loop.allowed` puts it on the screen, an operator
+  arms it by name for one section of at most 500 ft, every decision then
+  goes to the downlink as a command, and it disarms itself on a stale
+  feed, a crossed limit, the section's end or the operator - and this
+  version's only downlink keeps every command on record and sends none.
+  `gea-driller run | sim | train | evaluate | selftest | status | config | install`.
+- In GEA (`gea/driller_link.py`; the Drill string tab's card **GEA
+  Driller**): the records pulled from the rig PC into the well, checked
+  against their hashes, with the decisions, the answers by name, the
+  armed sections and the commands summarized; the twin as the rig on this
+  computer (the driller's program run here with a scene drilling itself,
+  its screen opened, its records pulled); `gea workspace --action
+  driller-pull --box http://192.168.1.60:8790 --well SWD-1`; routes
+  `/api/driller`, `/api/driller/<well>`, `/api/driller/pull`,
+  `/api/driller/sim/start|stop`; GEA-VPN member kind `driller` (8790);
+  the release card and the update fetch carry the fourth kit;
+  `gea help driller`; tutorial lessons 28 and 29.
+
+### Acceptance
+- Section DV (4 checks): the twin's arithmetic, the policy's gradients
+  against finite differences and the shipped policy against the textbook
+  driller, the service with the twin as the rig (decisions, answers,
+  arming, the null downlink, the disarms, the refusals, the screen, the
+  manifest), and GEA's pull, summary, routes, card, command, kit and help.
+
 ## [v0.76.0] - 2026-11-04 - the tutorial
 
 ### Added

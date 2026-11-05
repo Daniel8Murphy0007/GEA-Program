@@ -41,10 +41,11 @@ from . import x25519 as X
 FILE = os.path.join('keys', 'vpn', 'network.json')
 KINDS = {'office': 'the control panel (GEA-Program) - reaches every member',
          'box': 'a recorder on a pad (its page on 8780) - reaches the office only',
+         'driller': "the driller's agent on a rig PC (its screen on 8790) - reaches the office only",
          'operator': 'an operator window on another computer - reaches the office only',
          'reader': "a client's reader - reaches the office only",
          'other': 'another computer of the site - reaches the office only'}
-PORTS = {'office': 8765, 'box': 8780, 'operator': None, 'reader': None, 'other': None}
+PORTS = {'office': 8765, 'box': 8780, 'driller': 8790, 'operator': None, 'reader': None, 'other': None}
 DEFAULT_SUBNET = '10.77.0.0/24'
 DEFAULT_PORT = 51820
 IFACE = 'gea-vpn'

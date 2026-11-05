@@ -13,7 +13,7 @@ What the Windows kit contains (dist/gea-program-<version>-win64/):
 
     python/              CPython <ver> embeddable distribution (python.org), site-packages enabled
     report-samples/      one rendered example of every report (docs/report_samples, from this checkout)
-    wheels/              gea-program-<version>-py3-none-any.whl, gea-recorder (the box's program, for a simulated box here), numpy, the chosen extras, pip, setuptools:
+    wheels/              gea-program-<version>-py3-none-any.whl, gea-recorder (the box's program, for a simulated box here), gea-driller (the agent, for the twin as the rig here), numpy, the chosen extras, pip, setuptools:
                          every file the install needs, for win_amd64 / cp312, with a SHA-256 list
     install.cmd          installs the wheels into python/ from the wheels/ folder - no network, no admin
     pip_bootstrap.py     runs pip from its wheel as a module (install.cmd uses it; pip will not install itself any other way on Windows)
@@ -168,7 +168,7 @@ if "%PIPWHL%"=="" ( echo pip wheel missing from wheels\ & exit /b 1 )
 echo == installing the package and every dependency from wheels\ ...
 rem pip refuses to install pip when it is run as "python wheel\pip" on Windows (it wants "python -m pip"); the embeddable
 rem Python ignores PYTHONPATH, so pip_bootstrap.py puts the wheel on sys.path and runs pip as a module from inside it
-python\python.exe pip_bootstrap.py install --no-index --find-links wheels --no-warn-script-location "gea-program[{extras}]=={version}" "gea-recorder=={version}" pip setuptools
+python\python.exe pip_bootstrap.py install --no-index --find-links wheels --no-warn-script-location "gea-program[{extras}]=={version}" "gea-recorder=={version}" "gea-driller=={version}" pip setuptools
 if errorlevel 1 ( echo INSTALL FAILED & exit /b 1 )
 python\python.exe -c "import gea, numpy; print('installed: gea-program', gea.__version__, '/ numpy', numpy.__version__)"
 if errorlevel 1 ( echo INSTALL FAILED: the package does not import & exit /b 1 )
@@ -333,7 +333,7 @@ PY=${{PYTHON:-python3}}
 "$PY" -c "import sys; assert sys.version_info >= (3, 10), 'python3 >= 3.10 is required'"
 "$PY" -m venv venv
 ./venv/bin/python -m pip install --no-index --find-links wheels --upgrade pip setuptools >/dev/null
-./venv/bin/python -m pip install --no-index --find-links wheels "gea-program[{extras}]=={version}" "gea-recorder=={version}"
+./venv/bin/python -m pip install --no-index --find-links wheels "gea-program[{extras}]=={version}" "gea-recorder=={version}" "gea-driller=={version}"
 ./venv/bin/python -c "import gea, numpy; print('installed: gea-program', gea.__version__, '/ numpy', numpy.__version__)"
 date > INSTALLED.txt
 echo "done. Next: ./start-dashboard.sh  (or ./verify.sh)"
@@ -544,6 +544,10 @@ def main(argv=None) -> int:
     sh([sys.executable, '-m', 'pip', 'wheel', str(ROOT / 'recorder'), '--no-deps', '-w', str(wheels), '-q'])
     if not sorted(wheels.glob('gea_recorder-*.whl')):
         raise SystemExit('the recorder wheel was not built')
+    print('== the driller\'s wheel (driller/, the same version, the trained policy inside), so the kit can run the twin as the rig and open the driller\'s screen')
+    sh([sys.executable, '-m', 'pip', 'wheel', str(ROOT / 'driller'), '--no-deps', '-w', str(wheels), '-q'])
+    if not sorted(wheels.glob('gea_driller-*.whl')):
+        raise SystemExit('the driller wheel was not built')
     print('== dependency wheels (from the package wheel\'s own requirements; gea-program itself is never asked of the index)')
     download_wheels(wheels, pkg, a.extras, a.python, a.platform)
     assert_checkout_wheel(wheels, pkg, built_sha)
