@@ -2,7 +2,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """advisor - the agent on the rig: the observation the twin trained on, built from what the rig says and what the
-pre-drill model says; the policy's decision in the driller's units; the operator's answer to it; the record of
+pre-drill model says - the bit placed in the plan's frame by minimum curvature through the surveys, along the plan,
+right of its line and in depth; the policy's decision in the driller's units, the build and the turn as one toolface;
+the operator's answer to it; the record of
 every decision, every answer and every command; and the downlink - the port a command would go through to a
 rotary steerable system, which ships as the null downlink: it keeps every command it would have sent and sends
 none. The closed loop is armed by a named operator for one section at a time, inside the limits, and disarms
@@ -20,6 +22,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from . import __version__, twin as T
+from .geometry import dls_of, min_curvature, toolface_of, wrap180
 from .policy import Policy
 from .position import PositionFilter
 
@@ -64,7 +67,8 @@ class Records:
             with open(p, 'w', encoding='utf-8', newline='\n') as f:
                 f.write('md_ft,inclination_deg,azimuth_deg,utc,source\n')
                 for s in surveys:
-                    f.write(f"{s['md']:.1f},{s['inc']:.2f},{s['azi']:.2f},{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(s['utc']))},{s['source']}\n")
+                    az = '' if s.get('azi') is None else f"{s['azi']:.2f}"
+                    f.write(f"{s['md']:.1f},{s['inc']:.2f},{az},{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(s['utc']))},{s['source']}\n")
             self._sidecar(p)
 
     def _sidecar(self, p: str) -> None:
@@ -127,9 +131,13 @@ class Advisor:
         self.lock = threading.Lock()
         self.gammas: List[float] = []
         self.last_build = 0.0
+        self.last_aim = 0.0
+        self.last_turn = 0.0
         self.last_decision_md: Optional[float] = None
         self.last_decision_t = 0.0
-        self.last_action: Tuple[int, ...] = (2, 1, 1, 1, 0)
+        self.last_action: Tuple[int, ...] = T.HOLD_ACTION
+        self.plan_az: Optional[float] = None
+        self.pos: Optional[dict] = None
         self.bed = 0.1; self.balling = 0.0; self.wear = 0.0; self.footage = 0.0
         self.first_md: Optional[float] = None
         self.current: Optional[dict] = None
@@ -139,7 +147,7 @@ class Advisor:
         self.arm_log: List[dict] = []
         self.stopped_reason: Optional[str] = None
         self.filter: Optional[PositionFilter] = None
-        self.filter_md: Optional[float] = None
+        self.filter_pos: Optional[Tuple[float, float]] = None
         self.est: Optional[dict] = None
 
     # -- the observation from the rig -----------------------------------------------------------------------------
@@ -150,14 +158,24 @@ class Advisor:
             return None, {'missing': [k for k in ('hole_depth', 'gamma') if st.get(k) is None]}
         if self.first_md is None:
             self.first_md = float(m.get('heel_md_ft') or md)
-        vs = max(0.0, md - self.first_md)                           # along the lateral, near enough horizontal
-        self.footage = vs
         sv = self.feed.latest_survey()
         inc = st.get('continuous_inc') if st.get('continuous_inc') is not None else (sv['inc'] if sv else 90.0)
-        # the bit's TVD from the heel's and the surveys (the directional driller's own projection would be better; this is the twin's)
-        tvd = self._tvd_at_bit(md, inc)
-        model_top = float(m['layer_top_tvd_ft']) + vs * math.tan(math.radians(float(m['dip_deg'])))
+        if self.plan_az is None:
+            # the plan's azimuth: the config's, else the first azimuth the rig gives at the heel
+            pa = m.get('plan_azimuth_deg')
+            if pa is None:
+                pa = st.get('continuous_azi') if st.get('continuous_azi') is not None else (sv['azi'] if sv and sv.get('azi') is not None else 0.0)
+            self.plan_az = float(pa) % 360.0
+        az_abs = st.get('continuous_azi') if st.get('continuous_azi') is not None else (sv['azi'] if sv and sv.get('azi') is not None else self.plan_az)
+        az = wrap180(float(az_abs) - self.plan_az)                   # off the plan, right positive
+        # the bit in the plan's frame from the heel's and the surveys (minimum curvature; the directional driller's own projection would be better)
+        pos = self._position_at_bit(md, float(inc), float(az_abs))
+        self.pos = pos
+        vs = max(0.0, pos['vs']); y = pos['y']; tvd = pos['tvd']
+        self.footage = max(0.0, md - self.first_md)
+        model_top = float(m['layer_top_tvd_ft']) + vs * math.tan(math.radians(float(m['dip_deg']))) + y * math.tan(math.radians(float(m.get('cross_dip_deg') or 0.0)))
         d_top = tvd - model_top; d_base = model_top + float(m['thickness_ft']) - tvd
+        corridor = float(m.get('corridor_ft') or 100.0)
         g = float(st['gamma'])
         if not self.gammas:
             self.gammas = [g] * 5
@@ -169,10 +187,11 @@ class Advisor:
         # the position filter: the geosteerer's estimate of where the bit sits in the layer, from the readings
         if self.filter is None:
             self.filter = PositionFilter(float(m['layer_top_tvd_ft']), float(m['dip_deg']), float(m['thickness_ft']), float(m['gamma_in']), float(m['gamma_above']), float(m['gamma_below']),
-                                         deep_range=float(m.get('deep_range_ft', 15.0)), seed=1)
-            self.filter_md = md
-        elif md > self.filter_md:
-            self.filter.predict(md - self.filter_md); self.filter_md = md
+                                         deep_range=float(m.get('deep_range_ft', 15.0)), seed=1, model_cross_dip_deg=float(m.get('cross_dip_deg') or 0.0))
+            self.filter.vs = vs; self.filter.y = y
+            self.filter_pos = (vs, y)
+        elif vs > self.filter_pos[0] or y != self.filter_pos[1]:
+            self.filter.predict(vs - self.filter_pos[0], y - self.filter_pos[1]); self.filter_pos = (vs, y)
         self.filter.update(tvd, g, float(deep) if have else None)
         self.est = self.filter.estimate(tvd)
         e = self.est
@@ -186,29 +205,39 @@ class Advisor:
             (float(deep) / 15.0) if have else 0.0, 1.0 if have else 0.0, self.last_build / 3.0,
             rop / 100.0, vib / 1.5, (float(lim['frac_gradient_ppg']) - ecd) / 1.0, self.bed, self.balling, self.wear,
             dp / 600.0, vs / float(m.get('lateral_length_ft', 4000.0)), belief, float(m['thickness_ft']) / 50.0,
-            e['p_in'], e['p_above'], e['p_below'], e['d_top'] / 30.0, e['d_base'] / 30.0, e['sigma'] / 15.0], dtype=np.float64)
-        ctx = {'md': md, 'vs': vs, 'tvd': tvd, 'inc': inc, 'model_top': model_top, 'model_base': model_top + float(m['thickness_ft']), 'gamma': g, 'trend': trend, 'estimate': dict(e),
+            e['p_in'], e['p_above'], e['p_below'], e['d_top'] / 30.0, e['d_base'] / 30.0, e['sigma'] / 15.0,
+            az / 5.0, y / 50.0, (corridor - abs(y)) / 50.0, float(m.get('cross_dip_deg') or 0.0) / 2.0, self.last_aim / 4.0, e['cross_dip_deg'] / 2.0], dtype=np.float64)
+        ctx = {'md': md, 'vs': vs, 'y': y, 'tvd': tvd, 'inc': inc, 'az': az, 'az_abs': float(az_abs), 'plan_az': self.plan_az, 'corridor': corridor,
+               'model_top': model_top, 'model_base': model_top + float(m['thickness_ft']), 'gamma': g, 'trend': trend, 'estimate': dict(e),
                'deep': deep if have else None, 'belief': belief, 'rop': rop, 'vibration': vib, 'ecd': ecd, 'dp': dp, 'wob': wob, 'rpm': rpm, 'flow': flow,
                'bed': self.bed, 'balling': self.balling, 'wear': self.wear}
         return obs, ctx
 
-    def _tvd_at_bit(self, md: float, inc_now: float) -> float:
-        """Minimum curvature through the surveys, then the last station's inclination to the bit."""
+    def _position_at_bit(self, md: float, inc_now: float, az_now: float) -> dict:
+        """The bit in the plan's frame - along the plan, right of the plan line, TVD - by minimum curvature through
+        the surveys from the heel, then the last station to the bit at the continuous inclination and azimuth. A
+        station without an azimuth is taken along the plan."""
         m = self.cfg['model']
         svs = list(self.feed.surveys) if hasattr(self.feed, 'surveys') else []
         tvd = float(m.get('heel_tvd_ft') or (float(m['layer_top_tvd_ft']) + 0.5 * float(m['thickness_ft'])))      # the heel, from the survey
+        vs = 0.0; y = float(m.get('heel_offset_ft') or 0.0)
         heel = self.first_md if self.first_md is not None else md
-        prev_md, prev_inc = heel, 90.0
+        plan = self.plan_az or 0.0
+        prev_md, prev_inc, prev_az = heel, 90.0, 0.0
         for s in svs:
+            s_az = wrap180(float(s['azi']) - plan) if s.get('azi') is not None else prev_az
             if s['md'] <= heel:
-                prev_inc = s['inc']; continue
-            a0, a1 = math.radians(prev_inc), math.radians(s['inc']); L = s['md'] - prev_md
-            tvd += L * (math.cos(a0) + math.cos(a1)) / 2.0
-            prev_md, prev_inc = s['md'], s['inc']
+                prev_inc, prev_az = s['inc'], s_az; continue
+            dn, de, dv, _ = min_curvature(prev_inc, prev_az, s['inc'], s_az, s['md'] - prev_md)
+            vs += dn; y += de; tvd += dv
+            prev_md, prev_inc, prev_az = s['md'], s['inc'], s_az
         if md > prev_md:
-            a0, a1 = math.radians(prev_inc), math.radians(inc_now)
-            tvd += (md - prev_md) * (math.cos(a0) + math.cos(a1)) / 2.0
-        return tvd
+            dn, de, dv, _ = min_curvature(prev_inc, prev_az, inc_now, wrap180(az_now - plan), md - prev_md)
+            vs += dn; y += de; tvd += dv
+        return {'vs': vs, 'y': y, 'tvd': tvd}
+
+    def _tvd_at_bit(self, md: float, inc_now: float) -> float:
+        return self._position_at_bit(md, inc_now, (self.plan_az or 0.0))['tvd']
 
     # -- a decision -------------------------------------------------------------------------------------------------
     def due(self, snap: dict) -> bool:
@@ -229,19 +258,26 @@ class Advisor:
         ex = self.policy.explain(obs)
         ch = ex['choices']
         build = float(ch['build']['choice']); wob = float(ch['wob']['choice']); rpm = float(ch['rpm']['choice']); flow = float(ch['flow']['choice']); cond = ch['conditioning']['choice']
+        aim = float(ch['aim']['choice'])
+        turn = T.turn_toward(aim, float(ctx['az']))                   # what the aim asks of the tool from where the hole points now
         lim = self.cfg['limits']; tool = self.cfg['tool']
         clipped = []
         if abs(build) > float(lim['max_dls_deg_100ft']):
             build = math.copysign(float(lim['max_dls_deg_100ft']), build); clipped.append('build to the DLS limit')
+        total = dls_of(build, turn, float(ctx['inc']))
+        if total > float(lim['max_dls_deg_100ft']):
+            k_ = float(lim['max_dls_deg_100ft']) / total; build *= k_; turn *= k_; clipped.append('build and turn together to the DLS limit')
         wob = min(max(wob, float(lim['wob_klb'][0])), float(lim['wob_klb'][1])); rpm = min(max(rpm, float(lim['rpm'][0])), float(lim['rpm'][1])); flow = min(max(flow, float(lim['flow_gpm'][0])), float(lim['flow_gpm'][1]))
-        ratio = min(1.0, abs(build) / max(float(tool['max_dls_deg_100ft']), 0.1))
+        ratio = min(1.0, dls_of(build, turn, float(ctx['inc'])) / max(float(tool['max_dls_deg_100ft']), 0.1))
         rec = {
-            'utc': _utc(), 'md': ctx['md'], 'vs': ctx['vs'], 'tvd_est': ctx['tvd'], 'inc': ctx['inc'],
+            'utc': _utc(), 'md': ctx['md'], 'vs': ctx['vs'], 'y': ctx['y'], 'tvd_est': ctx['tvd'], 'inc': ctx['inc'], 'az': ctx['az_abs'],
             'recommend': {
                 'steer': ('hold' if build == 0 else ('build' if build > 0 else 'drop')), 'build_deg_100ft': build,
-                'toolface_deg': 0.0 if build >= 0 else 180.0, 'steering_ratio': ratio,
+                'aim_deg': aim, 'aim_azimuth_deg': (float(ctx['plan_az']) + aim) % 360.0,
+                'steer_az': ('hold' if abs(turn) < 0.5 else ('turn right' if turn > 0 else 'turn left')), 'turn_deg_100ft': turn,
+                'toolface_deg': toolface_of(build, turn, float(ctx['inc'])), 'steering_ratio': ratio,
                 'wob_klb': wob, 'rpm': rpm, 'flow_gpm': flow, 'conditioning': cond,
-                'words': self._words(build, wob, rpm, flow, cond, ctx, ch),
+                'words': self._words(build, wob, rpm, flow, cond, ctx, ch, turn, aim),
             },
             'confidence': {k: round(v['confidence'], 3) for k, v in ch.items()}, 'value': round(ex['value'], 2),
             'reasons': self._reasons(ctx, ch), 'context': {k: (round(v, 2) if isinstance(v, float) else ({kk: round(vv, 3) for kk, vv in v.items()} if isinstance(v, dict) else v)) for k, v in ctx.items()},
@@ -254,7 +290,7 @@ class Advisor:
             self.current = rec
             self.history.append(rec); self.history = self.history[-500:]
             self.gammas = (self.gammas + [ctx['gamma']])[-5:]
-            self.last_build = build
+            self.last_build = build; self.last_aim = aim; self.last_turn = turn
             self.last_decision_md = ctx['md']; self.last_decision_t = time.time()
             self.last_action = tuple(rec['action'])
             # the hole model advanced by what the rig did (the same arithmetic as the twin)
@@ -265,11 +301,25 @@ class Advisor:
             self._command(rec)
         return rec
 
-    def _words(self, build, wob, rpm, flow, cond, ctx, ch) -> str:
+    def _words(self, build, wob, rpm, flow, cond, ctx, ch, turn: float = 0.0, aim: Optional[float] = None) -> str:
         if cond != 'drill':
             what = 'Circulate bottoms up before drilling on' if cond == 'circulate' else 'Ream and wash the last stand, then drill on'
             return f"{what} - the hole model puts the cuttings bed at {ctx['bed']:.0%}" + (f", the bit balled {ctx['balling']:.0%}" if ctx['balling'] > 0.2 else '') + '.'
-        steer = 'Hold angle' if build == 0 else (f'Build {build:+.1f}°/100 ft (toolface up, {min(1.0, abs(build) / 6.0):.0%} steering)' if build > 0 else f'Drop {build:+.1f}°/100 ft (toolface down, {min(1.0, abs(build) / 6.0):.0%} steering)')
+        inc = float(ctx.get('inc') or 90.0)
+        tf = toolface_of(build, turn, inc); ratio = min(1.0, dls_of(build, turn, inc) / 6.0)
+        parts = []
+        if build != 0:
+            parts.append(f'{"Build" if build > 0 else "Drop"} {build:+.1f}°/100 ft')
+        plan = ctx.get('plan_az')
+        if aim is not None and aim != 0:
+            where = f'aim {abs(aim):.0f}° {"right" if aim > 0 else "left"} of the plan' + (f' (azimuth {(plan + aim) % 360.0:.1f}°)' if plan is not None else '')
+            parts.append(where + (f', turning {"right" if turn > 0 else "left"} {abs(turn):.1f}°/100 ft' if abs(turn) >= 0.05 else ''))
+        elif abs(turn) >= 0.5:
+            parts.append(f'turn {"right" if turn > 0 else "left"} {abs(turn):.1f}°/100 ft back to the plan' + (f' (azimuth {plan:.1f}°)' if plan is not None else ''))
+        if not parts:
+            steer = 'Hold angle and azimuth'
+        else:
+            steer = ' and '.join(parts) + f' (toolface {tf:.0f}°, {ratio:.0%} steering)'
         return f"{steer}; {wob:.0f} klb WOB, {rpm:.0f} rpm, {flow:.0f} gpm."
 
     def _reasons(self, ctx, ch) -> List[str]:
@@ -283,11 +333,15 @@ class Advisor:
             out.append(f"the deep-resistivity tool puts the {'top' if ctx['deep'] > 0 else 'base'} {abs(ctx['deep']):.1f} ft {'above' if ctx['deep'] > 0 else 'below'} the bit")
         out.append(f"gamma {ctx['gamma']:.0f} API, {'in the layer' if ctx['belief'] else 'not the layer'} by the model's values ({m['gamma_in']:.0f} in, {m['gamma_above']:.0f} above, {m['gamma_below']:.0f} below)" + (f", trending {ctx['trend']:+.1f} API a decision" if abs(ctx['trend']) >= 2 else ''))
         out.append(f"the model's bracket: {ctx['tvd'] - ctx['model_top']:.1f} ft below the top, {ctx['model_base'] - ctx['tvd']:.1f} ft above the base")
+        if ctx.get('az') is not None:
+            side = 'right' if ctx['y'] > 0 else 'left'
+            out.append(f"azimuth {ctx['az_abs']:.1f}° against the plan's {ctx['plan_az']:.1f}° ({ctx['az']:+.1f}°), {abs(ctx['y']):.0f} ft {side} of the plan line in a corridor of ±{ctx['corridor']:.0f} ft"
+                       + (f"; the model's cross dip {float(m.get('cross_dip_deg') or 0.0):+.2f}°, the filter's {e['cross_dip_deg']:+.2f}°" if e and abs(float(m.get('cross_dip_deg') or 0.0)) + abs(e.get('cross_dip_deg', 0.0)) > 0.05 else ''))
         if ctx['vibration'] > float(self.cfg['limits']['vibration_index']):
             out.append(f"vibration {ctx['vibration']:.2f} over the limit {self.cfg['limits']['vibration_index']}")
         if ctx['ecd'] > float(self.cfg['limits']['frac_gradient_ppg']) - 0.2:
             out.append(f"ECD {ctx['ecd']:.2f} ppg against the fracture gradient {self.cfg['limits']['frac_gradient_ppg']}")
-        out.append(f"confidence: steer {ch['build']['confidence']:.0%}, weight {ch['wob']['confidence']:.0%}, speed {ch['rpm']['confidence']:.0%}, flow {ch['flow']['confidence']:.0%}")
+        out.append(f"confidence: steer {ch['build']['confidence']:.0%}, aim {ch['aim']['confidence']:.0%}, weight {ch['wob']['confidence']:.0%}, speed {ch['rpm']['confidence']:.0%}, flow {ch['flow']['confidence']:.0%}")
         return out
 
     # -- the operator's answer ------------------------------------------------------------------------------------------
@@ -304,7 +358,7 @@ class Advisor:
             ans = {'what': what, 'by': operator.strip(), 'note': note.strip(), 'utc': _utc()}
             if what == 'override':
                 ov = override or {}
-                ans['override'] = {k: ov.get(k) for k in ('build_deg_100ft', 'wob_klb', 'rpm', 'flow_gpm', 'conditioning') if ov.get(k) is not None}
+                ans['override'] = {k: ov.get(k) for k in ('build_deg_100ft', 'aim_deg', 'turn_deg_100ft', 'wob_klb', 'rpm', 'flow_gpm', 'conditioning') if ov.get(k) is not None}
                 if not ans['override']:
                     raise ValueError('an override names what was done instead')
             self.current['answer'] = ans
@@ -325,11 +379,16 @@ class Advisor:
                     return tuple(r['action'])
                 if a and a['what'] == 'override':
                     return self._action_of(a['override'], r['action'])
-            return (2, 1, 1, 1, 0)
+            return T.HOLD_ACTION
 
     @staticmethod
     def _action_of(ov: dict, base: List[int]) -> Tuple[int, ...]:
-        a = list(base)
+        a = list(T.full_action(base))
+        if ov.get('aim_deg') is not None:
+            a[5] = int(np.argmin([abs(float(ov['aim_deg']) - c) for c in T.AIM_CHOICES]))
+        elif ov.get('turn_deg_100ft') is not None:                       # a turn made instead: the aim it amounts to, by its direction
+            t_ = float(ov['turn_deg_100ft'])
+            a[5] = 2 if t_ > 0.25 else (0 if t_ < -0.25 else 1)
         if ov.get('build_deg_100ft') is not None:
             a[0] = int(np.argmin([abs(float(ov['build_deg_100ft']) - c) for c in T.BUILD_CHOICES]))
         if ov.get('wob_klb') is not None:
@@ -389,7 +448,8 @@ class Advisor:
     def _command(self, rec: dict) -> None:
         r = rec['recommend']
         cmd = {'utc': _utc(), 'md': rec['md'], 'by': self.armed['by'], 'section': [self.armed['from_md'], self.armed['to_md']],
-               'command': {'toolface_deg': r['toolface_deg'], 'steering_ratio': round(r['steering_ratio'], 3), 'build_deg_100ft': r['build_deg_100ft'],
+               'command': {'toolface_deg': r['toolface_deg'], 'steering_ratio': round(r['steering_ratio'], 3), 'build_deg_100ft': r['build_deg_100ft'], 'turn_deg_100ft': r.get('turn_deg_100ft', 0.0),
+                           'aim_azimuth_deg': r.get('aim_azimuth_deg'),
                            'wob_klb': r['wob_klb'], 'rpm': r['rpm'], 'flow_gpm': r['flow_gpm'], 'conditioning': r['conditioning']}}
         result = self.downlink.send(cmd)
         cmd['result'] = result
@@ -406,4 +466,5 @@ class Advisor:
             return {'current': cur, 'history': hist, 'answers': dict(self.answers), 'armed': dict(self.armed) if self.armed else None,
                     'arm_log': self.arm_log[-10:], 'closed_loop_allowed': bool(self.cfg['closed_loop'].get('allowed')), 'downlink': self.downlink.describe(),
                     'hole_model': {'bed': self.bed, 'balling': self.balling, 'wear': self.wear}, 'decisions': self.records.counts['decisions'], 'estimate': dict(self.est) if self.est else None,
+                    'position': dict(self.pos) if self.pos else None, 'plan_azimuth_deg': self.plan_az,
                     'policy': {k: self.policy.meta.get(k) for k in ('trained_steps', 'iterations', 'trained_utc', 'version')}}

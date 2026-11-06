@@ -5,6 +5,81 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.80.0] - 2026-11-06 - GEA Driller: the third dimension
+
+### Added
+- **The third dimension** of the driller's agent. The lateral has an
+  azimuth now, and the layer is a surface. The twin (`twin.py`) works in
+  the plan's own frame - along the plan's azimuth, right of the plan line,
+  depth - with the layer's dip across the plan as well as along it,
+  undulation with a direction, faults with a strike, a steering tool that
+  walks and is capped on the dogleg of the build and the turn together,
+  and the corridor the lease and the offset wells leave the hole on each
+  side of the plan line: a small cost grows toward its edge, every step
+  outside it costs more, and 150 ft outside the lateral is lost. The
+  agent's sixth choice is where to aim the azimuth - 4° left of the plan,
+  along it, 4° right - and the tool, or the driller, turns toward the aim
+  at up to 2°/100 ft against the bit's walk, as a directional driller
+  holds the azimuth he is given; six observations more (the azimuth off
+  the plan, the offset from the plan line, the margin to the corridor,
+  the model's cross dip, the last aim, the filter's cross dip). The arithmetic the
+  twin, the advisor, the screen and shadow mode now share is in
+  `geometry.py`: minimum curvature in three dimensions, the dogleg of a
+  build and a turn, the toolface they amount to.
+- The position filter carries the layer's cross dip as a particle state
+  and reads it only when the hole moves across the plan line, leaving the
+  model's value standing until then - and says so in its estimate.
+- The advisor places the bit by minimum curvature through the surveys'
+  azimuths and the feed's continuous azimuth (WITS item 0832) from the
+  heel: along the plan, right of its line, in depth. The config's model
+  gains `cross_dip_deg`, `plan_azimuth_deg` (empty: the first survey's at
+  the heel), `corridor_ft` and `heel_offset_ft`. The recommendation gains
+  the aim and the turn it asks from where the hole points - *Build
+  +1.5°/100 ft and aim 4° right of the plan (azimuth 44.0°), turning right
+  2.0°/100 ft (toolface 53°, 42% steering)* - the build and the turn held
+  together inside the DLS limit, the toolface and the steering ratio
+  computed from both, the command carrying the aimed azimuth and both
+  rates; **Did something else…** takes the aim, or the turn made instead;
+  the reasons name the azimuth against the plan's and the offset in the
+  corridor. A five-choice action (before the aim) is still taken, aimed
+  along the plan.
+- The screen draws the plan view under the section: the corridor as a
+  band, the plan line, the hole from the surveys' azimuths, the bit, the
+  stub of the turn the aim asks; tiles for the azimuth and the offset from
+  the plan line.
+- Shadow mode reads the record's `azimuth_deg` column when it has one and
+  sets the turn the advisor would have asked beside the turn the record
+  made over the next 90 ft; without the column the turns are not judged
+  and the report says so. The twin's lateral file carries the azimuth.
+- The policy retrained for the new observation and the sixth choice:
+  86% of the hole in the layer and 99% in the corridor on the
+  held-out scenes against the textbook driller's 67% and 100%
+  (SIMULATION). `gea-driller evaluate` prints the corridor and the
+  laterals lost beside the layer. The first trainings asked the agent for
+  the turn itself, left, hold or right at 2°/100 ft, and it let the walk
+  carry the hole out of the corridor on a scene in twenty however the
+  corridor was charged: a double integral is a poor thing to learn by
+  reward. Aiming is what a geosteerer tells a directional driller, and
+  the agent holds the corridor with it.
+
+### Acceptance
+- Section DX (3 checks): the geometry (a straight hole off the plan lands
+  where the sine says, a build's dogleg is the build, a turn's counts by
+  the inclination's sine, the toolface of both), the twin in three
+  dimensions (an aim right of the plan turns the hole toward it at the
+  tool's rate and swings it to the right, the layer's top moves with the
+  offset by the cross dip, a hole aimed out of the corridor is lost and
+  says so, a five-choice action still taken, the observation named), the
+  filter's cross dip read across the plan line and left standing along
+  it; the rig side (the bit placed from surveys with azimuths where the
+  arithmetic says, the twin as the rig publishing the azimuth, a decision
+  carrying the aim, the turn it asks and the toolface, the words naming an
+  aim and a turn, an override with either, the DLS limit holding the two
+  together, a cross dip out of range refused, the screen's plan view, the
+  help); the policy (six heads, the agent in the corridor on the held-out
+  scenes, the textbook holding the corridor, shadow mode judging the turn
+  with the azimuth and not without).
+
 ## [v0.79.0] - 2026-11-05 - GEA Driller: shadow mode
 
 ### Added

@@ -3,13 +3,13 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """shadow - a drilled lateral replayed through the advisor, decision by decision, against what the directional
 driller actually did. The lateral comes as a CSV (one row per foot of hole: measured depth, TVD, the gamma at the
-bit, the weight, the speed, the flow, the rate, the standpipe pressure, the hours into the record) - GEA writes it
-from a drilling recorder's export, or anyone from their own records. The pre-drill model comes as JSON when the
+bit, the weight, the speed, the flow, the rate, the standpipe pressure, the hours into the record, and the azimuth
+when the record has it) - GEA writes it from a drilling recorder's export, or anyone from their own records. The pre-drill model comes as JSON when the
 site has it; otherwise one is read off the lateral's own gamma in hindsight and labelled so. Every 30 ft the
 advisor gets what it would have seen on the rig - the readings to that point and nothing past it - and its
 recommendation is set beside what was drilled next: the build actually made over the following 90 ft, the weight,
-speed and flow actually used, and, where the gamma says the well left the layer, whether the advisor called the
-correction at the first reading out, before it or after it. SHADOW MODE: advisory in hindsight; nothing here
+speed and flow actually used, the turn actually made when the record carries the azimuth, and, where the gamma
+says the well left the layer, whether the advisor called the correction at the first reading out, before it or after it. SHADOW MODE: advisory in hindsight; nothing here
 touched the well, and agreement with a driller is not a verdict on either of them."""
 from __future__ import annotations
 
@@ -25,25 +25,27 @@ import numpy as np
 
 from . import __version__, config as _config, twin as T
 from .advisor import Advisor, Records
+from .geometry import wrap180
 from .policy import Policy
 from .rig import Feed
 
 LABEL = 'SHADOW MODE'
 COLUMNS = ('md_ft', 'tvd_ft', 'gamma_api', 'wob_klb', 'rpm', 'flow_gpm', 'rop_ft_hr', 'spp_psi', 'hours')
+OPTIONAL_COLUMNS = ('azimuth_deg',)                     # the hole's azimuth when the record carries it (since 0.80.0)
 
 
 # -- the lateral file --------------------------------------------------------------------------------------------------------
 
 def read_lateral(path: str) -> Dict[str, np.ndarray]:
     """The CSV as arrays, one row per foot of hole (gaps allowed), sorted by MD; a missing value is NaN."""
-    cols: Dict[str, List[float]] = {c: [] for c in COLUMNS}
+    cols: Dict[str, List[float]] = {c: [] for c in COLUMNS + OPTIONAL_COLUMNS}
     with open(path, encoding='utf-8', newline='') as f:
         rd = csv.DictReader(f)
         missing = [c for c in COLUMNS if c not in (rd.fieldnames or [])]
         if missing:
             raise ValueError(f'the lateral file needs the columns {", ".join(COLUMNS)}; missing {", ".join(missing)}')
         for row in rd:
-            for c in COLUMNS:
+            for c in COLUMNS + OPTIONAL_COLUMNS:
                 v = (row.get(c) or '').strip()
                 try:
                     cols[c].append(float(v) if v not in ('', 'nan', 'NaN') else math.nan)
@@ -57,10 +59,27 @@ def read_lateral(path: str) -> Dict[str, np.ndarray]:
 
 
 def write_lateral(path: str, rows: List[dict]) -> None:
+    cols = list(COLUMNS) + [c for c in OPTIONAL_COLUMNS if any(r.get(c) is not None for r in rows)]
     with open(path, 'w', encoding='utf-8', newline='') as f:
-        w = csv.DictWriter(f, fieldnames=list(COLUMNS)); w.writeheader()
+        w = csv.DictWriter(f, fieldnames=cols); w.writeheader()
         for r in rows:
-            w.writerow({c: ('' if r.get(c) is None or (isinstance(r.get(c), float) and math.isnan(r[c])) else f'{float(r[c]):.3f}') for c in COLUMNS})
+            w.writerow({c: ('' if r.get(c) is None or (isinstance(r.get(c), float) and math.isnan(r[c])) else f'{float(r[c]):.3f}') for c in cols})
+
+
+def has_azimuth(lat: Dict[str, np.ndarray]) -> bool:
+    az = lat.get('azimuth_deg')
+    return az is not None and len(az) and int((~np.isnan(az)).sum()) >= 10
+
+
+def plan_azimuth_of(lat: Dict[str, np.ndarray], heel: int) -> Optional[float]:
+    """The lateral's azimuth as the record has it: the circular mean over the hole from the heel."""
+    if not has_azimuth(lat):
+        return None
+    az = lat['azimuth_deg'][heel:]; az = az[~np.isnan(az)]
+    if len(az) < 10:
+        return None
+    a = np.radians(az)
+    return float(math.degrees(math.atan2(np.sin(a).mean(), np.cos(a).mean())) % 360.0)
 
 
 # -- the heel and the model ------------------------------------------------------------------------------------------------
@@ -133,8 +152,10 @@ def derive_model(lat: Dict[str, np.ndarray], heel: int) -> dict:
         top0 = float(np.percentile(tv, 5)); base0 = float(np.percentile(tv, 95)); dip = 0.0
     thickness = min(150.0, max(10.0, base0 - top0))                # a lateral's target, not a column
     dip = max(-10.0, min(10.0, dip))
-    return {'layer_top_tvd_ft': round(top0, 1), 'thickness_ft': round(thickness, 1), 'dip_deg': round(dip, 2), 'gamma_in': round(g_in), 'gamma_above': round(g_out),
+    pa = plan_azimuth_of(lat, heel)
+    return {'layer_top_tvd_ft': round(top0, 1), 'thickness_ft': round(thickness, 1), 'dip_deg': round(dip, 2), 'cross_dip_deg': 0.0, 'gamma_in': round(g_in), 'gamma_above': round(g_out),
             'gamma_below': round(g_out), 'deep_resistivity_tool': False, 'deep_range_ft': 15.0, 'lateral_length_ft': float(md[-1] - md[0]), 'heel_md_ft': float(md[0]),
+            'plan_azimuth_deg': (None if pa is None else round(pa, 1)),
             'heel_tvd_ft': float(tvd[0]) if not np.isnan(tvd[0]) else round(top0 + thickness / 2, 1), 'gamma_cut': round(float(cut)),
             'how': 'read off this lateral\'s own gamma in hindsight: the lower mode of the gamma is the layer, the higher the rock outside it; the TVD window of the low gamma and its trend along the lateral give the top, the thickness and the dip. Not the pre-drill model.'
                    + (' The gamma has one mode: the well stayed in one rock, and the rock outside it was never read.' if one_mode else '')}
@@ -149,6 +170,7 @@ class ShadowFeed(Feed):
         super().__init__(cfg)
         self.lat = lat; self.heel = heel; self.i = heel
         self.inc = inclination(lat['md_ft'], lat['tvd_ft'])
+        self.az = fill_azimuth(lat['md_ft'], lat['azimuth_deg']) if has_azimuth(lat) else None
         self.connected = True
         self.set_index(heel)
 
@@ -160,7 +182,8 @@ class ShadowFeed(Feed):
         with self.lock:
             self.state.update({'bit_depth': float(l['md_ft'][self.i]), 'hole_depth': float(l['md_ft'][self.i]), 'rop': _f(l['rop_ft_hr'][self.i]), 'wob': _f(l['wob_klb'][self.i]),
                                'rpm': _f(l['rpm'][self.i]), 'flow_in': _f(l['flow_gpm'][self.i]), 'spp': _f(l['spp_psi'][self.i]), 'gamma': float(np.median(g)) if len(g) else None,
-                               'deep_res_dist': None, 'vibration': None, 'continuous_inc': float(self.inc[self.i]), 'ecd': None, 'torque': None})
+                               'deep_res_dist': None, 'vibration': None, 'continuous_inc': float(self.inc[self.i]),
+                               'continuous_azi': (float(self.az[self.i]) if self.az is not None else None), 'ecd': None, 'torque': None})
             self.frames += 1; self.last_utc = time.time()
         # the surveys: a station every 90 ft of the hole drilled so far
         md_now = l['md_ft'][self.i]
@@ -169,7 +192,7 @@ class ShadowFeed(Feed):
             j = int(np.searchsorted(l['md_ft'], st))
             if j >= len(l['md_ft']):
                 break
-            self.add_survey(float(l['md_ft'][j]), float(self.inc[j]), 0.0, 'record')
+            self.add_survey(float(l['md_ft'][j]), float(self.inc[j]), (float(self.az[j]) if self.az is not None else None), 'record')
             st += 90.0
 
     def heel_md(self) -> float:
@@ -181,6 +204,25 @@ class ShadowFeed(Feed):
 
 def _f(x) -> Optional[float]:
     return None if x is None or (isinstance(x, float) and math.isnan(x)) else float(x)
+
+
+def fill_azimuth(md: np.ndarray, az: np.ndarray) -> np.ndarray:
+    """The azimuth with its gaps interpolated along MD, through north without a jump."""
+    a = az.copy(); bad = np.isnan(a)
+    if bad.any() and (~bad).sum() >= 2:
+        rad = np.radians(a[~bad])
+        a[bad] = np.degrees(np.arctan2(np.interp(md[bad], md[~bad], np.sin(rad)), np.interp(md[bad], md[~bad], np.cos(rad)))) % 360.0
+    return a
+
+
+def actual_turn(md: np.ndarray, az: Optional[np.ndarray], i: int, ahead_ft: float = 90.0) -> Optional[float]:
+    """The turn the driller actually made over the next `ahead_ft`, degrees per 100 ft, right positive."""
+    if az is None:
+        return None
+    j = int(np.searchsorted(md, md[i] + ahead_ft))
+    if j >= len(md) or md[j] - md[i] < ahead_ft * 0.6:
+        return None
+    return float(wrap180(az[j] - az[i]) / (md[j] - md[i]) * 100.0)
 
 
 def actual_build(md: np.ndarray, inc: np.ndarray, i: int, ahead_ft: float = 90.0) -> Optional[float]:
@@ -220,7 +262,7 @@ def run(lateral_csv: str, policy: Policy, model: Optional[dict] = None, out_dir:
     records = Records(cfg)
     adv = Advisor(cfg, policy, feed, records)
     md, tvd, g = lat['md_ft'], lat['tvd_ft'], lat['gamma_api']
-    inc = feed.inc
+    inc = feed.inc; az = feed.az
     g_cut = float(model.get('gamma_cut') or 0.5 * (float(model['gamma_in']) + 0.5 * (float(model['gamma_above']) + float(model['gamma_below']))))
     decisions: List[dict] = []
     i = heel
@@ -232,15 +274,15 @@ def run(lateral_csv: str, policy: Policy, model: Optional[dict] = None, out_dir:
         rec = adv.decide(snap)
         if rec is None:
             i += 1; continue
-        a_build = actual_build(md, inc, i)
+        a_build = actual_build(md, inc, i); a_turn = actual_turn(md, az, i)
         a_wob = _mean_ahead(lat['wob_klb'], md, i); a_rpm = _mean_ahead(lat['rpm'], md, i); a_flow = _mean_ahead(lat['flow_gpm'], md, i); a_rop = _mean_ahead(lat['rop_ft_hr'], md, i)
         gw = g[max(heel, i - 10):i + 1]; gw = gw[~np.isnan(gw)]
         g_now = float(np.median(gw)) if len(gw) else None
         out_now = (g_now is not None and g_now > g_cut)
         r = rec['recommend']
         d = {'md': float(md[i]), 'tvd': float(tvd[i]) if not np.isnan(tvd[i]) else None, 'inc': float(inc[i]), 'gamma': g_now, 'out_by_gamma': out_now,
-             'recommended': {'build': r['build_deg_100ft'], 'steer': r['steer'], 'wob': r['wob_klb'], 'rpm': r['rpm'], 'flow': r['flow_gpm'], 'conditioning': r['conditioning'], 'words': r['words']},
-             'actual': {'build': a_build, 'wob': a_wob, 'rpm': a_rpm, 'flow': a_flow, 'rop': a_rop},
+             'recommended': {'build': r['build_deg_100ft'], 'steer': r['steer'], 'turn': r.get('turn_deg_100ft', 0.0), 'steer_az': r.get('steer_az', 'hold'), 'wob': r['wob_klb'], 'rpm': r['rpm'], 'flow': r['flow_gpm'], 'conditioning': r['conditioning'], 'words': r['words']},
+             'actual': {'build': a_build, 'turn': a_turn, 'wob': a_wob, 'rpm': a_rpm, 'flow': a_flow, 'rop': a_rop},
              'estimate': {k: rec['context']['estimate'][k] for k in ('p_in', 'p_above', 'p_below', 'd_top', 'd_base', 'sigma')} if rec.get('context', {}).get('estimate') else None,
              'confidence': rec['confidence']}
         # agreement on the steer: build, hold or drop, with a dead band of half a degree per hundred feet on the record
@@ -250,6 +292,10 @@ def run(lateral_csv: str, policy: Policy, model: Optional[dict] = None, out_dir:
             d['steer_agrees'] = (sr == sa)
             d['steer_opposes'] = (sr * sa < 0)
             d['steer_pair'] = ('drop', 'hold', 'build')[sr + 1] + '/' + ('drop', 'hold', 'build')[sa + 1]
+        if a_turn is not None:
+            tr = 0 if abs(d['recommended']['turn']) < 0.25 else (1 if d['recommended']['turn'] > 0 else -1)
+            ta = 0 if abs(a_turn) < 0.5 else (1 if a_turn > 0 else -1)
+            d['turn_agrees'] = (tr == ta); d['turn_opposes'] = (tr * ta < 0)
         for k, tol in (('wob', 0.25), ('rpm', 0.25), ('flow', 0.2)):
             av = d['actual'][k]
             d[f'{k}_agrees'] = (av is not None and av > 0 and abs(d['recommended'][k] - av) <= tol * max(av, 1.0))
@@ -280,6 +326,7 @@ def run(lateral_csv: str, policy: Policy, model: Optional[dict] = None, out_dir:
             k += 1
     n_d = len(decisions)
     with_build = [d for d in decisions if 'steer_agrees' in d]
+    with_turn = [d for d in decisions if 'turn_agrees' in d]
     summary = {
         'decisions': n_d, 'lateral_ft': float(md[-1] - md[heel]), 'heel_md': float(md[heel]), 'rows': int(n),
         'steer_agree_pct': 100.0 * sum(d['steer_agrees'] for d in with_build) / max(len(with_build), 1),
@@ -287,6 +334,9 @@ def run(lateral_csv: str, policy: Policy, model: Optional[dict] = None, out_dir:
         'steer_pairs': {k: sum(1 for d in with_build if d['steer_pair'] == k) for k in sorted({d['steer_pair'] for d in with_build})},
         'advisor_steered_record_held_pct': 100.0 * sum(1 for d in with_build if d['steer_pair'].endswith('/hold') and not d['steer_pair'].startswith('hold')) / max(len(with_build), 1),
         'record_steered_advisor_held_pct': 100.0 * sum(1 for d in with_build if d['steer_pair'].startswith('hold/') and not d['steer_pair'].endswith('/hold')) / max(len(with_build), 1),
+        'azimuth_in_record': az is not None,
+        'turn_agree_pct': (100.0 * sum(d['turn_agrees'] for d in with_turn) / max(len(with_turn), 1)) if with_turn else None,
+        'turn_oppose_pct': (100.0 * sum(d['turn_opposes'] for d in with_turn) / max(len(with_turn), 1)) if with_turn else None,
         'wob_agree_pct': 100.0 * sum(d['wob_agrees'] for d in decisions) / max(n_d, 1),
         'rpm_agree_pct': 100.0 * sum(d['rpm_agrees'] for d in decisions) / max(n_d, 1),
         'flow_agree_pct': 100.0 * sum(d['flow_agrees'] for d in decisions) / max(n_d, 1),
@@ -355,7 +405,9 @@ def report_md(result: dict) -> str:
          f"> GEA Driller {result['version']}, the policy of {result['policy'].get('trained_utc') or 'the kit'}, replayed over the lateral of {result['well']} at {result['site']} "
          f"({s['lateral_ft']:,.0f} ft from the heel at {s['heel_md']:,.0f} ft MD; {s['decisions']} decisions, one every 30 ft). {result['reading']}", '',
          '## The model', '',
-         f"Layer top {m['layer_top_tvd_ft']:,.1f} ft TVD at the heel, {m['thickness_ft']:.1f} ft thick, dip {m['dip_deg']:+.2f}° along the lateral; gamma {m['gamma_in']:.0f} in the layer, "
+         f"Layer top {m['layer_top_tvd_ft']:,.1f} ft TVD at the heel, {m['thickness_ft']:.1f} ft thick, dip {m['dip_deg']:+.2f}° along the lateral"
+         + (f", cross dip {float(m.get('cross_dip_deg') or 0.0):+.2f}°" if m.get('cross_dip_deg') else '') + (f", plan azimuth {m['plan_azimuth_deg']:.1f}°" if m.get('plan_azimuth_deg') is not None else '')
+         + f"; gamma {m['gamma_in']:.0f} in the layer, "
          f"{m['gamma_above']:.0f} above, {m['gamma_below']:.0f} below. " + (f"**{m.get('how', '')}**" if result['model_derived'] else 'The site\'s pre-drill model, as given.')
          + (f" How well it describes this well: **{s['model_fit']}**." if result['model_derived'] else ''), '',
          '## Agreement', '',
@@ -363,6 +415,8 @@ def report_md(result: dict) -> str:
          f"| The steer (build, hold or drop, over the next 90 ft) | {s['steer_agree_pct']:.0f}% | {s['steer_oppose_pct']:.0f}% |",
          f"| - the advisor would have steered where the record held | {s['advisor_steered_record_held_pct']:.0f}% | |",
          f"| - the record steered where the advisor would have held | {s['record_steered_advisor_held_pct']:.0f}% | |",
+         (f"| The turn (right, hold or left, over the next 90 ft) | {s['turn_agree_pct']:.0f}% | {s['turn_oppose_pct']:.0f}% |" if s.get('turn_agree_pct') is not None
+          else "| The turn | the record carries no azimuth | |"),
          f"| Weight on bit (within 25%) | {s['wob_agree_pct']:.0f}% | |", f"| Rotary speed (within 25%) | {s['rpm_agree_pct']:.0f}% | |", f"| Flow (within 20%) | {s['flow_agree_pct']:.0f}% | |", '',
          'Advisor/record pairs: ' + ', '.join(f"{k} {v}" for k, v in s['steer_pairs'].items()) + '.', '',
          f"The advisor asked for conditioning {s['conditioning_calls']} time(s). Its weight averaged {s['recommended_wob_mean']:.0f} klb against the record's {s['actual_wob_mean'] or 0:.0f}; "
@@ -436,30 +490,35 @@ def write_report(result: dict, out_dir: str) -> dict:
 
 # -- a lateral from the twin, for the self-test ---------------------------------------------------------------------------------
 
-def twin_lateral(path: str, seed: int = 4, act_fn=None) -> dict:
-    """A lateral CSV drilled in the twin by the textbook driller (or the given policy), one row per foot, so the
-    replay can be proven against a lateral whose layer is known."""
+def twin_lateral(path: str, seed: int = 4, act_fn=None, with_azimuth: bool = True) -> dict:
+    """A lateral CSV drilled in the twin by the textbook driller (or the given policy), one row per foot (with the
+    azimuth, unless asked without, as an older recorder's export would come), so the replay can be proven against a
+    lateral whose layer is known."""
     sc = T.Scene(seed); lat = T.Lateral(sc); o = lat.reset()
     act = act_fn or T.textbook_action
     rows: List[dict] = []
     heel_md = 10000.0
-    hours = 0.0
+    hours = 0.0; md_step = 0.0
     rng = np.random.RandomState(seed)
     while not lat.done:
         a = act(o)
-        vs0, tvd0 = lat.vs, lat.tvd
+        vs0, tvd0, y0, az0 = lat.vs, lat.tvd, lat.y, lat.az
         o, r, d, info = lat.step(a)
         if info.get('conditioning', 'drill') != 'drill':
             hours += info['hours']; continue
         n_ft = int(round(T.STEP_FT))
         for k in range(n_ft):
             f = (k + 1) / n_ft
-            vs = vs0 + (lat.vs - vs0) * f; tvd = tvd0 + (lat.tvd - tvd0) * f
-            rows.append({'md_ft': heel_md + vs, 'tvd_ft': tvd, 'gamma_api': sc.gamma(vs, tvd, rng), 'wob_klb': info['wob'], 'rpm': info['rpm'], 'flow_gpm': info['flow'],
-                         'rop_ft_hr': info['rop'], 'spp_psi': 2800.0 + info['dp'], 'hours': hours + info['hours'] * f})
+            vs = vs0 + (lat.vs - vs0) * f; tvd = tvd0 + (lat.tvd - tvd0) * f; y = y0 + (lat.y - y0) * f
+            md_step += T.STEP_FT / n_ft
+            rows.append({'md_ft': heel_md + md_step, 'tvd_ft': tvd, 'gamma_api': sc.gamma(vs, tvd, rng, y), 'wob_klb': info['wob'], 'rpm': info['rpm'], 'flow_gpm': info['flow'],
+                         'rop_ft_hr': info['rop'], 'spp_psi': 2800.0 + info['dp'], 'hours': hours + info['hours'] * f, 'azimuth_deg': (sc.plan_azimuth + az0 + (lat.az - az0) * f) % 360.0})
         hours += info['hours']
     # a vertical-ish approach above the heel, so the heel finder has something to find
     pre = [{'md_ft': heel_md - 300 + k, 'tvd_ft': rows[0]['tvd_ft'] - sum(math.cos(math.radians(45 + 45 * kk / 300.0)) for kk in range(k, 300)), 'gamma_api': sc.g_above + rng.normal(0, 5),
-            'wob_klb': 20.0, 'rpm': 100.0, 'flow_gpm': 450.0, 'rop_ft_hr': 50.0, 'spp_psi': 2600.0, 'hours': -1.0} for k in range(300)]
+            'wob_klb': 20.0, 'rpm': 100.0, 'flow_gpm': 450.0, 'rop_ft_hr': 50.0, 'spp_psi': 2600.0, 'hours': -1.0, 'azimuth_deg': (sc.plan_azimuth + sc.start_az) % 360.0} for k in range(300)]
+    if not with_azimuth:
+        for r_ in pre + rows:
+            r_.pop('azimuth_deg', None)
     write_lateral(path, pre + rows)
     return {'scene': sc.describe(), 'summary': lat.summary(), 'rows': len(pre) + len(rows), 'heel_md': heel_md}

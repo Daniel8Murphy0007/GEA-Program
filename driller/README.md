@@ -3,20 +3,29 @@
 A program for the rig PC, feeding GEA-Program. It reads the rig's own feed - the EDR's WITS0 over TCP or a serial
 line: depths, rate, weight, speed, torque, flow, standpipe pressure, the MWD gamma, the survey - and the pre-drill
 model of the target layer, and every 30 ft of new hole it recommends, in the directional driller's own units, what
-to do next: build, drop or hold and by how much (toolface and steering ratio for a rotary steerable system), the
-weight on bit, the rotary speed, the flow rate, and whether to drill on, circulate, or ream and wash first. The
-driller accepts, rejects, or records what was done instead; every recommendation, every answer and every
-command is on record with its hash, and GEA pulls the record in.
+to do next: build, drop or hold and by how much, where to aim the azimuth - along the plan or a few degrees left or
+right of it - and the turn that asks (the two as one toolface and steering ratio for a rotary steerable system), the
+weight on bit, the rotary speed, the flow rate, and whether to
+drill on, circulate, or ream and wash first. The driller accepts, rejects, or records what was done instead; every
+recommendation, every answer and every command is on record with its hash, and GEA pulls the record in.
 
 Where the bit sits in the layer is estimated the way a geosteerer does it, by a position filter: a few hundred
-guesses at how the real layer differs from the model - the top's offset, the dip's error, the thickness - moved
-every decision as undulation and faults would move them and kept to the ones that explain the gamma and the
-deep-resistivity distance. The screen shows the band it puts the layer in and how sure it is; the agent reads the
-same estimate.
+guesses at how the real layer differs from the model - the top's offset, the dip's error along the plan and across
+it, the thickness - moved every decision as undulation and faults would move them and kept to the ones that explain
+the gamma and the deep-resistivity distance. The screen shows the band it puts the layer in and how sure it is; the
+agent reads the same estimate.
+
+The lateral has an azimuth (since 0.80.0). The bit is placed in the plan's frame - along the plan's azimuth, right
+of the plan line, in depth - by minimum curvature through the surveys' azimuths and the feed's continuous azimuth;
+the config's model carries the plan's azimuth, the layer's cross dip, the corridor the lease and the offset wells
+leave the hole on each side of the plan line, and where the heel sits across it. The screen draws the plan view
+under the section.
 
 The agent is a reinforcement-learning policy - a small neural network trained by proximal policy optimization in a
-physics twin of the lateral: a target layer whose top rolls with dip, undulation and faults; the gamma and the
-deep-resistivity boundary the near-bit tools read of it; a steering tool with a tendency and a cap; a bit whose
+physics twin of the lateral: a target layer whose top is a surface rolling with its dip along the plan and across
+it, undulation and faults with a strike; the gamma and the deep-resistivity boundary the near-bit tools read of it; a
+steering tool with a tendency, a walk and a cap on the dogleg of the build and the turn together; the corridor, a
+step outside of which costs and 150 ft outside of which loses the lateral; a bit whose
 rate, wear and balling follow the weight, speed and flow; the hydraulics against the fracture gradient; the
 cuttings bed and the stuck pipe it leads to; the hours each decision costs. Every training scene is drawn fresh
 from the same ranges, so what the policy learns is the drilling, not a formation. It is judged on scenes it never

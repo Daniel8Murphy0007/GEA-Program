@@ -2,8 +2,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """policy - the agent: a small neural network (two hidden layers of 64) that reads the twin's observation and
-answers five choices at once - the build or drop to ask of the tool, the weight on bit, the rotary speed, the
-flow rate, and drill, circulate or ream - and a value estimate beside them; trained by proximal policy
+answers six choices at once - the build or drop to ask of the tool, the turn, the weight on bit, the rotary speed,
+the flow rate, and drill, circulate or ream - and a value estimate beside them; trained by proximal policy
 optimization (Schulman et al., 2017: clipped surrogate objective, generalized advantage estimation, several
 epochs of minibatch updates per batch of experience) with Adam, on scenes drawn fresh for every batch so no
 formation is learned by heart. Numpy only: the arithmetic is written out, including the gradients, so the program
@@ -79,7 +79,7 @@ class Policy:
         the state - what the advisory screen shows."""
         logits, v, _, _ = self.forward(obs)
         out = {'value': float(v[0]), 'choices': {}}
-        for name, sl, choices in zip(T.ACTION_NAMES, HEAD_SLICES, (T.BUILD_CHOICES, T.WOB_CHOICES, T.RPM_CHOICES, T.FLOW_CHOICES, T.COND_CHOICES)):
+        for name, sl, choices in zip(T.ACTION_NAMES, HEAD_SLICES, T.ACTION_CHOICES):
             p = _softmax(logits[0, sl]); a = int(np.argmax(p))
             out['choices'][name] = {'choice': choices[a], 'confidence': float(p[a]), 'distribution': [float(x) for x in p], 'index': a}
         return out
@@ -279,7 +279,8 @@ def evaluate(act_fn: Callable[[np.ndarray], Sequence[int]], scenes: Sequence[int
     return {'label': label, 'scenes': list(scenes), 'n': len(res), 'in_layer_pct': f('in_layer_pct'), 'sweet_pct': f('sweet_pct'), 'ft_per_day': f('ft_per_day'),
             'reward': f('reward'), 'mean_dls': f('mean_dls'), 'tortuosity_deg': f('tortuosity_deg'), 'stuck': int(sum(x['stuck'] for x in res)),
             'losses': int(sum(1 for x in res for e in x['events'] if e.startswith('losses'))), 'days': f('days'), 'vibration_excess': f('vibration_excess'),
-            'conditioning_steps': f('conditioning_steps'), 'episodes': res}
+            'conditioning_steps': f('conditioning_steps'), 'corridor_pct': f('corridor_pct'), 'max_offset_ft': f('max_offset_ft'),
+            'lost': int(sum(x['lost'] for x in res)), 'episodes': res}
 
 
 def policy_act_fn(pol: Policy, greedy: bool = True, seed: int = 0) -> Callable[[np.ndarray], Tuple[int, ...]]:

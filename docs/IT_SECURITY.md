@@ -180,7 +180,10 @@ declared extras.
   feed, a crossed limit or the section's end; this version's only downlink
   keeps every command on record and sends none. The records carry no
   secret; GEA pulls them checked against their hashes. The twin as the rig
-  on the office PC binds to 127.0.0.1 only.
+  on the office PC binds to 127.0.0.1 only. Since 0.80.0 the records carry
+  the hole's azimuth and its offset from the plan line, as the surveys
+  give them - a position, not a coordinate: the plan's azimuth and the
+  heel are in the rig PC's config, no surface location is.
 
 ## What it records
 

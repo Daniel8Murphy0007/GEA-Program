@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.80.0 - 2026-11-06 - the third dimension
+
+- The driller's agent in three dimensions: the lateral's azimuth and the
+  aim as the sixth choice, the layer as a surface with a cross dip, the
+  corridor each side of the plan line, minimum curvature shared by the
+  twin, the advisor, the screen and shadow mode; the policy retrained.
+  Section DX; gate 553.
+
 ## v0.79.0 - 2026-11-05 - shadow mode
 
 - A drilled lateral replayed through the driller's agent against the

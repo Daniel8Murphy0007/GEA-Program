@@ -3371,3 +3371,51 @@ stability; and motor specifications in the tool catalogue.
   grade the gamma-derived model poor - Pad 3 was not steered to the low
   gamma - so the pre-drill model, kept beside the well as model.json, is
   what the replay needs there.
+
+## 2026-11-06 - the third dimension (v0.80.0)
+
+- v0.79.0 shipped; the four kits fetched and verified. Daniel: continue
+  with the third item - the third dimension. The twin's frame is the
+  plan's own now: along the plan's azimuth, right of the plan line, depth.
+  The layer is a surface (a dip across the plan as well as along it, an
+  undulation with a direction, faults with a strike); the tool walks and
+  is capped on the dogleg of the build and the turn together; the
+  corridor the lease and the offset wells leave the hole is a cost per
+  step outside it and the end of the lateral 150 ft outside. The sixth
+  choice is where to aim the azimuth (4° left of the plan, along it, 4°
+  right; the tool turns toward it at up to 2°/100 ft); six observations more.
+  `geometry.py` holds the directional arithmetic the twin, the advisor,
+  the screen and shadow mode now share - minimum curvature in three
+  dimensions, the dogleg of a build and a turn, the toolface they amount
+  to - so all four place the bit the same way. A hold-everything policy
+  loses the corridor on half the scenes from the tool's walk alone; the
+  textbook holds the plan line with a gentle proportional turn (67% of
+  the hole in the layer on the twenty held-out scenes, 100% in the
+  corridor - the bar). The position filter carries the cross dip and
+  reads it only when the hole moves across the plan line; along it the
+  model's value stands, and the estimate says how sure it is.
+- The advisor places the bit from the surveys' azimuths and the feed's
+  continuous azimuth (WITS 0832); the config's model takes the plan's
+  azimuth (or the first survey's), the cross dip, the corridor and the
+  heel's offset. The build and the turn are clipped together to the DLS
+  limit and read as one toolface; the override takes the turn; the screen
+  draws the plan view. A five-choice action is still taken, with the
+  azimuth held, so nothing written for 0.77-0.79 breaks. Shadow mode reads
+  the record's `azimuth_deg` column when it has one and judges the turn
+  with it; without, it says the turns are unjudged. Section DX (3 checks):
+  the first run caught the twin as the rig rewriting the config's model
+  block in place under the check that read the heel's TVD from it.
+- The policy retrained for the new observation and the sixth head
+  (7.4 million twin steps in all, about an hour and a half of training across the three attempts): 86% of the hole in
+  the layer and 99% in the corridor on the held-out scenes against
+  the textbook's 67% and 100%; reward 130 against 103.
+  The first trainings asked the agent for the turn itself - left, hold,
+  right at 2°/100 ft - and it lost a lateral in twenty out of the corridor
+  however the corridor was charged: it let the walk carry the azimuth off
+  and corrected late, because the offset is the integral of the azimuth,
+  which is the integral of the turn, and a double integral is a poor thing
+  to learn by reward. A geosteerer does not tell a directional driller
+  how fast to turn; he tells him the azimuth to hold. The sixth choice is
+  that now, and the tool turns toward it at its own rate; a cost that
+  grows toward the corridor's edge and a cost on the azimuth off the plan
+  stayed. The textbook holds the corridor to the foot with it.

@@ -3,7 +3,8 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 """rig - what the rig says, as the driller's program reads it: the EDR's WITS0 feed over TCP or a serial line
 (record 1: depths, ROP, weight, speed, torque, flow, standpipe pressure; record 7: the survey; record 8: the MWD
-gamma; a vendor's items for the deep-resistivity distance and a vibration index, mapped in the config), the surveys
+gamma; a vendor's items for the deep-resistivity distance, a vibration index and the continuous inclination and
+azimuth, mapped in the config), the surveys
 the directional driller keeps in a CSV, and - for the office, before a rig exists - the twin itself as the rig,
 drilling in real time at a chosen pace under whatever the driller decides. The feed is read; the only thing ever
 sent to the rig goes through the downlink, and only when it is armed."""
@@ -21,9 +22,9 @@ from . import twin as T
 STANDARD_ITEMS: Dict[str, str] = {
     '0108': 'bit_depth', '0110': 'hole_depth', '0112': 'block_height', '0113': 'rop', '0114': 'hookload', '0116': 'wob',
     '0120': 'rpm', '0121': 'torque', '0123': 'flow_in', '0130': 'spp', '0105': 'rig_date', '0106': 'rig_time',
-    '0708': 'survey_md', '0713': 'survey_inc', '0714': 'survey_azi', '0824': 'gamma', '0825': 'deep_res_dist', '0830': 'vibration', '0831': 'continuous_inc',
+    '0708': 'survey_md', '0713': 'survey_inc', '0714': 'survey_azi', '0824': 'gamma', '0825': 'deep_res_dist', '0830': 'vibration', '0831': 'continuous_inc', '0832': 'continuous_azi',
 }
-FIELDS = ('bit_depth', 'hole_depth', 'rop', 'wob', 'rpm', 'torque', 'flow_in', 'spp', 'gamma', 'deep_res_dist', 'vibration', 'continuous_inc', 'ecd')
+FIELDS = ('bit_depth', 'hole_depth', 'rop', 'wob', 'rpm', 'torque', 'flow_in', 'spp', 'gamma', 'deep_res_dist', 'vibration', 'continuous_inc', 'continuous_azi', 'ecd')
 
 
 class FrameParser:
@@ -85,11 +86,12 @@ class Feed:
         with self.lock:
             return dict(self.surveys[-1]) if self.surveys else None
 
-    def add_survey(self, md: float, inc: float, azi: float, source: str = 'feed') -> None:
+    def add_survey(self, md: float, inc: float, azi: Optional[float], source: str = 'feed') -> None:
+        """A station; the azimuth may be unknown (None): the advisor then takes the plan's."""
         with self.lock:
             if self.surveys and abs(self.surveys[-1]['md'] - md) < 1.0:
                 return
-            self.surveys.append({'md': float(md), 'inc': float(inc), 'azi': float(azi), 'utc': time.time(), 'source': source})
+            self.surveys.append({'md': float(md), 'inc': float(inc), 'azi': (None if azi is None else float(azi)), 'utc': time.time(), 'source': source})
 
     def load_surveys(self, path: str) -> int:
         """The directional driller's CSV: md, inc, azi (a header line is skipped)."""
@@ -101,7 +103,8 @@ class Feed:
                 if len(row) < 3:
                     continue
                 try:
-                    md, inc, azi = float(row[0]), float(row[1]), float(row[2])
+                    md, inc = float(row[0]), float(row[1])
+                    azi = float(row[2]) if row[2].strip() not in ('', 'nan') else None
                 except ValueError:
                     continue
                 self.add_survey(md, inc, azi, 'csv'); n += 1
@@ -139,7 +142,7 @@ class Wits0Feed(Feed):
             self.frames += 1; self.last_utc = t
         md = getattr(self, '_sv_md', None); inc = getattr(self, '_sv_inc', None); azi = getattr(self, '_sv_azi', None)
         if md is not None and inc is not None:
-            self.add_survey(md, inc, azi if azi is not None else 0.0, 'wits0')
+            self.add_survey(md, inc, azi, 'wits0')
 
     def _run(self) -> None:
         rig = self.cfg['rig']
@@ -176,26 +179,30 @@ class TwinFeed(Feed):
     """The twin as the rig, for the office: it drills one 30-ft step every `pace_s` seconds under the action the
     driller's program hands it (the agent's when armed, the accepted recommendation otherwise, the last one until
     then), and reports what a rig would - depths, the gamma at the bit, the deep-resistivity distance when the
-    scene has the tool, the vibration index, a survey every 90 ft."""
+    scene has the tool, the vibration index, the continuous inclination and azimuth, a survey every 90 ft."""
 
     def __init__(self, cfg: dict, seed: int = 7, pace_s: float = 3.0):
         super().__init__(cfg)
         self.scene = T.Scene(seed, length_ft=float(cfg['model'].get('lateral_length_ft', 4000.0)))
         self.lat = T.Lateral(self.scene)
         self.pace_s = float(pace_s)
-        self.action = (2, 1, 1, 1, 0)
+        self.action = T.HOLD_ACTION
         self.heel_md = float(cfg['model'].get('heel_md_ft', 10200.0))
         self.obs = self.lat.reset()
         # the config's model becomes what the pre-drill model of this scene says (with the error a real model has), and
         # the heel what the survey would give; the true layer stays the twin's secret
         s = self.scene; m = cfg['model']
         m.update({'layer_top_tvd_ft': round(s.model_top(0.0), 1), 'thickness_ft': round(s.model_thickness, 1), 'dip_deg': round(s.dip_deg + s.model_dip_error, 2),
-                  'gamma_in': round(s.g_in), 'gamma_above': round(s.g_above), 'gamma_below': round(s.g_below), 'deep_resistivity_tool': s.deep_res,
-                  'lateral_length_ft': s.length_ft, 'heel_tvd_ft': round(self.lat.tvd, 1)})
+                  'cross_dip_deg': round(s.model_cross_dip(), 2), 'gamma_in': round(s.g_in), 'gamma_above': round(s.g_above), 'gamma_below': round(s.g_below),
+                  'deep_resistivity_tool': s.deep_res, 'lateral_length_ft': s.length_ft, 'heel_tvd_ft': round(self.lat.tvd, 1),
+                  'plan_azimuth_deg': round(s.plan_azimuth, 1), 'corridor_ft': round(s.corridor_ft), 'heel_offset_ft': round(self.lat.y, 1)})
         self.last_info: dict = {}
         self.connected = True
         self._publish()
-        self.add_survey(self.heel_md, self.lat.incl, 0.0, 'twin')
+        self.add_survey(self.heel_md, self.lat.incl, self._az(), 'twin')
+
+    def _az(self) -> float:
+        return (self.scene.plan_azimuth + self.lat.az) % 360.0
 
     def set_action(self, action) -> None:
         with self.lock:
@@ -203,12 +210,12 @@ class TwinFeed(Feed):
 
     def _publish(self) -> None:
         lat = self.lat; s = self.scene
-        deep, have = s.deep_distance(lat.vs, lat.tvd, lat.r)
+        deep, have = s.deep_distance(lat.vs, lat.tvd, lat.r, lat.y)
         with self.lock:
             self.state.update({'bit_depth': self.heel_md + lat.footage, 'hole_depth': self.heel_md + lat.footage, 'rop': lat.rop,
                                'wob': T.WOB_CHOICES[self.action[1]], 'rpm': T.RPM_CHOICES[self.action[2]], 'flow_in': T.FLOW_CHOICES[self.action[3]],
                                'torque': 8.0 + 0.1 * lat.dp, 'spp': 2800.0 + lat.dp, 'gamma': lat.gammas[-1], 'deep_res_dist': deep if have else None,
-                               'vibration': lat.vib, 'continuous_inc': lat.incl, 'ecd': lat.ecd})
+                               'vibration': lat.vib, 'continuous_inc': lat.incl, 'continuous_azi': self._az(), 'ecd': lat.ecd})
             self.frames += 1; self.last_utc = time.time()
 
     def _run(self) -> None:
@@ -225,7 +232,7 @@ class TwinFeed(Feed):
             self.last_info = info
             self._publish()
             if self.heel_md + self.lat.footage >= next_survey:
-                self.add_survey(next_survey, self.lat.incl, 0.0, 'twin'); next_survey += 90.0
+                self.add_survey(next_survey, self.lat.incl, self._az(), 'twin'); next_survey += 90.0
 
 
 def make(cfg: dict, **kw) -> Feed:

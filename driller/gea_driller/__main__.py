@@ -64,6 +64,10 @@ def selftest(as_json: bool = False, seconds: float = 12.0) -> int:
     for _ in range(8):
         lb.step((4, 1, 1, 1, 0)); lh.step((2, 1, 1, 1, 0))
     add('building turns the bit upward against holding', lb.incl > lh.incl + 1.5 and lb.tvd < lh.tvd, f'incl {lh.incl:.1f} -> {lb.incl:.1f}, tvd {lh.tvd:.1f} vs {lb.tvd:.1f}')
+    lt = T.Lateral(T.Scene(3)); lt.reset()
+    for _ in range(8):
+        lt.step((2, 1, 1, 1, 0, 2))
+    add('aiming right of the plan swings the azimuth and the hole to the right of the plan line', lt.az > lh.az + 1.5 and lt.y > lh.y, f'az {lh.az:+.1f} -> {lt.az:+.1f}, y {lh.y:+.1f} vs {lt.y:+.1f}')
     lat = T.Lateral(T.Scene(3)); lat.reset(); b0 = lat.bed; lat.bed = 0.5; lat.step((2, 1, 1, 1, 1))
     add('circulating cleans the hole without footage', lat.bed < 0.5 and lat.footage == 0.0, f'bed {lat.bed:.2f}')
     # the policy
@@ -172,7 +176,7 @@ def main(argv=None) -> int:
         else:
             print(f'SIMULATION - {a.scenes} held-out twin scenes, the same for both:')
             for e in (ev, tb):
-                print(f"  {e['label']:<9s} in the layer {e['in_layer_pct']:5.1f}%  sweet spot {e['sweet_pct']:5.1f}%  {e['ft_per_day']:6.0f} ft/day  mean DLS {e['mean_dls']:.2f}  stuck {e['stuck']}  losses {e['losses']}  reward {e['reward']:7.1f}")
+                print(f"  {e['label']:<9s} in the layer {e['in_layer_pct']:5.1f}%  sweet spot {e['sweet_pct']:5.1f}%  in the corridor {e['corridor_pct']:5.1f}%  {e['ft_per_day']:6.0f} ft/day  mean DLS {e['mean_dls']:.2f}  stuck {e['stuck']}  lost {e['lost']}  losses {e['losses']}  reward {e['reward']:7.1f}")
         return 0
     if a.cmd == 'shadow':
         from . import policy as P, service as S, shadow as SH

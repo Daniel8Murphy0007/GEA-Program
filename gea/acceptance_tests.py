@@ -16698,7 +16698,7 @@ def section_dv_driller(tmp: str) -> None:
                 e_ = inf["estimate"]; truth = inf["lithology"]
                 guess = max(("above", e_["p_above"]), ("in", e_["p_in"]), ("below", e_["p_below"]), key=lambda x: x[1])[0]
                 conf[truth][guess] += 1; n_steps += 1
-                errs.append(abs(e_["d_top"] - (lt.tvd - sc.layer_top(lt.vs))))
+                errs.append(abs(e_["d_top"] - (lt.tvd - sc.layer_top(lt.vs, getattr(lt, "y", 0.0)))))
     right = sum(conf[k][k] for k in conf); total = sum(sum(v.values()) for v in conf.values())
     # a filter told nothing but the gamma of a flat layer sits where the model says; told a boundary, it moves
     f1 = PF.PositionFilter(9000.0, 0.0, 40.0, 60.0, 130.0, 115.0, seed=3)
@@ -16841,6 +16841,176 @@ def section_dw_shadow(tmp: str) -> None:
        "refuses the wrong well; the card, the workspace command and the help page carry it" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
 
 
+def section_dx_third_dimension(tmp: str) -> None:
+    """Section DX - the third dimension of GEA Driller: the directional arithmetic (minimum curvature, the dogleg of a
+    build and a turn, the toolface), the twin in the plan's frame (the turn, the layer as a surface, the corridor,
+    an older five-choice action), the filter's cross dip; the rig side (the bit placed from surveys with azimuths,
+    the twin as the rig publishing the azimuth, a decision with the turn and the toolface, an override with a turn,
+    the limit on both together, the config's refusals, the screen, the help); the policy with six heads holding the
+    corridor on the held-out scenes, and shadow mode judging the turn with the record's azimuth and not without.
+    The sixth choice is where to aim the azimuth (left of the plan, along it, right of it); the tool turns toward it
+    at its own rate, as a directional driller holds the azimuth he is given."""
+    import importlib
+    import math as _m
+    from . import driller_link as DL
+    from . import helplib as H
+    pkg = Path(__file__).parent
+    d = Path(tmp, "dx"); d.mkdir()
+    prog = DL.program()
+    if prog is None:
+        ok(True, "DX the driller's program (gea-driller) is not installed beside GEA in this install; nothing to check here")
+        return
+    if prog["env"] and prog["env"] not in sys.path:
+        sys.path.insert(0, prog["env"])
+    T = importlib.import_module("gea_driller.twin"); G = importlib.import_module("gea_driller.geometry"); PF = importlib.import_module("gea_driller.position")
+    P = importlib.import_module("gea_driller.policy"); A = importlib.import_module("gea_driller.advisor"); C = importlib.import_module("gea_driller.config")
+    S = importlib.import_module("gea_driller.service"); R = importlib.import_module("gea_driller.rig"); SH = importlib.import_module("gea_driller.shadow")
+    np_ = importlib.import_module("numpy")
+    # -- DX1 the arithmetic, the twin, the filter -----------------------------------------------------------------------------
+    dn, de, dv, dl = G.min_curvature(90.0, 30.0, 90.0, 30.0, 1000.0)
+    _, _, dv_b, dl_b = G.min_curvature(90.0, 0.0, 91.5, 0.0, 100.0)
+    _, _, _, dl_t = G.min_curvature(90.0, 0.0, 90.0, 2.0, 100.0)
+    _, _, _, dl_t60 = G.min_curvature(60.0, 0.0, 60.0, 2.0, 100.0)
+    lh = T.Lateral(T.Scene(3)); lh.reset(); lt = T.Lateral(T.Scene(3)); lt.reset(); l5 = T.Lateral(T.Scene(3)); l5.reset()
+    for _ in range(8):
+        lh.step(T.HOLD_ACTION); lt.step((2, 1, 1, 1, 0, 2)); l5.step((2, 1, 1, 1, 0))
+    sc = T.Scene(3)
+    cross = (sc.layer_top(500.0, 100.0) - sc.layer_top(500.0, 0.0)) - 100.0 * _m.tan(_m.radians(sc.cross_dip_deg))
+    # a hole aimed right of the plan and never brought back leaves the corridor and is lost
+    lw = T.Lateral(T.Scene(9)); lw.scene.corridor_ft = 50.0; lw.reset()
+    while not lw.done and lw.steps < 400:
+        lw.step((2, 1, 1, 1, 0, 2))
+    try:
+        T.full_action((1, 2, 3)); short_refused = False
+    except ValueError:
+        short_refused = True
+    # the filter: with a cross dip in the model, the top moves with the offset; the cross dip is read only across the plan line
+    f_along = PF.PositionFilter(9000.0, 0.0, 40.0, 60.0, 130.0, 115.0, seed=3, model_cross_dip_deg=2.0)
+    f_across = PF.PositionFilter(9000.0, 0.0, 40.0, 60.0, 130.0, 115.0, seed=3, model_cross_dip_deg=2.0)
+    for k in range(40):
+        f_along.predict(30.0, 0.0); f_along.update(9020.0, 60.0)                      # along the plan: the gamma in the layer, nothing learnt of the cross dip
+        f_across.predict(0.0, 10.0); f_across.update(9020.0 + 10.0 * (k + 1) * _m.tan(_m.radians(1.0)), 62.0, 4.0)   # across: the top tracks a real cross dip of 1 degree, the tool says so
+    e_along = f_along.estimate(9020.0); e_across = f_across.estimate(9020.0 + 400.0 * _m.tan(_m.radians(1.0)))
+    top_shift = float(f_along.model_top(0.0, 100.0) - f_along.model_top(0.0, 0.0))
+    c1 = {
+        "straight": abs(dn - 1000.0 * _m.cos(_m.radians(30.0))) < 1e-6 and abs(de - 500.0) < 1e-6 and abs(dv) < 1e-6 and abs(dl) < 1e-9,
+        "dogleg": abs(dl_b - 1.5) < 1e-9 and abs(dl_t - 2.0) < 1e-6 and abs(dl_t60 - 2.0 * _m.sin(_m.radians(60.0))) < 0.02 and abs(dv_b + 100.0 * _m.sin(_m.radians(0.75))) < 0.05,
+        "toolface": abs(G.toolface_of(1.5, 0.0, 90.0)) < 1e-9 and abs(G.toolface_of(0.0, 2.0, 90.0) - 90.0) < 1e-9 and abs(G.toolface_of(-1.5, 0.0, 90.0) - 180.0) < 1e-9
+                    and abs(G.toolface_of(0.0, -2.0, 90.0) - 270.0) < 1e-9 and abs(G.dls_of(3.0, 4.0, 90.0) - 5.0) < 1e-9,
+        "turns": lt.az > lh.az + 1.5 and lt.y > lh.y + 5.0 and 2.5 < lt.az - lh.az < 6.0 and abs(T.turn_toward(4.0, 0.0) - 2.0) < 1e-9 and abs(T.turn_toward(0.0, 0.5) + 0.75) < 1e-9,
+        "surface": abs(cross) < 1.0 + sc.und_amp and T.Scene(1).cross_dip_deg != T.Scene(2).cross_dip_deg and "cross_dip_deg" in sc.describe() and "corridor_ft" in sc.describe(),
+        "lost": lw.done and lw.ended == "outside the corridor" and lw.summary()["lost"] and lw.max_offset > lw.scene.corridor_ft + T.CORRIDOR_END_FT and any("outside the corridor" in e for e in lw.events),
+        "five_choices": abs(l5.az - lh.az) < 1e-9 and abs(l5.y - lh.y) < 1e-9 and short_refused and len(T.ACTION_SIZES) == 6 and T.ACTION_NAMES[-1] == "aim",
+        "obs": len(T.OBS_NAMES) == T.OBS_SIZE == 34 == lt.observe().shape[0] and all(np_.isfinite(lt.observe())) and "offset_right_of_plan" in T.OBS_NAMES,
+        "filter": abs(top_shift - 100.0 * _m.tan(_m.radians(2.0))) < 1e-9 and abs(e_along["cross_dip_deg"] - 2.0) < 0.3 and e_along["cross_dip_sigma"] > 0.3
+                  and abs(e_across["cross_dip_deg"] - 1.0) < 0.6 and e_across["cross_dip_sigma"] < e_along["cross_dip_sigma"],
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "DX1 minimum curvature lands a straight hole 30° off the plan where the sine says, a build's dogleg is the build and a turn's counts by the inclination's sine, "
+       "the toolface of a build is up and of a turn is right; in the twin an aim right of the plan turns the hole toward it at the tool's rate and swings it to the "
+       "right, the layer's top moves across the plan line by the cross dip, a hole aimed out of the corridor is lost and says so, a five-choice action is taken aimed "
+       "along the plan and a shorter one refused, "
+       "the observation is 34 named and finite; the filter moves the model's top by its cross dip and reads the cross dip only across the plan line"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+    # -- DX2 the rig side --------------------------------------------------------------------------------------------------------
+    shipped = P.Policy.load(S.SHIPPED_POLICY)
+    cfg = json.loads(json.dumps(C.EXAMPLE)); cfg["output"]["dir"] = str(d / "rig"); cfg["status"]["port"] = 0; cfg["status"]["bind"] = "127.0.0.1"
+    cfg["rig"]["transport"] = "sim"; cfg["model"]["plan_azimuth_deg"] = 40.0; cfg["model"]["corridor_ft"] = 120.0; cfg["model"]["cross_dip_deg"] = 1.0
+    cfg = C.check(cfg)
+    heel_tvd0 = float(cfg["model"]["heel_tvd_ft"])                    # the twin as the rig rewrites the model block in place below
+    try:
+        C.check(json.loads(json.dumps(cfg)) | {"model": {**cfg["model"], "cross_dip_deg": 20.0}}); cross_refused = False
+    except C.ConfigError:
+        cross_refused = True
+    try:
+        C.check(json.loads(json.dumps(cfg)) | {"model": {**cfg["model"], "corridor_ft": 2.0}}); corridor_refused = False
+    except C.ConfigError:
+        corridor_refused = True
+    # the bit placed from surveys: a feed that holds 90 degrees at the plan's azimuth plus 30 for 600 ft
+    feed = R.Feed(cfg); feed.state.update({"hole_depth": 10800.0, "gamma": 60.0, "continuous_inc": 90.0, "continuous_azi": 70.0}); feed.last_utc = time.time(); feed.connected = True
+    for md_ in (10200.0, 10290.0, 10380.0, 10470.0, 10560.0, 10650.0):
+        feed.add_survey(md_, 90.0, 70.0, "test")
+    adv = A.Advisor(cfg, shipped, feed, A.Records(cfg))
+    obs_, ctx = adv.observation(feed.snapshot())
+    rec = adv.decide(feed.snapshot())
+    words_turn = adv._words(1.5, 25.0, 120.0, 500.0, "drill", {"inc": 90.0, "bed": 0.1, "balling": 0.0, "plan_az": 40.0}, {}, 2.0)
+    words_aim = adv._words(1.5, 25.0, 120.0, 500.0, "drill", {"inc": 90.0, "bed": 0.1, "balling": 0.0, "plan_az": 40.0}, {}, 2.0, 4.0)
+    words_hold = adv._words(0.0, 25.0, 120.0, 500.0, "drill", {"inc": 90.0, "bed": 0.1, "balling": 0.0, "plan_az": 40.0}, {}, 0.0, 0.0)
+    ov = adv._action_of({"turn_deg_100ft": -2.0, "build_deg_100ft": 1.5}, [2, 1, 1, 1, 0])
+    # the limit holds the build and the turn together: a 4 deg/100 ft limit on a 3 build with a 2 turn clips both
+    cfg_l = json.loads(json.dumps(cfg)); cfg_l["limits"]["max_dls_deg_100ft"] = 3.0
+    adv_l = A.Advisor(C.check(cfg_l), shipped, feed, A.Records(cfg_l))
+    rl = adv_l.decide(feed.snapshot())
+    # the twin as the rig publishes the azimuth and the plan view has what it needs
+    drl = S.Driller(cfg, policy=shipped, twin_seed=11, twin_pace_s=0.5)
+    drl.start()
+    try:
+        t_end = time.monotonic() + 20
+        while time.monotonic() < t_end and len(drl.advisor.history) < 2:
+            time.sleep(0.2)
+        live = drl.live(); snap = drl.feed.snapshot()
+        import urllib.request
+        with urllib.request.urlopen(drl.url + "/live", timeout=5) as r_:
+            screen = r_.read().decode("utf-8")
+        cur = dict(drl.advisor.history[-1]) if drl.advisor.history else None
+    finally:
+        drl.stop()
+    sv_text = Path(cfg["output"]["dir"], "surveys.csv").read_text(encoding="utf-8")
+    c2 = {
+        "placed": abs(ctx["vs"] - 600.0 * _m.cos(_m.radians(30.0))) < 0.5 and abs(ctx["y"] - 600.0 * _m.sin(_m.radians(30.0))) < 0.5 and abs(ctx["az"] - 30.0) < 1e-9
+                  and abs(ctx["tvd"] - heel_tvd0) < 0.5 and ctx["corridor"] == 120.0 and obs_.shape[0] == T.OBS_SIZE and abs(obs_[29] * 50.0 - ctx["y"]) < 1e-6,
+        "decision": rec is not None and rec["recommend"].get("aim_deg") in T.AIM_CHOICES and abs(rec["recommend"]["turn_deg_100ft"]) <= T.TURN_RATE + 1e-9
+                    and abs(rec["recommend"]["turn_deg_100ft"] - T.turn_toward(rec["recommend"]["aim_deg"], 30.0)) < 1e-6 and rec["recommend"]["steer_az"] in ("hold", "turn right", "turn left")
+                    and abs(rec["recommend"]["aim_azimuth_deg"] - (40.0 + rec["recommend"]["aim_deg"])) < 1e-9
+                    and 0.0 <= rec["recommend"]["toolface_deg"] < 360.0 and any("plan line" in r_ for r_ in rec["reasons"]) and "aim" in " ".join(rec["reasons"]) and len(rec["action"]) == 6,
+        "words": "turn right 2.0°/100 ft" in words_turn and "toolface 53°" in words_turn and "Build +1.5" in words_turn and words_hold.startswith("Hold angle and azimuth")
+                 and "aim 4° right of the plan (azimuth 44.0°), turning right 2.0°/100 ft" in words_aim,
+        "override": ov == (3, 1, 1, 1, 0, 0),
+        "limit": rl is not None and G.dls_of(rl["recommend"]["build_deg_100ft"], rl["recommend"]["turn_deg_100ft"], 90.0) <= 3.0 + 1e-9,
+        "refusals": cross_refused and corridor_refused,
+        "twin_rig": snap["state"].get("continuous_azi") is not None and live["plan_azimuth_deg"] is not None and live["model"]["corridor_ft"] > 0 and live["path"] and "y" in live["path"][-1]
+                    and live["advisor"]["position"] is not None and "true_y" in live["twin"] and cur is not None and "turn_deg_100ft" in cur["recommend"]
+                    and all(s_.get("azi") is not None for s_ in snap["surveys"]),
+        "screen": "The plan view" in screen and "drawPlan" in screen and "turn_deg_100ft" in screen and "off the plan line" in screen and 'placeholder="aim' in screen,
+        "surveys_file": "azimuth_deg" in sv_text.splitlines()[0] and len(sv_text.splitlines()) >= 2 and sv_text.splitlines()[1].split(",")[2] not in ("", "0.00"),
+        "help": not H.check("driller") and "The third dimension" in (pkg / "help" / "driller.md").read_text(encoding="utf-8") and "plan view" in (pkg / "help" / "tutorial" / "28-driller-office.md").read_text(encoding="utf-8"),
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "DX2 the advisor places the bit from surveys 30° off the plan where the arithmetic says (along, right, depth), a decision carries the aim, the turn it asks "
+       "from where the hole points and the toolface, with the azimuth and the corridor among its reasons, the words name a build and an aim as one toolface, an "
+       "override takes the aim or the turn made, the DLS limit "
+       "holds the build and the turn together, a cross dip and a corridor out of range are refused, the twin as the rig publishes the azimuth and surveys with it, "
+       "the screen carries the plan view, and the help and the tutorial say so" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+    # -- DX3 the policy and shadow mode -------------------------------------------------------------------------------------------
+    ev = P.evaluate(P.policy_act_fn(shipped), range(20), "agent"); tb = P.evaluate(T.textbook_action, range(20), "textbook")
+    lat_az = str(d / "lat_az.csv"); lat_no = str(d / "lat_no.csv")
+    info = SH.twin_lateral(lat_az, seed=5, act_fn=P.policy_act_fn(shipped)); SH.twin_lateral(lat_no, seed=5, act_fn=P.policy_act_fn(shipped), with_azimuth=False)
+    sc5 = info["scene"]
+    model5 = {"layer_top_tvd_ft": sc5["layer_top_heel_ft"], "thickness_ft": sc5["thickness_ft"], "dip_deg": sc5["dip_deg"], "cross_dip_deg": sc5["cross_dip_deg"],
+              "gamma_in": sc5["gamma_in_above_below"][0], "gamma_above": sc5["gamma_in_above_below"][1], "gamma_below": sc5["gamma_in_above_below"][2],
+              "heel_md_ft": info["heel_md"], "plan_azimuth_deg": sc5["plan_azimuth_deg"], "corridor_ft": sc5["corridor_ft"]}
+    r_az = SH.run(lat_az, shipped, model=model5, out_dir=str(d / "sh_az"), well="Twin 5"); r_no = SH.run(lat_no, shipped, model=model5, well="Twin 5")
+    md_az = Path(r_az["paths"]["md"]).read_text(encoding="utf-8")
+    c3 = {
+        "heads": list(shipped.to_json()["action_sizes"]) == list(T.ACTION_SIZES) and shipped.to_json()["obs_size"] == 34 and int(shipped.meta.get("trained_steps", 0)) >= 1000000,
+        "corridor": ev["corridor_pct"] >= 90.0 and ev["lost"] == 0 and ev["max_offset_ft"] < 200.0,
+        "textbook_corridor": tb["corridor_pct"] >= 95.0 and tb["lost"] == 0,
+        "layer": ev["in_layer_pct"] > tb["in_layer_pct"] and ev["reward"] > tb["reward"],
+        "shadow_turn": r_az["summary"]["azimuth_in_record"] and r_az["summary"]["turn_agree_pct"] is not None and r_az["summary"]["turn_agree_pct"] >= 30.0
+                       and (r_az["summary"]["turn_oppose_pct"] or 0.0) <= 30.0 and "The turn (right, hold or left" in md_az,
+        "shadow_without": not r_no["summary"]["azimuth_in_record"] and r_no["summary"]["turn_agree_pct"] is None and all(x["actual"]["turn"] is None for x in r_no["decisions"]),
+        "model_through": r_az["model"]["plan_azimuth_deg"] == sc5["plan_azimuth_deg"] and r_az["model"]["cross_dip_deg"] == sc5["cross_dip_deg"],
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       f"DX3 the shipped policy has six heads over 34 observations; on twenty held-out scenes it keeps {ev['corridor_pct']:.0f}% of the hole in the corridor "
+       f"(none lost, {ev['in_layer_pct']:.0f}% in the layer against the textbook's {tb['in_layer_pct']:.0f}%, SIMULATION) and the textbook holds the corridor; shadow mode "
+       f"judges the turn from a record with the azimuth ({r_az['summary']['turn_agree_pct'] or 0:.0f}% agreeing) and leaves it unjudged without one, and a given model's "
+       "plan azimuth and cross dip go through" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -16971,6 +17141,7 @@ def main() -> int:
         section_du_tutorial(tmp)
         section_dv_driller(tmp)
         section_dw_shadow(tmp)
+        section_dx_third_dimension(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:
