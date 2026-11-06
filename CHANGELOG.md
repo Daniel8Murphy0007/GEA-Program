@@ -5,6 +5,59 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.81.0] - 2026-11-06 - GEA Driller: the vibration index from the feed
+
+### Added
+- **The vibration index from the feed** (`driller/gea_driller/vibration.py`).
+  A rig without a downhole vibration tool left the agent blind to the
+  stick-slip and the whirl it was trained to ease, and the closed loop's
+  vibration limit could never trip. The rig PC now reads an index off the
+  surface channels every EDR sends: over the last minute
+  (`rig.vibration_window_s`), the surface torque's RMS about its mean as
+  a fraction of the mean - the measure the Drill string page calls the
+  oscillation index - times root two for the amplitude, and the same of
+  the weight on bit and the hook load; stick-slip is the torque amplitude
+  over 0.4, lateral vibration the weight amplitude over 0.2 (the twin's
+  scale, where 1.2 is the limit), and the index is the larger. The
+  downhole tool's item (WITS 0830) is taken instead whenever it comes;
+  every decision records which it read, the screen's tile says so, the
+  reasons name the kind and the swing, and the limit disarms the loop on
+  either. A surface proxy, labelled.
+- The twin emits the surface channels as a rig would - the torque swinging
+  with its stick-slip (an amplitude of 0.4 x the index), the rotary speed
+  a little with it, the weight and the hook load with the lateral
+  vibration (0.2 x), the standpipe pressure with its ripple, each with
+  the sensor's noise - ten frames a step; the twin as the rig publishes
+  them and no downhole index unless `rig.vibration_tool` says the string
+  has one, so the office sees the derived index as the rig PC would. The
+  feed keeps the minute's window (`hookload` joins the fields).
+- Shadow mode: the lateral file GEA writes from a drilling-recorder export
+  carries, per foot, the surface channels' mean and RMS over the seconds
+  of that foot (`torque_mean`, `torque_rms`, `wob_…`, `hkld_…`, `rpm_…`,
+  `spp_…`); the replay reads the index off them at every decision, the
+  report and the card say how often it stood over the limit and how often
+  the advisor asked for less weight or more speed there than the record
+  used; a record without torque or weight statistics says so. The twin's
+  lateral file carries the statistics too, so the replay is proven
+  against a lateral whose vibration is known.
+- The drilling recorder's self-test export carries a stretch of stick-slip
+  in its lateral (the torque swinging ±60% with an eight-second period).
+
+### Acceptance
+- Section DY (3 checks): the index itself (a steady feed reads near zero,
+  a torque swinging ±48% reads the limit, a weight swinging ±24% reads it
+  as lateral, the statistics path equals the samples path, a window
+  without torque or weight reads nothing, pooled statistics); on the twin
+  the derived index tracks the twin's own over twenty scenes (correlation
+  above 0.95, the limit's crossings agreeing); the rig side (the twin as
+  the rig publishes the surface channels and no downhole index, the
+  advisor reads the derived one and says so, the downhole item wins when
+  it comes, a feed with neither reads none and says so, the loop disarms
+  on the derived index, the screen, the help); GEA's side (the lateral
+  file from the self-test export with the statistics, the replay reading
+  the stick-slip stretch over the limit and the advisor easing there, a
+  record without the statistics unjudged, the card).
+
 ## [v0.80.0] - 2026-11-06 - GEA Driller: the third dimension
 
 ### Added

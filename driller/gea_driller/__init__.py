@@ -6,4 +6,4 @@ lateral (the formation, the steering tool, the bit, the hydraulics, the hole), r
 own feed, recommending in operational units - and, when an operator arms it for a section, commanding a rotary
 steerable system through a downlink port that ships disconnected. Feeds GEA-Program."""
 NAME = "GEA Driller"
-__version__ = "0.80.0"
+__version__ = "0.81.0"

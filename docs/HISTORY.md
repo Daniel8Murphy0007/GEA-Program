@@ -4,6 +4,13 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.81.0 - 2026-11-06 - the vibration index from the feed
+
+- A vibration index read off the surface torque, weight and hook load
+  for rigs without a downhole tool, on the rig PC, in the twin as the rig
+  and in shadow mode from the export's seconds; the downhole item wins
+  when it comes, and the record says which. Section DY; gate 556.
+
 ## v0.80.0 - 2026-11-06 - the third dimension
 
 - The driller's agent in three dimensions: the lateral's azimuth and the

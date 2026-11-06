@@ -21,6 +21,11 @@ the config's model carries the plan's azimuth, the layer's cross dip, the corrid
 leave the hole on each side of the plan line, and where the heel sits across it. The screen draws the plan view
 under the section.
 
+The vibration the agent reasons from (since 0.81.0) comes from the downhole tool's item when the EDR sends one, and
+otherwise is read off the surface channels every EDR sends - the torque's, the weight's and the hook load's
+oscillation over the last minute, scaled onto the index the agent was trained with. The screen and the record say
+which it was; it is a surface proxy, calibrated on the twin, and labelled so.
+
 The agent is a reinforcement-learning policy - a small neural network trained by proximal policy optimization in a
 physics twin of the lateral: a target layer whose top is a surface rolling with its dip along the plan and across
 it, undulation and faults with a strike; the gamma and the deep-resistivity boundary the near-bit tools read of it; a

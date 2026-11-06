@@ -18,13 +18,14 @@ import time
 from typing import Dict, List, Optional
 
 from . import twin as T
+from . import vibration as V
 
 STANDARD_ITEMS: Dict[str, str] = {
     '0108': 'bit_depth', '0110': 'hole_depth', '0112': 'block_height', '0113': 'rop', '0114': 'hookload', '0116': 'wob',
     '0120': 'rpm', '0121': 'torque', '0123': 'flow_in', '0130': 'spp', '0105': 'rig_date', '0106': 'rig_time',
     '0708': 'survey_md', '0713': 'survey_inc', '0714': 'survey_azi', '0824': 'gamma', '0825': 'deep_res_dist', '0830': 'vibration', '0831': 'continuous_inc', '0832': 'continuous_azi',
 }
-FIELDS = ('bit_depth', 'hole_depth', 'rop', 'wob', 'rpm', 'torque', 'flow_in', 'spp', 'gamma', 'deep_res_dist', 'vibration', 'continuous_inc', 'continuous_azi', 'ecd')
+FIELDS = ('bit_depth', 'hole_depth', 'rop', 'wob', 'rpm', 'torque', 'hookload', 'flow_in', 'spp', 'gamma', 'deep_res_dist', 'vibration', 'continuous_inc', 'continuous_azi', 'ecd')
 
 
 class FrameParser:
@@ -62,6 +63,7 @@ class Feed:
         self.error: Optional[str] = None
         self.connected = False
         self.surveys: List[dict] = []
+        self.window = V.Window(float((cfg.get('rig') or {}).get('vibration_window_s') or V.WINDOW_S))   # the surface channels for the derived vibration index
         self.lock = threading.Lock()
         self._stop = threading.Event()
         self.thread: Optional[threading.Thread] = None
@@ -80,7 +82,13 @@ class Feed:
     def snapshot(self) -> dict:
         with self.lock:
             return {'state': dict(self.state), 'last_utc': self.last_utc, 'frames': self.frames, 'error': self.error, 'connected': self.connected,
-                    'age_s': (time.time() - self.last_utc) if self.last_utc else None, 'surveys': list(self.surveys[-3:]), 'n_surveys': len(self.surveys)}
+                    'age_s': (time.time() - self.last_utc) if self.last_utc else None, 'surveys': list(self.surveys[-3:]), 'n_surveys': len(self.surveys),
+                    'vibration': self.window.current(), 'window_n': len(self.window)}
+
+    def _sample(self, t: float) -> None:
+        """The frame's surface channels into the vibration window (under the lock)."""
+        st = self.state
+        self.window.append(t, torque=st.get('torque'), rpm=st.get('rpm'), wob=st.get('wob'), hkld=st.get('hookload'), spp=st.get('spp'))
 
     def latest_survey(self) -> Optional[dict]:
         with self.lock:
@@ -140,6 +148,7 @@ class Wits0Feed(Feed):
                 elif name == 'survey_azi':
                     self._sv_azi = v
             self.frames += 1; self.last_utc = t
+            self._sample(t)
         md = getattr(self, '_sv_md', None); inc = getattr(self, '_sv_inc', None); azi = getattr(self, '_sv_azi', None)
         if md is not None and inc is not None:
             self.add_survey(md, inc, azi, 'wits0')
@@ -179,13 +188,18 @@ class TwinFeed(Feed):
     """The twin as the rig, for the office: it drills one 30-ft step every `pace_s` seconds under the action the
     driller's program hands it (the agent's when armed, the accepted recommendation otherwise, the last one until
     then), and reports what a rig would - depths, the gamma at the bit, the deep-resistivity distance when the
-    scene has the tool, the vibration index, the continuous inclination and azimuth, a survey every 90 ft."""
+    scene has the tool, the continuous inclination and azimuth, a survey every 90 ft - and, ten frames a step, the
+    surface channels (torque, rotary speed, weight, hook load, standpipe pressure) swinging as the step's vibration
+    swings them, so the derived vibration index can be read off the twin as off a rig. The twin's own vibration index
+    is published as the vendor's item only when the config says the string has the tool (`rig.vibration_tool`)."""
 
     def __init__(self, cfg: dict, seed: int = 7, pace_s: float = 3.0):
         super().__init__(cfg)
         self.scene = T.Scene(seed, length_ft=float(cfg['model'].get('lateral_length_ft', 4000.0)))
         self.lat = T.Lateral(self.scene)
         self.pace_s = float(pace_s)
+        self.frames_per_step = 10                              # frames a step; the window's minute spans one step of the twin
+        self.vibration_tool = bool(cfg['rig'].get('vibration_tool', False))
         self.action = T.HOLD_ACTION
         self.heel_md = float(cfg['model'].get('heel_md_ft', 10200.0))
         self.obs = self.lat.reset()
@@ -211,20 +225,27 @@ class TwinFeed(Feed):
     def _publish(self) -> None:
         lat = self.lat; s = self.scene
         deep, have = s.deep_distance(lat.vs, lat.tvd, lat.r, lat.y)
+        smp = lat.surface_sample()
         with self.lock:
             self.state.update({'bit_depth': self.heel_md + lat.footage, 'hole_depth': self.heel_md + lat.footage, 'rop': lat.rop,
-                               'wob': T.WOB_CHOICES[self.action[1]], 'rpm': T.RPM_CHOICES[self.action[2]], 'flow_in': T.FLOW_CHOICES[self.action[3]],
-                               'torque': 8.0 + 0.1 * lat.dp, 'spp': 2800.0 + lat.dp, 'gamma': lat.gammas[-1], 'deep_res_dist': deep if have else None,
-                               'vibration': lat.vib, 'continuous_inc': lat.incl, 'continuous_azi': self._az(), 'ecd': lat.ecd})
+                               'wob': smp['wob'], 'rpm': smp['rpm'], 'flow_in': T.FLOW_CHOICES[self.action[3]], 'hookload': smp['hookload'],
+                               'torque': smp['torque'], 'spp': smp['spp'], 'gamma': lat.gammas[-1], 'deep_res_dist': deep if have else None,
+                               'vibration': (lat.vib if self.vibration_tool else None), 'continuous_inc': lat.incl, 'continuous_azi': self._az(), 'ecd': lat.ecd})
             self.frames += 1; self.last_utc = time.time()
+            self._sample(self.frames * self.window.window_s / self.frames_per_step)       # the twin's clock: a step is the window's minute
 
     def _run(self) -> None:
         next_survey = self.heel_md + 90.0
+        k = 0
         while not self._stop.is_set():
-            if self._stop.wait(self.pace_s):
+            if self._stop.wait(self.pace_s / self.frames_per_step):
                 break
             if self.lat.done:
                 self.error = f'the twin finished: {self.lat.ended}'
+                continue
+            k += 1
+            if k % self.frames_per_step:
+                self._publish()                                 # a frame between steps: the surface channels swinging, the hole where it was
                 continue
             with self.lock:
                 a = self.action

@@ -144,6 +144,8 @@ class Driller:
                'rig': snap['state'], 'n_surveys': snap['n_surveys'], 'path': self.path_points(), 'model': {k: v for k, v in self.cfg['model'].items() if k != 'note'},
                'limits': {k: v for k, v in self.cfg['limits'].items() if k != 'note'}, 'current': st['current'], 'advisor': st, 'uptime_s': time.time() - self.t_started,
                'plan_azimuth_deg': self.advisor.plan_az}
+        v_idx, v_src, v_parts = self.advisor.vibration_of(snap)
+        out['vibration'] = {'index': v_idx, 'source': v_src, 'parts': v_parts, 'derived': snap.get('vibration'), 'window_n': snap.get('window_n', 0)}
         if isinstance(self.feed, _rig.TwinFeed):
             s = self.feed.lat.summary()
             out['twin'] = {'seed': self.feed.scene.seed, 'in_layer_pct': s['in_layer_pct'], 'sweet_pct': s['sweet_pct'], 'days': s['days'], 'events': s['events'][-5:], 'ended': s['ended'],

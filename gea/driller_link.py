@@ -281,6 +281,11 @@ def wells_with_records(ws) -> List[dict]:
 # -- shadow mode: a drilled well of this workspace replayed through the advisor ---------------------------------------------
 
 LATERAL_COLUMNS = ('md_ft', 'tvd_ft', 'gamma_api', 'wob_klb', 'rpm', 'flow_gpm', 'rop_ft_hr', 'spp_psi', 'hours')
+# per foot, the surface channels' mean and RMS about it over the seconds since the foot before (since 0.81.0): what the
+# driller's vibration index is read off when the string had no downhole tool - the same names the driller's program reads
+LATERAL_STATS = ('torque_mean', 'torque_rms', 'rpm_mean', 'rpm_rms', 'wob_mean', 'wob_rms', 'hkld_mean', 'hkld_rms', 'spp_mean', 'spp_rms')
+_STAT_CH = {'torque': 'torque', 'rpm': 'rpm', 'wob': 'wob', 'hkld': 'hkld', 'spp': 'spp'}
+_STAT_MIN = 5                     # seconds of a foot at least; the index pools the feet of a decision
 
 
 def lateral_from_edr(ws, well_id: str, out_csv: str) -> dict:
@@ -296,7 +301,7 @@ def lateral_from_edr(ws, well_id: str, out_csv: str) -> dict:
     if not src or not E.is_edr(src):
         raise ValueError(f"{well_id} has no drilling-recorder export (an EDR CSV) under its sources")
     st = E.read(src)
-    ch = {k: E._ch(st, k) for k in ('hole', 'tvd', 'gamma', 'wob', 'rpm', 'flow', 'rop', 'spp', 'onb')}
+    ch = {k: E._ch(st, k) for k in ('hole', 'tvd', 'gamma', 'wob', 'rpm', 'flow', 'rop', 'spp', 'onb', 'torque', 'hkld')}
     hole = ch['hole']
     if hole is None or ch['tvd'] is None:
         raise ValueError('the export carries no hole depth or no interpolated TVD; the lateral cannot be placed')
@@ -308,32 +313,47 @@ def lateral_from_edr(ws, well_id: str, out_csv: str) -> dict:
     n = len(hole)
     rows = []
     seen = set(); g_acc = []
+    s_acc = {k: [] for k in _STAT_CH}
     for i in range(n):
         h = hole[i]
         if h is None or (isinstance(h, float) and (h != h)) or not keep_h[i]:
             continue
         if ch['gamma'] is not None and not (ch['gamma'][i] != ch['gamma'][i]):
             g_acc.append(float(ch['gamma'][i]))
+        for k, c in _STAT_CH.items():
+            v = _v(ch[c], i)
+            if v == v:                                               # not NaN
+                s_acc[k].append(v)
         foot = int(h)
         if foot in seen:
             continue
         seen.add(foot)
         tvd = ch['tvd'][i]
-        rows.append({'md_ft': float(h), 'tvd_ft': float(tvd) if not (tvd != tvd) else float('nan'),
-                     'gamma_api': float(sorted(g_acc)[len(g_acc) // 2]) if g_acc else float('nan'),
-                     'wob_klb': _v(ch['wob'], i), 'rpm': _v(ch['rpm'], i), 'flow_gpm': _v(ch['flow'], i), 'rop_ft_hr': _v(ch['rop'], i), 'spp_psi': _v(ch['spp'], i),
-                     'hours': float(secs[i]) / 3600.0})
-        g_acc = []
+        row = {'md_ft': float(h), 'tvd_ft': float(tvd) if not (tvd != tvd) else float('nan'),
+               'gamma_api': float(sorted(g_acc)[len(g_acc) // 2]) if g_acc else float('nan'),
+               'wob_klb': _v(ch['wob'], i), 'rpm': _v(ch['rpm'], i), 'flow_gpm': _v(ch['flow'], i), 'rop_ft_hr': _v(ch['rop'], i), 'spp_psi': _v(ch['spp'], i),
+               'hours': float(secs[i]) / 3600.0}
+        for k in _STAT_CH:
+            a = s_acc[k]
+            if len(a) >= _STAT_MIN:
+                m = sum(a) / len(a)
+                row[f'{k}_mean'] = m; row[f'{k}_rms'] = (sum((x - m) ** 2 for x in a) / len(a)) ** 0.5
+            else:
+                row[f'{k}_mean'] = float('nan'); row[f'{k}_rms'] = float('nan')
+        rows.append(row)
+        g_acc = []; s_acc = {k: [] for k in _STAT_CH}
     if len(rows) < 100:
         raise ValueError(f'the export yields only {len(rows)} feet of new hole; a lateral is thousands')
     rows.sort(key=lambda r: r['md_ft'])
     os.makedirs(os.path.dirname(out_csv), exist_ok=True)
+    cols = list(LATERAL_COLUMNS) + list(LATERAL_STATS)
     with open(out_csv, 'w', encoding='utf-8', newline='') as f:
-        w = _csv.DictWriter(f, fieldnames=list(LATERAL_COLUMNS)); w.writeheader()
+        w = _csv.DictWriter(f, fieldnames=cols); w.writeheader()
         for r in rows:
-            w.writerow({c: ('' if (isinstance(r[c], float) and r[c] != r[c]) or r[c] is None else f'{r[c]:.3f}') for c in LATERAL_COLUMNS})
+            w.writerow({c: ('' if (isinstance(r[c], float) and r[c] != r[c]) or r[c] is None else f'{r[c]:.3f}') for c in cols})
     rows.sort(key=lambda r: r['md_ft'])
     return {'rows': len(rows), 'source': src, 'md_from': rows[0]['md_ft'], 'md_to': rows[-1]['md_ft'], 'gamma_rows': sum(1 for r in rows if r['gamma_api'] == r['gamma_api']),
+            'vibration_rows': sum(1 for r in rows if r['torque_mean'] == r['torque_mean'] or r['wob_mean'] == r['wob_mean']),
             'seconds': int(n), 'excluded_rows': int((~keep_h).sum()), 'depth_events': {k: len(v) for k, v in de.items() if isinstance(v, list)}}
 
 

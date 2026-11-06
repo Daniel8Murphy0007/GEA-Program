@@ -748,8 +748,10 @@ def selftest(tmp: str, rows_per_section: int = 3000) -> dict:
                 if on:
                     depth += 600.0 / 3600.0                     # 600 ft/h while on bottom (a self-test cadence, not a rig's)
                 tvd = depth if depth < 2000.0 else 2000.0 + (depth - 2000.0) * 0.02   # a lateral past 2,000 ft
+                # a stretch of stick-slip in the lateral: the surface torque swinging ±60% with an eight-second period (since 0.81.0)
+                tq = 10.0 * (1.0 + 0.6 * math.sin(2 * math.pi * i / 8.0)) if (s == 2 and 1000 <= i < 2000 and on) else 10.0
                 row = [t.strftime('%Y/%m/%d'), t.strftime('%H:%M:%S'), f'{depth:.1f}', f'{depth - (0 if on else 30):.1f}', '600.00' if on else '0.00',
-                       '20.0' if on else '0.0', '60.00' if on else '0.00', '2500.00', '150.0', '400.00', '500.00', '50.00', '10.000', str(on),
+                       '20.0' if on else '0.0', '60.00' if on else '0.00', '2500.00', '150.0', '400.00', '500.00', '50.00', f'{tq:.3f}', str(on),
                        '-999.25' if s == 0 else f'{(45.0 if depth < 2300.0 else 115.0) + (i % 7):.2f}', '100', '0.00' if i % 500 == 0 else '45.00', '' if (i % 10 == 0) else f'{tvd:.2f}']
                 w.writerow(row); t += timedelta(seconds=1)
     st = read(p)

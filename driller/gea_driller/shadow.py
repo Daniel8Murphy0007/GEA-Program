@@ -24,6 +24,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from . import __version__, config as _config, twin as T
+from . import vibration as V
 from .advisor import Advisor, Records
 from .geometry import wrap180
 from .policy import Policy
@@ -31,7 +32,8 @@ from .rig import Feed
 
 LABEL = 'SHADOW MODE'
 COLUMNS = ('md_ft', 'tvd_ft', 'gamma_api', 'wob_klb', 'rpm', 'flow_gpm', 'rop_ft_hr', 'spp_psi', 'hours')
-OPTIONAL_COLUMNS = ('azimuth_deg',)                     # the hole's azimuth when the record carries it (since 0.80.0)
+OPTIONAL_COLUMNS = ('azimuth_deg',) + V.STATS           # the hole's azimuth (since 0.80.0) and, per foot, the surface channels' mean and RMS about it
+                                                        # (torque kft.lb, rpm, weight klb, hook load klb, standpipe psi; since 0.81.0), when the record carries them
 
 
 # -- the lateral file --------------------------------------------------------------------------------------------------------
@@ -171,14 +173,32 @@ class ShadowFeed(Feed):
         self.lat = lat; self.heel = heel; self.i = heel
         self.inc = inclination(lat['md_ft'], lat['tvd_ft'])
         self.az = fill_azimuth(lat['md_ft'], lat['azimuth_deg']) if has_azimuth(lat) else None
+        self.has_stats = has_stats(lat)
+        self.vib: Optional[dict] = None
         self.connected = True
         self.set_index(heel)
+
+    def vibration_at(self, i: int, back_ft: float = 30.0) -> Optional[dict]:
+        """The index derived from the record's per-foot statistics over the last `back_ft` of hole."""
+        if not self.has_stats:
+            return None
+        l = self.lat
+        j0 = int(np.searchsorted(l['md_ft'], l['md_ft'][i] - back_ft))
+        rows = [{k: l[k][j] for k in V.STATS} for j in range(max(self.heel, j0), i + 1)]
+        rows = [r for r in rows if any(not np.isnan(r[k]) for k in V.STATS)]
+        return V.index_from_stats(V.combine_stats(rows)) if rows else None
+
+    def snapshot(self) -> dict:
+        snap = super().snapshot()
+        snap['vibration'] = self.vib
+        return snap
 
     def set_index(self, i: int) -> None:
         self.i = int(i)
         l = self.lat
         g = l['gamma_api'][max(self.heel, self.i - 10):self.i + 1]
         g = g[~np.isnan(g)]
+        self.vib = self.vibration_at(self.i)
         with self.lock:
             self.state.update({'bit_depth': float(l['md_ft'][self.i]), 'hole_depth': float(l['md_ft'][self.i]), 'rop': _f(l['rop_ft_hr'][self.i]), 'wob': _f(l['wob_klb'][self.i]),
                                'rpm': _f(l['rpm'][self.i]), 'flow_in': _f(l['flow_gpm'][self.i]), 'spp': _f(l['spp_psi'][self.i]), 'gamma': float(np.median(g)) if len(g) else None,
@@ -213,6 +233,15 @@ def fill_azimuth(md: np.ndarray, az: np.ndarray) -> np.ndarray:
         rad = np.radians(a[~bad])
         a[bad] = np.degrees(np.arctan2(np.interp(md[bad], md[~bad], np.sin(rad)), np.interp(md[bad], md[~bad], np.cos(rad)))) % 360.0
     return a
+
+
+def has_stats(lat: Dict[str, np.ndarray]) -> bool:
+    """Whether the record carries the surface channels' statistics the vibration index needs (the torque's or the weight's)."""
+    for ch in ('torque', 'wob'):
+        m = lat.get(f'{ch}_mean'); r = lat.get(f'{ch}_rms')
+        if m is not None and r is not None and int((~np.isnan(m) & ~np.isnan(r)).sum()) >= 10:
+            return True
+    return False
 
 
 def actual_turn(md: np.ndarray, az: Optional[np.ndarray], i: int, ahead_ft: float = 90.0) -> Optional[float]:
@@ -284,6 +313,7 @@ def run(lateral_csv: str, policy: Policy, model: Optional[dict] = None, out_dir:
              'recommended': {'build': r['build_deg_100ft'], 'steer': r['steer'], 'turn': r.get('turn_deg_100ft', 0.0), 'steer_az': r.get('steer_az', 'hold'), 'wob': r['wob_klb'], 'rpm': r['rpm'], 'flow': r['flow_gpm'], 'conditioning': r['conditioning'], 'words': r['words']},
              'actual': {'build': a_build, 'turn': a_turn, 'wob': a_wob, 'rpm': a_rpm, 'flow': a_flow, 'rop': a_rop},
              'estimate': {k: rec['context']['estimate'][k] for k in ('p_in', 'p_above', 'p_below', 'd_top', 'd_base', 'sigma')} if rec.get('context', {}).get('estimate') else None,
+             'vibration': (rec['context'].get('vibration') if feed.has_stats else None), 'vibration_kind': ((rec['context'].get('vibration_parts') or {}).get('kind') if feed.has_stats else None),
              'confidence': rec['confidence']}
         # agreement on the steer: build, hold or drop, with a dead band of half a degree per hundred feet on the record
         if a_build is not None:
@@ -335,6 +365,12 @@ def run(lateral_csv: str, policy: Policy, model: Optional[dict] = None, out_dir:
         'advisor_steered_record_held_pct': 100.0 * sum(1 for d in with_build if d['steer_pair'].endswith('/hold') and not d['steer_pair'].startswith('hold')) / max(len(with_build), 1),
         'record_steered_advisor_held_pct': 100.0 * sum(1 for d in with_build if d['steer_pair'].startswith('hold/') and not d['steer_pair'].endswith('/hold')) / max(len(with_build), 1),
         'azimuth_in_record': az is not None,
+        'vibration_in_record': feed.has_stats,
+        'vibration_over_limit_pct': (100.0 * sum(1 for d in decisions if d['vibration'] is not None and d['vibration'] > float(cfg['limits']['vibration_index'])) / max(n_d, 1)) if feed.has_stats else None,
+        'vibration_mean': (float(np.mean([d['vibration'] for d in decisions if d['vibration'] is not None])) if any(d['vibration'] is not None for d in decisions) else None) if feed.has_stats else None,
+        'eased_when_over_pct': (lambda over: (100.0 * sum(1 for d in over if (d['actual']['wob'] is not None and d['recommended']['wob'] < d['actual']['wob'] - 1.0)
+                                                           or (d['actual']['rpm'] is not None and d['recommended']['rpm'] > d['actual']['rpm'] + 5.0)) / len(over)) if over else None)(
+            [d for d in decisions if d['vibration'] is not None and d['vibration'] > float(cfg['limits']['vibration_index'])]) if feed.has_stats else None,
         'turn_agree_pct': (100.0 * sum(d['turn_agrees'] for d in with_turn) / max(len(with_turn), 1)) if with_turn else None,
         'turn_oppose_pct': (100.0 * sum(d['turn_opposes'] for d in with_turn) / max(len(with_turn), 1)) if with_turn else None,
         'wob_agree_pct': 100.0 * sum(d['wob_agrees'] for d in decisions) / max(n_d, 1),
@@ -419,6 +455,9 @@ def report_md(result: dict) -> str:
           else "| The turn | the record carries no azimuth | |"),
          f"| Weight on bit (within 25%) | {s['wob_agree_pct']:.0f}% | |", f"| Rotary speed (within 25%) | {s['rpm_agree_pct']:.0f}% | |", f"| Flow (within 20%) | {s['flow_agree_pct']:.0f}% | |", '',
          'Advisor/record pairs: ' + ', '.join(f"{k} {v}" for k, v in s['steer_pairs'].items()) + '.', '',
+         (f"The vibration index read off the record's surface torque, weight and hook load (a surface proxy) averaged {s['vibration_mean'] or 0:.2f} and stood over the limit at "
+          f"{s['vibration_over_limit_pct']:.0f}% of the decisions" + (f"; there the advisor asked for less weight or more speed than the record used {s['eased_when_over_pct']:.0f}% of the time" if s.get('eased_when_over_pct') is not None else '') + '.'
+          if s.get('vibration_in_record') else "The record carries no surface torque or weight statistics, so no vibration index was read; the advisor saw none."), '',
          f"The advisor asked for conditioning {s['conditioning_calls']} time(s). Its weight averaged {s['recommended_wob_mean']:.0f} klb against the record's {s['actual_wob_mean'] or 0:.0f}; "
          f"its speed {s['recommended_rpm_mean']:.0f} rpm against {s['actual_rpm_mean'] or 0:.0f}; the record's rate averaged {s['mean_actual_rop'] or 0:.0f} ft/h.", '',
          '## The exits', '',
@@ -430,14 +469,14 @@ def report_md(result: dict) -> str:
         for x in result['exits'][:40]:
             L.append(f"| {x['from_md']:,.0f} | {x['to_md']:,.0f} | {x['decisions_out']} | {x['layer_is']} | {'yes' if x['advisor_called_at_first_reading'] else 'no'} | {'yes' if x['advisor_called_before'] else 'no'} | {'yes' if x['driller_corrected_at_first_reading'] else 'no'} | {x['advisor_words']} |")
         L.append('')
-    L += ['## The decisions', '', '| MD | Gamma | Filter in | Advisor | Record built | WOB rec/act | rpm rec/act | flow rec/act |', '|---|---|---|---|---|---|---|---|']
+    L += ['## The decisions', '', '| MD | Gamma | Filter in | Vib | Advisor | Record built | WOB rec/act | rpm rec/act | flow rec/act |', '|---|---|---|---|---|---|---|---|---|']
     for d in result['decisions'][:600]:
         a = d['actual']; r = d['recommended']; est = d['estimate'] or {}
         fmt = lambda v, p: '—' if v is None else f'{v:{p}}'
-        L.append(f"| {d['md']:,.0f} | {fmt(d['gamma'], '.0f')} | {est.get('p_in', 0):.0%} | {r['steer']} {r['build']:+.1f} | {fmt(a['build'], '+.1f')} | "
+        L.append(f"| {d['md']:,.0f} | {fmt(d['gamma'], '.0f')} | {est.get('p_in', 0):.0%} | {fmt(d.get('vibration'), '.2f')} | {r['steer']} {r['build']:+.1f} | {fmt(a['build'], '+.1f')} | "
                  f"{r['wob']:.0f}/{fmt(a['wob'], '.0f')} | {r['rpm']:.0f}/{fmt(a['rpm'], '.0f')} | {r['flow']:.0f}/{fmt(a['flow'], '.0f')} |")
     if len(result['decisions']) > 600:
-        L.append(f"| … | | | {len(result['decisions']) - 600} more in the JSON | | | | |")
+        L.append(f"| … | | | | {len(result['decisions']) - 600} more in the JSON | | | | |")
     L += ['', f"{LABEL}. Nothing here touched the well. The lateral file: `{os.path.basename(result['lateral_file'])}`."]
     return '\n'.join(L)
 
@@ -490,10 +529,10 @@ def write_report(result: dict, out_dir: str) -> dict:
 
 # -- a lateral from the twin, for the self-test ---------------------------------------------------------------------------------
 
-def twin_lateral(path: str, seed: int = 4, act_fn=None, with_azimuth: bool = True) -> dict:
+def twin_lateral(path: str, seed: int = 4, act_fn=None, with_azimuth: bool = True, with_stats: bool = True) -> dict:
     """A lateral CSV drilled in the twin by the textbook driller (or the given policy), one row per foot (with the
-    azimuth, unless asked without, as an older recorder's export would come), so the replay can be proven against a
-    lateral whose layer is known."""
+    azimuth and the surface channels' statistics per foot, unless asked without, as an older recorder's export would
+    come), so the replay can be proven against a lateral whose layer and whose vibration are known."""
     sc = T.Scene(seed); lat = T.Lateral(sc); o = lat.reset()
     act = act_fn or T.textbook_action
     rows: List[dict] = []
@@ -511,8 +550,13 @@ def twin_lateral(path: str, seed: int = 4, act_fn=None, with_azimuth: bool = Tru
             f = (k + 1) / n_ft
             vs = vs0 + (lat.vs - vs0) * f; tvd = tvd0 + (lat.tvd - tvd0) * f; y = y0 + (lat.y - y0) * f
             md_step += T.STEP_FT / n_ft
-            rows.append({'md_ft': heel_md + md_step, 'tvd_ft': tvd, 'gamma_api': sc.gamma(vs, tvd, rng, y), 'wob_klb': info['wob'], 'rpm': info['rpm'], 'flow_gpm': info['flow'],
-                         'rop_ft_hr': info['rop'], 'spp_psi': 2800.0 + info['dp'], 'hours': hours + info['hours'] * f, 'azimuth_deg': (sc.plan_azimuth + az0 + (lat.az - az0) * f) % 360.0})
+            row = {'md_ft': heel_md + md_step, 'tvd_ft': tvd, 'gamma_api': sc.gamma(vs, tvd, rng, y), 'wob_klb': info['wob'], 'rpm': info['rpm'], 'flow_gpm': info['flow'],
+                   'rop_ft_hr': info['rop'], 'spp_psi': 2800.0 + info['dp'], 'hours': hours + info['hours'] * f, 'azimuth_deg': (sc.plan_azimuth + az0 + (lat.az - az0) * f) % 360.0}
+            if with_stats:
+                smp = [lat.surface_sample(rng) for _ in range(20)]       # the seconds of this foot at the surface
+                row.update(V.stats({'torque': [x['torque'] for x in smp], 'rpm': [x['rpm'] for x in smp], 'wob': [x['wob'] for x in smp], 'hkld': [x['hookload'] for x in smp], 'spp': [x['spp'] for x in smp]}))
+                row['true_vibration'] = lat.vib
+            rows.append(row)
         hours += info['hours']
     # a vertical-ish approach above the heel, so the heel finder has something to find
     pre = [{'md_ft': heel_md - 300 + k, 'tvd_ft': rows[0]['tvd_ft'] - sum(math.cos(math.radians(45 + 45 * kk / 300.0)) for kk in range(k, 300)), 'gamma_api': sc.g_above + rng.normal(0, 5),
@@ -520,5 +564,6 @@ def twin_lateral(path: str, seed: int = 4, act_fn=None, with_azimuth: bool = Tru
     if not with_azimuth:
         for r_ in pre + rows:
             r_.pop('azimuth_deg', None)
+    true_vib = [(r_['md_ft'], r_.pop('true_vibration')) for r_ in rows if 'true_vibration' in r_]
     write_lateral(path, pre + rows)
-    return {'scene': sc.describe(), 'summary': lat.summary(), 'rows': len(pre) + len(rows), 'heel_md': heel_md}
+    return {'scene': sc.describe(), 'summary': lat.summary(), 'rows': len(pre) + len(rows), 'heel_md': heel_md, 'true_vibration': true_vib}

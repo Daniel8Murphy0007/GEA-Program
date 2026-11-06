@@ -16566,6 +16566,7 @@ def section_dv_driller(tmp: str) -> None:
             time.sleep(0.2)
         s_ov, _ = call("/api/answer", {"what": "override", "by": "tester", "note": "held", "override": {"build_deg_100ft": 0.0, "wob_klb": 25}})
         md = drl.feed.snapshot()["state"]["hole_depth"]
+        drl.cfg["limits"]["vibration_index"] = 5.0                       # the section's end alone ends this arming: the vibration index the feed now derives (0.81.0) may cross 1.2 in the shale
         s_long, _ = call("/api/arm", {"by": "tester", "to_md": md + 5000})
         s_arm, armed = call("/api/arm", {"by": "tester", "to_md": md + 150})
         t_end = time.monotonic() + 30
@@ -17011,6 +17012,179 @@ def section_dx_third_dimension(tmp: str) -> None:
        "plan azimuth and cross dip go through" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_dy_vibration(tmp: str) -> None:
+    """Section DY - the vibration index from the feed: the index off the surface channels (a steady feed near zero, a
+    torque swinging as the twin's limit swings it reading the limit, a weight swinging reading lateral, the statistics
+    path equal to the samples path, pooled statistics, a window without torque or weight reading nothing); on the twin
+    the derived index tracking the twin's own; the rig side (the twin as the rig publishing the surface channels and
+    no downhole index, the advisor reading the derived one and saying so, the downhole item winning, a feed with
+    neither reading none, the loop disarming on the derived index, the screen, the help); GEA's side (the lateral
+    file from the self-test export with the statistics, the replay reading the stick-slip stretch over the limit
+    and the advisor easing there, a record without the statistics unjudged, the card)."""
+    import http.cookiejar
+    import importlib
+    import math as _m
+    import urllib.error
+    import urllib.request
+    from . import driller_link as DL
+    from . import edr as E
+    from . import helplib as H
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "dy"); d.mkdir()
+    prog = DL.program()
+    if prog is None:
+        ok(True, "DY the driller's program (gea-driller) is not installed beside GEA in this install; nothing to check here")
+        return
+    if prog["env"] and prog["env"] not in sys.path:
+        sys.path.insert(0, prog["env"])
+    T = importlib.import_module("gea_driller.twin"); V = importlib.import_module("gea_driller.vibration"); P = importlib.import_module("gea_driller.policy")
+    A = importlib.import_module("gea_driller.advisor"); C = importlib.import_module("gea_driller.config"); S = importlib.import_module("gea_driller.service")
+    R = importlib.import_module("gea_driller.rig"); SH = importlib.import_module("gea_driller.shadow")
+    np_ = importlib.import_module("numpy")
+    # -- DY1 the index --------------------------------------------------------------------------------------------------------
+    tt = np_.arange(60)
+    steady = {"torque": 10 + 0.02 * np_.sin(tt), "rpm": 120 + 0 * tt, "wob": 25 + 0.05 * np_.cos(tt), "hkld": 175 - 0.05 * np_.cos(tt), "spp": 2800 + 0 * tt}
+    ss = {"torque": 10 * (1 + 0.48 * np_.sin(2 * _m.pi * tt / 8)), "rpm": 120 + 0 * tt, "wob": 25 + 0 * tt, "hkld": 175 + 0 * tt, "spp": 2800 + 0 * tt}
+    lat = {"torque": 10 + 0 * tt, "rpm": 120 + 0 * tt, "wob": 25 * (1 + 0.24 * np_.sin(2 * _m.pi * tt / 5)), "hkld": 175 - 25 * 0.24 * np_.sin(2 * _m.pi * tt / 5), "spp": 2800 + 0 * tt}
+    v0 = V.index(steady); v1 = V.index(ss); v2 = V.index(lat)
+    v1s = V.index_from_stats(V.stats(ss))
+    pooled = V.index_from_stats(V.combine_stats([V.stats({k: v[:30] for k, v in ss.items()}), V.stats({k: v[30:] for k, v in ss.items()})]))
+    none = V.index({"rpm": 120 + 0 * tt, "spp": 2800 + 0 * tt})
+    short = V.index({k: v[:5] for k, v in ss.items()})
+    # on the twin: the derived index against the twin's own, step by step over twenty scenes
+    tr, de = [], []
+    for sd in range(20):
+        lt = T.Lateral(T.Scene(sd)); o = lt.reset()
+        while not lt.done:
+            o, _, _, inf = lt.step(T.textbook_action(o))
+            if inf.get("conditioning") != "drill":
+                continue
+            smp = [lt.surface_sample() for _ in range(20)]
+            v = V.index({"torque": [x["torque"] for x in smp], "rpm": [x["rpm"] for x in smp], "wob": [x["wob"] for x in smp], "hkld": [x["hookload"] for x in smp], "spp": [x["spp"] for x in smp]})
+            tr.append(lt.vib); de.append(v["index"])
+    tr_, de_ = np_.array(tr), np_.array(de)
+    corr = float(np_.corrcoef(tr_, de_)[0, 1]); agree = float(((tr_ > T.VIB_LIMIT) == (de_ > T.VIB_LIMIT)).mean())
+    c1 = {
+        "steady": v0 is not None and v0["index"] < 0.1,
+        "stick_slip": v1 is not None and abs(v1["index"] - 1.2) < 0.08 and v1["kind"] == "stick-slip" and abs(v1["torque_amplitude"] - 0.48) < 0.03,
+        "lateral": v2 is not None and abs(v2["index"] - 1.2) < 0.1 and v2["kind"] == "lateral" and v2["stick_slip"] < 0.1,
+        "paths": v1s["index"] == v1["index"] and abs(pooled["index"] - v1["index"]) < 0.08,
+        "nothing": none is None and short is None,
+        "twin": len(tr) > 1500 and corr > 0.95 and agree >= 0.95 and float(np_.median(np_.abs(tr_ - de_))) < 0.05,
+        "words": "stick-slip" in V.words(v1, 1.2) and "over the limit" in V.words(v1, 1.0) and "over the limit" not in V.words(v0, 1.2),
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       f"DY1 the vibration index off the surface channels: a steady feed reads {v0['index'] if v0 else 'none'}, a torque swinging ±48% reads {v1['index'] if v1 else 'none'} as stick-slip, "
+       f"a weight swinging ±24% reads {v2['index'] if v2 else 'none'} as lateral, the statistics path equals the samples path and pooled windows agree, a window without torque "
+       f"or weight reads nothing; on twenty twin scenes the derived index tracks the twin's own (correlation {corr:.3f}, the limit's crossings agreeing {100 * agree:.0f}%, "
+       "SIMULATION - the twin's calibration, not a string's)" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+    # -- DY2 the rig side ---------------------------------------------------------------------------------------------------------
+    shipped = P.Policy.load(S.SHIPPED_POLICY)
+    cfg = json.loads(json.dumps(C.EXAMPLE)); cfg["output"]["dir"] = str(d / "rig"); cfg["status"]["port"] = 0; cfg["status"]["bind"] = "127.0.0.1"
+    cfg["rig"]["transport"] = "sim"; cfg["closed_loop"]["allowed"] = True; cfg["closed_loop"]["stale_s"] = 30
+    cfg = C.check(cfg)
+    try:
+        C.check(json.loads(json.dumps(cfg)) | {"rig": {**cfg["rig"], "vibration_window_s": 2}}); win_refused = False
+    except C.ConfigError:
+        win_refused = True
+    drl = S.Driller(cfg, policy=shipped, twin_seed=11, twin_pace_s=0.6)
+    drl.start()
+    try:
+        t_end = time.monotonic() + 25
+        while time.monotonic() < t_end and len(drl.advisor.history) < 3:
+            time.sleep(0.2)
+        snap = drl.feed.snapshot(); live = drl.live()
+        cur = dict(drl.advisor.history[-1]) if drl.advisor.history else None
+        md = snap["state"].get("hole_depth")
+        rq = urllib.request.Request(drl.url + "/api/arm", data=json.dumps({"by": "tester", "to_md": md + 400}).encode(), headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(rq, timeout=5) as r_:
+            armed = json.load(r_)
+        drl.cfg["limits"]["vibration_index"] = 0.01                      # the limit lowered under the loop: the derived index crosses it at the next look
+        t_end = time.monotonic() + 8
+        while time.monotonic() < t_end and drl.advisor.armed is not None:
+            time.sleep(0.2)
+        drl.cfg["limits"]["vibration_index"] = 1.2
+        last = drl.advisor.arm_log[-1]
+        with urllib.request.urlopen(drl.url + "/live", timeout=5) as r_:
+            screen = r_.read().decode("utf-8")
+    finally:
+        drl.stop()
+    # the downhole item wins; a feed with neither reads none
+    feed = R.Feed(cfg); feed.state.update({"hole_depth": 10500.0, "gamma": 60.0, "continuous_inc": 90.0, "vibration": 1.7}); feed.last_utc = time.time(); feed.connected = True
+    for k in range(30):
+        feed.window.append(float(k), torque=10 * (1 + 0.1 * _m.sin(k)), rpm=120.0, wob=25.0, hkld=175.0, spp=2800.0)
+    v_tool = A.Advisor.vibration_of(feed.snapshot())
+    feed.state["vibration"] = None
+    v_der = A.Advisor.vibration_of(feed.snapshot())
+    feed2 = R.Feed(cfg); feed2.state.update({"hole_depth": 10500.0, "gamma": 60.0}); feed2.last_utc = time.time(); feed2.connected = True
+    v_none = A.Advisor.vibration_of(feed2.snapshot())
+    adv2 = A.Advisor(cfg, shipped, feed2, A.Records(json.loads(json.dumps(cfg)) | {"output": {"dir": str(d / "rig2")}}))
+    rec2 = adv2.decide(feed2.snapshot())
+    decs = [json.loads(l) for l in open(d / "rig" / "decisions.jsonl", encoding="utf-8")]
+    c2 = {
+        "twin_rig": snap["state"].get("torque") is not None and snap["state"].get("hookload") is not None and snap["state"].get("vibration") is None and snap.get("vibration") is not None
+                    and snap["vibration"]["index"] > 0 and snap.get("window_n", 0) >= 10 and abs(snap["vibration"]["index"] - drl.feed.lat.vib) < 0.25,
+        "advisor": cur is not None and cur["context"]["vibration_source"] == V.SOURCE and cur["context"]["vibration"] > 0 and any("derived from the surface data" in r_ for r_ in cur["reasons"])
+                   and live["vibration"]["source"] == V.SOURCE and live["vibration"]["parts"]["kind"] in ("stick-slip", "lateral"),
+        "wins": v_tool[0] == 1.7 and v_tool[1] == "the downhole tool" and v_der[1] == V.SOURCE and 0 < v_der[0] < 1.0,
+        "none": v_none[0] == 0.0 and v_none[1].startswith("none") and rec2 is not None and any("vibration unread" in r_ for r_ in rec2["reasons"]),
+        "disarms": armed.get("ok") and last["event"] == "disarmed" and "vibration" in last["reason"] and "surface data" in last["reason"],
+        "records": any((x.get("context") or {}).get("vibration_source") == V.SOURCE for x in decs),
+        "screen": "from surface data" in screen and "downhole tool" in screen,
+        "refusal": win_refused,
+        "help": not H.check("driller") and "The vibration index from the feed" in (pkg / "help" / "driller.md").read_text(encoding="utf-8")
+                and "surface" in (pkg / "help" / "tutorial" / "29-driller-rig.md").read_text(encoding="utf-8"),
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "DY2 the twin as the rig publishes the surface torque, weight and hook load and no downhole index; the feed's window gives the derived index close to the "
+       "twin's own, the advisor reads it and says so in its reasons, the records and the screen; the downhole tool's item wins when it comes, a feed with neither "
+       "reads none and says so; the closed loop disarms on the derived index crossing the limit; a window too short is refused; the help and the tutorial say so"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+    # -- DY3 GEA's side: the lateral file with the statistics, the replay over the limit, the card ---------------------------------------
+    ws = Workspace.create(str(d / "ws"), "Pad 3 vibration", actor="tester")
+    exp = E.selftest(str(d), 3000)
+    w = ws.add_well_file(exp["path"], display="Well EDR", actor="tester")
+    lat_csv = str(d / "lat.csv")
+    info = DL.lateral_from_edr(ws, w["id"], lat_csv)
+    head = Path(lat_csv).read_text(encoding="utf-8").splitlines()[0].split(",")
+    rec = DL.shadow(ws, w["id"], actor="tester")
+    sm = rec["summary"]
+    # the twin's lateral with and without the statistics
+    tw_csv = str(d / "tw.csv"); tw_no = str(d / "tw_no.csv")
+    tinfo = SH.twin_lateral(tw_csv, seed=5, act_fn=P.policy_act_fn(shipped)); SH.twin_lateral(tw_no, seed=5, act_fn=P.policy_act_fn(shipped), with_stats=False)
+    r_tw = SH.run(tw_csv, shipped, well="Twin 5"); r_no = SH.run(tw_no, shipped, well="Twin 5")
+    tv = dict(tinfo["true_vibration"]); mds = np_.array(sorted(tv))
+    tvv = np_.array([tv[m_] for m_ in mds])
+    def true_over(md_):                                           # the twin's own index averaged over the 30 ft the replay's window pooled
+        j0, j1 = int(np_.searchsorted(mds, md_ - 30.0)), int(np_.searchsorted(mds, md_, side="right"))
+        return float(tvv[j0:j1].mean()) if j1 > j0 else float("nan")
+    pairs = np_.array([(x["vibration"], true_over(x["md"])) for x in r_tw["decisions"] if x["vibration"] is not None])
+    pairs = pairs[np_.isfinite(pairs[:, 1])]
+    corr_tw = float(np_.corrcoef(pairs[:, 0], pairs[:, 1])[0, 1]) if len(pairs) > 10 else 0.0
+    md_text = Path(ws.reports_dir, rec["report"]["md"]).read_text(encoding="utf-8")
+    app_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c3 = {
+        "lateral_file": all(c in head for c in DL.LATERAL_STATS) and info["vibration_rows"] >= 1000,
+        "over_limit": sm["vibration_in_record"] and sm["vibration_over_limit_pct"] is not None and 5.0 <= sm["vibration_over_limit_pct"] <= 40.0 and sm["vibration_mean"] > 0.3
+                      and sm["eased_when_over_pct"] is not None and sm["eased_when_over_pct"] >= 50.0,
+        "report": "stood over the limit" in md_text and "| Vib |" in md_text,
+        "twin_lateral": r_tw["summary"]["vibration_in_record"] and len(pairs) > 50 and corr_tw > 0.7 and float(np_.median(np_.abs(pairs[:, 0] - pairs[:, 1]))) < 0.12,
+        "without": not r_no["summary"]["vibration_in_record"] and r_no["summary"]["vibration_over_limit_pct"] is None and all(x["vibration"] is None for x in r_no["decisions"]),
+        "selftest_export": any(abs(float(r_.split(",")[12]) - 10.0) > 4.0 for r_ in Path(exp["path"]).read_text(encoding="utf-8").splitlines()[1:] if r_.split(",")[12] not in ("",)),
+        "card": "Vibration over limit" in app_src and "eased" in app_src,
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       f"DY3 GEA's lateral file carries the surface channels' statistics per foot ({info['vibration_rows']} feet of them from the self-test export), the replay reads the "
+       f"stick-slip stretch over the limit at {sm['vibration_over_limit_pct'] or 0:.0f}% of the decisions and the advisor eases there {sm['eased_when_over_pct'] or 0:.0f}% of the "
+       f"time, the report says so; on the twin's lateral the replayed index tracks the twin's own (correlation {corr_tw:.2f}); a record without the statistics is unjudged; "
+       "the card carries the column" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -17142,6 +17316,7 @@ def main() -> int:
         section_dv_driller(tmp)
         section_dw_shadow(tmp)
         section_dx_third_dimension(tmp)
+        section_dy_vibration(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

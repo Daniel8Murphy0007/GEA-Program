@@ -22,6 +22,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from . import __version__, twin as T
+from . import vibration as V
 from .geometry import dls_of, min_curvature, toolface_of, wrap180
 from .policy import Policy
 from .position import PositionFilter
@@ -195,7 +196,8 @@ class Advisor:
         self.filter.update(tvd, g, float(deep) if have else None)
         self.est = self.filter.estimate(tvd)
         e = self.est
-        rop = float(st.get('rop') or 0.0); vib = float(st.get('vibration') or 0.0)
+        rop = float(st.get('rop') or 0.0)
+        vib, vib_source, vib_parts = self.vibration_of(snap)
         flow = float(st.get('flow_in') or 500.0); rpm = float(st.get('rpm') or 120.0); wob = float(st.get('wob') or 25.0)
         ecd = float(st['ecd']) if st.get('ecd') is not None else float(lim['mud_weight_ppg']) + 0.4 * (flow / 500.0) ** 2 + 0.8 * self.bed
         dp = max(0.0, float(st.get('spp') or 2800.0) - 2800.0) if st.get('spp') is not None else 170.0 * (wob / 25.0)
@@ -209,9 +211,22 @@ class Advisor:
             az / 5.0, y / 50.0, (corridor - abs(y)) / 50.0, float(m.get('cross_dip_deg') or 0.0) / 2.0, self.last_aim / 4.0, e['cross_dip_deg'] / 2.0], dtype=np.float64)
         ctx = {'md': md, 'vs': vs, 'y': y, 'tvd': tvd, 'inc': inc, 'az': az, 'az_abs': float(az_abs), 'plan_az': self.plan_az, 'corridor': corridor,
                'model_top': model_top, 'model_base': model_top + float(m['thickness_ft']), 'gamma': g, 'trend': trend, 'estimate': dict(e),
-               'deep': deep if have else None, 'belief': belief, 'rop': rop, 'vibration': vib, 'ecd': ecd, 'dp': dp, 'wob': wob, 'rpm': rpm, 'flow': flow,
+               'deep': deep if have else None, 'belief': belief, 'rop': rop, 'vibration': vib, 'vibration_source': vib_source, 'vibration_parts': vib_parts,
+               'ecd': ecd, 'dp': dp, 'wob': wob, 'rpm': rpm, 'flow': flow,
                'bed': self.bed, 'balling': self.balling, 'wear': self.wear}
         return obs, ctx
+
+    @staticmethod
+    def vibration_of(snap: dict) -> Tuple[float, str, Optional[dict]]:
+        """The vibration index the agent reads: the downhole tool's item when the feed carries it, else the one
+        derived from the surface channels over the last minute, else nothing (zero, and said so)."""
+        st = snap['state']
+        if st.get('vibration') is not None:
+            return float(st['vibration']), 'the downhole tool', None
+        d = snap.get('vibration')
+        if d is not None:
+            return float(d['index']), V.SOURCE, {k: d.get(k) for k in ('kind', 'stick_slip', 'lateral', 'torque_amplitude', 'wob_amplitude', 'rpm_amplitude', 'spp_ripple')}
+        return 0.0, 'none: no downhole tool and no surface torque or weight in the feed', None
 
     def _position_at_bit(self, md: float, inc_now: float, az_now: float) -> dict:
         """The bit in the plan's frame - along the plan, right of the plan line, TVD - by minimum curvature through
@@ -280,7 +295,7 @@ class Advisor:
                 'words': self._words(build, wob, rpm, flow, cond, ctx, ch, turn, aim),
             },
             'confidence': {k: round(v['confidence'], 3) for k, v in ch.items()}, 'value': round(ex['value'], 2),
-            'reasons': self._reasons(ctx, ch), 'context': {k: (round(v, 2) if isinstance(v, float) else ({kk: round(vv, 3) for kk, vv in v.items()} if isinstance(v, dict) else v)) for k, v in ctx.items()},
+            'reasons': self._reasons(ctx, ch), 'context': {k: (round(v, 2) if isinstance(v, float) else ({kk: (round(vv, 3) if isinstance(vv, float) else vv) for kk, vv in v.items()} if isinstance(v, dict) else v)) for k, v in ctx.items()},
             'action': [ch[n]['index'] for n in T.ACTION_NAMES], 'clipped': clipped, 'answer': None, 'armed': bool(self.armed), 'policy': self.policy.meta.get('trained_utc'),
         }
         with self.lock:
@@ -337,8 +352,13 @@ class Advisor:
             side = 'right' if ctx['y'] > 0 else 'left'
             out.append(f"azimuth {ctx['az_abs']:.1f}° against the plan's {ctx['plan_az']:.1f}° ({ctx['az']:+.1f}°), {abs(ctx['y']):.0f} ft {side} of the plan line in a corridor of ±{ctx['corridor']:.0f} ft"
                        + (f"; the model's cross dip {float(m.get('cross_dip_deg') or 0.0):+.2f}°, the filter's {e['cross_dip_deg']:+.2f}°" if e and abs(float(m.get('cross_dip_deg') or 0.0)) + abs(e.get('cross_dip_deg', 0.0)) > 0.05 else ''))
-        if ctx['vibration'] > float(self.cfg['limits']['vibration_index']):
-            out.append(f"vibration {ctx['vibration']:.2f} over the limit {self.cfg['limits']['vibration_index']}")
+        lim_v = float(self.cfg['limits']['vibration_index'])
+        if ctx.get('vibration_parts'):
+            out.append(V.words({'index': ctx['vibration'], **ctx['vibration_parts']}, lim_v))
+        elif ctx['vibration'] > lim_v:
+            out.append(f"vibration {ctx['vibration']:.2f} ({ctx.get('vibration_source', '')}) over the limit {lim_v:g}")
+        elif ctx.get('vibration_source', '').startswith('none'):
+            out.append("vibration unread: no downhole tool and no surface torque or weight in the feed")
         if ctx['ecd'] > float(self.cfg['limits']['frac_gradient_ppg']) - 0.2:
             out.append(f"ECD {ctx['ecd']:.2f} ppg against the fracture gradient {self.cfg['limits']['frac_gradient_ppg']}")
         out.append(f"confidence: steer {ch['build']['confidence']:.0%}, aim {ch['aim']['confidence']:.0%}, weight {ch['wob']['confidence']:.0%}, speed {ch['rpm']['confidence']:.0%}, flow {ch['flow']['confidence']:.0%}")
@@ -440,8 +460,9 @@ class Advisor:
         md = st.get('hole_depth')
         if md is not None and md >= self.armed['to_md']:
             self.disarm('the armed section is drilled'); return
-        if st.get('vibration') is not None and float(st['vibration']) > float(lim['vibration_index']) * 1.25:
-            self.disarm(f"vibration {st['vibration']:.2f} crossed the limit"); return
+        vib, vib_source, _ = self.vibration_of(snap)
+        if not vib_source.startswith('none') and vib > float(lim['vibration_index']) * 1.25:
+            self.disarm(f"vibration {vib:.2f} ({vib_source}) crossed the limit"); return
         if st.get('ecd') is not None and float(st['ecd']) > float(lim['frac_gradient_ppg']):
             self.disarm(f"ECD {st['ecd']:.2f} crossed the fracture gradient"); return
 

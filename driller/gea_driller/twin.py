@@ -216,6 +216,9 @@ class Lateral:
         self.last_turn = 0.0
         self.rop = 0.0
         self.vib = 0.0
+        self.v_ss = 0.0; self.v_lat = 0.0                # the two faces of it: stick-slip and lateral
+        self.wob = WOB_CHOICES[1]; self.rpm = RPM_CHOICES[1]; self.flow = FLOW_CHOICES[1]
+        self.sample_k = 0
         self.ecd = s.mud_weight
         self.dp = 0.0
         self.gammas: List[float] = [s.gamma(self.vs, self.tvd, self.r, self.y) for _ in range(5)]
@@ -289,7 +292,8 @@ class Lateral:
                 self.bed = max(0.0, self.bed - 0.18 * transport)
                 self.balling = 0.0
                 self.tortuosity = max(0.0, self.tortuosity - 0.2)        # the hole reamed smoother
-            self.rop = 0.0; self.vib = 0.3 * (rpm / 120.0); self.dp = 0.0
+            self.rop = 0.0; self.vib = 0.3 * (rpm / 120.0); self.v_ss = self.vib; self.v_lat = self.vib; self.dp = 0.0
+            self.wob, self.rpm, self.flow = 0.0, rpm, flow
             self.ecd = s.mud_weight + 0.4 * (flow / 500.0) ** 2 + 0.8 * self.bed
             # conditioning a hole that needs it is cheap; conditioning one that does not is rig time thrown away
             reward -= 0.1 if needed else 0.6
@@ -328,7 +332,10 @@ class Lateral:
         # vibration: stick-slip with weight and slow rotation in hard rock, lateral with fast rotation and light weight
         v_ss = 0.75 * (wob / 25.0) ** 1.5 * (120.0 / rpm) ** 0.8 * hard
         v_lat = 0.55 * (rpm / 120.0) ** 2 * (25.0 / wob) ** 0.5
-        self.vib = max(v_ss, v_lat) * self.r.uniform(0.9, 1.15)
+        u = self.r.uniform(0.9, 1.15)
+        self.v_ss = v_ss * u; self.v_lat = v_lat * u
+        self.vib = max(self.v_ss, self.v_lat)
+        self.wob, self.rpm, self.flow = wob, rpm, flow
         # the motor's differential, the hydraulics, the hole
         self.dp = 170.0 * (wob / 25.0) * k * (1.0 + 0.4 * self.balling) * self.r.uniform(0.95, 1.05)
         bed_gain = 0.02 * (rop / 60.0) * (1.0 + 0.5 * max(0.0, self.incl - 88.0) / 4.0)
@@ -406,6 +413,23 @@ class Lateral:
             reward -= 5.0
         info['done'] = self.done; info['ended'] = self.ended
         return self.observe(), float(reward), self.done, info
+
+    def surface_sample(self, r: Optional[np.random.RandomState] = None) -> Dict[str, float]:
+        """What the surface sensors read at one second of this step: the torque swinging with the stick-slip (an
+        amplitude of 0.4 x the stick-slip index), the rotary speed a little with it, the weight on bit and the hook
+        load swinging with the lateral vibration (0.2 x its index), the standpipe pressure with its ripple - each with
+        the sensor's own noise. The feed hands these to the vibration index the rig would derive without a downhole
+        tool."""
+        r = r or self.r
+        self.sample_k += 1
+        ph = 2 * math.pi * self.sample_k / 8.0                       # a period of eight seconds, the string's own
+        tq_mean = 8.0 + 0.1 * self.dp
+        torque = tq_mean * (1.0 + 0.4 * self.v_ss * math.sin(ph) + r.normal(0.0, 0.03))
+        rpm = self.rpm * (1.0 + 0.05 * self.v_ss * math.sin(ph) + r.normal(0.0, 0.01)) if self.rpm else 0.0
+        wob = self.wob * (1.0 + 0.2 * self.v_lat * math.sin(1.7 * ph) + r.normal(0.0, 0.02))
+        hookload = 200.0 - wob + r.normal(0.0, 0.5)
+        spp = 2800.0 + self.dp + r.normal(0.0, 15.0)
+        return {'torque': torque, 'rpm': rpm, 'wob': wob, 'hookload': hookload, 'spp': spp}
 
     def summary(self) -> dict:
         s = self.scene

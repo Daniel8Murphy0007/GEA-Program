@@ -17,8 +17,8 @@ DOWNLINKS = ('null',)
 EXAMPLE: Dict = {
     "site": "Pad 3",
     "well": "Pad 3 H-1",
-    "rig": {"transport": "sim", "host": "10.0.0.5", "port": 5001, "serial": "COM3", "baud": 9600, "items": {}, "sim_follows_agent": True,
-            "note": "the EDR's WITS0 feed: tcp (host, port), serial (the COM port), or sim (the twin runs as the rig, for the office; sim_follows_agent: the twin drills every recommendation as if accepted); items: a rig that numbers the WITS items differently"},
+    "rig": {"transport": "sim", "host": "10.0.0.5", "port": 5001, "serial": "COM3", "baud": 9600, "items": {}, "sim_follows_agent": True, "vibration_window_s": 60.0, "vibration_tool": False,
+            "note": "the EDR's WITS0 feed: tcp (host, port), serial (the COM port), or sim (the twin runs as the rig, for the office; sim_follows_agent: the twin drills every recommendation as if accepted); items: a rig that numbers the WITS items differently; vibration_window_s: the minute of surface torque, weight and hook load the vibration index is read off when the string has no downhole vibration tool (its item 0830 is taken when it comes); vibration_tool: for the twin as the rig, whether it publishes a downhole index"},
     "survey": {"file": "surveys.csv", "note": "measured depth, inclination, azimuth per station as the directional driller keeps them; the continuous inclination item of the feed between stations"},
     "model": {"layer_top_tvd_ft": 9000.0, "thickness_ft": 40.0, "dip_deg": 0.0, "cross_dip_deg": 0.0, "gamma_in": 60.0, "gamma_above": 130.0, "gamma_below": 115.0,
               "deep_resistivity_tool": False, "deep_range_ft": 15.0, "lateral_length_ft": 4000.0, "heel_md_ft": 10200.0, "heel_tvd_ft": 9020.0,
@@ -94,7 +94,9 @@ def check(cfg: dict) -> dict:
     cfg.setdefault('policy', {}).setdefault('file', '')
     cfg.setdefault('survey', {}).setdefault('file', 'surveys.csv')
     m.setdefault('heel_md_ft', 10200.0); m.setdefault('heel_tvd_ft', float(m['layer_top_tvd_ft']) + 0.5 * float(m['thickness_ft']))
-    cfg['rig'].setdefault('sim_follows_agent', True)
+    cfg['rig'].setdefault('sim_follows_agent', True); cfg['rig'].setdefault('vibration_window_s', 60.0); cfg['rig'].setdefault('vibration_tool', False)
+    if not (10.0 <= float(cfg['rig']['vibration_window_s']) <= 600.0):
+        raise ConfigError('rig.vibration_window_s is 10 to 600 seconds')
     st = cfg['status']
     st.setdefault('port', 8790); st.setdefault('bind', '0.0.0.0')
     if not (0 <= int(st['port']) <= 65535):

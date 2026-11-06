@@ -1,19 +1,17 @@
-v0.80.0 — GEA DRILLER: THE THIRD DIMENSION
+v0.81.0 — GEA DRILLER: THE VIBRATION INDEX FROM THE FEED
 
-The lateral has an azimuth. The agent's sixth choice is where to aim it -
-left of the plan, along it, right of it - and its recommendation reads as
-one toolface: "Build +1.5°/100 ft and aim 4° right of the plan (azimuth
-44.0°), turning right 2.0°/100 ft (toolface 53°, 42% steering)".
-The layer is a surface with a dip across the plan line as well as along
-it; the corridor the lease and the offset wells leave the hole on each
-side of the plan line is in the twin and on the screen, which draws the
-plan view under the section. The config's model takes the plan's azimuth,
-the cross dip, the corridor and the heel's offset; the surveys' azimuths
-and the feed's continuous azimuth place the bit. Shadow mode judges the
-turn when the record carries the azimuth. The policy retrained:
-86% of the hole in the layer, 99% in the corridor on the
-held-out scenes (SIMULATION).
+A rig without a downhole vibration tool left the agent blind to the
+stick-slip and the whirl it was trained to ease. The rig PC now reads a
+vibration index off the surface channels every EDR sends - the torque's,
+the weight's and the hook load's oscillation over the last minute, scaled
+onto the index the agent was trained with - and the downhole tool's item
+wins whenever it comes. The screen's tile and every decision say which it
+read; the closed loop's limit trips on either. The twin as the rig emits
+the same surface channels, and shadow mode reads the index off the
+export's seconds, foot by foot, and says how often the record stood over
+the limit and how often the agent would have eased there. A surface
+proxy, labelled.
 
 Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
 
-Acceptance section DX (3 checks); gate 553.
+Acceptance section DY (3 checks); gate 556.

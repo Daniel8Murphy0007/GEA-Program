@@ -3419,3 +3419,36 @@ stability; and motor specifications in the tool catalogue.
   that now, and the tool turns toward it at its own rate; a cost that
   grows toward the corridor's edge and a cost on the azimuth off the plan
   stayed. The textbook holds the corridor to the foot with it.
+
+## 2026-11-06 - the vibration index from the feed (v0.81.0)
+
+- v0.80.0 shipped; the four kits fetched and verified. Daniel: go on
+  with the fourth item. `vibration.py`: the index off the surface
+  channels - the torque's RMS about its mean over the last minute as a
+  fraction of the mean, the same measure the Drill string page's
+  stability test calls the oscillation index, times root two for the
+  amplitude; the weight's and the hook load's the same; stick-slip is the
+  torque amplitude over 0.4 and lateral vibration the weight amplitude
+  over 0.2, the twin's scale, where the twin now swings its surface
+  torque by 0.4 x its stick-slip index and its weight by 0.2 x its
+  lateral index when it emits the surface channels (ten frames a step,
+  the window's minute spanning one step by the twin's own clock). On the
+  twin the derived index tracks the true one within a few hundredths -
+  a self-consistency, said so in the help: the calibration is the twin's,
+  not a string's. The feed keeps the window; the advisor takes the
+  downhole item when it comes, the derived index otherwise, and says
+  which; the loop's limit trips on either (it tripped on nothing before
+  on a rig without the tool). The first run found the context rounding
+  choking on the index's kind, a string among the floats.
+- GEA's lateral file carries the per-foot statistics from the export's
+  seconds (five seconds of a foot at least; the index pools the feet of a
+  decision), and the self-test export has a stick-slip stretch in its
+  lateral so the gate sees the replay read it over the limit - and the
+  agent ease there every time. Section DY (3 checks).
+- The ship stopped on Daniel's gate on DV3 and DV4: the first arming of
+  DV3, meant to end at the section's end, was disarmed by the vibration
+  index the feed now derives - the twin in the shale at the agent's
+  weight crosses 1.5 now and then, which no earlier version could see.
+  The program is right; the check holds the limit out of the way for
+  that arming and lowers it for the next, as it meant to. Re-prepared
+  under the same number; the tag was never made.
