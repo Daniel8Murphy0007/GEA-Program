@@ -276,3 +276,131 @@ def wells_with_records(ws) -> List[dict]:
         if lp:
             out.append({'well': w['id'], 'display': w.get('display', w['id']), 'pulled_utc': lp['pulled_utc'], 'source': lp['source'], 'summary': lp['summary'], 'rig_well': lp.get('rig_well')})
     return out
+
+
+# -- shadow mode: a drilled well of this workspace replayed through the advisor ---------------------------------------------
+
+LATERAL_COLUMNS = ('md_ft', 'tvd_ft', 'gamma_api', 'wob_klb', 'rpm', 'flow_gpm', 'rop_ft_hr', 'spp_psi', 'hours')
+
+
+def lateral_from_edr(ws, well_id: str, out_csv: str) -> dict:
+    """The driller's lateral file from a well's drilling-recorder export: one row per foot of hole made while on
+    bottom - the first second the hole reached that foot - with the gamma as the median of the seconds since the
+    foot before, and the rig's parameters at that second. Written beside the well; the export is read, not copied."""
+    import csv as _csv
+    from . import edr as E
+    well = next((w for w in ws.wells() if w['id'] == well_id), None)
+    if well is None:
+        raise ValueError(f'no well {well_id}')
+    src = next((os.path.join(ws.path, 'wells', well_id, 'source', f) for f in well.get('files', []) if f.lower().endswith('.csv')), None)
+    if not src or not E.is_edr(src):
+        raise ValueError(f"{well_id} has no drilling-recorder export (an EDR CSV) under its sources")
+    st = E.read(src)
+    ch = {k: E._ch(st, k) for k in ('hole', 'tvd', 'gamma', 'wob', 'rpm', 'flow', 'rop', 'spp', 'onb')}
+    hole = ch['hole']
+    if hole is None or ch['tvd'] is None:
+        raise ValueError('the export carries no hole depth or no interpolated TVD; the lateral cannot be placed')
+    # the depth channel read for what it can be trusted for, as the drilling record reads it: a section that opens on
+    # another well's depth, a re-reference, a sidetrack's abandoned hole are left out
+    de = E.depth_events(st)
+    keep_h, _ = E._keep_masks(st, de)
+    secs = st.index
+    n = len(hole)
+    rows = []
+    seen = set(); g_acc = []
+    for i in range(n):
+        h = hole[i]
+        if h is None or (isinstance(h, float) and (h != h)) or not keep_h[i]:
+            continue
+        if ch['gamma'] is not None and not (ch['gamma'][i] != ch['gamma'][i]):
+            g_acc.append(float(ch['gamma'][i]))
+        foot = int(h)
+        if foot in seen:
+            continue
+        seen.add(foot)
+        tvd = ch['tvd'][i]
+        rows.append({'md_ft': float(h), 'tvd_ft': float(tvd) if not (tvd != tvd) else float('nan'),
+                     'gamma_api': float(sorted(g_acc)[len(g_acc) // 2]) if g_acc else float('nan'),
+                     'wob_klb': _v(ch['wob'], i), 'rpm': _v(ch['rpm'], i), 'flow_gpm': _v(ch['flow'], i), 'rop_ft_hr': _v(ch['rop'], i), 'spp_psi': _v(ch['spp'], i),
+                     'hours': float(secs[i]) / 3600.0})
+        g_acc = []
+    if len(rows) < 100:
+        raise ValueError(f'the export yields only {len(rows)} feet of new hole; a lateral is thousands')
+    rows.sort(key=lambda r: r['md_ft'])
+    os.makedirs(os.path.dirname(out_csv), exist_ok=True)
+    with open(out_csv, 'w', encoding='utf-8', newline='') as f:
+        w = _csv.DictWriter(f, fieldnames=list(LATERAL_COLUMNS)); w.writeheader()
+        for r in rows:
+            w.writerow({c: ('' if (isinstance(r[c], float) and r[c] != r[c]) or r[c] is None else f'{r[c]:.3f}') for c in LATERAL_COLUMNS})
+    rows.sort(key=lambda r: r['md_ft'])
+    return {'rows': len(rows), 'source': src, 'md_from': rows[0]['md_ft'], 'md_to': rows[-1]['md_ft'], 'gamma_rows': sum(1 for r in rows if r['gamma_api'] == r['gamma_api']),
+            'seconds': int(n), 'excluded_rows': int((~keep_h).sum()), 'depth_events': {k: len(v) for k, v in de.items() if isinstance(v, list)}}
+
+
+def _v(arr, i):
+    if arr is None:
+        return float('nan')
+    x = arr[i]
+    return float(x) if not (x != x) else float('nan')
+
+
+def shadow(ws, well_id: str, actor: str = 'system', model: Optional[dict] = None, timeout_s: float = 1800.0) -> dict:
+    """SHADOW MODE on a well of this workspace: the lateral file from its export, the driller's own program run
+    on it as a process of its own, the report kept under the well's reports and the summary in the driller folder."""
+    from . import __version__
+    prog = program()
+    if prog is None:
+        raise ValueError("the driller's program (gea-driller) is not installed beside GEA: the kit and the setup carry it")
+    well = next((w for w in ws.wells() if w['id'] == well_id), None)
+    if well is None:
+        raise ValueError(f'no well {well_id}')
+    d = ws.dir('wells', well_id, 'driller')
+    lat_csv = os.path.join(d, 'lateral.csv')
+    lat = lateral_from_edr(ws, well_id, lat_csv)
+    if model is None and os.path.isfile(os.path.join(d, 'model.json')):       # the site's pre-drill model, kept beside the well
+        with open(os.path.join(d, 'model.json'), encoding='utf-8') as f:
+            model = json.load(f)
+        model = model.get('model', model)
+    out = ws.dir('reports', 'wells', well_id, 'driller_shadow')
+    cmd = [sys.executable, '-m', 'gea_driller', 'shadow', '--lateral', lat_csv, '--out', out, '--well', str(well.get('display', well_id)), '--site', str(ws.manifest.get('name') or 'site'), '--json']
+    if model:
+        mp = os.path.join(d, 'model.json')
+        if not os.path.isfile(mp):
+            with open(mp, 'w', encoding='utf-8') as f:
+                json.dump({'model': model}, f, indent=1)
+        cmd += ['--model', mp]
+    env = dict(os.environ)
+    if prog['env']:
+        env['PYTHONPATH'] = prog['env'] + (os.pathsep + env['PYTHONPATH'] if env.get('PYTHONPATH') else '')
+    r = subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=timeout_s)
+    if r.returncode != 0:
+        raise RuntimeError(f"the driller's shadow run failed: {(r.stderr or r.stdout).strip()[-600:]}")
+    res = json.loads(r.stdout)
+    rec = {'well': well_id, 'display': well.get('display', well_id), 'run_utc': res['run_utc'], 'by': actor, 'label': res['label'], 'driller_version': res['version'],
+           'lateral': lat, 'model': res['model'], 'model_derived': res['model_derived'], 'summary': res['summary'], 'exits': res['exits'][:50],
+           'report': {k: os.path.relpath(v, ws.reports_dir) for k, v in res['paths'].items()}, 'gea_version': __version__}
+    with open(os.path.join(d, 'shadow.json'), 'w', encoding='utf-8') as f:
+        json.dump(rec, f, indent=1)
+    ws.audit(actor, 'driller.shadow', {'well': well_id, 'decisions': res['summary']['decisions'], 'steer_agree_pct': round(res['summary']['steer_agree_pct'], 1),
+                                       'model_derived': res['model_derived'], 'label': res['label']}, inputs=[lat['source']])
+    return rec
+
+
+def last_shadow(ws, well_id: str) -> Optional[dict]:
+    p = os.path.join(ws.path, 'wells', well_id, 'driller', 'shadow.json')
+    try:
+        with open(p, encoding='utf-8') as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def shadow_wells(ws) -> List[dict]:
+    """The wells a shadow run can take (a drilling-recorder export among their sources), with the last run if any."""
+    from . import edr as E
+    out = []
+    for w in ws.wells():
+        srcs = [os.path.join(ws.path, 'wells', w['id'], 'source', f) for f in w.get('files', []) if f.lower().endswith('.csv')]
+        if any(os.path.isfile(p) and E.is_edr(p) for p in srcs):
+            out.append({'well': w['id'], 'display': w.get('display', w['id']), 'shadow': last_shadow(ws, w['id'])})
+    return out

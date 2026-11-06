@@ -370,7 +370,7 @@ def main(argv=None) -> int:
     p_ws.add_argument("--path", type=str, required=True, help="the workspace folder")
     p_ws.add_argument("--action", type=str, default="list",
                       choices=["init", "add-file", "add-catalog", "add-live", "remove", "list", "migrate", "refresh", "audit",
-                               "add-seismic", "refresh-seismic", "remove-seismic", "sar-film", "bit-image", "field-pull", "driller-pull", "refresh-all", "add-track", "refresh-track", "remove-track",
+                               "add-seismic", "refresh-seismic", "remove-seismic", "sar-film", "bit-image", "field-pull", "driller-pull", "driller-shadow", "refresh-all", "add-track", "refresh-track", "remove-track",
                                "seismic-dataset", "seismic-field", "add-site", "sites", "site-report", "remove-site", "rename",
                                "set-well", "sra-define", "sra-report", "associate", "osdu-export", "quakeml-export", "well-identity", "vibration-report",
                                "add-live-station", "live-fold", "live-run", "month-end", "add-layer", "layers", "remove-layer", "structure", "interval",
@@ -3563,6 +3563,20 @@ def main(argv=None) -> int:
                 if not a.track:
                     raise SystemExit("remove-track needs --track TRACK_ID")
                 ws.remove_track(a.track, actor=a.actor); print("removed (folder kept):", a.track); return 0
+            elif a.action == "driller-shadow":
+                from . import driller_link as DL
+                if not a.well:
+                    raise SystemExit("driller-shadow needs --well Well-30636033 (a well with a drilling-recorder export)")
+                try:
+                    r = DL.shadow(ws, a.well, actor=a.actor)
+                except (ValueError, RuntimeError) as e:
+                    raise SystemExit(f"driller-shadow: {e}")
+                sm = r['summary']
+                print(f"{r['label']} - {r['display']}: {sm['decisions']} decisions over {sm['lateral_ft']:,.0f} ft of lateral; the steer agrees {sm['steer_agree_pct']:.0f}%, opposes {sm['steer_oppose_pct']:.0f}%; "
+                      f"WOB {sm['wob_agree_pct']:.0f}%, rpm {sm['rpm_agree_pct']:.0f}%, flow {sm['flow_agree_pct']:.0f}%; out by the gamma {sm['out_by_gamma_pct']:.0f}% in {sm['exits']} stretch(es), "
+                      f"the advisor called the way back at the first reading {sm['exits_called_at_first_reading']} time(s); the model {'read off the lateral in hindsight' if r['model_derived'] else 'as given'}; "
+                      f"the report: {r['report']['html']}")
+                return 0
             elif a.action == "driller-pull":
                 from . import driller_link as DL
                 if not a.box or not a.well:

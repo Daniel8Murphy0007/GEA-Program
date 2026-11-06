@@ -3333,3 +3333,41 @@ stability; and motor specifications in the tool catalogue.
 - The bump's `sed 's/0.77.0/0.78.0/g'` had also rewritten the VPN's
   example addresses 10.77.0.x to 10.78.0.x in the README and four help
   pages. Put back; the bump is bounded by non-digits from now on.
+
+## 2026-11-05 - shadow mode (v0.79.0)
+
+- v0.78.1 shipped and fetched. Second in the order: shadow mode on a real
+  well. Pad 3's three wells carry the MWD gamma on most rows of their
+  exports and the recorder's interpolated TVD - laterals of about 16,600
+  ft at 9,000 ft TVD - which is what a replay needs. `shadow.py`: the
+  lateral file, the heel finder, the model read off the gamma in
+  hindsight (the lower mode is the layer; one mode means the rock outside
+  was never read), the replay through the same Advisor with a feed that
+  shows the record only up to the decision, the agreement in build/hold/
+  drop pairs with a dead band on the record, the exits by the gamma's cut
+  and who called the way back first, the report with its drawing. First
+  try on a twin lateral the textbook had drilled badly: the model read
+  off 19% of a hole in the layer was wrong, and a lateral mostly held
+  read as 2% agreement - the pairs table says what the two did instead of
+  one number. GEA writes the lateral file from the export (one row per
+  foot of new hole, the gamma a median of the seconds since the foot
+  before) and runs the driller as a process; a job from the card. The
+  agent replaying its own twin lateral agrees with itself 57%, opposes
+  10%. Section DW (2 checks).
+- Run on Pad 3's first well on Daniel's machine (the figures stay in
+  C:\site): the record, read from the recorder's interpolated TVD, held
+  angle most of the way by a half-degree dead band while the advisor
+  wanted to steer, and the model read off the gamma left the well out of
+  its own layer half the way - the low gamma is not necessarily the
+  target, or the rock changed along the lateral. The report now grades
+  how well a derived model fits (good, fair, poor) and says to give the
+  pre-drill model when it is poor; the card shows the grade.
+- All three Pad 3 wells replayed on Daniel's machine (the figures stay in
+  C:\site). Two things the real records taught the extractor: one export
+  carries a block that opens on another well's depth and the recorder's
+  own depth-event pass (the drilling record's) now keeps it out of the
+  lateral file; another has blank TVD cells at the top of the hole that
+  the fill made flat, and the heel finder reads real cells only. All three
+  grade the gamma-derived model poor - Pad 3 was not steered to the low
+  gamma - so the pre-drill model, kept beside the well as model.json, is
+  what the replay needs there.

@@ -16730,6 +16730,117 @@ def section_dv_driller(tmp: str) -> None:
        "card, the workspace command, the VPN kind, the kit and the workflow, and the help page carry it" + (f" [failed: {', '.join(failed4)}]" if failed4 else ""))
 
 
+def section_dw_shadow(tmp: str) -> None:
+    """Section DW - shadow mode: a drilled lateral replayed through the advisor against the record. A lateral drilled
+    in the twin by the agent itself, written as the driller's lateral file: the heel found below a vertical
+    approach, the model read off the gamma in hindsight close to the twin's own layer, one decision per 30 ft, the
+    agent agreeing with its own record more often than not, the exits the gamma marks called at the first reading,
+    the report in three files labelled SHADOW MODE; in GEA, a drilling-recorder well shadowed as a job from the
+    card, the lateral file written from the export beside the well, the report under the well's reports, the
+    audit line, the refusals and the help."""
+    import http.cookiejar
+    import importlib
+    import urllib.error
+    import urllib.request
+    from . import driller_link as DL
+    from . import edr as E
+    from . import helplib as H
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "dw"); d.mkdir()
+    prog = DL.program()
+    if prog is None:
+        ok(True, "DW the driller's program (gea-driller) is not installed beside GEA in this install; nothing to shadow here")
+        return
+    if prog["env"] and prog["env"] not in sys.path:
+        sys.path.insert(0, prog["env"])
+    SH = importlib.import_module("gea_driller.shadow"); P = importlib.import_module("gea_driller.policy"); S = importlib.import_module("gea_driller.service")
+    np_ = importlib.import_module("numpy")
+    pol = P.Policy.load(S.SHIPPED_POLICY)
+    # -- DW1 the replay on a lateral whose layer is known ------------------------------------------------------------------
+    lat_csv = str(d / "lat.csv")
+    info = SH.twin_lateral(lat_csv, seed=7, act_fn=P.policy_act_fn(pol))
+    lat = SH.read_lateral(lat_csv)
+    heel = SH.find_heel(lat["md_ft"], lat["tvd_ft"])
+    res = SH.run(lat_csv, pol, out_dir=str(d / "out"), well="Twin 7", site="Pad 3 shadow")
+    sc = info["scene"]; m = res["model"]; sm = res["summary"]
+    bad_cols = str(d / "bad.csv")
+    Path(bad_cols).write_text("md_ft,tvd_ft\n1,2\n", encoding="utf-8")
+    try:
+        SH.read_lateral(bad_cols); cols_refused = False
+    except ValueError:
+        cols_refused = True
+    given = SH.run(lat_csv, pol, model={"layer_top_tvd_ft": sc["layer_top_heel_ft"], "thickness_ft": sc["thickness_ft"], "dip_deg": sc["dip_deg"], "gamma_in": sc["gamma_in_above_below"][0],
+                                        "gamma_above": sc["gamma_in_above_below"][1], "gamma_below": sc["gamma_in_above_below"][2], "heel_md_ft": info["heel_md"]}, well="Twin 7")
+    md_text = Path(res["paths"]["md"]).read_text(encoding="utf-8"); html_text = Path(res["paths"]["html"]).read_text(encoding="utf-8")
+    c1 = {
+        "heel": -150.0 <= lat["md_ft"][heel] - info["heel_md"] <= 30.0,          # found in the last of the build, never past the heel
+        "model": abs(m["layer_top_tvd_ft"] - sc["layer_top_heel_ft"]) <= 40.0 and 0.5 <= m["thickness_ft"] / sc["thickness_ft"] <= 1.6 and abs(m["dip_deg"] - sc["dip_deg"]) <= 1.0 and res["model_derived"],
+        "decisions": abs(sm["decisions"] - sm["lateral_ft"] / 30.0) <= 4 and sm["decisions"] >= 100,
+        "self_agreement": sm["steer_agree_pct"] >= 35.0 and sm["steer_oppose_pct"] <= 30.0 and sm["steer_agree_pct"] > sm["steer_oppose_pct"],
+        "exits": sm["exits"] >= 1 and sm["exits_called_at_first_reading"] >= 1,
+        "given_model": not given["model_derived"] and given["model"]["thickness_ft"] == sc["thickness_ft"] and given["summary"]["model_fit"] == "given" and sm["model_fit"] in ("good", "fair"),
+        "report": all(Path(res["paths"][k]).is_file() for k in ("json", "md", "html")) and "SHADOW MODE" in md_text and "SHADOW MODE" in html_text and "<svg" in html_text
+                  and "Not the pre-drill model" in md_text and "nothing here touched the well" in md_text.lower(),
+        "refusal": cols_refused,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       f"DW1 a lateral drilled in the twin by the agent, replayed: the heel found below the vertical approach, the model read off the gamma in hindsight within "
+       f"40 ft, a factor and a degree of the twin's own layer, one decision per 30 ft ({sm['decisions']}), the agent agreeing with its own record "
+       f"{sm['steer_agree_pct']:.0f}% and opposing it {sm['steer_oppose_pct']:.0f}%, the gamma's exits called at the first reading, a given model taken as given, "
+       "the report in three files labelled SHADOW MODE with the drawing, a lateral file without the columns refused" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+    # -- DW2 GEA: a drilling-recorder well shadowed from the card -----------------------------------------------------------
+    ws = Workspace.create(str(d / "ws"), "Pad 3 shadow", actor="tester")
+    exp = E.selftest(str(d), 3000)
+    w = ws.add_well_file(exp["path"], display="Well EDR", actor="tester")
+    w2 = ws.add_well_records("Paper well", actor="tester")
+    rec = DL.shadow(ws, w["id"], actor="tester")
+    try:
+        DL.shadow(ws, w2["id"], actor="tester"); no_edr_refused = False
+    except ValueError:
+        no_edr_refused = True
+    Users(str(Path(ws.path, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(ws.path, port=0, scheduler=False).start()
+    base = svc.url.rstrip("/")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def gcall(method, path, body=None):
+        rq = urllib.request.Request(base + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with opener.open(rq, timeout=60) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read() or b"{}")
+    try:
+        gcall("POST", "/api/login", {"name": "op", "password": "op-pass-123"})
+        s_d, dd = gcall("GET", "/api/driller")
+        s_bad, _ = gcall("POST", "/api/driller/shadow", {"well": w2["id"]})
+        s_job, job = gcall("POST", "/api/driller/shadow", {"well": w["id"]})
+    finally:
+        svc.stop()
+    app_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    main_src = (pkg / "__main__.py").read_text(encoding="utf-8")
+    c2 = {
+        "lateral_file": Path(ws.path, "wells", w["id"], "driller", "lateral.csv").is_file() and rec["lateral"]["rows"] >= 1000 and rec["lateral"]["gamma_rows"] > 0,
+        "report": all(Path(ws.reports_dir, rec["report"][k]).is_file() for k in ("html", "md", "json")) and rec["label"] == "SHADOW MODE" and rec["summary"]["decisions"] >= 20 and rec["model_derived"],
+        "record": DL.last_shadow(ws, w["id"]) is not None and [x["well"] for x in DL.shadow_wells(ws)] == [w["id"]],
+        "refusal": no_edr_refused,
+        "audit": any(a["action"] == "driller.shadow" and a["detail"]["label"] == "SHADOW MODE" for a in ws.audit_log()),
+        "routes": s_d == 200 and [x["well"] for x in dd["shadow"]] == [w["id"]] and dd["shadow"][0]["shadow"]["summary"]["decisions"] >= 20 and s_bad == 400 and s_job == 200 and "id" in job,
+        "card": all(t_ in app_src for t_ in ("Shadow a drilled well", "/api/driller/shadow", "Shadow mode")),
+        "cli": '"driller-shadow"' in main_src and "DL.shadow" in main_src,
+        "help": not H.check("driller") and "SHADOW MODE" in (pkg / "help" / "driller.md").read_text(encoding="utf-8"),
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "DW2 in GEA a drilling-recorder well is shadowed: the lateral file written from the export beside the well, the driller's program run on it, the report "
+       "under the well's reports labelled SHADOW MODE, the run recorded and audited; a well without an export is refused; the route runs it as a job and "
+       "refuses the wrong well; the card, the workspace command and the help page carry it" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -16859,6 +16970,7 @@ def main() -> int:
         section_dt_vpn(tmp)
         section_du_tutorial(tmp)
         section_dv_driller(tmp)
+        section_dw_shadow(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

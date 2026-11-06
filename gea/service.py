@@ -2190,7 +2190,8 @@ def make_handler(app: App):
                     return self._json(200, {'pulls': _FP.last_pulls(app.ws), 'sim': _RL.status(app.ws)})
                 if path == '/api/driller':
                     from . import driller_link as _DL
-                    return self._json(200, {'wells': _DL.wells_with_records(app.ws), 'sim': _DL.status(app.ws), 'all_wells': [{'id': w['id'], 'display': w.get('display', w['id'])} for w in app.ws.wells()]})
+                    return self._json(200, {'wells': _DL.wells_with_records(app.ws), 'sim': _DL.status(app.ws), 'all_wells': [{'id': w['id'], 'display': w.get('display', w['id'])} for w in app.ws.wells()],
+                                            'shadow': _DL.shadow_wells(app.ws)})
                 if path.startswith('/api/driller/'):
                     from . import driller_link as _DL
                     wid = path[len('/api/driller/'):]
@@ -3160,6 +3161,14 @@ def make_handler(app: App):
                             raise ApiError(400, 'driller: seed 0-1000000, a step every 0.2-60 s')
                         return self._json(200, _DL.start_sim(app.ws, actor=user['name'], seed=seed, pace_s=pace, closed_loop=bool(body.get('closed_loop', True))))
                     return self._json(200, _DL.stop_sim(app.ws, actor=user['name']))
+                if path == '/api/driller/shadow':
+                    App.require(user, 'operator')
+                    from . import driller_link as _DL
+                    wid = str(body.get('well') or '').strip()
+                    if not wid or not any(x['well'] == wid for x in _DL.shadow_wells(app.ws)):
+                        raise ApiError(400, "driller-shadow: a well with a drilling-recorder export among its sources")
+                    args = ['workspace', '--path', app.ws.path, '--action', 'driller-shadow', '--well', wid, '--actor', user['name']]
+                    return self._json(200, app._job(args, user, f'GEA Driller: shadow mode on {wid}'))
                 if path == '/api/driller/pull':
                     App.require(user, 'operator')
                     src = str(body.get('source') or '').strip(); wid = str(body.get('well') or '').strip()

@@ -4,6 +4,12 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.79.0 - 2026-11-05 - shadow mode
+
+- A drilled lateral replayed through the driller's agent against the
+  record, from the well's own drilling-recorder export, on the office PC;
+  the agreement, the exits, the report. Section DW; gate 550.
+
 ## v0.78.1 - 2026-11-05 - the gate on a slow runner
 
 - DV3 waits for the twin's next decision instead of sleeping 1.5 s; the

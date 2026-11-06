@@ -7,6 +7,7 @@
     gea-driller sim [--seed 7] [--pace 3] [--port 8790]               the twin as the rig, on this computer, to look at the screen
     gea-driller train --seconds 600 --out policy.json [--resume policy.json]   train the policy in the twin
     gea-driller evaluate [--policy policy.json] [--scenes 20] [--json]  the policy against the textbook driller on held-out scenes
+    gea-driller shadow --lateral lateral.csv --out shadow [--model model.json] [--well NAME]   a drilled lateral replayed against the record (SHADOW MODE)
     gea-driller selftest [--json]                                      the twin, the policy and the service checked; exit 0 when right
     gea-driller status [--url http://127.0.0.1:8790]                   what the running program says
     gea-driller config --write C:\\gea-driller\\config.json          the example config to edit
@@ -131,6 +132,10 @@ def main(argv=None) -> int:
     p = sub.add_parser('train'); p.add_argument('--seconds', type=float, default=600.0); p.add_argument('--out', default='policy.json'); p.add_argument('--resume', default=''); p.add_argument('--seed', type=int, default=0)
     p.add_argument('--batch', type=int, default=8192); p.add_argument('--envs', type=int, default=32); p.add_argument('--lr', type=float, default=3e-4)
     p = sub.add_parser('evaluate'); p.add_argument('--policy', default=''); p.add_argument('--scenes', type=int, default=20); p.add_argument('--json', action='store_true')
+    p = sub.add_parser('shadow'); p.add_argument('--lateral', required=True, help='the lateral as CSV: md_ft, tvd_ft, gamma_api, wob_klb, rpm, flow_gpm, rop_ft_hr, spp_psi, hours - one row per foot')
+    p.add_argument('--out', required=True, help='the folder for driller_shadow.html/.md/.json and the replay records'); p.add_argument('--model', default='', help='the pre-drill model as JSON (the config\'s "model" block); without it one is read off the lateral\'s own gamma, in hindsight')
+    p.add_argument('--well', default='the well'); p.add_argument('--site', default='the site'); p.add_argument('--policy', default=''); p.add_argument('--twin-lateral', type=int, default=None, help='write a lateral drilled in the twin by this scene seed to --lateral first (a labelled stand-in)')
+    p.add_argument('--json', action='store_true')
     p = sub.add_parser('selftest'); p.add_argument('--json', action='store_true'); p.add_argument('--seconds', type=float, default=12.0)
     p = sub.add_parser('status'); p.add_argument('--url', default='http://127.0.0.1:8790')
     p = sub.add_parser('config'); p.add_argument('--write', required=True)
@@ -168,6 +173,24 @@ def main(argv=None) -> int:
             print(f'SIMULATION - {a.scenes} held-out twin scenes, the same for both:')
             for e in (ev, tb):
                 print(f"  {e['label']:<9s} in the layer {e['in_layer_pct']:5.1f}%  sweet spot {e['sweet_pct']:5.1f}%  {e['ft_per_day']:6.0f} ft/day  mean DLS {e['mean_dls']:.2f}  stuck {e['stuck']}  losses {e['losses']}  reward {e['reward']:7.1f}")
+        return 0
+    if a.cmd == 'shadow':
+        from . import policy as P, service as S, shadow as SH
+        if a.twin_lateral is not None:
+            SH.twin_lateral(a.lateral, seed=a.twin_lateral, act_fn=P.policy_act_fn(P.Policy.load(a.policy or S.SHIPPED_POLICY)))
+        model = json.load(open(a.model, encoding='utf-8')) if a.model else None
+        if model and 'model' in model:
+            model = model['model']
+        pol = P.Policy.load(a.policy or S.SHIPPED_POLICY)
+        r = SH.run(a.lateral, pol, model=model, out_dir=a.out, well=a.well, site=a.site)
+        sm = r['summary']
+        if a.json:
+            print(json.dumps({k: v for k, v in r.items() if k != 'decisions'}, indent=1))
+        else:
+            print(f"{SH.LABEL} - {r['well']}: {sm['decisions']} decisions over {sm['lateral_ft']:,.0f} ft; the steer agrees {sm['steer_agree_pct']:.0f}%, opposes {sm['steer_oppose_pct']:.0f}%; "
+                  f"WOB {sm['wob_agree_pct']:.0f}%, rpm {sm['rpm_agree_pct']:.0f}%, flow {sm['flow_agree_pct']:.0f}%; out by the gamma {sm['out_by_gamma_pct']:.0f}% in {sm['exits']} stretch(es), "
+                  f"the advisor called the way back at the first reading {sm['exits_called_at_first_reading']} time(s); the model {'read off the lateral in hindsight' if r['model_derived'] else 'as given'}. "
+                  f"Report: {r['paths']['html']}")
         return 0
     if a.cmd == 'selftest':
         return selftest(a.json, a.seconds)

@@ -5,6 +5,37 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.79.0] - 2026-11-05 - GEA Driller: shadow mode
+
+### Added
+- **Shadow mode** (`driller/gea_driller/shadow.py`; `gea-driller shadow`;
+  in GEA `gea workspace --action driller-shadow --well W` and **Shadow a
+  drilled well** on the GEA Driller card): a drilled lateral replayed
+  through the advisor against the record. The lateral comes as a CSV, one
+  row per foot (MD, TVD, the gamma at the bit, the weight, speed, flow,
+  rate, standpipe pressure, hours) - GEA writes it from a well's
+  drilling-recorder export beside the well, and nothing of the export
+  leaves the computer. The heel is found below the vertical approach; the
+  layer model is the site's pre-drill model when given, else read off the
+  lateral's own gamma in hindsight and labelled so. Every 30 ft the
+  advisor sees what the rig had shown to that point and nothing past it;
+  its recommendation is set beside the build actually made over the next
+  90 ft and the weight, speed and flow actually used, and at each stretch
+  the gamma marks as out of the layer, whether the advisor called the way
+  back at the first reading, before it, and whether the driller did. The
+  report - SHADOW MODE, JSON, Markdown and HTML with a drawing of the
+  lateral against the layer - goes under the well's reports; the run is
+  recorded under the well and audited. Agreement says the two would have
+  done alike, not that either was right.
+
+### Acceptance
+- Section DW (2 checks): the replay on a lateral drilled in the twin by
+  the agent itself (the heel, the derived model against the twin's layer,
+  the decisions, the agent's agreement with its own record, the exits,
+  the report, a given model, a refusal), and GEA's shadow run on a
+  drilling-recorder well (the lateral file, the report, the record, the
+  audit, the refusals, the route as a job, the card, the command, the help).
+
 ## [v0.78.1] - 2026-11-05 - the gate on a slow runner
 
 ### Fixed

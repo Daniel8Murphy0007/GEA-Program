@@ -1,10 +1,16 @@
-v0.78.1 — THE POSITION FILTER, WITH A GREEN CI
+v0.79.0 — GEA DRILLER: SHADOW MODE
 
-The same program as v0.78.0 - the driller's agent with the position filter.
-ci had gone red on Python 3.10 on one timing check in the new section
-(a fixed 1.5 s wait for the twin's next decision); it waits for the
-decision now.
+The agent against a well that was actually drilled. Drill string tab,
+GEA Driller, "Shadow a drilled well": the well's drilling-recorder export
+is replayed through the advisor - every 30 ft the agent sees only what the
+rig had shown to that point - and its recommendation is set beside what
+the record did next: the build actually made, the weight, speed and flow
+used, and at each stretch the gamma marks as out of the layer, whether
+the agent called the way back at the first reading. The SHADOW MODE
+report under the well's reports has the drawing. Nothing of the export
+leaves the computer; agreement says the two would have done alike, not
+that either was right.
 
 Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
 
-Acceptance section DV (5 checks); gate 548.
+Acceptance section DW (2 checks); gate 550.
