@@ -3452,3 +3452,36 @@ stability; and motor specifications in the tool catalogue.
   The program is right; the check holds the limit out of the way for
   that arming and lowers it for the next, as it meant to. Re-prepared
   under the same number; the tag was never made.
+
+## 2026-11-07 - the bar and the ceiling (v0.82.0)
+
+- v0.81.0 shipped; the four kits fetched and verified. Daniel: go. The
+  textbook driller rewritten as a class with a memory: decisive when the
+  filter says the bit is out, the gamma's trend read as a boundary coming,
+  the rated weight in a calm hole, the vibration trial (lighter and
+  faster first, heavier and slower when that did not quiet it - a driller
+  with his eyes on the torque), conditioning at 40%, the plan line held.
+  The oracle: the same driller told the twin's layer 120 ft ahead, tuned
+  as high as it goes (its gain 0.35 on the lead) - 98% of the hole in the
+  layer. The new section's check that a bit above the layer is dropped at
+  the cap found the ladder bug: `1 if d < -0.15 else 0 if d < -0.6` -
+  the gentle drop tested first, so no textbook ever dropped at 3°/100 ft.
+  The oracle with the fix went from 89% to 98%; the textbook from 76% to
+  78% (its drops are the filter's word, often wrong by a few feet, and a
+  hard drop on a wrong word costs more than a gentle one). The agent's
+  margin over the textbook narrowed to a few points on the gate's
+  scenes; the policy trains on while this is written, the checkpoint
+  chosen on scenes 100-139 so the held-out 0-59 stay clean.
+- The policy trained on for seven million steps more, the rate annealed
+  from 2e-4 to 7e-5: on the validation scenes the hole in the layer went
+  from 76.5% to 83.5% at its best, with the first twelve rounds at the
+  higher rate going nowhere and the gains coming at the lower ones. On
+  the gate's twenty held-out scenes the shipped policy holds 86% of the
+  hole in the layer against the textbook's 83% and the oracle's 98% -
+  23% of the way from the bar to the ceiling; reward 137 against 130 and
+  174. On sixty: 83.5%, 79%, 98%. The honest figure, then: with a
+  strong textbook the agent's margin is a few points, and most of the
+  distance to the ceiling is the position's uncertainty, which no amount
+  of training on the same observation closes. The gate holds the agent
+  above the textbook by more than a point in the layer and within the
+  reward's noise of it, and under the oracle, and prints the standing.

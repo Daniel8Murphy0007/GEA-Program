@@ -5,6 +5,54 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.82.0] - 2026-11-07 - GEA Driller: the bar and the ceiling
+
+### Added
+- **A stronger textbook driller**, the bar the agent is judged against,
+  as a driller with a memory (`twin.TextbookDriller`): from the same
+  observation the agent gets and nothing more, it aims at the middle of
+  the layer as the filter places it, steers back hard when the filter
+  says the bit is out, leans away from a boundary the gamma's trend is
+  running at, takes the rated weight in a calm hole in the layer and not
+  while the hole fills, over the vibration limit tries lighter and faster
+  first and heavier and slower when that did not quiet it, circulates at
+  40% of a bed, reams a balled bit, holds the plan line; a new lateral is
+  a new memory. The old name `textbook_action` is that driller.
+- **The oracle** (`twin.OracleDriller`): the same driller told the twin's
+  own layer at the bit and 120 ft ahead - the ceiling no policy can beat,
+  because it sees what no tool measures. It refuses to run unbound to a
+  lateral.
+- `gea-driller evaluate` prints three rows on sixty held-out scenes by
+  default - the textbook, the agent, the oracle - and where the agent
+  stands from the bar toward the ceiling (`policy.evaluate_all`); the
+  self-test holds the policy under the oracle as well as over the
+  textbook.
+- The policy trained on, another seven million twin steps with the rate
+  annealed (the checkpoint chosen on scenes the held-out ones do not
+  include).
+
+### Fixed
+- The textbook's steering never asked for the full drop: the choice
+  ladder tested the gentle drop before the hard one, so a miss of any
+  size dropped at 1.5°/100 ft. Found by the new section's check that a
+  bit the filter puts above the layer is dropped at the cap. The oracle
+  with the same ladder went from 89% to 98% of the hole in the layer;
+  the textbook from 76% to 78%. The agent never used the ladder.
+
+### Figures (SIMULATION, the twenty held-out scenes of the gate)
+- Textbook 83% of the hole in the layer, agent 86%, oracle
+  98%: the agent stands 23% of the way from the bar to the
+  ceiling.
+
+### Acceptance
+- Section DZ (2 checks): the textbook's behaviours from the observation
+  alone (the rated weight in a calm hole and not while the hole fills, a
+  hard drop above and a hard build below, circulating at 40% and reaming
+  a balled bit, the vibration trial, a new lateral a new memory), the
+  oracle refusing to run unbound and beating the textbook and the agent,
+  the standing between them; the command line's three rows as text and
+  JSON, the self-test, the help. DV2 holds the agent under the oracle.
+
 ## [v0.81.0] - 2026-11-06 - GEA Driller: the vibration index from the feed
 
 ### Added

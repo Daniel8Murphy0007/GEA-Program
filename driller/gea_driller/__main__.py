@@ -6,7 +6,7 @@
     gea-driller run [--config C:\\gea-driller\\config.json]        advise (or command, when armed) until stopped
     gea-driller sim [--seed 7] [--pace 3] [--port 8790]               the twin as the rig, on this computer, to look at the screen
     gea-driller train --seconds 600 --out policy.json [--resume policy.json]   train the policy in the twin
-    gea-driller evaluate [--policy policy.json] [--scenes 20] [--json]  the policy against the textbook driller on held-out scenes
+    gea-driller evaluate [--policy policy.json] [--scenes 60] [--json]  the policy between the textbook driller and the oracle on held-out scenes
     gea-driller shadow --lateral lateral.csv --out shadow [--model model.json] [--well NAME]   a drilled lateral replayed against the record (SHADOW MODE)
     gea-driller selftest [--json]                                      the twin, the policy and the service checked; exit 0 when right
     gea-driller status [--url http://127.0.0.1:8790]                   what the running program says
@@ -72,9 +72,10 @@ def selftest(as_json: bool = False, seconds: float = 12.0) -> int:
     add('circulating cleans the hole without footage', lat.bed < 0.5 and lat.footage == 0.0, f'bed {lat.bed:.2f}')
     # the policy
     pol = P.Policy.load(S.SHIPPED_POLICY)
-    ev = P.evaluate(P.policy_act_fn(pol), range(10), 'agent'); tb = P.evaluate(T.textbook_action, range(10), 'textbook')
-    add('the shipped policy beats the textbook driller on held-out scenes', ev['reward'] > tb['reward'] and ev['in_layer_pct'] > tb['in_layer_pct'],
-        f"agent in-layer {ev['in_layer_pct']:.1f}% reward {ev['reward']:.1f}; textbook {tb['in_layer_pct']:.1f}% {tb['reward']:.1f}")
+    three = P.evaluate_all(pol, range(10)); ev = three['agent']; tb = three['textbook']; orc = three['oracle']
+    add('the shipped policy beats the textbook driller on held-out scenes, and the oracle told the layer beats both', ev['reward'] > tb['reward'] and ev['in_layer_pct'] > tb['in_layer_pct']
+        and orc['in_layer_pct'] > ev['in_layer_pct'],
+        f"textbook {tb['in_layer_pct']:.1f}% {tb['reward']:.1f}; agent in-layer {ev['in_layer_pct']:.1f}% reward {ev['reward']:.1f}; oracle {orc['in_layer_pct']:.1f}% {orc['reward']:.1f}")
     fresh = P.Policy(seed=5); before = P.evaluate(P.policy_act_fn(fresh), range(10, 14), 'fresh')
     P.train(fresh, seconds=seconds, batch_steps=2048, n_envs=8, scene_seed0=500000)
     after = P.evaluate(P.policy_act_fn(fresh), range(10, 14), 'trained')
@@ -135,7 +136,7 @@ def main(argv=None) -> int:
     p.add_argument('--dir', default=''); p.add_argument('--closed-loop', action='store_true', help='allow the switch on the screen (the null downlink: nothing is sent)'); p.add_argument('--bind', default='127.0.0.1')
     p = sub.add_parser('train'); p.add_argument('--seconds', type=float, default=600.0); p.add_argument('--out', default='policy.json'); p.add_argument('--resume', default=''); p.add_argument('--seed', type=int, default=0)
     p.add_argument('--batch', type=int, default=8192); p.add_argument('--envs', type=int, default=32); p.add_argument('--lr', type=float, default=3e-4)
-    p = sub.add_parser('evaluate'); p.add_argument('--policy', default=''); p.add_argument('--scenes', type=int, default=20); p.add_argument('--json', action='store_true')
+    p = sub.add_parser('evaluate'); p.add_argument('--policy', default=''); p.add_argument('--scenes', type=int, default=60); p.add_argument('--json', action='store_true')
     p = sub.add_parser('shadow'); p.add_argument('--lateral', required=True, help='the lateral as CSV: md_ft, tvd_ft, gamma_api, wob_klb, rpm, flow_gpm, rop_ft_hr, spp_psi, hours - one row per foot')
     p.add_argument('--out', required=True, help='the folder for driller_shadow.html/.md/.json and the replay records'); p.add_argument('--model', default='', help='the pre-drill model as JSON (the config\'s "model" block); without it one is read off the lateral\'s own gamma, in hindsight')
     p.add_argument('--well', default='the well'); p.add_argument('--site', default='the site'); p.add_argument('--policy', default=''); p.add_argument('--twin-lateral', type=int, default=None, help='write a lateral drilled in the twin by this scene seed to --lateral first (a labelled stand-in)')
@@ -170,13 +171,15 @@ def main(argv=None) -> int:
     if a.cmd == 'evaluate':
         from . import policy as P, service as S, twin as T
         pol = P.Policy.load(a.policy or S.SHIPPED_POLICY)
-        ev = P.evaluate(P.policy_act_fn(pol), range(a.scenes), 'agent'); tb = P.evaluate(T.textbook_action, range(a.scenes), 'textbook')
+        three = P.evaluate_all(pol, range(a.scenes))
         if a.json:
-            print(json.dumps({'agent': {k: v for k, v in ev.items() if k != 'episodes'}, 'textbook': {k: v for k, v in tb.items() if k != 'episodes'}}, indent=1))
+            print(json.dumps({k: ({kk: vv for kk, vv in v.items() if kk != 'episodes'} if isinstance(v, dict) and 'episodes' in v else v) for k, v in three.items()}, indent=1))
         else:
-            print(f'SIMULATION - {a.scenes} held-out twin scenes, the same for both:')
-            for e in (ev, tb):
+            print(f'SIMULATION - {a.scenes} held-out twin scenes, the same for all three; the textbook driller is the bar, the oracle told the layer is the ceiling:')
+            for e in (three['textbook'], three['agent'], three['oracle']):
                 print(f"  {e['label']:<9s} in the layer {e['in_layer_pct']:5.1f}%  sweet spot {e['sweet_pct']:5.1f}%  in the corridor {e['corridor_pct']:5.1f}%  {e['ft_per_day']:6.0f} ft/day  mean DLS {e['mean_dls']:.2f}  stuck {e['stuck']}  lost {e['lost']}  losses {e['losses']}  reward {e['reward']:7.1f}")
+            st = three['standing']
+            print(f"  the agent stands {st['in_layer_pct_of_the_way']:.0f}% of the way from the textbook to the oracle in the hole in the layer, {st['reward_of_the_way']:.0f}% in reward")
         return 0
     if a.cmd == 'shadow':
         from . import policy as P, service as S, shadow as SH

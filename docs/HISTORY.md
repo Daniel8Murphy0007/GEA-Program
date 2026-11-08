@@ -4,6 +4,13 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.82.0 - 2026-11-07 - the bar and the ceiling
+
+- The textbook driller rewritten as a driller with a memory and the
+  oracle told the twin's layer added; the agent read between them on
+  sixty held-out scenes; the policy trained on; the textbook's drop
+  ladder fixed. Section DZ; gate 558.
+
 ## v0.81.0 - 2026-11-06 - the vibration index from the feed
 
 - A vibration index read off the surface torque, weight and hook load

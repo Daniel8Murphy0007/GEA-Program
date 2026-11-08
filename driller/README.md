@@ -34,8 +34,10 @@ step outside of which costs and 150 ft outside of which loses the lateral; a bit
 rate, wear and balling follow the weight, speed and flow; the hydraulics against the fracture gradient; the
 cuttings bed and the stuck pipe it leads to; the hours each decision costs. Every training scene is drawn fresh
 from the same ranges, so what the policy learns is the drilling, not a formation. It is judged on scenes it never
-saw against a textbook driller written from the same observation; the self-test refuses a policy that does not
-beat it. The numbers of that judgement are a simulation's and are labelled so.
+saw between a textbook driller written from the same observation - the bar - and an oracle told the twin's own
+layer - the ceiling; the self-test refuses a policy that does not beat the textbook. `gea-driller evaluate` prints
+the three rows and how far the agent stands from the one toward the other. The numbers of that judgement are a
+simulation's and are labelled so.
 
 **Authority.** Advisory by default: nothing goes to the rig. The closed loop exists as a design that ships
 disconnected: `closed_loop.allowed` in the config puts the switch on the screen; an operator arms it by name for

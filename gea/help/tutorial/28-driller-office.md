@@ -20,6 +20,6 @@ GEA Driller is a program for the rig PC. It reads the rig's own feed and the pre
 The table shows your three answers under your name, one armed section with its commands and none sent, and the well's folder holds `driller\decisions.jsonl` with its `.sha256`.
 
 ## What the numbers are not
-The twin's figures - the hole in the layer, feet a day - are a simulation's, labelled so on the screen and in the records; `gea-driller evaluate` on the rig PC prints the policy against the textbook driller on held-out scenes.
+The twin's figures - the hole in the layer, feet a day - are a simulation's, labelled so on the screen and in the records; `gea-driller evaluate` on the rig PC prints the policy between the textbook driller and the oracle told the layer on held-out scenes, and where it stands from the one toward the other.
 
 Help: driller, drillstring, vpn

@@ -1,17 +1,17 @@
-v0.81.0 — GEA DRILLER: THE VIBRATION INDEX FROM THE FEED
+v0.82.0 — GEA DRILLER: THE BAR AND THE CEILING
 
-A rig without a downhole vibration tool left the agent blind to the
-stick-slip and the whirl it was trained to ease. The rig PC now reads a
-vibration index off the surface channels every EDR sends - the torque's,
-the weight's and the hook load's oscillation over the last minute, scaled
-onto the index the agent was trained with - and the downhole tool's item
-wins whenever it comes. The screen's tile and every decision say which it
-read; the closed loop's limit trips on either. The twin as the rig emits
-the same surface channels, and shadow mode reads the index off the
-export's seconds, foot by foot, and says how often the record stood over
-the limit and how often the agent would have eased there. A surface
-proxy, labelled.
+The agent is now read between two drillers on the same held-out scenes:
+a stronger textbook driller - what a careful directional driller and
+geosteerer do by the book from the same observation the agent gets,
+with a driller's memory of his own last decisions - and an oracle told
+the twin's own layer, which no policy can beat. "gea-driller evaluate"
+prints the three rows and how far the agent stands from the bar toward
+the ceiling. The policy trained on. A fix on the way: the textbook never
+asked for the full drop, its choice ladder tested the gentle one first.
+
+Textbook 83% of the hole in the layer, agent 86%, oracle
+98% on the gate's twenty held-out scenes (SIMULATION).
 
 Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
 
-Acceptance section DY (3 checks); gate 556.
+Acceptance section DZ (2 checks); gate 558.

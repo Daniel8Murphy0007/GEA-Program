@@ -273,7 +273,8 @@ def train(pol: Policy, seconds: float = 60.0, iterations: Optional[int] = None, 
 
 
 def evaluate(act_fn: Callable[[np.ndarray], Sequence[int]], scenes: Sequence[int] = range(20), label: str = '') -> dict:
-    """The held-out scenes, one episode each, and the means that matter."""
+    """The held-out scenes, one episode each, and the means that matter. A driller with a `bind` (the textbook's
+    memory, the oracle's truth) is bound to each lateral before it drills it."""
     res = [T.run_episode(T.Lateral(T.Scene(s)), act_fn) for s in scenes]
     f = lambda k: float(np.mean([x[k] for x in res]))
     return {'label': label, 'scenes': list(scenes), 'n': len(res), 'in_layer_pct': f('in_layer_pct'), 'sweet_pct': f('sweet_pct'), 'ft_per_day': f('ft_per_day'),
@@ -281,6 +282,17 @@ def evaluate(act_fn: Callable[[np.ndarray], Sequence[int]], scenes: Sequence[int
             'losses': int(sum(1 for x in res for e in x['events'] if e.startswith('losses'))), 'days': f('days'), 'vibration_excess': f('vibration_excess'),
             'conditioning_steps': f('conditioning_steps'), 'corridor_pct': f('corridor_pct'), 'max_offset_ft': f('max_offset_ft'),
             'lost': int(sum(x['lost'] for x in res)), 'episodes': res}
+
+
+def evaluate_all(pol: Policy, scenes: Sequence[int] = range(20)) -> dict:
+    """The three rows the agent is read between: the textbook driller (the bar), the agent, the oracle told the
+    twin's own layer (the ceiling) - on the same scenes. SIMULATION."""
+    tb = evaluate(T.TextbookDriller(), scenes, 'textbook'); ag = evaluate(policy_act_fn(pol), scenes, 'agent'); orc = evaluate(T.OracleDriller(), scenes, 'oracle')
+    span = max(orc['in_layer_pct'] - tb['in_layer_pct'], 1e-9)
+    return {'textbook': tb, 'agent': ag, 'oracle': orc, 'scenes': list(scenes), 'label': 'SIMULATION',
+            'standing': {'in_layer_pct_of_the_way': 100.0 * (ag['in_layer_pct'] - tb['in_layer_pct']) / span,
+                         'reward_of_the_way': 100.0 * (ag['reward'] - tb['reward']) / max(orc['reward'] - tb['reward'], 1e-9),
+                         'note': 'how far the agent stands from the textbook toward the oracle, in the hole in the layer and in reward; 0 is the textbook, 100 the oracle'}}
 
 
 def policy_act_fn(pol: Policy, greedy: bool = True, seed: int = 0) -> Callable[[np.ndarray], Tuple[int, ...]]:

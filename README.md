@@ -455,8 +455,11 @@ agent is a policy trained by proximal policy optimization in a physics
 twin of the lateral - the layer rolling with dip, undulation and faults,
 the gamma and the deep-resistivity boundary the tools read of it, the
 steering tool, the bit, the hydraulics, the hole - on scenes drawn fresh,
-judged against a textbook driller on scenes it never saw; the figures of
-that judgement are a simulation's and are labelled so. Advisory by
+judged on scenes it never saw between a textbook driller (the bar: what a
+careful driller does by the book from the same observation) and an oracle
+told the twin's own layer (the ceiling no policy can beat); `gea-driller
+evaluate` prints the three rows and the agent's standing between them.
+The figures of that judgement are a simulation's and are labelled so. Advisory by
 default; the closed loop ships as a design with a switch, armed by a named
 operator for one section, disarming itself on a stale feed, a crossed
 limit or the section's end, through a downlink that keeps every command and
@@ -801,7 +804,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.81.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.82.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1566,7 +1569,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.81.0.exe` (for 0.81.0): the
+Every release also carries `GEA-Program-Setup-0.82.0.exe` (for 0.82.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1585,7 +1588,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.81.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.82.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

@@ -441,43 +441,135 @@ class Lateral:
                 'vibration_excess': self.vib_excess, 'ecd_excess': self.ecd_excess, 'stuck': self.ended == 'stuck pipe', 'lost': self.ended == 'outside the corridor', 'bit_wear': self.wear}
 
 
-# -- the textbook driller, to be beaten ----------------------------------------------------------------------------------
+# -- the textbook driller, to be beaten, and the oracle, which cannot be ------------------------------------------------------
 
-def textbook_action(obs: np.ndarray, state: Optional[dict] = None) -> Tuple[int, ...]:
-    """What a careful directional driller and geosteerer do by the book from the same observation: aim the well at
-    the middle of the layer as the position filter places it (the deep-resistivity tool's distance when it has
-    one), a build or drop in proportion to the miss and capped; aim along the plan, and a few degrees back toward
-    the plan line when the hole has drifted off it or points away from it; 25 klb at 120 rpm and 500 gpm, lighter and faster when the
-    vibration limit is crossed, circulate when the hole fills, wash a balled bit."""
-    deep = obs[9] * 15; have = obs[10] > 0.5; incl = 90.0 + obs[6] * 5
-    bed = obs[15]; balling = obs[16]; vib = obs[13] * 1.5
-    d_top = obs[25] * 30; d_base = obs[26] * 30; thick = obs[21] * 50
-    az = obs[28] * 5; y = obs[29] * 50
-    if have and 0 < deep < 6:                  # the top close above: aim down to the middle
-        e = -(thick / 2 - deep)
-    elif have and 0 < -deep < 6:               # the base close below: aim up
-        e = thick / 2 + deep
-    else:
-        e = d_top - d_base                     # positive: nearer the base, so go up
-    e = max(-60.0, min(60.0, e))
-    target = 90.0 + max(-4.0, min(4.0, e * 0.12))
+def _steer_toward(e_ft: float, incl: float, gain: float = 0.12, cap: float = 4.0) -> int:
+    """The build choice that turns the inclination toward a target set by the miss `e_ft` (positive: go up)."""
+    e = max(-60.0, min(60.0, e_ft))
+    target = 90.0 + max(-cap, min(cap, e * gain))
     d = target - incl
-    bi = 4 if d > 0.6 else 3 if d > 0.15 else 1 if d < -0.15 else 0 if d < -0.6 else 2
-    # the azimuth: aim back toward the plan line when the hole has drifted off it or is heading away, else along the plan
+    return 4 if d > 0.6 else 3 if d > 0.15 else 0 if d < -0.6 else 1 if d < -0.15 else 2
+
+
+def _aim_choice(az: float, y: float) -> int:
+    """Aim back toward the plan line when the hole has drifted off it or is heading away, else along the plan."""
     drift = y + 10.0 * az                       # where the hole is going, a hundred feet on
-    ti = 0 if drift > 15.0 else 2 if drift < -15.0 else 1
-    wi, ri, fi = 1, 1, 1
-    if vib > VIB_LIMIT:
-        wi, ri = 0, 1
-    ci = 0
-    if bed > 0.5:
-        ci = 1
-    if balling > 0.5:
-        ci = 2
-    return (bi, wi, ri, fi, ci, ti)
+    return 0 if drift > 15.0 else 2 if drift < -15.0 else 1
+
+
+class TextbookDriller:
+    """What a careful directional driller and geosteerer do by the book from the same observation the agent gets,
+    and nothing more. Steering: aim at the middle of the layer as the position filter places it (the
+    deep-resistivity tool's distance when the string has one), a build or drop in proportion to the miss; when the
+    filter says the bit is out of the layer, steer back hard the way it says, and lead the correction by the gamma's
+    trend rather than wait for the filter to move. Azimuth: along the plan, back toward the plan line when the hole
+    has drifted. Parameters: 25 klb at 120 rpm and 500 gpm; 35 klb while the hole is calm and in the layer; over the
+    vibration limit, lighter and faster first (stick-slip is the common case), and when that did not quiet it, heavier
+    and slower (then it was lateral) - a trial a driller makes with his own eyes on the torque. Hole: circulate when
+    the bed reaches 40%, ream and wash a balled bit, and do not drill on at full weight while the hole fills. A little
+    memory of its own decisions, as a driller has; nothing of the twin's secret."""
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self) -> None:
+        self.progress = -1.0
+        self.last = HOLD_ACTION
+        self.vib_trial = 0                       # 0 none; 1 lighter+faster tried; 2 heavier+slower tried
+        self.vib_prev = 0.0
+        self.out_steps = 0
+
+    def bind(self, lat: 'Lateral') -> None:      # a new lateral: a new memory; the lateral itself is not read
+        self.reset()
+
+    def __call__(self, obs: np.ndarray, state: Optional[dict] = None) -> Tuple[int, ...]:
+        progress = float(obs[19])
+        if progress < self.progress:
+            self.reset()
+        self.progress = progress
+        deep = obs[9] * 15; have = obs[10] > 0.5; incl = 90.0 + obs[6] * 5
+        bed = obs[15]; balling = obs[16]; vib = obs[13] * 1.5; trend = obs[5] * 10
+        d_top = obs[25] * 30; d_base = obs[26] * 30; thick = obs[21] * 50
+        p_in, p_above, p_below = obs[22], obs[23], obs[24]
+        az = obs[28] * 5; y = obs[29] * 50
+        # -- steering
+        if p_in < 0.5 and p_above > p_below:            # out above: drop hard to the layer, and on toward its middle
+            self.out_steps += 1
+            bi = _steer_toward(-(thick / 2 + max(0.0, -d_top)), incl, gain=0.2, cap=4.0)
+        elif p_in < 0.5:                                # out below: build hard
+            self.out_steps += 1
+            bi = _steer_toward(thick / 2 + max(0.0, -d_base), incl, gain=0.2, cap=4.0)
+        else:
+            self.out_steps = 0
+            if have and 0 < deep < 6:                   # the top close above: aim down to the middle
+                e = -(thick / 2 - deep)
+            elif have and 0 < -deep < 6:                # the base close below: aim up
+                e = thick / 2 + deep
+            else:
+                e = d_top - d_base                      # positive: nearer the base, so go up
+            # the gamma rising toward a boundary before the filter has moved: lean away from the nearer one
+            if trend > 3.0:
+                e += 10.0 if d_top < d_base else -10.0
+            bi = _steer_toward(e, incl, gain=0.3)
+        ai = _aim_choice(az, y)
+        # -- the parameters: the vibration trial, else the weight the hole allows
+        wi, ri, fi = 1, 1, 1
+        if vib > VIB_LIMIT:
+            if self.vib_trial == 0 or (self.vib_trial == 1 and vib < self.vib_prev - 0.02):
+                self.vib_trial = 1; wi, ri = 0, 2                   # lighter and faster: the cure for stick-slip, kept while it quiets
+            else:
+                self.vib_trial = 2; wi, ri = 1, 0                   # it did not quiet: lateral - heavier and slower
+        else:
+            self.vib_trial = 0
+            if p_in >= 0.8 and vib < 0.7 and bed < 0.3:
+                wi = 2                                              # a calm hole in the layer: the weight the bit is rated for
+        self.vib_prev = vib
+        # -- the hole
+        ci = 0
+        if bed > 0.4:
+            ci = 1
+        if balling > 0.4:
+            ci = 2
+        if bed > 0.3 and wi == 2:
+            wi = 1
+        a = (bi, wi, ri, fi, ci, ai)
+        self.last = a
+        return a
+
+
+textbook_action = TextbookDriller()
+
+
+class OracleDriller:
+    """The same driller told the truth: the twin's own layer at the bit and ahead of it. The ceiling the agent is
+    read against - no policy can beat what sees the secret. Bound to the lateral it drills; it reads the scene, not
+    the observation, for the layer, and the observation for the rest."""
+
+    def __init__(self, ahead_ft: float = 120.0):
+        self.ahead_ft = float(ahead_ft)
+        self.lat: Optional['Lateral'] = None
+        self.book = TextbookDriller()
+
+    def bind(self, lat: 'Lateral') -> None:
+        self.lat = lat; self.book.reset()
+
+    def __call__(self, obs: np.ndarray, state: Optional[dict] = None) -> Tuple[int, ...]:
+        if self.lat is None:
+            raise RuntimeError('the oracle is bound to a lateral first')
+        lat = self.lat; s = lat.scene
+        # the parameters and the hole from the textbook; the steering from the truth
+        _, wi, ri, fi, ci, ai = self.book(obs)
+        incl = lat.incl
+        top_ahead = s.layer_top(lat.vs + self.ahead_ft, lat.y)
+        target_tvd = top_ahead + 0.5 * s.thickness
+        e = target_tvd - lat.tvd                                # positive: the middle ahead is deeper, so go down
+        bi = _steer_toward(-e, incl, gain=0.35, cap=4.0)
+        return (bi, wi, ri, fi, ci, ai)
 
 
 def run_episode(lat: Lateral, act_fn, max_steps: int = 400) -> dict:
+    if hasattr(act_fn, 'bind'):
+        act_fn.bind(lat)
     obs = lat.reset()
     total = 0.0
     while not lat.done and lat.steps < max_steps:
