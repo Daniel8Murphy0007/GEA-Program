@@ -1,9 +1,10 @@
-v0.83.2 — THE RELEASE'S OWN TEST, PARSED
+v0.83.3 — THE RELEASE'S OWN TEST, ITS VERDICT
 
-The Windows job of 0.83.1 never ran its test: a line of its new
-diagnostics, "== $f: none", is a variable named f: to PowerShell, and the
-step failed to parse. ${f}. The same program as 0.83.0 and 0.83.1;
-GEA-VPN-Setup-0.83.2.exe is on this release.
+The Windows job of 0.83.2 passed every line of its test and still returned
+1: the runner judges a PowerShell step by the last native command's exit
+code, and the last one was the schtasks query that proves the task is
+gone by failing. The step ends with its own verdict now. The same program
+as 0.83.0; GEA-VPN-Setup-0.83.3.exe is on this release.
 
 Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
 

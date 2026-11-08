@@ -3540,3 +3540,8 @@ stability; and motor specifications in the tool catalogue.
   none is on hand in the cloud, and putting one on Daniel's machine is not
   mine to do - the step is read word by word instead, and the only lines
   not already proven by 0.83.0's run are those diagnostics. v0.83.2.
+- v0.83.2's Windows job: every line of the test passed, to "uninstalled:
+  program, task and entry removed", and the step returned 1 - the
+  runner's verdict is the last native command's exit code, and that was
+  the schtasks query made to fail. `exit 0` at the end. Three ships for
+  one job; Daniel's twelve hours. v0.83.3.

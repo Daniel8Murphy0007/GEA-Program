@@ -4,6 +4,11 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.83.3 - 2026-11-08 - the release's own test, its verdict
+
+- The Windows job's step ends with its own exit code instead of the last
+  query's; the same program. Gate 560.
+
 ## v0.83.2 - 2026-11-08 - the release's own test, parsed
 
 - One character in the Windows job's PowerShell; the same program. Gate 560.

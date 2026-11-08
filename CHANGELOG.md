@@ -5,6 +5,17 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.83.3] - 2026-11-08 - the release's own test, its verdict
+
+### Fixed
+- The Windows job of 0.83.2 passed every line of its test - the install,
+  the task, the page, WireGuard, the tunnel service up, forget, upgrade,
+  uninstall, "program, task and entry removed" - and the step still
+  returned 1: the runner takes a PowerShell step's verdict from the last
+  native command's exit code, and the last one was the `schtasks` query
+  that proves the task is gone by failing. The step ends with its own
+  verdict now (`exit 0`). The same program as 0.83.0; the workflow alone.
+
 ## [v0.83.2] - 2026-11-08 - the release's own test, parsed
 
 ### Fixed

@@ -657,6 +657,9 @@ jobs:
           if ($LASTEXITCODE -eq 0) { throw 'the scheduled task is still there' }
           if (Test-Path $key) { throw 'the Add/Remove Programs entry is still there' }
           "uninstalled: program, task and entry removed; the data folder left: $(Test-Path $data)"
+          # the runner takes a pwsh step's verdict from the last native command's exit code, and the last one above is the
+          # schtasks query that proves the task is gone by failing: the verdict is this script's own
+          exit 0
       - name: Attest where GEA-VPN was built (provenance)
         uses: actions/attest-build-provenance@v3
         continue-on-error: ${{ github.event.repository.private }}
