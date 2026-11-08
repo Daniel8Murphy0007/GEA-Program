@@ -5,6 +5,25 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.83.1] - 2026-11-08 - GEA-VPN's uninstaller
+
+### Fixed
+- The Windows setup of 0.83.0 went red on the release's own test at its
+  last step: everything before it passed - the install, the task running,
+  the page waiting, WireGuard installed by the setup, the tunnel service
+  up from synthetic connect information, forgotten, the upgrade - and the
+  uninstaller left `python\` in place, because it ended the scheduled
+  task and deleted the files in the same breath while the program's
+  `pythonw.exe` was still letting go of the DLLs it held. The program is
+  now asked to stop first (its own STOP file, its page waited on until it
+  no longer answers, up to 20 s, then the task ended and removed, and as a
+  last resort this program's own Python processes ended by their path and
+  nothing else's) - on uninstall and before an upgrade alike;
+  `gea-vpn uninstall-service` takes `--data` and `--port` for it. The
+  release's test prints the setup's log, the task, the program's logs and
+  the tunnel service whenever it fails, so the next stop names itself.
+  `GEA-VPN-Setup-0.83.0.exe` was never attached; 0.83.1 carries it.
+
 ## [v0.83.0] - 2026-11-08 - GEA-VPN: the client program
 
 ### Added

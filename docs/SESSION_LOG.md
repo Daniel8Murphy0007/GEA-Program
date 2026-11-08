@@ -3524,3 +3524,13 @@ stability; and motor specifications in the tool catalogue.
 - The kit build in EA2 ran `pip wheel` on the checkout's vpn/ itself,
   which leaves build/ there (ignored by git, but a folder Daniel's shell
   cannot delete); the wheel is built from a copy in a temporary folder now.
+- v0.83.0 shipped; the Windows job went red at its last step, and
+  Daniel's screenshot said where: the install, the task, the page, the
+  setup's WireGuard, the tunnel service up from synthetic connect
+  information, the forget and the upgrade all passed, and the uninstaller
+  left python\ behind - the task ended and the files deleted in one
+  breath while pythonw was still letting go of its DLLs. The program is
+  asked to stop first now: its own STOP file, the page waited on until it
+  stops answering (a second, in the cloud), then the task; before an
+  upgrade the same through the old program. v0.83.1, the same program;
+  the five other kits were fetched meanwhile.

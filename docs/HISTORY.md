@@ -4,6 +4,11 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.83.1 - 2026-11-08 - GEA-VPN's uninstaller
+
+- The Windows setup's uninstaller stops the program before deleting its
+  files; the setup attached. The same program as 0.83.0. Gate 560.
+
 ## v0.83.0 - 2026-11-08 - GEA-VPN, the client program
 
 - GEA-VPN as a standalone program for every member computer: installed

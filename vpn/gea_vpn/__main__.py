@@ -9,7 +9,7 @@
     gea-vpn forget [--data DIR]                                 disconnect, and the connect information removed from this computer
     gea-vpn status [--json] [--data DIR]                        how the tunnel is doing
     gea-vpn install [--data DIR] [--port 8795]                  the program as a service (systemd on Linux; a scheduled task as SYSTEM on Windows)
-    gea-vpn uninstall-service                                   that service removed (the tunnel is left as it is)
+    gea-vpn uninstall-service [--data DIR] [--port 8795]        the program stopped and that service removed (the tunnel is left as it is)
     gea-vpn selftest [--json]                                   the connect information read and refused, the page, the records; exit 0 when right
 """
 from __future__ import annotations
@@ -20,6 +20,8 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
+from typing import Optional
 
 from . import NAME, __version__, bundle as B, service as S, wg as W, x25519
 
@@ -124,12 +126,30 @@ def install_service(data: str, port: int) -> int:
         pyw = os.path.join(os.path.dirname(sys.executable), 'pythonw.exe')
         exe = pyw if os.path.isfile(pyw) else sys.executable
         tr = f'"{exe}" -m gea_vpn serve --port {port} --data "{data}"'
+        notes = []
         for cmd in (['schtasks', '/Create', '/TN', 'GEA-VPN', '/SC', 'ONSTART', '/RU', 'SYSTEM', '/RL', 'HIGHEST', '/TR', tr, '/F'], ['schtasks', '/Run', '/TN', 'GEA-VPN']):
             r = subprocess.run(cmd, capture_output=True, text=True)
+            notes.append(f"{' '.join(cmd[:3])}: exit {r.returncode} {(r.stderr or r.stdout).strip()[:300]}")
             if r.returncode != 0:
-                print(f"{' '.join(cmd[:3])}: exit {r.returncode} {(r.stderr or r.stdout).strip()[:200]}"); return 1
-        print(f'GEA-VPN installed as the scheduled task GEA-VPN (SYSTEM, at start-up) and started; the page: http://127.0.0.1:{port}/')
-        return 0
+                _install_log(data, notes, port); print(notes[-1]); return 1
+        # the page answering is the proof; what schtasks says of the task is written down when it does not
+        import urllib.request
+        up = False
+        for _ in range(40):
+            try:
+                with urllib.request.urlopen(f'http://127.0.0.1:{port}/health', timeout=2) as r_:
+                    up = r_.status == 200
+            except Exception:
+                pass
+            if up:
+                break
+            time.sleep(0.5)
+        q = subprocess.run(['schtasks', '/Query', '/TN', 'GEA-VPN', '/V', '/FO', 'LIST'], capture_output=True, text=True)
+        notes.append('page answers' if up else 'the page did not answer within 20 s')
+        notes.append('schtasks /Query:\n' + (q.stdout or q.stderr).strip()[:1500])
+        _install_log(data, notes, port)
+        print(f"GEA-VPN installed as the scheduled task GEA-VPN (SYSTEM, at start-up){' and started' if up else ' - but its page does not answer yet; see install.log in the data folder'}; the page: http://127.0.0.1:{port}/")
+        return 0 if up else 1
     unit = SYSTEMD_UNIT.format(python=sys.executable, port=port, data=data)
     try:
         with open('/etc/systemd/system/gea-vpn.service', 'w', encoding='utf-8') as f:
@@ -144,13 +164,63 @@ def install_service(data: str, port: int) -> int:
     return 0
 
 
-def uninstall_service() -> int:
+def _install_log(data: str, notes, port: int) -> None:
+    try:
+        os.makedirs(data, exist_ok=True)
+        with open(os.path.join(data, 'install.log'), 'a', encoding='utf-8') as f:
+            f.write(f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}  {NAME} {__version__} install: python {sys.executable}; port {port}\n")
+            for n in notes:
+                f.write('  ' + n.replace('\n', '\n    ') + '\n')
+    except OSError:
+        pass
+
+
+def _stop_program(data: str, port: int, wait_s: float = 20.0) -> bool:
+    """The running program asked to stop by its own STOP file, and its page waited on until it no longer answers -
+    so the files it holds open (its Python) are free before an uninstaller or an upgrade deletes them."""
+    import urllib.request
+    try:
+        os.makedirs(data, exist_ok=True)
+        with open(os.path.join(data, 'STOP'), 'w', encoding='utf-8') as f:
+            f.write('stop\n')
+    except OSError:
+        pass
+    t0 = time.time()
+    while time.time() - t0 < wait_s:
+        try:
+            with urllib.request.urlopen(f'http://127.0.0.1:{port}/health', timeout=1):
+                pass
+        except Exception:
+            return True
+        time.sleep(0.5)
+    return False
+
+
+def uninstall_service(data: Optional[str] = None, port: int = S.PORT) -> int:
+    data = data or S.default_data_dir()
     if W.WINDOWS:
+        stopped = _stop_program(data, port)
         subprocess.run(['schtasks', '/End', '/TN', 'GEA-VPN'], capture_output=True)
         r = subprocess.run(['schtasks', '/Delete', '/TN', 'GEA-VPN', '/F'], capture_output=True, text=True)
-        print('the scheduled task GEA-VPN removed' if r.returncode == 0 else f'schtasks: {(r.stderr or r.stdout).strip()[:200]}')
+        if not stopped:
+            # the last resort: this program's own Python processes, by their path, and nothing else's
+            here = os.path.dirname(os.path.abspath(sys.executable)).replace("'", "''")
+            subprocess.run(['powershell', '-NoProfile', '-Command',
+                            f"Get-Process pythonw,python -ErrorAction SilentlyContinue | Where-Object {{ $_.Path -like '{here}\\*' -and $_.Id -ne {os.getpid()} }} | Stop-Process -Force"],
+                           capture_output=True)
+            time.sleep(1.0)
+        try:
+            os.remove(os.path.join(data, 'STOP'))
+        except OSError:
+            pass
+        print(('the program stopped and ' if stopped else 'the program was ended and ') + ('the scheduled task GEA-VPN removed' if r.returncode == 0 else f'schtasks: {(r.stderr or r.stdout).strip()[:200]}'))
         return 0
+    _stop_program(data, port, wait_s=5.0)
     subprocess.run(['systemctl', 'disable', '--now', 'gea-vpn'], capture_output=True)
+    try:
+        os.remove(os.path.join(data, 'STOP'))
+    except OSError:
+        pass
     try:
         os.remove('/etc/systemd/system/gea-vpn.service')
     except OSError:
@@ -169,7 +239,7 @@ def main(argv=None) -> int:
         p = sub.add_parser(n); p.add_argument('--by', default=''); p.add_argument('--data', default=None); p.add_argument('--json', action='store_true')
     p = sub.add_parser('status'); p.add_argument('--data', default=None); p.add_argument('--json', action='store_true')
     p = sub.add_parser('install'); p.add_argument('--data', default=None); p.add_argument('--port', type=int, default=S.PORT)
-    sub.add_parser('uninstall-service')
+    p = sub.add_parser('uninstall-service'); p.add_argument('--data', default=None); p.add_argument('--port', type=int, default=S.PORT)
     p = sub.add_parser('selftest'); p.add_argument('--json', action='store_true')
     a = ap.parse_args(argv)
     if a.cmd is None:
@@ -179,7 +249,7 @@ def main(argv=None) -> int:
     if a.cmd == 'install':
         return install_service(a.data or S.default_data_dir(), a.port)
     if a.cmd == 'uninstall-service':
-        return uninstall_service()
+        return uninstall_service(a.data, a.port)
     cl = S.Client(data_dir=a.data)
     if a.cmd == 'serve':
         return S.run_forever(cl, a.port, a.bind)

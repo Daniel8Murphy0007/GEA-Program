@@ -1,15 +1,12 @@
-v0.83.0 — GEA-VPN: THE CLIENT PROGRAM
+v0.83.1 — GEA-VPN'S UNINSTALLER
 
-GEA-VPN is a standalone program now, for every computer that joins the
-site's private network: GEA-VPN-Setup-<version>.exe on Windows (it brings
-WireGuard with it and runs as a service of its own), GEA-VPN-<version>.tar.gz
-on Linux. Installed once, it is ready for the connect information: the
-office adds the member in GEA-Program, hands over its zip, and the person
-drops the zip on the program's page (http://127.0.0.1:8795/) and presses
-Connect. The tunnel is up from then on, at every start of the computer,
-and the page says when the hub answered and whether the office answers
-through it. Nothing is typed but a name.
+The Windows setup of 0.83.0 passed every step of the release's own test
+but the last - the uninstaller left the program's Python in place, deleted
+while the program was still letting go of it. The program is asked to stop
+first now, on uninstall and before an upgrade, and the test says what it
+saw whenever it fails. The same program as 0.83.0; GEA-VPN-Setup-0.83.1.exe
+is on this release.
 
 Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
 
-Acceptance section EA (2 checks); gate 560.
+Gate 560.

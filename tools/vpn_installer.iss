@@ -5,7 +5,7 @@
 ; GEA-VPN-Setup-<version>.exe - GEA-VPN, the client program of the site's private network, as a Windows program of
 ; its own: built from the kit (tools/build_vpn.py --win64) by Inno Setup 6 in the build workflow:
 ;
-;   ISCC.exe /DAppVersion=0.83.0 /DKitDir=dist\gea-vpn-0.83.0-win64 /DOutDir=dist tools\vpn_installer.iss
+;   ISCC.exe /DAppVersion=0.83.1 /DKitDir=dist\gea-vpn-0.83.1-win64 /DOutDir=dist tools\vpn_installer.iss
 ;
 ; What it does (administrator rights, once): copies the kit under Program Files; installs WireGuard for Windows from
 ; the installer in the kit when the computer has none; makes the data folder for administrators only; registers the
@@ -14,10 +14,10 @@
 ; Uninstalling disconnects the tunnel, removes the task and the program, and leaves the data folder.
 ;
 ; Silent install, for a site's software deployment (the CI test runs exactly this):
-;   GEA-VPN-Setup-0.83.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+;   GEA-VPN-Setup-0.83.1.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
 
 #ifndef AppVersion
-  #error AppVersion is not defined: ISCC /DAppVersion=0.83.0 /DKitDir=... /DOutDir=... tools\vpn_installer.iss
+  #error AppVersion is not defined: ISCC /DAppVersion=0.83.1 /DKitDir=... /DOutDir=... tools\vpn_installer.iss
 #endif
 #ifndef KitDir
   #error KitDir is not defined: the kit folder made by tools/build_vpn.py --win64
@@ -88,8 +88,9 @@ Filename: "{app}\python\python.exe"; Parameters: "-m gea_vpn install --data ""{c
 Filename: "http://127.0.0.1:8795/"; Description: "Open GEA-VPN now"; Flags: postinstall shellexec nowait skipifsilent
 
 [UninstallRun]
+; the tunnel down, then the program stopped (its own STOP file, waited on) and the task removed, before any file is deleted
 Filename: "{app}\python\python.exe"; Parameters: "-m gea_vpn disconnect --data ""{commonappdata}\GEA-VPN"""; WorkingDir: "{app}"; Flags: runhidden waituntilterminated; RunOnceId: "disconnect"
-Filename: "{app}\python\python.exe"; Parameters: "-m gea_vpn uninstall-service"; WorkingDir: "{app}"; Flags: runhidden waituntilterminated; RunOnceId: "untask"
+Filename: "{app}\python\python.exe"; Parameters: "-m gea_vpn uninstall-service --data ""{commonappdata}\GEA-VPN"" --port 8795"; WorkingDir: "{app}"; Flags: runhidden waituntilterminated; RunOnceId: "untask"
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\app"
@@ -105,8 +106,13 @@ end;
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   rc: Integer;
+  py: String;
 begin
-  { an upgrade: the running task holds python.exe open; stop it and remove it before the files are replaced }
+  { an upgrade: the running program holds its Python open; the old program is asked to stop (its STOP file, waited on)
+    and its task removed before the files are replaced; without an old program, the task alone }
+  py := ExpandConstant('{app}\python\python.exe');
+  if FileExists(py) then
+    Exec(py, '-m gea_vpn uninstall-service --data "' + ExpandConstant('{commonappdata}\GEA-VPN') + '" --port 8795', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, rc);
   Exec('schtasks.exe', '/End /TN GEA-VPN', '', SW_HIDE, ewWaitUntilTerminated, rc);
   Exec('schtasks.exe', '/Delete /TN GEA-VPN /F', '', SW_HIDE, ewWaitUntilTerminated, rc);
   Result := '';
