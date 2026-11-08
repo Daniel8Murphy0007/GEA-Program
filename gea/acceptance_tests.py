@@ -15246,7 +15246,7 @@ def section_do_reader_program(tmp: str) -> None:
     marks = _re.findall(r'attach-kit\.sh "[^"]*" "[^"]+" "([^"]+)"', wf)
     v = __version__
     assets = [f"gea-program-{v}-win64.zip", f"GEA-Program-Setup-{v}.exe", f"gea-program-{v}-linux-x86_64.zip", f"GEA-Reader-Setup-{v}.exe", f"GEA-Reader-portable-{v}.zip",
-              f"GEA-Recorder-{v}.tar.gz", f"GEA-Driller-{v}.tar.gz"]
+              f"GEA-Recorder-{v}.tar.gz", f"GEA-Driller-{v}.tar.gz", f"GEA-VPN-Setup-{v}.exe", f"GEA-VPN-{v}.tar.gz"]
     app_id = _re.search(r"AppId=\{\{([0-9A-F-]+)\}", iss)
     c3 = {
         "kit": {"GEA-Reader.html", "GEA-Reader.cmd", "README.txt", "MANIFEST.json", "SHA256SUMS.txt", "reader.ico", "app/gea_reader.py", "app/winident.py",
@@ -15266,7 +15266,7 @@ def section_do_reader_program(tmp: str) -> None:
                      and '-m gea_reader ""%1""' in iss,
         "workflow": "windows-reader:" in wf and "tools/build_reader.py" in wf and "tools\\reader_installer.iss" in wf and "-m gea_reader --selftest" in wf
                     and "the right-click entry is still there" in wf
-                    and all(sum(mk in a_ for mk in marks) == 1 for a_ in assets) and len(marks) == 7,
+                    and all(sum(bool(_re.search(mk, a_)) for mk in marks) == 1 for a_ in assets) and len(marks) == 9,
     }
     failed3 = [k for k, v_ in c3.items() if not v_]
     ok(not failed3,
@@ -16219,7 +16219,8 @@ def section_dt_vpn(tmp: str) -> None:
     c3 = {
         "written": set(written) == {"hub", "office", box["id"], rd["id"]},
         "hub_zip": hub_names == ["README.txt", "gea-vpn.conf", "install-hub.sh"] and "wg syncconf" in install_sh and "PORT=51820" in install_sh and "$PORT/udp" in install_sh and "ip_forward" in install_sh and "IFACE=gea-vpn" in install_sh and "wg-quick@$IFACE" in install_sh,
-        "box_zip": box_names == ["gea-vpn.conf", "vpn.sh"] and box_conf_z == (root / box["id"] / "gea-vpn.conf").read_text(encoding="utf-8") and "IFACE=gea-vpn" in vpn_sh and "wg-quick@$IFACE" in vpn_sh and "wireguard" in vpn_sh,
+        # the files are written anew below (after the removal) with a new "made" line: the comparison leaves the first line out
+        "box_zip": box_names == ["gea-vpn.conf", "vpn.sh"] and box_conf_z.split("\n", 1)[1] == (root / box["id"] / "gea-vpn.conf").read_text(encoding="utf-8").split("\n", 1)[1] and "IFACE=gea-vpn" in vpn_sh and "wg-quick@$IFACE" in vpn_sh and "wireguard" in vpn_sh,
         "reader_zip": rd_names == ["README.txt", "gea-vpn.conf"],
         "sh_n": sh_ok in (None, True),
         "wg_quick_strip": strip_ok in (None, True),
@@ -17280,6 +17281,155 @@ def section_dz_textbook_oracle(tmp: str) -> None:
        "the self-test holds the policy to the oracle as well; the help names the bar and the ceiling" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
 
 
+def section_ea_vpn_client(tmp: str) -> None:
+    """Section EA - GEA-VPN, the client program: standalone (the standard library and nothing of GEA), the connect
+    information read from the zip GEA itself writes for a member and from pasted text, refused when wrong, its
+    public key the one GEA has for the member; the page waiting, taking the information, refusing a request without
+    its own header, forgetting; the records owner-only with a log; `wg show` parsed; the self-test from the command
+    line; the Linux kit built (the wheel, install.sh, the sums); the Windows setup script, the workflow's jobs and
+    marks, the icon, the kit names in the updates, the member's README, the card, the help, IT_SECURITY."""
+    import importlib
+    import importlib.util as _ilu
+    import io as _io
+    import re as _re
+    import subprocess as _sp
+    import zipfile as _zf
+    from . import __version__
+    from . import helplib as H
+    from . import icon as IC
+    from . import updates as UP
+    from . import vpn as VP
+    from . import x25519 as X
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    src = pkg.parent / "vpn"
+    d = Path(tmp, "ea"); d.mkdir()
+    if not (src / "gea_vpn" / "__init__.py").is_file():
+        ok(True, "EA GEA-VPN's program (vpn/) is not beside this installation; the kits carry it - nothing to check here")
+        return
+    if str(src) not in sys.path:
+        sys.path.insert(0, str(src))
+    GV = importlib.import_module("gea_vpn"); GB = importlib.import_module("gea_vpn.bundle"); GS = importlib.import_module("gea_vpn.service"); GW = importlib.import_module("gea_vpn.wg")
+    # -- EA1 the program ---------------------------------------------------------------------------------------------------------
+    imports = set()
+    for p_ in (src / "gea_vpn").glob("*.py"):
+        for m_ in _re.findall(r"^\s*(?:from|import)\s+([a-zA-Z_][\w.]*)", p_.read_text(encoding="utf-8"), flags=_re.M):
+            imports.add(m_.split(".")[0])
+    foreign = {m_ for m_ in imports if m_ not in sys.stdlib_module_names and m_ not in ("gea_vpn",)} if hasattr(sys, "stdlib_module_names") else set()
+    ws = Workspace.create(str(d / "ws"), "Pad 3 vpn", actor="tester")
+    VP.create(ws, "tester", "vpn.pad3site.com")
+    m = VP.add_member(ws, "tester", "Pad 3 rig PC", "driller")
+    written = VP.write_bundles(ws, "tester")
+    zip_bytes = Path(written[m["id"]]["zip"]).read_bytes()
+    info = GB.read_connect_info(zip_bytes, os.path.basename(written[m["id"]]["zip"]))
+    net = VP.load(ws)
+    office = next(x for x in net["members"] if x["kind"] == "office")
+    readme = Path(written[m["id"]]["dir"], "README.txt").read_text(encoding="utf-8")
+    text_info = GB.check_conf(Path(written[m["id"]]["conf"]).read_text(encoding="utf-8"))
+    refused = []
+    for bad in (b"hello", b"PK\x03\x04junk", Path(written[m["id"]]["conf"]).read_text(encoding="utf-8").replace(":51820", "").encode(),
+                Path(written[m["id"]]["conf"]).read_text(encoding="utf-8").replace("[Peer]", "[Peer]\nPublicKey = AAAA\n[Peer]").encode()):
+        try:
+            GB.read_connect_info(bad, "x.conf"); refused.append(False)
+        except GB.BundleError:
+            refused.append(True)
+    cl = GS.Client(data_dir=str(d / "data"), dry=True)
+    srv = GS.Server(cl, port=0); srv.start()
+    try:
+        import urllib.error
+        import urllib.request
+        with urllib.request.urlopen(srv.url + "/live.json", timeout=5) as r_:
+            l0 = json.load(r_)
+        rq = urllib.request.Request(srv.url + "/api/connect", data=json.dumps({"text": info["conf"]}).encode(), headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            urllib.request.urlopen(rq, timeout=5); no_header = False
+        except urllib.error.HTTPError as e:
+            no_header = e.code == 403
+        rq = urllib.request.Request(srv.url + "/api/connect", data=json.dumps({"text": info["conf"], "by": "tester"}).encode(), headers={"Content-Type": "application/json", "X-GEA-VPN": "1", "Origin": "http://evil.example"}, method="POST")
+        try:
+            urllib.request.urlopen(rq, timeout=5); foreign_origin = False
+        except urllib.error.HTTPError as e:
+            foreign_origin = e.code == 403
+        # the zip itself, as the page takes it from a drop
+        bnd = "----gea"; body = (f"--{bnd}\r\nContent-Disposition: form-data; name=\"by\"\r\n\r\ntester\r\n--{bnd}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"gea-vpn-x.zip\"\r\nContent-Type: application/zip\r\n\r\n").encode() + zip_bytes + f"\r\n--{bnd}--\r\n".encode()
+        rq = urllib.request.Request(srv.url + "/api/connect", data=body, headers={"Content-Type": f"multipart/form-data; boundary={bnd}", "X-GEA-VPN": "1"}, method="POST")
+        with urllib.request.urlopen(rq, timeout=5) as r_:
+            res = json.load(r_)
+        with urllib.request.urlopen(srv.url + "/live.json", timeout=5) as r_:
+            l1 = json.load(r_)
+        with urllib.request.urlopen(srv.url + "/health", timeout=5) as r_:
+            hl = json.load(r_)
+        mode = os.stat(cl.state.conf).st_mode & 0o777
+        rq = urllib.request.Request(srv.url + "/api/forget", data=b'{"by":"tester"}', headers={"Content-Type": "application/json", "X-GEA-VPN": "1"}, method="POST")
+        with urllib.request.urlopen(rq, timeout=5) as r_:
+            json.load(r_)
+        with urllib.request.urlopen(srv.url + "/live.json", timeout=5) as r_:
+            l2 = json.load(r_)
+    finally:
+        srv.stop()
+    dump = "PRIV\tPUB\t0\toff\n" + "HUBKEY\tPSK\t203.0.113.10:51820\t10.77.0.1/32,10.77.0.2/32\t" + str(int(time.time()) - 40) + "\t1024\t2048\t25\n"
+    pd = GW.parse_dump(dump)
+    wst = GW.status()
+    env = dict(os.environ); env["PYTHONPATH"] = str(src)
+    r_st = _sp.run([sys.executable, "-m", "gea_vpn", "selftest", "--json"], capture_output=True, text=True, env=env, cwd=str(d))
+    try:
+        stj = json.loads(r_st.stdout)
+    except ValueError:
+        stj = {}
+    c1 = {
+        "standalone": not foreign and GV.__version__ == __version__ and "numpy" not in imports,
+        "zip_read": info["name"] == "Pad 3 rig PC" and info["kind"] == "driller" and info["address"] == m["address"] and info["hub"]["host"] == "vpn.pad3site.com" and info["hub"]["port"] == 51820
+                    and info["hub"]["address"] == net["hub"]["address"] and info["office_address"] == office["address"] and info["public_key"] == m["public_key"] and info["preshared"] and info["keepalive_s"] == 25
+                    and text_info["public_key"] == m["public_key"],
+        "refusals": all(refused) and len(refused) == 4,
+        "page": l0["phase"] in ("waiting", "no-wireguard") and l0["member"] is None and no_header and foreign_origin and res["ok"] and res["member"]["address"] == m["address"]
+                and l1["member"]["name"] == "Pad 3 rig PC" and l1["source"] == "gea-vpn-x.zip" and hl["member"] == m["address"] and (os.name == "nt" or mode == 0o600)
+                and l2["member"] is None and not os.path.isfile(cl.state.conf) and any("forget" in x for x in l2["log"]) and any("connect: Pad 3 rig PC" in x for x in l2["log"]),
+        "dump": pd["public_key"] == "PUB" and len(pd["peers"]) == 1 and pd["peers"][0]["endpoint"] == "203.0.113.10:51820" and pd["peers"][0]["rx_bytes"] == 1024 and pd["peers"][0]["keepalive_s"] == 25
+                and isinstance(wst.get("installed"), bool),
+        "selftest": r_st.returncode == 0 and stj.get("ok") and len(stj.get("checks", [])) >= 6,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "EA1 GEA-VPN is the standard library and nothing of GEA; it reads the zip GEA writes for a member - the name, the kind, the address, the hub, the office, the "
+       "pre-shared key, the keepalive, and this computer's public key the one GEA has - and the text of the configuration, and refuses what is not one; its page waits, "
+       "refuses a request without its own header or from a foreign origin, takes the zip as dropped, keeps the configuration owner-only and the log, and forgets; "
+       "`wg show` is parsed; the self-test passes from the command line" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+    # -- EA2 the kits, the setup, the workflow, GEA's side -----------------------------------------------------------------------
+    tools = pkg.parent / "tools"
+    spec = _ilu.spec_from_file_location("gea_build_vpn", tools / "build_vpn.py")
+    BV = _ilu.module_from_spec(spec); spec.loader.exec_module(BV)
+    with __import__("contextlib").redirect_stdout(_io.StringIO()):
+        tgz = BV.build_linux(d / "dist")
+    with __import__("tarfile").open(tgz) as tf:
+        names = sorted(n.split("/", 1)[1] for n in tf.getnames() if "/" in n)
+    iss = (tools / "vpn_installer.iss").read_text(encoding="utf-8")
+    wf = (pkg.parent / ".github" / "workflows" / "build-installer.yml").read_text(encoding="utf-8")
+    marks = _re.findall(r'attach-kit\.sh "[^"]*" "([^"]+)" "([^"]+)"', wf)
+    ico = IC.ico_bytes(kind="vpn")
+    app_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    c2 = {
+        "kit": tgz.name == f"GEA-VPN-{__version__}.tar.gz" and {"install.sh", "README.md", "pyproject.toml", "SHA256SUMS.txt", "MANIFEST.json", "gea_vpn/__main__.py", "gea_vpn/service.py", "gea_vpn/wg.py", "gea_vpn/bundle.py"} <= set(names)
+               and (any(n.startswith("gea_vpn-") and n.endswith(".whl") for n in names) or _ilu.find_spec("pip") is None) and "gea_vpn install" in (src / "install.sh").read_text(encoding="utf-8"),
+        "setup": "5B7E2C1A-4D0F-4A7B-9C3E-2F6A8D1E7B42" in iss and "PrivilegesRequired=admin" in iss and "installtunnelservice" not in iss and "-m gea_vpn install" in iss and "wireguard-amd64-0.5.3.msi" in iss
+                 and "uninstall-service" in iss and "schtasks" in iss and "http://127.0.0.1:8795/" in iss,
+        "workflow": "windows-vpn:" in wf and "  vpn:" in wf and "build_vpn.py --win64" in wf and "WireGuard LLC" in wf and ("dist/GEA-VPN-Setup-*.exe", "GEA-VPN-Setup-") in marks
+                    and ("dist/GEA-VPN-*.tar.gz", "GEA-VPN-[0-9]") in marks and "/api/connect" in wf,
+        "icon": len(ico) > 10000 and {s_ for s_, _, _, _ in IC.read_ico(ico)} >= {16, 32, 48, 256},
+        "updates": "GEA-VPN-Setup-" in UP.KITS and "GEA-VPN-" in UP.KITS and UP.KITS.index("GEA-VPN-Setup-") < UP.KITS.index("GEA-VPN-"),
+        "readme": "GEA-VPN-Setup-" in readme and "127.0.0.1:8795" in readme and "wireguard.com" in readme,
+        "card": "GEA-VPN-Setup-" in app_src and "127.0.0.1:8795" in app_src,
+        "help": not H.check("vpn") and "The client program" in (pkg / "help" / "vpn.md").read_text(encoding="utf-8") and "GEA-VPN-Setup-" in (pkg / "help" / "tutorial" / "23-vpn.md").read_text(encoding="utf-8")
+                and "installtunnelservice" in (pkg / "help" / "IT_SECURITY.md").read_text(encoding="utf-8") and "vpn/" in (pkg.parent / "README.md").read_text(encoding="utf-8"),
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       f"EA2 the Linux kit builds ({tgz.name}: the wheel, the program, install.sh, the sums) and its self-test passes on the built program; the Windows setup script installs "
+       "as administrator, carries WireGuard's installer, registers the task and removes it; the workflow builds, signs, installs and attaches both kits with their marks; "
+       "the icon has its sizes; the updates know the two kit names; the member's README, the card, the help, the tutorial and IT_SECURITY say so"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -17413,6 +17563,7 @@ def main() -> int:
         section_dx_third_dimension(tmp)
         section_dy_vibration(tmp)
         section_dz_textbook_oracle(tmp)
+        section_ea_vpn_client(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

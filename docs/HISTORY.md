@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.83.0 - 2026-11-08 - GEA-VPN, the client program
+
+- GEA-VPN as a standalone program for every member computer: installed
+  once, ready for the connect information the office makes, the tunnel up
+  from the zip dropped on its page and at every start, the hub's and the
+  office's answers on the page; a Windows setup that brings WireGuard with
+  it, a Linux kit. Section EA; gate 560.
+
 ## v0.82.0 - 2026-11-07 - the bar and the ceiling
 
 - The textbook driller rewritten as a driller with a memory and the

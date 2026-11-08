@@ -4,7 +4,8 @@
 """icon - the program's icons, drawn in code. GEA-Program's: a derrick with its crown block on a rounded square, teal
 while the control panel runs and grey while it does not. GEA Reader's (`kind='reader'`): a signed page - a white sheet
 with a folded corner on a blue rounded square, a green seal with a check on it - so the client's program never looks
-like the site's. `ico_bytes()` is the .ico an installer and its shortcuts use; `dib()` one image as the notification
+like the site's. GEA-VPN's (`kind='vpn'`): two dots joined by a tunnel on a deep-blue rounded square - a link, not
+a lock. `ico_bytes()` is the .ico an installer and its shortcuts use; `dib()` one image as the notification
 area takes it. Standard library only and no imports from the program, so the
 kit's build (tools/build_installer.py) can load this file on its own."""
 
@@ -90,11 +91,37 @@ def _reader_pixel(u: float, v: float, size: int, bg: tuple, segs) -> tuple:
     return (int(bg[0] * shade), int(bg[1] * shade), int(bg[2] * shade), 255)
 
 
+VPN_BLUE = (28, 52, 96)
+
+
+def _vpn_pixel(u: float, v: float, size: int, bg: tuple, segs) -> tuple:
+    """GEA-VPN: two white dots (the office, the member) joined by a bar through a lighter band (the tunnel), on a
+    deep-blue rounded square."""
+    m, r = 0.04, 0.2
+    qx, qy = abs(u - 0.5) - (0.5 - m - r), abs(v - 0.5) - (0.5 - m - r)
+    if math.hypot(max(qx, 0), max(qy, 0)) + min(max(qx, qy), 0) - r > 0:
+        return (0, 0, 0, 0)
+    small = size < 28
+    band_h = 0.16 if not small else 0.2
+    dot = 0.11 if not small else 0.14
+    for cx in (0.27, 0.73):
+        if math.hypot(u - cx, v - 0.5) <= dot:
+            return WHITE + (255,)
+    if abs(v - 0.5) <= (0.045 if not small else 0.07) and 0.27 <= u <= 0.73:
+        return WHITE + (255,)
+    if abs(v - 0.5) <= band_h and 0.12 <= u <= 0.88:
+        return (60, 100, 170, 255)
+    shade = 1.0 - 0.18 * v
+    return (int(bg[0] * shade), int(bg[1] * shade), int(bg[2] * shade), 255)
+
+
 def draw(size: int, running: bool = True, kind: str = 'gea') -> list:
     """size x size RGBA rows (top row first), supersampled so the small sizes stay legible."""
     ss = 4 if size <= 64 else 2
     if kind == 'reader':
         bg, segs, pixel = READER_BLUE, None, _reader_pixel
+    elif kind == 'vpn':
+        bg, segs, pixel = VPN_BLUE, None, _vpn_pixel
     else:
         bg, segs, pixel = (TEAL if running else GREY), _derrick_segments(), _pixel
     rows = []

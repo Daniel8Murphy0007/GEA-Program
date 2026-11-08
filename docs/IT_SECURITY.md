@@ -166,7 +166,21 @@ declared extras.
   admin-only and audited (`vpn.bundle.download`). The tunnel encrypts and
   addresses; the programs' own sign-in, roles and hashes apply through it
   unchanged, and the box's page is still bound to the pad network and the
-  tunnel address only.
+  tunnel address only. The client program **GEA-VPN** (since 0.83.0, the
+  standalone kits `GEA-VPN-Setup-<v>.exe` and `GEA-VPN-<v>.tar.gz`) runs on
+  a member computer as a service - on Windows the scheduled task `GEA-VPN`
+  as SYSTEM, because `wireguard.exe /installtunnelservice` needs those
+  rights - and serves its page on 127.0.0.1:8795 only, to this computer's
+  own browser; its actions need a header a browser form of another site
+  cannot set, and a foreign Origin is refused. It keeps the member's
+  configuration (the private key) owner-only under `%ProgramData%\GEA-VPN`
+  (administrators and SYSTEM) or `/var/lib/gea-vpn` (root), shows the public
+  key only, and logs every connect, disconnect and forget with the name
+  given. It reaches no network itself: WireGuard does, as the configuration
+  says, and the page's one probe is a TCP connect to the office's port
+  through the tunnel. The Windows setup carries WireGuard's own installer,
+  whose Authenticode signature (WireGuard LLC) the build checks before the
+  setup is made; it is run only when the computer has no WireGuard.
 - **The tutorial** (since 0.76.0): the lessons are files inside the
   program; reading one writes nothing. A person's ticks are kept in the
   workspace (`records\tutorial_progress.json`, by account name, no more);

@@ -1,17 +1,15 @@
-v0.82.0 — GEA DRILLER: THE BAR AND THE CEILING
+v0.83.0 — GEA-VPN: THE CLIENT PROGRAM
 
-The agent is now read between two drillers on the same held-out scenes:
-a stronger textbook driller - what a careful directional driller and
-geosteerer do by the book from the same observation the agent gets,
-with a driller's memory of his own last decisions - and an oracle told
-the twin's own layer, which no policy can beat. "gea-driller evaluate"
-prints the three rows and how far the agent stands from the bar toward
-the ceiling. The policy trained on. A fix on the way: the textbook never
-asked for the full drop, its choice ladder tested the gentle one first.
-
-Textbook 83% of the hole in the layer, agent 86%, oracle
-98% on the gate's twenty held-out scenes (SIMULATION).
+GEA-VPN is a standalone program now, for every computer that joins the
+site's private network: GEA-VPN-Setup-<version>.exe on Windows (it brings
+WireGuard with it and runs as a service of its own), GEA-VPN-<version>.tar.gz
+on Linux. Installed once, it is ready for the connect information: the
+office adds the member in GEA-Program, hands over its zip, and the person
+drops the zip on the program's page (http://127.0.0.1:8795/) and presses
+Connect. The tunnel is up from then on, at every start of the computer,
+and the page says when the hub answered and whether the office answers
+through it. Nothing is typed but a name.
 
 Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
 
-Acceptance section DZ (2 checks); gate 558.
+Acceptance section EA (2 checks); gate 560.

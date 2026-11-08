@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gea-vpn"
+version = "0.83.0"
+description = "GEA-VPN - the client program that joins a computer to a site's private network: installed once, ready for the connect information the office makes in GEA-Program"
+readme = "README.md"
+license = {text = "MPL-2.0"}
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+gea-vpn = "gea_vpn.__main__:main"
+
+[tool.setuptools]
+packages = ["gea_vpn"]

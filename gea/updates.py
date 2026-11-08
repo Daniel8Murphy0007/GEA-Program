@@ -4,7 +4,7 @@
 """updates - the program's own new versions, from inside the program.
 
 Every version is a release on GitHub with the kits attached - GEA-Program-Setup-<v>.exe, GEA-Reader-Setup-<v>.exe,
-GEA-Recorder-<v>.tar.gz, GEA-Driller-<v>.tar.gz - each with the SHA-256 GitHub recorded when it was uploaded. This module asks GitHub
+GEA-Recorder-<v>.tar.gz, GEA-Driller-<v>.tar.gz, GEA-VPN-Setup-<v>.exe, GEA-VPN-<v>.tar.gz - each with the SHA-256 GitHub recorded when it was uploaded. This module asks GitHub
 what the newest release is, fetches the kits into the workspace's `installers\\` folder (each checked against its
 recorded SHA-256 before it is kept; older kits moved to `installers\\_older\\`), and installs the setup from there by
 clicking: the setup stops the control panel, installs over the old version, keeps the workspace, and the control
@@ -27,7 +27,7 @@ from typing import Callable, Dict, List, Optional
 
 REPO = 'Daniel8Murphy0007/GEA-Program'
 API = f'https://api.github.com/repos/{REPO}/releases/latest'
-KITS = ('GEA-Program-Setup-', 'GEA-Reader-Setup-', 'GEA-Recorder-', 'GEA-Driller-')
+KITS = ('GEA-Program-Setup-', 'GEA-Reader-Setup-', 'GEA-Recorder-', 'GEA-Driller-', 'GEA-VPN-Setup-', 'GEA-VPN-')     # GEA-VPN-Setup- before GEA-VPN-: a prefix match
 INSTALLERS = 'installers'
 
 
@@ -80,7 +80,7 @@ def on_hand(ws) -> List[dict]:
     out = []
     if os.path.isdir(d):
         for n in sorted(os.listdir(d)):
-            m = re.match(r'(GEA-Program-Setup-|GEA-Reader-Setup-|GEA-Recorder-|GEA-Driller-)(\d+\.\d+\.\d+)', n)
+            m = re.match(r'(GEA-Program-Setup-|GEA-Reader-Setup-|GEA-Recorder-|GEA-Driller-|GEA-VPN-Setup-|GEA-VPN-)(\d+\.\d+\.\d+)', n)
             if m and os.path.isfile(os.path.join(d, n)):
                 out.append({'name': n, 'kit': m.group(1), 'version': m.group(2), 'bytes': os.path.getsize(os.path.join(d, n)), 'verified': n in rec and rec[n].get('verified', False)})
     return out
@@ -93,7 +93,7 @@ def state(ws, running_version: str, check: bool = True, timeout: float = 8.0, fe
     st = 'unknown' if not newest else ('current' if _ver_t(newest) <= _ver_t(running_version) else 'behind')
     here = [h for h in have if newest and h['version'] == newest]
     return {'release': rel, 'state': st, 'running': running_version, 'installers_dir': installers_dir(ws), 'on_hand': have,
-            'newest_on_hand': {k: any(h['kit'] == k for h in here) for k in KITS} if newest else {},
+            'newest_on_hand': {k: any(h['kit'] == k for h in here) for k in KITS if any(a.get('kit') == k for a in rel.get('assets', []))} if newest else {},
             'can_install': sys.platform.startswith('win') and any(h['kit'] == 'GEA-Program-Setup-' and h['verified'] for h in here),
             'last_fetch': _last_fetch(ws), 'last_install': _last_install(ws)}
 

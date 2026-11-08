@@ -266,9 +266,15 @@ wg show $IFACE
 echo "== GEA-VPN up: this box is __ADDRESS__ on the site's network; its page from the office: http://__ADDRESS__:8780/"
 '''
 
-WINDOWS_STEPS = '''GEA-VPN on this Windows computer - {name}
+WINDOWS_STEPS = '''GEA-VPN on this computer - {name}
 
-1. Install WireGuard for Windows once, from https://www.wireguard.com/install/ (the installer asks for administrator rights; nothing of GEA needs them).
+The simple way: install GEA-VPN once (GEA-VPN-Setup-<version>.exe on Windows, GEA-VPN-<version>.tar.gz on Linux; both on every
+release of GEA-Program, and in the office's installers folder), open it from the Start menu (the page at http://127.0.0.1:8795/),
+drop this zip on the page and press Connect. The tunnel is up from then on, at every start of the computer, and the page says
+when the hub answers and when the office does.
+
+By hand, on Windows without GEA-VPN:
+1. Install WireGuard for Windows once, from https://www.wireguard.com/install/ (the installer asks for administrator rights).
 2. Open WireGuard, click "Import tunnel(s) from file", choose {conf}.
 3. Click Activate. The tunnel reconnects by itself whenever this computer is on the internet.
 

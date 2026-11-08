@@ -503,8 +503,12 @@ every configuration: enter the hub's address, **Make the network**, copy
 `gea-vpn-hub.zip` to the hub and run `sudo sh install-hub.sh`; install
 WireGuard on the office PC from wireguard.com and import the office's
 `gea-vpn.conf`; add a member per computer and hand it its zip (a box's
-holds `vpn.sh`, run once on the Pi; a window imports its `gea-vpn.conf`),
-then run the hub installer again. The keys stay in
+holds `vpn.sh`, run once on the Pi; every other member installs the
+client program **GEA-VPN** once - `vpn/`, `GEA-VPN-Setup-<version>.exe`
+and `GEA-VPN-<version>.tar.gz` on every release, since 0.83.0 - and drops
+its zip on the program's page at `http://127.0.0.1:8795/`: the tunnel is
+up from then on, at every start, and the page says when the hub and the
+office answer), then run the hub installer again. The keys stay in
 `keys\vpn\network.json`, owner-only, in the backup and never in the
 dossier. From a terminal: `gea vpn --workspace C:\site --create
 vpn.pad3site.com`, `gea vpn --workspace C:\site --add "Pad 3 box" --kind
@@ -804,7 +808,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.82.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.83.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1569,7 +1573,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.82.0.exe` (for 0.82.0): the
+Every release also carries `GEA-Program-Setup-0.83.0.exe` (for 0.83.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1588,7 +1592,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.82.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.83.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

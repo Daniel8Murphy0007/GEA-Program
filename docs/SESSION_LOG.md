@@ -3485,3 +3485,42 @@ stability; and motor specifications in the tool catalogue.
   of training on the same observation closes. The gate holds the agent
   above the textbook by more than a point in the layer and within the
   reward's noise of it, and under the oracle, and prints the standing.
+
+## 2026-11-08 - GEA-VPN, the client program (v0.83.0)
+
+- v0.82.0 shipped; the four kits fetched and verified. Daniel: make
+  GEA-VPN into a client installer as a standalone program, ready for the
+  hub's connect information. `vpn/gea_vpn`: `bundle.py` reads the member's
+  zip or the configuration's text and checks it key by key (the keys 32
+  bytes in base64, the address private, the endpoint a name or address
+  and a port, one interface and one peer), deriving the computer's public
+  key from its private one with the program's own X25519; `wg.py` drives
+  WireGuard as the tools say it (`wireguard.exe /installtunnelservice`
+  on Windows, `wg-quick@gea-vpn` under systemd on Linux, `wg show dump`
+  for the handshake and the bytes); `service.py` the page on 127.0.0.1
+  with the drop zone, the paste box, Connect, Disconnect, Forget, the
+  tiles and the log, its actions behind a header a foreign form cannot
+  set. On Windows the tunnel service needs administrator rights, so the
+  program itself runs as the scheduled task GEA-VPN as SYSTEM and the
+  person's browser talks to it; the setup carries WireGuard's own MSI,
+  which neither the cloud nor Daniel's shell can fetch (download.wireguard.com
+  is not on either allowlist), so the build fetches it on the runner and the
+  workflow checks its Authenticode signature is WireGuard LLC's before the
+  setup is made - and says so, and ships without it, when it cannot. The
+  Windows job installs the setup on the runner, gives it synthetic connect
+  information to a hub that does not exist, sees the tunnel service come
+  up, forgets it, upgrades and uninstalls. Section EA (2 checks); the
+  first run found the test's "bad endpoint" was a good one (a letter in
+  front of the host is a host), and DO3's kit marks are nine now, matched
+  as patterns since the Linux kit's mark must not catch the setup's.
+- The kit simulation failed DT3 on `box_zip`: the member's configuration in
+  the zip is compared with the file on disk, and the files are written anew
+  later in the check with a new "made" timestamp - the two writes crossed a
+  second. The comparison leaves the first line out now; the same flake was
+  the 3.14 gate's DT3 of 0.81.0.
+- Daniel's Python 3.10 refused `service.py`: a backslash inside an
+  f-string's expression is Python 3.12's. Fixed, and the new program's files
+  parsed under 3.10 before the transfer was made anew.
+- The kit build in EA2 ran `pip wheel` on the checkout's vpn/ itself,
+  which leaves build/ there (ignored by git, but a folder Daniel's shell
+  cannot delete); the wheel is built from a copy in a temporary folder now.

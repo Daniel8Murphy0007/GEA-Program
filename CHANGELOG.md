@@ -5,6 +5,57 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.83.0] - 2026-11-08 - GEA-VPN: the client program
+
+### Added
+- **GEA-VPN as a standalone program** (`vpn/`, the package `gea_vpn`;
+  `GEA-VPN-Setup-<version>.exe` for Windows and `GEA-VPN-<version>.tar.gz`
+  for Linux on every release, the fifth and sixth kits) for every computer
+  that joins the site's private network but the hub and the Pi: the rig
+  PC, a window's PC, a second office. Installed once, it is **ready for
+  the connect information** the office makes in GEA-Program: its page at
+  `http://127.0.0.1:8795/` (the Start menu's GEA-VPN) waits for the
+  member's zip - dropped on it, chosen, or the text of `gea-vpn.conf`
+  pasted - checks it key by key (a WireGuard key is 32 bytes in base64,
+  the address private, the hub's endpoint a name or address and a port,
+  one interface, one peer), and on **Connect** brings the WireGuard tunnel
+  up now and at every start of the computer. From then on it says whether
+  WireGuard is installed, whether the tunnel is up, when the hub last
+  answered, the bytes each way, and whether the office answers through
+  the tunnel; **Disconnect** and **Disconnect and forget**. The standard
+  library and nothing of GEA; WireGuard does the tunnel.
+- On Windows the setup (administrator rights, once) installs WireGuard for
+  Windows from the official installer it carries when the computer has
+  none (the build checks the installer's Authenticode signature is
+  WireGuard LLC's), puts the program under Program Files with its own
+  embeddable Python, keeps the data folder for administrators and SYSTEM,
+  and runs the program as the scheduled task `GEA-VPN` (as SYSTEM, at
+  every start), because `wireguard.exe /installtunnelservice` needs those
+  rights and a person should not; uninstalling disconnects the tunnel and
+  removes the task. On Linux `sudo sh install.sh`: WireGuard from the
+  distribution, `/opt/gea-vpn`, the service `gea-vpn` under systemd.
+- The page listens on 127.0.0.1 only and answers its own requests only (a
+  header a browser form of another site cannot set; a foreign Origin
+  refused); the connect information is kept owner-only under
+  `%ProgramData%\GEA-VPN` or `/var/lib/gea-vpn` with a log of every
+  connect, disconnect and forget by name. `gea-vpn status`, `connect`,
+  `disconnect`, `forget`, `selftest`, `install`.
+- GEA's side: the member's README and the GEA-VPN card say to install the
+  program and drop the zip; the updates fetch the two kits with the
+  others; the icon (`kind='vpn'`: two dots joined by a tunnel); the
+  workflow's jobs `vpn` and `windows-vpn` (the Windows one installs the
+  setup on the runner with WireGuard, gives it synthetic connect
+  information, sees the tunnel service come up, forgets it, upgrades and
+  uninstalls).
+
+### Acceptance
+- Section EA (2 checks): the program standalone, the zip GEA writes for a
+  member read with the public key GEA has, the refusals, the page's
+  waiting, taking, refusing and forgetting, the records, `wg show` parsed,
+  the self-test; the Linux kit built, the setup script, the workflow's
+  jobs and marks, the icon, the kit names in the updates, the README, the
+  card, the help, IT_SECURITY. DO3 counts nine kit marks.
+
 ## [v0.82.0] - 2026-11-07 - GEA Driller: the bar and the ceiling
 
 ### Added

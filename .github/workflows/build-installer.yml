@@ -481,6 +481,186 @@ jobs:
         with:
           name: gea-driller
           path: dist/GEA-Driller-*.tar.gz
+  vpn:
+    # GEA-VPN, the client program of the site's private network, for Linux computers: built, self-tested on the built kit, attached as GEA-VPN-<version>.tar.gz
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Build the GEA-VPN kit and run its self-test
+        run: python tools/build_vpn.py
+      - name: Install it as a Linux computer would and run the self-test and the status from the install
+        run: |
+          cd dist && tar xzf GEA-VPN-*.tar.gz && cd gea-vpn-*/
+          python -m venv /tmp/gv && /tmp/gv/bin/pip install -q gea_vpn-*.whl && /tmp/gv/bin/gea-vpn selftest
+          /tmp/gv/bin/gea-vpn status --data /tmp/gv/data
+      - name: Attest where GEA-VPN was built (provenance)
+        uses: actions/attest-build-provenance@v3
+        continue-on-error: ${{ github.event.repository.private }}
+        with:
+          subject-path: dist/GEA-VPN-*.tar.gz
+      - name: Attach GEA-VPN to the release
+        run: bash .github/workflows/attach-kit.sh "${{ inputs.release_tag }}" "dist/GEA-VPN-*.tar.gz" "GEA-VPN-[0-9]"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/upload-artifact@v6
+        with:
+          name: gea-vpn
+          path: dist/GEA-VPN-*.tar.gz
+  windows-vpn:
+    # GEA-VPN for Windows (since v0.83.0): the client program as a Windows program of its own - tools/build_vpn.py --win64
+    # (embeddable Python, the program, WireGuard's own installer fetched and checked for WireGuard LLC's signature, the
+    # icon) and tools/vpn_installer.iss. Built, signed like the other setups when a certificate is configured, installed
+    # silently on the runner (WireGuard with it), its page and its scheduled task checked, a tunnel installed from
+    # synthetic connect information and removed, upgraded, uninstalled, then attached.
+    runs-on: windows-latest
+    env:
+      ARTIFACT_SIGNING_ACCOUNT: ${{ secrets.ARTIFACT_SIGNING_ACCOUNT }}
+      SIGNING_PFX_BASE64: ${{ secrets.SIGNING_PFX_BASE64 }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Build the GEA-VPN Windows kit
+        run: python tools/build_vpn.py --win64
+      - name: Check WireGuard's installer is WireGuard LLC's (Authenticode) - or say the kit has none
+        shell: pwsh
+        run: |
+          $kit = Get-ChildItem dist -Directory -Filter 'gea-vpn-*-win64' | Select-Object -First 1
+          if (-not $kit) { throw 'no GEA-VPN kit under dist' }
+          $msi = Join-Path $kit.FullName 'wireguard\wireguard-amd64-0.5.3.msi'
+          if (-not (Test-Path $msi)) { "::warning::the kit carries no WireGuard installer (download.wireguard.com was not reachable); the setup will say to install WireGuard from wireguard.com"; exit 0 }
+          $sig = Get-AuthenticodeSignature $msi
+          "WireGuard installer: $($sig.Status) $($sig.SignerCertificate.Subject)"
+          if ("$($sig.Status)" -ne 'Valid' -or $sig.SignerCertificate.Subject -notlike '*WireGuard LLC*') { throw 'the WireGuard installer in the kit is not validly signed by WireGuard LLC' }
+      - name: The setup - Inno Setup from the kit
+        shell: pwsh
+        run: |
+          $ver = (Select-String -Path pyproject.toml -Pattern '^version = "([^"]+)"').Matches[0].Groups[1].Value
+          $kit = Get-ChildItem dist -Directory -Filter 'gea-vpn-*-win64' | Select-Object -First 1
+          foreach ($f in @('vpn.ico', 'GEA-VPN.url', 'app\gea_vpn\__main__.py', 'python\pythonw.exe')) {
+            if (-not (Test-Path (Join-Path $kit.FullName $f))) { throw "the kit has no $f" }
+          }
+          $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) {
+            choco install innosetup -y --no-progress | Out-Host
+            $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+          }
+          $out = (Resolve-Path dist).Path
+          & $iscc /Qp "/DAppVersion=$ver" "/DKitDir=$($kit.FullName)" "/DOutDir=$out" tools\vpn_installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)" }
+          $setup = Join-Path $out "GEA-VPN-Setup-$ver.exe"
+          if (-not (Test-Path $setup)) { throw "no $setup was written" }
+          "setup: $setup ($([math]::Round((Get-Item $setup).Length / 1MB, 1)) MB)"
+          "SETUP=$setup" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "SETUP_VER=$ver" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Sign the setup (Azure Artifact Signing)
+        if: env.ARTIFACT_SIGNING_ACCOUNT != ''
+        uses: azure/artifact-signing-action@v2
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ secrets.ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ secrets.ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.ARTIFACT_SIGNING_PROFILE }}
+          files: ${{ env.SETUP }}
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+      - name: Sign the setup (a PFX certificate)
+        if: env.ARTIFACT_SIGNING_ACCOUNT == '' && env.SIGNING_PFX_BASE64 != ''
+        shell: pwsh
+        env:
+          SIGNING_PFX_PASSWORD: ${{ secrets.SIGNING_PFX_PASSWORD }}
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP 'signing.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGNING_PFX_BASE64))
+          try {
+            $st = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter signtool.exe |
+                  Where-Object { $_.FullName -like '*\x64\*' } | Sort-Object FullName -Descending | Select-Object -First 1
+            if (-not $st) { throw 'signtool.exe not found in the Windows SDK' }
+            & $st.FullName sign /fd SHA256 /f $pfx /p $env:SIGNING_PFX_PASSWORD /tr http://timestamp.digicert.com /td SHA256 /d "GEA-VPN setup" $env:SETUP
+            if ($LASTEXITCODE -ne 0) { throw "signtool failed ($LASTEXITCODE)" }
+          } finally { Remove-Item $pfx -Force -ErrorAction SilentlyContinue }
+      - name: Install GEA-VPN, check it, give it connect information, upgrade it, uninstall it
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = Join-Path ${env:ProgramFiles} 'GEA-VPN'
+          $data = Join-Path $env:ProgramData 'GEA-VPN'
+          $key = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{5B7E2C1A-4D0F-4A7B-9C3E-2F6A8D1E7B42}_is1'
+          function InstallOnce([string]$what) {
+            $log = Join-Path $env:RUNNER_TEMP "vpn-$what.log"
+            $p = Start-Process -FilePath $env:SETUP -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=`"$log`"") -Wait -PassThru
+            if ($p.ExitCode -ne 0) { Get-Content $log -Tail 40; throw "GEA-VPN setup ($what) ended with exit code $($p.ExitCode)" }
+            "GEA-VPN setup ($what): done"
+          }
+          InstallOnce 'install'
+          $py = Join-Path $app 'python\python.exe'
+          & $py -m gea_vpn selftest
+          if ($LASTEXITCODE -ne 0) { throw 'gea_vpn selftest failed in the installed program' }
+          schtasks /Query /TN GEA-VPN | Out-Host
+          if ($LASTEXITCODE -ne 0) { throw 'the scheduled task GEA-VPN is not there' }
+          $ok = $false
+          foreach ($i in 1..30) { try { $h = Invoke-RestMethod http://127.0.0.1:8795/health -TimeoutSec 3; $ok = $true; break } catch { Start-Sleep 1 } }
+          if (-not $ok) { Get-Content (Join-Path $data 'log.txt') -ErrorAction SilentlyContinue; throw 'the page at 127.0.0.1:8795 does not answer' }
+          "page: $($h.program) $($h.version) phase $($h.phase)"
+          if ($h.phase -ne 'waiting' -and $h.phase -ne 'no-wireguard') { throw "the page is not waiting for the connect information: $($h.phase)" }
+          $wg = Test-Path (Join-Path ${env:ProgramFiles} 'WireGuard\wireguard.exe')
+          "WireGuard for Windows installed: $wg"
+          if ($wg) {
+            # synthetic connect information to a hub that does not exist: the tunnel service must install and show as up with no handshake
+            $conf = & $py -c "import sys; sys.path.insert(0, r'$app\app'); from gea_vpn import x25519 as X; p, _ = X.keypair_b64(); _, h = X.keypair_b64(); print('# GEA-VPN: CI member (driller) on CI - made 2026-01-01T00:00:00Z by GEA-Program\n[Interface]\nPrivateKey = ' + p + '\nAddress = 10.77.0.9/32\n\n[Peer]\nPublicKey = ' + h + '\nPresharedKey = ' + X.preshared_b64() + '\nEndpoint = 192.0.2.1:51820\nAllowedIPs = 10.77.0.1/32, 10.77.0.2/32\nPersistentKeepalive = 25\n')"
+            $confPath = Join-Path $env:RUNNER_TEMP 'gea-vpn.conf'
+            [IO.File]::WriteAllText($confPath, ($conf -join "`n"))
+            $r = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8795/api/connect -Headers @{ 'X-GEA-VPN' = '1' } -ContentType 'application/json' -Body (@{ text = (Get-Content $confPath -Raw); by = 'ci' } | ConvertTo-Json)
+            "connect: $($r.tunnel.how)"
+            Start-Sleep 3
+            $l = Invoke-RestMethod http://127.0.0.1:8795/live.json -TimeoutSec 5
+            "phase after connect: $($l.phase); tunnel up: $($l.wireguard.up)"
+            if (-not $l.wireguard.up) { throw 'the tunnel service did not come up' }
+            if (-not (Test-Path (Join-Path $data 'gea-vpn.conf'))) { throw 'the connect information was not kept' }
+            $r = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8795/api/forget -Headers @{ 'X-GEA-VPN' = '1' } -ContentType 'application/json' -Body '{"by":"ci"}'
+            Start-Sleep 2
+            $l = Invoke-RestMethod http://127.0.0.1:8795/live.json -TimeoutSec 5
+            if ($l.wireguard.up -or (Test-Path (Join-Path $data 'gea-vpn.conf'))) { throw 'forget left the tunnel or the information in place' }
+            "forgotten: phase $($l.phase)"
+          }
+          $u = Get-ItemProperty $key
+          if ($u.DisplayName -ne "GEA-VPN $env:SETUP_VER") { throw "Add/Remove Programs says '$($u.DisplayName)'" }
+          InstallOnce 'upgrade'
+          $ok = $false
+          foreach ($i in 1..30) { try { $h = Invoke-RestMethod http://127.0.0.1:8795/health -TimeoutSec 3; $ok = $true; break } catch { Start-Sleep 1 } }
+          if (-not $ok) { throw 'the page does not answer after the upgrade' }
+          $p = Start-Process -FilePath (Join-Path $app 'unins000.exe') -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru
+          foreach ($i in 1..60) { if (-not (Test-Path (Join-Path $app 'python'))) { break }; Start-Sleep 1 }
+          if (Test-Path (Join-Path $app 'python')) { throw 'the uninstaller left the program in place' }
+          schtasks /Query /TN GEA-VPN 2>$null | Out-Null
+          if ($LASTEXITCODE -eq 0) { throw 'the scheduled task is still there' }
+          if (Test-Path $key) { throw 'the Add/Remove Programs entry is still there' }
+          "uninstalled: program, task and entry removed; the data folder left: $(Test-Path $data)"
+      - name: Attest where GEA-VPN was built (provenance)
+        uses: actions/attest-build-provenance@v3
+        continue-on-error: ${{ github.event.repository.private }}
+        with:
+          subject-path: dist/GEA-VPN-Setup-*.exe
+      - name: Attach GEA-VPN's setup to the release
+        shell: bash
+        run: bash .github/workflows/attach-kit.sh "${{ inputs.release_tag }}" "dist/GEA-VPN-Setup-*.exe" "GEA-VPN-Setup-"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/upload-artifact@v6
+        with:
+          name: gea-vpn-win64
+          path: dist/GEA-VPN-Setup-*.exe
   linux-kit:
     runs-on: ubuntu-latest
     steps:
