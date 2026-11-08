@@ -601,7 +601,7 @@ jobs:
             "---- what the computer says (the setup's log, the task, the program's logs, the tunnel service) ----"
             foreach ($f in (Get-ChildItem $env:RUNNER_TEMP -Filter 'vpn-*.log' -ErrorAction SilentlyContinue)) { "== $($f.Name)"; Get-Content $f.FullName -Tail 60 }
             "== schtasks"; schtasks /Query /TN GEA-VPN /V /FO LIST 2>&1 | Out-Host
-            foreach ($f in @('install.log', 'log.txt', 'state.json')) { $pth = Join-Path $data $f; if (Test-Path $pth) { "== $f"; Get-Content $pth -Tail 40 } else { "== $f: none" } }
+            foreach ($f in @('install.log', 'log.txt', 'state.json')) { $pth = Join-Path $data $f; if (Test-Path $pth) { "== $f"; Get-Content $pth -Tail 40 } else { "== ${f}: none" } }
             "== tunnel service"; sc.exe query 'WireGuardTunnel$gea-vpn' 2>&1 | Out-Host
             "== WireGuard"; Get-ChildItem (Join-Path ${env:ProgramFiles} 'WireGuard') -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
             "== python"; & (Join-Path $app 'python\python.exe') -c "import sys; print(sys.version); import gea_vpn; print(gea_vpn.__file__)" 2>&1 | Out-Host

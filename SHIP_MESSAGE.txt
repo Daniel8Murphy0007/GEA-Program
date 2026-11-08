@@ -1,11 +1,9 @@
-v0.83.1 — GEA-VPN'S UNINSTALLER
+v0.83.2 — THE RELEASE'S OWN TEST, PARSED
 
-The Windows setup of 0.83.0 passed every step of the release's own test
-but the last - the uninstaller left the program's Python in place, deleted
-while the program was still letting go of it. The program is asked to stop
-first now, on uninstall and before an upgrade, and the test says what it
-saw whenever it fails. The same program as 0.83.0; GEA-VPN-Setup-0.83.1.exe
-is on this release.
+The Windows job of 0.83.1 never ran its test: a line of its new
+diagnostics, "== $f: none", is a variable named f: to PowerShell, and the
+step failed to parse. ${f}. The same program as 0.83.0 and 0.83.1;
+GEA-VPN-Setup-0.83.2.exe is on this release.
 
 Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
 

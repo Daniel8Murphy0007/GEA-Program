@@ -5,6 +5,14 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.83.2] - 2026-11-08 - the release's own test, parsed
+
+### Fixed
+- The Windows job of 0.83.1 stopped before it began: the diagnostics
+  added to its test step wrote `"== $f: none"`, which PowerShell reads as
+  a variable named `f:` and refuses to parse, so the whole step was never
+  run. `${f}`. The same program as 0.83.0 and 0.83.1; the workflow alone.
+
 ## [v0.83.1] - 2026-11-08 - GEA-VPN's uninstaller
 
 ### Fixed

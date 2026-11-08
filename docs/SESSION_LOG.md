@@ -3534,3 +3534,9 @@ stability; and motor specifications in the tool catalogue.
   stops answering (a second, in the cloud), then the task; before an
   upgrade the same through the old program. v0.83.1, the same program;
   the five other kits were fetched meanwhile.
+- v0.83.1's Windows job failed to parse its own test step: the
+  diagnostics' `"== $f: none"` is a variable `f:` to PowerShell. `${f}`.
+  A PowerShell to parse the step with before shipping would be the cure;
+  none is on hand in the cloud, and putting one on Daniel's machine is not
+  mine to do - the step is read word by word instead, and the only lines
+  not already proven by 0.83.0's run are those diagnostics. v0.83.2.
