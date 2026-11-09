@@ -808,7 +808,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.84.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.85.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -926,6 +926,21 @@ neighbours by distance with the day the pressure front reaches them, the
 pressure rise there and the volume it would take for the water itself to
 arrive, every projection labelled SIMULATION. The **Fluid balance** tab,
 `gea fluid`, `gea help fluid`.
+
+### Pressure plume
+
+The ledger's barrels put into the declared formation on a plan grid
+centred on the injection well and stepped forward day by day - single-phase,
+slightly compressible flow by explicit finite differences, checked against
+the line source on the page. The rise drawn as contours at every month's
+end of the record and a year on, both continued at the last rates and shut
+in now; the cells over a declared threshold as the area of review, in acres
+and reach; every mapped fault within the radius read for its rise and its
+slip tendency at each snapshot, with the first day its margin would be used
+up; a fault layer declared sealing blocks the flow and the plume piles up
+against it. The same contours drawn at the declared top in the 3D tab and
+carried in the dossier. Every figure a SIMULATION, said on every line. The
+**Pressure plume** tab, `gea plume`, `gea help plume`.
 
 ### Plan vs actual and the survey tools
 
@@ -1591,7 +1606,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.84.0.exe` (for 0.84.0): the
+Every release also carries `GEA-Program-Setup-0.85.0.exe` (for 0.85.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1610,7 +1625,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.84.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.85.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

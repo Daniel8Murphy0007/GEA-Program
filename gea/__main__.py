@@ -590,6 +590,19 @@ def main(argv=None) -> int:
     p_fl.add_argument("--write", action="store_true", help="write the report under reports/fluid/ (fluid_balance.json, .md, the ledger CSVs)")
     p_fl.add_argument("--actor", type=str, default="cli")
     p_fl.add_argument("--json", action="store_true")
+    p_pm = sub.add_parser("plume", help="the pressure plume (SIMULATION): the ledger's barrels put into the formation on a plan grid and stepped through time - the rise as contours at every month's end and a year on, continued or shut in; the area of review over a declared threshold; every mapped fault's rise and slip tendency through time, sealing or open as declared")
+    p_pm.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (the grid against the line source, a sealing fault, the contours)")
+    p_pm.add_argument("--formation", type=str, default=None, help="one formation's plume (default: every formation with an injection ledger)")
+    p_pm.add_argument("--threshold-psi", type=float, default=None, help="settings: the area of review's threshold, psi (default 50)")
+    p_pm.add_argument("--cells", type=int, default=None, help="settings: cells per side of the grid, odd, 21 to 121 (default 81)")
+    p_pm.add_argument("--radius-km", type=float, default=None, help="settings: the radius the faults are taken within (default 25)")
+    p_pm.add_argument("--projection-days", type=int, default=None, help="settings: how far beyond the record to project (default 365)")
+    p_pm.add_argument("--sealing", type=str, default=None, help="settings: a structure layer whose faults block flow (with --source)")
+    p_pm.add_argument("--open", dest="open_layer", type=str, default=None, help="settings: a structure layer whose faults do not block flow again")
+    p_pm.add_argument("--source", type=str, default="", help="where the sealing declaration comes from")
+    p_pm.add_argument("--write", action="store_true", help="write reports/plume/plume.json and .md")
+    p_pm.add_argument("--actor", type=str, default="cli")
+    p_pm.add_argument("--json", action="store_true")
     p_os = sub.add_parser("seismicity", help="operations and seismicity: each well's drilling, completion and disposal windows against the earthquake catalogue around it - the events during and after each, the levels a regulator's protocol would reach, and the rate during operations against the rest of the record; the Mahoning Valley worked example")
     p_os.add_argument("--workspace", type=str, default=None)
     p_os.add_argument("--scene", type=str, default=None, choices=("workspace", "mahoning"), help="your wells (the default with --workspace) or the public worked example")
@@ -2686,6 +2699,44 @@ def main(argv=None) -> int:
         except (_FL.FluidError, WorkspaceError, ValueError, OSError) as e:
             raise SystemExit(f"fluid: {e.args[0] if e.args else e}")
         print(_json.dumps(p, default=str) if a.json else _FL.text(p))
+        return 0
+    elif a.cmd == "plume":
+        import json as _json
+        from . import plume as _PM
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if not a.workspace:
+            r = _PM.selftest()
+            print(_json.dumps(r, default=str) if a.json else "\n".join(f"{'PASS' if c['pass'] else 'FAIL'}  {c['check']}: {c['value']}" for c in r["checks"]) + f"\n{'OK' if r['ok'] else 'FAILED'} - {r['label']} (grid {r['grid']['n']} x {r['grid']['n']}, {r['grid']['dx_ft']} ft, {r['grid']['substeps_per_day']} sub-steps a day)")
+            return 0 if r["ok"] else 1
+        try:
+            ws = Workspace(a.workspace)
+        except WorkspaceError as e:
+            raise SystemExit(f"plume: {e}")
+        try:
+            if any(v is not None for v in (a.threshold_psi, a.cells, a.radius_km, a.projection_days, a.sealing, a.open_layer)):
+                sealing = {}
+                if a.sealing:
+                    sealing[a.sealing] = True
+                if a.open_layer:
+                    sealing[a.open_layer] = False
+                st_ = _PM.set_settings(ws, a.actor, a.threshold_psi, a.cells, a.radius_km, sealing or None, a.projection_days, a.source)
+                print("settings: " + ", ".join(f"{k} {v}" for k, v in st_.items() if k in ("threshold_psi", "cells", "radius_km", "projection_days", "sealing_layers")))
+                return 0
+            if a.write:
+                from . import __version__ as _ver85
+                r = _PM.write_report(ws, _ver85, a.actor)
+                print(f"written: {', '.join(r['files'])} under {r['folder']}")
+                p = r["page"]
+            else:
+                p = _PM.page(ws, a.formation)
+        except (_PM.PlumeError, WorkspaceError, ValueError, OSError) as e:
+            raise SystemExit(f"plume: {e.args[0] if e.args else e}")
+        if a.json:
+            print(_json.dumps(p, default=str))
+        else:
+            print(_PM.text(p))
         return 0
     elif a.cmd == "seismicity":
         import json as _json

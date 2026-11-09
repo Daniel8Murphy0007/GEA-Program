@@ -2308,6 +2308,9 @@ def make_handler(app: App):
                                 b_ = f_.read()
                         return self._json(200, {'xlsx_b64': _b64.b64encode(b_).decode('ascii'), 'filename': 'declarations.xlsx'})
                     return self._json(200, {'csv': DC.template(app.ws), 'filename': 'declarations.csv'})
+                if path == '/api/plume':
+                    from . import plume as PM
+                    return self._json(200, App._cr(PM.page, app.ws, (qs.get('formation') or [None])[0] or None))
                 if path == '/api/fluid':
                     from . import fluid as FL
                     return self._json(200, App._cr(FL.page, app.ws, (qs.get('as_of') or [None])[0] or None))
@@ -2701,6 +2704,17 @@ def make_handler(app: App):
                     if not isinstance(t_, str) or not t_.strip():
                         raise ApiError(400, 'send the sheet as text (CSV) or an Excel workbook')
                     return self._json(200, DC.apply(app.ws, t_, user['name'], '', write=bool((body or {}).get('apply'))))
+                if path in ('/api/plume/settings', '/api/plume/write'):
+                    from . import plume as PM
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    b_ = dict(body or {})
+                    if path.endswith('/write'):
+                        r_ = App._cr(PM.write_report, app.ws, _v, user['name'])
+                        return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
+                    sealing = b_.get('sealing') if isinstance(b_.get('sealing'), dict) else None
+                    return self._json(200, App._cr(PM.set_settings, app.ws, user['name'], b_.get('threshold_psi'), b_.get('cells'), b_.get('radius_km'), sealing,
+                                                   b_.get('projection_days'), str(b_.get('source') or '')))
                 if path.startswith('/api/fluid/'):
                     from . import fluid as FL
                     from . import __version__ as _v

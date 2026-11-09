@@ -5,10 +5,10 @@ Takes: 15 minutes
 > The program installed like any Windows program, with the site's folder chosen once.
 
 ## Before you start
-You need a Windows PC that will stay on while the site is watched (the office machine, or the doghouse PC), and the setup file for this version, `GEA-Program-Setup-0.84.0.exe`, from the release page on GitHub. No administrator rights are needed: the program installs for you alone.
+You need a Windows PC that will stay on while the site is watched (the office machine, or the doghouse PC), and the setup file for this version, `GEA-Program-Setup-0.85.0.exe`, from the release page on GitHub. No administrator rights are needed: the program installs for you alone.
 
 ## Steps
-1. Double-click `GEA-Program-Setup-0.84.0.exe`. If Windows asks whether to run it, choose **Run** - the setup is published by the site, not by a store.
+1. Double-click `GEA-Program-Setup-0.85.0.exe`. If Windows asks whether to run it, choose **Run** - the setup is published by the site, not by a store.
 2. The setup asks for the **site workspace**: the one folder that will hold the wells, the reports, the records, the accounts and the keys. For a new site keep the default or type `C:\site`. For a workspace that already exists, point at it - it is used exactly as it is, its name included.
 3. For a new workspace it asks the **site's name** (`Pad 3`). This name heads every report the program writes; an administrator can change it later in Administration, site settings.
 4. Tick the desktop shortcut and finish. The setup puts **GEA-Program** in the Start menu and an icon in the notification area by the clock.

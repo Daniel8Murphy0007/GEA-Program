@@ -3609,3 +3609,49 @@ stability; and motor specifications in the tool catalogue.
   module-level name unbound. Imported under another name; the gates run
   again from the start.
 
+## 2026-11-09 - the pressure plume (v0.85.0)
+
+- v0.84.0 shipped (ci, PyPI and the kit build green, nine assets); the six
+  kits fetched into C:\site\installers and verified against the release's
+  SHA-256, the 0.83.3 ones moved to _to_delete. Daniel: go on the plume.
+- `gea/plume.py`: `Grid` (n x n cells of dx ft, uniform h, phi, k, the
+  storage dx^2 h phi c_t / 5.6146 bbl/psi, harmonic-mean face
+  transmissibilities 0.001127 k A / (mu L), `seal_segment` sorting the
+  cells within a segment's extent to its two sides and zeroing every face
+  between opposite sides - a barrier without gaps; the first draft sealed
+  the faces a path crossed *through*, which for a fault along a column
+  sealed the faces along it and none across, caught by the self-test's
+  far side rising instead of falling), `step_days` (explicit, the boundary
+  held at zero, the sub-step under 0.45 of the smallest storage over its
+  transmissibilities), `contours` (marching squares on the cell centres,
+  the segments chained), `area_of_review`, `fault_segments` (the structure
+  layers' traces within the radius in the grid frame), `build` (the
+  calendar from the ledger's days, every well's rate in its cell - two
+  wells in one cell add, the second draft's dict had the producer
+  overwrite the injector, found by the section's 21-cell grid; snapshots
+  at month ends and the last day, then 30/90/180/365 days continued at the
+  last thirty days' rates and shut in; the line-source check at 4 and 8
+  cells; the faults sampled for their largest rise and put through
+  `slip.slip_tendency` at the declared state, dips and frictions, with the
+  first day past the line), `page`, `text`, `write_report`,
+  `scene_layers` (the contours at the declared top in a scene frame),
+  `selftest` (seven checks: Theis within 1% at 3, 6 and 10 cells on a
+  61-cell grid, the barrels held, symmetry, the sealing fault's far side
+  shaded to zero and its near side piled up, the 6-cell contour a circle,
+  the area of review pi r^2, shut-in relaxing with the barrels still
+  held). Settings in records/plume.json (threshold, cells, radius,
+  projection, the sealing layers with their source).
+- `well3d.workspace_scene` draws the plume's contours as layers at the
+  top of the disposal interval, and takes its frame from the plume when no
+  well is placed and no contour layer gives one; `dossier` gathers
+  reports/fluid and reports/plume as reports, records/fluid.json and
+  records/plume.json as declarations, and writes results/fluid_balance.json
+  and results/plume.json (the snapshots without their contour
+  coordinates). The CLI, the routes, the Pressure plume tab (the plan view
+  zoomed to the snapshot's reach, faults solid when sealing and dashed
+  when open, amber inside the area of review and red past the line; the
+  snapshot picker; the faults and snapshots tables; the settings and the
+  sealing declarations), the help page, lesson 14, the README. Section
+  EC. The page rendered under Playwright with no script error - the plume
+  piling up against two sealing faults is visible in plan. Gate 566.
+

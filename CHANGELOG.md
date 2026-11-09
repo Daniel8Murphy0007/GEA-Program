@@ -5,6 +5,43 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.85.0] - 2026-11-09 - the pressure plume
+
+### Added
+- **Pressure plume** - the second fluid-flow module, a SIMULATION on every
+  line. The Fluid balance tab's daily barrels go into the declared
+  formation on a plan grid centred on the injection well (a local
+  transverse Mercator frame, the grid's edge 2 x the radius of
+  investigation out) and the pressure is stepped forward day by day:
+  single-phase, slightly compressible flow by explicit finite differences
+  in field units (a cell stores dx^2 h phi c_t / 5.6146 bbl/psi; two cells
+  exchange 0.001127 k A / (mu L) bbl/d/psi), the sub-step under the
+  stability limit, checked against the line source (Theis) on the page
+  and in the self-test (within 6% at 3, 6 and 10 cells). The rise drawn as
+  contours (marching squares) at every month's end of the record and at
+  30, 90, 180 and 365 days on, both CONTINUED at each well's last thirty
+  days' rate and SHUT IN; the cells over a declared threshold (50 psi
+  unless changed) as the area of review in acres and reach; every mapped
+  fault within the radius cut into the grid, its largest rise read at
+  every snapshot and put through the slip-tendency arithmetic at the
+  declared stress state, with the first day its margin to the friction
+  line is used up; a fault layer declared SEALING (with its source) blocks
+  the cell faces its segments separate and the plume piles up against it,
+  OPEN otherwise because a map says nothing about what a fault does to
+  flow. The balance of barrels held by the grid against barrels put in.
+  The **Pressure plume** tab with the plan view and a snapshot picker, the
+  same contours drawn at the declared top of the disposal interval in the
+  3D tab, `results/plume.json` and `results/fluid_balance.json` in the
+  dossier with the fluid and plume reports and their declarations,
+  `gea plume` (the self-test without a workspace), `/api/plume`,
+  `gea help plume`, lesson 14. Section EC (3 checks); gate 566.
+
+### Fixed
+- Two wells whose surface positions fall in one grid cell had the first
+  well's rate overwritten by the second's; found by the section's own
+  21-cell grid, where the injector and the producer share a cell. Their
+  rates add now.
+
 ## [v0.84.0] - 2026-11-09 - the fluid ledger and the material balance
 
 ### Added

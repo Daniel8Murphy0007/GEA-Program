@@ -17627,6 +17627,218 @@ def section_eb_fluid(tmp: str) -> None:
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_ec_plume(tmp: str) -> None:
+    """Section EC - the pressure plume: the grid against the line source, the barrels held, the symmetric field, a sealing
+    fault shading its far side, the contours and the area of review of a radial field, shut-in relaxing; the workspace
+    (the ledger's wells on the grid with the mapped faults, the snapshots through the record and the two projections,
+    the area of review growing, a fault's slip tendency through time and its first day past the line, a layer declared
+    sealing piling the plume up, the settings with their refusals, the report, the 3D layers at the declared top, the
+    dossier's results, the words free of the client-report terms); the routes, the tab, the command, the help, the
+    README and the lesson."""
+    import http.cookiejar
+    import math
+    import subprocess as _sp
+    import urllib.error
+    import urllib.request
+    import zipfile as _zf
+    from datetime import datetime, timedelta
+    from . import __version__ as _ver
+    from . import client_reports as CR
+    from . import dossier as DZ
+    from . import fluid as FL
+    from . import geodesy as GD
+    from . import helplib as H
+    from . import plume as PM
+    from . import shapefile as SF
+    from . import well3d as W3
+    from .service import Service, Users
+    from .workspace import Workspace, WorkspaceError
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ec"); d.mkdir()
+    # -- EC1 the arithmetic -------------------------------------------------------------------------------------------------
+    st = PM.selftest()
+    k, h, phi, mu, ct = 20.0, 200.0, 0.1, 0.8, 8e-6
+    n = 41; g = PM.Grid(n, 400.0, h, phi, k, mu, ct)
+    sub = max(1, int(math.ceil(1.0 / g.dt_max_days())))
+    c = (n // 2, n // 2)
+    dp = PM.step_days(g, np.zeros((n, n)), {c: 3000.0}, 20.0, sub * 20)
+    ls = FL.line_source_dp_psi(3000.0, k, h, phi, mu, ct, 5 * 400.0, 20 * 24.0)
+    two = PM.step_days(g, np.zeros((n, n)), {c: 3000.0, (c[0], c[1] + 6): -1500.0}, 20.0, sub * 20)
+    lines = PM.contours(g, dp, float(dp[c[0], c[1] + 4]))
+    aor = PM.area_of_review(g, dp, float(dp[c[0], c[1] + 4]), 0.0, 0.0)
+    c1 = {
+        "selftest": st["ok"] and st["label"] == "SIMULATION" and len(st["checks"]) == 7,
+        "theis": abs(float(dp[c[0], c[1] + 5]) / ls - 1.0) < 0.06,
+        "storage": abs(float(np.sum(g.storage * dp)) / (3000.0 * 20) - 1.0) < 0.02 and abs(g.storage[0, 0] - 400.0 * 400.0 * h * phi * ct / 5.614583) < 1e-6
+                   and abs(g.Tx[0, 0] - 0.001127 * k * h / mu) < 1e-9,
+        "superposition": abs(float(np.sum(g.storage * two)) / (1500.0 * 20) - 1.0) < 0.02 and float(two[c[0], c[1] + 6]) < 0.0 < float(two[c]),
+        "contour": len(lines) >= 1 and abs(float(np.mean([math.hypot(x, y) for x, y in max(lines, key=len)])) / 400.0 - 4.0) < 0.5,
+        "aor": abs(aor["area_acres"] / (math.pi * 1600.0 ** 2 / 43560.0) - 1.0) < 0.2 and 1700.0 < aor["reach_ft"] < 2100.0 and not aor["touches_edge"],
+        "seal": (lambda g2: (g2.seal_segment(1000.0, -3000.0, 1000.0, 3000.0) >= 14 and g2.Tx[c[0], c[1] + 2] == 0.0 and g2.Tx[c[0], c[1] + 1] != 0.0))(PM.Grid(n, 400.0, h, phi, k, mu, ct)),
+        "stability": 0 < g.dt_max_days() < 1.0 and sub == int(math.ceil(1.0 / g.dt_max_days())),
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "EC1 the arithmetic: the self-test's seven checks on labelled grids; a 41 x 41 grid of 400 ft cells against the line source at 5 cells after 20 days "
+       "(within 6%), the storage and transmissibility by the field-unit formulas, the grid holding the barrels (within 2%), an injector and a producer "
+       "superposed (the net held, the producer's cell below zero), the contour of a radial field a circle of 4 cells, its area of review pi r^2 within 20%, "
+       "a sealing segment zeroing the faces it separates and no other, the stability sub-steps" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+    # -- EC2 the workspace --------------------------------------------------------------------------------------------------
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    inj = ws.add_well_records("SWD 1", actor="tester"); prod = ws.add_well_records("Producer 7H", actor="tester")
+    for w_, la, lo in ((inj, 31.96, -102.24), (prod, 31.965, -102.24)):
+        ws.set_well(w_["id"], surface={"lat": la, "lon": lo, "datum": "NAD83", "elevation": {"ft": 2900.0, "datum": "KB", "source": "test plat"}}, actor="tester")
+    ws.set_well(inj["id"], disposal={"top_interval_ft": 8700.0, "base_interval_ft": 9300.0, "depth_reference": "TVD", "depth_tier": "deep"}, actor="tester")
+    ws.set_stress({"sv_psi_ft": 1.05, "shmin_psi_ft": 0.65, "shmax_psi_ft": 0.95, "pp_psi_ft": 0.45, "gradients_source": "the gate", "shmax_azimuth_deg": 80.0, "azimuth_source": "the gate"}, actor="tester")
+    kmlat = 1 / 111.195; kmlon = 1 / (111.195 * math.cos(math.radians(31.96)))
+    feats = [([[(-102.24 + 0.914 * kmlon, 31.94), (-102.24 + 0.914 * kmlon, 31.98)]], {"name": "East fault"}),            # 3,000 ft east, N-S
+             ([[(-102.27, 31.96 + 2 * kmlat), (-102.21, 31.96 + 2 * kmlat)]], {"name": "North fault"})]                     # 2 km north, E-W: 10 deg to SHmax
+    wkt = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]'
+    SF.write(str(d / "faults"), "PolyLine", feats, [("name", "C", 20, 0)], wkt)
+    with _zf.ZipFile(str(d / "faults.zip"), "w") as z:
+        for ext in (".shp", ".shx", ".dbf", ".prj"):
+            z.write(str(d / ("faults" + ext)), "faults" + ext)
+    lay = ws.add_layer(str(d / "faults.zip"), "Gate faults", actor="tester", feature_kind="fault", citation="the gate's own layer")
+    empty = PM.page(ws)
+    FL.declare_well(ws, "tester", inj["id"], role="injection", formation="Ellenburger", source="completion report W-2")
+    FL.declare_well(ws, "tester", prod["id"], role="production", formation="Ellenburger", sg=1.05, source="permit")
+    sc = FL.synthetic_scene(days=240, leak_fraction=0.0, seed=5)
+    FL.attach_report(ws, "tester", inj["id"], "h10.csv", sc["csv"].encode(), "H-10 (gate)")
+    pcsv = "Date,Oil (bbl),Water (bbl)\n" + "\n".join(f"{(datetime(2026, 1, 1) + timedelta(days=i)).strftime('%Y-%m-%d')},{50 + i % 7},{300 + i % 11}" for i in range(200)) + "\n"
+    FL.attach_report(ws, "tester", prod["id"], "prod.csv", pcsv.encode(), "production report (gate)")
+    FL.declare_formation(ws, "tester", "Ellenburger", "petrophysics (gate)", porosity=0.12, thickness_ft=100.0, area_acres=11000.0)
+    undeclared = PM.page(ws)
+    FL.declare_formation(ws, "tester", "Ellenburger", "petrophysics (gate)", k_md=50.0, mu_cp=0.6, p_initial_psi=3000.0)
+    refused = {}
+    for name, fn in (("thr", lambda: PM.set_settings(ws, "tester", threshold_psi=0.1)), ("cells_even", lambda: PM.set_settings(ws, "tester", cells=80)),
+                     ("cells_big", lambda: PM.set_settings(ws, "tester", cells=201)), ("radius", lambda: PM.set_settings(ws, "tester", radius_km=500)),
+                     ("proj", lambda: PM.set_settings(ws, "tester", projection_days=5)), ("seal_src", lambda: PM.set_settings(ws, "tester", sealing={lay["id"]: True})),
+                     ("seal_layer", lambda: PM.set_settings(ws, "tester", sealing={"nowhere": True}, source="x"))):
+        try:
+            fn(); refused[name] = False
+        except PM.PlumeError:
+            refused[name] = True
+    PM.set_settings(ws, "tester", threshold_psi=50.0, cells=61, radius_km=25.0, projection_days=365)
+    pg = PM.page(ws)
+    pl = pg["plumes"][0]
+    rec = [s_ for s_ in pl["snapshots"] if s_["kind"] == "record"]; cont = [s_ for s_ in pl["snapshots"] if s_["kind"] == "continued"]; shut = [s_ for s_ in pl["snapshots"] if s_["kind"] == "shut-in"]
+    fl = {f_["name"]: f_ for f_ in pl["faults"]}
+    east_last = next(r_ for r_ in rec[-1]["faults"] if r_["name"] == "East fault"); north_last = next(r_ for r_ in rec[-1]["faults"] if r_["name"] == "North fault")
+    PM.set_settings(ws, "tester", sealing={lay["id"]: True}, source="the gate's fault study")
+    pg2 = PM.page(ws); pl2 = pg2["plumes"][0]
+    east2 = next(r_ for r_ in [s_ for s_ in pl2["snapshots"] if s_["kind"] == "record"][-1]["faults"] if r_["name"] == "East fault")
+    PM.set_settings(ws, "tester", sealing={lay["id"]: False}, source="the gate's fault study")
+    PM.set_settings(ws, "tester", cells=21)                           # both wells in one 7,400 ft cell: their rates add, neither is lost
+    one_cell = PM.page(ws)["plumes"][0]
+    PM.set_settings(ws, "tester", cells=61)
+    wr = PM.write_report(ws, _ver, "tester")
+    txt = (Path(wr["folder"]) / "plume.md").read_text(encoding="utf-8").lower()
+    frame = GD._tm(31.96, -102.24, 1.0, 0.0, 0.0, "WGS84")
+    l3, sk3 = PM.scene_layers(ws, frame)
+    dz = DZ.build(ws, "tester", _ver, None)
+    names = _zf.ZipFile(Path(ws.reports_dir, dz["path"])).namelist()
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    # the producer, 1,819 ft north, sits on the grid: its cell's rise is positive (the injector's) but below the injector's
+    wl = {w_["well"]: w_ for w_ in pl["wells"]}
+    c2 = {
+        "empty": empty["status"] == "EMPTY" and "No plume" in empty["lines"][0],
+        "undeclared": undeclared["plumes"][0]["status"] == "NOT DECLARED" and "k md" in undeclared["plumes"][0]["notes"][0],
+        "refusals": all(refused.values()),
+        "grid": pl["status"] == "OK" and pl["frame"]["cells"] == 61 and pl["frame"]["substeps_per_day"] >= 1 and pl["properties"]["uniform"] and pl["label"] == "SIMULATION"
+                and wl[inj["id"]]["in_grid"] and wl[prod["id"]]["in_grid"] and abs(wl[prod["id"]]["y_ft"] - 1819.0) < 60.0 and abs(wl[prod["id"]]["x_ft"]) < 20.0,
+        "snapshots": len(rec) == 8 and rec[-1]["day"] == 240 and len(cont) == 4 and len(shut) == 4 and cont[-1]["day"] == 605
+                     and all(rec[i]["aor"]["area_acres"] <= rec[i + 1]["aor"]["area_acres"] + 1e-6 for i in range(len(rec) - 1))
+                     and cont[-1]["aor"]["area_acres"] > rec[-1]["aor"]["area_acres"] and shut[-1]["dp_max_psi"] < rec[-1]["dp_max_psi"] * 0.2
+                     and 0 < rec[-1]["wells"][prod["id"]] < rec[-1]["wells"][inj["id"]],
+        "check": pl["check"]["points"] and all(0.9 < p_["ratio"] < 1.1 for p_ in pl["check"]["points"]) and abs(pl["balance"]["left_through_edge_bbl"]) < 0.02 * pl["balance"]["net_bbl"],
+        "faults": set(fl) == {"East fault", "North fault"} and not fl["East fault"]["sealing"] and east_last["inside_aor"] and east_last["dp_max_psi"] > north_last["dp_max_psi"]
+                  and north_last["Ts"] > east_last["Ts"] and north_last["slip_status"] == "BELOW THE FRICTION LINE" and fl["North fault"]["first_past_line"] is not None
+                  and fl["North fault"]["first_past_line"]["kind"] == "continued" and fl["East fault"]["first_past_line"] is None and pl["stress"]["state"] is not None,
+        "one_cell": one_cell["status"] == "OK" and abs(one_cell["balance"]["stored_bbl"] / one_cell["balance"]["net_bbl"] - 1.0) < 0.05,
+        "sealing": pl2["faults"][0]["sealing"] and pl2["faults"][0].get("faces_sealed", 0) >= 5 and east2["dp_max_psi"] > east_last["dp_max_psi"] * 1.3 and pl2["sealing_layers"] == [lay["id"]],
+        "written": set(wr["files"]) == {"plume.json", "plume.md"} and "simulation" in txt and "area of review" in txt.replace("the area over", "area of review") and not [t for t in CR.FORBIDDEN_TERMS if t in txt],
+        "three_d": len(l3) == 2 and all(l_["role"] == "plume" and l_["lines"] and abs(l_["lines"][0]["z"] - (8700.0 - 2900.0) * 0.3048) < 0.2 for l_ in l3) and not sk3
+                   and (lambda sc_: any(l_.get("role") == "plume" for l_ in sc_["layers"]) or any("plume" in (x_.get("id") or "") for x_ in sc_["layers_not_drawn"]))(W3.workspace_scene(ws)),
+        "dossier": "results/plume.json" in names and "results/fluid_balance.json" in names
+                   and all(x in audit for x in ("plume.settings", "plume.report")),
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "EC2 the workspace: no plume until the ledger has an injection well, NOT DECLARED until the formation has its permeability; a threshold below a psi, an even or "
+       "too-large grid, a radius or a projection out of range, a sealing declaration without its source or for no layer - each declined; the injector and the "
+       "producer on a 61-cell grid in a frame centred on the injector (the producer 1,819 ft north), eight month-end snapshots of the record then four continued "
+       "and four shut in - the area of review growing through the record, larger a year on if continued, the rise under a fifth if shut in, the producer's cell "
+       "raised but under the injector's; the grid within 10% of the line source and the edge losing under 2%; the two mapped faults with the near one inside the "
+       "area of review and the higher rise, the one along SHmax the higher slip tendency and the first past the friction line only in the continued projection; "
+       "two wells in one cell of a 21-cell grid adding up (the net held); the layer declared sealing piling the plume up against the east fault by a third or more; "
+       "the report written free of the client-report terms; the 3D "
+       "layers at the declared top of the interval; the dossier's results/plume.json and results/fluid_balance.json; the audit lines"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+    # -- EC3 the routes, the tab, the command, the help, the README and the lesson -----------------------------------------------
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_vg, vg = call(V, "GET", "/api/plume")
+        s_vf, vf = call(V, "GET", "/api/plume?formation=Nowhere")
+        s_vs, _ = call(V, "POST", "/api/plume/settings", {"threshold_psi": 25})
+        s_os, os_ = call(O, "POST", "/api/plume/settings", {"threshold_psi": "25", "cells": "41"})
+        s_bs, _ = call(O, "POST", "/api/plume/settings", {"cells": "40"})
+        s_sl, sl_ = call(O, "POST", "/api/plume/settings", {"sealing": {lay["id"]: True}, "source": "api"})
+        s_ns, _ = call(O, "POST", "/api/plume/settings", {"sealing": {lay["id"]: True}})
+        s_ow, ow = call(O, "POST", "/api/plume/write", {})
+        s_vw, _ = call(V, "POST", "/api/plume/write", {})
+        s_g2, g2 = call(V, "GET", "/api/plume")
+        s_3d, sc3 = call(V, "GET", "/api/3d/scene/workspace")
+    finally:
+        svc.stop()
+    cli_s = _sp.run([sys.executable, "-m", "gea", "plume"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_w = _sp.run([sys.executable, "-m", "gea", "plume", "--workspace", wsp], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_j = _sp.run([sys.executable, "-m", "gea", "plume", "--workspace", wsp, "--formation", "Ellenburger", "--json"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_t = _sp.run([sys.executable, "-m", "gea", "plume", "--workspace", wsp, "--threshold-psi", "50", "--open", lay["id"]], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_b = _sp.run([sys.executable, "-m", "gea", "plume", "--workspace", wsp, "--sealing", lay["id"]], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_r = _sp.run([sys.executable, "-m", "gea", "plume", "--workspace", wsp, "--write"], capture_output=True, text=True, cwd=str(pkg.parent))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
+    lesson = (pkg / "help" / "tutorial" / "14-production-pages.md").read_text(encoding="utf-8")
+    c3 = {
+        "api": s_vg == 200 and vg["status"] == "OK" and vg["label"] == "SIMULATION" and s_vf == 200 and vf["status"] == "EMPTY" and s_vs == 403 and s_os == 200 and os_["threshold_psi"] == 25.0
+               and os_["cells"] == 41 and s_bs == 400 and s_sl == 200 and sl_["sealing_layers"] == [lay["id"]] and s_ns == 400 and s_ow == 200 and "plume.json" in ow["files"] and s_vw == 403
+               and s_g2 == 200 and g2["plumes"][0]["frame"]["cells"] == 41 and g2["plumes"][0]["threshold_psi"] == 25.0 and g2["plumes"][0]["faults"][0]["sealing"]
+               and s_3d == 200 and (any((l_.get("role") == "plume") for l_ in sc3.get("layers", [])) or any("plume" in (x_.get("id") or "") for x_ in sc3.get("layers_not_drawn", []))),
+        "cli": cli_s.returncode == 0 and "OK - SIMULATION" in cli_s.stdout and cli_w.returncode == 0 and "snapshots" in cli_w.stdout and "shut-in" in cli_w.stdout
+               and cli_j.returncode == 0 and json.loads(cli_j.stdout)["plumes"][0]["formation"] == "Ellenburger" and cli_t.returncode == 0 and "sealing_layers []" in cli_t.stdout
+               and cli_b.returncode != 0 and "source" in cli_b.stderr and cli_r.returncode == 0 and "plume.md" in cli_r.stdout,
+        "page": all(x in page_src for x in ("VIEWS.plume", "['#/plume', 'Pressure plume']", "/api/plume/settings", "pmPlan", "help('plume')", "SIMULATION")),
+        "help": not H.check("plume") and H.VIEW_TOPIC.get("plume") == "plume" and any(t == "plume" for t, _, _ in H.INDEX)
+                and all(x in (H.page("plume") or "") for x in ("0.001127", "Theis", "SIMULATION", "gea plume --workspace C:\\site", "sealing")),
+        "readme_lesson": (not readme or ("### Pressure plume" in readme and "`gea plume`" in readme)) and "Pressure plume" in lesson and "plume" in lesson.split("Help:")[-1],
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "EC3 on the API (anyone reads the plume, one formation or all; only an operator keeps settings, declares a layer sealing - with its source - or writes; an "
+       "even grid is 400; the 3D scene carries the plume), the command (the self-test, the snapshots, one formation as JSON, settings kept and a sealing "
+       "declaration without its source stopped, the report), the tab with its plan view, the help page, the README and lesson 14"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -17762,6 +17974,7 @@ def main() -> int:
         section_dz_textbook_oracle(tmp)
         section_ea_vpn_client(tmp)
         section_eb_fluid(tmp)
+        section_ec_plume(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

@@ -668,6 +668,23 @@ def workspace_scene(ws, margin_km: float = 8.0, layer_tol_m: float = 25.0) -> di
             if lines:
                 layers.append({'id': rec['id'], 'name': nm, 'formation': rec.get('formation') or '', 'role': role, 'value_attr': va, 'lines': lines,
                                'citation': rec.get('citation') or '', 'vertices': sum(len(l_['x']) for l_ in lines)})
+    # the pressure plume's contours at the formation's top (SIMULATION), when the ledger has one; with no well placed
+    # and no contour layer, the plume alone gives the scene its frame
+    try:
+        from . import plume as PL
+        pp = PL.page(ws)
+        okp = [pl for pl in pp['plumes'] if pl['status'] == 'OK']
+        if okp and view is None:
+            lat0, lon0 = okp[0]['frame']['lat0'], okp[0]['frame']['lon0']
+            frame = GD._tm(lat0, lon0, 1.0, 0.0, 0.0, 'WGS84')
+            hw = okp[0]['frame']['half_width_ft'] * 0.3048
+            lo = GD.unproject(-hw, -hw, frame); hi = GD.unproject(hw, hw, frame)
+            view = [lo[1], lo[0], hi[1], hi[0]]; why_view = 'the pressure plume\'s grid (no well placed, no contour layer)'
+        if okp or pp['plumes']:
+            pls, psk = PL.scene_layers(ws, frame, pp) if view is not None else ([], [])
+            layers.extend(pls); skipped.extend(psk)
+    except Exception as e:                                    # the plume is a projection; its absence never empties the scene
+        skipped.append({'id': 'plume', 'display': 'Pressure plume', 'why': f'not computed: {type(e).__name__}: {e}'})
     return {'id': 'workspace', 'title': ws.manifest.get('name') or 'This workspace', 'kind': 'workspace',
             'frame': ({'crs': f'local transverse Mercator on WGS84 centred at {lat0:.5f}, {lon0:.5f} (north is true north at the centre)', 'origin': [0.0, 0.0],
                        'unit': 'm', 'z': 'depth below mean sea level, metres, positive down', 'check': '', 'area': why_view,
@@ -675,6 +692,7 @@ def workspace_scene(ws, margin_km: float = 8.0, layer_tol_m: float = 25.0) -> di
             'wells': out_wells, 'planned': planned, 'not_placed': listed, 'picks_only': [], 'surfaces': [], 'layers': layers, 'layers_not_drawn': skipped,
             'attribution': '', 'not_drawn': ['a well without a surface position, a reference elevation and a directional survey (listed with what it needs)',
                                              'fault and fold traces (no depth)', 'isopachs (a thickness is not a position)',
+                                             'the pressure plume is a SIMULATION drawn at the declared top, not a measured surface',
                                              'rock and fluid properties between wells']}
 
 

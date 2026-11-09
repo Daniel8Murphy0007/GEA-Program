@@ -4,6 +4,16 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.85.0 - 2026-11-09 - the pressure plume
+
+- The second fluid-flow module: the ledger's barrels on a plan grid of the
+  declared formation, stepped through time by explicit finite differences
+  and checked against the line source; the rise as contours through the
+  record and a year on, continued or shut in; the area of review over a
+  declared threshold; every mapped fault's rise and slip tendency through
+  time, sealing or open as declared; drawn in plan and in 3D, carried in
+  the dossier. SIMULATION on every line. Section EC; gate 566.
+
 ## v0.84.0 - 2026-11-09 - the fluid ledger and the material balance
 
 - The first of the fluid-flow modules: the ledger of every barrel in and
