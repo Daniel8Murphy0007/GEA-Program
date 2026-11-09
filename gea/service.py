@@ -2308,6 +2308,9 @@ def make_handler(app: App):
                                 b_ = f_.read()
                         return self._json(200, {'xlsx_b64': _b64.b64encode(b_).decode('ascii'), 'filename': 'declarations.xlsx'})
                     return self._json(200, {'csv': DC.template(app.ws), 'filename': 'declarations.csv'})
+                if path == '/api/fluid':
+                    from . import fluid as FL
+                    return self._json(200, App._cr(FL.page, app.ws, (qs.get('as_of') or [None])[0] or None))
                 if path == '/api/opseis':
                     from . import op_seismicity as OS
                     over = {}
@@ -2698,6 +2701,36 @@ def make_handler(app: App):
                     if not isinstance(t_, str) or not t_.strip():
                         raise ApiError(400, 'send the sheet as text (CSV) or an Excel workbook')
                     return self._json(200, DC.apply(app.ws, t_, user['name'], '', write=bool((body or {}).get('apply'))))
+                if path.startswith('/api/fluid/'):
+                    from . import fluid as FL
+                    from . import __version__ as _v
+                    import base64 as _b64
+                    App.require(user, 'operator')
+                    act = path[len('/api/fluid/'):]
+                    b_ = dict(body or {})
+                    def _num(k):
+                        v = b_.get(k)
+                        return None if v in (None, '') else v
+                    if act == 'declare':
+                        return self._json(200, App._cr(FL.declare_well, app.ws, user['name'], str(b_.get('well_id') or ''), b_.get('role') or None, b_.get('formation') or None,
+                                                       _num('density_sg'), _num('tds_mgl'), _num('density_ppg'), b_.get('from') or None, b_.get('to') or None, str(b_.get('source') or '')))
+                    if act == 'formation':
+                        vals = {k: _num(k) for k in ('porosity', 'thickness_ft', 'area_acres', 'c_water_per_psi', 'c_pore_per_psi', 'k_md', 'mu_cp', 'p_initial_psi', 'water_sg', 'water_tds_mgl')}
+                        return self._json(200, App._cr(FL.declare_formation, app.ws, user['name'], str(b_.get('name') or ''), str(b_.get('source') or ''), **vals))
+                    if act == 'report':
+                        try:
+                            content = _b64.b64decode(str(b_.get('content_b64') or ''), validate=True)
+                        except ValueError:
+                            raise ApiError(400, 'the report must be sent as base64')
+                        if not content:
+                            raise ApiError(400, 'send the report file')
+                        return self._json(200, App._cr(FL.attach_report, app.ws, user['name'], str(b_.get('well_id') or ''), str(b_.get('filename') or 'report.csv'), content, str(b_.get('source') or '')))
+                    if act == 'remove':
+                        return self._json(200, App._cr(FL.remove, app.ws, user['name'], b_.get('well_id') or None, b_.get('report') or None, b_.get('formation') or None))
+                    if act == 'write':
+                        r_ = App._cr(FL.write_report, app.ws, _v, user['name'])
+                        return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
+                    raise ApiError(404, 'no such fluid action')
                 if path.startswith('/api/opseis/'):
                     from . import op_seismicity as OS
                     import base64 as _b64

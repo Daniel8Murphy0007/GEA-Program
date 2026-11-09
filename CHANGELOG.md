@@ -5,6 +5,43 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.84.0] - 2026-11-09 - the fluid ledger and the material balance
+
+### Added
+- **Fluid balance** - where the water went, as far as arithmetic can say.
+  Every barrel that went into or came out of a formation through the
+  site's wells, by day, with its density and its dissolved solids: from the
+  operator's own injection or production report attached as a CSV (a date
+  and a volume column at least; pressures, bottomhole pressure, density or
+  TDS when it has them; a producer's oil and water signed out), or from a
+  disposal well's declared injection channels through the SRA packet's own
+  daily arithmetic. The injected water's density declared as specific
+  gravity, lb/gal or TDS (the density from TDS by McCain's 1991
+  correlation, named), for a period, with its source; each day's barrels
+  become tonnes of brine and tonnes of dissolved solids. Each well assigned
+  to a formation by declaration, the interval statement beside it. The
+  formation declared with its porosity, net thickness, area and
+  compressibilities (the defaults named when they stand in): pore volume
+  7,758 x area x thickness x porosity, storage c_t V_p. The ledger's
+  cumulative net volume against the wells' bottomhole pressures gives the
+  storage the pressure SAYS the formation has; against the storage DECLARED
+  it reads CLOSED AS DECLARED within a factor of two, MORE ROOM THAN
+  DECLARED (the fluid finding room the declaration does not have - an
+  aquifer, leak-off, a larger connected volume) or LESS ROOM, with the
+  UNACCOUNTED barrels and their tonnes of solids named. Each injection
+  well's Hall plot (the first half's slope against the second's). The
+  neighbours by surface distance with, from the declared permeability,
+  the day the pressure front reaches each (the radius of investigation),
+  the pressure rise there now and a year on (the line source), the swept
+  radius of the water itself and the volume it would take to reach the
+  neighbour; a neighbour in another formation gets its distance and no
+  projection; the density difference says whether the real front
+  under-rides or over-rides. Every projection labelled SIMULATION. The
+  **Fluid balance** tab with the balance plot and the Hall plot,
+  `gea fluid` (the self-test on labelled scenes without a workspace),
+  `/api/fluid`, the report under `reports/fluid/` with the ledger CSVs,
+  `gea help fluid`, lesson 14. Section EB (3 checks); gate 563.
+
 ## [v0.83.3] - 2026-11-08 - the release's own test, its verdict
 
 ### Fixed

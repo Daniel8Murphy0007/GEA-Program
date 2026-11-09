@@ -3545,3 +3545,67 @@ stability; and motor specifications in the tool catalogue.
   runner's verdict is the last native command's exit code, and that was
   the schtasks query made to fail. `exit 0` at the end. Three ships for
   one job; Daniel's twelve hours. v0.83.3.
+
+## 2026-11-09 - the fluid ledger and the material balance (v0.84.0)
+
+- v0.83.3 shipped, all six kits fetched and verified. Daniel's question:
+  what improves the program's ability to calculate, or speculate on, the
+  fluid amounts and their migration in the formation being imaged, in
+  terms of density and concentration outflow, cross-referencing every
+  tab's values, towards 3D tracking of the fluid flow - and the value of
+  that as GEA's niche. The answer given: four modules in order - the
+  ledger and material balance, the pressure plume on a formation grid,
+  the fluid front with density and concentration calibrated on produced
+  water, the ensemble - with the niche named (disposal operators and
+  regulators in seismic response areas, every page saying which numbers
+  are measured volumes and which are inferred locations). Daniel: start
+  with Pad 3's disposal well and its neighbours.
+- Pad 3 looked at on Daniel's machine, read-only. The workspace holds
+  three wells, each an EDR drilling export (hole depth, bit depth, ROP,
+  WOB, RPM, standpipe, hook load, torque, gamma, pump strokes, trip-tank
+  volume, interpolated TVD), the Volve production excerpt (a downhole
+  pressure), the regional layers and the stress map, a declarations
+  sheet with its blanks still blank. No well is declared a disposal well,
+  no injection record, no gauge pressure, no water analysis is in the
+  workspace. The ledger was built to take what the operator has - the
+  injection report he files (an H-10-shaped CSV), the production reports
+  of the neighbours, a water analysis - and to say NO VOLUME RECORD until
+  they come; the figures, when they come, stay in C:\site.
+- `gea/fluid.py`: `parse_report` (the date, volume, oil, gas, average and
+  maximum pressure, BHP, sg, ppg and TDS columns found by name, with or
+  without a unit in brackets; rows without a readable date skipped and
+  counted), `attach_report` (kept under wells/<id>/records/fluid with the
+  SHA-256; a file changed under its hash is not read), `declare_well`
+  (role, formation, densities by period), `declare_formation`,
+  `density_from_tds` and `tds_from_sg` (McCain 1991, iterated through
+  the brine's own density), `mass_of`, `well_ledger` (the report first,
+  else `sra.daily_records` on the declared channels), `formation_balance`
+  (the ledger by day with in, out, net, cumulative, tonnes, the mean BHP,
+  the rise a closed declared volume would show; `fit_storage` least
+  squares over the days with both; the verdict by the ratio within a
+  factor of two; the unaccounted volume as net less declared storage x
+  the fitted rise, its share of the tonnes), `hall_plot`, the radius of
+  investigation, the exponential integral (series and Lentz), the line
+  source, the swept cylinder, `neighbours` (geodesic surface distance,
+  arrival day, dp now and in a year, the volume to reach, the
+  other-formation rule, the density difference), `page`, `text`,
+  `write_report`, `synthetic_scene` and `selftest`. The Hall slope of a
+  filling closed tank steepens (p_wf - p_e grows with every barrel), which
+  the first draft of the self-test had wrong; the check reads it as the
+  arithmetic does now.
+- The CLI `gea fluid`, the routes (`/api/fluid`, declare, formation,
+  report, remove, write), the Fluid balance tab with the balance plot
+  (dots the days, solid the fit, dashed the declared closed volume) and the
+  Hall plot, the help page, lesson 14, the README. Section EB: the
+  arithmetic on labelled scenes (a closed tank's storage within 5%, four
+  times the room declared read LESS ROOM, a tank losing six barrels in ten
+  read MORE ROOM with the loss within 12%), the workspace with its
+  refusals and its audit, the routes and the command. The page rendered
+  under Playwright with no script error. Gate 563.
+- The first gate run and the kit sim both failed ten sections' command
+  lines with the same traceback: the fluid branch of `main()` had
+  `from . import __version__` inside it, which makes `__version__` a local
+  of the whole function and leaves every other branch's use of the
+  module-level name unbound. Imported under another name; the gates run
+  again from the start.
+

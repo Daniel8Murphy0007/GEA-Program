@@ -17430,6 +17430,203 @@ def section_ea_vpn_client(tmp: str) -> None:
        + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
 
 
+def section_eb_fluid(tmp: str) -> None:
+    """Section EB - the fluid ledger and the material balance: the arithmetic on labelled scenes (McCain's density, the
+    exponential integral, a closed tank's storage recovered, a leaking tank named with the volume it lost, the Hall
+    slope, the front); the workspace (declarations with their sources and the refusals, the operator's reports read and
+    kept with their SHA-256, a producer's liquid signed out, a disposal well in the ledger by its own declaration with
+    the interval statement beside it, the formation's balance, the neighbours by distance with the other-formation
+    rule, the report written, the words free of the client-report terms); the routes, the tab, the command, the help,
+    the README and the lesson."""
+    import base64 as _b64
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.error
+    import urllib.request
+    from datetime import datetime, timedelta
+    from . import __version__ as _ver
+    from . import client_reports as CR
+    from . import fluid as FL
+    from . import helplib as H
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "eb"); d.mkdir()
+    # -- EB1 the arithmetic ---------------------------------------------------------------------------------------------------
+    st = FL.selftest()
+    sc = FL.synthetic_scene(days=200, leak_fraction=0.0, seed=3, storage_bbl_per_psi=900.0)
+    rows = FL.parse_report(sc["csv"])["rows"]
+    days = []; cum = 0.0
+    for r in rows:
+        cum += r["volume"]
+        days.append({"date": r["date"], "volume_bbl": r["volume"], "cum_bbl": cum, "p_avg_psi": r["p_avg"], "p_max_psi": None, "bhp_psi": r["bhp"], "sg": None, "tds_mgl": None, "water_t": None, "solids_t": None})
+    vp = 900.0 / (FL.C_WATER_PER_PSI + FL.C_PORE_PER_PSI)
+    fm = {"porosity": 0.1, "thickness_ft": 200.0, "area_acres": vp / (FL.BBL_PER_ACRE_FT * 200.0 * 0.1), "k_md": 30.0, "mu_cp": 0.6}
+    fb = FL.formation_balance("T", fm, [{"well": "I", "days": days}])
+    small = FL.formation_balance("S", {**fm, "area_acres": fm["area_acres"] * 4.0}, [{"well": "I", "days": days}])      # four times the room declared: the pressure rose more than it allows
+    e1 = {x: FL._e1(x) for x in (0.1, 1.0, 5.0)}
+    c1 = {
+        "selftest": st["ok"] and st["label"] == "SIMULATION" and len(st["checks"]) >= 12,
+        "mccain": abs(FL.density_from_tds(150000.0)["sg"] - 1.104) < 0.01 and FL.density_from_tds(0.0)["sg"] == 1.0,
+        "declaration": FL.density_declaration(ppg=9.0)["sg_how"].startswith("declared as 9") and "note" in FL.density_declaration(sg=1.0, tds_mgl=200000.0),
+        "e1": abs(e1[0.1] - 1.8229) < 1e-3 and abs(e1[1.0] - 0.21938) < 1e-4 and abs(e1[5.0] - 0.0011483) < 1e-6,
+        "closed": fb["verdict"] == FL.STATUS_CLOSED and abs(fb["fit"]["storage_bbl_per_psi"] / 900.0 - 1.0) < 0.05 and abs(fb["unaccounted_bbl"]) < 0.06 * fb["cum_net_bbl"],
+        "less_room": small["verdict"] == FL.STATUS_LESS and small["storage_ratio"] < 0.3,
+        "front": abs(FL.radius_of_investigation_ft(100.0, 240.0, 0.2, 1.0, 1e-5) - 0.0325 * (100.0 * 240.0 / (0.2 * 1.0 * 1e-5)) ** 0.5) < 1e-6
+                 and FL.line_source_dp_psi(5000.0, 30.0, 200.0, 0.1, 0.6, 7e-6, 500.0, 2400.0) > FL.line_source_dp_psi(5000.0, 30.0, 200.0, 0.1, 0.6, 7e-6, 5000.0, 2400.0) > 0.0
+                 and abs(FL.volume_to_reach_bbl(FL.swept_radius_ft(250000.0, 200.0, 0.1), 200.0, 0.1) - 250000.0) < 1.0,
+        "mass": FL.mass_of(1000.0, 1.1, 100000.0) == (174.89, 15.899),
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       "EB1 the arithmetic on labelled scenes: McCain's brine density (150,000 mg/L at 1.10; fresh water at 1.000) and a declaration in lb/gal, with the note "
+       "when a declared gravity and TDS disagree; E1 at 0.1, 1 and 5; a closed tank's storage recovered within 5% and called CLOSED AS DECLARED, a quarter "
+       "of the room declared called LESS ROOM; the radius of investigation, the line source falling with distance, the swept cylinder's volume round-tripping, "
+       "the tonnes of brine and solids in a thousand barrels" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+    # -- EB2 the workspace ------------------------------------------------------------------------------------------------------
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    inj = ws.add_well_records("SWD 1", actor="tester"); prod = ws.add_well_records("Producer 7H", actor="tester"); far = ws.add_well_records("Far 2", actor="tester")
+    for w_, la, lo in ((inj, 31.96, -102.24), (prod, 31.965, -102.24), (far, 32.05, -102.30)):
+        ws.set_well(w_["id"], surface={"lat": la, "lon": lo, "datum": "NAD83"}, actor="tester")
+    ws.set_well(inj["id"], disposal={"top_interval_ft": 8700.0, "base_interval_ft": 9300.0, "depth_reference": "TVD", "depth_tier": "deep"}, actor="tester")
+    refused = {}
+    for name, fn in (("role", lambda: FL.declare_well(ws, "tester", inj["id"], role="pumping", source="x")),
+                     ("source", lambda: FL.declare_well(ws, "tester", inj["id"], role="injection")),
+                     ("nothing", lambda: FL.declare_well(ws, "tester", inj["id"], source="x")),
+                     ("well", lambda: FL.declare_well(ws, "tester", "nowhere", role="injection", source="x")),
+                     ("tds", lambda: FL.declare_well(ws, "tester", inj["id"], tds_mgl=900000.0, source="x")),
+                     ("no_date", lambda: FL.attach_report(ws, "tester", inj["id"], "x.csv", b"volume_bbl,bhp_psi\n1,2\n", "x")),
+                     ("no_volume", lambda: FL.attach_report(ws, "tester", inj["id"], "x.csv", b"date,bhp_psi\n2026-01-01,2\n", "x")),
+                     ("fm_source", lambda: FL.declare_formation(ws, "tester", "E", "", porosity=0.1)),
+                     ("fm_empty", lambda: FL.declare_formation(ws, "tester", "E", "s")),
+                     ("rm_none", lambda: FL.remove(ws, "tester", formation="Nowhere"))):
+        try:
+            fn(); refused[name] = False
+        except FL.FluidError:
+            refused[name] = True
+    before = FL.page(ws)                                                     # the disposal well alone, by its declaration, no record
+    leak = FL.synthetic_scene(days=240, leak_fraction=0.6, seed=5)
+    FL.declare_well(ws, "tester", inj["id"], role="injection", formation="Ellenburger", source="completion report W-2")
+    FL.declare_well(ws, "tester", inj["id"], tds_mgl=120000.0, source="water analysis 2026-01")
+    FL.declare_well(ws, "tester", prod["id"], role="production", formation="Ellenburger", sg=1.05, source="permit")
+    FL.declare_well(ws, "tester", far["id"], role="production", formation="Wolfcamp", source="permit")
+    rep = FL.attach_report(ws, "tester", inj["id"], "h10 2026.csv", leak["csv"].encode(), "H-10 filed 2026-09")
+    pcsv = "Date,Oil (bbl),Water (bbl),Gas (mcf)\n" + "\n".join(f"{(datetime(2026, 1, 1) + timedelta(days=i)).strftime('%m/%d/%Y')},{50 + i % 7},{300 + i % 11},900" for i in range(200)) + "\n"
+    FL.attach_report(ws, "tester", prod["id"], "prod.csv", pcsv.encode(), "operator production report")
+    vp = 600.0 / 7e-6
+    FL.declare_formation(ws, "tester", "Ellenburger", "petrophysics 2025", porosity=0.12, thickness_ft=100.0, area_acres=vp / (7758 * 100 * 0.12), k_md=50, mu_cp=0.6, p_initial_psi=3000, water_tds_mgl=60000)
+    pg = FL.page(ws)
+    wl = {w_["well"]: w_ for w_ in pg["wells"]}
+    el = next(f_ for f_ in pg["formations"] if f_["formation"] == "Ellenburger")
+    wc = next(f_ for f_ in pg["formations"] if f_["formation"] == "Wolfcamp")
+    nb = wl[inj["id"]]["neighbours"]; nbr = {r_["well"]: r_ for r_ in nb["rows"]}
+    wr = FL.write_report(ws, _ver, "tester")
+    txt = (Path(wr["folder"]) / "fluid_balance.md").read_text(encoding="utf-8").lower()
+    # the report file changed under its hash is not read; the declaration removed takes the well out
+    rp = Path(ws.well_dir(inj["id"]), "records", "fluid", rep["file"]); rep_bytes = rp.read_bytes(); rp.write_bytes(rep_bytes + b"2026-12-31,1,1,1,1\n")
+    pg2 = FL.page(ws)
+    rp.write_bytes(rep_bytes)
+    FL.remove(ws, "tester", well_id=prod["id"])
+    pg3 = FL.page(ws)
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    c2 = {
+        "refusals": all(refused.values()),
+        "before": before["status"] == "OK" and len(before["wells"]) == 1 and before["wells"][0]["role"] == "injection" and before["wells"][0]["record"] == "NO VOLUME RECORD"
+                  and "declaration" in before["wells"][0]["role_how"] and before["formations"] == [],
+        "report_kept": rep["file"] == "h10_2026.csv" and rep["n_rows"] == 240 and rep["columns"]["tds"] == "tds_mgl" and rp.is_file() and len(rep["sha256"]) == 64,
+        "ledger": wl[inj["id"]]["n_with_volume"] == 240 and wl[inj["id"]]["cum_bbl"] > 1.5e6 and wl[inj["id"]]["record"].startswith("the operator")
+                  and wl[inj["id"]]["days"][0]["density_from"] == "the report" and wl[inj["id"]]["cum_solids_t"] > 30000.0
+                  and wl[prod["id"]]["cum_bbl"] < 0 and wl[prod["id"]]["n_with_volume"] == 200 and abs(wl[prod["id"]]["days"][0]["volume_bbl"] + 350.0) < 0.01
+                  and wl[prod["id"]]["days"][0]["density_from"] == "permit" and wl[far["id"]]["record"] == "NO VOLUME RECORD",
+        "interval": wl[inj["id"]].get("interval") is not None and "status" in wl[inj["id"]]["interval"],
+        "balance": el["verdict"] == FL.STATUS_MORE and el["storage_ratio"] > 2.0 and abs(el["unaccounted_bbl"] / leak["truth"]["leaked_bbl"] - 1.0) < 0.12
+                   and el["cum_out_bbl"] > 60000.0 and el["unaccounted_solids_t"] > 0 and wc["status"] == "NO RECORD" and wc["storage"]["status"] == "NOT DECLARED",
+        "hall": wl[inj["id"]]["hall"]["status"] == "DRAWN" and wl[inj["id"]]["hall"]["p_e_how"].startswith("declared"),
+        "neighbours": 1700.0 < nbr[prod["id"]]["distance_ft"] < 1900.0 and nbr[prod["id"]]["front"] == "ARRIVED" and nbr[prod["id"]]["dp_now_psi"] > 100.0
+                      and nbr[prod["id"]]["dp_1yr_psi"] > nbr[prod["id"]]["dp_now_psi"] and nbr[far["id"]]["front"] == "OTHER FORMATION" and "dp_now_psi" not in nbr[far["id"]]
+                      and nb["density_difference"]["delta_sg"] > 0.03 and "under-rides" in nb["density_difference"]["reading"] and nb["projection"]["label"].startswith("SIMULATION"),
+        "written": set(wr["files"]) >= {"fluid_balance.json", "fluid_balance.md", "ledger_Ellenburger.csv", f"well_{inj['id']}.csv"} and "unaccounted" in txt and "simulation" in txt
+                   and not [t for t in CR.FORBIDDEN_TERMS if t in txt],
+        "changed_file": any("changed since it was attached" in n_ for n_ in next(w_ for w_ in pg2["wells"] if w_["well"] == inj["id"])["notes"])
+                        and next(w_ for w_ in pg2["wells"] if w_["well"] == inj["id"])["record"] == "NO VOLUME RECORD",
+        "removed": prod["id"] not in {w_["well"] for w_ in pg3["wells"]} and all(x in audit for x in ("fluid.declare", "fluid.formation", "fluid.report.attach", "fluid.report", "fluid.remove")),
+    }
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       "EB2 the workspace: a role not injection or production, a declaration or a report without its source, nothing declared, an unknown well, a TDS beyond "
+       "brine, a report without a date or a volume column, a formation without a source or a value, a removal of nothing - each declined by name; a disposal "
+       "well is in the ledger by its own declaration with NO VOLUME RECORD until a report comes, the interval statement beside it; the operator's report kept "
+       "under the well's records with its SHA-256 and read day by day (the report's own TDS first, the declared density after), a producer's oil and water "
+       "signed out, the formation's balance MORE ROOM THAN DECLARED with the unaccounted barrels within 12% of what the labelled tank lost and their solids; the "
+       "Hall plot on the declared initial pressure; the neighbours by surface distance - the near producer with the front ARRIVED and the pressure rising a year "
+       "on, the well in another formation given its distance and no projection, the denser injectate said to under-ride; the report written with its CSVs and "
+       "free of the client-report terms; a report file changed under its hash not read; a declaration removed takes the well out; every step audited"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+    # -- EB3 the routes, the tab, the command, the help, the README and the lesson -----------------------------------------------
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_vg, vg = call(V, "GET", "/api/fluid")
+        s_vd, _ = call(V, "POST", "/api/fluid/declare", {"well_id": prod["id"], "role": "production", "source": "x"})
+        s_od, od = call(O, "POST", "/api/fluid/declare", {"well_id": prod["id"], "role": "production", "formation": "Ellenburger", "density_sg": "1.05", "source": "permit (api)"})
+        s_bd, _ = call(O, "POST", "/api/fluid/declare", {"well_id": prod["id"], "role": "pumping", "source": "x"})
+        s_nw, _ = call(O, "POST", "/api/fluid/declare", {"well_id": "nowhere", "role": "injection", "source": "x"})
+        s_or, orp = call(O, "POST", "/api/fluid/report", {"well_id": prod["id"], "filename": "prod.csv", "content_b64": _b64.b64encode(pcsv.encode()).decode(), "source": "api"})
+        s_br, _ = call(O, "POST", "/api/fluid/report", {"well_id": prod["id"], "filename": "b.csv", "content_b64": "***", "source": "api"})
+        s_of, of_ = call(O, "POST", "/api/fluid/formation", {"name": "Wolfcamp", "porosity": "0.06", "thickness_ft": "300", "area_acres": "640", "source": "api"})
+        s_ow, ow = call(O, "POST", "/api/fluid/write", {})
+        s_g2, g2 = call(V, "GET", "/api/fluid")
+        s_rm, _ = call(O, "POST", "/api/fluid/remove", {"formation": "Wolfcamp"})
+        s_r2, _ = call(O, "POST", "/api/fluid/remove", {"formation": "Wolfcamp"})
+    finally:
+        svc.stop()
+    cli_s = _sp.run([sys.executable, "-m", "gea", "fluid"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_j = _sp.run([sys.executable, "-m", "gea", "fluid", "--json"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_w = _sp.run([sys.executable, "-m", "gea", "fluid", "--workspace", wsp], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_d = _sp.run([sys.executable, "-m", "gea", "fluid", "--workspace", wsp, "--declare", "--well", far["id"], "--tds-mgl", "80000", "--from", "2026-01-01", "--source", "analysis (cli)"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_f = _sp.run([sys.executable, "-m", "gea", "fluid", "--workspace", wsp, "--formation", "Wolfcamp", "--porosity", "0.06", "--thickness-ft", "300", "--area-acres", "640", "--source", "cli"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_b = _sp.run([sys.executable, "-m", "gea", "fluid", "--workspace", wsp, "--declare", "--well", far["id"], "--role", "injection"], capture_output=True, text=True, cwd=str(pkg.parent))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
+    lesson = (pkg / "help" / "tutorial" / "14-production-pages.md").read_text(encoding="utf-8")
+    c3 = {
+        "api": s_vg == 200 and vg["status"] == "OK" and s_vd == 403 and s_od == 200 and od["role"] == "production" and s_bd == 400 and s_nw == 400 and s_or == 200 and orp["n_rows"] == 200
+               and s_br == 400 and s_of == 200 and of_["porosity"] == 0.06 and s_ow == 200 and "fluid_balance.json" in ow["files"] and s_g2 == 200
+               and any(f_["formation"] == "Wolfcamp" and f_["storage"]["status"] == "OK" for f_ in g2["formations"]) and s_rm == 200 and s_r2 == 400,
+        "cli": cli_s.returncode == 0 and "OK - SIMULATION" in cli_s.stdout and cli_j.returncode == 0 and json.loads(cli_j.stdout)["ok"] is True
+               and cli_w.returncode == 0 and "MORE ROOM THAN DECLARED" in cli_w.stdout and "Hall plot" in cli_w.stdout and cli_d.returncode == 0 and "1 density" in cli_d.stdout
+               and cli_f.returncode == 0 and "storage c_t V_p" in cli_f.stdout and cli_b.returncode != 0 and "source" in cli_b.stderr,
+        "page": all(x in page_src for x in ("VIEWS.fluid", "['#/fluid', 'Fluid balance']", "/api/fluid/declare", "/api/fluid/report", "/api/fluid/formation", "flBalancePlot", "flHallPlot", "help('fluid')")),
+        "help": not H.check("fluid") and H.VIEW_TOPIC.get("fluid") == "fluid" and any(t == "fluid" for t, _, _ in H.INDEX)
+                and all(x in (H.page("fluid") or "") for x in ("McCain", "Hall", "SIMULATION", "gea fluid --workspace C:\\site", "7,758")),
+        "readme_lesson": (not readme or ("### Fluid balance" in readme and "`gea fluid`" in readme)) and "Fluid balance" in lesson and "fluid" in lesson.split("Help:")[-1],
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "EB3 on the API (anyone reads the balance; only an operator declares, attaches a report, declares a formation, writes or removes - a bad role, an "
+       "unknown well, a report that is not base64 and a removal of nothing are 400), the command (the self-test plain and as JSON, the balance, a density "
+       "from the command line, a formation, a declaration without its source stopped), the tab with its two plots, the help page, the README and lesson 14"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -17564,6 +17761,7 @@ def main() -> int:
         section_dy_vibration(tmp)
         section_dz_textbook_oracle(tmp)
         section_ea_vpn_client(tmp)
+        section_eb_fluid(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

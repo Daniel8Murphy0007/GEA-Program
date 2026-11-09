@@ -561,6 +561,35 @@ def main(argv=None) -> int:
     p_pn.add_argument("--actor", type=str, default="cli")
     p_pn.add_argument("--json", action="store_true")
 
+    p_fl = sub.add_parser("fluid", help="the fluid ledger and the material balance: every barrel in or out of a formation through the site's wells by day, with its density and dissolved solids, against the room the formation has; the storage the pressure says against the storage declared; the Hall plot; the neighbours with the front and pressure projections (SIMULATION)")
+    p_fl.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs on labelled scenes")
+    p_fl.add_argument("--well", type=str, default=None, help="the well a declaration, a report or a removal is for")
+    p_fl.add_argument("--declare", action="store_true", help="declare the well's role, formation or density (with --source)")
+    p_fl.add_argument("--role", type=str, default=None, choices=("injection", "production"))
+    p_fl.add_argument("--formation", type=str, default=None, help="--declare: the formation the well is completed in; alone with --porosity etc.: the formation to declare")
+    p_fl.add_argument("--density-sg", type=float, default=None, help="--declare: the injected water's specific gravity")
+    p_fl.add_argument("--density-ppg", type=float, default=None, help="--declare: the injected water's density in lb/gal")
+    p_fl.add_argument("--tds-mgl", type=float, default=None, help="--declare: the injected water's total dissolved solids, mg/L (density by McCain 1991)")
+    p_fl.add_argument("--from", dest="from_day", type=str, default=None, help="--declare: the first day the density applies (YYYY-MM-DD; blank: from the start)")
+    p_fl.add_argument("--to", dest="to_day", type=str, default=None, help="--declare: the last day the density applies (blank: open)")
+    p_fl.add_argument("--attach", type=str, default=None, help="the operator's injection or production report (CSV: a date column and a volume column; pressures, BHP, density or TDS when it has them) for --well")
+    p_fl.add_argument("--porosity", type=float, default=None, help="--formation: porosity, fraction")
+    p_fl.add_argument("--thickness-ft", type=float, default=None, help="--formation: net thickness, ft")
+    p_fl.add_argument("--area-acres", type=float, default=None, help="--formation: the connected area, acres")
+    p_fl.add_argument("--c-water", type=float, default=None, help="--formation: water compressibility, 1/psi (default 3e-6)")
+    p_fl.add_argument("--c-pore", type=float, default=None, help="--formation: pore-volume compressibility, 1/psi (default 4e-6)")
+    p_fl.add_argument("--k-md", type=float, default=None, help="--formation: permeability, md (for the front and pressure projections)")
+    p_fl.add_argument("--mu-cp", type=float, default=None, help="--formation: water viscosity, cp (default 0.6)")
+    p_fl.add_argument("--p-initial-psi", type=float, default=None, help="--formation: the initial formation pressure, psi (the Hall plot's p_e)")
+    p_fl.add_argument("--water-sg", type=float, default=None, help="--formation: the formation water's specific gravity")
+    p_fl.add_argument("--water-tds-mgl", type=float, default=None, help="--formation: the formation water's TDS, mg/L")
+    p_fl.add_argument("--source", type=str, default="", help="where the declaration or the report came from (required with --declare, --attach and a formation)")
+    p_fl.add_argument("--remove", action="store_true", help="remove the well's fluid declaration (--well), one of its reports (--well --report) or a formation (--formation)")
+    p_fl.add_argument("--report", type=str, default=None, help="--remove: the report file to remove from --well")
+    p_fl.add_argument("--as-of", type=str, default=None, help="the balance up to this day (YYYY-MM-DD)")
+    p_fl.add_argument("--write", action="store_true", help="write the report under reports/fluid/ (fluid_balance.json, .md, the ledger CSVs)")
+    p_fl.add_argument("--actor", type=str, default="cli")
+    p_fl.add_argument("--json", action="store_true")
     p_os = sub.add_parser("seismicity", help="operations and seismicity: each well's drilling, completion and disposal windows against the earthquake catalogue around it - the events during and after each, the levels a regulator's protocol would reach, and the rate during operations against the rest of the record; the Mahoning Valley worked example")
     p_os.add_argument("--workspace", type=str, default=None)
     p_os.add_argument("--scene", type=str, default=None, choices=("workspace", "mahoning"), help="your wells (the default with --workspace) or the public worked example")
@@ -2607,6 +2636,56 @@ def main(argv=None) -> int:
         except (ValueError, KeyError, OSError) as e:
             raise SystemExit(f"penetrator: {e.args[0] if e.args else e}")
         print(_json.dumps(p, default=str) if a.json else _PN.text(p))
+        return 0
+    elif a.cmd == "fluid":
+        import json as _json
+        from . import fluid as _FL
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if not a.workspace:
+            r = _FL.selftest()
+            print(_json.dumps(r, default=str) if a.json else "\n".join(f"{'PASS' if c['pass'] else 'FAIL'}  {c['check']}" + (f": {c['value']}" if 'value' in c else '') for c in r["checks"]) + f"\n{'OK' if r['ok'] else 'FAILED'} - {r['label']}")
+            return 0 if r["ok"] else 1
+        try:
+            ws = Workspace(a.workspace)
+        except WorkspaceError as e:
+            raise SystemExit(f"fluid: {e}")
+        try:
+            if a.remove:
+                r = _FL.remove(ws, a.actor, a.well, a.report, None if a.well else a.formation)
+                print("removed " + ", ".join(f"{k} {v}" for k, v in r.items())); return 0
+            if a.attach:
+                if not a.well:
+                    raise SystemExit("fluid: --attach needs --well")
+                with open(a.attach, "rb") as f:
+                    r = _FL.attach_report(ws, a.actor, a.well, os.path.basename(a.attach), f.read(), a.source)
+                print(f"attached {r['file']} to {a.well}: {r['n_rows']} day(s), {r['start']} to {r['end']}; columns " + ", ".join(f"{k}={v}" for k, v in r["columns"].items())
+                      + (f"; {r['skipped']} row(s) skipped" if r["skipped"] else "") + (f"; {r['duplicate_days']} day(s) twice" if r["duplicate_days"] else ""))
+                return 0
+            if a.declare:
+                if not a.well:
+                    raise SystemExit("fluid: --declare needs --well")
+                r = _FL.declare_well(ws, a.actor, a.well, a.role, a.formation, a.density_sg, a.tds_mgl, a.density_ppg, a.from_day, a.to_day, a.source)
+                print(f"{a.well}: role {r.get('role') or '-'}, formation {r.get('formation') or '-'}, {len(r.get('densities', []))} density declaration(s)")
+                return 0
+            fm_vals = {"porosity": a.porosity, "thickness_ft": a.thickness_ft, "area_acres": a.area_acres, "c_water_per_psi": a.c_water, "c_pore_per_psi": a.c_pore,
+                       "k_md": a.k_md, "mu_cp": a.mu_cp, "p_initial_psi": a.p_initial_psi, "water_sg": a.water_sg, "water_tds_mgl": a.water_tds_mgl}
+            if a.formation and any(v is not None for v in fm_vals.values()):
+                r = _FL.declare_formation(ws, a.actor, a.formation, a.source, **fm_vals)
+                st = _FL.storage_declared(r)
+                print(f"{a.formation}: " + ", ".join(f"{k} {v:g}" for k, v in r.items() if isinstance(v, (int, float))) + f"; {st['how']}")
+                return 0
+            if a.write:
+                from . import __version__ as _ver84
+                r = _FL.write_report(ws, _ver84, a.actor)
+                print(f"written: {', '.join(r['files'])} under {r['folder']}")
+                p = r["page"]
+            else:
+                p = _FL.page(ws, a.as_of)
+        except (_FL.FluidError, WorkspaceError, ValueError, OSError) as e:
+            raise SystemExit(f"fluid: {e.args[0] if e.args else e}")
+        print(_json.dumps(p, default=str) if a.json else _FL.text(p))
         return 0
     elif a.cmd == "seismicity":
         import json as _json

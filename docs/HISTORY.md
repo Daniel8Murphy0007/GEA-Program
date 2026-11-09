@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.84.0 - 2026-11-09 - the fluid ledger and the material balance
+
+- The first of the fluid-flow modules: the ledger of every barrel in and
+  out of a formation by day with its density and dissolved solids, the
+  storage the pressure says against the storage declared, the unaccounted
+  volume named as the outflow to look for, the Hall plot, the neighbours
+  with the pressure front and the swept radius as SIMULATION. The Fluid
+  balance tab, `gea fluid`. Section EB; gate 563.
+
 ## v0.83.3 - 2026-11-08 - the release's own test, its verdict
 
 - The Windows job's step ends with its own exit code instead of the last

@@ -1,11 +1,14 @@
-v0.83.3 — THE RELEASE'S OWN TEST, ITS VERDICT
+v0.84.0 — THE FLUID LEDGER AND THE MATERIAL BALANCE
 
-The Windows job of 0.83.2 passed every line of its test and still returned
-1: the runner judges a PowerShell step by the last native command's exit
-code, and the last one was the schtasks query that proves the task is
-gone by failing. The step ends with its own verdict now. The same program
-as 0.83.0; GEA-VPN-Setup-0.83.3.exe is on this release.
+Where the water went, as far as arithmetic can say. Every barrel into or
+out of a formation through the site's wells by day, with its density and
+dissolved solids, from the operator's own reports or a disposal well's
+declared channels; the storage the pressure says against the storage
+declared, the unaccounted barrels named as the outflow to look for; each
+injection well's Hall plot; the neighbours with the pressure front and the
+swept radius, labelled SIMULATION. The Fluid balance tab, `gea fluid`,
+`gea help fluid`. Section EB; gate 563.
 
 Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
 
-Gate 560.
+Gate 563.

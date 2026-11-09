@@ -808,7 +808,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.83.3.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.84.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -908,6 +908,24 @@ stage's fluid reaching the well). With surveys, the distance from each
 stage to the monitored well; with an earthquake catalogue, the earthquakes
 during each stage. A frac hit is an alert. The **Frac hits** tab,
 `gea frac-hits`, `gea help frac-hits`.
+
+### Fluid balance
+
+Where the water went, as far as arithmetic can say. Every barrel that went
+into or came out of a formation through the site's wells, by day, with its
+density and its dissolved solids (declared as specific gravity or TDS, the
+density from TDS by McCain's correlation), from the operator's own injection
+or production reports attached as CSV or from a disposal well's declared
+injection channels; the formation declared with its porosity, thickness,
+area and compressibilities; the storage the wells' bottomhole pressures say
+the formation has against the storage declared - closed as declared, more
+room (the fluid finding room the declaration does not have: an aquifer,
+leak-off, a larger connected volume) or less - with the unaccounted barrels
+and their tonnes of solids named; each injection well's Hall plot; and its
+neighbours by distance with the day the pressure front reaches them, the
+pressure rise there and the volume it would take for the water itself to
+arrive, every projection labelled SIMULATION. The **Fluid balance** tab,
+`gea fluid`, `gea help fluid`.
 
 ### Plan vs actual and the survey tools
 
@@ -1573,7 +1591,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.83.3.exe` (for 0.83.3): the
+Every release also carries `GEA-Program-Setup-0.84.0.exe` (for 0.84.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1592,7 +1610,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.83.3.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.84.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

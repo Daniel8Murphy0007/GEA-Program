@@ -3102,6 +3102,90 @@ VIEWS.porepressure = async () => {
   $('#ppCfg') && ($('#ppCfg').onsubmit = async ev => { ev.preventDefault(); try { await post('/api/pore-pressure/settings', {well_id: PPV.well, ...Object.fromEntries(new FormData(ev.target).entries())}); toast('Kept', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
   $('#ppMeas') && ($('#ppMeas').onsubmit = async ev => { ev.preventDefault(); try { await post('/api/pore-pressure/measure', {well_id: PPV.well, ...Object.fromEntries(new FormData(ev.target).entries())}); toast('Added', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
 };
+// ---------- fluid: the ledger and the material balance of a formation ----------
+function flKind(v) { return ({'CLOSED AS DECLARED': 'good', 'MORE ROOM THAN DECLARED': 'warn', 'LESS ROOM THAN DECLARED': 'warn', 'NOT FITTED': 'neutral'})[v] || 'neutral'; }
+function flBalancePlot(fm) {
+  const pts = fm.days.filter(d => d.bhp_psi != null); if (pts.length < 2) return `<p class="small muted">no bottomhole pressure on the ledger's days: the fit needs ${10} of them</p>`;
+  const W = 520, H = 220, L = 56, R = 12, T = 12, B = 30, xs = pts.map(d => d.cum_net_bbl), ys = pts.map(d => d.bhp_psi);
+  const x0 = Math.min(0, ...xs), x1 = Math.max(...xs), f = fm.fit, st = fm.storage;
+  let lo = Math.min(...ys), hi = Math.max(...ys);
+  if (st.status === 'OK' && f.status === 'FITTED') { hi = Math.max(hi, f.p_zero_psi + x1 / st.storage_bbl_per_psi); lo = Math.min(lo, f.p_zero_psi); }
+  const pad = (hi - lo) * 0.08 || 10; lo -= pad; hi += pad;
+  const sx = v => L + (v - x0) / Math.max(1e-9, x1 - x0) * (W - L - R), sy = v => T + (1 - (v - lo) / Math.max(1e-9, hi - lo)) * (H - T - B);
+  let g = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="bottomhole pressure against cumulative net volume" style="max-width:640px">`;
+  g += `<line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" stroke="var(--ink2)" opacity=".5"/><line x1="${L}" x2="${L}" y1="${T}" y2="${H - B}" stroke="var(--ink2)" opacity=".5"/>`;
+  g += `<text x="${L - 6}" y="${sy(lo + pad) + 4}" font-size="11" text-anchor="end" fill="var(--muted)">${Math.round(lo + pad)}</text><text x="${L - 6}" y="${sy(hi - pad) + 4}" font-size="11" text-anchor="end" fill="var(--muted)">${Math.round(hi - pad)}</text>`;
+  g += `<text x="${W - R}" y="${H - 8}" font-size="11" text-anchor="end" fill="var(--muted)">${Math.round(x1).toLocaleString()} bbl net</text><text x="${L}" y="${H - 8}" font-size="11" fill="var(--muted)">psi</text>`;
+  if (st.status === 'OK' && f.status === 'FITTED') g += `<line x1="${sx(x0)}" y1="${sy(f.p_zero_psi + x0 / st.storage_bbl_per_psi)}" x2="${sx(x1)}" y2="${sy(f.p_zero_psi + x1 / st.storage_bbl_per_psi)}" stroke="var(--ink2)" stroke-dasharray="5 4" opacity=".7"><title>closed as declared: ${st.storage_bbl_per_psi} bbl/psi</title></line>`;
+  if (f.status === 'FITTED') g += `<line x1="${sx(x0)}" y1="${sy(f.p_zero_psi + f.slope_psi_per_bbl * x0)}" x2="${sx(x1)}" y2="${sy(f.p_zero_psi + f.slope_psi_per_bbl * x1)}" stroke="var(--s2)" stroke-width="1.6"><title>the pressure says: ${f.storage_bbl_per_psi} bbl/psi</title></line>`;
+  g += pts.map(d => `<circle cx="${sx(d.cum_net_bbl).toFixed(1)}" cy="${sy(d.bhp_psi).toFixed(1)}" r="2" fill="var(--s1)"><title>${d.date}: ${d.cum_net_bbl.toLocaleString()} bbl, ${d.bhp_psi} psi</title></circle>`).join('');
+  g += `<text x="${L + 6}" y="${T + 12}" font-size="11" fill="var(--muted)">dots the days · solid the fit · dashed the declared closed volume</text>`;
+  return g + `</svg>`;
+}
+function flHallPlot(h) {
+  if (!h || h.status !== 'DRAWN') return `<p class="small muted">Hall plot ${h ? esc(h.status.toLowerCase()) + ': ' + esc(h.why || '') : 'not drawn'}</p>`;
+  const W = 520, H = 200, L = 56, R = 12, T = 12, B = 30, P = h.points, x1 = Math.max(...P.map(p => p[0])), y0 = Math.min(0, ...P.map(p => p[1])), y1 = Math.max(...P.map(p => p[1]));
+  const sx = v => L + v / Math.max(1e-9, x1) * (W - L - R), sy = v => T + (1 - (v - y0) / Math.max(1e-9, y1 - y0)) * (H - T - B);
+  let g = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Hall plot" style="max-width:640px"><line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" stroke="var(--ink2)" opacity=".5"/><line x1="${L}" x2="${L}" y1="${T}" y2="${H - B}" stroke="var(--ink2)" opacity=".5"/>`;
+  g += `<polyline points="${P.map(p => `${sx(p[0]).toFixed(1)},${sy(p[1]).toFixed(1)}`).join(' ')}" fill="none" stroke="var(--s1)" stroke-width="1.6"/>`;
+  g += `<text x="${W - R}" y="${H - 8}" font-size="11" text-anchor="end" fill="var(--muted)">${Math.round(x1).toLocaleString()} bbl</text><text x="${L}" y="${H - 8}" font-size="11" fill="var(--muted)">Σ(p − p_e)·days</text>`;
+  g += `<text x="${L + 6}" y="${T + 12}" font-size="11" fill="var(--muted)">${esc(h.pressure)} pressure, p_e ${h.p_e_psi} psi (${esc(h.p_e_how)})</text>`;
+  return g + `</svg>`;
+}
+VIEWS.fluid = async () => {
+  const P = await get('/api/fluid');
+  let h = `<h2>Fluid balance</h2>` + help('fluid');
+  h += `<div class="row">${can('operator') ? `<button type="button" class="secondary" id="flWrite">Write the report</button>` : ''}<span class="small muted">${esc(P.lines[P.lines.length - 1])}</span></div>`;
+  if (P.status === 'EMPTY') h += `<div class="card"><p class="small">${esc(P.lines[0])}</p></div>`;
+  for (const fm of P.formations) {
+    h += `<div class="card"><h3>${esc(fm.formation)} <span class="small muted">${fm.wells.length} well(s)${fm.start ? ` · ${fm.start} to ${fm.end}` : ''}</span></h3>`;
+    if (fm.status === 'LEDGER') {
+      const st = fm.storage, f = fm.fit;
+      h += `<div class="tiles">` + tile('Net volume kept', Math.round(fm.cum_net_bbl).toLocaleString() + ' bbl', 'neutral', '#/fluid', `${Math.round(fm.cum_in_bbl).toLocaleString()} in, ${Math.round(fm.cum_out_bbl).toLocaleString()} out`)
+         + tile('Dissolved solids kept', fm.cum_water_t ? Math.round(fm.cum_solids_t).toLocaleString() + ' t' : 'no density', fm.cum_water_t ? 'neutral' : 'warn', '#/fluid', fm.cum_water_t ? `${Math.round(fm.cum_water_t).toLocaleString()} t of brine` : 'declare the injected water\'s TDS or density')
+         + tile('Declared storage', st.status === 'OK' ? st.storage_bbl_per_psi.toLocaleString() + ' bbl/psi' : 'not declared', st.status === 'OK' ? 'neutral' : 'warn', '#/fluid', st.status === 'OK' ? `${(fm.pore_volume_fraction * 100).toFixed(2)}% of the pore volume filled` : 'porosity, thickness and area')
+         + tile('The pressure says', f.status === 'FITTED' ? f.storage_bbl_per_psi.toLocaleString() + ' bbl/psi' : 'not fitted', flKind(fm.verdict), '#/fluid', f.status === 'FITTED' ? `${fm.verdict.toLowerCase()}${fm.storage_ratio != null ? ` (${fm.storage_ratio} × declared, r² ${f.r2})` : ''}` : (f.why || ''))
+         + (fm.unaccounted_bbl != null ? tile('Unaccounted', Math.round(fm.unaccounted_bbl).toLocaleString() + ' bbl', fm.verdict === 'MORE ROOM THAN DECLARED' ? 'warn' : 'neutral', '#/fluid', fm.unaccounted_solids_t != null ? `${Math.round(fm.unaccounted_solids_t).toLocaleString()} t of solids` : 'at the observed rise') : '') + `</div>`;
+      h += `<div class="grid2">${flBalancePlot(fm)}<ul class="small">${fm.lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul></div>`;
+    } else h += `<p class="small">${fm.lines.map(esc).join(' ')}</p>`;
+    const d = fm.declared || {};
+    h += `<p class="small muted">Declared: ${Object.keys(d).filter(k => typeof d[k] === 'number').map(k => `${k.replace(/_/g, ' ')} ${+d[k].toPrecision(6)}`).join(' · ') || 'nothing yet'}${d.source ? ` — ${esc(d.source)}` : ''}${(fm.storage.defaults || []).length ? ` · ${esc(fm.storage.defaults.join('; '))}` : ''}</p>`;
+    if (can('operator')) h += `<button type="button" class="secondary small fl-rmfm" data-f="${esc(fm.formation)}">Remove the formation's declaration</button>`;
+    h += `</div>`;
+  }
+  if (P.wells.length) {
+    h += `<div class="card"><h3>The wells</h3><table><thead><tr><th>Well</th><th>Role</th><th>Formation</th><th>Record</th><th>Days</th><th>Net (bbl)</th><th>Brine (t)</th><th>Solids (t)</th><th>BHP days</th><th>Interval</th><th></th></tr></thead><tbody>`;
+    for (const w of P.wells) h += `<tr><td><a href="#/wells/${esc(w.well)}">${esc(w.display)}</a></td><td>${esc(w.role || '—')} <span class="muted small">${esc(w.role_how)}</span></td><td>${esc(w.formation || '—')}</td><td class="small">${esc(w.record)}</td><td>${w.n_with_volume ?? '—'}</td><td>${w.cum_bbl != null ? Math.round(w.cum_bbl).toLocaleString() : '—'}</td><td>${w.cum_water_t != null ? Math.round(w.cum_water_t).toLocaleString() : '—'}</td><td>${w.cum_solids_t != null ? w.cum_solids_t.toLocaleString() : '—'}</td><td>${w.n_bhp ?? '—'}</td><td class="small">${w.interval ? statusPill(w.interval.status === 'OK' ? 'good' : 'neutral', w.interval.status + (w.interval.tier ? ' · tier ' + w.interval.tier : '')) : '—'}</td><td>${can('operator') && (w.role || (w.days || []).length) ? `<button type="button" class="secondary small fl-rmw" data-w="${esc(w.well)}">Remove</button>` : ''}</td></tr>`;
+    h += `</tbody></table>`;
+    for (const w of P.wells) if ((w.notes || []).length) h += `<p class="small muted"><b>${esc(w.display)}</b>: ${w.notes.map(esc).join(' · ')}</p>`;
+    h += `</div>`;
+    for (const w of P.wells) if (w.role === 'injection' && (w.days || []).length) {
+      const nb = w.neighbours || {};
+      h += `<div class="card"><h3>${esc(w.display)} <span class="small muted">Hall plot and neighbours</span></h3><div class="grid2">${flHallPlot(w.hall)}<div class="small">${w.hall && w.hall.reading ? `<p>${esc(w.hall.reading)}${w.hall.slope_ratio != null ? ` (slope ratio ${w.hall.slope_ratio})` : ''}</p>` : ''}`;
+      if (nb.projection) h += `<p>${nb.r_inv_ft != null ? `Pressure front at ${Math.round(nb.r_inv_ft).toLocaleString()} ft after ${nb.projection.days} days; swept radius ${Math.round(nb.swept_ft).toLocaleString()} ft for ${Math.round(nb.projection.cum_bbl).toLocaleString()} bbl. ` : ''}${nb.density_difference ? esc(nb.density_difference.reading) + ` (sg ${nb.density_difference.injected_sg} vs ${nb.density_difference.formation_water_sg}). ` : ''}<span class="muted">${esc(nb.projection.label)}</span></p>`;
+      h += `</div></div>`;
+      if ((nb.rows || []).length) { h += `<table class="small"><thead><tr><th>Neighbour</th><th>Distance</th><th>Role</th><th>Formation</th><th>Front</th><th>Δp now</th><th>Δp in a year</th><th>Swept</th></tr></thead><tbody>`;
+        for (const r of nb.rows) h += `<tr><td><a href="#/wells/${esc(r.well)}">${esc(r.display)}</a></td><td>${Math.round(r.distance_ft).toLocaleString()} ft (${r.distance_km} km)</td><td>${esc(r.role || '—')}</td><td>${esc(r.formation || '—')}</td><td>${r.front ? statusPill(r.front === 'ARRIVED' ? 'warn' : 'neutral', r.front + (r.front_arrival_day != null ? ' · day ' + r.front_arrival_day : '')) : '—'}</td><td>${r.dp_now_psi != null ? r.dp_now_psi + ' psi' : '—'}</td><td>${r.dp_1yr_psi != null ? r.dp_1yr_psi + ' psi' : '—'}</td><td>${esc(r.swept || '—')}</td></tr>`;
+        h += `</tbody></table>`; }
+      if ((nb.notes || []).length) h += `<p class="small muted">${nb.notes.map(esc).join(' · ')}</p>`;
+      if (nb.status && nb.status !== 'OK') h += `<p class="small">${esc(nb.status)}: ${(nb.notes || []).map(esc).join(' ')}</p>`;
+      h += `</div>`;
+    }
+  }
+  if (can('operator')) {
+    const wells = await get('/api/wells'); const opts = (wells.wells || wells).map(w => `<option value="${esc(w.id)}">${esc(w.display)}</option>`).join('');
+    h += `<div class="card"><h3>Declare a well</h3><form id="flDecl" class="row"><label>Well<select name="well_id">${opts}</select></label><label>Role<select name="role"><option value="">(keep)</option><option value="injection">injection</option><option value="production">production</option></select></label><label>Formation<input name="formation" placeholder="Ellenburger"></label><label>Density sg<input name="density_sg" type="number" step="0.001" style="width:6em"></label><label>or lb/gal<input name="density_ppg" type="number" step="0.01" style="width:6em"></label><label>or TDS mg/L<input name="tds_mgl" type="number" step="1" style="width:8em"></label><label>From<input name="from" type="date"></label><label>To<input name="to" type="date"></label><label>Source<input name="source" required placeholder="completion report W-2; water analysis 2026-03"></label><button type="submit">Declare</button></form>
+      <h3>Attach the operator's report</h3><form id="flRep" class="row"><label>Well<select name="well_id">${opts}</select></label><label>CSV<input name="file" type="file" accept=".csv,.txt" required></label><label>Source<input name="source" required placeholder="H-10 filed 2026-04-02"></label><button type="submit">Attach</button></form><p class="small muted">A date column and a volume column (barrels for the day); average and maximum surface pressure, bottomhole pressure, density or TDS when the report has them. A producer's oil and water columns are its liquid out.</p>
+      <h3>Declare a formation</h3><form id="flFm" class="row"><label>Name<input name="name" required></label><label>Porosity<input name="porosity" type="number" step="0.001" style="width:6em"></label><label>Thickness ft<input name="thickness_ft" type="number" step="1" style="width:6em"></label><label>Area acres<input name="area_acres" type="number" step="1" style="width:7em"></label><label>c water /psi<input name="c_water_per_psi" type="number" step="1e-7" style="width:7em"></label><label>c pore /psi<input name="c_pore_per_psi" type="number" step="1e-7" style="width:7em"></label><label>k md<input name="k_md" type="number" step="0.1" style="width:6em"></label><label>μ cp<input name="mu_cp" type="number" step="0.01" style="width:5em"></label><label>p initial psi<input name="p_initial_psi" type="number" step="1" style="width:6em"></label><label>Water sg<input name="water_sg" type="number" step="0.001" style="width:6em"></label><label>Water TDS<input name="water_tds_mgl" type="number" step="1" style="width:8em"></label><label>Source<input name="source" required></label><button type="submit">Declare</button></form></div>`;
+  }
+  $('#main').innerHTML = h;
+  const sub = (id, path, prep) => { const f = $(id); if (f) f.onsubmit = async ev => { ev.preventDefault(); try { const fd = new FormData(ev.target); const b = Object.fromEntries([...fd.entries()].filter(([k, v]) => typeof v === 'string')); if (prep) await prep(b, fd); await post(path, b); toast('Kept', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } }; };
+  sub('#flDecl', '/api/fluid/declare'); sub('#flFm', '/api/fluid/formation');
+  sub('#flRep', '/api/fluid/report', async (b, fd) => { const file = fd.get('file'); if (!file || !file.name) throw new Error('choose the report file'); b.filename = file.name; b.content_b64 = await readFile(file); });
+  $('#flWrite') && ($('#flWrite').onclick = async () => { try { const r = await post('/api/fluid/write', {}); toast('Written: ' + r.files.join(', '), 'ok'); } catch (e) { toast(e.message, 'err'); } });
+  document.querySelectorAll('.fl-rmw').forEach(b => b.onclick = async () => { try { await post('/api/fluid/remove', {well_id: b.dataset.w}); toast('Removed', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+  document.querySelectorAll('.fl-rmfm').forEach(b => b.onclick = async () => { try { await post('/api/fluid/remove', {formation: b.dataset.f}); toast('Removed', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+};
 // ---------- frac hits: each fracturing stage against the pressure in the wells around it ----------
 const FH = {sel: null};
 function fhKind(t) { return ({'NONE': 'good', 'POROELASTIC': 'neutral', 'MIXED': 'warn', 'FRAC HIT': 'serious'})[t] || 'neutral'; }
@@ -3688,7 +3772,7 @@ function authScreen(first, company) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/frac', 'Frac hits'], ['#/porepressure', 'Pore pressure'], ['#/torquedrag', 'Torque & drag'], ['#/hydraulics', 'Hydraulics & ECD'], ['#/casing', 'Casing & kick tolerance'], ['#/decline', 'Decline curves'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/rocks', 'Rocks'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/tutorial', 'Tutorial'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/frac', 'Frac hits'], ['#/fluid', 'Fluid balance'], ['#/porepressure', 'Pore pressure'], ['#/torquedrag', 'Torque & drag'], ['#/hydraulics', 'Hydraulics & ECD'], ['#/casing', 'Casing & kick tolerance'], ['#/decline', 'Decline curves'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/catalog', 'Catalogue'], ['#/rocks', 'Rocks'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/tutorial', 'Tutorial'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w'], '#/control': b => [b.handover_unacked, 'w']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }
