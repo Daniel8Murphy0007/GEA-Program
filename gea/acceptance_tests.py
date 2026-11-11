@@ -17839,6 +17839,237 @@ def section_ec_plume(tmp: str) -> None:
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_ed_front(tmp: str) -> None:
+    """Section ED - the fluid front: the steady unit flow and the transport on labelled grids (the piston radius, the
+    doublet's analytic breakthrough, the tongue of a denser water, shut-in slumping, a sealing fault, every barrel
+    in place); the workspace (the injector's front on its own fine grid with the near producer in it and the far one
+    beyond, the densities and the gravity number, the snapshots through the record and the two projections, the
+    producer's arrival, share and predicted TDS beside its report's measured TDS and the share that implies, the
+    account closing, the water across an open fault named and none across a sealing one, a front without densities
+    a piston, the settings with their refusals, the report, the interface in 3D between the declared top and base, the
+    dossier's results); the routes, the tab, the command, the help, the README and the lesson."""
+    import http.cookiejar
+    import math
+    import subprocess as _sp
+    import urllib.error
+    import urllib.request
+    import zipfile as _zf
+    from datetime import datetime, timedelta
+    from . import __version__ as _ver
+    from . import client_reports as CR
+    from . import dossier as DZ
+    from . import fluid as FL
+    from . import front as FR
+    from . import geodesy as GD
+    from . import helplib as H
+    from . import plume as PM
+    from . import shapefile as SF
+    from . import well3d as W3
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ed"); d.mkdir()
+    # -- ED1 the arithmetic ---------------------------------------------------------------------------------------------------
+    st = FR.selftest()
+    k, h, phi, mu = 20.0, 60.0, 0.15, 0.8
+    n = 61; g = PM.Grid(n, 40.0, h, phi, k, mu, 1.0); vp = 40.0 * 40.0 * h * phi / 5.614583
+    u = FR.solve_unit(g, 0.0, 0.0, k * h); uo = FR.solve_unit(g, 5000.0, 0.0, k * h)          # a well on the grid, and one far beyond it
+    c = u["cell"]
+    w = FR.Water(g, vp, 0.0); q = 2000.0
+    w.advance(100.0, u["Fx"] * q, u["Fy"] * q, {c: q}, {}, max_dt=1.0)
+    rp = FL.swept_radius_ft(q * 100.0, h, phi); r = w.radii(0.0, 0.0)
+    w2 = w.clone(); w2.advance(50.0, u["Fx"] * q, u["Fy"] * q, {c: q}, {}, max_dt=1.0)
+    Gc = FR.gravity_coefficient(k, mu, -0.05, h)
+    c1 = {
+        "selftest": st["ok"] and st["label"] == "SIMULATION" and len(st["checks"]) == 10,
+        "unit": u["converged"] and abs(float(FR._outflow(g, u["p"])[c]) - 1.0) < 1e-8 and uo["converged"] and uo["cell"] is None
+                and abs(float(FR._outflow(g, uo["p"])[1:-1, 1:-1].sum())) < 1e-8 and float(uo["Fx"][n // 2, n // 2]) < 0.0,
+        "piston": abs(r["half_equivalent_ft"] - rp) < 40.0 and r["full_equivalent_ft"] < r["half_equivalent_ft"] < r["tip_equivalent_ft"] and abs(w.in_place() / (q * 100.0) - 1.0) < 1e-6,
+        "clone": abs(w.in_place() - q * 100.0) < 1.0 and abs(w2.in_place() - q * 150.0) < 1.0 and w2.days == 150.0 and w.days == 100.0,
+        "gravity": abs(Gc - 0.001127 * (k / mu) * 0.433 * 0.05 * h * h) < 1e-9 and FR.gravity_coefficient(k, mu, 0.0, h) == 0.0,
+        "limiter": float(FR._lim(np.array([1.0]), np.array([3.0]))[0]) == 1.5 and float(FR._lim(np.array([1.0]), np.array([-1.0]))[0]) == 0.0,
+        "regime": "piston" in FR._regime(None) and "piston" in FR._regime(0.01) and "tongue" in FR._regime(1.0) and "thin tongue" in FR._regime(50.0),
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "ED1 the arithmetic: the self-test's ten checks on labelled grids (the unit flow, the radial share, the piston radius, the sharp front, every barrel in place, the "
+       "tongue of a denser water, shut-in slumping, the doublet's analytic breakthrough between the 1% and 20% days, its account closing, nothing beyond a sealing "
+       "fault); a well on the grid passing exactly its rate and a well beyond it acting through the edge with no source inside; a hundred days at 2,000 bbl/d with the "
+       "half contour at the piston radius within a cell; a state cloned and advanced apart from its original; the gravity coefficient by its formula, none without a "
+       "density difference; van Leer's limiter; the regimes' words" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+    # -- ED2 the workspace --------------------------------------------------------------------------------------------------
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad 3", actor="tester")
+    inj = ws.add_well_records("SWD 1", actor="tester"); prod = ws.add_well_records("Producer 7H", actor="tester"); far = ws.add_well_records("Far 2", actor="tester")
+    dlat = 500.0 * 0.3048 / 111195.0
+    for w_, la, lo in ((inj, 31.96, -102.24), (prod, 31.96 + dlat, -102.24), (far, 32.05, -102.30)):
+        ws.set_well(w_["id"], surface={"lat": la, "lon": lo, "datum": "NAD83", "elevation": {"ft": 2900.0, "datum": "KB", "source": "test plat"}}, actor="tester")
+    ws.set_well(inj["id"], disposal={"top_interval_ft": 8700.0, "base_interval_ft": 9300.0, "depth_reference": "TVD", "depth_tier": "deep"}, actor="tester")
+    kmlon = 1 / (111.195 * math.cos(math.radians(31.96)))
+    feats = [([[(-102.24 + 0.12 * kmlon, 31.955), (-102.24 + 0.12 * kmlon, 31.965)]], {"name": "East fault"})]              # 394 ft east of the injector, north-south
+    wkt = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]'
+    SF.write(str(d / "faults"), "PolyLine", feats, [("name", "C", 20, 0)], wkt)
+    with _zf.ZipFile(str(d / "faults.zip"), "w") as z:
+        for ext in (".shp", ".shx", ".dbf", ".prj"):
+            z.write(str(d / ("faults" + ext)), "faults" + ext)
+    lay = ws.add_layer(str(d / "faults.zip"), "Gate faults", actor="tester", feature_kind="fault", citation="the gate's own layer")
+    empty = FR.page(ws)
+    FL.declare_well(ws, "tester", inj["id"], role="injection", formation="Ellenburger", source="completion report W-2")
+    FL.declare_well(ws, "tester", prod["id"], role="production", formation="Ellenburger", source="permit")
+    FL.declare_well(ws, "tester", far["id"], role="production", formation="Ellenburger", source="permit")
+    sc = FL.synthetic_scene(days=240, leak_fraction=0.0, seed=5)                       # 8,000 bbl/d at 120,000 mg/L
+    FL.attach_report(ws, "tester", inj["id"], "h10.csv", sc["csv"].encode(), "H-10 (gate)")
+    prow = []
+    for i in range(240):                                                               # the producer's water: 60,000 mg/L until day 150, then rising to 81,000
+        tds = 60000 + (0 if i < 150 else min(1.0, (i - 150) / 80.0) * 21000)
+        prow.append(f"{(datetime(2026, 1, 1) + timedelta(days=i)).strftime('%Y-%m-%d')},{50 + i % 7},{2000 + i % 11},{round(tds / 3000) * 3000}")
+    FL.attach_report(ws, "tester", prod["id"], "prod.csv", ("Date,Oil (bbl),Water (bbl),TDS (mg/L)\n" + "\n".join(prow) + "\n").encode(), "production report (gate)")
+    FL.attach_report(ws, "tester", far["id"], "far.csv", ("Date,Water (bbl)\n" + "\n".join(f"{(datetime(2026, 1, 1) + timedelta(days=i)).strftime('%Y-%m-%d')},400" for i in range(240)) + "\n").encode(), "report (gate)")
+    FL.declare_formation(ws, "tester", "Ellenburger", "petrophysics (gate)", porosity=0.12, thickness_ft=100.0, area_acres=11000.0, water_tds_mgl=60000.0)
+    undeclared = FR.page(ws)
+    FL.declare_formation(ws, "tester", "Ellenburger", "petrophysics (gate)", k_md=50.0, mu_cp=0.6, p_initial_psi=3000.0)
+    refused = {}
+    for name, fn in (("cells_even", lambda: FR.set_settings(ws, "tester", cells=80)), ("cells_small", lambda: FR.set_settings(ws, "tester", cells=21)),
+                     ("cells_big", lambda: FR.set_settings(ws, "tester", cells=301)), ("proj_short", lambda: FR.set_settings(ws, "tester", projection_days=100)),
+                     ("proj_long", lambda: FR.set_settings(ws, "tester", projection_days=99999))):
+        try:
+            fn(); refused[name] = False
+        except FR.FrontError:
+            refused[name] = True
+    FR.set_settings(ws, "tester", cells=61, projection_days=730)
+    pg = FR.page(ws); fr = pg["fronts"][0]
+    again = FR.page(ws)
+    rec = [s_ for s_ in fr["snapshots"] if s_["kind"] == "record"]; cont = [s_ for s_ in fr["snapshots"] if s_["kind"] == "continued"]; shut = [s_ for s_ in fr["snapshots"] if s_["kind"] == "shut-in"]
+    pr = {r_["well"]: r_ for r_ in fr["producers"]}; near = pr[prod["id"]]; a = fr["account"]; dn = fr["density"]
+    m_last = near["measured"][-1]
+    PM.set_settings(ws, "tester", sealing={lay["id"]: True}, source="the gate's fault study")
+    fr2 = FR.page(ws)["fronts"][0]
+    rec2 = [s_ for s_ in fr2["snapshots"] if s_["kind"] == "record"][-1]
+    PM.set_settings(ws, "tester", sealing={lay["id"]: False})
+    # a front built without densities, straight from the ledger's shape: a piston, and the page says why
+    bare_w = {"well": "I", "display": "I", "formation": "F", "role": "injection", "surface": {"lat": 31.0, "lon": -102.0, "datum": "WGS84"},
+              "days": [{"date": (datetime(2026, 1, 1) + timedelta(days=i)).strftime("%Y-%m-%d"), "volume_bbl": 3000.0, "sg": None, "tds_mgl": None} for i in range(60)]}
+    bare = FR.build(bare_w, {"k_md": 30.0, "thickness_ft": 50.0, "porosity": 0.2}, [bare_w], {"cells": 41, "projection_days": 365})
+    brec = [s_ for s_ in bare["snapshots"] if s_["kind"] == "record"][-1]; bshut = [s_ for s_ in bare["snapshots"] if s_["kind"] == "shut-in"]
+    wr = FR.write_report(ws, _ver, "tester")
+    txt = (Path(wr["folder"]) / "front.md").read_text(encoding="utf-8").lower()
+    frame = GD._tm(31.96, -102.24, 1.0, 0.0, 0.0, "WGS84")
+    l3, sk3 = FR.scene_layers(ws, frame)
+    z_top, z_base = 5800.0 * 0.3048, 5900.0 * 0.3048
+    zs = {l_["id"]: sorted({ln["z"] for ln in l_["lines"]}) for l_ in l3}
+    tipz = [ln["z"] for l_ in l3 for ln in l_["lines"] if ln["v"].startswith("0.05 ")]; fullz = [ln["z"] for l_ in l3 for ln in l_["lines"] if ln["v"].startswith("0.95 ")]
+    sc3 = W3.workspace_scene(ws)
+    PM.write_report(ws, _ver, "tester")
+    dz = DZ.build(ws, "tester", _ver, None)
+    names = _zf.ZipFile(Path(ws.reports_dir, dz["path"])).namelist()
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    c2 = {
+        "empty": empty["status"] == "EMPTY" and "No front" in empty["lines"][0],
+        "undeclared": undeclared["fronts"][0]["status"] == "NOT DECLARED" and "k md" in undeclared["fronts"][0]["notes"][0],
+        "refusals": all(refused.values()),
+        "grid": fr["status"] == "OK" and fr["label"] == "SIMULATION" and fr["frame"]["cells"] == 61 and 20.0 < fr["frame"]["dx_ft"] < 200.0 and fr["properties"]["uniform"]
+                and {w_["well"]: w_["in_grid"] for w_ in fr["wells"]} == {inj["id"]: True, prod["id"]: True, far["id"]: False} and again["generated_utc"] == pg["generated_utc"],
+        "density": abs(dn["injected_sg"] - 1.0812) < 0.002 and abs(dn["formation_sg"] - 1.0414) < 0.002 and dn["delta_sg"] > 0.03 and "base" in dn["tongue"] and 0.005 < dn["gravity_number"] < 0.05
+                   and "piston" in dn["regime"] and dn["injected_tds_mgl"] == 120000.0,
+        "snapshots": len(rec) == 8 and rec[-1]["day"] == 240 and [s_["day"] for s_ in cont] == [605, 970] and [s_["day"] for s_ in shut] == [605, 970]
+                     and all(rec[i]["in_place_bbl"] < rec[i + 1]["in_place_bbl"] for i in range(7)) and rec[-1]["full_equivalent_ft"] < rec[-1]["half_equivalent_ft"] < rec[-1]["tip_reach_ft"]
+                     and abs(rec[-1]["half_equivalent_ft"] - rec[-1]["piston_ft"]) < 1.5 * fr["frame"]["dx_ft"] and cont[-1]["half_equivalent_ft"] > rec[-1]["half_equivalent_ft"] * 1.3
+                     and shut[-1]["in_place_bbl"] < rec[-1]["in_place_bbl"] and "interface" in rec[-1] and "interface" in cont[-1] and "interface" not in rec[0],
+        "producer": near["in_grid"] and 480.0 < near["distance_ft"] < 520.0 and near["arrival"]["kind"] == "record" and 30.0 < near["arrival"]["day"] < 110.0
+                    and near["arrival"]["day"] < near["tenth"]["day"] < near["half"]["day"] and 0.4 < near["share_now"] < 0.95 and near["share_projected"] > near["share_now"]
+                    and abs(near["tds_predicted_now"] - (near["share_now"] * 120000.0 + (1 - near["share_now"]) * 60000.0)) < 60.0 and near["produced_back_bbl"] > 10000.0,
+        "measured": near["n_measured"] == 8 and m_last["measured_tds"] == 81000.0 and abs(m_last["implied_share"] - 0.35) < 1e-6
+                    and abs(m_last["predicted_tds"] - (m_last["predicted_share"] * 60000.0 + 60000.0)) < 5.0 and m_last["predicted_share"] > 0.4 and "less of the injected water" in near["reading"]
+                    and near["mean_abs_difference_tds"] > 5000.0,
+        "far": not pr[far["id"]]["in_grid"] and "beyond the front's grid" in pr[far["id"]]["note"] and pr[far["id"]]["distance_ft"] > 30000.0,
+        "account": abs(a["closure_bbl"]) <= 5.0 and abs(a["injected_bbl"] - sc["truth"]["cum_bbl"]) < 2.0 and a["produced_back_bbl"] == near["produced_back_bbl"] and abs(a["beyond_edge_bbl"]) < 1.0
+                   and a["across_open_faults_bbl"] > 10000.0 and rec[-1]["faults"][0]["name"] == "East fault" and "balance_unaccounted_bbl" in a,
+        "sealing": fr2["faults"][0]["sealing"] and fr2["faults"][0]["faces_sealed"] >= 5 and not fr2["faults"][0]["watched"] and rec2["faults"] == []
+                   and fr2["account"]["across_open_faults_bbl"] == 0.0 and abs(fr2["account"]["closure_bbl"]) <= 5.0 and rec2["tip_reach_ft"] != rec[-1]["tip_reach_ft"],
+        "bare": bare["status"] == "OK" and bare["density"]["tongue"] is None and bare["density"]["gravity_number"] is None and "piston" in bare["density"]["regime"]
+                and any("no density" in n_ for n_ in bare["notes"]) and abs(brec["half_equivalent_ft"] - FL.swept_radius_ft(180000.0, 50.0, 0.2)) < 1.5 * bare["frame"]["dx_ft"]
+                and len(bshut) == 1 and bshut[0]["in_place_bbl"] == brec["in_place_bbl"] and bare["producers"] == [],
+        "written": set(wr["files"]) == {"front.json", "front.md"} and "simulation" in txt and "account at" in txt and not [t for t in CR.FORBIDDEN_TERMS if t in txt],
+        "three_d": len(l3) == 2 and not sk3 and all(l_["role"] == "front" and l_["lines"] for l_ in l3) and all(z_top - 0.2 <= z_ <= z_base + 0.2 for v_ in zs.values() for z_ in v_)
+                   and tipz and fullz and min(tipz) > max(fullz) and any(l_.get("role") == "front" for l_ in sc3["layers"]) and any(l_.get("role") == "plume" for l_ in sc3["layers"]),
+        "dossier": "results/front.json" in names and "results/plume.json" in names and "reports/front/front.md" in names and "declarations/records/front.json" in names
+                   and all(x in audit for x in ("front.settings", "front.report")),
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "ED2 the workspace: no front until the ledger has an injection well, NOT DECLARED until the formation has its permeability; an even, too-small or too-large grid and "
+       "a projection out of range declined; the injector's front on a 61-cell grid of its own with the producer 500 ft away on it and the one seven miles away beyond it, "
+       "the same page handed back while nothing it was computed from changes; the injected water at 120,000 mg/L and 1.081 against the formation's 1.041 - a tongue along "
+       "the base, the gravity number saying the well's flow shapes it; eight month-end snapshots with the water in place growing and the half contour at the piston "
+       "radius within a cell and a half, two continued and two shut in (the producers drawing the water back); the producer's arrival within the record, then a tenth, "
+       "then half, its share now and the TDS that predicts by the mixing line; its report's eight measured values beside the predicted, the last implying 35% against "
+       "more predicted and read as the water arriving later; the account closing within five barrels with the produced-back and the water across the open east fault "
+       "named; the layer declared sealing closing its faces, nothing across, the front another shape; a front without densities a piston at its radius with the reason "
+       "noted and nothing moving once shut in; the report free of the client-report terms; the interface in 3D between the declared top and base with the tip deeper "
+       "than the full thickness for a denser water, in the workspace's scene beside the plume; the dossier's results/front.json, the report and the settings; the audit"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+    # -- ED3 the routes, the tab, the command, the help, the README and the lesson -----------------------------------------------
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=180) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_vg, vg = call(V, "GET", "/api/front")
+        s_vw, vw = call(V, "GET", "/api/front?well=" + inj["id"])
+        s_vn, vn = call(V, "GET", "/api/front?well=nowhere")
+        s_vs, _ = call(V, "POST", "/api/front/settings", {"cells": 41})
+        s_os, os_ = call(O, "POST", "/api/front/settings", {"cells": "41", "projection_days": "365"})
+        s_bs, _ = call(O, "POST", "/api/front/settings", {"cells": "40"})
+        s_g2, g2 = call(V, "GET", "/api/front")
+        s_ow, ow = call(O, "POST", "/api/front/write", {})
+        s_vx, _ = call(V, "POST", "/api/front/write", {})
+        s_3d, sc3b = call(V, "GET", "/api/3d/scene/workspace")
+    finally:
+        svc.stop()
+    cli_s = _sp.run([sys.executable, "-m", "gea", "front"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_w = _sp.run([sys.executable, "-m", "gea", "front", "--workspace", wsp], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_j = _sp.run([sys.executable, "-m", "gea", "front", "--workspace", wsp, "--well", inj["id"], "--json"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_t = _sp.run([sys.executable, "-m", "gea", "front", "--workspace", wsp, "--cells", "41", "--projection-days", "365"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_b = _sp.run([sys.executable, "-m", "gea", "front", "--workspace", wsp, "--cells", "40"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_r = _sp.run([sys.executable, "-m", "gea", "front", "--workspace", wsp, "--write"], capture_output=True, text=True, cwd=str(pkg.parent))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
+    lesson = (pkg / "help" / "tutorial" / "14-production-pages.md").read_text(encoding="utf-8")
+    c3 = {
+        "api": s_vg == 200 and vg["status"] == "OK" and vg["label"] == "SIMULATION" and s_vw == 200 and len(vw["fronts"]) == 1 and s_vn == 200 and vn["status"] == "EMPTY" and s_vs == 403
+               and s_os == 200 and os_["cells"] == 41 and os_["projection_days"] == 365 and s_bs == 400 and s_g2 == 200 and g2["fronts"][0]["frame"]["cells"] == 41
+               and g2["fronts"][0]["projection_days"] == 365 and s_ow == 200 and "front.json" in ow["files"] and s_vx == 403
+               and s_3d == 200 and any(l_.get("role") == "front" for l_ in sc3b.get("layers", [])),
+        "cli": cli_s.returncode == 0 and "OK - SIMULATION" in cli_s.stdout and cli_w.returncode == 0 and "snapshots" in cli_w.stdout and "shut-in" in cli_w.stdout and "Account at" in cli_w.stdout
+               and cli_j.returncode == 0 and json.loads(cli_j.stdout)["fronts"][0]["well"] == inj["id"] and cli_t.returncode == 0 and "cells 41" in cli_t.stdout
+               and cli_b.returncode != 0 and "odd number" in cli_b.stderr and cli_r.returncode == 0 and "front.md" in cli_r.stdout,
+        "page": all(x in page_src for x in ("VIEWS.front", "['#/front', 'Fluid front']", "/api/front/settings", "ffPlan", "ffSection", "help('front')")),
+        "help": not H.check("front") and H.VIEW_TOPIC.get("front") == "front" and any(t == "front" for t, _, _ in H.INDEX)
+                and all(x in (H.page("front") or "") for x in ("van Leer", "0.433", "SIMULATION", "gea front --workspace C:\\site", "pi phi h d^2 / (3 q)")),
+        "readme_lesson": (not readme or ("### Fluid front" in readme and "`gea front`" in readme)) and "Fluid front" in lesson and "front" in lesson.split("Help:")[-1],
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "ED3 on the API (anyone reads the fronts, one well's or all; only an operator keeps settings or writes; an even grid is 400; the 3D scene carries the interface), the "
+       "command (the self-test, the snapshots and the account, one well as JSON, settings kept and an even grid stopped, the report), the tab with its plan and its "
+       "section, the help page, the README and lesson 14" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -17975,6 +18206,7 @@ def main() -> int:
         section_ea_vpn_client(tmp)
         section_eb_fluid(tmp)
         section_ec_plume(tmp)
+        section_ed_front(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

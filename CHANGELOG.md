@@ -5,6 +5,55 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.86.0] - 2026-11-10 - the fluid front
+
+### Added
+- **Fluid front** - the third fluid-flow module, a SIMULATION on every
+  line: where the injected water itself has gone. The pressure plume is
+  miles wide; the water has to push the formation's own out of the pore
+  space and is hundreds of feet from the well. Around each injection well
+  a fine plan grid (2.5 x the swept radius at the end of the projection,
+  widened to hold the wells near it) on which every well's steady flow is
+  solved once for a unit rate - the pressure equation by conjugate
+  gradients, the faults declared sealing closed, the edge on the well's
+  own logarithmic potential - and a day's flow is the wells' rates times
+  their unit fields. What moves is the fraction of the net thickness the
+  injected water fills: carried by the flow (second-order upwind with van
+  Leer's limiter, two stages in time, the step under the Courant limit of
+  the cells that can change) and spread by its own weight - with a density
+  difference between the injected and the formation water the
+  sharp-interface, equal-viscosity equations add an exchange of
+  0.001127 (k / mu) x 0.433 x dsg x h^2 x s (1 - s) x ds barrels a day, so
+  a denser water runs out along the base and a lighter one along the top;
+  the gravity number says whether the well's flow or the weight shapes
+  the front. The tip, the half and the whole thickness against a piston of
+  the same volume, at every month's end and to five years on - continued
+  at the last rates, or the injection shut in and the producers going on.
+  For every producer on the grid: the day the injected water arrives, a
+  tenth and half of its stream, its share now and at the end, the TDS
+  that predicts - and beside it the TDS the producer's own report
+  measures, the share that implies, and which way the two differ. Every
+  injected barrel accounted: in place, produced back by a named producer,
+  across a named open fault, beyond the grid's edge, the closure printed;
+  the material balance's unaccounted barrels beside the account, not in
+  it. The **Fluid front** tab with the plan view, the section through the
+  thickness and a snapshot picker; the interface drawn at its depths
+  between the declared top and base in the 3D tab; `results/front.json`
+  in the dossier with the report and the settings; `gea front` (the
+  self-test without a workspace: the piston radius, the doublet's analytic
+  breakthrough pi phi h d^2 / (3 q), the tongue, a sealing fault),
+  `/api/front`, `gea help front`, lesson 14. Section ED (3 checks);
+  gate 569.
+
+### Changed
+- The pressure plume and the fluid front are kept for as long as
+  everything they were computed from is the same (the ledger's wells and
+  days, the formations, the settings, the stress state, the layers), so
+  the 3D tab and the dossier do not step the grids again.
+- The 3D tab opens on the workspace when its ledger has an injection well,
+  not only when a well has a survey: the plume and the front are there to
+  draw.
+
 ## [v0.85.0] - 2026-11-09 - the pressure plume
 
 ### Added

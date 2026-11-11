@@ -808,7 +808,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.85.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.86.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -941,6 +941,25 @@ up; a fault layer declared sealing blocks the flow and the plume piles up
 against it. The same contours drawn at the declared top in the 3D tab and
 carried in the dossier. Every figure a SIMULATION, said on every line. The
 **Pressure plume** tab, `gea plume`, `gea help plume`.
+
+### Fluid front
+
+Where the injected water itself has gone. The pressure plume is miles wide;
+the water, which has to push the formation's own out of the pore space, is
+hundreds of feet from the well. On a fine grid around each injection well
+the wells' steady flow is solved once per well (conjugate gradients, the
+sealing faults closed) and the injected water moved with it - the fraction
+of the thickness it fills, spreading under its own weight against the
+formation water's by the sharp-interface equations, so a denser water runs
+out along the base and a lighter one along the top. The tip, the half and
+the whole thickness against a piston of the same volume; the day the water
+reaches each producer, its share of that producer's stream and the TDS that
+predicts, beside the TDS the producer's own report measures and the share
+that implies; continued and shut in for five years; every injected barrel
+accounted - in place, produced back, across a fault, beyond the grid. Drawn
+in plan, in section and, at its depths, in the 3D tab. Every figure a
+SIMULATION, said on every line. The **Fluid front** tab, `gea front`,
+`gea help front`.
 
 ### Plan vs actual and the survey tools
 
@@ -1606,7 +1625,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.85.0.exe` (for 0.85.0): the
+Every release also carries `GEA-Program-Setup-0.86.0.exe` (for 0.86.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1625,7 +1644,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.85.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.86.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

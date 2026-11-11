@@ -4,6 +4,17 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.86.0 - 2026-11-10 - the fluid front
+
+- The third fluid-flow module: the injected water itself on a fine grid
+  around each injection well - the wells' steady flow solved once per
+  well, the thickness fraction carried by it and spread by its own weight
+  against the formation water's (the sharp-interface tongue); the day it
+  reaches each producer, its share and the TDS that predicts beside the
+  measured one; every injected barrel accounted; drawn in plan, in
+  section and in 3D, carried in the dossier. SIMULATION on every line.
+  Section ED; gate 569.
+
 ## v0.85.0 - 2026-11-09 - the pressure plume
 
 - The second fluid-flow module: the ledger's barrels on a plan grid of the

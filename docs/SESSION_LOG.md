@@ -3655,3 +3655,66 @@ stability; and motor specifications in the tool catalogue.
   EC. The page rendered under Playwright with no script error - the plume
   piling up against two sealing faults is visible in plan. Gate 566.
 
+## 2026-11-10 - the fluid front (v0.86.0)
+
+- v0.85.0 shipped (ci, PyPI and the kit build green); the six kits fetched
+  into C:\site\installers and verified against the release's SHA-256, the
+  0.84.0 ones moved to _to_delete. Daniel: go on the front.
+- The cloud workspace had been reclaimed between the two messages: the
+  tree, the gate runners, the transfer maker and both extra Pythons were
+  gone. The tree was taken again from the public repository at the tag
+  v0.85.0 and compared file by file with the tree list of that version in
+  Daniel's _transport folder: 540 files, four differing in line endings
+  alone (the three example JSON files and ship.ps1, which git normalises
+  on checkout); their bytes were put back as the list has them and the
+  transfer maker, made anew on the same manifest format, reports no
+  delta. Pythons 3.14 and 3.10 installed again; the 3.14 gate run on the
+  untouched v0.85.0 tree as a baseline before any result of this version
+  was believed.
+- `gea/front.py`. The pressure travels by compressibility and is miles
+  out; the water is hundreds of feet from the well, far inside the radius
+  of investigation, where the flow is steady. So: `solve_unit` (one
+  well's steady flow at a unit rate on a fine grid - conjugate gradients
+  with a Jacobi preconditioner on the plume's own transmissibilities, the
+  ring of edge cells held on the well's logarithmic potential, a well
+  beyond the grid acting through the edge alone), a day's flow the rates
+  times the unit fields; `Water` (the thickness fraction s, `_face` the
+  limited upwind face value, `_rates` the flow's flux plus the gravity
+  exchange G s (1 - s) ds on open faces, the sources, the edge, the
+  producers' take and the flux across each watched fault; `advance` by
+  Heun's two stages with the step set by the Courant limit over the
+  cells that can change - the swept zone behind the front and the
+  untouched rock beyond it are left out, which took a 240-day record from
+  2,011 steps to 452 with the same answer; `clone` for the projections).
+  The unit solve's tolerance had to go from 1e-9 to 1e-11: at 1e-9 the
+  well's cell settled at 1 - 1e-9, on the wrong side of the test for
+  "full". `plume.Grid.segment_faces` split out of `seal_segment` so an
+  open fault's faces can be watched as a sealing one's are closed.
+- `build`: the calendar from the injector's first day, the grid 2.5 x
+  the swept radius at the end of the projection and widened to hold the
+  wells within four of them, the densities volume-weighted from the
+  ledger's days, the gravity number, the record day by day, CONTINUED
+  and SHUT IN (the injection stopped, the producers going on - the first
+  draft stopped everything, which tells an operator nothing) in ten-day
+  spans to the marks, the producers' arrival, tenth and half days by
+  interpolation within a span, the predicted TDS by the mixing line and
+  the report's measured TDS beside it (one row per change of the measured
+  value), the account with its closure. `scene_layers`: the contour where
+  the water fills a fraction L of the thickness drawn at the depth the
+  interface stands there. `selftest`, ten checks: the unit flow, the
+  radial share, the half contour at the piston radius (538 against 535
+  ft on 33 ft cells), the front within four cells, every barrel in place,
+  the tongue, ten years' slumping, the doublet (the analytic breakthrough
+  at day 100.7 between the 1% day 89 and the 20% day 121, the 5% day 97),
+  its account, a sealing fault.
+- The plume's page and the front's are cached on a hash of everything
+  they are computed from; `well3d.scenes` says when the workspace has a
+  ledger to draw and the 3D tab opens on it; the dossier gathers
+  reports/front, records/front.json and results/front.json. The CLI, the
+  routes, the Fluid front tab (the plan with the tip, half and whole
+  contours over the piston's circle, the section through the thickness,
+  the producers, the account, the snapshots), the help page, lesson 14,
+  the README. Section ED. Rendered under Playwright with no script error;
+  a colour variable the plume's plan had used for its background did not
+  exist; it is the surface colour now, there and here. Gate 569.
+

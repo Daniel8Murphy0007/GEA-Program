@@ -683,6 +683,11 @@ def workspace_scene(ws, margin_km: float = 8.0, layer_tol_m: float = 25.0) -> di
         if okp or pp['plumes']:
             pls, psk = PL.scene_layers(ws, frame, pp) if view is not None else ([], [])
             layers.extend(pls); skipped.extend(psk)
+            if view is not None:
+                # and the injected water's own interface at its depths (SIMULATION)
+                from . import front as FRt
+                fls, fsk = FRt.scene_layers(ws, frame)
+                layers.extend(fls); skipped.extend(fsk)
     except Exception as e:                                    # the plume is a projection; its absence never empties the scene
         skipped.append({'id': 'plume', 'display': 'Pressure plume', 'why': f'not computed: {type(e).__name__}: {e}'})
     return {'id': 'workspace', 'title': ws.manifest.get('name') or 'This workspace', 'kind': 'workspace',
@@ -693,6 +698,7 @@ def workspace_scene(ws, margin_km: float = 8.0, layer_tol_m: float = 25.0) -> di
             'attribution': '', 'not_drawn': ['a well without a surface position, a reference elevation and a directional survey (listed with what it needs)',
                                              'fault and fold traces (no depth)', 'isopachs (a thickness is not a position)',
                                              'the pressure plume is a SIMULATION drawn at the declared top, not a measured surface',
+                                             'the fluid front is a SIMULATION: the injected water\'s interface drawn through the declared thickness, not a logged contact',
                                              'rock and fluid properties between wells']}
 
 
@@ -700,7 +706,13 @@ def scenes(ws=None) -> List[dict]:
     out = [{'id': 'volve', 'title': 'Volve field, Norwegian North Sea (Equinor open data)', 'kind': 'catalogue', 'wells': len(VOLVE_WELLS)}]
     if ws is not None:
         n = sum(1 for w in ws.wells() if w.get('trajectory'))
-        out.insert(0, {'id': 'workspace', 'title': ws.manifest.get('name') or 'This workspace', 'kind': 'workspace', 'wells': n})
+        fluid = False
+        try:                                                     # a ledger with an injection well gives the scene a plume and a front to draw
+            from . import fluid as FLs
+            fluid = any(r_.get('role') == 'injection' and (r_.get('reports') or (ws.well(wid).get('disposal') or {}).get('channel_rate')) for wid, r_ in FLs.load(ws)['wells'].items())
+        except Exception:
+            fluid = False
+        out.insert(0, {'id': 'workspace', 'title': ws.manifest.get('name') or 'This workspace', 'kind': 'workspace', 'wells': n, 'fluid': fluid})
     return out
 
 

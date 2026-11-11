@@ -269,6 +269,7 @@ def _gather(ws, well_id: Optional[str]) -> Dict[str, List[tuple]]:
         files_in(rep, 'reports')
         files_in(os.path.join(rep, 'fluid'), 'reports/fluid')          # the fluid ledger and the material balance
         files_in(os.path.join(rep, 'plume'), 'reports/plume')          # the pressure plume (SIMULATION)
+        files_in(os.path.join(rep, 'front'), 'reports/front')          # the fluid front (SIMULATION)
     for w in wells:
         files_in(os.path.join(rep, 'wells', w['id']), f"reports/wells/{w['id']}")
     out_list = out['declaration']
@@ -286,7 +287,7 @@ def _gather(ws, well_id: Optional[str]) -> Dict[str, List[tuple]]:
                 ('drillstring', 'casing.json'), ('wellpath', 'collision.json'), ('wellpath', 'survey_program.json'),
                 ('completion', 'frac', 'stages.json'), ('completion', 'frac', 'settings.json'), ('geomech', 'pore_pressure.json'),
                 ('drillstring', 'torque_drag.json'), ('economics', 'production', 'production.json'), ('drillstring', 'hydraulics.json'),
-                ('drillstring', 'casing_design.json'), ('records', 'fluid.json'), ('records', 'plume.json')):
+                ('drillstring', 'casing_design.json'), ('records', 'fluid.json'), ('records', 'plume.json'), ('records', 'front.json')):
         p = os.path.join(ws.path, *rel)
         if os.path.isfile(p):
             out_list.append((p, 'declarations/' + '/'.join(rel)))
@@ -424,6 +425,11 @@ def _results(ws, well_id: Optional[str]) -> List[tuple]:
             if pp['plumes']:
                 slim = [{**pl, 'snapshots': [{k: v for k, v in s_.items() if k != 'contours'} for s_ in pl.get('snapshots', [])]} for pl in pp['plumes']]
                 out.append(('results/plume.json', json.dumps({**pp, 'plumes': slim}, indent=1, sort_keys=True, default=str).encode('utf-8')))
+            from . import front as FRd
+            fr = FRd.page(ws)
+            if fr['fronts']:
+                slim = [{**f_, 'snapshots': [{k: v for k, v in s_.items() if k not in ('contours', 'interface')} for s_ in f_.get('snapshots', [])]} for f_ in fr['fronts']]
+                out.append(('results/front.json', json.dumps({**fr, 'fronts': slim}, indent=1, sort_keys=True, default=str).encode('utf-8')))
     except Exception as e:
         out.append(('results/fluid_not_run.txt', f'the fluid balance and the plume did not run: {type(e).__name__}: {e}\n'.encode('utf-8')))
     return out

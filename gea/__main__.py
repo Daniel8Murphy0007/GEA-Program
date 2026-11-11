@@ -603,6 +603,14 @@ def main(argv=None) -> int:
     p_pm.add_argument("--write", action="store_true", help="write reports/plume/plume.json and .md")
     p_pm.add_argument("--actor", type=str, default="cli")
     p_pm.add_argument("--json", action="store_true")
+    p_ff = sub.add_parser("front", help="the fluid front (SIMULATION): where the injected water itself has gone - the fraction of the thickness it fills on a fine grid around each injection well, moved by the wells' steady flow and spread by its own weight against the formation water's; the day it reaches each producer, its share of the stream and the TDS that predicts beside the measured one; every injected barrel accounted")
+    p_ff.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (the piston radius, the doublet's breakthrough, the tongue, a sealing fault)")
+    p_ff.add_argument("--well", type=str, default=None, help="one injection well's front (default: every injection well in the ledger)")
+    p_ff.add_argument("--cells", type=int, default=None, help="settings: cells per side of the grid, odd, 41 to 141 (default 81)")
+    p_ff.add_argument("--projection-days", type=int, default=None, help="settings: how far beyond the record to project, 365 to 7300 (default 1825)")
+    p_ff.add_argument("--write", action="store_true", help="write reports/front/front.json and .md")
+    p_ff.add_argument("--actor", type=str, default="cli")
+    p_ff.add_argument("--json", action="store_true")
     p_os = sub.add_parser("seismicity", help="operations and seismicity: each well's drilling, completion and disposal windows against the earthquake catalogue around it - the events during and after each, the levels a regulator's protocol would reach, and the rate during operations against the rest of the record; the Mahoning Valley worked example")
     p_os.add_argument("--workspace", type=str, default=None)
     p_os.add_argument("--scene", type=str, default=None, choices=("workspace", "mahoning"), help="your wells (the default with --workspace) or the public worked example")
@@ -2737,6 +2745,36 @@ def main(argv=None) -> int:
             print(_json.dumps(p, default=str))
         else:
             print(_PM.text(p))
+        return 0
+    elif a.cmd == "front":
+        import json as _json
+        from . import front as _FF
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if not a.workspace:
+            r = _FF.selftest()
+            print(_json.dumps(r, default=str) if a.json else "\n".join(f"{'PASS' if c['pass'] else 'FAIL'}  {c['check']}: {c['value']}" for c in r["checks"]) + f"\n{'OK' if r['ok'] else 'FAILED'} - {r['label']}")
+            return 0 if r["ok"] else 1
+        try:
+            ws = Workspace(a.workspace)
+        except WorkspaceError as e:
+            raise SystemExit(f"front: {e}")
+        try:
+            if a.cells is not None or a.projection_days is not None:
+                st_ = _FF.set_settings(ws, a.actor, a.cells, a.projection_days)
+                print("settings: " + ", ".join(f"{k} {v}" for k, v in st_.items() if k in ("cells", "projection_days")))
+                return 0
+            if a.write:
+                from . import __version__ as _ver86
+                r = _FF.write_report(ws, _ver86, a.actor)
+                print(f"written: {', '.join(r['files'])} under {r['folder']}")
+                p = r["page"]
+            else:
+                p = _FF.page(ws, a.well)
+        except (_FF.FrontError, WorkspaceError, ValueError, OSError) as e:
+            raise SystemExit(f"front: {e.args[0] if e.args else e}")
+        print(_json.dumps(p, default=str) if a.json else _FF.text(p))
         return 0
     elif a.cmd == "seismicity":
         import json as _json

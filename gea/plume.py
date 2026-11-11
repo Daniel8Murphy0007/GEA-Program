@@ -171,25 +171,33 @@ class Grid:
             return i, j
         return None
 
-    def seal_segment(self, x0: float, y0: float, x1: float, y1: float) -> int:
-        """Zero the transmissibility of every cell face the segment separates: the cells within the segment's extent
-        (half a cell beyond each end) are sorted to one side or the other of its line, and a face between two
-        cells on opposite sides is sealed - a barrier without gaps, however the segment lies against the grid.
-        Returns the faces sealed."""
+    def segment_faces(self, x0: float, y0: float, x1: float, y1: float):
+        """The cell faces a segment separates: the cells within the segment's extent (half a cell beyond each end) are
+        sorted to one side or the other of its line, and a face between two cells on opposite sides is the fault's.
+        Returns (x-face mask (n, n-1), y-face mask (n-1, n), the side of every cell), or None for a point."""
         dxs, dys = x1 - x0, y1 - y0
         L2 = dxs * dxs + dys * dys
         if L2 <= 0:
-            return 0
+            return None
         X, Y = np.meshgrid(self.x, self.y)                       # X[i, j] = x of column j; Y[i, j] = y of row i
         t = ((X - x0) * dxs + (Y - y0) * dys) / L2
         margin = (self.dx / 2.0) / math.sqrt(L2)
         inside = (t >= -margin) & (t <= 1.0 + margin)
         side = (dxs * (Y - y0) - dys * (X - x0)) >= 0.0
-        sealed = 0
-        fx = inside[:, :-1] & inside[:, 1:] & (side[:, :-1] != side[:, 1:]) & (self.Tx != 0.0)
-        sealed += int(fx.sum()); self.Tx[fx] = 0.0
-        fy = inside[:-1, :] & inside[1:, :] & (side[:-1, :] != side[1:, :]) & (self.Ty != 0.0)
-        sealed += int(fy.sum()); self.Ty[fy] = 0.0
+        fx = inside[:, :-1] & inside[:, 1:] & (side[:, :-1] != side[:, 1:])
+        fy = inside[:-1, :] & inside[1:, :] & (side[:-1, :] != side[1:, :])
+        return fx, fy, side
+
+    def seal_segment(self, x0: float, y0: float, x1: float, y1: float) -> int:
+        """Zero the transmissibility of every cell face the segment separates - a barrier without gaps, however the
+        segment lies against the grid. Returns the faces sealed."""
+        sf = self.segment_faces(x0, y0, x1, y1)
+        if sf is None:
+            return 0
+        fx, fy, _ = sf
+        fx = fx & (self.Tx != 0.0); fy = fy & (self.Ty != 0.0)
+        sealed = int(fx.sum()) + int(fy.sum())
+        self.Tx[fx] = 0.0; self.Ty[fy] = 0.0
         self.sealed_faces += sealed
         return sealed
 
@@ -562,10 +570,27 @@ def _stress_for(ws, lat: float, lon: float) -> Tuple[Optional[dict], Optional[fl
     return stv, az, src
 
 
+_CACHE: Dict[tuple, Tuple[str, dict]] = {}
+
+
 def page(ws, formation: Optional[str] = None) -> dict:
+    """The plumes of the workspace's ledger. The result is kept for as long as everything it was computed from is
+    the same - the ledger's wells and days, the formations, the settings, the stress state, the layers - so the 3D
+    tab and the dossier do not step the grid again."""
+    import hashlib
     st = settings(ws)
     fp = FL.page(ws)
     d = FL.load(ws)
+    try:
+        stress_key = ws.stress()
+    except Exception:
+        stress_key = None
+    key = hashlib.sha256(json.dumps([st, d['formations'], stress_key, [(r_['id'], r_.get('kind'), r_.get('display')) for r_ in ws.layers()],
+                                     [{k_: v for k_, v in w.items() if k_ in ('well', 'role', 'formation', 'days', 'surface', 'disposal')} for w in fp['wells']]],
+                                    sort_keys=True, default=str).encode()).hexdigest()
+    hit = _CACHE.get((ws.path, formation))
+    if hit and hit[0] == key:
+        return dict(hit[1])
     by_fm: Dict[str, List[dict]] = {}
     for wl in fp['wells']:
         if wl.get('formation') and wl.get('days'):
@@ -597,7 +622,8 @@ def page(ws, formation: Optional[str] = None) -> dict:
         out['lines'].append('No plume: the ledger has no injection well with a formation and a volume record (the Fluid balance tab is where they are declared).')
     for p in plumes:
         out['lines'].extend(p['lines'] if p['status'] == 'OK' else [f"{p['formation']}: {p['status']} - {'; '.join(p['notes'])}"])
-    return out
+    _CACHE[(ws.path, formation)] = (key, out)
+    return dict(out)
 
 
 def text(p: dict) -> str:

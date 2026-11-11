@@ -2308,6 +2308,9 @@ def make_handler(app: App):
                                 b_ = f_.read()
                         return self._json(200, {'xlsx_b64': _b64.b64encode(b_).decode('ascii'), 'filename': 'declarations.xlsx'})
                     return self._json(200, {'csv': DC.template(app.ws), 'filename': 'declarations.csv'})
+                if path == '/api/front':
+                    from . import front as FF
+                    return self._json(200, App._cr(FF.page, app.ws, (qs.get('well') or [None])[0] or None))
                 if path == '/api/plume':
                     from . import plume as PM
                     return self._json(200, App._cr(PM.page, app.ws, (qs.get('formation') or [None])[0] or None))
@@ -2704,6 +2707,15 @@ def make_handler(app: App):
                     if not isinstance(t_, str) or not t_.strip():
                         raise ApiError(400, 'send the sheet as text (CSV) or an Excel workbook')
                     return self._json(200, DC.apply(app.ws, t_, user['name'], '', write=bool((body or {}).get('apply'))))
+                if path in ('/api/front/settings', '/api/front/write'):
+                    from . import front as FF
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    b_ = dict(body or {})
+                    if path.endswith('/write'):
+                        r_ = App._cr(FF.write_report, app.ws, _v, user['name'])
+                        return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
+                    return self._json(200, App._cr(FF.set_settings, app.ws, user['name'], b_.get('cells'), b_.get('projection_days')))
                 if path in ('/api/plume/settings', '/api/plume/write'):
                     from . import plume as PM
                     from . import __version__ as _v
