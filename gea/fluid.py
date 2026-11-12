@@ -70,7 +70,7 @@ M3_PER_BBL = 0.158987
 C_WATER_PER_PSI = 3.0e-6        # brine, reservoir conditions; stated as the default, a declaration overrides
 C_PORE_PER_PSI = 4.0e-6         # pore-volume compressibility, consolidated sandstone (Hall 1953 range 3 to 10 x 1e-6)
 MU_WATER_CP = 0.6               # brine at ~150 F
-ROLES = ('injection', 'production')
+ROLES = ('injection', 'production', 'observation')     # an observation well has a gauge or a water analysis and no flow
 STATUS_CLOSED = 'CLOSED AS DECLARED'
 STATUS_MORE = 'MORE ROOM THAN DECLARED'
 STATUS_LESS = 'LESS ROOM THAN DECLARED'
@@ -322,9 +322,10 @@ def _col(header: List[str], names: Tuple[str, ...]) -> Optional[str]:
     return None
 
 
-def parse_report(text: str) -> dict:
+def parse_report(text: str, need_volume: bool = True) -> dict:
     """The rows of an injection or production report: a date column and a volume column at least; pressures, BHP,
-    density or TDS when the report has them. The volume is barrels for the day (a rate in bbl/d is the same number)."""
+    density or TDS when the report has them. The volume is barrels for the day (a rate in bbl/d is the same number).
+    An observation well's report has no volume: a date and a pressure or a TDS column are what it needs."""
     if text.startswith('﻿'):
         text = text[1:]
     sample = text[:4096]
@@ -340,7 +341,10 @@ def parse_report(text: str) -> dict:
     if not cols['date']:
         raise FluidError(f'no date column (one of {", ".join(DATE_COLS[:4])}) in the header: {", ".join(header[:8])}')
     if not cols['volume'] and not cols['oil']:
-        raise FluidError(f'no volume column (one of {", ".join(VOL_IN_COLS[:6])}) in the header: {", ".join(header[:8])}')
+        if need_volume:
+            raise FluidError(f'no volume column (one of {", ".join(VOL_IN_COLS[:6])}) in the header: {", ".join(header[:8])}')
+        if not (cols['bhp'] or cols['p_avg'] or cols['tds'] or cols['sg'] or cols['ppg']):
+            raise FluidError(f'an observation well\'s report needs a pressure or a TDS column beside its dates; the header has: {", ".join(header[:8])}')
     idx = {k: header.index(v) for k, v in cols.items() if v}
     out: List[dict] = []
     bad = 0
@@ -383,7 +387,9 @@ def attach_report(ws, actor: str, well_id: str, filename: str, content: bytes, s
         text = content.decode('utf-8-sig')
     except UnicodeDecodeError:
         text = content.decode('latin-1')
-    p = parse_report(text)
+    with _LOCK:
+        observing = (load(ws)['wells'].get(well_id) or {}).get('role') == 'observation'
+    p = parse_report(text, need_volume=not observing)
     fn = re.sub(r'[^A-Za-z0-9._-]+', '_', os.path.basename(filename) or 'report.csv')
     d_ = os.path.join(ws.well_dir(well_id), 'records', 'fluid')
     os.makedirs(d_, exist_ok=True)
@@ -400,7 +406,7 @@ def attach_report(ws, actor: str, well_id: str, filename: str, content: bytes, s
     return rec
 
 
-def _read_reports(ws, well_id: str, recs: List[dict]) -> Tuple[Dict[str, dict], List[str]]:
+def _read_reports(ws, well_id: str, recs: List[dict], need_volume: bool = True) -> Tuple[Dict[str, dict], List[str]]:
     """The days of every attached report, later files overriding earlier ones day by day; the notes say what was read."""
     days: Dict[str, dict] = {}
     notes = []
@@ -413,7 +419,7 @@ def _read_reports(ws, well_id: str, recs: List[dict]) -> Tuple[Dict[str, dict], 
         if hashlib.sha256(content).hexdigest() != r['sha256']:
             notes.append(f"{r['file']}: the file changed since it was attached (SHA-256 differs); not read"); continue
         try:
-            parsed = parse_report(content.decode('utf-8-sig', 'replace'))
+            parsed = parse_report(content.decode('utf-8-sig', 'replace'), need_volume=need_volume)
         except FluidError as e:
             notes.append(f"{r['file']}: {e}"); continue
         for row in parsed['rows']:
@@ -456,10 +462,10 @@ def well_ledger(ws, well_id: str, decl: dict) -> dict:
                            'surface': w.get('surface'), 'disposal': w.get('disposal')}
     days: Dict[str, dict] = {}
     if decl.get('reports'):
-        days, notes = _read_reports(ws, well_id, decl['reports'])
+        days, notes = _read_reports(ws, well_id, decl['reports'], need_volume=(role != 'observation'))
         out['notes'].extend(notes)
         if days:
-            out['record'] = "the operator's report"
+            out['record'] = "the operator's report" if role != 'observation' else "the observation well's own record (no flow)"
     disp = w.get('disposal') or {}
     if not days and (disp.get('channel_rate') or disp.get('channel_pressure')):
         from . import sra as SR
@@ -492,6 +498,8 @@ def well_ledger(ws, well_id: str, decl: dict) -> dict:
         if role == 'production':
             liq = (vol or 0.0) + (r.get('oil') or 0.0)
             vol = liq if (vol is not None or r.get('oil') is not None) else None
+        elif role == 'observation':
+            vol = None                                          # no flow, whatever a column says
         sg, tds, how = _density_for(day, dens, r)
         t_w, t_s = mass_of(vol, sg, tds) if vol is not None else (None, None)
         if vol is not None:
@@ -509,7 +517,9 @@ def well_ledger(ws, well_id: str, decl: dict) -> dict:
                days_with_density=n_dens, mean_bbl_per_day=(round(sum(vols) / len(vols), 1) if vols else None), max_bbl_per_day=(round(max(vols, key=abs), 1) if vols else None),
                start=out['days'][0]['date'], end=out['days'][-1]['date'],
                n_bhp=sum(1 for d_ in out['days'] if d_['bhp_psi'] is not None), n_p_avg=sum(1 for d_ in out['days'] if d_['p_avg_psi'] is not None))
-    if n_dens == 0:
+    if role == 'observation':
+        out['notes'].append(f"an observation well: no flow; {out['n_bhp']} day(s) with a pressure, {sum(1 for d_ in out['days'] if d_['tds_mgl'] is not None)} with a TDS - the calibration's measurements")
+    elif n_dens == 0:
         out['notes'].append('no density declared for these days: the water and solids columns stay empty (gea fluid --declare --well ... --tds-mgl or --density-sg, with the analysis as source)')
     elif n_dens < len(vols):
         out['notes'].append(f'{len(vols) - n_dens} day(s) with a volume have no density that applies')
@@ -823,7 +833,7 @@ def page(ws, as_of: Optional[str] = None) -> dict:
     for wl in wells:
         if wl.get('formation'):
             named.add(wl['formation'])
-            if wl.get('days'):
+            if wl.get('days') and wl.get('role') != 'observation':        # an observation well is no part of the balance: no flow, and its pressure is its own place's
                 by_fm.setdefault(wl['formation'], []).append(wl)
     formations = []
     for name in sorted(named | set(d['formations'])):

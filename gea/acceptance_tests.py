@@ -18070,6 +18070,267 @@ def section_ed_front(tmp: str) -> None:
        "section, the help page, the README and lesson 14" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_ee_calibration(tmp: str) -> None:
+    """Section EE - the calibration: the self-test (a formation whose true numbers are not the declared ones found from
+    a gauge, the injector's pressure and a producer's water; nothing measured; a measurement no run can make); the ranges
+    (default spreads named as such, a declared range with its source, the refusals), the sample (the declared case
+    first, a Latin hypercube with a fixed seed, each fault layer sealing in half the runs); the ledger's observation
+    well (a gauge and no flow, outside the balance); the workspace (not run, run and kept with the hash of its inputs,
+    stale when they change; the kept runs, the declared case not among them, the transmissivity found, every forecast
+    a range, the fault's rise against its pressure to slip, the earthquake beside it, what to measure next; a workspace
+    with nothing measured; the report, the dossier, the audit); the routes, the tab, the command, the help, the README
+    and the lesson."""
+    import http.cookiejar
+    import math
+    import subprocess as _sp
+    import urllib.error
+    import urllib.request
+    import zipfile as _zf
+    from . import __version__ as _ver
+    from . import calibration as CB
+    from . import client_reports as CR
+    from . import dossier as DZ
+    from . import fluid as FL
+    from . import front as FR
+    from . import helplib as H
+    from . import op_seismicity as OS
+    from . import shapefile as SF
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ee"); d.mkdir()
+    fm = {"k_md": 50.0, "thickness_ft": 100.0, "porosity": 0.12, "mu_cp": 0.6, "water_tds_mgl": 60000.0, "water_sg": 1.0414}
+    truth = {"k_md": 110.0, "thickness_ft": 80.0, "porosity": 0.10, "c_t_per_psi": 7e-6}
+    # -- EE1 the arithmetic ---------------------------------------------------------------------------------------------------
+    st = CB.selftest()
+    rg = CB.parameter_ranges(fm)
+    rg2 = CB.parameter_ranges(fm, {"k_md": {"low": 15.0, "high": 200.0, "source": "core report"}})
+    smp = CB.sample(rg, ["A", "B"], ["B"], 21, 3, True); smp_n = CB.sample(rg, ["A", "B"], ["B"], 21, 3, False)
+    a_ = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    errs = {}
+    for name, fn in (("no_injector", lambda: CB.make_scene("F", fm, [w_ for w_ in CB.synthetic_wells(30) if w_["role"] != "injection"], [])),
+                     ("no_k", lambda: CB.make_scene("F", {"thickness_ft": 100.0, "porosity": 0.1}, CB.synthetic_wells(30), []))):
+        try:
+            fn(); errs[name] = False
+        except CB.CalibrationError:
+            errs[name] = True
+    c1 = {
+        "selftest": st["ok"] and st["label"] == "SIMULATION" and len(st["checks"]) == 10,
+        "ranges": rg["k_md"]["kind"] == "default" and abs(rg["k_md"]["low"] - 50.0 / 3) < 1e-9 and rg["k_md"]["high"] == 150.0 and rg["thickness_ft"]["low"] == 70.0 and abs(rg["porosity"]["high"] - 0.156) < 1e-9
+                  and abs(rg["c_t_per_psi"]["centre"] - 7e-6) < 1e-12 and "default" in rg["k_md"]["source"] and rg2["k_md"]["kind"] == "declared" and rg2["k_md"]["low"] == 15.0 and rg2["k_md"]["source"] == "core report"
+                  and rg2["thickness_ft"]["kind"] == "default",
+        "sample": len(smp) == 21 and smp[0]["declared_case"] and smp[0]["sealing"] == ["B"] and smp[0]["k_md"] == 50.0 and sum(1 for s_ in smp[1:] if "A" in s_["sealing"]) == 10
+                  and sum(1 for s_ in smp[1:] if "B" in s_["sealing"]) == 10 and all(s_["sealing"] == ["B"] for s_ in smp_n) and len({round(s_["k_md"], 6) for s_ in smp}) == 21
+                  and CB.sample(rg, ["A", "B"], ["B"], 21, 3, True) == smp and CB.sample(rg, ["A", "B"], ["B"], 21, 4, True) != smp,
+        "misfit": CB._nrms(a_ + 100.0, a_, 2.0, demean=True) < 1e-12 and abs(CB._nrms(a_ + 4.0, a_, 2.0, demean=False) - 2.0) < 1e-12 and abs(CB._spearman(a_, a_ ** 3) - 1.0) < 1e-12
+                  and abs(CB._spearman(a_, -a_) + 1.0) < 1e-12 and CB._spearman(a_[:3], a_[:3]) == 0.0,
+        "scene": all(errs.values()),
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "EE1 the arithmetic: the self-test's ten checks (the sample, nothing measured, three measurements read, CALIBRATED with the declared case not kept, the transmissivity "
+       "and the pore thickness found with the truth inside the kept runs, the truth's forecasts inside them, NO RUN FITS for a gauge falling while the well injects, the "
+       "narrowing estimate); the default spreads by their rule and named as defaults, a declared range with its source beside them; the sample of 21 with the declared "
+       "case first, each fault layer sealing in ten of the twenty, as declared when the sampling is off, the same seed the same runs and another seed others; the misfit "
+       "blind to a level when the mean is taken off and two errors for an offset of two errors when not; the rank correlation; a scene without an injector or a "
+       "permeability declined" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+    # -- EE2 the workspace --------------------------------------------------------------------------------------------------
+    def site(name: str, measured: bool):
+        wsp_ = str(d / name); ws_ = Workspace.create(wsp_, "Pad 3", actor="tester")
+        wl = CB.synthetic_wells(days=180)
+        tr_ = CB.measure_truth(wl, fm, truth) if measured else None
+        ids_ = {}
+        for w_ in wl:
+            rec_ = ws_.add_well_records(w_["display"], actor="tester"); ids_[w_["well"]] = rec_["id"]
+            ws_.set_well(rec_["id"], surface={"lat": w_["surface"]["lat"], "lon": w_["surface"]["lon"], "datum": "WGS84", "elevation": {"ft": 2900.0, "datum": "KB", "source": "test plat"}}, actor="tester")
+        ws_.set_well(ids_["SWD-1"], disposal={"top_interval_ft": 8700.0, "base_interval_ft": 9300.0, "depth_reference": "TVD", "depth_tier": "deep"}, actor="tester")
+        ws_.set_stress({"sv_psi_ft": 1.05, "shmin_psi_ft": 0.65, "shmax_psi_ft": 0.95, "pp_psi_ft": 0.45, "gradients_source": "the gate", "shmax_azimuth_deg": 80.0, "azimuth_source": "the gate"}, actor="tester")
+        return wsp_, ws_, {w_["well"]: w_ for w_ in wl}, ids_, tr_
+    wsp, ws, by, ids, tr = site("ws", True)
+    kmlat = 1 / 111.195
+    feats = [([[(-102.27, 31.96 + 2 * kmlat), (-102.21, 31.96 + 2 * kmlat)]], {"name": "North fault"})]                     # 2 km north, east-west
+    wkt = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]'
+    SF.write(str(d / "faults"), "PolyLine", feats, [("name", "C", 20, 0)], wkt)
+    with _zf.ZipFile(str(d / "faults.zip"), "w") as z:
+        for ext in (".shp", ".shx", ".dbf", ".prj"):
+            z.write(str(d / ("faults" + ext)), "faults" + ext)
+    lay = ws.add_layer(str(d / "faults.zip"), "Gate faults", actor="tester", feature_kind="fault", citation="the gate's own layer")
+    cat = ("#EventID|Time|Latitude|Longitude|Depth/km|Author|Catalog|Contributor|ContributorID|MagType|Magnitude|MagAuthor|EventLocationName\n"
+           "tx2026q|2026-05-10T04:11:00|31.979|-102.24|5.0|TexNet|TX|TexNet|a|ML|2.3|TexNet|gate\n"                              # 100 m from the fault, day 130
+           "tx2026r|2026-04-02T10:00:00|32.40|-102.24|5.0|TexNet|TX|TexNet|b|ML|2.9|TexNet|gate\n"                               # 47 km north: near no mapped fault
+           "tx2025z|2025-11-02T10:00:00|31.979|-102.24|5.0|TexNet|TX|TexNet|c|ML|2.0|TexNet|gate\n")                             # before the record
+    OS.attach_catalog(ws, "tester", "cat.txt", cat.encode(), "2025-10-01", "2026-07-01", 1.0, 31.96, -102.24, 60.0, "TexNet (gate)")
+    empty = CB.page(ws)
+    fv = lambda v: "" if v is None else f"{v:.1f}"
+    FL.declare_well(ws, "tester", ids["SWD-1"], role="injection", formation="Ellenburger", tds_mgl=120000.0, source="W-2; water analysis")
+    FL.declare_well(ws, "tester", ids["P-7H"], role="production", formation="Ellenburger", source="permit")
+    gauge_csv = ("date,bhp_psi\n" + "\n".join(f"{x['date']},{fv(x['bhp_psi'])}" for x in by["OBS-1"]["days"]) + "\n").encode()
+    try:
+        FL.attach_report(ws, "tester", ids["OBS-1"], "gauge.csv", gauge_csv, "gauge export"); gauge_needs_role = False
+    except FL.FluidError:
+        gauge_needs_role = True                                              # a report without a volume is an observation well's alone
+    FL.declare_well(ws, "tester", ids["OBS-1"], role="observation", formation="Ellenburger", source="permit")
+    FL.attach_report(ws, "tester", ids["OBS-1"], "gauge.csv", gauge_csv, "gauge export")
+    try:
+        FL.attach_report(ws, "tester", ids["OBS-1"], "empty.csv", b"date,note\n2026-01-01,x\n", "x"); obs_empty = False
+    except FL.FluidError:
+        obs_empty = True
+    FL.attach_report(ws, "tester", ids["SWD-1"], "h10.csv", ("date,injection_volume_bbl,bhp_psi\n" + "\n".join(f"{x['date']},{x['volume_bbl']:.1f},{fv(x['bhp_psi'])}" for x in by["SWD-1"]["days"]) + "\n").encode(), "H-10 (gate)")
+    FL.attach_report(ws, "tester", ids["P-7H"], "prod.csv", ("date,water_bbl,tds_mgl\n" + "\n".join(f"{x['date']},{-x['volume_bbl']:.1f},{fv(x['tds_mgl'])}" for x in by["P-7H"]["days"]) + "\n").encode(), "production report (gate)")
+    FL.declare_formation(ws, "tester", "Ellenburger", "petrophysics (gate)", porosity=0.12, thickness_ft=100.0, area_acres=11000.0, k_md=50.0, mu_cp=0.6, p_initial_psi=3000.0, water_tds_mgl=60000.0)
+    fpg = FL.page(ws); fwl = {w_["well"]: w_ for w_ in fpg["wells"]}; fbal = next(f_ for f_ in fpg["formations"] if f_["formation"] == "Ellenburger")
+    FR.set_settings(ws, "tester", projection_days=365)
+    refused = {}
+    for name, fn in (("runs", lambda: CB.set_settings(ws, "tester", runs=4)), ("sigma", lambda: CB.set_settings(ws, "tester", sigma_psi=0.0)), ("share", lambda: CB.set_settings(ws, "tester", sigma_share=0.9)),
+                     ("radius", lambda: CB.set_settings(ws, "tester", well_radius_ft=9.0)), ("param", lambda: CB.set_range(ws, "tester", "Ellenburger", "skin", 1, 2, "x")),
+                     ("order", lambda: CB.set_range(ws, "tester", "Ellenburger", "k_md", 200, 15, "x")), ("source", lambda: CB.set_range(ws, "tester", "Ellenburger", "k_md", 15, 200)),
+                     ("clear_none", lambda: CB.set_range(ws, "tester", "Ellenburger", "k_md", None, None)), ("formation", lambda: CB.run(ws, "tester", "Nowhere")),
+                     ("write_unrun", lambda: CB.write_report(ws, _ver, "tester"))):
+        try:
+            fn(); refused[name] = False
+        except CB.CalibrationError:
+            refused[name] = True
+    CB.set_settings(ws, "tester", runs=24)
+    not_run = CB.page(ws)
+    res = CB.run(ws, "tester")
+    pg = CB.page(ws); f = pg["result"]["formations"][0]
+    par = {p_["parameter"]: p_ for p_ in f["parameters"]}; fc = f["forecasts"]
+    CB.set_range(ws, "tester", "Ellenburger", "k_md", 60.0, 200.0, "core report 2024 (gate)")
+    stale = CB.page(ws)
+    res2 = CB.run(ws, "tester"); f2 = res2["formations"][0]
+    cur = CB.page(ws)
+    wr = CB.write_report(ws, _ver, "tester")
+    txt = (Path(wr["folder"]) / "calibration.md").read_text(encoding="utf-8").lower()
+    FL.write_report(ws, _ver, "tester")
+    dz = DZ.build(ws, "tester", _ver, None)
+    names = _zf.ZipFile(Path(ws.reports_dir, dz["path"])).namelist()
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    # nothing measured: another site, the same wells, no gauge, no pressure, no TDS
+    wsp0, ws0, by0, ids0, _ = site("ws0", False)
+    FL.declare_well(ws0, "tester", ids0["SWD-1"], role="injection", formation="Ellenburger", tds_mgl=120000.0, source="W-2")
+    FL.declare_well(ws0, "tester", ids0["P-7H"], role="production", formation="Ellenburger", source="permit")
+    FL.attach_report(ws0, "tester", ids0["SWD-1"], "h10.csv", ("date,injection_volume_bbl\n" + "\n".join(f"{x['date']},{x['volume_bbl']:.1f}" for x in by0["SWD-1"]["days"]) + "\n").encode(), "H-10 (gate)")
+    FL.attach_report(ws0, "tester", ids0["P-7H"], "prod.csv", ("date,water_bbl\n" + "\n".join(f"{x['date']},{-x['volume_bbl']:.1f}" for x in by0["P-7H"]["days"]) + "\n").encode(), "report (gate)")
+    FL.declare_formation(ws0, "tester", "Ellenburger", "petrophysics (gate)", porosity=0.12, thickness_ft=100.0, area_acres=11000.0, k_md=50.0, mu_cp=0.6, water_tds_mgl=60000.0)
+    FR.set_settings(ws0, "tester", projection_days=365); CB.set_settings(ws0, "tester", runs=12)
+    f0 = CB.run(ws0, "tester")["formations"][0]
+    c2 = {
+        "empty": empty["status"] == "EMPTY" and "Nothing to calibrate" in empty["lines"][0] and empty["result"] is None,
+        "observation": gauge_needs_role and obs_empty and fwl[ids["OBS-1"]]["role"] == "observation" and fwl[ids["OBS-1"]]["n_bhp"] == 180 and fwl[ids["OBS-1"]]["n_with_volume"] == 0
+                       and "no flow" in fwl[ids["OBS-1"]]["record"] and ids["OBS-1"] not in fbal["wells"] and "observation" in FL.ROLES,
+        "refusals": all(refused.values()),
+        "not_run": not_run["status"] == "NOT RUN" and not_run["formations"] == ["Ellenburger"] and not_run["ranges"]["Ellenburger"]["k_md"]["kind"] == "default" and "24 runs" in not_run["lines"][0],
+        "kept": pg["status"] == "OK" and res["key"] == pg["result"]["key"] and f["status"] == "CALIBRATED" and f["label"] == "SIMULATION" and f["n_runs"] == 24 and 1 <= f["n_kept"] <= 10
+                and f["best_misfit"] < 1.5 and f["declared_misfit"] > 2.0 and not f["declared_kept"] and f["runs"][0]["kept"] and f["runs"][0]["misfit"] == f["best_misfit"]
+                and {m_["key"] for m_ in f["measurements"]} == {"p:" + ids["SWD-1"], "p:" + ids["OBS-1"], "w:" + ids["P-7H"]}
+                and all(len(m_["days"]) == len(m_["measured"]) == len(m_["best"]) == len(m_["all_lo"]) == len(m_["kept_hi"]) for m_ in f["measurements"]),
+        "found": par["k_h"]["kept"]["lo"] * 0.8 <= tr["k_h"] <= par["k_h"]["kept"]["hi"] * 1.2 and par["k_h"]["narrowed"] > 0.3 and par["k_h"]["declared"] == 5000.0
+                 and par["h_phi"]["kept"]["lo"] * 0.8 <= tr["h_phi"] <= par["h_phi"]["kept"]["hi"] * 1.2 and par["k_md"]["range_kind"] == "default" and par["k_md"]["all"]["p10"] < par["k_md"]["kept"]["p50"],
+        "forecasts": fc["aor_1y_acres"]["kept"]["lo"] * 0.75 <= tr["aor1_acres"] <= fc["aor_1y_acres"]["kept"]["hi"] * 1.25 and fc["aor_1y_acres"]["all"]["p90"] > fc["aor_1y_acres"]["all"]["p10"]
+                     and fc["front_half_end_ft"]["kept"]["lo"] * 0.85 <= tr["half_end_ft"] <= fc["front_half_end_ft"]["kept"]["hi"] * 1.15 and fc["aor_acres"]["declared_case"] is not None
+                     and any(w_["well"] == ids["P-7H"] and w_["arrives_share_of_kept"] == 1.0 and w_["arrival_day"]["p50"] < 120 for w_ in fc["wells"]),
+        "fault": len(fc["faults"]) == 1 and fc["faults"][0]["name"] == "North fault" and 100.0 < fc["faults"][0]["pressure_to_slip_psi"] < 200.0 and 0.0 <= fc["faults"][0]["past_line_1y_share"] <= 1.0
+                 and fc["faults"][0]["rise_1y_psi"]["all"]["p90"] > fc["faults"][0]["rise_1y_psi"]["all"]["p10"] > 0 and f["sealing"][0]["layer"] == lay["id"]
+                 and abs(f["sealing"][0]["sealing_share_all"] - 0.5) < 0.05,
+        "earthquake": len(f["earthquakes"]) == 1 and f["earthquakes"][0]["event_id"] == "tx2026q" and f["earthquakes"][0]["fault"] == "North fault" and f["earthquakes"][0]["distance_km"] < 0.5
+                      and f["earthquakes"][0]["day"] == 130 and f["earthquakes"][0]["rise_psi"]["p90"] >= f["earthquakes"][0]["rise_psi"]["p10"] > 0,
+        "next": f["next"][0]["what"].startswith("a falloff test on SWD 1") and not any("gauge at OBS 1" in c_["what"] or "bottomhole pressure of SWD 1" in c_["what"] for c_ in f["next"])
+                and all(0.0 <= c_["narrows_aor"] <= 1.0 for c_ in f["next"]) and "next_basis" in f,
+        "stale": stale["status"] == "STALE" and stale["lines"][0].startswith("STALE") and stale["ranges"]["Ellenburger"]["k_md"]["kind"] == "declared" and cur["status"] == "OK"
+                 and f2["ranges"]["k_md"]["low"] == 60.0 and all(r_["k_md"] >= 60.0 - 1e-9 for r_ in f2["runs"] if not r_["declared_case"]) and f2["runs"] != f["runs"]
+                 and any(p_["parameter"] == "k_md" and "core report 2024" in p_["source"] for p_ in f2["parameters"]),
+        "unmeasured": f0["status"] == "NO MEASUREMENT" and f0["n_kept"] == f0["n_ok"] == 12 and f0["measurements"] == [] and f0["best_misfit"] is None and f0["forecasts"]["faults"] == []
+                      and {c_["what"] for c_ in f0["next"]} >= {"a falloff test on SWD 1", "the bottomhole pressure of SWD 1 through the record", "a gauge at P 7H for a year", "a water analysis at P 7H in a year"}
+                      and any("NO MEASUREMENT" in l_ for l_ in f0["lines"]) and f0["forecasts"]["aor_1y_acres"]["narrowed"] is None,
+        "written": set(wr["files"]) == {"calibration.json", "calibration.md"} and "simulation" in txt and "what to measure next" in txt and not [t for t in CR.FORBIDDEN_TERMS if t in txt]
+                   and Path(wsp, "records", "calibration_result.json").is_file(),
+        "dossier": "results/calibration.json" in names and "reports/calibration/calibration.md" in names and "declarations/records/calibration.json" in names
+                   and all(x in audit for x in ("calibration.settings", "calibration.range", "calibration.run", "calibration.report")),
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "EE2 the workspace: nothing to calibrate until the ledger has an injection well; a report with dates and a pressure and no volume declined for a well not declared an "
+       "observation well and taken for one that is, one with neither a pressure nor a TDS declined, the observation well in the ledger with its 180 pressures and no "
+       "flow and outside the balance; runs under eight, an error of nothing, a share error of ninety points, a nine-foot wellbore, an unknown number, a range upside "
+       "down or without its source, a default cleared, a formation not in the ledger and a report before any run - each declined; NOT RUN with the default ranges "
+       "shown; then 24 runs on a site whose true formation is not the declared one - CALIBRATED, the result kept with the hash of its inputs, the three measurements "
+       "each with its envelopes, the best run kept and first, the declared case not kept; the true transmissivity and pore thickness inside the kept runs and the "
+       "transmissivity narrowed by a third; the truth's area of review and front inside the kept ranges, the producer reached in every kept run; the mapped fault's "
+       "rise as a range against its pressure to slip with the share of kept runs past it, its layer sealing in half the runs; the one earthquake beside that fault "
+       "within the record listed with the rise on it that month, the far one and the earlier one not; a falloff test first among what to measure next and no gauge "
+       "proposed where one is; a range declared with its source making the result STALE, the next run inside it and CURRENT; a site with nothing measured NO "
+       "MEASUREMENT with every run kept and a gauge, a pressure, a water analysis and a falloff test to choose from; the report free of the client-report terms; the "
+       "dossier's results/calibration.json, the report and the declared ranges; the audit" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+    # -- EE3 the routes, the tab, the command, the help, the README and the lesson -----------------------------------------------
+    CB.set_settings(ws, "tester", runs=8)
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=300) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_vg, vg = call(V, "GET", "/api/calibration")
+        s_vr, _ = call(V, "POST", "/api/calibration/run", {})
+        s_or, or_ = call(O, "POST", "/api/calibration/run", {})
+        s_g2, g2 = call(V, "GET", "/api/calibration")
+        s_os, os_ = call(O, "POST", "/api/calibration/settings", {"runs": "10", "sigma_psi": "20", "sample_sealing": "no"})
+        s_bs, _ = call(O, "POST", "/api/calibration/settings", {"runs": "3"})
+        s_rg, rg_ = call(O, "POST", "/api/calibration/range", {"formation": "Ellenburger", "parameter": "porosity", "low": "0.07", "high": "0.14", "source": "log analysis (api)"})
+        s_br, _ = call(O, "POST", "/api/calibration/range", {"formation": "Ellenburger", "parameter": "porosity", "low": "0.2", "high": "0.1", "source": "x"})
+        s_cl, _ = call(O, "POST", "/api/calibration/range", {"formation": "Ellenburger", "parameter": "porosity"})
+        s_g3, g3 = call(V, "GET", "/api/calibration")
+        s_ow, ow = call(O, "POST", "/api/calibration/write", {})
+        s_vw, _ = call(V, "POST", "/api/calibration/write", {})
+        s_na, _ = call(O, "POST", "/api/calibration/nothing", {})
+    finally:
+        svc.stop()
+    cli_w = _sp.run([sys.executable, "-m", "gea", "calibrate", "--workspace", wsp], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_r = _sp.run([sys.executable, "-m", "gea", "calibrate", "--workspace", wsp, "--runs", "8", "--sample-sealing", "yes", "--run"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_g = _sp.run([sys.executable, "-m", "gea", "calibrate", "--workspace", wsp, "--range", "thickness_ft", "--formation", "Ellenburger", "--low", "60", "--high", "120", "--source", "logs (cli)"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_b = _sp.run([sys.executable, "-m", "gea", "calibrate", "--workspace", wsp, "--range", "thickness_ft", "--formation", "Ellenburger", "--low", "60", "--high", "120"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_j = _sp.run([sys.executable, "-m", "gea", "calibrate", "--workspace", wsp, "--json"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_o = _sp.run([sys.executable, "-m", "gea", "calibrate", "--workspace", wsp, "--write"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_h = _sp.run([sys.executable, "-m", "gea", "fluid", "--help"], capture_output=True, text=True, cwd=str(pkg.parent))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
+    lesson = (pkg / "help" / "tutorial" / "14-production-pages.md").read_text(encoding="utf-8")
+    c3 = {
+        "api": s_vg == 200 and vg["status"] == "STALE" and vg["label"] == "SIMULATION" and s_vr == 403 and s_or == 200 and or_["formations"][0]["status"] in ("CALIBRATED", "NO RUN FITS") and s_g2 == 200
+               and g2["status"] == "OK" and g2["result"]["formations"][0]["n_runs"] == 8 and s_os == 200 and os_["runs"] == 10 and os_["sigma_psi"] == 20.0 and os_["sample_sealing"] is False and s_bs == 400
+               and s_rg == 200 and rg_["ranges"]["Ellenburger"]["porosity"]["low"] == 0.07 and s_br == 400 and s_cl == 200 and s_g3 == 200 and g3["status"] == "STALE"
+               and g3["ranges"]["Ellenburger"]["porosity"]["kind"] == "default" and s_ow == 200 and "calibration.md" in ow["files"] and s_vw == 403 and s_na == 404,
+        "cli": cli_w.returncode == 0 and "STALE" in cli_w.stdout and "the uncertain numbers" in cli_w.stdout and cli_r.returncode == 0 and "runs 8" in cli_r.stdout and "run: " in cli_r.stdout
+               and "of 8 kept" in cli_r.stdout and cli_g.returncode == 0 and "60 to 120 (declared: logs (cli))" in cli_g.stdout and cli_b.returncode != 0 and "source" in cli_b.stderr
+               and cli_j.returncode == 0 and json.loads(cli_j.stdout)["status"] == "STALE" and cli_o.returncode == 0 and "calibration.md" in cli_o.stdout and "observation" in cli_h.stdout,
+        "page": all(x in page_src for x in ("VIEWS.calibration", "['#/calibration', 'Calibration']", "/api/calibration/run", "/api/calibration/range", "cbPlot", "cbBar", "help('calibration')",
+                                            "observation (a gauge, no flow)")),
+        "help": not H.check("calibration") and H.VIEW_TOPIC.get("calibration") == "calibration" and any(t == "calibration" for t, _, _ in H.INDEX)
+                and all(x in (H.page("calibration") or "") for x in ("Latin hypercube", "Peaceman", "NO RUN FITS", "SIMULATION", "gea calibrate --workspace C:\\site --run")) and "observation" in (H.page("fluid") or ""),
+        "readme_lesson": (not readme or ("### Calibration" in readme and "`gea calibrate`" in readme)) and "**Calibration**" in lesson and "calibration" in lesson.split("Help:")[-1],
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "EE3 on the API (anyone reads the kept result and whether it is stale; only an operator runs, keeps settings, declares or clears a range, or writes; too few runs and a "
+       "range upside down are 400; an unknown action 404), the command (the kept result, settings and a run in one line, a range declared and one without its source "
+       "stopped, the page as JSON, the report; the fluid command's observation role), the tab with its envelopes and range bars, the help pages, the README and lesson 14"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -18207,6 +18468,7 @@ def main() -> int:
         section_eb_fluid(tmp)
         section_ec_plume(tmp)
         section_ed_front(tmp)
+        section_ee_calibration(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

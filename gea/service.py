@@ -2308,6 +2308,9 @@ def make_handler(app: App):
                                 b_ = f_.read()
                         return self._json(200, {'xlsx_b64': _b64.b64encode(b_).decode('ascii'), 'filename': 'declarations.xlsx'})
                     return self._json(200, {'csv': DC.template(app.ws), 'filename': 'declarations.csv'})
+                if path == '/api/calibration':
+                    from . import calibration as CB
+                    return self._json(200, App._cr(CB.page, app.ws))
                 if path == '/api/front':
                     from . import front as FF
                     return self._json(200, App._cr(FF.page, app.ws, (qs.get('well') or [None])[0] or None))
@@ -2707,6 +2710,23 @@ def make_handler(app: App):
                     if not isinstance(t_, str) or not t_.strip():
                         raise ApiError(400, 'send the sheet as text (CSV) or an Excel workbook')
                     return self._json(200, DC.apply(app.ws, t_, user['name'], '', write=bool((body or {}).get('apply'))))
+                if path.startswith('/api/calibration/'):
+                    from . import calibration as CB
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    act = path[len('/api/calibration/'):]
+                    b_ = dict(body or {})
+                    if act == 'run':
+                        r_ = App._cr(CB.run, app.ws, user['name'], b_.get('formation') or None)
+                        return self._json(200, {'seconds': r_['seconds'], 'formations': [{'formation': f_['formation'], 'status': f_['status'], 'n_kept': f_.get('n_kept'), 'n_ok': f_.get('n_ok')} for f_ in r_['formations']]})
+                    if act == 'settings':
+                        return self._json(200, App._cr(CB.set_settings, app.ws, user['name'], b_.get('runs'), b_.get('sigma_psi'), b_.get('sigma_share'), b_.get('sample_sealing'), b_.get('well_radius_ft')))
+                    if act == 'range':
+                        return self._json(200, App._cr(CB.set_range, app.ws, user['name'], str(b_.get('formation') or ''), str(b_.get('parameter') or ''), b_.get('low'), b_.get('high'), str(b_.get('source') or '')))
+                    if act == 'write':
+                        r_ = App._cr(CB.write_report, app.ws, _v, user['name'])
+                        return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
+                    raise ApiError(404, 'no such calibration action')
                 if path in ('/api/front/settings', '/api/front/write'):
                     from . import front as FF
                     from . import __version__ as _v

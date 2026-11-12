@@ -1,14 +1,14 @@
-v0.86.0 — THE FLUID FRONT
+v0.87.0 — THE CALIBRATION
 
-Where the injected water itself has gone: on a fine grid around each
-injection well the wells' steady flow is solved once per well and the water
-moved with it - the fraction of the thickness it fills, spreading under its
-own weight against the formation water's, a tongue along the base or the
-top. The day it reaches each producer, its share and the TDS that predicts
-beside the TDS the producer's report measures; every injected barrel
-accounted; drawn in plan, in section and in 3D. SIMULATION on every line.
-The Fluid front tab, `gea front`, `gea help front`. Section ED; gate 569.
+The plume and the front, run many times over the numbers nobody knows
+exactly - permeability, thickness, porosity, compressibility, each fault
+open or sealing - and ranked against the measured pressures and the
+producers' water: the runs the measurements do not contradict, every
+forecast as a range (what the declarations allow beside what the
+measurements leave), and what to measure next. Observation wells in the
+ledger. SIMULATION on every line. The Calibration tab, `gea calibrate`,
+`gea help calibration`. Section EE; gate 572.
 
 Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
 
-Gate 569.
+Gate 572.

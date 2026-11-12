@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.87.0 - 2026-11-12 - the calibration
+
+- The fourth fluid-flow module, closing the loop: the plume and the front
+  run over a range for every uncertain number and each fault open or
+  sealing, ranked against the measured pressures and the producers'
+  water; the runs the measurements do not contradict, every forecast as a
+  range, and the measurement that would narrow it most. Observation wells
+  in the ledger. SIMULATION on every line. Section EE; gate 572.
+
 ## v0.86.0 - 2026-11-10 - the fluid front
 
 - The third fluid-flow module: the injected water itself on a fine grid

@@ -5,6 +5,55 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.87.0] - 2026-11-12 - the calibration
+
+### Added
+- **Calibration** - the fourth fluid-flow module, a SIMULATION on every
+  line: the plume and the front run many times over the numbers nobody
+  knows exactly and ranked against what is measured. Each uncertain number
+  (permeability, net thickness, porosity, total compressibility) has a
+  range - declared with its source, or a default spread about the declared
+  value named as a default - and each fault layer is open in half the runs
+  and sealing in the other half; the runs are a Latin hypercube with a
+  fixed seed, run 0 the declared case. Every run steps the plume and the
+  front on 41-cell grids and is scored against the pressures in the ledger
+  (an observation well's gauge against its cell's rise; an injector's or a
+  producer's own bottomhole pressure against its cell's rise plus its own
+  draw by Peaceman's well index - each series compared in its shape, its
+  mean taken off) and against the producers' measured TDS as the share of
+  injected water it implies, in units of the measurement error. A run is
+  KEPT at a misfit of 1.5 or within a quarter of the best; a best run over
+  3 is NO RUN FITS (look outside the ranges: a boundary, a leak, a wrong
+  record); with nothing measured every run is kept and the ranges are the
+  declarations' own. Every forecast the other pages give as one number is
+  given as a range, the declarations alone beside the kept runs: the area
+  of review and its reach now and in a year, each fault's rise with the
+  share of kept runs that take it past its pressure to slip, the front's
+  half radius, each producer's share and arrival; each uncertain number
+  and the products the formation actually writes (k h, h phi, h phi c_t)
+  likewise, with how much the measurements narrowed them. What to measure
+  next, ranked: a falloff test on the injector, a gauge at a neighbour
+  with none, a water analysis at a producer with none - each with how far
+  the runs disagree about it and the linear estimate of how much it would
+  narrow the area of review and the front. Where the workspace has an
+  earthquake catalogue, each event near a mapped fault within the record
+  is listed with the rise the kept runs put on that fault that month - a
+  coincidence in the model's terms, not a cause, and not part of the
+  ranking. The runs are started by a person and the result is kept with
+  the hash of everything it was computed from: the page says CURRENT or
+  STALE. The **Calibration** tab with each measurement's envelopes and a
+  range bar for each number; `results/calibration.json` in the dossier
+  with the report and the declared ranges; `gea calibrate` (the self-test
+  without a workspace: a formation whose true transmissivity is not the
+  declared one, found from a gauge, the injector's pressure and a
+  producer's water), `/api/calibration`, `gea help calibration`,
+  lesson 14. Section EE (3 checks); gate 572.
+- **Observation wells** in the fluid ledger: a third role beside
+  injection and production, for a well with a gauge or a water analysis
+  and no flow. Its report needs a date and a pressure or a TDS column and
+  no volume; it is no part of the material balance; the plume and the
+  front carry it on their grids, and the calibration measures against it.
+
 ## [v0.86.0] - 2026-11-10 - the fluid front
 
 ### Added

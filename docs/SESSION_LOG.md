@@ -3718,3 +3718,61 @@ stability; and motor specifications in the tool catalogue.
   a colour variable the plume's plan had used for its background did not
   exist; it is the surface colour now, there and here. Gate 569.
 
+## 2026-11-12 - the calibration (v0.87.0)
+
+- v0.86.0 shipped (ci, PyPI and the kit build green); the six kits fetched
+  into C:\site\installers and verified against the release's SHA-256, the
+  0.85.0 ones moved to _to_delete. Daniel: go on the calibration. The
+  cloud tree was still there this time, and was checked against the
+  v0.86.0 tree list before anything was touched: no delta.
+- The ledger first. A neighbour with a gauge and no flow had no place in
+  it - a report without a volume column was declined, rightly, for an
+  injector or a producer. `fluid`: a third role, `observation`; its report
+  needs a date and a pressure or a TDS column; whatever volume a column
+  says, it has no flow; it is left out of the material balance (its
+  pressure is its own place's, not the tank's) and carried by the plume
+  and the front as a well with no rate.
+- `gea/calibration.py`. `make_scene` takes from the ledger once what
+  every run needs - the calendar, each well's daily rate and position in
+  the main injector's frame, the faults by layer, the measured pressures
+  (five days at least) and the measured TDS as implied shares.
+  `run_plume` and `run_front` are the two pages' own arithmetic made
+  lean: the same `Grid`, `step_days`, `solve_unit` and `Water`, on 41
+  cells, the front with five-day mean rates in the record and thirty-day
+  spans beyond, returning the series at the wells and the few numbers the
+  forecasts need (about a seventh of a second a run with a year's
+  projection, the front most of it). `parameter_ranges`, `sample`
+  (a Latin hypercube; the fault layers' open-or-sealing columns drawn
+  after the numbers so that adding a layer does not change them),
+  `calibrate` (the misfits, the kept runs, the numbers and their
+  products, the forecasts, the faults against their pressure to slip, the
+  wells, what to measure next, the measurements' envelopes, the
+  earthquakes), `summary_lines`, `run` and `page` with the inputs' hash,
+  `write_report`, `synthetic_wells`, `measure_truth`, `selftest`.
+- Choices made on the way, each because the first try was wrong or thin:
+  the pressures are compared with their means taken off, because the
+  level of an injector's bottomhole pressure is a skin and an initial
+  pressure nobody declared; a flowing well's cell is not its wellbore, so
+  Peaceman's index adds the well's own draw, which is also what makes the
+  injector's pressure speak of k h through the rate's swings; the
+  percentiles were rounded to four decimals and showed a compressibility
+  as zero - four significant figures now; with three or four runs kept
+  the rank correlation behind "what to measure next" was nothing, so it
+  is taken across the eight best runs when fewer than eight are kept, and
+  says so; a measurement the kept runs already agree about to a quarter
+  of its error is listed as telling nothing new, not ranked last.
+- What was promised and is not there: frac hits are not in the ranking
+  (a stage's pumping is not in the ledger), and the earthquakes are set
+  beside the fault's rise, not scored - a likelihood for an earthquake's
+  timing would be an invention.
+- The CLI `gea calibrate`, the routes, the Calibration tab (the tiles,
+  each measurement with the envelope of every run, of the kept runs and
+  the best run's line under the measured dots, the numbers with their
+  range bars, the forecasts, what to measure next, the earthquakes, the
+  runs, the settings and the ranges), the help page, lesson 14, the
+  README, the dossier. Section EE: a site whose true formation is k 110
+  md over 80 ft at 10% against a declared 50 md over 100 ft at 12% - four
+  of 24 runs kept, the best at 0.63 and the declared case at 2.85, the
+  transmissivity 7,500 to 13,800 md ft around a true 8,800. Rendered under
+  Playwright with no script error. Gate 572.
+

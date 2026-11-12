@@ -808,7 +808,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.86.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.87.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -960,6 +960,28 @@ accounted - in place, produced back, across a fault, beyond the grid. Drawn
 in plan, in section and, at its depths, in the 3D tab. Every figure a
 SIMULATION, said on every line. The **Fluid front** tab, `gea front`,
 `gea help front`.
+
+### Calibration
+
+The plume and the front, run many times over the numbers nobody knows
+exactly and ranked against what is measured. Each uncertain number - the
+permeability, the thickness, the porosity, the compressibility - gets a
+range, declared with its source or a default spread named as one; each
+fault layer is open in half the runs and sealing in the other half. Every
+run is scored against the pressures in the ledger (a gauge in an
+observation well, an injector's or a producer's own bottomhole pressure,
+each compared in its shape through time) and the producers' measured TDS;
+the runs the measurements do not contradict are kept, and when none comes
+close the page says NO RUN FITS and to look outside the ranges. Every
+forecast the other pages give as one number - the area of review, each
+fault's rise and the share of kept runs that take it past the friction
+line, the front's radius, each producer's share and arrival - is given as
+a range: what the declarations alone allow beside what the measurements
+leave. And what to measure next, ranked: a falloff test, a gauge at a
+neighbour, a water analysis, each with how much it would narrow the area
+of review and the front. Run by a person, kept with the hash of its inputs,
+marked stale when they change. Every figure a SIMULATION. The
+**Calibration** tab, `gea calibrate`, `gea help calibration`.
 
 ### Plan vs actual and the survey tools
 
@@ -1625,7 +1647,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.86.0.exe` (for 0.86.0): the
+Every release also carries `GEA-Program-Setup-0.87.0.exe` (for 0.87.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1644,7 +1666,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.86.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.87.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

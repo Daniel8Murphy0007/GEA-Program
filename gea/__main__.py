@@ -565,7 +565,7 @@ def main(argv=None) -> int:
     p_fl.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs on labelled scenes")
     p_fl.add_argument("--well", type=str, default=None, help="the well a declaration, a report or a removal is for")
     p_fl.add_argument("--declare", action="store_true", help="declare the well's role, formation or density (with --source)")
-    p_fl.add_argument("--role", type=str, default=None, choices=("injection", "production"))
+    p_fl.add_argument("--role", type=str, default=None, choices=("injection", "production", "observation"), help="--declare: injection, production, or observation (a gauge or a water analysis, no flow)")
     p_fl.add_argument("--formation", type=str, default=None, help="--declare: the formation the well is completed in; alone with --porosity etc.: the formation to declare")
     p_fl.add_argument("--density-sg", type=float, default=None, help="--declare: the injected water's specific gravity")
     p_fl.add_argument("--density-ppg", type=float, default=None, help="--declare: the injected water's density in lb/gal")
@@ -611,6 +611,23 @@ def main(argv=None) -> int:
     p_ff.add_argument("--write", action="store_true", help="write reports/front/front.json and .md")
     p_ff.add_argument("--actor", type=str, default="cli")
     p_ff.add_argument("--json", action="store_true")
+    p_cb = sub.add_parser("calibrate", help="the calibration (SIMULATION): the plume and the front run many times over the uncertain numbers - permeability, thickness, porosity, compressibility, each fault open or sealing - ranked against the measured pressures and the producers' water; the ranges that leaves, and which measurement would narrow them most")
+    p_cb.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (a formation whose true numbers are not the declared ones, found from its measurements)")
+    p_cb.add_argument("--run", action="store_true", help="run the ensemble now and keep the result")
+    p_cb.add_argument("--formation", type=str, default=None, help="--run: one formation; --range: the formation the range is for")
+    p_cb.add_argument("--runs", type=int, default=None, help="settings: the runs, 8 to 200 (default 48)")
+    p_cb.add_argument("--sigma-psi", type=float, default=None, help="settings: the pressure measurements' error, psi (default 25)")
+    p_cb.add_argument("--sigma-share", type=float, default=None, help="settings: the error of a share of injected water read from a TDS (default 0.05)")
+    p_cb.add_argument("--well-radius-ft", type=float, default=None, help="settings: the wellbore radius for a flowing well's own draw (default 0.354)")
+    p_cb.add_argument("--sample-sealing", type=str, default=None, choices=("yes", "no"), help="settings: whether each fault layer is open in half the runs and sealing in the other half (default yes)")
+    p_cb.add_argument("--range", dest="range_param", type=str, default=None, choices=("k_md", "thickness_ft", "porosity", "c_t_per_psi"), help="declare an uncertain number's range for --formation: --low, --high, --source (or --clear)")
+    p_cb.add_argument("--low", type=float, default=None)
+    p_cb.add_argument("--high", type=float, default=None)
+    p_cb.add_argument("--clear", action="store_true", help="--range: back to the default spread")
+    p_cb.add_argument("--source", type=str, default="", help="where a declared range comes from")
+    p_cb.add_argument("--write", action="store_true", help="write reports/calibration/calibration.json and .md from the kept result")
+    p_cb.add_argument("--actor", type=str, default="cli")
+    p_cb.add_argument("--json", action="store_true")
     p_os = sub.add_parser("seismicity", help="operations and seismicity: each well's drilling, completion and disposal windows against the earthquake catalogue around it - the events during and after each, the levels a regulator's protocol would reach, and the rate during operations against the rest of the record; the Mahoning Valley worked example")
     p_os.add_argument("--workspace", type=str, default=None)
     p_os.add_argument("--scene", type=str, default=None, choices=("workspace", "mahoning"), help="your wells (the default with --workspace) or the public worked example")
@@ -2775,6 +2792,45 @@ def main(argv=None) -> int:
         except (_FF.FrontError, WorkspaceError, ValueError, OSError) as e:
             raise SystemExit(f"front: {e.args[0] if e.args else e}")
         print(_json.dumps(p, default=str) if a.json else _FF.text(p))
+        return 0
+    elif a.cmd == "calibrate":
+        import json as _json
+        from . import calibration as _CB
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if not a.workspace:
+            r = _CB.selftest()
+            print(_json.dumps(r, default=str) if a.json else "\n".join(f"{'PASS' if c['pass'] else 'FAIL'}  {c['check']}: {c['value']}" for c in r["checks"]) + f"\n{'OK' if r['ok'] else 'FAILED'} - {r['label']} ({r['runs']} runs)")
+            return 0 if r["ok"] else 1
+        try:
+            ws = Workspace(a.workspace)
+        except WorkspaceError as e:
+            raise SystemExit(f"calibrate: {e}")
+        try:
+            if a.range_param:
+                if not a.formation:
+                    raise SystemExit("calibrate: --range needs --formation")
+                _CB.set_range(ws, a.actor, a.formation, a.range_param, None if a.clear else a.low, None if a.clear else a.high, a.source)
+                rg_ = _CB.page(ws)["ranges"].get(a.formation, {}).get(a.range_param)
+                print(f"{a.formation} {a.range_param}: " + (f"{rg_['low']:g} to {rg_['high']:g} ({rg_['kind']}: {rg_['source']})" if rg_ else "kept; the formation has no permeability, thickness and porosity declared yet"))
+                return 0
+            if any(v is not None for v in (a.runs, a.sigma_psi, a.sigma_share, a.well_radius_ft, a.sample_sealing)):
+                st_ = _CB.set_settings(ws, a.actor, a.runs, a.sigma_psi, a.sigma_share, (None if a.sample_sealing is None else a.sample_sealing == "yes"), a.well_radius_ft)
+                print("settings: " + ", ".join(f"{k} {v}" for k, v in st_.items() if k in ("runs", "sigma_psi", "sigma_share", "well_radius_ft", "sample_sealing")))
+                if not a.run:
+                    return 0
+            if a.run:
+                r = _CB.run(ws, a.actor, a.formation)
+                print(f"run: {r['seconds']} s; " + "; ".join(f"{f['formation']} {f['status']}" + (f" ({f['n_kept']} of {f['n_ok']} kept)" if f.get('n_kept') is not None else "") for f in r["formations"]))
+            if a.write:
+                from . import __version__ as _ver87
+                r = _CB.write_report(ws, _ver87, a.actor)
+                print(f"written: {', '.join(r['files'])} under {r['folder']}")
+            p = _CB.page(ws)
+        except (_CB.CalibrationError, WorkspaceError, ValueError, OSError) as e:
+            raise SystemExit(f"calibrate: {e.args[0] if e.args else e}")
+        print(_json.dumps(p, default=str) if a.json else _CB.text(p))
         return 0
     elif a.cmd == "seismicity":
         import json as _json
