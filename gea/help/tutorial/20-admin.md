@@ -12,8 +12,9 @@ Takes: 30 minutes
 5. **File roots**: the import root the program may read and the export root it may write (lesson 4). Nothing outside them is ever browsed.
 6. **Workspaces**: a second site on this computer, each its own folder and window.
 7. Everything on this page is an audit line with who did it.
+8. **Assistant access**: to let an assistant such as Claude Desktop read the site, an administrator presses **Add to Claude Desktop** (then quits Claude Desktop and starts it again); for another MCP client, **Copy** the entry shown into that client's configuration. The assistant starts this program as its own child process - no port is opened - and can only read pages; it cannot declare, attach, remove or write. Untick any page that must not leave the site: what a tool returns goes to the assistant's maker as part of the conversation. Every call is in the access log on the same tab.
 
 ## You know it worked when
 A colleague signs in from their own PC over https with the company's button, and lands with the role the company's group gives.
 
-Help: site, company-sign-in, https, upkeep
+Help: site, company-sign-in, https, upkeep, mcp

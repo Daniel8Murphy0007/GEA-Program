@@ -5,6 +5,44 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.89.0] - 2026-11-13 - assistant access (MCP)
+
+### Added
+- **Assistant access** - `gea mcp`, a Model Context Protocol server: the
+  site readable by an assistant. A chat program that speaks MCP starts it
+  as its own child process and is given the program's pages as tools -
+  `site`, `well`, `rig_time`, `drill_string`, `roadmap`,
+  `drilling_alerts`, `torque_drag`, `hydraulics`, `pore_pressure`,
+  `casing`, `collision`, `plan_vs_actual`, `frac_hits`, `fluid_balance`,
+  `pressure_plume`, `fluid_front`, `calibration`, `decline`,
+  `invoice_check`, `seismicity`, `alerts`, `audit`, `help` - each
+  returning the text its own page prints (or the page as JSON), so the
+  assistant's account of the site is the program's, with its labels.
+  LOCAL: it opens no port; the conversation is JSON-RPC, one message a
+  line, on the child process's standard input and output, and anything
+  the program would print goes to the error stream. READ-ONLY: no tool
+  declares, attaches, removes, writes a report or changes a setting, and
+  each declares itself read-only; the gate hashes every file in a
+  workspace before and after every tool and refuses the network while
+  they run. LOGGED: every call, and every call turned away, is a line in
+  `records/mcp_access.jsonl` with the client as it names itself. CHOSEN:
+  the site decides which tools are offered and how long an answer may be
+  (`records/mcp.json`, in the audit log); a withheld tool is not listed
+  and cannot be called. Both eras of the protocol: revision 2026-07-28
+  (stateless, the version in every request's `_meta`, `server/discover`,
+  `resultType` on every result, error -32022 for a version not spoken)
+  and the `initialize` handshake of 2025-11-25, 2025-06-18, 2025-03-26
+  and 2024-11-05. The **Assistant access** tab: the tools with a tick
+  each, the access log, the entry for any MCP client with a Copy button,
+  and **Add to Claude Desktop** (an administrator) - one entry written
+  into that program's configuration file, every other entry kept, a dated
+  copy of the file left. `gea mcp --status`, `--config`, `--call`,
+  `--offer`, `--allow`, `--add-to-claude-desktop`; `GET /api/mcp`,
+  `POST /api/mcp/settings`, `POST /api/mcp/claude-desktop`;
+  `gea help mcp`. The help page, the tab and the IT statement all say the
+  same thing first: the server is on this computer, the assistant usually
+  is not, and what a tool returns goes to whoever runs the model.
+
 ## [v0.88.0] - 2026-11-12 - the drilling roadmap and the drilling alerts
 
 ### Added

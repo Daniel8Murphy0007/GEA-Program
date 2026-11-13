@@ -808,7 +808,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.88.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.89.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1013,6 +1013,26 @@ said and when, and what the rig did next - whether a trip out of the hole
 followed. The thresholds are settings, each changed with its source. On a
 record still being written an event raises an alert once. The **Drilling
 alerts** tab, `gea dysfunction`, `gea help dysfunction`.
+
+### Assistant access (MCP)
+
+The site, readable by an assistant. `gea mcp` is a Model Context Protocol
+server: a chat program that speaks MCP - Claude Desktop, or any other
+client - starts it as its own child process and is given the program's
+pages as tools: the site and its wells, the rig time, the roadmap, the
+drilling alerts, torque and drag, hydraulics, the fluid balance, the plume,
+the front and their calibration, frac hits, the alerts, the audit log, the
+help. Each tool returns what the program itself computes, with its own
+labels - SIMULATION where it is one, "nothing declared" where nothing is -
+so the assistant's account of the site is the program's. It is local: no
+port is opened, the conversation is the child process's standard input and
+output. It is read-only: no tool declares, attaches, removes, writes a
+report or changes a setting. It is logged: every call is a line in the
+workspace. And the site chooses which pages are offered, because what a
+tool returns goes to whoever runs the model behind the assistant. Both
+eras of the protocol are spoken: the stateless revision 2026-07-28 and the
+`initialize` handshake of 2025-11-25 and earlier. The **Assistant access**
+tab (one button adds it to Claude Desktop), `gea mcp`, `gea help mcp`.
 
 ### Plan vs actual and the survey tools
 
@@ -1678,7 +1698,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.88.0.exe` (for 0.88.0): the
+Every release also carries `GEA-Program-Setup-0.89.0.exe` (for 0.89.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1697,7 +1717,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.88.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.89.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

@@ -2308,6 +2308,9 @@ def make_handler(app: App):
                                 b_ = f_.read()
                         return self._json(200, {'xlsx_b64': _b64.b64encode(b_).decode('ascii'), 'filename': 'declarations.xlsx'})
                     return self._json(200, {'csv': DC.template(app.ws), 'filename': 'declarations.csv'})
+                if path == '/api/mcp':
+                    from . import mcp_server as MC
+                    return self._json(200, App._cr(MC.page, app.ws))
                 if path == '/api/roadmap':
                     from . import roadmap as RM
                     return self._json(200, App._cr(RM.page, app.ws, (qs.get('well') or [None])[0] or None))
@@ -2716,6 +2719,16 @@ def make_handler(app: App):
                     if not isinstance(t_, str) or not t_.strip():
                         raise ApiError(400, 'send the sheet as text (CSV) or an Excel workbook')
                     return self._json(200, DC.apply(app.ws, t_, user['name'], '', write=bool((body or {}).get('apply'))))
+                if path == '/api/mcp/settings':
+                    from . import mcp_server as MC
+                    App.require(user, 'operator')
+                    b_ = dict(body or {})
+                    st_ = App._cr(MC.set_settings, app.ws, user['name'], b_.get('tools'), b_.get('max_chars'), str(b_.get('source') or ''))
+                    return self._json(200, {'tools': st_['tools'], 'max_chars': st_['max_chars'], 'offered': MC.offered(app.ws)})
+                if path == '/api/mcp/claude-desktop':
+                    from . import mcp_server as MC
+                    App.require(user, 'admin')                  # it writes another program's configuration on this computer
+                    return self._json(200, App._cr(MC.install_claude_desktop, app.ws, user['name'], bool((body or {}).get('remove'))))
                 if path == '/api/roadmap/write':
                     from . import roadmap as RM
                     from . import __version__ as _v

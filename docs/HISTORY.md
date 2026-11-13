@@ -4,6 +4,16 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.89.0 - 2026-11-13 - assistant access (MCP)
+
+- `gea mcp`: the site readable by an assistant over the Model Context
+  Protocol - twenty-three tools, each one of the program's own pages,
+  local (no port: the child process's standard streams), read-only,
+  logged, the tools offered chosen by the site. Both eras of the
+  protocol, the stateless 2026-07-28 and the handshake of 2025-11-25 and
+  earlier. The Assistant access tab, with one button for Claude Desktop.
+- Section EH. Gate 581.
+
 ## v0.88.0 - 2026-11-12 - the drilling roadmap and the drilling alerts
 
 - Two pages that read the drilling records the pad already has. The

@@ -199,6 +199,20 @@ declared extras.
   give them - a position, not a coordinate: the plan's azimuth and the
   heel are in the rig PC's config, no surface location is.
 
+- **Assistant access (MCP)**: off until a person turns it on, and then it
+  opens no port. `gea mcp` is a child process of the assistant program
+  that starts it, speaking JSON on its standard input and output; it has
+  the rights of the Windows user who runs that program and of nobody
+  else. Its tools read pages; none writes a record, a declaration, a
+  report or a setting, and each declares itself read-only. Which tools are
+  offered is the site's choice (`records\mcp.json`, changed by an operator,
+  in the audit log); a withheld tool is not listed and cannot be called.
+  Every call is a line in `records\mcp_access.jsonl`. **What a tool returns
+  leaves the computer**: it becomes part of the assistant's conversation
+  and goes to whoever runs the model. Adding the server to Claude Desktop
+  is an administrator's action; it writes one entry into that program's
+  configuration file and keeps a copy of the file as it was.
+
 ## What it records
 
 Every action - by a person through the page, by a scheduled job, by the

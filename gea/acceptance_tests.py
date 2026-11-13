@@ -18725,6 +18725,235 @@ def section_eg_dysfunction(tmp: str) -> None:
        "with its charts and the three alert names on the Alarms tab, the help pages, the README and lesson 13" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_eh_mcp(tmp: str) -> None:
+    """Section EH - assistant access: the MCP server's self-test (a client of each era of the protocol against a
+    labelled site); the tool definitions; a workspace read through every tool with every file hashed before and after
+    and the network refused (read-only, local, and the same text as the page's own); the server as a real child process
+    on its standard streams in both eras, with a withheld tool, a run started with fewer tools, the access log; the
+    configuration entry and an assistant's configuration file; the routes, the tab, the command, the help, the IT
+    statement, the README and the lesson."""
+    import hashlib
+    import http.cookiejar
+    import socket as _socket
+    import subprocess as _sp
+    import urllib.error
+    import urllib.request
+    from . import __version__ as _ver
+    from . import dysfunction as DY
+    from . import helplib as H
+    from . import mcp_server as MC
+    from . import rig_state as RS
+    from . import roadmap as RM
+    from . import tutorial as TU
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "eh"); d.mkdir()
+    env = {**os.environ, "PYTHONPATH": str(pkg.parent) + os.pathsep + os.environ.get("PYTHONPATH", "")}
+    # -- EH1 the protocol and the tools -----------------------------------------------------------------------------------
+    st = MC.selftest()
+    defs = [MC.tool_definition(n_) for n_ in MC.NAMES]
+    fake = d / "py"; fake.mkdir(); (fake / "pythonw.exe").write_text(""); (fake / "python.exe").write_text("")
+    real_exe = sys.executable
+    try:
+        sys.executable = str(fake / "pythonw.exe")
+        lc = MC.launch_command(str(d / "site"), ["site", "help"])
+    finally:
+        sys.executable = real_exe
+    plain = MC._plain({"a": np.float64(1.5), "_work": [1, 2], "b": [np.int64(3), float("nan")], "c": np.arange(4), "d": (1, "x")})
+    c1 = {
+        "selftest": st["ok"] and len(st["checks"]) >= 7,
+        "tools": len(defs) == 23 and defs[0]["name"] == "site" and all(d_["annotations"]["readOnlyHint"] is True and d_["annotations"]["destructiveHint"] is False and d_["annotations"]["openWorldHint"] is False
+                                                                        and d_["inputSchema"]["type"] == "object" and d_["inputSchema"]["additionalProperties"] is False and d_["title"] for d_ in defs)
+                 and "well" in defs[1]["inputSchema"]["properties"] and "json" in defs[2]["inputSchema"]["properties"] and "json" not in MC.tool_definition("help")["inputSchema"]["properties"]
+                 and not [n_ for n_ in MC.NAMES if any(w_ in n_ for w_ in ("write", "set", "declare", "attach", "remove", "delete", "run"))],
+        "versions": MC.SUPPORTED[0] == "2026-07-28" and set(MC.LEGACY) == {"2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"} and MC.E_VERSION == -32022,
+        "launch": lc["command"] == str(fake / "python.exe") and lc["args"][:4] == ["-m", "gea", "mcp", "--workspace"] and lc["args"][-2:] == ["--allow", "site,help"]
+                  and MC.launch_command(str(d / "site"))["command"] == sys.executable and isinstance(MC.claude_desktop_paths(), list) and MC.claude_desktop_paths()[0].endswith("claude_desktop_config.json"),
+        "plain": plain == {"a": 1.5, "b": [3, None], "c": "(an array of 4 values, left out)", "d": [1, "x"]},
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "EH1 the MCP server: the self-test (a client of an earlier revision through its handshake and a client of revision 2026-07-28 statelessly, each listing and calling the tools; a line that is "
+       "not JSON, a tool, a well, an argument and a method that do not exist, a batch; a withheld tool; the access log; an assistant's configuration file added to and restored); twenty-three tools, "
+       "each read-only by its own declaration with its arguments closed, none named for a change; the revisions spoken; the command a client starts - the console interpreter, never the windowless "
+       "one; a page as plain JSON with the working arrays left out" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- EH2 a workspace read through every tool: read-only, local, the page's own text ------------------------------------
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad EH", actor="tester")
+    DY.write_edr(DY.synthetic_record(True, stands=16), str(d / "rig.csv"))
+    wid = ws.add_well_file(str(d / "rig.csv"), display="RIG-1", actor="tester")["id"]
+    DY.write_edr(DY.synthetic_record(False, seed=5, stands=16), str(d / "rig2.csv"))
+    ws.add_well_file(str(d / "rig2.csv"), display="RIG-2", actor="tester")
+    MC.call_tool(ws, "rig_time", {})                               # the chart caches, as opening the tab would build them
+
+    def snapshot():
+        out = {}
+        for r_, _, fs in os.walk(wsp):
+            for f_ in fs:
+                p_ = os.path.join(r_, f_)
+                with open(p_, "rb") as fh:
+                    out[os.path.relpath(p_, wsp)] = hashlib.sha256(fh.read()).hexdigest()
+        return out
+    before = snapshot()
+    tried = []
+    real_connect = _socket.socket.connect
+
+    def no_network(self, *a_, **k_):
+        tried.append(a_)
+        raise OSError("no network in this check")
+    _socket.socket.connect = no_network
+    try:
+        answers = {n_: MC.call_tool(ws, n_, {}) for n_ in MC.NAMES}
+        as_json = {n_: MC.call_tool(ws, n_, {"json": True}, 400000) for n_ in MC.NAMES if n_ != "help"}
+        one = MC.call_tool(ws, "well", {"well": "rig-1"})
+        named = MC.call_tool(ws, "roadmap", {"well": "RIG-2"})
+    finally:
+        _socket.socket.connect = real_connect
+    after = snapshot()
+    changed = sorted(k_ for k_ in set(before) | set(after) if before.get(k_) != after.get(k_))
+    parsed = {}
+    for n_, r_ in as_json.items():
+        try:
+            parsed[n_] = json.loads(r_["text"])
+        except ValueError:
+            parsed[n_] = None
+    # the server as a child process, on its standard streams
+    def child(lines, extra=()):
+        pr = _sp.run([sys.executable, "-m", "gea", "mcp", "--workspace", wsp, *extra], input=b"".join(json.dumps(m_).encode() + b"\n" for m_ in lines), capture_output=True, env=env, cwd=str(d), timeout=300)
+        return pr.returncode, [json.loads(l_) for l_ in pr.stdout.split(b"\n") if l_], pr.stderr.decode("utf-8", "replace")
+    meta = {MC.K_VERSION: "2026-07-28", MC.K_CLIENT: {"name": "gate-modern", "version": "1"}, "io.modelcontextprotocol/clientCapabilities": {}}
+    rc_o, out_o, err_o = child([{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-11-25", "capabilities": {}, "clientInfo": {"name": "gate-legacy", "version": "1"}}},
+                                {"jsonrpc": "2.0", "method": "notifications/initialized"}, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+                                {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "rig_time", "arguments": {}}},
+                                {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "drilling_alerts", "arguments": {}}}])
+    rc_m, out_m, err_m = child([{"jsonrpc": "2.0", "id": "p", "method": "server/discover", "params": {"_meta": meta}}, {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {"_meta": meta}},
+                                {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "site", "arguments": {}, "_meta": meta}},
+                                {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "site", "arguments": {}, "_meta": {**meta, MC.K_VERSION: "2099-01-01"}}}])
+    kept = MC.set_settings(ws, "tester", tools=[n_ for n_ in MC.NAMES if n_ != "audit"], max_chars=3000, source="site manager (gate): no audit log to assistants")
+    rc_w, out_w, _ = child([{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "audit"}},
+                            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "help", "arguments": {"topic": "mcp"}}}])
+    rc_a, out_a, _ = child([{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "rig_time"}}], ("--allow", "site,audit"))
+    rc_x = _sp.run([sys.executable, "-m", "gea", "mcp", "--workspace", str(d / "nowhere")], input=b"", capture_output=True, env=env, cwd=str(d), timeout=120)
+    log = MC.access_log(ws, 100)
+    errs = {}
+    for name, kw in (("tool", {"tools": ["site", "wipe"]}), ("chars", {"max_chars": 10}), ("number", {"max_chars": "lots"})):
+        try:
+            MC.set_settings(ws, "tester", **kw); errs[name] = ""
+        except MC.ToolError as e:
+            errs[name] = str(e)
+    MC.set_settings(ws, "tester", tools=list(MC.NAMES), max_chars=40000)
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    c2 = {
+        "read_only": changed == [] and len(before) > 20,
+        "local": tried == [],
+        "answers": all(not r_["is_error"] for n_, r_ in answers.items() if n_ != "well") and answers["well"]["is_error"] and "name the well" in answers["well"]["text"]
+                   and not one["is_error"] and json.loads(one["text"])["id"] == wid and not named["is_error"] and "RIG-2 at" in named["text"],
+        "same_text": answers["rig_time"]["text"] == RS.text(RS.page(ws)) and answers["roadmap"]["text"] == RM.text(RM.page(ws)) and answers["drilling_alerts"]["text"] == DY.text(DY.page(ws))
+                     and "SIMULATION" in answers["pressure_plume"]["text"].splitlines()[0] and "RIG-1" in answers["site"]["text"] and _ver in answers["site"]["text"],
+        "json": all(isinstance(v, (dict, list)) for n_, v in parsed.items() if n_ != "well") and parsed["well"] is None and as_json["well"]["is_error"] and parsed["roadmap"]["status"] == "OK" and not [k_ for k_ in parsed["rig_time"] if str(k_).startswith("_")]
+                and len(parsed["drilling_alerts"]["wells"]) == 2,
+        "child_legacy": rc_o == 0 and len(out_o) == 4 and out_o[0]["result"]["protocolVersion"] == "2025-11-25" and len(out_o[1]["result"]["tools"]) == 23 and "resultType" not in out_o[1]["result"]
+                        and out_o[2]["result"]["content"][0]["text"] == answers["rig_time"]["text"] and "motor stall" in out_o[3]["result"]["content"][0]["text"] and "Traceback" not in err_o,
+        "child_modern": rc_m == 0 and len(out_m) == 4 and out_m[0]["result"]["supportedVersions"] == list(MC.SUPPORTED) and out_m[1]["result"]["resultType"] == "complete"
+                        and out_m[1]["result"]["cacheScope"] == "private" and out_m[2]["result"]["_meta"][MC.K_SERVER] == {"name": "gea-program", "title": "GEA-Program", "version": _ver}
+                        and out_m[2]["result"]["isError"] is False and out_m[3]["error"]["code"] == -32022 and out_m[3]["error"]["data"]["requested"] == "2099-01-01" and "Traceback" not in err_m,
+        "withheld": kept["tools"] is not None and "audit" not in kept["tools"] and rc_w == 0 and "audit" not in [t_["name"] for t_ in out_w[0]["result"]["tools"]] and len(out_w[0]["result"]["tools"]) == 22
+                    and out_w[1]["error"]["code"] == -32602 and "[cut at 3,000 of" in out_w[2]["result"]["content"][0]["text"],
+        "narrowed": rc_a == 0 and [t_["name"] for t_ in out_a[0]["result"]["tools"]] == ["site"] and out_a[1]["error"]["code"] == -32602,
+        "no_workspace": rc_x.returncode == 2 and rc_x.stdout == b"" and b"not a workspace" in rc_x.stderr,
+        "log": [r_["tool"] for r_ in reversed(log)] == ["rig_time", "drilling_alerts", "site", "audit", "help", "rig_time"]
+               and sum(1 for r_ in log if r_.get("turned_away") == "withheld") == 2 and any((r_.get("client") or {}).get("name") == "gate-legacy" for r_ in log)
+               and any((r_.get("client") or {}).get("name") == "gate-modern" for r_ in log) and any(r_.get("truncated") for r_ in log) and all("utc" in r_ and "chars" in r_ for r_ in log),
+        "settings": "no tool named wipe" in errs["tool"] and "between" in errs["chars"] and "number" in errs["number"] and "mcp.settings" in audit and "no audit log to assistants" in audit
+                    and MC.settings(ws)["tools"] is None,
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "EH2 a site read through every tool with every file in the workspace hashed before and after and the network refused: no file changed, nothing tried to connect; every tool answers (the one "
+       "that needs a well says so, and reads it by name in any case); the rig time, the roadmap and the drilling alerts return the very text their own pages print, the plume says SIMULATION in its "
+       "first line; every page also as JSON without the working arrays. The server as a child process on its standard streams: a client of 2025-11-25 through its handshake and a client of "
+       "2026-07-28 statelessly, nothing on standard output but one message a line, a clean exit when the input closes; a withheld tool not listed and not callable, a long answer cut and saying so; "
+       "a run started with fewer tools offering fewer and never one the site withholds; a folder that is no workspace an error on the error stream and nothing on the output; six lines in the "
+       "access log with who asked; the choice of tools in the audit log" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- EH3 the routes, the command, the tab, the help ---------------------------------------------------------------------
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator"); Users(str(Path(wsp, "users.json"))).add("ad", "admin-pass-12", "admin")
+    cfgp = d / "Claude" / "claude_desktop_config.json"; cfgp.parent.mkdir()
+    cfgp.write_text(json.dumps({"mcpServers": {"files": {"command": "npx", "args": ["-y", "x"]}}, "globalShortcut": "Ctrl+Space"}), encoding="utf-8")
+    real_paths = MC.claude_desktop_paths
+    MC.claude_desktop_paths = lambda: [str(cfgp)]                 # never the real one: this check must not touch an assistant installed on the computer that runs it
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=300) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O, A = opener("v", "viewer-pass-1"), opener("op", "op-pass-123"), opener("ad", "admin-pass-12")
+        s_vg, vg = call(V, "GET", "/api/mcp")
+        s_vs, _ = call(V, "POST", "/api/mcp/settings", {"tools": ["site"]})
+        s_os, os_ = call(O, "POST", "/api/mcp/settings", {"tools": ["site", "roadmap", "help"], "max_chars": "20000", "source": "operator (api)"})
+        s_bs, _ = call(O, "POST", "/api/mcp/settings", {"tools": ["site", "format_disk"]})
+        s_oc, _ = call(O, "POST", "/api/mcp/claude-desktop", {})
+        s_ac, ac = call(A, "POST", "/api/mcp/claude-desktop", {})
+        cfg_added = json.loads(cfgp.read_text(encoding="utf-8"))
+        s_g2, g2 = call(V, "GET", "/api/mcp")
+        s_ar, ar = call(A, "POST", "/api/mcp/claude-desktop", {"remove": True})
+        cfg_removed = json.loads(cfgp.read_text(encoding="utf-8"))
+        s_oa, _ = call(O, "POST", "/api/mcp/settings", {"tools": list(MC.NAMES), "max_chars": "40000"})
+    finally:
+        svc.stop()
+        MC.claude_desktop_paths = real_paths
+    run = lambda *a_: _sp.run([sys.executable, "-m", "gea", "mcp", "--workspace", wsp, *a_], capture_output=True, text=True, env=env, cwd=str(d), timeout=300)
+    cli_s, cli_c, cli_k, cli_j = run("--status"), run("--config"), run("--call", "roadmap", "--well", "RIG-2"), run("--call", "site", "--json")
+    cli_u, cli_o, cli_b, cli_a = run("--call", "format_disk"), run("--offer", "site,rig_time,help", "--source", "cli (gate)"), run("--offer", "site,format_disk"), run("--offer", "all")
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
+    lesson = (pkg / "help" / "tutorial" / "20-admin.md").read_text(encoding="utf-8")
+    its = (pkg / "help" / "IT_SECURITY.md").read_text(encoding="utf-8")
+    backups = sorted(p_.name for p_ in cfgp.parent.iterdir() if ".before-gea-" in p_.name)
+    c3 = {
+        "api": s_vg == 200 and len(vg["tools"]) == 23 and all(t_["offered"] for t_ in vg["tools"]) and vg["config"]["mcpServers"]["gea"]["args"][-1] == os.path.abspath(wsp) and len(vg["log"]) >= 6
+               and vg["claude_desktop"]["found"] and not vg["claude_desktop"]["installed"] and s_vs == 403 and s_os == 200 and os_["offered"] == ["site", "roadmap", "help"] and os_["max_chars"] == 20000
+               and s_bs == 400 and s_oa == 200,
+        "claude_desktop": s_oc == 403 and s_ac == 200 and len(ac["done"]) == 1 and cfg_added["globalShortcut"] == "Ctrl+Space" and cfg_added["mcpServers"]["files"] == {"command": "npx", "args": ["-y", "x"]}
+                          and cfg_added["mcpServers"]["gea"]["args"] == ["-m", "gea", "mcp", "--workspace", os.path.abspath(wsp)] and s_g2 == 200 and g2["claude_desktop"]["installed"]
+                          and s_ar == 200 and ar["removed"] and "gea" not in cfg_removed["mcpServers"] and "files" in cfg_removed["mcpServers"] and len(backups) >= 1 and "mcp.claude_desktop" in Path(ws.audit_path).read_text(encoding="utf-8"),
+        "cli": cli_s.returncode == 0 and "Assistant access (MCP)" in cli_s.stdout and "offered   site" in cli_s.stdout and cli_c.returncode == 0
+               and json.loads(cli_c.stdout)["mcpServers"]["gea"]["command"] == sys.executable and cli_k.returncode == 0 and "Drilling roadmap" in cli_k.stdout and "RIG-2 at" in cli_k.stdout
+               and cli_j.returncode == 0 and json.loads(cli_j.stdout)["site"] == "Pad EH" and cli_u.returncode != 0 and "no tool" in cli_u.stderr and cli_o.returncode == 0
+               and "offered: site, rig_time, help" in cli_o.stdout and cli_b.returncode != 0 and "no tool named format_disk" in cli_b.stderr and cli_a.returncode == 0 and "audit" in cli_a.stdout,
+        "page": all(x in page_src for x in ("VIEWS.mcp", "['#/mcp', 'Assistant access']", "/api/mcp/settings", "/api/mcp/claude-desktop", "help('mcp')", "Add to Claude Desktop",
+                                            "The server is on this computer; the assistant usually is not.")),
+        "help": not H.check("mcp") and H.VIEW_TOPIC.get("mcp") == "mcp" and any(t_ == "mcp" for t_, _, _ in H.INDEX)
+                and all(x in (H.page("mcp") or "") for x in ("gea mcp --workspace C:\\site --status", "2026-07-28", "server/discover", "records/mcp_access.jsonl", "may leave the site", "not verified"))
+                and all(f"`{n_}`" in (H.page("mcp") or "") for n_ in MC.NAMES),
+        "it_readme_lesson": "Assistant access (MCP)" in its and "opens no port" in its and "leaves the computer" in its
+                            and its == ((pkg.parent / "docs" / "IT_SECURITY.md").read_text(encoding="utf-8") if (pkg.parent / "docs" / "IT_SECURITY.md").is_file() else its)
+                            and (not readme or ("### Assistant access (MCP)" in readme and "`gea mcp`" in readme)) and "**Assistant access**" in lesson and "mcp" in lesson.split("Help:")[-1] and not TU.check("admin"),
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "EH3 on the API (anyone reads what is offered, the entry and the log; only an operator changes the choice, and a tool that does not exist is 400), adding the site to an assistant's "
+       "configuration file - a stand-in for Claude Desktop's, never the real one - is an administrator's (an operator is 403): its other server and its own settings kept, a dated copy left, "
+       "the page then showing it set, and taken out again; the command (the status, the entry, one tool's answer for a named well and as JSON, a tool that does not exist stopped, the choice kept "
+       "and put back); the Assistant access tab with its warning; the help page naming every tool; the IT statement in both copies, the README and lesson 20"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -18865,6 +19094,7 @@ def main() -> int:
         section_ee_calibration(tmp)
         section_ef_roadmap(tmp)
         section_eg_dysfunction(tmp)
+        section_eh_mcp(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

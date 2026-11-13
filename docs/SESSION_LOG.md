@@ -3848,3 +3848,48 @@ stability; and motor specifications in the tool catalogue.
   and Drilling alerts tabs, three alert events, the help pages, lesson
   13, the README, the dossier. Sections EF and EG. Rendered under
   Playwright with no script error. Gate 578.
+
+## 2026-11-13 - assistant access (v0.89.0)
+
+- v0.88.0 shipped at the second attempt (ci, PyPI and the kit build
+  green - the Windows gate passed with the chart cache's generations);
+  the six kits fetched into C:\site\installers and verified against the
+  release's SHA-256, the 0.87.0 ones moved to _to_delete. Daniel: what is
+  next on the list - go on the MCP server.
+- The protocol was read from its specification before a line was
+  written, and it had moved: revision 2026-07-28 has no `initialize`
+  handshake at all - every request carries its version in `_meta`, a
+  server must answer `server/discover`, every result carries
+  `resultType`, `ping` is gone. A server written from memory of the
+  earlier revisions would have been wrong for a current client, and one
+  written only to the new revision wrong for every client still on the
+  old. This one speaks both, chosen by how the client opens.
+- No dependency: JSON-RPC over the standard streams is a loop and a
+  dictionary, and GEA stays standalone. The tools are the pages' own
+  `page` and `text` functions, so there is nothing to keep in step: the
+  gate checks that the rig time, the roadmap and the drilling alerts
+  come back as the very text their pages print.
+- Read-only is a claim, so it is tested as one: every file in a
+  workspace hashed before and after every tool, as text and as JSON, and
+  the network refused while they run. Nothing changed and nothing tried
+  to connect. The access log is the one file a call writes, and the
+  server writes it, not the tool.
+- Standard output is the protocol's. While a tool runs, anything the
+  program would print is sent to the error stream; a folder that is no
+  workspace is an error on the error stream and nothing on the output.
+- The part that is not software: the server is local and the assistant
+  is not. What a tool returns goes to whoever runs the model. The tab,
+  the help page and the IT statement each say so before anything else,
+  and the site can withhold any page. For Pad 3 that is Daniel's
+  decision to make per page, not the program's.
+- Adding the server to Claude Desktop is one button for an
+  administrator: one entry written into that program's configuration,
+  the rest of the file kept, a dated copy left beside it, a file that is
+  not readable JSON left alone. The gate does it to a stand-in file and
+  never to the real one on the computer that runs it.
+- What is not there: resources and prompts (tools only); a network
+  transport (deliberately - a port would need the sign-in the control
+  panel has); any tool that writes.
+- The CLI `gea mcp`, the routes, the Assistant access tab, the help
+  page, lesson 20, the README, the IT statement. Section EH. Rendered
+  under Playwright with no script error. Gate 581.

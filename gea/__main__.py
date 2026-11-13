@@ -677,6 +677,21 @@ def main(argv=None) -> int:
     p_os.add_argument("--actor", type=str, default="cli")
     p_os.add_argument("--json", action="store_true")
 
+    p_mc = sub.add_parser("mcp", help="the site, readable by an assistant: a Model Context Protocol server on standard input and output - local (no port), read-only (every tool reads one of the program's pages, none changes anything), logged; with --workspace alone it serves until its input closes")
+    p_mc.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (both eras of the protocol against a labelled site)")
+    p_mc.add_argument("--allow", type=str, default=None, help="serve only these tools this run, comma-separated (never more than the site offers)")
+    p_mc.add_argument("--status", action="store_true", help="print the tools offered, how to start the server and the last calls, and exit")
+    p_mc.add_argument("--config", action="store_true", help="print the entry an MCP client's configuration needs to start this site's server, and exit")
+    p_mc.add_argument("--call", type=str, default=None, help="call one tool and print its answer, as an assistant would get it")
+    p_mc.add_argument("--well", type=str, default=None, help="--call: the well, by name or id")
+    p_mc.add_argument("--topic", type=str, default=None, help="--call help: the topic")
+    p_mc.add_argument("--json", action="store_true", help="--call: the page as JSON instead of its text")
+    p_mc.add_argument("--offer", type=str, default=None, help="settings: the tools the site offers, comma-separated (all: every tool)")
+    p_mc.add_argument("--max-chars", type=int, default=None, help="settings: the most characters one answer carries (default 40000)")
+    p_mc.add_argument("--source", type=str, default="", help="settings: who decided, and on what grounds")
+    p_mc.add_argument("--add-to-claude-desktop", action="store_true", help="add this site's server to Claude Desktop's configuration on this computer, keeping every other entry and a dated copy of the file")
+    p_mc.add_argument("--remove-from-claude-desktop", action="store_true", help="take it out again")
+    p_mc.add_argument("--actor", type=str, default="cli")
     p_al = sub.add_parser("alerts", help="the program's alerts: earthquakes near operating wells and the protocol levels they reach, the earthquake watch going quiet, components due for service, penetrator checks outside their ratings, dossiers the workspace no longer matches")
     p_al.add_argument("--workspace", type=str, required=True)
     p_al.add_argument("--check", action="store_true", help="check the motors, penetrators and dossiers now, sending what began or cleared through the notification rules")
@@ -3559,6 +3574,50 @@ def main(argv=None) -> int:
             print(f"  {f_['family']}: {f_['n']} version(s)")
             for v in f_["versions"][: (50 if a.family else 3)]:
                 print(f"      {v['utc']}  {v.get('report_id') or ''}  reports/{v['dir']}")
+        return 0
+    elif a.cmd == "mcp":
+        import json as _json
+        from . import mcp_server as _MC
+        from .workspace import Workspace, WorkspaceError
+        allow_ = [t_.strip() for t_ in a.allow.split(",") if t_.strip()] if a.allow else None
+        if not a.workspace:
+            r = _MC.selftest()
+            print("\n".join(f"{'PASS' if c['pass'] else 'FAIL'}  {c['check']}: {c['value']}" for c in r["checks"]) + f"\n{'OK' if r['ok'] else 'FAILED'} - {r['label']}")
+            return 0 if r["ok"] else 1
+        try:
+            ws = Workspace(a.workspace)
+        except WorkspaceError as e:
+            print(f"mcp: {e}", file=sys.stderr)                 # the error stream: standard output is the protocol's
+            return 2
+        if not (a.status or a.config or a.call or a.offer or a.max_chars is not None or a.add_to_claude_desktop or a.remove_from_claude_desktop):
+            return _MC.serve(ws, allow=allow_)                  # the server: nothing but protocol messages on standard output
+        from .cli import _safe_stdout
+        _safe_stdout()
+        try:
+            if a.offer or a.max_chars is not None:
+                st_ = _MC.set_settings(ws, a.actor, (list(_MC.NAMES) if a.offer and a.offer.strip().lower() == "all" else a.offer), a.max_chars, a.source)
+                print(f"offered: {', '.join(_MC.offered(ws))}; an answer carries {st_['max_chars']:,} characters at most")
+            if a.add_to_claude_desktop or a.remove_from_claude_desktop:
+                r = _MC.install_claude_desktop(ws, a.actor, remove=a.remove_from_claude_desktop)
+                for d_ in r["done"]:
+                    print(f"{'taken out of' if r['removed'] else 'added to'} {d_['path']}" + (f" (as it was: {d_['backup']})" if d_["backup"] else "") + " - quit Claude Desktop and start it again")
+                for d_ in r["skipped"]:
+                    print(f"not changed: {d_['path']} - {d_['why']}")
+            if a.config:
+                print(_json.dumps(_MC.client_config(ws.path, allow_), indent=2))
+            if a.call:
+                if a.call not in _MC.offered(ws, allow_):
+                    raise SystemExit(f"mcp: no tool {a.call!r} is offered; offered: {', '.join(_MC.offered(ws, allow_))}")
+                args_ = {k: v for k, v in (("well", a.well), ("topic", a.topic)) if v is not None}
+                if a.json:
+                    args_["json"] = True
+                r = _MC.call_tool(ws, a.call, args_, _MC.settings(ws)["max_chars"])
+                print(r["text"])
+                return 1 if r["is_error"] else 0
+            if a.status:
+                print(_MC.text(_MC.page(ws)))
+        except (_MC.ToolError, WorkspaceError, OSError) as e:
+            raise SystemExit(f"mcp: {e.args[0] if e.args else e}")
         return 0
     elif a.cmd == "alerts":
         import json as _json
