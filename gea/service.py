@@ -2308,6 +2308,18 @@ def make_handler(app: App):
                                 b_ = f_.read()
                         return self._json(200, {'xlsx_b64': _b64.b64encode(b_).decode('ascii'), 'filename': 'declarations.xlsx'})
                     return self._json(200, {'csv': DC.template(app.ws), 'filename': 'declarations.csv'})
+                if path == '/api/benchmark':
+                    from . import benchmark as BM
+                    return self._json(200, App._cr(BM.page, app.ws))
+                if path == '/api/public-pad':
+                    from . import public_pad as PP
+                    folder = (qs.get('folder') or [''])[0]
+                    if folder:
+                        App.require(user, 'admin')              # it looks into a folder of this computer the caller names
+                    st_ = App._cr(PP.status, folder)
+                    st_['job'] = PP.job()
+                    st_['this_site'] = PP.credit(app.ws)
+                    return self._json(200, st_)
                 if path == '/api/mcp':
                     from . import mcp_server as MC
                     return self._json(200, App._cr(MC.page, app.ws))
@@ -2719,6 +2731,17 @@ def make_handler(app: App):
                     if not isinstance(t_, str) or not t_.strip():
                         raise ApiError(400, 'send the sheet as text (CSV) or an Excel workbook')
                     return self._json(200, DC.apply(app.ws, t_, user['name'], '', write=bool((body or {}).get('apply'))))
+                if path == '/api/benchmark/write':
+                    from . import benchmark as BM
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    r_ = App._cr(BM.write_report, app.ws, _v, user['name'])
+                    return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
+                if path == '/api/public-pad/build':
+                    from . import public_pad as PP
+                    App.require(user, 'admin')
+                    b_ = dict(body or {})
+                    return self._json(200, App._cr(PP.start_build, str(b_.get('folder') or ''), str(b_.get('path') or ''), user['name'], copy_users_from=app.ws.path, current_path=app.ws.path))
                 if path == '/api/mcp/settings':
                     from . import mcp_server as MC
                     App.require(user, 'operator')

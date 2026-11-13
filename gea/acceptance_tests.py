@@ -18578,10 +18578,10 @@ def section_eg_dysfunction(tmp: str) -> None:
 
     # -- EG2 a workspace: the replay, the live record, the alert ------------------------------------------------------------
     wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad EG", actor="tester")
-    rec = DY.synthetic_record(True)
+    rec = DY.synthetic_record(True, ends_now=True)
     DY.write_edr(rec, str(d / "rig.csv"))
     wid = ws.add_well_file(str(d / "rig.csv"), display="RIG-1", actor="tester")["id"]
-    DY.write_edr(DY.synthetic_record(False, seed=5), str(d / "sound.csv"))
+    DY.write_edr(DY.synthetic_record(False, seed=5, ends_now=True), str(d / "sound.csv"))
     wid2 = ws.add_well_file(str(d / "sound.csv"), display="RIG-2", actor="tester")["id"]
     pg = DY.page(ws)
     w1 = next(w_ for w_ in pg["wells"] if w_["well"] == wid); w2 = next(w_ for w_ in pg["wells"] if w_["well"] == wid2)
@@ -18763,7 +18763,7 @@ def section_eh_mcp(tmp: str) -> None:
     plain = MC._plain({"a": np.float64(1.5), "_work": [1, 2], "b": [np.int64(3), float("nan")], "c": np.arange(4), "d": (1, "x")})
     c1 = {
         "selftest": st["ok"] and len(st["checks"]) >= 7,
-        "tools": len(defs) == 23 and defs[0]["name"] == "site" and all(d_["annotations"]["readOnlyHint"] is True and d_["annotations"]["destructiveHint"] is False and d_["annotations"]["openWorldHint"] is False
+        "tools": len(defs) == 24 and defs[0]["name"] == "site" and all(d_["annotations"]["readOnlyHint"] is True and d_["annotations"]["destructiveHint"] is False and d_["annotations"]["openWorldHint"] is False
                                                                         and d_["inputSchema"]["type"] == "object" and d_["inputSchema"]["additionalProperties"] is False and d_["title"] for d_ in defs)
                  and "well" in defs[1]["inputSchema"]["properties"] and "json" in defs[2]["inputSchema"]["properties"] and "json" not in MC.tool_definition("help")["inputSchema"]["properties"]
                  and not [n_ for n_ in MC.NAMES if any(w_ in n_ for w_ in ("write", "set", "declare", "attach", "remove", "delete", "run"))],
@@ -18775,7 +18775,7 @@ def section_eh_mcp(tmp: str) -> None:
     failed1 = [k_ for k_, v in c1.items() if not v]
     ok(not failed1,
        "EH1 the MCP server: the self-test (a client of an earlier revision through its handshake and a client of revision 2026-07-28 statelessly, each listing and calling the tools; a line that is "
-       "not JSON, a tool, a well, an argument and a method that do not exist, a batch; a withheld tool; the access log; an assistant's configuration file added to and restored); twenty-three tools, "
+       "not JSON, a tool, a well, an argument and a method that do not exist, a batch; a withheld tool; the access log; an assistant's configuration file added to and restored); twenty-four tools, "
        "each read-only by its own declaration with its arguments closed, none named for a change; the revisions spoken; the command a client starts - the console interpreter, never the windowless "
        "one; a page as plain JSON with the working arrays left out" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
 
@@ -18853,12 +18853,12 @@ def section_eh_mcp(tmp: str) -> None:
                      and "SIMULATION" in answers["pressure_plume"]["text"].splitlines()[0] and "RIG-1" in answers["site"]["text"] and _ver in answers["site"]["text"],
         "json": all(isinstance(v, (dict, list)) for n_, v in parsed.items() if n_ != "well") and parsed["well"] is None and as_json["well"]["is_error"] and parsed["roadmap"]["status"] == "OK" and not [k_ for k_ in parsed["rig_time"] if str(k_).startswith("_")]
                 and len(parsed["drilling_alerts"]["wells"]) == 2,
-        "child_legacy": rc_o == 0 and len(out_o) == 4 and out_o[0]["result"]["protocolVersion"] == "2025-11-25" and len(out_o[1]["result"]["tools"]) == 23 and "resultType" not in out_o[1]["result"]
+        "child_legacy": rc_o == 0 and len(out_o) == 4 and out_o[0]["result"]["protocolVersion"] == "2025-11-25" and len(out_o[1]["result"]["tools"]) == 24 and "resultType" not in out_o[1]["result"]
                         and out_o[2]["result"]["content"][0]["text"] == answers["rig_time"]["text"] and "motor stall" in out_o[3]["result"]["content"][0]["text"] and "Traceback" not in err_o,
         "child_modern": rc_m == 0 and len(out_m) == 4 and out_m[0]["result"]["supportedVersions"] == list(MC.SUPPORTED) and out_m[1]["result"]["resultType"] == "complete"
                         and out_m[1]["result"]["cacheScope"] == "private" and out_m[2]["result"]["_meta"][MC.K_SERVER] == {"name": "gea-program", "title": "GEA-Program", "version": _ver}
                         and out_m[2]["result"]["isError"] is False and out_m[3]["error"]["code"] == -32022 and out_m[3]["error"]["data"]["requested"] == "2099-01-01" and "Traceback" not in err_m,
-        "withheld": kept["tools"] is not None and "audit" not in kept["tools"] and rc_w == 0 and "audit" not in [t_["name"] for t_ in out_w[0]["result"]["tools"]] and len(out_w[0]["result"]["tools"]) == 22
+        "withheld": kept["tools"] is not None and "audit" not in kept["tools"] and rc_w == 0 and "audit" not in [t_["name"] for t_ in out_w[0]["result"]["tools"]] and len(out_w[0]["result"]["tools"]) == 23
                     and out_w[1]["error"]["code"] == -32602 and "[cut at 3,000 of" in out_w[2]["result"]["content"][0]["text"],
         "narrowed": rc_a == 0 and [t_["name"] for t_ in out_a[0]["result"]["tools"]] == ["site"] and out_a[1]["error"]["code"] == -32602,
         "no_workspace": rc_x.returncode == 2 and rc_x.stdout == b"" and b"not a workspace" in rc_x.stderr,
@@ -18926,7 +18926,7 @@ def section_eh_mcp(tmp: str) -> None:
     its = (pkg / "help" / "IT_SECURITY.md").read_text(encoding="utf-8")
     backups = sorted(p_.name for p_ in cfgp.parent.iterdir() if ".before-gea-" in p_.name)
     c3 = {
-        "api": s_vg == 200 and len(vg["tools"]) == 23 and all(t_["offered"] for t_ in vg["tools"]) and vg["config"]["mcpServers"]["gea"]["args"][-1] == os.path.abspath(wsp) and len(vg["log"]) >= 6
+        "api": s_vg == 200 and len(vg["tools"]) == 24 and all(t_["offered"] for t_ in vg["tools"]) and vg["config"]["mcpServers"]["gea"]["args"][-1] == os.path.abspath(wsp) and len(vg["log"]) >= 6
                and vg["claude_desktop"]["found"] and not vg["claude_desktop"]["installed"] and s_vs == 403 and s_os == 200 and os_["offered"] == ["site", "roadmap", "help"] and os_["max_chars"] == 20000
                and s_bs == 400 and s_oa == 200,
         "claude_desktop": s_oc == 403 and s_ac == 200 and len(ac["done"]) == 1 and cfg_added["globalShortcut"] == "Ctrl+Space" and cfg_added["mcpServers"]["files"] == {"command": "npx", "args": ["-y", "x"]}
@@ -18952,6 +18952,212 @@ def section_eh_mcp(tmp: str) -> None:
        "the page then showing it set, and taken out again; the command (the status, the entry, one tool's answer for a named well and as JSON, a tool that does not exist stopped, the choice kept "
        "and put back); the Assistant access tab with its warning; the help page naming every tool; the IT statement in both copies, the README and lesson 20"
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
+def section_ei_public_pad_benchmark(tmp: str) -> None:
+    """Section EI - a pad from public data, and the benchmark: the self-tests; the recorder exports read without an
+    on-bottom flag, a depth reamed back through hole already drilled, a ten-second record's pipe speeds, a stand no bit
+    could have drilled; the published layouts converted (stand-ins under the published names) and the site made, with
+    each file's size and hash kept and the credit on every page; the benchmark over it - the counts, the ranks, each
+    well against the pad's best; the routes, the tabs, the commands, the assistant's tool, the help, the README and
+    the lessons."""
+    import http.cookiejar
+    import io as _io
+    import subprocess as _sp
+    import urllib.error
+    import urllib.request
+    from datetime import datetime as _dtm, timedelta as _td
+    from . import __version__ as _ver
+    from . import alerts as AL
+    from . import benchmark as BM
+    from . import dysfunction as DY
+    from . import edr as E
+    from . import helplib as H
+    from . import mcp_server as MC
+    from . import public_pad as PP
+    from . import rig_state as RS
+    from . import roadmap as RM
+    from . import tutorial as TU
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ei"); d.mkdir()
+    os.environ["GEA_WORKSPACES_FILE"] = str(d / "workspaces.json")
+    # -- EI1 what the published records made the drilling record learn ------------------------------------------------------
+    st_p, st_b = PP.selftest(), BM.selftest()
+    hdr = "YYYY/MM/DD,HH:MM:SS,Hole Depth (feet),Bit Depth (feet),Rate Of Penetration (ft_per_hr),Weight on Bit (klbs),Rotary RPM (RPM),Hook Load (klbs),Standpipe Pressure (psi),Total Pump Output (gal_per_min),Block Height (feet)"
+    t0 = _dtm(2026, 5, 1, 0, 0, 0)
+
+    def write(path, rows, step=1):
+        with open(path, "w", encoding="utf-8", newline="") as f:
+            f.write(hdr + "\n")
+            for k, (hole, bit, rop, wob, rpm) in enumerate(rows):
+                ts = t0 + _td(seconds=k * step)
+                f.write(f"{ts:%Y/%m/%d},{ts:%H:%M:%S},{hole:.2f},{bit:.2f},{rop:.1f},{wob:.1f},{rpm:.1f},180.0,2500.0,550.0,50.0\n")
+    # drilled 1,000 to 2,500 ft at 180 ft/h with 30 klbf; the depth set back to 1,100 and reamed back to 2,400 at 900 ft/h with 3 klbf; then drilled on to 2,700
+    rows = [(1000.0 + 0.05 * k, 1000.0 + 0.05 * k, 180.0, 30.0, 80.0) for k in range(30000)]
+    rows += [(1100.0 + 0.25 * k, 1100.0 + 0.25 * k, 900.0, 3.0, 60.0) for k in range(5200)]
+    rows += [(2400.0 + 0.25 * k, 2400.0 + 0.25 * k, 900.0, 3.0, 60.0) for k in range(400)]                 # the old depth regained at 2,500
+    rows += [(2500.0 + 0.05 * k, 2500.0 + 0.05 * k, 180.0, 30.0, 80.0) for k in range(4000)]
+    write(str(d / "reamed.csv"), rows)
+    s_r = E.read(str(d / "reamed.csv")); de = E.depth_events(s_r); rec_r = E.record(s_r, de)
+    ev = [e for e in de["events"] if e["type"] == "REAMED BACK"]
+    # the same fall, but the regain is drilled as the hole was (a redrill): not reamed back
+    rows2 = rows[:30000] + [(1100.0 + 0.05 * k, 1100.0 + 0.05 * k, 180.0, 30.0, 80.0) for k in range(8000)]
+    write(str(d / "redrilled.csv"), rows2)
+    de2 = E.depth_events(E.read(str(d / "redrilled.csv")))
+    on, how = E.on_bottom(s_r)
+    # a ten-second record: the bit pulled 600 ft at 1 ft/s is tripping out, not standing still
+    n10 = 400; t10 = np.arange(n10) * 10.0
+    bit10 = np.where(t10 < 600.0, 9000.0 - t10, 8400.0)
+    c10 = RS.classify(t10, {"hookload": np.full(n10, 200.0), "block": np.full(n10, 50.0), "bit": bit10, "hole": np.full(n10, 9700.0), "flow": np.zeros(n10), "spp": None, "rpm": np.zeros(n10)},
+                      np.zeros(n10, bool), block_weight=40.0)
+    tq = np.arange(0.0, 3600.0)
+    hole_q = 5000.0 + np.where(tq < 1800.0, tq * 0.05, 90.0 + (tq - 1800.0) * 2.0)                       # 90 ft drilled at 180 ft/h, then the depth run on at 7,200 ft/h
+    stq = RM.stands_of(tq, hole_q, np.ones(len(tq), bool), np.ones(len(tq), bool), {})
+    c1 = {
+        "selftests": st_p["ok"] and st_b["ok"] and len(st_p["checks"]) >= 9 and len(st_b["checks"]) >= 3,
+        "on_bottom": how is not None and "no On Bottom channel" in how and bool(on.all()) and any("no On Bottom channel" in n_ for n_ in rec_r["notes"]) and E.ON_BOTTOM_FT == 0.1,
+        "reamed_back": len(ev) == 1 and "reamed back in" in ev[0]["effect"] and "3 klbf on the bit where it was drilled with 30" in ev[0]["effect"] and abs(rec_r["feet_drilled"] - 1700.0) < 5.0
+                       and not [e for e in de2["events"] if e["type"] == "REAMED BACK"] and [e["type"] for e in de2["events"] if e["from_ft"] > 2000] == ["UNRESOLVED"],
+        "ten_second": float((c10["state"][:55] == RS.TOUT).mean()) > 0.9 and int((c10["state"][70:] == RS.TOUT).sum()) == 0,
+        "implausible": stq["implausible"] >= 30 and stq["n"] == 1 and float(stq["rop"][0]) < 250.0 and float(stq["feet"].sum()) <= 100.0,
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "EI1 what the published records taught the drilling record, each on a labelled file: an export with no on-bottom flag is read with the bit within 0.1 ft of the hole depth as on bottom, and "
+       "says so; a depth set back 1,400 ft and regained through hole already drilled at five times the rate with a tenth of the weight is the string reamed back in, excluded, and the footage is the "
+       "hole's own 1,700 ft - while the same fall drilled again as it was first drilled is left for the daily report to decide; a ten-second record's pipe pulled at a foot a second is a trip out; "
+       "the stand drilled at 180 ft/h is kept and the thirty-odd behind it, counted at 7,200 ft/h, are left out and counted as such; the public-pad and benchmark self-tests" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- EI2 the site made from the published layouts, and the benchmark over it -------------------------------------------
+    folder, site = str(d / "files"), str(d / "forge-site")
+    made = PP.standins(folder, stands=24)
+    st0 = PP.status(folder, verify=True)
+    seen = []
+    r = PP.build(folder, site, "tester", progress=seen.append)
+    ws = Workspace(site); rec = PP.record(ws); by = {e["well"]: e for e in rec["wells"]}
+    bm = BM.page(ws); rm = RM.page(ws); dy = DY.page(ws)
+    bw = {w_["display"]: w_ for w_ in bm["wells"]}
+    wr = BM.write_report(ws, _ver, "tester")
+    rows_b = (Path(wr["folder"]) / "benchmark.csv").read_text(encoding="utf-8").strip().splitlines()
+    rows_s = (Path(wr["folder"]) / "stretches.csv").read_text(encoding="utf-8").strip().splitlines()
+    raised = AL.check_conditions(ws, None, force=True)
+    again = PP.build(folder, site, "tester")
+    os.remove(os.path.join(folder, "16B(78)-32 Well Survey.zip"))
+    r_ns = PP.build(folder, str(d / "forge-nosurvey"), "tester", wells=["56-32", "16B(78)-32"], verify=False)
+    by_ns = {e["well"]: e for e in r_ns["record"]["wells"]}
+    site_txt = MC.call_tool(ws, "site", {})["text"]; bm_txt = MC.call_tool(ws, "benchmark", {})
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    plain = Workspace.create(str(d / "plain"), "Plain", actor="tester")
+    c2 = {
+        "status": st0["present"] == 5 and st0["ready"] and all(r_["present"] and r_["size_matches"] is False and r_["hash_matches"] is False and len(r_["sha256"]) == 64 for r_ in st0["files"])
+                  and [r_["well"] for r_ in st0["files"]] == ["58-32", "16A(78)-32", "56-32", "78B-32", "16B(78)-32"] and st0["total_bytes"] > 2.7e9 and all(r_["page"].startswith("https://gdr.openei.org/submissions/") for r_ in st0["files"]),
+        "built": r["added"] == [r_["well"] for r_ in st0["files"]] and ws.manifest.get("name") == "Utah FORGE - public data" and len(ws.wells()) == 5 and seen[-1] == {"step": "done", "added": r["added"]}
+                 and {s_["step"] for s_ in seen} >= {"hashing", "converting", "attaching", "done"} and again["added"] == [] and "public_pad.build" in audit and str(d / "workspaces.json") and Path(d / "workspaces.json").is_file(),
+        "provenance": rec["licence"]["url"].endswith("/by/4.0/") and "U.S. Department of Energy" in rec["credit"] and all(e["sha256"] and e["hash_matches"] is False and e["bytes"] > 0 and e["well_id"] for e in rec["wells"])
+                      and by["16A(78)-32"]["bit_depth_reconstructed"] and by["16B(78)-32"]["tvd_from_survey"] and "attached as it is" in by["56-32"]["notes"][-1]
+                      and not by_ns["16B(78)-32"]["tvd_from_survey"] and any("measured depth stands in" in n_ for n_ in by_ns["16B(78)-32"]["notes"]),
+        "pages_credit": all(p_["lines"][-1].startswith("Data: Utah FORGE, public, under Creative Commons Attribution 4.0") and p_["public_source"]["name"] == "Utah FORGE" for p_ in (bm, rm, dy))
+                        and any("reconstructed" in n_ for n_ in bm["notes"]) and "Data: Utah FORGE" in site_txt and PP.credit(plain) is None and "public_source" not in BM.page(plain),
+        "not_live": all(not w_["live"] for w_ in dy["wells"]) and not [e for e in raised if e["event"].startswith("drilling.")],
+        "benchmark": bm["status"] == "OK" and len(bm["wells"]) == 5 and all(abs(w_["drilled_ft"] - round(made[w_["display"]]["hole_to"] - made[w_["display"]]["hole_from"], -2)) <= 200 and 140 <= w_["rop_ft_h"] <= 160
+                                                                           and w_["connections"] >= 20 and 5.0 <= w_["w2w_median_min"] <= 6.5 and w_["gap_h"] >= 0 and w_["compared_h"] > 0 for w_ in bm["wells"])
+                     and set(bm["ranks"]["rop_ft_h"].values()) <= {1, 2, 3, 4, 5} and 1 in bm["ranks"]["feet_per_day"].values() and len(bm["curves"]) == 5 and all(len(c_) >= 10 and c_[0][1] < c_[-1][1] for c_ in bm["curves"].values())
+                     and bm["pad_best_connection_min"] is not None and len(bm["stretches"]) >= 3 and all(s_["best_well"] in bm["names"] for s_ in bm["stretches"] if s_["best_rop_ft_h"]),
+        "report": set(wr["files"]) == {"benchmark.json", "benchmark.md", "benchmark.csv", "stretches.csv"} and len(rows_b) == 6 and rows_b[0].startswith("display,drilled_ft,days,feet_per_day") and len(rows_s) == len(bm["stretches"]) + 1
+                  and "benchmark.report" in audit, 
+        "tool": not bm_txt["is_error"] and bm_txt["text"] == BM.text(BM.page(ws)) and "benchmark" in MC.NAMES and len(MC.NAMES) == 24,
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "EI2 the public pad from stand-ins written in each of the five published layouts under the published names: the folder read against the list (every file there, none the published size or "
+       "hash, and said so); the site made and registered, five wells, each source's hash on the record, the licence and the credit; 16A's bit depth marked reconstructed, 16B's true vertical depth "
+       "from its survey and, without the survey, its measured depth standing in and said to; the credit as the last line of the roadmap, the drilling alerts and the benchmark, and on the "
+       "assistant's site tool; records dated months ago raise no drilling alert though their files are new; built again it adds nothing. The benchmark over it: every well's footage, rate and "
+       "connections, the ranks, the curves, the pad's best and each well's gap; its report with a row a well and a row a stretch; the assistant's benchmark tool the page's own text"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- EI3 the routes, the commands, the tabs, the help -------------------------------------------------------------------
+    Users(str(Path(site, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(site, "users.json"))).add("op", "op-pass-123", "operator"); Users(str(Path(site, "users.json"))).add("ad", "admin-pass-12", "admin")
+    svc = Service(site, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=300) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    from urllib.parse import quote as _q
+    try:
+        V, O, A = opener("v", "viewer-pass-1"), opener("op", "op-pass-123"), opener("ad", "admin-pass-12")
+        s_vb, vb = call(V, "GET", "/api/benchmark")
+        s_vw, _ = call(V, "POST", "/api/benchmark/write", {})
+        s_ow, ow = call(O, "POST", "/api/benchmark/write", {})
+        s_vp, vp = call(V, "GET", "/api/public-pad")
+        s_vf, _ = call(V, "GET", "/api/public-pad?folder=" + _q(folder))
+        s_af, af = call(A, "GET", "/api/public-pad?folder=" + _q(folder))
+        s_ob, _ = call(O, "POST", "/api/public-pad/build", {"folder": folder, "path": str(d / "forge-api")})
+        s_ab, ab = call(A, "POST", "/api/public-pad/build", {"folder": folder, "path": str(d / "forge-api")})
+        job = {}
+        for _ in range(240):
+            _, pj = call(A, "GET", "/api/public-pad")
+            job = pj["job"]
+            if job.get("state") != "running":
+                break
+            time.sleep(0.5)
+        s_bad, _ = call(A, "POST", "/api/public-pad/build", {"folder": str(d / "nowhere"), "path": str(d / "forge-bad")})
+        job_bad = {}
+        for _ in range(60):
+            _, pj = call(A, "GET", "/api/public-pad")
+            job_bad = pj["job"]
+            if job_bad.get("state") != "running":
+                break
+            time.sleep(0.25)
+    finally:
+        svc.stop()
+    env = {**os.environ, "PYTHONPATH": str(pkg.parent) + os.pathsep + os.environ.get("PYTHONPATH", "")}
+    run = lambda *a_: _sp.run([sys.executable, "-m", "gea", *a_], capture_output=True, text=True, env=env, cwd=str(d), timeout=600)
+    cli_l, cli_f, cli_v = run("public-pad", "--list"), run("public-pad", "--folder", folder), run("public-pad", "--folder", folder, "--verify", "--json")
+    cli_b, cli_n = run("public-pad", "--folder", folder, "--build", "--site", str(d / "forge-cli")), run("public-pad", "--folder", folder, "--build")
+    cli_bm, cli_bj, cli_bw = run("benchmark", "--workspace", site), run("benchmark", "--workspace", site, "--json"), run("benchmark", "--workspace", site, "--write")
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
+    lesson = (pkg / "help" / "tutorial" / "13-drilling-pages.md").read_text(encoding="utf-8")
+    c3 = {
+        "api_benchmark": s_vb == 200 and vb["status"] == "OK" and len(vb["wells"]) == 5 and s_vw == 403 and s_ow == 200 and "stretches.csv" in ow["files"],
+        "api_public": s_vp == 200 and vp["folder"] == "" and len(vp["files"]) == 5 and vp["this_site"]["name"] == "Utah FORGE" and s_vf == 403 and s_af == 200 and af["present"] == 5 and s_ob == 403 and s_ab == 200
+                      and ab["state"] == "running" and job.get("state") == "done" and job["result"]["wells"] == ["58-32", "16A(78)-32", "56-32", "78B-32", "16B(78)-32"] and len(Workspace(str(d / "forge-api")).wells()) == 5
+                      and Path(d / "forge-api", "users.json").is_file() and job_bad.get("state") == "failed" and "no such folder" in job_bad.get("error", ""),
+        "cli": cli_l.returncode == 0 and "Well_58-32_raw_pason_log.csv" in cli_l.stdout and "doi:10.15121/1998591" in cli_l.stdout and cli_f.returncode == 0 and "5 of 5 recorder files" in cli_f.stdout
+               and cli_v.returncode == 0 and json.loads(cli_v.stdout)["files"][0]["hash_matches"] is False and cli_b.returncode == 0 and "added 58-32, 16A(78)-32, 56-32, 78B-32, 16B(78)-32" in cli_b.stdout
+               and "RECONSTRUCTED" in cli_b.stdout and cli_n.returncode != 0 and "--site" in cli_n.stderr and cli_bm.returncode == 0 and "Benchmark: the wells against one another" in cli_bm.stdout
+               and "Data: Utah FORGE" in cli_bm.stdout and cli_bj.returncode == 0 and len(json.loads(cli_bj.stdout)["wells"]) == 5 and cli_bw.returncode == 0 and "stretches.csv" in cli_bw.stdout,
+        "page": all(x in page_src for x in ("VIEWS.benchmark", "['#/benchmark', 'Benchmark']", "bmCurves", "/api/benchmark/write", "help('benchmark')", "VIEWS.publicpad", "['#/publicpad', 'Public data']",
+                                            "/api/public-pad/build", "help('publicpad')", "does not contain them and does not fetch them")),
+        "help": not H.check("benchmark") and not H.check("public-data") and not H.check("edr") and H.VIEW_TOPIC.get("benchmark") == "benchmark" and H.VIEW_TOPIC.get("publicpad") == "public-data"
+                and all(x in (H.page("public-data") or "") for x in ("gea public-pad --folder C:\\forge --build --site C:\\forge-site", "RECONSTRUCTED", "CC BY 4.0", "does not fetch them", "REAMED BACK"))
+                and all(x in (H.page("benchmark") or "") for x in ("gea benchmark --workspace C:\\site", "300 ft or more", "25th percentile")) and "REAMED BACK" in (H.page("edr") or "") and "within 0.1 ft" in (H.page("edr") or "")
+                and "`benchmark`" in (H.page("mcp") or ""),
+        "readme_lesson": (not readme or ("### Benchmark" in readme and "### Public data: a real pad" in readme and "`gea public-pad`" in readme and "`gea benchmark`" in readme))
+                         and "**Benchmark**" in lesson and "**Public data**" in lesson and "benchmark" in lesson.split("Help:")[-1] and "public-data" in lesson.split("Help:")[-1] and not TU.check("drilling-pages"),
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "EI3 on the API (anyone reads the benchmark and the list of public files; only an operator writes the benchmark's report; only an administrator has a folder of the computer looked into or a "
+       "site made - made in the background with its progress asked after, the accounts copied, and a folder that is not there a failure that says so), the commands (the list with where each file "
+       "is published, the folder, the hashes as JSON, the site built with what was done to each well, a build with no site named stopped; the benchmark, as JSON, its report), the Benchmark and "
+       "Public data tabs, the help pages, the README and lesson 13" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
 def main() -> int:
@@ -19095,6 +19301,7 @@ def main() -> int:
         section_ef_roadmap(tmp)
         section_eg_dysfunction(tmp)
         section_eh_mcp(tmp)
+        section_ei_public_pad_benchmark(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

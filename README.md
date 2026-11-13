@@ -808,7 +808,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.89.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.90.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1033,6 +1033,63 @@ tool returns goes to whoever runs the model behind the assistant. Both
 eras of the protocol are spoken: the stateless revision 2026-07-28 and the
 `initialize` handshake of 2025-11-25 and earlier. The **Assistant access**
 tab (one button adds it to Claude Desktop), `gea mcp`, `gea help mcp`.
+
+### Benchmark
+
+The wells of a pad against one another, and each against the best the pad
+has done. Every well with a drilling record is measured the same way from
+its own record - the footage, the days from its first stand to its last,
+feet per day, the rate on bottom, rotary and sliding, the median connection
+weight to weight, the trip speeds - and ranked on each count. Then each
+well is set against the pad's best: the well it would have been had every
+stretch of hole been drilled at the rate of whichever well was fastest
+through that stretch (300 ft or more of it), and every connection made in
+the pad's best quarter. The gap is hours the pad has already shown can be
+saved, on some well in that stretch - not a forecast, and not a cause: the
+bit, the motor, the mud and the hole size are not in the record. The
+**Benchmark** tab, `gea benchmark`, `gea help benchmark`; an assistant
+reads it as the `benchmark` tool.
+
+### Public data: a real pad
+
+A pad anyone may check. The Utah FORGE project - the U.S. Department of
+Energy's geothermal field laboratory near Milford, Utah - publishes the
+rig recorders of five wells drilled through the same basin fill and
+granite between 2017 and 2023, under Creative Commons Attribution 4.0.
+`gea public-pad` turns those files into a site of its own, so the rig
+time, the roadmap, the drilling alerts and the benchmark run on real
+records before any client's. The program does not contain the files and
+does not fetch them: the site downloads them in a browser from the
+Geothermal Data Repository, names the folder, and the program checks each
+file against the size and the SHA-256 it had when this release was checked
+with it, converts the three layouts that are not the recorder's own
+export, attaches each well, and keeps on the record what was done to
+each - 16A(78)-32's bit depth is RECONSTRUCTED from the block and the
+slips and is marked so on every page. Every page and report of that site
+ends with the credit the licence asks for.
+
+What this release made of them, on the five files as published:
+
+| Well | Drilled, ft | Days | ft/day | On bottom, ft/h | Median connection, min |
+|---|---|---|---|---|---|
+| 58-32 (2017) | 6,288 | 43.5 | 145 | 15.9 | 14.4 |
+| 16A(78)-32 (2020) | 11,035 | 67.8 | 163 | 34.4 | 11.3 |
+| 56-32 (2021) | 9,232 | 19.0 | 487 | 46.6 | 7.5 |
+| 78B-32 (2021) | 9,372 | 29.1 | 322 | 84.7 | 7.7 |
+| 16B(78)-32 (2023) | 10,490 | 52.4 | 200 | 45.7 | 10.2 |
+
+Against the pad's best the five wells spent 812 of their 1,256 on-bottom
+hours beyond it. The roadmap's own check on them is split - running nearer
+the window was the faster half on two wells and the slower on two - which
+is the page saying, of wells drilled six years apart in three hole sizes,
+that one well's parameters are not the next well's roadmap. The drilling
+alerts, replayed, find 27 motor stalls on the three wells whose records
+can show one, three falls in off-bottom pressure on 78B-32 that no trip followed
+and one on 58-32 that a trip out of the hole followed within twelve hours.
+Data: Utah FORGE, Energy & Geoscience Institute at the University of Utah,
+funded by the U.S. Department of Energy; Geothermal Data Repository,
+gdr.openei.org; CC BY 4.0. The **Public data** tab, `gea public-pad`,
+`gea help public-data`.
 
 ### Plan vs actual and the survey tools
 
@@ -1698,7 +1755,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.89.0.exe` (for 0.89.0): the
+Every release also carries `GEA-Program-Setup-0.90.0.exe` (for 0.90.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1717,7 +1774,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.89.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.90.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

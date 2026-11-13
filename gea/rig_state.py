@@ -150,8 +150,11 @@ def classify(t: np.ndarray, ch: Dict[str, Optional[np.ndarray]], drilling: np.nd
     hl, blk, bit, hole, flow, spp, rpm = (nan0(ch.get(k)) for k in ('hookload', 'block', 'bit', 'hole', 'flow', 'spp', 'rpm'))
     pumps = (flow > P['flow_gpm']) if flow is not None else ((spp > P['spp_psi']) if spp is not None else np.zeros(n, bool))
     rot = (rpm > P['rpm']) if rpm is not None else np.zeros(n, bool)
-    vbit = _rate(bit, t, P['smooth_s']) if bit is not None else np.zeros(n)
-    vblk = _rate(blk, t, P['smooth_s']) if blk is not None else None
+    # the window a speed is taken over: five seconds, or two samples either side when the record is coarser than that (a
+    # ten-second export has no two samples within five seconds, and would show nothing moving)
+    win = max(float(P['smooth_s']), 2.0 * (float(np.median(np.diff(t))) if n > 1 else 1.0) + 1e-6)
+    vbit = _rate(bit, t, win) if bit is not None else np.zeros(n)
+    vblk = _rate(blk, t, win) if blk is not None else None
     bit_moving = (np.abs(vbit) > P['move_ft_s']) & (np.abs(vbit) < P['jump_ft_s'])     # faster than a block travels is the depth re-set, not the pipe
     how = []
     est = None

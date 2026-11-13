@@ -143,6 +143,26 @@ def _ch(stream: LiveStream, key: str) -> Optional[np.ndarray]:
     return c.values if c is not None else None
 
 
+ON_BOTTOM_FT = 0.1          # with no on-bottom flag in the export: the bit within this of the hole depth is on bottom
+
+
+def on_bottom(stream: LiveStream) -> Tuple[np.ndarray, Optional[str]]:
+    """The on-bottom flag of every sample, and how it was got when the export does not carry one. A recorder's own
+    `On Bottom` channel is used as it is. An export without it (many are cut that way) still says where the bit and
+    the bottom of the hole are: on bottom is then the bit depth within 0.1 ft of the hole depth - the recorder's
+    depth resolution - and the record says so."""
+    n = len(stream.index)
+    onb = _ch(stream, 'onb')
+    if onb is not None:
+        return (onb == 1.0), None
+    hole, bit = _ch(stream, 'hole'), _ch(stream, 'bit')
+    if hole is None or bit is None:
+        return np.zeros(n, dtype=bool), None
+    with np.errstate(invalid='ignore'):
+        on = ~np.isnan(hole) & ~np.isnan(bit) & (hole > 0) & ((hole - bit) <= ON_BOTTOM_FT)
+    return on, (f'this export has no On Bottom channel: on bottom is taken where the bit depth is within {ON_BOTTOM_FT:g} ft of the hole depth')
+
+
 def _hours(seconds: float) -> float:
     return round(seconds / 3600.0, 2)
 
@@ -181,6 +201,12 @@ def depth_events(stream: LiveStream) -> dict:
       a correction the other way: it had been understated, and the footage is added. Without a sidetrack the
       footage drilled is therefore exactly total depth less the first depth on bottom.
 
+    - REAMED BACK: the depth is set back by SIDETRACK_MIN_DROP_FT or more and regained through hole this record had
+      already drilled - eight tenths of it or more - with less than half the weight on bit it was drilled with and no
+      slower than it was drilled (or, in a record with no weight on bit, more than twice as fast): the string run and
+      reamed back in with the depth tracker counting, after a trip or at total depth. Not new hole; the window is
+      excluded, to where the old depth is regained or, if it never is, to the end of the section.
+
     A fall that is none of these is UNRESOLVED, handled as a correction, and said to be so. The daily drilling
     reports decide every one; this pass reads the shape and says which shape it read."""
     hole, rop, onb = _ch(stream, 'hole'), _ch(stream, 'rop'), _ch(stream, 'onb')
@@ -191,7 +217,7 @@ def depth_events(stream: LiveStream) -> dict:
     out = {'events': [], 'excluded': excluded, 'kickoffs': [], 'running_bottom': None, 'increments': None}
     if hole is None:
         return out
-    on = (onb == 1.0) if onb is not None else np.zeros(n, dtype=bool)
+    on = on_bottom(stream)[0]
     ropv = np.nan_to_num(rop, nan=0.0) if rop is not None else np.zeros(n)
     sections = json.loads(stream.meta['sections'])
     # 1. stale openings
@@ -228,6 +254,38 @@ def depth_events(stream: LiveStream) -> dict:
     for a, b in sections:
         sec_end[a:b] = b
     at_event = {}
+    wobv = _ch(stream, 'wob')
+    cad = float(np.median(np.diff(idx))) if n > 1 else 1.0
+
+    def reamed(p: int, i: int, j: Optional[int], post: float) -> Optional[dict]:
+        e = j if j is not None else int(sec_end[i])
+        with np.errstate(invalid='ignore'):
+            sel = on[i:e] & ~excluded[i:e] & ~np.isnan(hole[i:e])
+            if sel.sum() * cad < 600.0:
+                return None
+            top = float(np.max(hole[i:e][sel])); ft = top - post
+            if ft < SIDETRACK_MIN_DROP_FT:
+                return None
+            before = on[:p + 1] & ~excluded[:p + 1] & (hole[:p + 1] >= post) & (hole[:p + 1] <= top)
+        if before.sum() * cad < 600.0:
+            return None
+        cover = len(np.unique((hole[:p + 1][before] // 10.0).astype(np.int64))) / max(1.0, ft / 10.0)
+        if cover < 0.8:
+            return None                                       # that hole was not drilled in this record: nothing to say it is the same hole
+        reg_rate = ft / (sel.sum() * cad / 3600.0); orig_rate = ft / (before.sum() * cad / 3600.0)
+        w_reg = w_orig = None
+        if wobv is not None:
+            a_, b_ = wobv[i:e][sel], wobv[:p + 1][before]
+            a_, b_ = a_[~np.isnan(a_)], b_[~np.isnan(b_)]
+            if len(a_) and len(b_):
+                w_reg, w_orig = float(np.median(a_)), float(np.median(b_))
+        if w_orig is not None and w_orig > 2.0:
+            if not (w_reg < 0.5 * w_orig and reg_rate >= orig_rate):
+                return None
+        elif not reg_rate > 2.0 * orig_rate:
+            return None
+        return {'end': e, 'regained_to_ft': round(top, 1), 'feet': round(ft, 0), 'rate_ft_h': round(reg_rate), 'drilled_at_ft_h': round(orig_rate), 'wob_klbf': (round(w_reg, 1) if w_reg is not None else None),
+                'drilled_with_klbf': (round(w_orig, 1) if w_orig is not None and w_orig > 2.0 else None), 'hours_on_bottom': round(float(sel.sum()) * cad / 3600.0, 1)}
     for p, i in falls:
         if excluded[i]:
             continue
@@ -257,6 +315,13 @@ def depth_events(stream: LiveStream) -> dict:
             ev['type'] = 'SIDETRACK'
             ev['effect'] = (f"the depth was set back {drop:,.0f} ft to {post:,.1f} ft and the next six hours on bottom ran at a median {rop6:,.1f} ft/h - time-drilling a kickoff: "
                             f"a new borehole from {post:,.1f} ft; the hole drilled before from {post:,.0f} to {pre:,.0f} ft is abandoned")
+        elif drop >= SIDETRACK_MIN_DROP_FT and reamed(p, i, j, post) is not None:
+            rm = reamed(p, i, j, post)
+            ev['type'] = 'REAMED BACK'
+            excluded[i:rm['end']] = True
+            ev['effect'] = (f"the depth was set back {drop:,.0f} ft to {post:,.1f} ft and regained to {rm['regained_to_ft']:,.1f} ft through hole this record had already drilled, at {rm['rate_ft_h']:,} ft/h "
+                            f"where it was drilled at {rm['drilled_at_ft_h']:,} ft/h" + (f", with {rm['wob_klbf']:g} klbf on the bit where it was drilled with {rm['drilled_with_klbf']:g}" if rm['drilled_with_klbf'] is not None else '')
+                            + f": the string run and reamed back in with the depth tracker counting, not new hole; the window is excluded ({rm['hours_on_bottom']:,} h the bit was on bottom in it)")
         elif drop < SIDETRACK_MIN_DROP_FT:
             ev['type'] = 'CORRECTION'
             ev['effect'] = f"the depth was {drop:,.1f} ft too deep and was corrected to {post:,.1f} ft; the overstated footage is taken back"
@@ -265,7 +330,7 @@ def depth_events(stream: LiveStream) -> dict:
             ev['effect'] = (f"the depth was set back {drop:,.0f} ft to {post:,.1f} ft and neither regained like a re-reference nor time-drilled like a kickoff; "
                             "handled as a correction - the daily drilling report decides")
         out['events'].append(ev)
-        if ev['type'] != 'RE-REFERENCE':
+        if ev['type'] not in ('RE-REFERENCE', 'REAMED BACK'):
             at_event[i] = ev
     out['events'].sort(key=lambda e: e['at'])
     # 3. the running bottom of the current borehole and the footage each sample adds
@@ -327,7 +392,7 @@ def drilling_mask(stream: LiveStream, de: dict) -> Tuple[np.ndarray, np.ndarray]
     left on with nothing drilled - and, separately, the flag-left-on samples. One definition for the record and the charts."""
     hole, rop, onb = _ch(stream, 'hole'), _ch(stream, 'rop'), _ch(stream, 'onb')
     n = len(stream.index)
-    on_flag = (onb == 1.0) if onb is not None else np.zeros(n, dtype=bool)
+    on_flag = on_bottom(stream)[0]
     excl = de['excluded']; M = de['running_bottom']
     if hole is not None and M is not None:
         drilling = on_flag & ~excl & ~np.isnan(hole) & (hole >= np.nan_to_num(M, nan=np.inf) - 10.0)
@@ -375,14 +440,16 @@ def record(stream: LiveStream, de: Optional[dict] = None) -> dict:
     sections = json.loads(stream.meta['sections'])
     counts = json.loads(stream.meta['counts'])
     hole, bit, rop, wob, rpm, spp, onb, tvd, torque, hkld, flow = (_ch(stream, k) for k in ('hole', 'bit', 'rop', 'wob', 'rpm', 'spp', 'onb', 'tvd', 'torque', 'hkld', 'flow'))
-    missing = [CH[k] for k in ('hole', 'onb') if _ch(stream, k) is None]
+    on_flag, on_how = on_bottom(stream)
+    missing = [CH[k] for k in ('hole', 'onb') if _ch(stream, k) is None and not (k == 'onb' and on_how)]
     out = {'well': stream.name, 'source': os.path.basename(stream.meta['path']), 'layout': stream.meta['layout'], 'rows': int(n),
            'start': stream.meta['start_time'], 'end': stream.meta['end_time'], 'span_days': round(float(idx[-1]) / 86400.0, 2),
            'seconds_recorded': int(n), 'hours_recorded': _hours(n), 'n_sections': len(sections), 'sections': [], 'channels': [], 'notes': [], 'lines': [],
            'depth_events': [{k: v for k, v in e.items()} for e in de['events']]}
     if missing:
         out['notes'].append('channels this record needs are not in the file: ' + ', '.join(missing))
-    on_flag = (onb == 1.0) if onb is not None else np.zeros(n, dtype=bool)
+    if on_how:
+        out['notes'].append(on_how)
     excl = de['excluded']; M = de['running_bottom']; inc = de['increments']
     drilling, idle = drilling_mask(stream, de)
     rot = drilling & (rpm > 0) if rpm is not None else drilling
@@ -530,7 +597,7 @@ def gamma_log(stream: LiveStream, bin_ft: float = GAMMA_BIN_FT, keep: Optional[n
     g, bd, onb = _ch(stream, 'gamma'), _ch(stream, 'bit'), _ch(stream, 'onb')
     if g is None or bd is None:
         return None
-    on = (onb == 1.0) if onb is not None else np.ones(len(g), dtype=bool)
+    on = (onb == 1.0) if onb is not None else (on_bottom(stream)[0] if bd is not None and _ch(stream, 'hole') is not None else np.ones(len(g), dtype=bool))
     m = on & ~np.isnan(g) & ~np.isnan(bd)
     if keep is not None:
         m &= keep                                       # the final borehole only, and no re-referenced depth

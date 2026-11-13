@@ -5,7 +5,7 @@
 ; GEA-VPN-Setup-<version>.exe - GEA-VPN, the client program of the site's private network, as a Windows program of
 ; its own: built from the kit (tools/build_vpn.py --win64) by Inno Setup 6 in the build workflow:
 ;
-;   ISCC.exe /DAppVersion=0.89.0 /DKitDir=dist\gea-vpn-0.89.0-win64 /DOutDir=dist tools\vpn_installer.iss
+;   ISCC.exe /DAppVersion=0.90.0 /DKitDir=dist\gea-vpn-0.90.0-win64 /DOutDir=dist tools\vpn_installer.iss
 ;
 ; What it does (administrator rights, once): copies the kit under Program Files; installs WireGuard for Windows from
 ; the installer in the kit when the computer has none; makes the data folder for administrators only; registers the
@@ -14,10 +14,10 @@
 ; Uninstalling disconnects the tunnel, removes the task and the program, and leaves the data folder.
 ;
 ; Silent install, for a site's software deployment (the CI test runs exactly this):
-;   GEA-VPN-Setup-0.89.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+;   GEA-VPN-Setup-0.90.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
 
 #ifndef AppVersion
-  #error AppVersion is not defined: ISCC /DAppVersion=0.89.0 /DKitDir=... /DOutDir=... tools\vpn_installer.iss
+  #error AppVersion is not defined: ISCC /DAppVersion=0.90.0 /DKitDir=... /DOutDir=... tools\vpn_installer.iss
 #endif
 #ifndef KitDir
   #error KitDir is not defined: the kit folder made by tools/build_vpn.py --win64

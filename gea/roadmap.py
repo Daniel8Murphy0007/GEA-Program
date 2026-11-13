@@ -18,7 +18,8 @@ window were in fact the faster ones, and what the well would have saved at the r
   is ROTARY when the rotary turned for 70 % or more of its drilling time, SLIDE at 30 % or less, MIXED between;
   the roadmap is made for rotary and for slide stands apart, and mixed stands are counted and left out.
 - THE STRETCHES. Down to the lateral a stretch is 1,000 ft of true vertical depth (the recorder's own TVD): wells
-  on a pad meet the same formation at the same TVD, not the same measured depth. In the lateral - from the first
+  on a pad meet the same formation at the same TVD, not the same measured depth. A record with no TVD channel
+  has its measured depth stand in - right for a vertical hole, wrong for a deviated one - and the page names it. In the lateral - from the first
   stand where the hole gains or loses less than 17 ft of TVD in 100 ft of hole, and goes on doing so - a stretch
   is 1,000 ft along the hole from the heel. Where the workspace has formation-top layers and the well a surface
   position and a reference elevation, each stretch is named for the formation whose mapped top lies above it,
@@ -60,6 +61,7 @@ STAND_FT = 100.0
 TVD_STRETCH_FT = 1000.0
 LATERAL_STRETCH_FT = 1000.0
 MIN_STANDS = 12
+MAX_ROP_FT_H = 2000.0         # a stand 'drilled' faster than this is a depth the recorder was given, not hole a bit made
 ROTARY_SHARE, SLIDE_SHARE = 0.7, 0.3
 TOLERANCE = 0.10
 PARAMS = (('wob', 'weight on bit', 'klbf'), ('rpm', 'rotary speed', 'rpm'), ('flow', 'flow', 'gal/min'), ('diff', 'differential pressure', 'psi'),
@@ -110,6 +112,9 @@ def stands_of(t: np.ndarray, bottom: np.ndarray, drilling: np.ndarray, rotating:
     good = (secs > 0) & (feet >= 0.8 * stand_ft)
     hours = secs / 3600.0
     with np.errstate(divide='ignore', invalid='ignore'):
+        fast = good & (np.where(hours > 0, feet / hours, 0.0) > MAX_ROP_FT_H)        # the depth being counted, not hole being made
+    good &= ~fast
+    with np.errstate(divide='ignore', invalid='ignore'):
         rop = np.where(hours > 0, feet / hours, np.nan)
         share = np.where(secs > 0, rot_s / secs, np.nan)
         vals = {}
@@ -134,7 +139,7 @@ def stands_of(t: np.ndarray, bottom: np.ndarray, drilling: np.ndarray, rotating:
     sel = np.flatnonzero(good)
     out.update(n=int(len(sel)), md=md[sel], hours=hours[sel], feet=feet[sel], rop=rop[sel], rotary_share=share[sel], mode=mode[sel], t_end=t_end[sel],
                tvd=(tv[sel] if tv is not None else None), **{key: (vals[key][sel] if vals[key] is not None else None) for key, _, _ in PARAMS},
-               incomplete=int(((secs > 0) & ~good).sum()))
+               incomplete=int(((secs > 0) & ~good & ~fast).sum()), implausible=int(fast.sum()))
     return out
 
 
@@ -164,9 +169,15 @@ def lateral_start(md: np.ndarray, tvd: Optional[np.ndarray]) -> Optional[float]:
 
 def stretch_keys(st: dict) -> Tuple[List[tuple], Optional[float]]:
     """Each stand's stretch: ('TVD', n) for n x 1,000 ft of true vertical depth, ('LAT', n) for n x 1,000 ft from the heel,
-    ('MD', n) when the record has no TVD."""
+    and for a record with no TVD its measured depth stands in under the same ('TVD', n) - right for a vertical hole,
+    wrong for a deviated one, and the page names every well it was done for. A stand with no TVD in a record that has
+    one takes its TVD from the stands either side."""
     md, tvd = st['md'], st.get('tvd')
     heel = lateral_start(md, tvd)
+    if tvd is not None and len(md):
+        have = ~np.isnan(tvd)
+        if 2 <= int(have.sum()) < len(md):                                      # a stand the survey did not reach is placed between its neighbours, not at its measured depth
+            tvd = np.where(have, tvd, np.interp(md, md[have], tvd[have]))
     keys = []
     for i in range(len(md)):
         if heel is not None and md[i] >= heel:
@@ -174,7 +185,7 @@ def stretch_keys(st: dict) -> Tuple[List[tuple], Optional[float]]:
         elif tvd is not None and not np.isnan(tvd[i]):
             keys.append(('TVD', int(tvd[i] // TVD_STRETCH_FT)))
         else:
-            keys.append(('MD', int(md[i] // TVD_STRETCH_FT)))
+            keys.append(('TVD', int(md[i] // TVD_STRETCH_FT)))
     return keys, heel
 
 
@@ -459,13 +470,16 @@ def page(ws, subject: Optional[str] = None) -> dict:
             break
     if not tops:
         out['notes'].append('the stretches are named by depth alone: no well has a surface position, a reference elevation and a formation-top layer to name them by')
+    no_tvd = [w['display'] for w in data.values() if not w['tvd_how']]
+    if no_tvd and len(data) > 1:
+        out['notes'].append(f"{', '.join(no_tvd)}: no true vertical depth in the record, so the measured depth stands in for it - right for a vertical hole, wrong for a deviated one")
     for wid, w in data.items():
         st = w['stands']
         mode = st['mode']
         out['wells'].append({'well': wid, 'display': w['display'], 'stands': st['n'], 'rotary_stands': int((mode == 0).sum()), 'slide_stands': int((mode == 1).sum()), 'mixed_stands': int((mode == 2).sum()),
-                             'incomplete_stands': st['incomplete'], 'feet': round(float(st['feet'].sum()), 0), 'hours': round(float(st['hours'].sum()), 1),
+                             'incomplete_stands': st['incomplete'], 'implausible_stands': st.get('implausible', 0), 'feet': round(float(st['feet'].sum()), 0), 'hours': round(float(st['hours'].sum()), 1),
                              'rop_ft_h': round(float(st['feet'].sum() / st['hours'].sum()), 1), 'md_from_ft': round(float(st['md'][0] - STAND_FT / 2), 0), 'md_to_ft': round(float(st['md'][-1] + STAND_FT / 2), 0),
-                             'heel_md_ft': w['heel_md_ft'], 'tvd': w['tvd_how'] or 'none: the stretches are by measured depth', 'channels': w['channels'], 'record_end': w['record_end']})
+                             'heel_md_ft': w['heel_md_ft'], 'tvd': w['tvd_how'] or 'none in the record: its measured depth stands in', 'channels': w['channels'], 'record_end': w['record_end']})
     rm = build(data)
     for (key, mode), ent in sorted(rm.items(), key=lambda kv: (_order(kv[0][0]), kv[0][1])):
         row = {**ent, 'stretch': list(key)}
@@ -494,7 +508,7 @@ def page(ws, subject: Optional[str] = None) -> dict:
         elif last.get('tvd_ft') is not None:
             key = ('TVD', int(last['tvd_ft'] // TVD_STRETCH_FT))
         else:
-            key = ('MD', int(last['depth_ft'] // TVD_STRETCH_FT))
+            key = ('TVD', int(last['depth_ft'] // TVD_STRETCH_FT))
         mode = 'rotary' if last['rotary_share'] >= 0.5 else 'slide'
         nxt = (key[0], key[1] + 1)
         rows = []
@@ -538,6 +552,11 @@ def page(ws, subject: Optional[str] = None) -> dict:
         else:
             L.append(f"{nx['display']} at {nx['depth_ft']:,.0f} ft ({cur['label']}, {nx['mode']}): the other wells give no window there ({cur['status'].lower()}).")
     L.append('The window is what the fastest quarter of the offset stands were drilled with - not a limit of the string, the motor or the hole, and not a cause.')
+    from . import public_pad as _PP
+    cr = _PP.credit(ws)
+    if cr:
+        out['public_source'] = cr
+        L.append(cr['line'])
     return out
 
 

@@ -3893,3 +3893,73 @@ stability; and motor specifications in the tool catalogue.
 - The CLI `gea mcp`, the routes, the Assistant access tab, the help
   page, lesson 20, the README, the IT statement. Section EH. Rendered
   under Playwright with no script error. Gate 581.
+
+## 2026-11-13 - a real pad from public data, and the benchmark (v0.90.0)
+
+- v0.89.0 shipped (ci, PyPI and the kit build green); the six kits
+  fetched into C:\site\installers and verified against the release's
+  SHA-256, the 0.88.0 ones moved to _to_delete. Daniel: the model that
+  will work with GEA when it goes live is an offline one being built
+  now, not Anthropic's - the MCP server is model-agnostic and stays as
+  it is; which program will host the model is still to be told. And:
+  can public data give real results before a client's does?
+- It can. Looked at what is published with a rig recorder's time record
+  and a licence that allows it: Utah FORGE (five wells on one pad, CC BY
+  4.0), Equinor's Volve (one field, but its licence has a no-sale clause
+  to be read before GEA is sold with anything made from it), and the
+  Oklahoma Arbuckle disposal records for the fluid modules later. FORGE
+  first: go.
+- Neither the cloud nor the sandbox on Daniel's computer can reach the
+  repository; his browser can. He chose that I download them there: six
+  files, 2.8 GB, into Downloads\forge. That is also the design: the
+  program fetches nothing, the site downloads, the program checks the
+  hashes.
+- Five files, four layouts. Two are the recorder's own one-second
+  export. 16B is a ten-second export of 140 channels in a zip, with no
+  true vertical depth - taken from the well's published survey. 58-32 is
+  the 2017 recorder in another layout, without weight on bit. 16A is
+  another recorder's, with no bit depth at all: reconstructed from the
+  hole depth, the on-bottom flag, the slips and the block, and marked
+  RECONSTRUCTED everywhere, because its trip speeds rest on it.
+- The records then found four things the drilling record did not know,
+  none of them visible on a pad whose exports all come from one rig.
+  (1) No On Bottom channel: nothing was drilling. Now derived, 0.1 ft.
+  (2) 56-32 and 16B showed twice their footage: after total depth the
+  tracker was set back thousands of feet and the string reamed back in
+  with it counting. The rule is the weight on bit: hole regained with
+  under half the weight it was drilled with, no slower, was not drilled.
+  56-32 comes to 9,346 ft against a total depth of 9,145; 16B to 10,895
+  against 10,947. The same fall drilled again as it was first drilled is
+  left for the daily report to decide, as before. (3) A ten-second
+  record had no trips: a five-second speed window held one sample.
+  (4) One stand counted at 6,636 ft/h set a stretch's best rate.
+- The benchmark, on the five wells as published: 56-32 9,232 ft in 19.0
+  days, 487 ft/day; 78B-32 9,372 ft, 322 ft/day and 84.7 ft/h on bottom;
+  58-32 6,288 ft, 145 ft/day; 16A(78)-32 11,035 ft, 163 ft/day;
+  16B(78)-32 10,490 ft, 200 ft/day. Against the pad's best, 812 of 1,256
+  on-bottom hours. The pad's best-quarter connection 7.5 minutes; 58-32's
+  median 14.4.
+- The roadmap on them says the uncomfortable thing and is right to: the
+  check is split, nearer the window the faster half on two wells and the
+  slower on two. Wells six years apart, in three hole sizes, with the
+  bits of their day, are not one another's roadmap, and the page says so
+  instead of printing a window as advice. What the same check says of
+  Pad 3 stays in C:\site.
+- The drilling alerts, replayed: 27 stalls on the three wells whose
+  records can show one; three falls in off-bottom pressure on 78B-32
+  that no trip followed, one on 58-32 that a trip followed within twelve
+  hours. A record from 2021 in a file written today was "still being
+  written" and would have raised alerts: live now means the record's own
+  last sample.
+- What a device call can do shaped the builder: a call there lasts three
+  minutes and nothing survives it, so the build was proved one well at a
+  time. On Daniel's Windows it is one button or one command, some
+  minutes, in the background with its progress shown.
+- Not done: FORGE's stimulation records (the frac analytics will use
+  them); the wells' surface positions and the formation tops, so the
+  stretches are named by depth alone; a like-for-like normalisation by
+  hole size, which the record cannot give.
+- The CLI `gea public-pad` and `gea benchmark`, the routes, the Public
+  data and Benchmark tabs, the assistant's `benchmark` tool, two help
+  pages, lesson 13, the README with the figures and the credit, the IT
+  statement. Section EI. Gate 584.

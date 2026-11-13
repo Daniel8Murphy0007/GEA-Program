@@ -1,16 +1,21 @@
-v0.89.0 — ASSISTANT ACCESS (MCP)
+v0.90.0 — A REAL PAD FROM PUBLIC DATA, AND THE BENCHMARK
 
-`gea mcp`: the site readable by an assistant over the Model Context
-Protocol. Twenty-three tools, each one of the program's own pages - the
-rig time, the roadmap, the drilling alerts, the fluid balance and the
-rest - returning what the program itself prints. Local (no port: the
-child process's standard streams), read-only (every file hashed before
-and after in the gate), logged, and the tools offered chosen by the site,
-because what a tool returns goes to whoever runs the model. Both eras of
-the protocol: revision 2026-07-28 and the handshake of 2025-11-25 and
-earlier. The Assistant access tab, with one button for Claude Desktop;
-`gea mcp`, `gea help mcp`. Section EH; gate 581.
+`gea public-pad`: the Utah FORGE wells' published rig recorders - five
+wells drilled between 2017 and 2023, Creative Commons Attribution 4.0 -
+made into a site of their own, so the rig time, the roadmap, the drilling
+alerts and the benchmark run on real records anyone may check. The
+program does not contain the files and does not fetch them: the site
+downloads them in a browser, and the program checks each against its
+SHA-256, converts three layouts, attaches each well and ends every page
+with the credit. `gea benchmark`: the wells ranked on feet per day, rate
+on bottom, connections and trips, and each set against the pad's best,
+stretch by stretch. On the five wells: 46,417 ft in 1,256 on-bottom
+hours, 812 of them beyond the pad's best. The drilling record learned
+four things from them: on bottom without a flag, a depth REAMED BACK, a
+ten-second record's trips, a stand no bit drilled. The Public data and
+Benchmark tabs; `gea help public-data`, `gea help benchmark`.
+Section EI; gate 584.
 
 Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
 
-Gate 581.
+Gate 584.

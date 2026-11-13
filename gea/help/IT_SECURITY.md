@@ -114,7 +114,11 @@ declared extras.
   | Live data | the site's historian (PI Web API), WITSML store, OPC UA server, MQTT broker, Modbus/DNP3/HART-IP device, SeedLink server | when the site defines a patch for it |
 
   No telemetry, no usage reporting, no licence server. Everything else runs
-  on the machine.
+  on the machine. The **Public data** tab (since 0.90.0) makes a site from
+  published drilling records: it lists the files and the pages of the
+  Geothermal Data Repository (`gdr.openei.org`) they are on, a person
+  downloads them in a browser, and the program reads the folder an
+  administrator names - it makes no request for them itself.
 
 ## Who can reach it
 

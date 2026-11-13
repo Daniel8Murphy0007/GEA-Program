@@ -227,6 +227,11 @@ def _t_site(ws, a: dict) -> Tuple[str, Any]:
     for r in rows:
         lines.append(f"  {r['name']} (id {r['id']}): {r['kind']}, {r['files']} file(s) attached"
                      + (', surface position declared' if r['surface_position'] else ', no surface position declared') + (', survey attached' if r['survey'] else ''))
+    from . import public_pad as PP
+    cr = PP.credit(ws)
+    if cr:
+        page['public_source'] = cr
+        lines.append(cr['line'])
     lines.append('Ask the other tools by a well\'s name or id; a tool with no well named answers for the whole site.')
     return '\n'.join(lines), page
 
@@ -297,6 +302,8 @@ TOOLS: List[tuple] = [
     ('roadmap', 'Drilling roadmap', "For every stretch of hole, the weight on bit, rotary speed, flow and differential pressure the fastest quarter of the pad's stands were drilled with, the fastest well there, "
      "and each well checked against the roadmap made from the others.", {'well': {**_W['well'], 'description': "The well the next stand is given for; left out, the well whose record ends last."}},
      _paged('roadmap', lambda m, ws, w: m.page(ws, w), True)),
+    ('benchmark', 'Benchmark across wells', "The wells of the pad against one another: feet per day, on-bottom rate, connections and trips for each, ranked, and each well's on-bottom time against the pad's best - "
+     "every stretch at the rate of the fastest well through it.", {}, _paged('benchmark', lambda m, ws, w: m.page(ws))),
     ('drilling_alerts', 'Drilling alerts', "Washout, motor stall and tight hole as rules replayed over each well's drilling record: what each would have said, when, and whether a trip out of the hole followed.",
      {}, _paged('dysfunction', lambda m, ws, w: m.page(ws))),
     ('torque_drag', 'Torque and drag', "A well's pick-up, slack-off and rotating hook loads from the declared string, mud and friction factors, against the rig's own points.",

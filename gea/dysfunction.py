@@ -68,7 +68,7 @@ WASH_BASE, WASH_MIN_BASE = 5, 3
 DRAG_BASE, DRAG_MIN_BASE, DRAG_MAX_EVENT = 15, 6, 12
 STALL_MAX_CADENCE_S = 5.0
 STALL_MAX_S = 90.0
-LIVE_SOURCE_S, LIVE_EVENT_S = 7200.0, 1800.0
+LIVE_SOURCE_S, LIVE_EVENT_S, LIVE_RECORD_S = 7200.0, 1800.0, 2 * 86400.0
 EVENTS = {'washout': 'drilling.washout', 'stall': 'drilling.stall', 'tight': 'drilling.tight'}
 _NAMES = {'diff': ('differential pressure', 'diff press', 'diff'), 'wob': ('weight on bit', 'wob')}
 _LOCK = threading.Lock()
@@ -324,10 +324,10 @@ def weights(t: np.ndarray, ch: Dict[str, Optional[np.ndarray]], conns: List[dict
     if hl is None or bit is None:
         return {'status': 'NO CHANNELS', 'readings': [], 'why': 'needs the hook load and the bit depth'}
     from . import rig_state as RS
-    vbit = RS._rate(np.nan_to_num(bit), t, 5.0)
+    cad = float(np.median(np.diff(t))) if len(t) > 1 else 1.0
+    vbit = RS._rate(np.nan_to_num(bit), t, max(5.0, 2.0 * cad + 1e-6))
     r0 = np.nan_to_num(rpm) if rpm is not None else np.zeros(len(t))
     kinds = (('still', r0 < 5.0), ('turning', r0 >= 30.0))
-    cad = float(np.median(np.diff(t))) if len(t) > 1 else 1.0
     need = max(3, int(round(5.0 / cad)))
     out = []
     for c in conns:
@@ -346,7 +346,8 @@ def weights(t: np.ndarray, ch: Dict[str, Optional[np.ndarray]], conns: List[dict
     n = {k: sum(1 for r in out if r[k] is not None) for k, _, _, _ in WEIGHT_KEYS}
     ok = any(v >= DRAG_MIN_BASE + 2 for v in n.values())
     return {'status': 'OK' if ok else 'TOO FEW READINGS', 'readings': out, 'connections': len(conns), 'counts': n,
-            'why': None if ok else f"of {len(conns)} connections too few have the string moving on the hook for five seconds either side of the slips ({n})"}
+            'why': None if ok else (f"of {len(conns)} connections too few have the string moving on the hook for five seconds either side of the slips ("
+                                    + ", ".join(f"{n[k]} {kind} {how}" for k, _, kind, how in WEIGHT_KEYS) + ")")}
 
 
 def _line(x: np.ndarray, y: np.ndarray) -> Tuple[float, float, float]:
@@ -514,9 +515,18 @@ def _mtime_s(v) -> Optional[float]:
 
 
 def is_live(r: dict, now: Optional[datetime] = None) -> bool:
-    """A record still being written: its file changed within the last two hours."""
+    """A record still being written: its file changed within the last two hours, and its own last sample is within
+    two days of now on the recorder's clock (a clock of unknown zone, hence the two days) - a file from years ago
+    copied in today is not a rig drilling today."""
     m = _mtime_s(r.get('source_mtime'))
-    return m is not None and ((now or datetime.now(timezone.utc)).timestamp() - m) <= LIVE_SOURCE_S
+    n_ = now or datetime.now(timezone.utc)
+    if m is None or (n_.timestamp() - m) > LIVE_SOURCE_S:
+        return False
+    try:
+        end = datetime.fromisoformat(str(r.get('record_end')))
+    except ValueError:
+        return True
+    return abs((n_.replace(tzinfo=None) - end.replace(tzinfo=None)).total_seconds()) <= LIVE_RECORD_S
 
 
 def live_events(ws, now: Optional[datetime] = None) -> List[dict]:
@@ -597,6 +607,13 @@ def page(ws, now: Optional[datetime] = None) -> dict:
         L.append(f"{w['display']} ({w['record_start'][:10]} to {w['record_end'][:10]}, {w['drilled_ft']:,.0f} ft drilled" + (', still being written' if w['live'] else '') + '): ' + '; '.join(bits) + '.')
     L.append('Each rule is replayed over the whole record: what it would have said, and when. A washout event is a fall in pressure at a steady flow - the trip finds the cause; '
              'a stall is a spike the bit stopped under; a tight-hole event is a pick-up weight off its own trend. No event means the rule did not fire, not that the string was sound.')
+    from . import public_pad as _PP
+    cr = _PP.credit(ws)
+    if cr:
+        out['public_source'] = cr
+        out['lines'].append(cr['line'])
+        if cr['reconstructed']:
+            out['notes'].append(', '.join(cr['reconstructed']) + ': the bit depth of this record is reconstructed from the block and the slips, not recorded - exact on bottom, approximate over a trip')
     return out
 
 
@@ -641,13 +658,13 @@ def write_report(ws, program_version: str, actor: str = 'system') -> dict:
 # --------------------------------------------------------------------------------------------------------------
 # the labelled record and the self-test
 # --------------------------------------------------------------------------------------------------------------
-def synthetic_record(faults: bool = True, seed: int = 3, stands: int = 40) -> dict:
+def synthetic_record(faults: bool = True, seed: int = 3, stands: int = 40, ends_now: bool = False) -> dict:
     """A one-second record of `stands` stands of 95 ft at 150 ft/h with a connection after each (30 s picked up off
     bottom with the pumps on, four minutes in the slips, a minute back to bottom). With `faults`: stands 10-14 at
     500 gal/min instead of 550 (NOT a washout); three motor stalls (stands 5, 16, 17: +700 psi for 15 s, the bit
     stopped, then picked up); the off-bottom pressure falling 3.5 % a stand from stand 18 until a trip out of 2,000 ft
     after stand 23, sound again after it; the pick-up weight climbing 6 klbf a connection from stand 34 to the end of
-    the record. SIMULATION."""
+    the record. `ends_now` dates it so that its last sample is now. SIMULATION."""
     rng = np.random.default_rng(seed)
     cols: Dict[str, list] = {k: [] for k in ('hole', 'bit', 'hookload', 'block', 'flow', 'spp', 'rpm', 'diff', 'drill')}
     S = {'hole': 10000.0, 'bit': 10000.0, 'block': 105.0, 'ref': 0.0}
@@ -713,7 +730,8 @@ def synthetic_record(faults: bool = True, seed: int = 3, stands: int = 40) -> di
     add(n, h, h, 180.0, S['block'] - rate * (np.arange(n) + 1), 550.0, 2600.0 * (1.0 + (h - 10000.0) / 60000.0) + 500.0, 120.0, True)
     arr = {k: np.concatenate(v) for k, v in cols.items()}
     drilling = arr.pop('drill').astype(bool)
-    return {'t': np.arange(len(drilling), dtype=np.float64), 't0': datetime(2026, 9, 1, 6, 0, 0), 'ch': arr, 'drilling': drilling, 'truth': truth, 'block_weight': BW}
+    t0 = (datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0) - timedelta(seconds=len(drilling))) if ends_now else datetime(2026, 9, 1, 6, 0, 0)
+    return {'t': np.arange(len(drilling), dtype=np.float64), 't0': t0, 'ch': arr, 'drilling': drilling, 'truth': truth, 'block_weight': BW}
 
 
 def write_edr(rec: dict, path: str) -> str:

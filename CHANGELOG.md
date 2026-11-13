@@ -5,6 +5,57 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.90.0] - 2026-11-13 - a real pad from public data, and the benchmark
+
+### Added
+- **Public data** - `gea public-pad`: a real pad from published records.
+  The Utah FORGE project (the U.S. Department of Energy's geothermal field
+  laboratory near Milford, Utah) publishes the rig recorders of five wells
+  - 58-32, 16A(78)-32, 56-32, 78B-32, 16B(78)-32 - under Creative Commons
+  Attribution 4.0. The program does not contain the files and does not
+  fetch them: the site downloads them in a browser from the Geothermal
+  Data Repository, and the program reads the folder an administrator
+  names, checks each file against the size and SHA-256 it had when this
+  release was checked with it (a file that differs is used and said to
+  differ), converts the three layouts that are not the recorder's own
+  export, makes a site and attaches each well. `records/public_pad.json`
+  keeps the dataset, the licence, the credit and what was done to each
+  file; every page, report and assistant answer of that site ends with
+  the credit line. 16A(78)-32's record has no bit depth: it is
+  RECONSTRUCTED from the hole depth, the on-bottom flag, the slips and
+  the block, and marked so wherever it is used. 16B(78)-32's true
+  vertical depth is taken from its published survey. The **Public data**
+  tab (an administrator names the folders; the site is made in the
+  background), `gea public-pad --list | --folder | --verify | --build
+  --site`, `gea help public-data`.
+- **Benchmark** - `gea benchmark`: the wells of a pad against one another
+  and each against the pad's best. Footage, days, feet per day, the rate
+  on bottom (rotary and sliding), the share of the days on bottom, the
+  median connection weight to weight and the trip speeds, each ranked;
+  depth against days for every well on one chart; and each well against
+  the well it would have been with every stretch drilled at the rate of
+  the fastest well through it (300 ft or more of the stretch) and every
+  connection made in the pad's best quarter. Report `reports/benchmark/`
+  (json, md, a row a well, a row a stretch). The **Benchmark** tab, the
+  routes, the assistant's `benchmark` tool (twenty-four tools now),
+  `gea help benchmark`.
+
+### Changed
+- What five public records taught the drilling record. An export with no
+  On Bottom channel is read with the bit within 0.1 ft of the hole depth
+  as on bottom, and the record says so. A depth set back and regained
+  through hole already drilled, with under half the weight on bit it was
+  drilled with and no slower, or at over twice the rate with no weight
+  recorded, is **REAMED BACK**: the string run back in with the depth
+  tracker counting, excluded from the footage. A ten-second record's pipe
+  speeds are taken over two samples either side, so its trips are trips.
+  The roadmap pools a record with no true vertical depth by its measured
+  depth (and names the wells), places a stand with no TVD reading by the
+  stands either side of it, and leaves out a stand counted at over
+  2,000 ft/h. A record is "still being written" only if its own last
+  sample is within two days, whatever the date of its file.
+- Section EI. Gate 584.
+
 ## [v0.89.0] - 2026-11-13 - assistant access (MCP)
 
 ### Added

@@ -4,6 +4,25 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.90.0 - 2026-11-13 - a real pad from public data, and the benchmark
+
+- `gea public-pad`: the Utah FORGE wells' published rig recorders (five
+  wells, 2017 to 2023, CC BY 4.0) made into a site of their own - the
+  files downloaded by the site in a browser, checked against their
+  hashes, three layouts converted, each well attached, the credit on
+  every page. The first real records the pages have run on that anyone
+  may check.
+- `gea benchmark`: the wells ranked on feet per day, rate on bottom,
+  connections and trips, and each set against the pad's best, stretch by
+  stretch.
+- On the five wells as published: 46,417 ft in 1,256 on-bottom hours;
+  56-32 the most feet per day (487), 78B-32 the fastest on bottom
+  (84.7 ft/h); 812 of the 1,256 hours beyond the pad's best; the
+  roadmap's own check split, two wells each way.
+- The drilling record learned from them: on bottom without a flag, a
+  depth reamed back, a ten-second record's trips, a stand no bit drilled.
+- Section EI. Gate 584.
+
 ## v0.89.0 - 2026-11-13 - assistant access (MCP)
 
 - `gea mcp`: the site readable by an assistant over the Model Context

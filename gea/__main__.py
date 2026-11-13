@@ -677,6 +677,19 @@ def main(argv=None) -> int:
     p_os.add_argument("--actor", type=str, default="cli")
     p_os.add_argument("--json", action="store_true")
 
+    p_bm = sub.add_parser("benchmark", help="the wells of a pad against one another: feet per day, on-bottom rate, connections and trips ranked, and each well against the pad's best - every stretch at the rate of the fastest well through it")
+    p_bm.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs")
+    p_bm.add_argument("--write", action="store_true", help="write reports/benchmark/benchmark.json, .md, .csv and stretches.csv")
+    p_bm.add_argument("--actor", type=str, default="cli")
+    p_bm.add_argument("--json", action="store_true")
+    p_pp = sub.add_parser("public-pad", help="a real pad from public data: the Utah FORGE wells' published rig recorders (CC BY 4.0) made into a site of their own - the files to get and where, checked against their sizes and hashes, converted and attached; the program fetches nothing")
+    p_pp.add_argument("--folder", type=str, default=None, help="the folder the downloaded files are in; with nothing else, lists each file and whether it is there. Without a folder the self-test runs (stand-ins in each published layout)")
+    p_pp.add_argument("--verify", action="store_true", help="hash each file that is there against the SHA-256 this release was checked with")
+    p_pp.add_argument("--build", action="store_true", help="make the site at --site from the files in --folder, or add to it the wells it does not have yet")
+    p_pp.add_argument("--site", type=str, default=None, help="--build: the folder the site's workspace is made in")
+    p_pp.add_argument("--list", action="store_true", help="list the dataset's files, sizes, hashes and where each is published, and exit")
+    p_pp.add_argument("--actor", type=str, default="cli")
+    p_pp.add_argument("--json", action="store_true")
     p_mc = sub.add_parser("mcp", help="the site, readable by an assistant: a Model Context Protocol server on standard input and output - local (no port), read-only (every tool reads one of the program's pages, none changes anything), logged; with --workspace alone it serves until its input closes")
     p_mc.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (both eras of the protocol against a labelled site)")
     p_mc.add_argument("--allow", type=str, default=None, help="serve only these tools this run, comma-separated (never more than the site offers)")
@@ -3574,6 +3587,58 @@ def main(argv=None) -> int:
             print(f"  {f_['family']}: {f_['n']} version(s)")
             for v in f_["versions"][: (50 if a.family else 3)]:
                 print(f"      {v['utc']}  {v.get('report_id') or ''}  reports/{v['dir']}")
+        return 0
+    elif a.cmd == "benchmark":
+        import json as _json
+        from . import benchmark as _BM
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if not a.workspace:
+            r = _BM.selftest()
+            print("\n".join(f"{'PASS' if c['pass'] else 'FAIL'}  {c['check']}: {c['value']}" for c in r["checks"]) + f"\n{'OK' if r['ok'] else 'FAILED'} - {r['label']}")
+            return 0 if r["ok"] else 1
+        try:
+            ws = Workspace(a.workspace)
+            if a.write:
+                from . import __version__ as _ver90b
+                r = _BM.write_report(ws, _ver90b, a.actor)
+                print(f"written: {', '.join(r['files'])} under {r['folder']}")
+            p = _BM.page(ws)
+        except (_BM.BenchmarkError, WorkspaceError, ValueError, OSError) as e:
+            raise SystemExit(f"benchmark: {e.args[0] if e.args else e}")
+        print(_json.dumps(p, default=str) if a.json else _BM.text(p))
+        return 0
+    elif a.cmd == "public-pad":
+        import json as _json
+        from . import public_pad as _PP
+        from .cli import _safe_stdout
+        _safe_stdout()
+        if not a.folder and not a.list:
+            r = _PP.selftest()
+            print("\n".join(f"{'PASS' if c['pass'] else 'FAIL'}  {c['check']}: {c['value']}" for c in r["checks"]) + f"\n{'OK' if r['ok'] else 'FAILED'} - {r['label']}")
+            return 0 if r["ok"] else 1
+        try:
+            if a.build:
+                if not a.site:
+                    raise SystemExit("public-pad: --build needs --site, the folder the site is made in")
+                last_ = {"t": ""}
+
+                def say_(d_):
+                    t_ = f"{d_.get('well', '')} {d_.get('step', '')}".strip()
+                    if t_ != last_["t"] and d_.get("step") != "done":
+                        last_["t"] = t_
+                        print(f"  {d_.get('n', '')}/{d_.get('of', '')} {t_}", flush=True)
+                r = _PP.build(a.folder, a.site, a.actor, verify=True, progress=say_)
+                print(f"{r['name']} at {r['path']}: " + (f"added {', '.join(r['added'])}" if r["added"] else "nothing to add") + f"; it has {', '.join(r['wells'])}")
+                for e_ in r["record"]["wells"]:
+                    for n_ in e_["notes"]:
+                        print(f"  {e_['well']}: {n_}")
+                return 0
+            s_ = _PP.status(a.folder or "", verify=a.verify)
+        except (_PP.PublicPadError, OSError) as e:
+            raise SystemExit(f"public-pad: {e.args[0] if e.args else e}")
+        print(_json.dumps(s_, default=str) if a.json else _PP.text(s_))
         return 0
     elif a.cmd == "mcp":
         import json as _json
