@@ -3776,3 +3776,75 @@ stability; and motor specifications in the tool catalogue.
   transmissivity 7,500 to 13,800 md ft around a true 8,800. Rendered under
   Playwright with no script error. Gate 572.
 
+## 2026-11-12 - the drilling roadmap and the drilling alerts (v0.88.0)
+
+- v0.87.0 shipped (ci, PyPI and the kit build green); the six kits fetched
+  into C:\site\installers and verified against the release's SHA-256, the
+  0.86.0 ones moved to _to_delete. Daniel: now really innovate - look at
+  what an AI drilling service sells and list what GEA can build of it.
+  Read from its public pages only (the program itself is behind a
+  sign-in): eleven things, from offset-well roadmaps and dysfunction
+  alerts to an MCP server, kick detection and rig control. Daniel: start
+  with the first two together.
+- Both were written in the cloud against labelled records, then replayed
+  on Daniel's machine over Pad 3's three drilling records - read there
+  only; the figures stay in C:\site. The candidates went into the clone's
+  git-ignored `_transport\try` and were loaded from there over the
+  shipped tree, so nothing tracked was touched until they were right.
+  What the real records changed:
+- The heel. "Within 1 % of the deepest TVD" put the heel thousands of
+  feet too deep on a lateral that does not stay level; it is now where
+  the hole comes within ten degrees of horizontal and stays there.
+- The stretches. 500 ft of TVD gave four or five stands a well - too few
+  for a window from the fastest quarter; 1,000 ft, and twelve stands for
+  a window.
+- The check. "Inside the window or outside" had almost nothing to count:
+  the wells were drilled at different setpoints, so a well is rarely
+  inside the window the other two give. The check became the distance of
+  each stand from the window, and the nearer half of a well's stands
+  against the farther half, stretch by stretch - which every stretch can
+  answer - with the rank correlation beside it. And each stretch now
+  names its fastest well and what every well ran, which is where the
+  difference between the wells shows.
+- Sidetracked hole was counted twice; the stands use the same
+  kept-off-abandoned-hole mask as the depth charts.
+- The washout readings. Taken either side of the slips, they fell by half
+  at every crew change: one crew stops the pumps before picking up, so
+  their reading came from after the slips, with the pressure still
+  building. Only the reading before the slips is a reading; where a
+  record has too few, the recorder's own zero (standpipe less
+  differential pressure) is read instead, and the two agree to a few
+  percent where both exist.
+- The stalls. Most of the first replay's were the weight going back on
+  after a connection - the five-minute median was still the off-bottom
+  minutes. No judgement now until the bit has been on bottom 200 s of
+  the five minutes; a spike has to be over in a minute and a half; and
+  the bit has to stop under it - being picked up afterwards is noted,
+  not required.
+- The weights. Pick-up with the string rotating and without are
+  different quantities - rotation takes the drag out - and trending them
+  together threw an event every few hundred feet. They are read apart
+  (under 5 rpm, 30 rpm or more), as medians, and each against its own
+  kind.
+- What is not there: slide stands are too few at 100 ft a stand for a
+  slide roadmap on a pad drilled mostly rotary; the formation names need
+  the wells' elevations and top layers, which Pad 3 has not declared, so
+  its stretches are by depth; the tight-hole rule still reads a change in
+  how a crew picks up as a new level, and says so rather than hiding it.
+- The first attempt to ship stopped at the gate, on Windows only: section
+  EG ages its two records by three hours to show that a finished record
+  raises no alert, and after that the page had no wells at all. The chart
+  cache was being rebuilt over its own files while the rig time, kept in
+  memory, still had one of them mapped - Linux allows that, Windows does
+  not, and the well was dropped as having no record. Not a fault of the
+  test: a record still being written would have done the same to a
+  running program on Windows, in every release since the rig time was
+  kept in memory. The cache now writes each rebuild as a new generation
+  of files and switches to it in one step; the section holds the old
+  files the way Windows does, on every system, so the cloud gate sees
+  what the Windows gate saw. The version was never published; it is the
+  same number.
+- The CLI `gea roadmap` and `gea dysfunction`, the routes, the Roadmap
+  and Drilling alerts tabs, three alert events, the help pages, lesson
+  13, the README, the dossier. Sections EF and EG. Rendered under
+  Playwright with no script error. Gate 578.

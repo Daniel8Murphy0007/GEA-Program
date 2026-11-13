@@ -2308,6 +2308,12 @@ def make_handler(app: App):
                                 b_ = f_.read()
                         return self._json(200, {'xlsx_b64': _b64.b64encode(b_).decode('ascii'), 'filename': 'declarations.xlsx'})
                     return self._json(200, {'csv': DC.template(app.ws), 'filename': 'declarations.csv'})
+                if path == '/api/roadmap':
+                    from . import roadmap as RM
+                    return self._json(200, App._cr(RM.page, app.ws, (qs.get('well') or [None])[0] or None))
+                if path == '/api/dysfunction':
+                    from . import dysfunction as DY
+                    return self._json(200, App._cr(DY.page, app.ws))
                 if path == '/api/calibration':
                     from . import calibration as CB
                     return self._json(200, App._cr(CB.page, app.ws))
@@ -2710,6 +2716,22 @@ def make_handler(app: App):
                     if not isinstance(t_, str) or not t_.strip():
                         raise ApiError(400, 'send the sheet as text (CSV) or an Excel workbook')
                     return self._json(200, DC.apply(app.ws, t_, user['name'], '', write=bool((body or {}).get('apply'))))
+                if path == '/api/roadmap/write':
+                    from . import roadmap as RM
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    r_ = App._cr(RM.write_report, app.ws, _v, user['name'])
+                    return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
+                if path in ('/api/dysfunction/settings', '/api/dysfunction/write'):
+                    from . import dysfunction as DY
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    b_ = dict(body or {})
+                    if path.endswith('/write'):
+                        r_ = App._cr(DY.write_report, app.ws, _v, user['name'])
+                        return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
+                    st_ = App._cr(DY.set_settings, app.ws, user['name'], str(b_.get('source') or ''), **{k: b_.get(k) for k in DY.DEFAULTS})
+                    return self._json(200, {k: st_[k] for k in DY.DEFAULTS})
                 if path.startswith('/api/calibration/'):
                     from . import calibration as CB
                     from . import __version__ as _v

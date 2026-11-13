@@ -4,6 +4,25 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.88.0 - 2026-11-12 - the drilling roadmap and the drilling alerts
+
+- Two pages that read the drilling records the pad already has. The
+  roadmap: every well cut into stands of 100 ft, each in its stretch of
+  hole (1,000 ft of TVD to the heel, 1,000 ft of lateral beyond), the
+  window of weight, rotary speed, flow and differential pressure the
+  fastest quarter of the stands ran, the fastest well in each stretch and
+  what every well ran there - and each well checked against the roadmap
+  made from the others, nearer the window against farther.
+- The drilling alerts: washout (off-bottom pressure against the stands
+  before, at the same flow), motor stall (a differential-pressure spike
+  the bit stopped under) and tight hole (pick-up and slack-off weight
+  against their own trend), replayed over every record with what the rig
+  did next, the thresholds as settings with their sources, and raised as
+  alerts on a record still being written.
+- The chart cache is rebuilt as a new generation of files, never over
+  arrays a reader may still have mapped (Windows would not allow it).
+- Sections EF and EG. Gate 578.
+
 ## v0.87.0 - 2026-11-12 - the calibration
 
 - The fourth fluid-flow module, closing the loop: the plume and the front

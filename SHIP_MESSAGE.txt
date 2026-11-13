@@ -1,14 +1,16 @@
-v0.87.0 — THE CALIBRATION
+v0.88.0 — THE DRILLING ROADMAP AND THE DRILLING ALERTS
 
-The plume and the front, run many times over the numbers nobody knows
-exactly - permeability, thickness, porosity, compressibility, each fault
-open or sealing - and ranked against the measured pressures and the
-producers' water: the runs the measurements do not contradict, every
-forecast as a range (what the declarations allow beside what the
-measurements leave), and what to measure next. Observation wells in the
-ledger. SIMULATION on every line. The Calibration tab, `gea calibrate`,
-`gea help calibration`. Section EE; gate 572.
+Two pages read from the drilling records the pad already has. The
+roadmap: every well cut into stands of 100 ft, each in its stretch of
+hole, the window of weight on bit, rotary speed, flow and differential
+pressure the fastest quarter of the stands ran, the fastest well in each
+stretch - and each well checked against the roadmap made from the others.
+The drilling alerts: washout, motor stall and tight hole as rules replayed
+over every record with what the rig did next, the thresholds as settings,
+raised as alerts on a record still being written. The Roadmap and
+Drilling alerts tabs, `gea roadmap`, `gea dysfunction`,
+`gea help roadmap`, `gea help dysfunction`. Sections EF and EG; gate 578.
 
 Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
 
-Gate 572.
+Gate 578.

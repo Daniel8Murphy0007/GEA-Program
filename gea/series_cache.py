@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
@@ -48,13 +49,48 @@ def _source_sig(path: Optional[str]) -> dict:
     return {'source': path, 'source_size': None, 'source_mtime': None}
 
 
+def _generation(cache_dir: str) -> int:
+    """The generation the next build writes: 0 into an empty folder, one more than any array already there otherwise."""
+    last = -1
+    try:
+        names = os.listdir(cache_dir)
+    except OSError:
+        return 0
+    for n in names:
+        if not n.endswith('.npy'):
+            continue
+        m = re.search(r'\.g(\d+)\.npy$', n)
+        last = max(last, int(m.group(1)) if m else 0)
+    return last + 1
+
+
+def _sweep(cache_dir: str, keep: set) -> None:
+    """Remove the arrays of earlier generations. One still mapped by a reader cannot be removed on Windows: it is left,
+    and goes at a later build."""
+    try:
+        names = os.listdir(cache_dir)
+    except OSError:
+        return
+    for n in names:
+        if n.endswith('.npy') and n not in keep:
+            try:
+                os.remove(os.path.join(cache_dir, n))
+            except OSError:
+                pass
+
+
 def build(stream, cache_dir: str, extras: Optional[Dict[str, np.ndarray]] = None, source_key: Optional[str] = None) -> dict:
-    """Write the cache for `stream` into `cache_dir` (replacing what is there) and return its meta."""
+    """Write the cache for `stream` into `cache_dir` and return its meta. A cache already there is never written over:
+    its arrays may be memory-mapped by a reader - a chart being drawn, a page kept in memory - and Windows will not let
+    a mapped file be written, replaced or removed. The new arrays get a new generation's names (`index.g1.npy`),
+    `meta.json` is switched to them in one step, and the old ones are removed when nothing holds them."""
     os.makedirs(cache_dir, exist_ok=True)
+    gen = _generation(cache_dir)
+    sfx = f'.g{gen}' if gen else ''
     n = len(stream.index)
     src_path = (stream.meta or {}).get('path')
     meta = {'schema': SCHEMA, 'name': stream.name, 'n': int(n), 'index_kind': stream.index_kind, 'source_format': stream.source_format,
-            'start_time': (stream.meta or {}).get('start_time'), 'channels': [], 'extras': [], **_source_sig(src_path)}
+            'start_time': (stream.meta or {}).get('start_time'), 'channels': [], 'extras': [], 'suffix': sfx, **_source_sig(src_path)}
     if source_key:
         meta['source'] = source_key
     secs = (stream.meta or {}).get('sections')
@@ -65,33 +101,39 @@ def build(stream, cache_dir: str, extras: Optional[Dict[str, np.ndarray]] = None
             meta['sections'] = [[float(idx[a]), float(idx[b - 1])] for a, b in pairs if b > a]
         except (ValueError, TypeError, IndexError):
             pass
-    np.save(os.path.join(cache_dir, 'index.npy'), np.asarray(stream.index, dtype=np.float64))
+    keep = {f'index{sfx}.npy'}
+    np.save(os.path.join(cache_dir, f'index{sfx}.npy'), np.asarray(stream.index, dtype=np.float64))
     for k, (name, ch) in enumerate(stream.channels.items()):
         v = np.asarray(ch.values, dtype=np.float32)
-        np.save(os.path.join(cache_dir, f'c{k}.npy'), v)
-        rec = {'name': name, 'unit': ch.unit or '', 'file': f'c{k}.npy', 'present': int(np.count_nonzero(~np.isnan(v)))}
+        np.save(os.path.join(cache_dir, f'c{k}{sfx}.npy'), v)
+        rec = {'name': name, 'unit': ch.unit or '', 'file': f'c{k}{sfx}.npy', 'present': int(np.count_nonzero(~np.isnan(v)))}
+        keep.add(rec['file'])
         q = getattr(ch, 'quality', None)
         if q is not None and len(q) == n:
             flagged = np.array([x not in (None, '', 'OK', 'GOOD') for x in q], dtype=bool)
             if flagged.any():
-                np.save(os.path.join(cache_dir, f'q{k}.npy'), flagged)
-                rec['flags'] = f'q{k}.npy'
+                np.save(os.path.join(cache_dir, f'q{k}{sfx}.npy'), flagged)
+                rec['flags'] = f'q{k}{sfx}.npy'
+                keep.add(rec['flags'])
         meta['channels'].append(rec)
     for name, arr in (extras or {}).items():
         a = np.asarray(arr)
         a = a.astype(bool) if a.dtype == bool else a.astype(np.float32)
-        np.save(os.path.join(cache_dir, f'x_{name}.npy'), a)
+        np.save(os.path.join(cache_dir, f'x_{name}{sfx}.npy'), a)
+        keep.add(f'x_{name}{sfx}.npy')
         meta['extras'].append(name)
     with open(os.path.join(cache_dir, 'meta.json.tmp'), 'w', encoding='utf-8') as f:
         json.dump(meta, f, indent=1)
     os.replace(os.path.join(cache_dir, 'meta.json.tmp'), os.path.join(cache_dir, 'meta.json'))
+    _sweep(cache_dir, keep)
     return meta
 
 
 class Cache:
     def __init__(self, cache_dir: str, meta: dict):
         self.dir, self.meta = cache_dir, meta
-        self.index = np.load(os.path.join(cache_dir, 'index.npy'), mmap_mode='r')
+        self._sfx = meta.get('suffix') or ''
+        self.index = np.load(os.path.join(cache_dir, f'index{self._sfx}.npy'), mmap_mode='r')
         self._ch = {c['name']: c for c in meta['channels']}
 
     def channel(self, name: str) -> np.ndarray:
@@ -104,7 +146,7 @@ class Cache:
         return np.load(os.path.join(self.dir, f), mmap_mode='r') if f else None
 
     def extra(self, name: str) -> Optional[np.ndarray]:
-        return np.load(os.path.join(self.dir, f'x_{name}.npy'), mmap_mode='r') if name in self.meta.get('extras', []) else None
+        return np.load(os.path.join(self.dir, f'x_{name}{self._sfx}.npy'), mmap_mode='r') if name in self.meta.get('extras', []) else None
 
     def unit(self, name: str) -> str:
         if name not in self._ch:

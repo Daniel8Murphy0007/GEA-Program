@@ -18331,6 +18331,400 @@ def section_ee_calibration(tmp: str) -> None:
        + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_ef_roadmap(tmp: str) -> None:
+    """Section EF - the drilling roadmap: the self-test (three labelled wells through rock with a known best weight and
+    speed); the stands (the rate, the modes, a gap in the record, a re-set depth, an incomplete stand), the heel of a
+    lateral drilled up dip and of a hole with none, the distance from a window, the ranks; a workspace of three
+    recorder exports (the stretches by TVD and along the lateral, the windows, the fastest well, each well against the
+    roadmap of the others, the next stand; one well; none; the report, the audit, the dossier); the routes, the tab,
+    the command, the help, the README and the lesson."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.error
+    import urllib.request
+    import zipfile as _zf
+    from . import __version__ as _ver
+    from . import client_reports as CR
+    from . import dossier as DZ
+    from . import helplib as H
+    from . import roadmap as RM
+    from . import tutorial as TU
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ef"); d.mkdir()
+    # -- EF1 the arithmetic ---------------------------------------------------------------------------------------------------
+    st = RM.selftest()
+    t = np.arange(0.0, 7200.0)
+    bottom = 1000.0 + 0.05 * t                                     # 180 ft/h: three stands and 60 ft of a fourth
+    rot = t < 3000.0                                               # stand 0 all rotary, stand 1 half, stand 2 none
+    wob = np.where(t < 1000.0, 10.0, 30.0)                         # stand 0: 10 for half its time, 30 for the other half
+    s1 = RM.stands_of(t, bottom, np.ones(len(t), bool), rot, {"wob": wob, "rpm": None, "flow": None, "diff": None, "spp": None, "torque": None})
+    keep = (t < 2500.0) | (t >= 3100.0)                            # ten minutes the recorder did not record, the hole 30 ft deeper after them
+    s2 = RM.stands_of(t[keep], bottom[keep], np.ones(int(keep.sum()), bool), rot[keep], {})
+    jump = bottom + np.where(t >= 4000.0, 200.0, 0.0)              # the depth re-set 200 ft deeper: not footage
+    s3 = RM.stands_of(t, jump, np.ones(len(t), bool), rot, {})
+    md = np.arange(50.0, 12000.0, 100.0)
+    tv_up = np.where(md < 5000.0, md, np.where(md < 6000.0, 5000.0 + 636.6 * np.sin((md - 5000.0) / 1000.0 * np.pi / 2), 5636.6 - 0.05 * (md - 6000.0)))   # the lateral climbs 300 ft
+    ent = {"status": "OK", "window": {"wob": {"low": 20.0, "mid": 25.0, "high": 30.0}, "rpm": {"low": 100.0, "mid": 110.0, "high": 120.0}, "flow": {"low": 500.0, "mid": 510.0, "high": 520.0}}}
+    tops = [{"formation": "A", "tvd_low_ft": 900.0, "tvd_high_ft": 1100.0}, {"formation": "B", "tvd_low_ft": 2900.0, "tvd_high_ft": 3100.0}]
+    c1 = {
+        "selftest": st["ok"] and st["label"] == "SIMULATION" and len(st["checks"]) >= 10,
+        "stands": s1["n"] == 3 and all(abs(r_ - 180.0) < 0.5 for r_ in s1["rop"]) and list(s1["mode"]) == [0, 2, 1] and abs(s1["wob"][0] - 20.0) < 0.1 and abs(s1["wob"][1] - 30.0) < 1e-6
+                  and s1["incomplete"] == 1 and abs(float(s1["hours"].sum()) - 6000.0 / 3600.0) < 0.01 and list(s1["md"]) == [1050.0, 1100.0 + 50.0, 1250.0],
+        "gap": s2["n"] == 2 and s2["incomplete"] == 2 and all(abs(r_ - 180.0) < 1.0 for r_ in s2["rop"]),
+        "reset": s3["n"] == 3 and list(s3["md"]) == [1050.0, 1150.0, 1450.0] and abs(float(s3["feet"].sum()) - 300.0) < 0.5 and all(abs(r_ - 180.0) < 0.5 for r_ in s3["rop"]),
+        "heel": 5850.0 <= (RM.lateral_start(md, tv_up) or 0) <= 6050.0 and RM.lateral_start(md, md.copy()) is None and RM.lateral_start(md[:55], tv_up[:55]) is None,
+        "distance": abs(RM.distance(ent, "rotary", {"wob": 35.0, "rpm": 110.0, "flow": 510.0}) - 0.2) < 1e-9 and RM.inside(ent, "rotary", {"wob": 31.0, "rpm": 110.0, "flow": 510.0}) is True
+                    and RM.inside(ent, "rotary", {"wob": 25.0, "rpm": 60.0, "flow": 510.0}) is False and RM.inside(ent, "slide", {"wob": 25.0, "rpm": 0.0, "flow": 510.0}) is True
+                    and RM.distance({"status": "TOO FEW STANDS"}, "rotary", {"wob": 25.0}) is None and list(RM._ranks(np.array([1.0, 1.0, 2.0]))) == [0.5, 0.5, 2.0],
+        "labels": RM.stretch_label(("TVD", 3)) == "TVD 3,000 to 4,000 ft" and RM.stretch_label(("LAT", 0)) == "lateral 0 to 1,000 ft from the heel" and RM._formation_at(tops, 3500.0)["formation"] == "B"
+                  and RM._formation_at(tops, 2000.0)["formation"] == "A" and RM._formation_at(tops, 500.0) is None,
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "EF1 the roadmap's arithmetic: the self-test (three labelled wells through rock with a known best weight and speed - the windows hold them, the nearer half the faster on every well, shuffled rates "
+       "show no gain - SIMULATION); a record cut into stands (the rate, rotary, mixed and slide by the share of the time the rotary turned, the time-weighted weight, an incomplete stand left out); ten "
+       "minutes the recorder missed give neither time nor footage; a depth re-set is not footage; the heel of a lateral that climbs 300 ft is still found and a vertical hole has none; the distance "
+       "from a window and what counts as inside; the stretch names" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- EF2 a workspace of three recorder exports --------------------------------------------------------------------------
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad EF", actor="tester")
+    ids = []
+    for i in range(3):
+        rec = RM.synthetic_record(seed=10 + i, td_ft=7500.0, kop_ft=4000.0)
+        RM.write_edr(rec, str(d / f"w{i}.csv"), every=20)
+        ids.append(ws.add_well_file(str(d / f"w{i}.csv"), display=f"W-{i}", actor="tester")["id"])
+    pg = RM.page(ws)
+    by = {(tuple(s_["stretch"]), s_["mode"]): s_ for s_ in pg["stretches"]}
+    up, low, lat = by[(("TVD", 1), "rotary")], by[(("TVD", 3), "rotary")], by[(("LAT", 1), "rotary")]
+    holds = lambda e, w_, r_: e["window"]["wob"]["low"] * 0.9 <= w_ <= e["window"]["wob"]["high"] * 1.1 and e["window"]["rpm"]["low"] * 0.9 <= r_ <= e["window"]["rpm"]["high"] * 1.1
+    nx = pg["next"]
+    pg_named = RM.page(ws, ids[0])
+    wr = RM.write_report(ws, _ver, "tester")
+    txt = (Path(wr["folder"]) / "roadmap.md").read_text(encoding="utf-8").lower()
+    rows = (Path(wr["folder"]) / "roadmap.csv").read_text(encoding="utf-8").strip().splitlines()
+    dz = DZ.build(ws, "tester", _ver, None)
+    names = _zf.ZipFile(Path(ws.reports_dir, dz["path"])).namelist()
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    ws1 = Workspace.create(str(d / "ws1"), "Pad EF one", actor="tester"); ws1.add_well_file(str(d / "w0.csv"), display="W-0", actor="tester")
+    pg1 = RM.page(ws1)
+    ws0 = Workspace.create(str(d / "ws0"), "Pad EF none", actor="tester")
+    pg0 = RM.page(ws0)
+    c2 = {
+        "wells": pg["status"] == "OK" and len(pg["wells"]) == 3 and all(w_["stands"] == 65 and w_["slide_stands"] >= 2 and 4800.0 <= w_["heel_md_ft"] <= 5050.0 and "Interpolated TVD" in w_["tvd"] for w_ in pg["wells"]),
+        "stretches": {tuple(s_["stretch"])[0] for s_ in pg["stretches"]} == {"TVD", "LAT"} and up["status"] == "OK" and up["n_stands"] == 30 and by[(("LAT", 0), "slide")]["status"] == "TOO FEW STANDS",
+        "windows": holds(up, 25.0, 90.0) and holds(low, 40.0, 140.0) and holds(lat, 30.0, 170.0) and not holds(up, 40.0, 140.0) and up["rop_best_ft_h"] > 1.3 * up["rop_all_ft_h"]
+                   and "diff" in up["window"] and "flow" in up["window"],
+        "fastest": up["fastest_well"] in ids and set(up["by_well"]) == set(ids) and all(v["stands"] == 10 and "wob" in v for v in up["by_well"].values())
+                   and up["by_well"][up["fastest_well"]]["rop_ft_h"] == max(v["rop_ft_h"] for v in up["by_well"].values()),
+        "check": len(pg["checks"]) == 3 and all(c_["paired_gain"] > 0.25 and c_["rank_correlation"] < -0.5 and 0.2 < c_["inside_share"] < 0.8 and 0 < c_["prize_h"] < c_["hours_judged"]
+                                              and set(c_["from_wells"]) == set(ids) - {c_["well"]} for c_ in pg["checks"]) and any(l.startswith("The check supports the roadmap") for l in pg["lines"]),
+        "next": nx["well"] == max(ids, key=lambda w_: next(x["record_end"] for x in pg["wells"] if x["well"] == w_)) and nx["stretches"][0]["stretch"][0] == "LAT" and nx["stretches"][0]["status"] == "OK"
+                and set(nx["stretches"][0]["now"]) == {"wob", "rpm", "flow"} and all(v["where"] in ("inside", "below", "above") for v in nx["stretches"][0]["now"].values())
+                and pg_named["next"]["well"] == ids[0],
+        "named_by_depth": any("named by depth alone" in n_ for n_ in pg["notes"]) and "formation_tops" not in pg,
+        "one_well": pg1["status"] == "OK" and not pg1["checks"] and any("one well with a record" in n_ for n_ in pg1["notes"]) and len(pg1["stretches"]) >= 5,
+        "none": pg0["status"] == "EMPTY" and "No roadmap" in pg0["lines"][0],
+        "written": set(wr["files"]) == {"roadmap.json", "roadmap.md", "roadmap.csv"} and len(rows) == len(pg["stretches"]) + 1 and rows[0].startswith("stretch,formation,mode,stands") and "wob_low" in rows[0]
+                   and "not a cause" in txt and not [t_ for t_ in CR.FORBIDDEN_TERMS if t_ in txt] and "roadmap.report" in audit,
+        "dossier": "results/roadmap.json" in names and "reports/roadmap/roadmap.csv" in names and "results/drilling_alerts.json" in names,
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "EF2 three wells' recorder exports in a workspace: the stands of each, the heel, the stretches by TVD above it and along the lateral beyond; the windows hold the rock's own best weight and "
+       "speed in each stretch and not another stretch's; each stretch names its fastest well and what every well ran; each well against the roadmap of the other two - the nearer half the faster, "
+       "the correlation negative, the room between none and all - and the verdict; the next stand for the well whose record ends last, or the one named; the stretches said to be named by depth "
+       "alone; one well gives a roadmap and no check; none says so; the report with its CSV, the audit line, the signed dossier's results" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- EF3 the routes, the command, the tab, the help ---------------------------------------------------------------------
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=300) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_vg, vg = call(V, "GET", "/api/roadmap")
+        s_vn, vn = call(V, "GET", "/api/roadmap?well=" + ids[1])
+        s_vw, _ = call(V, "POST", "/api/roadmap/write", {})
+        s_ow, ow = call(O, "POST", "/api/roadmap/write", {})
+    finally:
+        svc.stop()
+    cli_w = _sp.run([sys.executable, "-m", "gea", "roadmap", "--workspace", wsp], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_j = _sp.run([sys.executable, "-m", "gea", "roadmap", "--workspace", wsp, "--well", ids[2], "--json"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_o = _sp.run([sys.executable, "-m", "gea", "roadmap", "--workspace", wsp, "--write"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_x = _sp.run([sys.executable, "-m", "gea", "roadmap", "--workspace", str(d / "nowhere")], capture_output=True, text=True, cwd=str(pkg.parent))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
+    lesson = (pkg / "help" / "tutorial" / "13-drilling-pages.md").read_text(encoding="utf-8")
+    c3 = {
+        "api": s_vg == 200 and vg["status"] == "OK" and len(vg["stretches"]) == len(pg["stretches"]) and s_vn == 200 and vn["next"]["well"] == ids[1] and s_vw == 403 and s_ow == 200 and "roadmap.csv" in ow["files"],
+        "cli": cli_w.returncode == 0 and "Drilling roadmap" in cli_w.stdout and "The check supports the roadmap" in cli_w.stdout and "lateral 0 to 1,000 ft from the heel" in cli_w.stdout
+               and cli_j.returncode == 0 and json.loads(cli_j.stdout)["next"]["well"] == ids[2] and cli_o.returncode == 0 and "roadmap.csv" in cli_o.stdout and cli_x.returncode != 0 and "roadmap:" in cli_x.stderr,
+        "page": all(x in page_src for x in ("VIEWS.roadmap", "['#/roadmap', 'Roadmap']", "/api/roadmap/write", "rmBar", "help('roadmap')", "Well by well", "Nearer against farther")),
+        "help": not H.check("roadmap") and H.VIEW_TOPIC.get("roadmap") == "roadmap" and any(t_ == "roadmap" for t_, _, _ in H.INDEX)
+                and all(x in (H.page("roadmap") or "") for x in ("gea roadmap --workspace C:\\site", "twelve stands", "ten degrees of horizontal", "rank correlation", "never a forecast")),
+        "readme_lesson": (not readme or ("### Drilling roadmap" in readme and "`gea roadmap`" in readme)) and "**Roadmap**" in lesson and "roadmap" in lesson.split("Help:")[-1] and not TU.check("drilling-pages"),
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "EF3 on the API (anyone reads the roadmap, for the well named or the one whose record ends last; only an operator writes the report), the command (the page, the page as JSON for a named "
+       "well, the report, a folder that is no workspace stopped), the Roadmap tab with its rate bars, the well-by-well table and the check, the help page, the README and lesson 13"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
+def section_eg_dysfunction(tmp: str) -> None:
+    """Section EG - the drilling alerts: the self-test (a labelled record with a washout, three stalls and a tightening
+    hole put in, a change of pump rate that is none of them, and a sound record); the washout rule on readings made by
+    hand (one low reading, a fall that comes back, a trip between, a pump rate changed); the stall rule (a slow rise, a
+    rise the bit drills through, a record too coarse); the trend line; the settings and what they stop; a workspace (the
+    replay through a recorder export, a record still being written, the alert raised once, a finished record raising
+    none, a setting changed with its source, the report, the audit, the dossier); the routes, the tab, the command, the
+    help, the README and the lesson."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.error
+    import urllib.request
+    import zipfile as _zf
+    from . import __version__ as _ver
+    from . import alerts as AL
+    from . import client_reports as CR
+    from . import dossier as DZ
+    from . import dysfunction as DY
+    from . import helplib as H
+    from . import notify as NT
+    from . import series_cache as SCH
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "eg"); d.mkdir()
+    P = dict(DY.DEFAULTS)
+    # -- EG1 the rules -----------------------------------------------------------------------------------------------------------
+    st = DY.selftest()
+    rd = lambda vals, q=550.0, t0=0.0: [{"t": t0 + 3600.0 * i, "depth_ft": 10000.0 + 95.0 * i, "psi": float(v), "flow": q} for i, v in enumerate(vals)]
+    one_low = DY.washout(rd([3000] * 8 + [2600] + [3000] * 6), [], "measured", P, 1e9)
+    back = DY.washout(rd([3000] * 8 + [2700, 2650, 2640, 2990, 3000, 3000]), [], "measured", P, 1e9)
+    still_open = DY.washout(rd([3000] * 8 + [2700, 2650, 2600]), [], "measured", P, 1e9)
+    trip = [{"direction": "OUT", "t_start": 3600.0 * 10.5}]
+    tripped = DY.washout(rd([3000] * 8 + [2700, 2650, 2600] + [3000] * 6), trip, "measured", P, 1e9)
+    new_string = DY.washout(rd([3000] * 10 + [2500] * 8), [{"direction": "OUT", "t_start": 3600.0 * 9.5}], "measured", P, 1e9)       # a different string after the trip: a new baseline, no event
+    slowed = rd([3000] * 8) + [{"t": 3600.0 * (8 + i), "depth_ft": 10760.0 + 95.0 * i, "psi": 3000.0 * (500.0 / 550.0) ** 1.8, "flow": 500.0} for i in range(6)]
+    far = rd([3000] * 8) + [{"t": 3600.0 * (8 + i), "depth_ft": 10760.0 + 95.0 * i, "psi": 1500.0, "flow": 380.0} for i in range(6)]         # a third off the rate: not compared at all
+    small = DY.washout(rd([1000] * 8 + [930, 925, 920]), [], "measured", P, 1e9)                                                            # 7 %, and under 100 psi
+    zero = DY.washout([{"t": 3600.0 * i, "depth_ft": 1e4 + 95 * i, "psi": None, "flow": None, "zero_psi": v, "zero_flow": 550.0} for i, v in enumerate([3000.0] * 8 + [2700.0, 2650.0])], [], "zero", P, 1e9)
+    # the stall rule on arrays: 20 minutes on bottom at 400 psi of differential, 100 ft/h
+    n = 1200; t = np.arange(float(n)); hole = 9000.0 + t * (100.0 / 3600.0)
+    mk = lambda diff, hole_=hole, bit_=None: DY.stalls(t, {"diff": diff, "bit": (hole_ if bit_ is None else bit_), "hole": hole_}, np.ones(n, bool), np.zeros(n, bool), P)
+    flat = np.full(n, 400.0)
+    spike = flat.copy(); spike[900:915] = 1100.0
+    stop = hole.copy(); stop[900:] = hole[900] + np.clip(t[900:] - 925.0, 0, None) * (100.0 / 3600.0)            # the bit stopped for 25 s under the spike
+    ramp = flat.copy(); ramp[600:915] = np.minimum(1100.0, 400.0 + (t[600:915] - 600.0) / 300.0 * 700.0)
+    level = flat.copy(); level[900:] = 1100.0
+    early = flat.copy(); early[100:115] = 1100.0; stop_e = hole.copy(); stop_e[100:] = hole[100] + np.clip(t[100:] - 125.0, 0, None) * (100.0 / 3600.0)
+    r_sp, r_thru, r_ramp, r_lvl, r_early = mk(spike, stop), mk(spike), mk(ramp, stop), mk(level, stop), mk(early, stop_e)
+    coarse = DY.stalls(t[::10], {"diff": spike[::10], "bit": stop[::10], "hole": stop[::10]}, np.ones(n // 10, bool), np.zeros(n // 10, bool), P)
+    wts = lambda extra: [{"t": 3600.0 * i, "depth_ft": 10000.0 + 95.0 * i, "pickup_still": 200.0 + 0.19 * i + e_, "pickup_turning": None, "slackoff_still": None, "slackoff_turning": None}
+                         for i, e_ in enumerate(extra)]
+    tg_none = DY.tight(wts([0.0] * 20), [], P)
+    tg_one = DY.tight(wts([0.0] * 10 + [25.0] + [0.0] * 9), [], P)
+    tg_ev = DY.tight(wts([0.0] * 10 + [15.0, 20.0, 25.0, 0.0, 0.0, 0.0, 0.0]), [], P)
+    tg_lvl = DY.tight(wts([0.0] * 10 + [30.0] * 16), [], P)
+    errs = {}
+    wsx = Workspace.create(str(d / "wsx"), "Pad EG settings", actor="tester")
+    for name, kw in (("bounds", {"washout_fall": 0.9}), ("source", {"stall_min_psi": 500.0}), ("number", {"drag_sigma": "many"})):
+        try:
+            DY.set_settings(wsx, "tester", "", **kw); errs[name] = ""
+        except DY.DysfunctionError as e:
+            errs[name] = str(e)
+    kept = DY.set_settings(wsx, "tester", "drilling engineer (gate)", stall_min_psi=500.0)
+    back_to = DY.set_settings(wsx, "tester", "", stall_min_psi=300.0)
+    c1 = {
+        "selftest": st["ok"] and st["label"] == "SIMULATION" and len(st["checks"]) >= 9,
+        "washout": not one_low and len(back) == 1 and back[0]["ended"] == "the pressure came back" and back[0]["readings"] == 3 and abs(back[0]["fall"] - 0.12) < 0.005 and back[0]["fall_psi"] == 360
+                   and len(still_open) == 1 and still_open[0].get("open") and still_open[0]["ended"] == "open at the end of the record"
+                   and len(tripped) == 1 and tripped[0]["ended"].startswith("a trip out") and abs(tripped[0]["trip_after_h"] - 2.5) < 0.01 and not new_string,
+        "flow": not DY.washout(slowed, [], "measured", P, 1e9) and not DY.washout(far, [], "measured", P, 1e9) and not small and len(zero) == 1 and zero[0]["baseline_psi"] == 3000.0,
+        "stall": len(r_sp["events"]) == 1 and r_sp["events"][0]["rise_psi"] == 700 and r_sp["events"][0]["bit_stopped"] and abs(r_sp["events"][0]["t"] - 900.0) <= 1 and r_sp["events"][0]["seconds"] == 15
+                 and not r_thru["events"] and r_thru["drilled_through"] == 1 and not r_ramp["events"] and r_ramp["ramps"] == 1 and not r_lvl["events"] and not r_early["events"]
+                 and coarse["status"] == "TOO COARSE",
+        "tight": not tg_none and not tg_one and len(tg_ev) == 1 and tg_ev[0]["ended"] == "back on the trend" and tg_ev[0]["connections"] == 3 and 24.0 <= tg_ev[0]["pickup_over_klbf"] <= 26.0
+                 and len(tg_lvl) >= 1 and tg_lvl[0]["ended"].startswith("a new level") and tg_lvl[0]["connections"] == 12,
+        "settings": "between" in errs["bounds"] and "source" in errs["source"] and "number" in errs["number"] and kept["stall_min_psi"] == 500.0 and kept["sources"]["stall_min_psi"] == "drilling engineer (gate)"
+                    and back_to["stall_min_psi"] == 300.0 and "stall_min_psi" not in back_to["sources"] and DY.settings(wsx)["stall_min_psi"] == 300.0,
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "EG1 the three rules: the self-test (a washout found by the second stand of its fall and ended by the trip, three stalls where they were put, a tightening hole open at the end of the record, "
+       "the pumps slowed and nothing flagged, a sound record with no event - SIMULATION); the washout rule on readings (one low reading is no event; a fall that comes back is one that came back; "
+       "an open one; a trip ends one and starts a new baseline; a slower pump rate is brought to the same flow, one a third off is not compared; 7 % under 100 psi is nothing; the recorder's zero "
+       "read the same way); the stall rule (a spike with the bit stopped; the bit drilling on under it set aside; a slow rise set aside; a new level; no judgement before the bit has been on bottom "
+       "200 s; a ten-second record not judged); the weight trend (one high connection nothing, three an event that ends back on the trend, a lasting step a new level after twelve); a setting "
+       "outside its bounds, without its source or not a number stopped" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- EG2 a workspace: the replay, the live record, the alert ------------------------------------------------------------
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad EG", actor="tester")
+    rec = DY.synthetic_record(True)
+    DY.write_edr(rec, str(d / "rig.csv"))
+    wid = ws.add_well_file(str(d / "rig.csv"), display="RIG-1", actor="tester")["id"]
+    DY.write_edr(DY.synthetic_record(False, seed=5), str(d / "sound.csv"))
+    wid2 = ws.add_well_file(str(d / "sound.csv"), display="RIG-2", actor="tester")["id"]
+    pg = DY.page(ws)
+    w1 = next(w_ for w_ in pg["wells"] if w_["well"] == wid); w2 = next(w_ for w_ in pg["wells"] if w_["well"] == wid2)
+    live = DY.live_events(ws)
+    raised1 = AL.check_conditions(ws, None, force=True)
+    raised2 = AL.check_conditions(ws, None, force=True)
+    dr1 = [e for e in raised1 if e["event"].startswith("drilling.")]
+    subj = NT._subject(dr1[0]) if dr1 else ""
+    wr = DY.write_report(ws, _ver, "tester")
+    txt = (Path(wr["folder"]) / "drilling_alerts.md").read_text(encoding="utf-8").lower()
+    rows = (Path(wr["folder"]) / "events.csv").read_text(encoding="utf-8").strip().splitlines()
+    dz = DZ.build(ws, "tester", _ver, None)
+    zf = _zf.ZipFile(Path(ws.reports_dir, dz["path"])); names = zf.namelist()
+    dj = json.loads(zf.read("results/drilling_alerts.json")) if "results/drilling_alerts.json" in names else {}
+    strict = DY.set_settings(ws, "tester", "drilling engineer (gate): this rig's gauge", washout_fall=0.3, stall_min_psi=900.0, drag_min_klbf=60.0)
+    pg_strict = DY.page(ws)
+    DY.set_settings(ws, "tester", "", washout_fall=0.06, stall_min_psi=300.0, drag_min_klbf=10.0)
+    # the records finished three hours ago - and their chart caches have to be built again while the arrays of the old
+    # ones are still held, which Windows will not let be written over or removed: stood in for here on every system
+    old = time.time() - 3 * 3600.0
+    cdir = SCH.cache_dir(ws, wid)
+    npy = lambda: sorted(n_ for n_ in os.listdir(cdir) if n_.endswith(".npy"))
+    gen0 = npy()
+    held = {os.path.join(cdir, n_) for n_ in gen0} | {os.path.join(SCH.cache_dir(ws, wid2), n_) for n_ in os.listdir(SCH.cache_dir(ws, wid2)) if n_.endswith(".npy")}
+    real_save, real_remove = np.save, os.remove
+
+    def save_held(path, *a_, **k_):
+        if str(path) in held:
+            raise PermissionError(13, "the file is mapped", str(path))
+        return real_save(path, *a_, **k_)
+
+    def remove_held(path, *a_, **k_):
+        if str(path) in held:
+            raise PermissionError(13, "the file is mapped", str(path))
+        return real_remove(path, *a_, **k_)
+    np.save, os.remove = save_held, remove_held
+    try:
+        for w_ in (wid, wid2):
+            os.utime(SCH.source_path(ws, w_), (old, old))
+        pg_old = DY.page(ws)
+        live_old = DY.live_events(ws)
+    finally:
+        np.save, os.remove = real_save, real_remove
+    gen1 = npy(); meta1 = json.loads(Path(cdir, "meta.json").read_text(encoding="utf-8"))
+    os.utime(SCH.source_path(ws, wid), (old - 60.0, old - 60.0))     # and once more, with nothing held: the earlier generations go
+    pg_again = DY.page(ws)
+    gen2 = npy(); meta2 = json.loads(Path(cdir, "meta.json").read_text(encoding="utf-8"))
+    Path(wsp, "records", "alerts_state.json").unlink()
+    raised3 = AL.check_conditions(ws, None, force=True)
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    ws0 = Workspace.create(str(d / "ws0"), "Pad EG none", actor="tester")
+    pg0 = DY.page(ws0)
+    c2 = {
+        "replay": pg["status"] == "OK" and len(pg["wells"]) == 2 and w1["washout"]["status"] == "OK" and w1["washout"]["use"] == "measured" and len(w1["washout"]["events"]) == 1
+                  and w1["washout"]["events"][0]["ended"].startswith("a trip out") and 0.14 <= w1["washout"]["events"][0]["fall"] <= 0.22 and w1["stall"]["n"] == 3
+                  and all(600 <= e["rise_psi"] <= 800 and e["mode"] == "rotary" for e in w1["stall"]["events"]) and sum(1 for e in w1["stall"]["events"] if e.get("trip_after_h") is not None) == 3
+                  and len(w1["tight"]["events"]) == 1 and w1["tight"]["events"][0].get("open") and w1["tight"]["counts"]["pickup_still"] >= 38 and w1["tight"]["counts"]["pickup_turning"] == 0,
+        "sound": all(len(w2[k]["events"]) == 0 for k in ("washout", "tight")) and w2["stall"]["n"] == 0 and w2["washout"]["measured"] >= 38,
+        "live": w1["live"] and w2["live"] and [e["event"] for e in live] == ["drilling.tight"] and live[0]["well_id"] == wid and "klbf above its trend" in live[0]["detail"],
+        "alert": len(dr1) == 1 and dr1[0]["event"] == "drilling.tight" and dr1[0]["well"] == "RIG-1" and not [e for e in raised2 if e["event"].startswith("drilling.")]
+                 and subj.startswith("[GEA] pick-up weight off its trend on RIG-1") and all(x in AL.EVENTS and x in NT.EVENTS for x in DY.EVENTS.values()),
+        "rebuilt": len(pg_old["wells"]) == 2 and "index.npy" in gen0 and not [n_ for n_ in gen0 if ".g" in n_] and meta1["suffix"] == ".g1" and set(gen0) < set(gen1) and "index.g1.npy" in gen1
+                   and len(gen1) == 2 * len(gen0) and meta2["suffix"] == ".g2" and len([n_ for n_ in gen2 if ".g2." in n_]) == len(gen0) and (os.name == "nt" or len(gen2) == len(gen0)) and len(pg_again["wells"]) == 2
+                   and len(next(w_ for w_ in pg_again["wells"] if w_["well"] == wid)["stall"]["events"]) == 3,
+        "finished": len(pg_old["wells"]) == 2 and not pg_old["wells"][0]["live"] and not live_old and not [e for e in raised3 if e["event"].startswith("drilling.")]
+                    and len(next(w_ for w_ in pg_old["wells"] if w_["well"] == wid)["tight"]["events"]) == 1,
+        "settings": strict["sources"]["washout_fall"].startswith("drilling engineer") and all(len(w_["washout"]["events"]) == 0 and w_["stall"]["n"] == 0 and len(w_["tight"]["events"]) == 0 for w_ in pg_strict["wells"])
+                    and pg_strict["settings"]["stall_min_psi"] == 900.0 and "dysfunction.settings" in audit,
+        "written": set(wr["files"]) == {"drilling_alerts.json", "drilling_alerts.md", "events.csv"} and len(rows) == 6 and rows[0] == "well,time,kind,depth_ft,what,ended,trip_after_h"
+                   and "the rule did not fire" in txt and not [t_ for t_ in CR.FORBIDDEN_TERMS if t_ in txt] and "dysfunction.report" in audit,
+        "dossier": "results/drilling_alerts.json" in names and "reports/dysfunction/events.csv" in names and len(dj.get("wells", [])) == 2 and "readings" not in dj["wells"][0]["washout"]
+                   and len(dj["wells"][0]["washout"]["events"]) + len(dj["wells"][1]["washout"]["events"]) == 1,
+        "none": pg0["status"] == "EMPTY" and "Nothing to replay" in pg0["lines"][0],
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "EG2 two recorder exports in a workspace, one with the faults in it and one sound: the replay finds the washout (ended by the trip), the three stalls (each with the trip that followed within the day) and the "
+       "tightening hole (open at the end) in the one and nothing in the other; both records are still being written, so the open event is a live one and is raised as an alert once, not again, with "
+       "its subject line; the numbers changed with their source stop every event and are in the audit; once the files are three hours old the replay is the same and no alert is raised - the chart caches built again beside the arrays still held, as Windows requires, and the old generation swept at the build after; the report "
+       "with a row an event, the dossier's results without the readings; a workspace with no record says so" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- EG3 the routes, the command, the tab, the help ---------------------------------------------------------------------
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=300) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_vg, vg = call(V, "GET", "/api/dysfunction")
+        s_vs, _ = call(V, "POST", "/api/dysfunction/settings", {"stall_min_psi": "400", "source": "x"})
+        s_os, os_ = call(O, "POST", "/api/dysfunction/settings", {"stall_min_psi": "400", "washout_fall": "", "source": "motor hand (api)"})
+        s_bs, _ = call(O, "POST", "/api/dysfunction/settings", {"stall_min_psi": "10", "source": "x"})
+        s_ns, _ = call(O, "POST", "/api/dysfunction/settings", {"drag_sigma": "4"})
+        s_g2, g2 = call(V, "GET", "/api/dysfunction")
+        s_ow, ow = call(O, "POST", "/api/dysfunction/write", {})
+        s_vw, _ = call(V, "POST", "/api/dysfunction/write", {})
+        s_al, al = call(O, "GET", "/api/alerts")
+    finally:
+        svc.stop()
+    cli_w = _sp.run([sys.executable, "-m", "gea", "dysfunction", "--workspace", wsp], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_s = _sp.run([sys.executable, "-m", "gea", "dysfunction", "--workspace", wsp, "--stall-min-psi", "300", "--json"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_b = _sp.run([sys.executable, "-m", "gea", "dysfunction", "--workspace", wsp, "--drag-min-klbf", "15"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_o = _sp.run([sys.executable, "-m", "gea", "dysfunction", "--workspace", wsp, "--write"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_a = _sp.run([sys.executable, "-m", "gea", "alerts", "--help"], capture_output=True, text=True, cwd=str(pkg.parent))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
+    lesson = (pkg / "help" / "tutorial" / "13-drilling-pages.md").read_text(encoding="utf-8")
+    c3 = {
+        "api": s_vg == 200 and vg["status"] == "OK" and len(vg["wells"]) == 2 and vg["settings"]["stall_min_psi"] == 300.0 and s_vs == 403 and s_os == 200 and os_["stall_min_psi"] == 400.0
+               and os_["washout_fall"] == 0.06 and s_bs == 400 and s_ns == 400 and s_g2 == 200 and g2["settings"]["stall_min_psi"] == 400.0 and g2["sources"]["stall_min_psi"] == "motor hand (api)"
+               and s_ow == 200 and "events.csv" in ow["files"] and s_vw == 403,
+        "cli": cli_w.returncode == 0 and "Drilling alerts, replayed over the record" in cli_w.stdout and "washout" in cli_w.stdout and "a trip out of the hole followed" in cli_w.stdout
+               and cli_s.returncode == 0 and json.loads(cli_s.stdout[cli_s.stdout.index("{"):])["settings"]["stall_min_psi"] == 300.0 and cli_b.returncode != 0 and "source" in cli_b.stderr
+               and cli_o.returncode == 0 and "events.csv" in cli_o.stdout and cli_a.returncode == 0,
+        "page": all(x in page_src for x in ("VIEWS.dysfunction", "['#/dysfunction', 'Drilling alerts']", "/api/dysfunction/settings", "/api/dysfunction/write", "dyPlot", "help('dysfunction')",
+                                            "'drilling.washout': 'Off-bottom pressure falling'", "'drilling.tight': 'Pick-up weight off its trend'")),
+        "help": not H.check("dysfunction") and H.VIEW_TOPIC.get("dysfunction") == "dysfunction" and any(t_ == "dysfunction" for t_, _, _ in H.INDEX)
+                and all(x in (H.page("dysfunction") or "") for x in ("gea dysfunction --workspace C:\\site", "flow^1.8", "Theil-Sen", "drilling.washout", "the trip finds which", "a rule's silence"))
+                and "drilling.tight" in (H.page("alerts") or ""),
+        "readme_lesson": (not readme or ("### Drilling alerts" in readme and "`gea dysfunction`" in readme)) and "**Drilling alerts**" in lesson and "dysfunction" in lesson.split("Help:")[-1],
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "EG3 on the API (anyone reads the replay; only an operator changes a number or writes the report; a number outside its bounds or changed without its source is 400; a blank field leaves its "
+       "number alone), the command (the replay with what followed each event, a setting put back and the page as JSON, a setting without its source stopped, the report), the Drilling alerts tab "
+       "with its charts and the three alert names on the Alarms tab, the help pages, the README and lesson 13" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def main() -> int:
     print("GEA-Program - ACCEPTANCE SUITE (the product gate)")
     # a handle a job subprocess still holds at the end must not turn a finished gate into a traceback on Windows:
@@ -18469,6 +18863,8 @@ def main() -> int:
         section_ec_plume(tmp)
         section_ed_front(tmp)
         section_ee_calibration(tmp)
+        section_ef_roadmap(tmp)
+        section_eg_dysfunction(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

@@ -5,6 +5,71 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.88.0] - 2026-11-12 - the drilling roadmap and the drilling alerts
+
+### Added
+- **Drilling roadmap** - what the fastest stands on the pad were drilled
+  with, stretch by stretch. Every well's drilling record is cut into
+  stands of 100 ft of hole (the rate, and the time-weighted weight on bit,
+  rotary speed, flow, differential pressure, standpipe pressure and
+  torque over its on-bottom seconds; rotary, slide or mixed by the share
+  of the time the rotary turned; hole a sidetrack abandoned, and hole made
+  while the recorder was not recording, left out). Each stand goes into
+  its stretch: 1,000 ft of the recorder's own TVD down to the heel, 1,000
+  ft along the hole beyond it - the heel being where the hole comes within
+  ten degrees of horizontal and stays there, so a lateral drilled up or
+  down dip is still a lateral - named for the mapped formation where the
+  workspace has the tops and the well its elevation. With twelve stands or
+  more in a stretch, the window is the middle half of what the fastest
+  quarter ran, the pace their median rate; each stretch names its fastest
+  well and what every well ran there. The roadmap checks itself: each well
+  against the roadmap made from the others - the distance of every stand
+  from the window, the half of its stands nearer the window against the
+  farther half stretch by stretch, the rank correlation of distance with
+  rate, and the room (the hours spent slower than the pace). The verdict
+  is the check's, not the table's. `gea roadmap`, the **Roadmap** tab,
+  `GET /api/roadmap`, `POST /api/roadmap/write`, `gea help roadmap`,
+  `reports/roadmap/` with a CSV, the dossier's `results/roadmap.json`.
+- **Drilling alerts** - three driller's rules replayed over the whole of
+  each well's record, with what the rig did next. WASHOUT: the standpipe
+  pressure with the bit off bottom and the pumps still at the drilling
+  rate, read at each connection before the slips are set, against the
+  median of the five comparable readings before it in the same bit run,
+  brought to the same flow by pressure ~ flow^1.8; 6 % and 100 psi below
+  is flagged, two running open an event, which ends at the trip out, at
+  the pressure coming back, or open at the end of the record; where a crew
+  stops the pumps before picking up, the recorder's own zero is read
+  instead. MOTOR STALL: the differential pressure 300 psi and 60 % above
+  its own five-minute median, reached within half a minute, over in a
+  minute and a half, the bit stopped under it - a rise the bit drilled on
+  under, and a slow one, are counted apart. TIGHT HOLE: the pick-up and
+  slack-off weight at each connection, rotating and not rotating apart,
+  against a Theil-Sen line through the previous fifteen of its own kind;
+  3 scatters and 10 klbf off is flagged, two in three open an event. The
+  six numbers are settings, each changed with its source. On a record
+  still being written an open event raises `drilling.washout`,
+  `drilling.stall` or `drilling.tight` once. `gea dysfunction`, the
+  **Drilling alerts** tab, `GET /api/dysfunction`,
+  `POST /api/dysfunction/settings` and `/write`, `gea help dysfunction`,
+  `reports/dysfunction/` with a CSV of the events, the dossier's
+  `results/drilling_alerts.json`.
+
+### Fixed
+- A well's chart cache is never written over. Its arrays may be
+  memory-mapped by a reader - a chart, the rig time kept in memory - and
+  Windows will not let a mapped file be written, replaced or removed, so
+  once a page had read a record, a change to that record could not be
+  taken up until the program was started again, and the well dropped off
+  the pages that read its record. A rebuild now writes a new generation
+  of arrays beside the old (`index.g1.npy`), switches `meta.json` to them
+  in one step and removes the old ones when nothing holds them. Found by
+  the gate on Windows, on this release's first attempt to ship.
+
+### Changed
+- The alert names on the Alarms tab, the notification rules' events and
+  `gea help alerts` carry the three drilling alerts; lesson 13 has the two
+  new pages as steps 3 and 4.
+
 ## [v0.87.0] - 2026-11-12 - the calibration
 
 ### Added

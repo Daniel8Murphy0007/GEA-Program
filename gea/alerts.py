@@ -17,6 +17,9 @@ worth an event, for the conditions the operator does not watch by hand:
   attached);
 - `frac.hit` - a fracturing stage reads as a FRAC HIT on a monitored well's pressure (the Frac hits tab; checked every
   15 minutes, once per stage and well);
+- `drilling.washout`, `drilling.stall`, `drilling.tight` - in a drilling record still being written (its file changed
+  in the last two hours), a washout or tight-hole event open at its end, or a motor stall in its last half hour (the
+  Drilling alerts tab; checked every 15 minutes, once per event);
 - `tls.expiring` - the dashboard's HTTPS certificate is in its last 30 days, or has expired (checked every 15
   minutes while HTTPS is on);
 - `condition.cleared` - one of motor.due, penetrator.outside, dossier.changed, invoice.differs or tls.expiring is no
@@ -35,7 +38,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 EVENTS = ('seismic.protocol', 'seismic.event', 'seismic.watch_down', 'seismic.watch_up', 'motor.due', 'penetrator.outside',
-          'dossier.changed', 'invoice.differs', 'frac.hit', 'tls.expiring', 'condition.cleared')
+          'dossier.changed', 'invoice.differs', 'frac.hit', 'drilling.washout', 'drilling.stall', 'drilling.tight', 'tls.expiring', 'condition.cleared')
 CONDITIONS_EVERY_S = 900          # motors and penetrators: every 15 minutes
 DOSSIERS_EVERY_S = 86400          # dossiers: once a day
 _LOCK = threading.Lock()
@@ -175,6 +178,18 @@ def check_conditions(ws, notifier, now: Optional[datetime] = None, force: bool =
                 st['frac_hits_seen'] = sorted(done)
         except Exception as ex:
             last['frac_error'] = f'{type(ex).__name__}: {ex}'
+        try:
+            from . import dysfunction as DY
+            done = set(st.setdefault('drilling_seen', []))
+            for e in DY.live_events(ws, now):
+                if e['key'] in done:
+                    continue
+                done.add(e['key'])
+                raised.append(raise_alert(ws, notifier, {'event': e['event'], 'key': e['key'], 'well_id': e['well_id'], 'well': e['well'], 'what': f"the drilling record of {e['well']}",
+                                                         'depth_ft': e.get('depth_ft'), 'time': e['time'], 'detail': e['detail']}, now))
+            st['drilling_seen'] = sorted(done)[-1000:]
+        except Exception as ex:
+            last['drilling_error'] = f'{type(ex).__name__}: {ex}'
         try:
             from . import tls as TLS
             ts = TLS.status(ws, now)

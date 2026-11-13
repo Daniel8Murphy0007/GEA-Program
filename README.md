@@ -808,7 +808,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.87.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.88.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -982,6 +982,37 @@ neighbour, a water analysis, each with how much it would narrow the area
 of review and the front. Run by a person, kept with the hash of its inputs,
 marked stale when they change. Every figure a SIMULATION. The
 **Calibration** tab, `gea calibrate`, `gea help calibration`.
+
+### Drilling roadmap
+
+What the fastest stands on the pad were drilled with, stretch by stretch.
+Every well's drilling record is cut into stands of 100 ft; each stand goes
+into the stretch of hole it was drilled in - 1,000 ft of true vertical
+depth down to the heel, 1,000 ft along the hole beyond it, named for the
+mapped formation where the workspace has the tops and the well its
+elevation. In each stretch the fastest quarter of the stands is found, and
+the window is what those stands ran: the weight on bit, the rotary speed,
+the flow, the differential pressure, beside the well that was fastest
+there and what every other well ran through the same rock. Then the
+roadmap checks itself: each well is set against the roadmap made from the
+others, the half of its stands nearer the window against the farther half,
+stretch by stretch - so the page says whether running nearer the window
+went with drilling faster, or did not, before anyone drills the next well
+from it. The **Roadmap** tab, `gea roadmap`, `gea help roadmap`.
+
+### Drilling alerts
+
+Three old driller's rules, written down so each is applied to every stand
+of every well the same way, and replayed over the whole of each record:
+the off-bottom pressure falling at a steady flow, connection after
+connection (a washout - or a pump, the mud or a nozzle; the trip finds
+which); the differential pressure spiking with the bit stopped (a motor
+stall); the pick-up and slack-off weight leaving their own trend (the hole
+getting tight). The page shows every reading, what each rule would have
+said and when, and what the rig did next - whether a trip out of the hole
+followed. The thresholds are settings, each changed with its source. On a
+record still being written an event raises an alert once. The **Drilling
+alerts** tab, `gea dysfunction`, `gea help dysfunction`.
 
 ### Plan vs actual and the survey tools
 
@@ -1647,7 +1678,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.87.0.exe` (for 0.87.0): the
+Every release also carries `GEA-Program-Setup-0.88.0.exe` (for 0.88.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1666,7 +1697,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.87.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.88.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

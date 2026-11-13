@@ -628,6 +628,24 @@ def main(argv=None) -> int:
     p_cb.add_argument("--write", action="store_true", help="write reports/calibration/calibration.json and .md from the kept result")
     p_cb.add_argument("--actor", type=str, default="cli")
     p_cb.add_argument("--json", action="store_true")
+    p_rm = sub.add_parser("roadmap", help="the drilling roadmap: for every stretch of hole, the weight on bit, rotary speed, flow and differential pressure the fastest quarter of the stands on the pad's wells were drilled with, which well was fastest there, and each well checked against the roadmap made from the others")
+    p_rm.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (three labelled wells through rock with a known best weight and speed)")
+    p_rm.add_argument("--well", type=str, default=None, help="the well the next stand is given for (default: the well whose record ends last)")
+    p_rm.add_argument("--write", action="store_true", help="write reports/roadmap/roadmap.json, .md and .csv")
+    p_rm.add_argument("--actor", type=str, default="cli")
+    p_rm.add_argument("--json", action="store_true")
+    p_dy = sub.add_parser("dysfunction", help="drilling alerts replayed over each well's record: the off-bottom pressure falling at a steady flow (a washout), the differential pressure spiking with the bit stopped (a motor stall), the pick-up weight leaving its own trend (the hole getting tight) - what each rule would have said, when, and whether a trip followed")
+    p_dy.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (a labelled record with a washout, three stalls and a tightening hole put in, and a sound one)")
+    p_dy.add_argument("--washout-fall", type=float, default=None, help="settings: the fall in off-bottom pressure that flags a reading, as a fraction (default 0.06)")
+    p_dy.add_argument("--washout-min-psi", type=float, default=None, help="settings: and the least fall in psi (default 100)")
+    p_dy.add_argument("--stall-rise", type=float, default=None, help="settings: the rise in differential pressure over its median that is a stall, as a fraction (default 0.6)")
+    p_dy.add_argument("--stall-min-psi", type=float, default=None, help="settings: and the least rise in psi (default 300)")
+    p_dy.add_argument("--drag-sigma", type=float, default=None, help="settings: how many scatters off its trend a pick-up or slack-off weight is flagged at (default 3)")
+    p_dy.add_argument("--drag-min-klbf", type=float, default=None, help="settings: and the least distance in klbf (default 10)")
+    p_dy.add_argument("--source", type=str, default="", help="who set a changed setting and on what grounds")
+    p_dy.add_argument("--write", action="store_true", help="write reports/dysfunction/drilling_alerts.json, .md and events.csv")
+    p_dy.add_argument("--actor", type=str, default="cli")
+    p_dy.add_argument("--json", action="store_true")
     p_os = sub.add_parser("seismicity", help="operations and seismicity: each well's drilling, completion and disposal windows against the earthquake catalogue around it - the events during and after each, the levels a regulator's protocol would reach, and the rate during operations against the rest of the record; the Mahoning Valley worked example")
     p_os.add_argument("--workspace", type=str, default=None)
     p_os.add_argument("--scene", type=str, default=None, choices=("workspace", "mahoning"), help="your wells (the default with --workspace) or the public worked example")
@@ -2831,6 +2849,52 @@ def main(argv=None) -> int:
         except (_CB.CalibrationError, WorkspaceError, ValueError, OSError) as e:
             raise SystemExit(f"calibrate: {e.args[0] if e.args else e}")
         print(_json.dumps(p, default=str) if a.json else _CB.text(p))
+        return 0
+    elif a.cmd == "roadmap":
+        import json as _json
+        from . import roadmap as _RM
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if not a.workspace:
+            r = _RM.selftest()
+            print(_json.dumps(r, default=str) if a.json else "\n".join(f"{'PASS' if c['pass'] else 'FAIL'}  {c['check']}: {c['value']}" for c in r["checks"]) + f"\n{'OK' if r['ok'] else 'FAILED'} - {r['label']}")
+            return 0 if r["ok"] else 1
+        try:
+            ws = Workspace(a.workspace)
+            if a.write:
+                from . import __version__ as _ver88r
+                r = _RM.write_report(ws, _ver88r, a.actor)
+                print(f"written: {', '.join(r['files'])} under {r['folder']}")
+            p = _RM.page(ws, a.well)
+        except (_RM.RoadmapError, WorkspaceError, ValueError, OSError) as e:
+            raise SystemExit(f"roadmap: {e.args[0] if e.args else e}")
+        print(_json.dumps(p, default=str) if a.json else _RM.text(p))
+        return 0
+    elif a.cmd == "dysfunction":
+        import json as _json
+        from . import dysfunction as _DY
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if not a.workspace:
+            r = _DY.selftest()
+            print(_json.dumps(r, default=str) if a.json else "\n".join(f"{'PASS' if c['pass'] else 'FAIL'}  {c['check']}: {c['value']}" for c in r["checks"]) + f"\n{'OK' if r['ok'] else 'FAILED'} - {r['label']}")
+            return 0 if r["ok"] else 1
+        try:
+            ws = Workspace(a.workspace)
+            kw_ = {"washout_fall": a.washout_fall, "washout_min_psi": a.washout_min_psi, "stall_rise": a.stall_rise, "stall_min_psi": a.stall_min_psi, "drag_sigma": a.drag_sigma, "drag_min_klbf": a.drag_min_klbf}
+            if any(v is not None for v in kw_.values()):
+                st_ = _DY.set_settings(ws, a.actor, a.source, **kw_)
+                print("settings: " + ", ".join(f"{k} {st_[k]:g}" for k in _DY.DEFAULTS))
+            if a.write:
+                from . import __version__ as _ver88d
+                r = _DY.write_report(ws, _ver88d, a.actor)
+                print(f"written: {', '.join(r['files'])} under {r['folder']}")
+            p = _DY.page(ws)
+        except (_DY.DysfunctionError, WorkspaceError, ValueError, OSError) as e:
+            raise SystemExit(f"dysfunction: {e.args[0] if e.args else e}")
+        print(_json.dumps(p, default=str) if a.json else _DY.text(p))
         return 0
     elif a.cmd == "seismicity":
         import json as _json

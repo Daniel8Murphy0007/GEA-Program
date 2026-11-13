@@ -271,6 +271,8 @@ def _gather(ws, well_id: Optional[str]) -> Dict[str, List[tuple]]:
         files_in(os.path.join(rep, 'plume'), 'reports/plume')          # the pressure plume (SIMULATION)
         files_in(os.path.join(rep, 'front'), 'reports/front')          # the fluid front (SIMULATION)
         files_in(os.path.join(rep, 'calibration'), 'reports/calibration')   # the calibration (SIMULATION)
+        files_in(os.path.join(rep, 'roadmap'), 'reports/roadmap')        # the drilling roadmap
+        files_in(os.path.join(rep, 'dysfunction'), 'reports/dysfunction')   # the drilling alerts replayed over the records
     for w in wells:
         files_in(os.path.join(rep, 'wells', w['id']), f"reports/wells/{w['id']}")
     out_list = out['declaration']
@@ -288,7 +290,7 @@ def _gather(ws, well_id: Optional[str]) -> Dict[str, List[tuple]]:
                 ('drillstring', 'casing.json'), ('wellpath', 'collision.json'), ('wellpath', 'survey_program.json'),
                 ('completion', 'frac', 'stages.json'), ('completion', 'frac', 'settings.json'), ('geomech', 'pore_pressure.json'),
                 ('drillstring', 'torque_drag.json'), ('economics', 'production', 'production.json'), ('drillstring', 'hydraulics.json'),
-                ('drillstring', 'casing_design.json'), ('records', 'fluid.json'), ('records', 'plume.json'), ('records', 'front.json'), ('records', 'calibration.json')):
+                ('drillstring', 'casing_design.json'), ('records', 'fluid.json'), ('records', 'plume.json'), ('records', 'front.json'), ('records', 'calibration.json'), ('records', 'dysfunction.json')):
         p = os.path.join(ws.path, *rel)
         if os.path.isfile(p):
             out_list.append((p, 'declarations/' + '/'.join(rel)))
@@ -437,6 +439,19 @@ def _results(ws, well_id: Optional[str]) -> List[tuple]:
                 out.append(('results/calibration.json', json.dumps({'status': cb['status'], 'result': cb['result']}, indent=1, sort_keys=True, default=str).encode('utf-8')))
     except Exception as e:
         out.append(('results/fluid_not_run.txt', f'the fluid balance and the plume did not run: {type(e).__name__}: {e}\n'.encode('utf-8')))
+    try:                                                         # the roadmap and the replayed drilling alerts, of the pad
+        from . import dysfunction as DYd
+        from . import roadmap as RMd
+        if not well_id:
+            rp = RMd.page(ws)
+            if rp['status'] == 'OK':
+                out.append(('results/roadmap.json', json.dumps(rp, indent=1, sort_keys=True, default=str).encode('utf-8')))
+            dp = DYd.page(ws)
+            if dp['status'] == 'OK':
+                slim = [{**w, **{k: {kk: vv for kk, vv in w[k].items() if kk != 'readings'} for k in ('washout', 'tight')}} for w in dp['wells']]
+                out.append(('results/drilling_alerts.json', json.dumps({**dp, 'wells': slim}, indent=1, sort_keys=True, default=str).encode('utf-8')))
+    except Exception as e:
+        out.append(('results/drilling_not_run.txt', f'the roadmap and the drilling alerts did not run: {type(e).__name__}: {e}\n'.encode('utf-8')))
     return out
 
 

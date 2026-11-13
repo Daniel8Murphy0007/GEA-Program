@@ -339,7 +339,9 @@ def well(ws, well_id: str) -> dict:
     t0 = datetime.fromisoformat(c.meta['start_time']).replace(tzinfo=None)
     ch = {k: (np.asarray(c.channel(v), dtype=np.float64) if v in c._ch else None) for k, v in _CH.items()}
     bottom = c.extra('bottom')
-    r = analyse_arrays(np.asarray(c.index, dtype=np.float64), t0, ch, np.asarray(c.extra('drilling'), dtype=bool),
+    # a copy of the index, not the cache's own mapped array: this result is kept in memory, and a file kept mapped cannot be
+    # removed on Windows when the cache is next built
+    r = analyse_arrays(np.array(c.index, dtype=np.float64), t0, ch, np.asarray(c.extra('drilling'), dtype=bool),
                        np.asarray(bottom, dtype=np.float64) if bottom is not None else None, bw)
     w = ws.well(well_id)
     r.update({'well_id': well_id, 'display': w.get('display') or well_id, 'clock': "the drilling recorder's own clock",
