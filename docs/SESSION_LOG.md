@@ -3963,3 +3963,83 @@ stability; and motor specifications in the tool catalogue.
   data and Benchmark tabs, the assistant's `benchmark` tool, two help
   pages, lesson 13, the README with the figures and the credit, the IT
   statement. Section EI. Gate 584.
+
+## 2026-11-13 - frac treatment (v0.91.0)
+
+- v0.90.0 shipped (ci, PyPI and the kit build green); the six kits
+  fetched into C:\site\installers and verified against the release's
+  SHA-256, the 0.89.0 ones moved to _to_delete.
+- A fault of the session, written down so it is not repeated: the list
+  of eleven innovations had only ever been in the conversation, the
+  conversation was condensed, and the wording of six items went with it.
+  Daniel had a picture of it. It is a file now -
+  C:\site\GEA_innovation_list.md, each item with its status and
+  version - and is brought up to date at every ship. A list that work is
+  being done from belongs in a file from the day it is made.
+- Item 7 of that list: frac treatment analytics. Public data first, as
+  agreed: Utah FORGE publishes each stage's pumping record for the
+  stimulation of 16A(78)-32 (April 2022, three stages) and of both
+  deviated wells (April 2024, nine and four), with the service company's
+  reports beside the 2022 ones. Daniel: download them. Eleven files, 126
+  MB, through his browser into Downloads\forge\stimulation.
+- Two layouts. The 2024 stages are spreadsheets whose header is five
+  stacked rows - the words of each column's name one under another, then
+  a row of units. The 2022 stages are a frac van's data-acquisition
+  export of 174 channels opened in a spreadsheet, a word a cell. The
+  reader takes both, and a plain CSV, and finds the channels by name.
+- What the real records decided. The ISIP is not a sample: in this
+  granite the pressure falls hundreds of psi in the first half minute
+  after the pumps stop, with the ringing on top of it. So it is a line
+  fitted after the ringing and read back to the shut-in, over three
+  windows, and the spread between them is given as its range; at two of
+  sixteen stages that range is over 5 % and the page says wide. Whether
+  that is right could be checked, because the company's reports are
+  published: its final ISIP for 2022's stage 1 is 4,019 psi and the
+  page's 3,985 (3,975 to 3,997); stage 2, 3,918 against 3,859. Lower,
+  consistently, because it is read back along the decline and not taken
+  at the top of the ringing. The pressures at 5, 10 and 15 minutes agree
+  within 15 psi (3,715, 3,582, 3,501 against 3,720, 3,585, 3,486), which
+  says the shut-in itself is found to the second.
+- The volumes are the rate summed; fifteen of sixteen are within 0.6 %
+  of the record's own totaliser, and the sixteenth is 3.6 % under it
+  because that totaliser also counted the lines being primed - which the
+  page leaves out, as pumping at a twentieth of the stage's pressure.
+- The staircase before a shut-in can last twenty minutes, not one: 2022's
+  stage 2 came down 35, 21, 15, 10, 5 bbl/min with minutes at each. The
+  first rule (the last minute-long plateau) took the 5 bbl/min step for
+  the treating rate. The staircase is now walked back from the shut-in,
+  step by step, to the rate it started from.
+- The step-down's two parts are not the service company's: it takes the
+  pipe out with its own friction tables (622 psi at the perforations and
+  638 near the wellbore for that stage); the page cannot, says the
+  square-of-the-rate part is the pipe and the perforations together, and
+  reads 797 and 1,006. Both are on the help page.
+- No closure. The service company recorded a quarter of an hour after
+  each stage; after hours of pumping that is a G of a few tenths, and no
+  G dP/dG curve there runs straight through the origin and then leaves
+  it. The first rule found one "closure" - a pause in one decline, ten
+  minutes in, at the very end of its record. A candidate now needs the
+  record to run half as long again in G beyond it, and FORGE has none.
+  The page says so for each stage. A pick is tested on a stage built
+  with one.
+- A record's last seconds are often the well being opened; the fall-off
+  is cut where the pressure drops 100 psi in five seconds.
+- A step-rate break found in a job's own ramp-up is as likely the
+  perforations opening as the fracture extending, and the page says
+  which it cannot tell.
+- The charts are a panel a measure on one clock - pressure, rate,
+  proppant - never two scales on one plot.
+- The public pad attaches the stages when their files are in the folder
+  (or its stimulation folder); made again on the site that exists, it
+  adds them. On Daniel's computer that is the Public data tab again,
+  with the same two folders.
+- Not done: the perforation depths of the FORGE stages are not declared
+  (they are in the repository's reports, and the company's own gradient
+  of 0.905 psi/ft implies them), so the public pad shows surface ISIPs;
+  the low-rate and shear-stimulation files, which are a third layout;
+  the published record of frac hits on 16B set against the Frac hits
+  tab, which needs a pressure record of 16B during the stimulation.
+- The CLI `gea frac-treatment`, the routes, the Frac treatment tab, the
+  assistant's `frac_treatment` tool, the help page, lesson 14, the
+  README. Section EJ. Rendered under Playwright with no script error.
+  Gate 587.

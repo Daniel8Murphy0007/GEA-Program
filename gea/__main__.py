@@ -682,6 +682,19 @@ def main(argv=None) -> int:
     p_bm.add_argument("--write", action="store_true", help="write reports/benchmark/benchmark.json, .md, .csv and stretches.csv")
     p_bm.add_argument("--actor", type=str, default="cli")
     p_bm.add_argument("--json", action="store_true")
+    p_ft = sub.add_parser("frac-treatment", help="each fracturing stage from its own pumping record: what was pumped, the ISIP read back through the ringing with its range, the friction and its two parts from a step-down, the fall-off against G, a step-rate test - nothing fitted to a model of the fracture")
+    p_ft.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (stages built with every answer known)")
+    p_ft.add_argument("--well", type=str, default=None, help="a well, by its name or id: with --stage, that stage in full")
+    p_ft.add_argument("--stage", type=str, default=None, help="the stage (1, 3R, 6A)")
+    p_ft.add_argument("--attach", type=str, default=None, help="a stage's treatment record to keep (CSV or Excel: the pressure, the rate and the proppant, second by second); needs --well, --stage and --source")
+    p_ft.add_argument("--start", type=str, default=None, help="--attach: the record's first moment, for a file that only has elapsed time (2026-08-03T06:00:00)")
+    p_ft.add_argument("--tvd", type=float, default=None, help="declare the true vertical depth of the perforations, ft: for --stage, or every stage of --well; needs --source")
+    p_ft.add_argument("--fluid", type=float, default=None, help="with --tvd: the gradient of the fluid in the well at the shut-in, psi/ft (fresh water, 0.433, when not given)")
+    p_ft.add_argument("--source", type=str, default="", help="where the record, or the depth, came from")
+    p_ft.add_argument("--to-frac-hits", action="store_true", help="give the Frac hits page --well's stage times, read from these records")
+    p_ft.add_argument("--write", action="store_true", help="write reports/frac_treatment/frac_treatment.json, .md, stages.csv and a stage table a well")
+    p_ft.add_argument("--actor", type=str, default="cli")
+    p_ft.add_argument("--json", action="store_true")
     p_pp = sub.add_parser("public-pad", help="a real pad from public data: the Utah FORGE wells' published rig recorders (CC BY 4.0) made into a site of their own - the files to get and where, checked against their sizes and hashes, converted and attached; the program fetches nothing")
     p_pp.add_argument("--folder", type=str, default=None, help="the folder the downloaded files are in; with nothing else, lists each file and whether it is there. Without a folder the self-test runs (stand-ins in each published layout)")
     p_pp.add_argument("--verify", action="store_true", help="hash each file that is there against the SHA-256 this release was checked with")
@@ -3609,6 +3622,48 @@ def main(argv=None) -> int:
             raise SystemExit(f"benchmark: {e.args[0] if e.args else e}")
         print(_json.dumps(p, default=str) if a.json else _BM.text(p))
         return 0
+    elif a.cmd == "frac-treatment":
+        import json as _json
+        from . import frac_treatment as _FT
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if not a.workspace:
+            r = _FT.selftest()
+            print("\n".join(f"{'PASS' if c['pass'] else 'FAIL'}  {c['check']}: {c['value']}" for c in r["checks"]) + f"\n{'OK' if r['ok'] else 'FAILED'} - {r['label']}")
+            return 0 if r["ok"] else 1
+        try:
+            ws = Workspace(a.workspace)
+            wid = None
+            if a.well:
+                wid = next((w["id"] for w in ws.wells() if a.well in (w["id"], w.get("display"))), None)
+                if wid is None:
+                    raise SystemExit(f"frac-treatment: no well {a.well!r} in this workspace")
+            if a.attach:
+                if not (wid and a.stage):
+                    raise SystemExit("frac-treatment: --attach needs --well and --stage")
+                with open(a.attach, "rb") as f_:
+                    m_ = _FT.attach(ws, wid, a.stage, a.attach, f_.read(), a.actor, a.source, a.start)
+                print(f"kept: stage {m_['stage']}, {m_['samples']:,} samples from {m_['start'] or 'its first sample'} ({m_['layout']}); read as " + ", ".join(f"{k}: {v}" for k, v in m_["read_as"].items()))
+            if a.tvd is not None:
+                if not wid:
+                    raise SystemExit("frac-treatment: --tvd needs --well")
+                d_ = _FT.declare(ws, wid, a.actor, a.source, a.tvd, a.fluid, a.stage)
+                print(f"declared for stage {', '.join(d_['stages'])}: perforations at {d_['tvd_ft']:,.0f} ft TVD, fluid {d_['fluid_psi_ft']:g} psi/ft")
+            if a.to_frac_hits:
+                if not wid:
+                    raise SystemExit("frac-treatment: --to-frac-hits needs --well")
+                h_ = _FT.to_frac_hits(ws, wid, a.actor)
+                print(f"the Frac hits page has {h_['stages']} stage(s) for this well, {h_['first'][:16]} to {h_['last'][:16]}")
+            if a.write:
+                from . import __version__ as _ver91
+                r = _FT.write_report(ws, _ver91, a.actor)
+                print(f"written: {', '.join(r['files'])} under {r['folder']}")
+            p = _FT.page(ws, wid, a.stage)
+        except (_FT.TreatmentError, WorkspaceError, KeyError, ValueError, OSError) as e:
+            raise SystemExit(f"frac-treatment: {e.args[0] if e.args else e}")
+        print(_json.dumps(p, default=str) if a.json else _FT.text(p))
+        return 0
     elif a.cmd == "public-pad":
         import json as _json
         from . import public_pad as _PP
@@ -3631,6 +3686,8 @@ def main(argv=None) -> int:
                         print(f"  {d_.get('n', '')}/{d_.get('of', '')} {t_}", flush=True)
                 r = _PP.build(a.folder, a.site, a.actor, verify=True, progress=say_)
                 print(f"{r['name']} at {r['path']}: " + (f"added {', '.join(r['added'])}" if r["added"] else "nothing to add") + f"; it has {', '.join(r['wells'])}")
+                if r.get("stages"):
+                    print(f"  and the pumping record of {len(r['stages'])} stimulation stage(s): {', '.join(r['stages'])}")
                 for e_ in r["record"]["wells"]:
                     for n_ in e_["notes"]:
                         print(f"  {e_['well']}: {n_}")

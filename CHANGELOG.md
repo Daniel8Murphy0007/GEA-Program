@@ -5,6 +5,50 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.91.0] - 2026-11-13 - frac treatment
+
+### Added
+- **Frac treatment** - `gea frac-treatment`: each fracturing stage from
+  its own pumping record, with nothing fitted to a model of the fracture.
+  The record is read as the frac service company wrote it - a spreadsheet
+  or CSV with one header row or several stacked rows and a row of units
+  (psi, kPa, MPa, bar; bbl/min, gal/min, m3/min; lbm/gal, kg/m3), a frac
+  van's data-acquisition export, or a plain CSV - and kept verbatim with
+  its SHA-256. From it: when the stage pumped (a line test at a twentieth
+  of the pressure and a stretch under a minute are not injection); the
+  slurry volume and the proppant summed from the rates, beside the
+  record's own totalisers; the first pressure peak the rate did not
+  cause; at every shut-in with a minute of pressure after it the ISIP - a
+  straight line fitted to the pressure after the ringing over three
+  windows and read back to the moment the rate reached zero, the spread
+  between them its range, and said to be wide where the pressure was
+  still falling fast; the friction at the last rate held; where the rate
+  was stepped down through three rates or more, the friction's part with
+  the square of the rate (the pipe and the perforations together) and its
+  part with the root (the path just outside the wellbore); the pressure
+  at 5, 10 and 15 minutes and against Nolte's G, with a closure candidate
+  offered only where G dP/dG runs straight through the origin, the
+  pressure then stays above its own line, and the record runs half as
+  long again beyond it; a step-rate test where four rising rates were
+  held with the pressure rising at each. With the perforations' true
+  vertical depth and the fluid's gradient declared, the bottomhole ISIP
+  and its gradient. The stage times can be handed to the Frac hits tab.
+  Report `reports/frac_treatment/` (json, md, a row a stage, a stage
+  table a well). The **Frac treatment** tab (the stage, the shut-in, the
+  step-down and the fall-off, a panel a measure), the routes, the
+  assistant's `frac_treatment` tool (twenty-five tools now),
+  `gea help frac-treatment`, lesson 14.
+- **The public pad's stimulation records.** `gea public-pad` now lists
+  the Utah FORGE stimulation files too - three stages on 16A(78)-32 from
+  April 2022, nine more and four on 16B(78)-32 from April 2024 (CC BY
+  4.0) - and, when they are in the folder or its `stimulation` folder,
+  attaches each stage's pumping record to its well. Made again on a site
+  that exists, it adds the stages the site does not have yet.
+
+### Changed
+- A table whose rows have two columns is read (it needed three).
+- Section EJ. Gate 587.
+
 ## [v0.90.0] - 2026-11-13 - a real pad from public data, and the benchmark
 
 ### Added

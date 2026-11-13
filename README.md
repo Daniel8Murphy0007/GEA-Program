@@ -808,7 +808,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.90.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.91.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -894,6 +894,26 @@ that fits the tests, and the mud weight used flagged where it falls outside
 the window. The Dutch offshore well L07-01 (NLOG open data) is the worked
 example. The **Pore pressure** tab, `gea pore-pressure`,
 `gea help pore-pressure`.
+
+### Frac treatment
+
+Each fracturing stage from its own pumping record - the treating pressure,
+the slurry rate and the proppant concentration, second by second, as the
+frac service company gave them (a spreadsheet with its stacked header, a
+frac van's data-acquisition export, or a plain CSV). With nothing fitted to
+a model of the fracture, the page reads what was pumped beside the record's
+own totalisers; the ISIP - a straight line fitted to the pressure after the
+ringing has died down and read back to the moment the rate reached zero,
+over three windows, with the spread between them as its range; the friction
+at the last rate held, and where the rate was stepped down its two parts,
+one with the square of the rate (the pipe and the perforations) and one
+with its root (the path just outside the wellbore); the pressure at 5, 10
+and 15 minutes and against Nolte's G, with a closure candidate offered only
+where the record supports one; and a step-rate test where there was one.
+With the depth of the perforations declared, the bottomhole ISIP and its
+gradient. It hands the Frac hits tab each stage's times. The **Frac
+treatment** tab, `gea frac-treatment`, `gea help frac-treatment`; an
+assistant reads it as the `frac_treatment` tool.
 
 ### Frac hits
 
@@ -1086,6 +1106,26 @@ that one well's parameters are not the next well's roadmap. The drilling
 alerts, replayed, find 27 motor stalls on the three wells whose records
 can show one, three falls in off-bottom pressure on 78B-32 that no trip followed
 and one on 58-32 that a trip out of the hole followed within twelve hours.
+
+The same site takes the published pumping records of the two deviated
+wells' stimulation - three stages on 16A(78)-32 in April 2022, nine more
+and four on 16B(78)-32 in April 2024 - when those files are in the folder
+too, and the Frac treatment tab reads all sixteen: 132,132 bbl of slurry
+and 2,969,800 lbm of proppant by the records' own rates, fifteen of the
+sixteen volumes within 0.6 % of the record's own totaliser (the sixteenth
+3.6 % under it: that totaliser also counted the lines being primed); an
+ISIP at every stage, 3,289 to 5,664 psi at the surface; thirteen stages
+stepped down to the shut-in. The service company's reports are published with the
+2022 stages, so the page can be checked against them: for stage 1 the
+company gives a final ISIP of 4,019 psi and 3,715, 3,582 and 3,501 psi
+after 5, 10 and 15 minutes, and this page reads 3,985 psi (3,975 to 3,997)
+and 3,720, 3,585 and 3,486; for stage 2, 3,918 psi and 3,664, 3,565 and
+3,506 against 3,859 (3,852 to 3,862) and 3,665, 3,572 and 3,508. The page's
+ISIP is the lower because it is read back along the decline, not taken at
+the top of the ringing. No
+stage's fall-off shows a closure: the records stop a quarter of an hour
+after the pumps, and the page says so and offers none.
+
 Data: Utah FORGE, Energy & Geoscience Institute at the University of Utah,
 funded by the U.S. Department of Energy; Geothermal Data Repository,
 gdr.openei.org; CC BY 4.0. The **Public data** tab, `gea public-pad`,
@@ -1755,7 +1795,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.90.0.exe` (for 0.90.0): the
+Every release also carries `GEA-Program-Setup-0.91.0.exe` (for 0.91.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1774,7 +1814,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.90.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.91.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

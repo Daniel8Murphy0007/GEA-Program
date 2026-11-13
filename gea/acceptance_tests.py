@@ -18763,7 +18763,7 @@ def section_eh_mcp(tmp: str) -> None:
     plain = MC._plain({"a": np.float64(1.5), "_work": [1, 2], "b": [np.int64(3), float("nan")], "c": np.arange(4), "d": (1, "x")})
     c1 = {
         "selftest": st["ok"] and len(st["checks"]) >= 7,
-        "tools": len(defs) == 24 and defs[0]["name"] == "site" and all(d_["annotations"]["readOnlyHint"] is True and d_["annotations"]["destructiveHint"] is False and d_["annotations"]["openWorldHint"] is False
+        "tools": len(defs) == 25 and defs[0]["name"] == "site" and all(d_["annotations"]["readOnlyHint"] is True and d_["annotations"]["destructiveHint"] is False and d_["annotations"]["openWorldHint"] is False
                                                                         and d_["inputSchema"]["type"] == "object" and d_["inputSchema"]["additionalProperties"] is False and d_["title"] for d_ in defs)
                  and "well" in defs[1]["inputSchema"]["properties"] and "json" in defs[2]["inputSchema"]["properties"] and "json" not in MC.tool_definition("help")["inputSchema"]["properties"]
                  and not [n_ for n_ in MC.NAMES if any(w_ in n_ for w_ in ("write", "set", "declare", "attach", "remove", "delete", "run"))],
@@ -18775,7 +18775,7 @@ def section_eh_mcp(tmp: str) -> None:
     failed1 = [k_ for k_, v in c1.items() if not v]
     ok(not failed1,
        "EH1 the MCP server: the self-test (a client of an earlier revision through its handshake and a client of revision 2026-07-28 statelessly, each listing and calling the tools; a line that is "
-       "not JSON, a tool, a well, an argument and a method that do not exist, a batch; a withheld tool; the access log; an assistant's configuration file added to and restored); twenty-four tools, "
+       "not JSON, a tool, a well, an argument and a method that do not exist, a batch; a withheld tool; the access log; an assistant's configuration file added to and restored); twenty-five tools, "
        "each read-only by its own declaration with its arguments closed, none named for a change; the revisions spoken; the command a client starts - the console interpreter, never the windowless "
        "one; a page as plain JSON with the working arrays left out" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
 
@@ -18853,12 +18853,12 @@ def section_eh_mcp(tmp: str) -> None:
                      and "SIMULATION" in answers["pressure_plume"]["text"].splitlines()[0] and "RIG-1" in answers["site"]["text"] and _ver in answers["site"]["text"],
         "json": all(isinstance(v, (dict, list)) for n_, v in parsed.items() if n_ != "well") and parsed["well"] is None and as_json["well"]["is_error"] and parsed["roadmap"]["status"] == "OK" and not [k_ for k_ in parsed["rig_time"] if str(k_).startswith("_")]
                 and len(parsed["drilling_alerts"]["wells"]) == 2,
-        "child_legacy": rc_o == 0 and len(out_o) == 4 and out_o[0]["result"]["protocolVersion"] == "2025-11-25" and len(out_o[1]["result"]["tools"]) == 24 and "resultType" not in out_o[1]["result"]
+        "child_legacy": rc_o == 0 and len(out_o) == 4 and out_o[0]["result"]["protocolVersion"] == "2025-11-25" and len(out_o[1]["result"]["tools"]) == 25 and "resultType" not in out_o[1]["result"]
                         and out_o[2]["result"]["content"][0]["text"] == answers["rig_time"]["text"] and "motor stall" in out_o[3]["result"]["content"][0]["text"] and "Traceback" not in err_o,
         "child_modern": rc_m == 0 and len(out_m) == 4 and out_m[0]["result"]["supportedVersions"] == list(MC.SUPPORTED) and out_m[1]["result"]["resultType"] == "complete"
                         and out_m[1]["result"]["cacheScope"] == "private" and out_m[2]["result"]["_meta"][MC.K_SERVER] == {"name": "gea-program", "title": "GEA-Program", "version": _ver}
                         and out_m[2]["result"]["isError"] is False and out_m[3]["error"]["code"] == -32022 and out_m[3]["error"]["data"]["requested"] == "2099-01-01" and "Traceback" not in err_m,
-        "withheld": kept["tools"] is not None and "audit" not in kept["tools"] and rc_w == 0 and "audit" not in [t_["name"] for t_ in out_w[0]["result"]["tools"]] and len(out_w[0]["result"]["tools"]) == 23
+        "withheld": kept["tools"] is not None and "audit" not in kept["tools"] and rc_w == 0 and "audit" not in [t_["name"] for t_ in out_w[0]["result"]["tools"]] and len(out_w[0]["result"]["tools"]) == 24
                     and out_w[1]["error"]["code"] == -32602 and "[cut at 3,000 of" in out_w[2]["result"]["content"][0]["text"],
         "narrowed": rc_a == 0 and [t_["name"] for t_ in out_a[0]["result"]["tools"]] == ["site"] and out_a[1]["error"]["code"] == -32602,
         "no_workspace": rc_x.returncode == 2 and rc_x.stdout == b"" and b"not a workspace" in rc_x.stderr,
@@ -18926,7 +18926,7 @@ def section_eh_mcp(tmp: str) -> None:
     its = (pkg / "help" / "IT_SECURITY.md").read_text(encoding="utf-8")
     backups = sorted(p_.name for p_ in cfgp.parent.iterdir() if ".before-gea-" in p_.name)
     c3 = {
-        "api": s_vg == 200 and len(vg["tools"]) == 24 and all(t_["offered"] for t_ in vg["tools"]) and vg["config"]["mcpServers"]["gea"]["args"][-1] == os.path.abspath(wsp) and len(vg["log"]) >= 6
+        "api": s_vg == 200 and len(vg["tools"]) == 25 and all(t_["offered"] for t_ in vg["tools"]) and vg["config"]["mcpServers"]["gea"]["args"][-1] == os.path.abspath(wsp) and len(vg["log"]) >= 6
                and vg["claude_desktop"]["found"] and not vg["claude_desktop"]["installed"] and s_vs == 403 and s_os == 200 and os_["offered"] == ["site", "roadmap", "help"] and os_["max_chars"] == 20000
                and s_bs == 400 and s_oa == 200,
         "claude_desktop": s_oc == 403 and s_ac == 200 and len(ac["done"]) == 1 and cfg_added["globalShortcut"] == "Ctrl+Space" and cfg_added["mcpServers"]["files"] == {"command": "npx", "args": ["-y", "x"]}
@@ -19067,7 +19067,7 @@ def section_ei_public_pad_benchmark(tmp: str) -> None:
                      and bm["pad_best_connection_min"] is not None and len(bm["stretches"]) >= 3 and all(s_["best_well"] in bm["names"] for s_ in bm["stretches"] if s_["best_rop_ft_h"]),
         "report": set(wr["files"]) == {"benchmark.json", "benchmark.md", "benchmark.csv", "stretches.csv"} and len(rows_b) == 6 and rows_b[0].startswith("display,drilled_ft,days,feet_per_day") and len(rows_s) == len(bm["stretches"]) + 1
                   and "benchmark.report" in audit, 
-        "tool": not bm_txt["is_error"] and bm_txt["text"] == BM.text(BM.page(ws)) and "benchmark" in MC.NAMES and len(MC.NAMES) == 24,
+        "tool": not bm_txt["is_error"] and bm_txt["text"] == BM.text(BM.page(ws)) and "benchmark" in MC.NAMES and len(MC.NAMES) == 25,
     }
     failed2 = [k_ for k_, v in c2.items() if not v]
     ok(not failed2,
@@ -19158,6 +19158,273 @@ def section_ei_public_pad_benchmark(tmp: str) -> None:
        "site made - made in the background with its progress asked after, the accounts copied, and a folder that is not there a failure that says so), the commands (the list with where each file "
        "is published, the folder, the hashes as JSON, the site built with what was done to each well, a build with no site named stopped; the benchmark, as JSON, its report), the Benchmark and "
        "Public data tabs, the help pages, the README and lesson 13" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
+def section_ej_frac_treatment(tmp: str) -> None:
+    """Section EJ - the frac treatment: each stage from its own pumping record. The arithmetic on stages built with
+    every answer known (the ISIP through the ringing, the friction and its two parts, the closure, the extension
+    pressure, the volumes), in other units and other layouts; what is turned away and what is said not to be read;
+    the records kept in a workspace with their hashes, the depth declared, the report, the stage times handed to the
+    Frac hits tab; the published stimulation layouts on the public pad; the assistant's tool; the API, the CLI, the
+    tab, the help, the README and the lessons."""
+    import base64 as _b64
+    import csv as _csv
+    import http.cookiejar
+    import math
+    import subprocess as _sp
+    import urllib.error
+    import urllib.request
+    from datetime import datetime, timedelta
+    from . import __version__ as _ver
+    from . import frac_hits as FH
+    from . import frac_treatment as FT
+    from . import helplib as H
+    from . import mcp_server as MC
+    from . import public_pad as PP
+    from . import tutorial as TU
+    from . import xlsx_read as XR
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ej"); d.mkdir()
+    os.environ["GEA_WORKSPACES_FILE"] = str(d / "workspaces.json")
+    # -- EJ1 the arithmetic --------------------------------------------------------------------------------------------------
+    st = FT.selftest()
+    rec = FT.synthetic(isip=5200.0, a=0.2, b=80.0, rate=40.0, pump_min=25.0, steps=(30.0, 20.0, 10.0, 5.0), closure_g=0.7, leak_psi=400.0, falloff_min=70.0, step_up=False, seed=11)
+    e = rec["expected"]
+    r = FT.analyse(rec)
+    f = r["final"]; sd = f["step_down"]; pk = r["falloff"].get("pick") or {}
+    # the same stage written in kPa, cubic metres a minute and kilograms a cubic metre
+    si = str(d / "metric.csv")
+    with open(si, "w", encoding="utf-8", newline="") as fh:
+        w = _csv.writer(fh)
+        w.writerow(["Timestamp", "Wellhead Pressure (kPa)", "Slurry Rate (m3/min)", "Proppant Concentration (kg/m3)"])
+        t0 = datetime(2026, 8, 3, 6, 0, 0)
+        for i in range(len(rec["t"])):
+            w.writerow([(t0 + timedelta(seconds=float(rec["t"][i]))).strftime("%Y-%m-%d %H:%M:%S"), f"{rec['pressure'][i] / 0.1450377:.2f}", f"{rec['rate'][i] / 6.289811:.4f}", f"{rec['conc'][i] * 119.8264:.1f}"])
+    rm = FT.read_treatment(Path(si).read_bytes(), "metric.csv")
+    am = FT.analyse(rm)
+    # the pumps back on half a minute after they stopped; a line test at 20 psi; the well opened during the fall-off
+    brief = FT.synthetic(pump_min=10.0, falloff_min=10.0, step_up=False, steps=())
+    k = int(brief["expected"]["shut_in_s"])
+    brief["rate"][k + 30:k + 300] = 20.0
+    brief["pressure"][k + 30:k + 300] = 5000.0
+    ab = FT.analyse(brief)
+    prime = FT.synthetic(pump_min=10.0, falloff_min=10.0, step_up=False)
+    lead = 300
+    tt = np.arange(len(prime["t"]) + lead, dtype=float)
+    pr = {**prime, "t": tt, "pressure": np.concatenate([np.full(lead, 20.0), prime["pressure"]]), "rate": np.concatenate([np.r_[np.full(120, 8.0), np.zeros(lead - 120)], prime["rate"]]),
+          "conc": None, "clean_rate": None, "slurry_total": None}
+    ap = FT.analyse(pr)
+    bled = FT.synthetic(pump_min=10.0, falloff_min=20.0, step_up=False, closure_g=None)
+    kb = int(bled["expected"]["shut_in_s"]) + 660
+    bled["pressure"][kb:] = 15.0
+    abl = FT.analyse(bled)
+    spike = FT.synthetic(pump_min=10.0, falloff_min=6.0, step_up=False)
+    spike["rate"][200] = 400.0; spike["conc"][300:303] = 25.0
+    asp = FT.analyse(spike)
+    errs = {}
+    for name, body in (("empty", b""), ("no_header", b"1,2,3\n4,5,6\n7,8,9\n1,2,3\n4,5,6\n"), ("no_rate", ("Timestamp,Treating Pressure (psi)\n" + "".join(f"2026-08-03 06:00:{i:02d},{4000 + i}\n" for i in range(30))).encode()),
+                       ("no_time", ("Treating Pressure (psi),Slurry Rate (bpm)\n" + "".join(f"{4000 + i},{10}\n" for i in range(30))).encode())):
+        try:
+            FT.read_treatment(body, name + ".csv"); errs[name] = ""
+        except FT.TreatmentError as ex:
+            errs[name] = str(ex)
+    el = FT.read_treatment(("Elapsed Time (min),Treating Pressure (psi),Slurry Rate (bpm)\n" + "".join(f"{i / 60:.4f},{4000 + i},{10}\n" for i in range(120))).encode(), "elapsed.csv", start="2026-08-03T06:00:00")
+    c1 = {
+        "selftest": st["ok"] and len(st["checks"]) >= 12,
+        "isip": abs(f["isip_psi"] - e["isip"]) <= 0.01 * e["isip"] and not f["wide"] and len(f["windows"]) == 3 and f["isip_low_psi"] <= f["isip_psi"] <= f["isip_high_psi"],
+        "friction": abs(f["friction_psi"] - e["friction"]) <= 0.04 * e["friction"] and f["last_rate_bpm"] == 40.0 and len(sd["points"]) == 5
+                    and abs(sd["square_psi"] - e["square"]) <= 0.15 * e["square"] and abs(sd["root_psi"] - e["root"]) <= 0.15 * e["root"] and "both parts" in sd["reads"],
+        "closure": bool(pk) and abs(pk["g"] - 0.7) <= 0.06 and abs(pk["pressure_psi"] - e["closure_psi"]) <= 40.0 and "closure candidate" in r["falloff"]["reads"],
+        "volumes": abs(r["pumping"]["slurry_bbl"] - e["slurry_bbl"]) <= 2 and abs(r["pumping"]["slurry_bbl"] - r["pumping"]["slurry_totaliser_bbl"]) <= 2 and r["pumping"]["proppant_lbm"] > 30000
+                   and r["pumping"]["pressure_max_psi"] >= r["pumping"]["pressure_avg_psi"] > e["isip"] and abs(r["pumping"]["rate_avg_bpm"] - 40.0) < 1.5,
+        "metric": rm["read_as"]["pressure"] == "Wellhead Pressure (kpa)" and abs(am["final"]["isip_psi"] - f["isip_psi"]) <= 3 and abs(am["pumping"]["slurry_bbl"] - r["pumping"]["slurry_bbl"]) <= 3
+                  and abs(am["final"]["friction_psi"] - f["friction_psi"]) <= 5 and am["start"] == "2026-08-03T06:00:00"
+                  and any("no clean rate" in n_ for n_ in am["notes"]) and am["pumping"]["proppant_lbm"] > r["pumping"]["proppant_lbm"],
+        "too_short": ab["shut_ins"][0]["status"] == "TOO SHORT" and "came back on 30 s after" in ab["shut_ins"][0]["why"] and ab["shut_ins"][-1]["status"] == "OK",
+        "surface": ap["not_injection"]["surface"] == 1 and len(ap["shut_ins"]) == 1 and abs(ap["final"]["isip_psi"] - 4200) <= 45 and abs(ap["pumping"]["slurry_bbl"] - prime["expected"]["slurry_bbl"]) <= 2,
+        "bled_off": abs(abl["falloff"]["bled_off_min"] - 11.0) <= 0.2 and 10.0 < abl["falloff"]["minutes"] < 11.1 and abl["falloff"].get("pick") is None and "10" in abl["falloff"]["at"] and "15" not in abl["falloff"]["at"],
+        "spikes": asp["pumping"]["rate_max_bpm"] <= 61.0 and any("3 s of proppant concentration above 12" in n_ for n_ in asp["notes"]) and asp["pumping"]["conc_max_ppg"] == 1.5,
+        "turned_away": "empty" in errs["empty"] and "no header" in errs["no_header"] and "treating pressure and a slurry rate" in errs["no_rate"] and "Treating Pressure" in errs["no_rate"] and "no time column" in errs["no_time"],
+        "elapsed": el["start"] == "2026-08-03T06:00:00" and abs(el["cadence_s"] - 1.0) < 0.01 and el["samples"] == 120,
+        "g": abs(float(FT.g_function(np.array([0.0]), 100.0)[0])) < 1e-12 and abs(float(FT.g_function(np.array([100.0]), 100.0)[0]) - 4 / math.pi * (4 / 3 * (2 ** 1.5 - 1) - 4 / 3)) < 1e-9,
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "EJ1 a fracturing stage read from its own pumping record, on stages built with the answer known: the ISIP read back through the ringing over three windows to within 1 %; the friction at the "
+       "last rate held and, from a four-step step-down, its part with the square of the rate and its part with the root; the closure where the pressure leaves its line in G; the volume against the "
+       "totaliser; the same stage in kPa, cubic metres a minute and kilograms a cubic metre giving the same figures; pumps back on after half a minute said to leave too little to read; a line test "
+       "at 20 psi not counted as injection; a well opened during the fall-off cutting it there; a rate spike and a flushed densitometer left out and said so; a file with no pressure, no rate, no "
+       "time or no header turned away by name; an elapsed-time file given its start; Nolte's G against its formula" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- EJ2 the workspace, the public pad, the assistant ------------------------------------------------------------------
+    gz = FH.selftest_files(str(d / "gauge"))
+    ws = Workspace.create(str(d / "ws"), "Pad 3", actor="tester")
+    tw = ws.add_well_file(gz["gauge"], display="Treat 1H", actor="tester")["id"]
+    ws.add_well_file(gz["gauge"], display="Monitor 2H", actor="tester")
+    stages_ = {}
+    for n_, (name, isip) in enumerate((("3R", 4100.0), ("10", 4500.0), ("4", 4300.0))):
+        s_ = FT.synthetic(isip=isip, pump_min=9.0, falloff_min=8.0, step_up=False, seed=30 + n_)
+        s_["start"] = f"2026-08-0{3 + n_}T06:00:00"
+        stages_[name] = (s_, isip)
+    FT.write_csv(str(d / "s3r.csv"), stages_["3R"][0]); FT.write_dataacq(str(d / "s10.txt"), stages_["10"][0])
+    rows4 = [["", "Time of", "Treating", "Slurry", "Clean", "Prop", "Slurry Stage"], ["Date", "Day", "Pressure", "Rate", "Rate", "Conc", "Total"], ["(mm:dd:yyyy)", "(hh:mm:ss)", "(psi)", "(bpm)", "(bpm)", "(ppg)", "(bbl)"]]
+    s4 = stages_["4"][0]; t4 = datetime(2026, 8, 5, 6, 0, 0)
+    for i in range(len(s4["t"])):
+        ts = t4 + timedelta(seconds=float(s4["t"][i]))
+        rows4.append([ts.strftime("%Y-%m-%d"), ts.strftime("%H:%M:%S"), round(float(s4["pressure"][i]), 1), round(float(s4["rate"][i]), 2), round(float(s4["clean_rate"][i]), 3), round(float(s4["conc"][i]), 2), round(float(s4["slurry_total"][i]), 2)])
+    XR.write_simple(str(d / "s4.xlsx"), rows4)
+    m3 = FT.attach(ws, tw, "3R", "s3r.csv", (d / "s3r.csv").read_bytes(), "tester", "post-job data (test)")
+    m10 = FT.attach(ws, tw, "10", "s10.txt", (d / "s10.txt").read_bytes(), "tester", "post-job data (test)")
+    m4 = FT.attach(ws, tw, "4", "s4.xlsx", (d / "s4.xlsx").read_bytes(), "tester", "post-job data (test)")
+    refused = {}
+    for name, fn in (("no_source", lambda: FT.attach(ws, tw, "5", "s3r.csv", (d / "s3r.csv").read_bytes(), "tester", "")), ("no_stage", lambda: FT.attach(ws, tw, " ", "s3r.csv", (d / "s3r.csv").read_bytes(), "tester", "x")),
+                     ("no_well", lambda: FT.attach(ws, "nowhere", "5", "s3r.csv", (d / "s3r.csv").read_bytes(), "tester", "x")), ("bad_tvd", lambda: FT.declare(ws, tw, "tester", "x", 50)),
+                     ("bad_grad", lambda: FT.declare(ws, tw, "tester", "x", 8000, 2.0)), ("dec_source", lambda: FT.declare(ws, tw, "tester", "", 8000)), ("dec_stage", lambda: FT.declare(ws, tw, "tester", "x", 8000, None, "99")),
+                     ("no_tvd", lambda: FT.declare(ws, tw, "tester", "x", None))):
+        try:
+            fn(); refused[name] = ""
+        except (ValueError, KeyError) as ex:
+            refused[name] = str(ex.args[0]) if ex.args else "x"
+    p0 = FT.page(ws)
+    FT.declare(ws, tw, "tester", "perforation record (test); fresh water", 8000)
+    FT.declare(ws, tw, "tester", "perforation record (test); brine", 8200, 0.465, "10")
+    p1 = FT.page(ws, tw, "10")
+    by = {r_["stage"]: r_ for r_ in p1["stages"]}
+    det = p1["detail"]
+    wr = FT.write_report(ws, _ver, "tester")
+    csv_rows = (Path(wr["folder"]) / "stages.csv").read_text(encoding="utf-8").strip().splitlines()
+    table = (Path(wr["folder"]) / [x for x in wr["files"] if x.startswith("stage_table_")][0]).read_text(encoding="utf-8").strip().splitlines()
+    fh = FT.to_frac_hits(ws, tw, "tester")
+    fh_rows = FH.stage_rows(ws, tw)
+    kept = Path(ws.path, "completion", "frac", "treatment")
+    FT.remove(ws, tw, "4", "tester")
+    p2 = FT.page(ws)
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    tool = MC.call_tool(ws, "frac_treatment", {"well": "Treat 1H", "stage": "10"}); tool_j = MC.call_tool(ws, "frac_treatment", {"well": "Treat 1H", "stage": "10", "json": True})
+    # the published layouts on the public pad
+    folder, site = str(d / "files"), str(d / "forge-site")
+    PP.standins(folder, stands=13)
+    made_t = PP.treatment_standins(folder)
+    stt = PP.status(folder)
+    seen = []
+    br = PP.build(folder, site, "tester", verify=False, progress=seen.append)
+    fs = Workspace(site); fp = FT.page(fs)
+    off = [abs((r_.get("isip_psi") or 0) - made_t[f"{r_['display']}|{r_['stage']}"]) for r_ in fp["stages"]]
+    prec = PP.record(fs)
+    c2 = {
+        "attached": m3["layout"] == "table" and m10["layout"] == "data-acquisition export" and m4["layout"] == "table with a stacked header" and m4["start"] == "2026-08-05T06:00:00" and len(m3["sha256"]) == 64
+                    and m3["read_as"]["rate"] == "Slurry Rate (bpm)" and any("names no units" in n_ for n_ in m10["notes"]) and (kept / tw / "3R" / "s3r.csv").read_bytes() == (d / "s3r.csv").read_bytes()
+                    and (kept / tw / "10" / "channels.npz").is_file(),
+        "refused": "where the record came from" in refused["no_source"] and "name the stage" in refused["no_stage"] and "no well" in refused["no_well"] and "between 100 and 40,000" in refused["bad_tvd"]
+                   and "between 0.3 and 1.2" in refused["bad_grad"] and "where the depth" in refused["dec_source"] and "no treatment record for stage 99" in refused["dec_stage"] and "give the true vertical depth" in refused["no_tvd"],
+        "page": p0["status"] == "OK" and [r_["stage"] for r_ in p0["stages"]] == ["3R", "4", "10"] and all(abs(by[k_]["isip_psi"] - v[1]) <= 45 for k_, v in stages_.items())
+                and all(r_["gradient_psi_ft"] is None for r_ in p0["stages"]) and "No perforation depth is declared" in " ".join(p0["lines"]) and p0["totals"]["step_downs"] == 3,
+        "declared": abs(by["3R"]["gradient_psi_ft"] - (by["3R"]["isip_psi"] + 0.433 * 8000) / 8000) < 2e-3 and abs(by["10"]["gradient_psi_ft"] - (by["10"]["isip_psi"] + 0.465 * 8200) / 8200) < 2e-3
+                    and det["bottomhole"]["source"].endswith("brine") and p1["stage"] == "10" and "ISIP gradient is" in " ".join(p1["lines"]),
+        "traces": set(det["traces"]) >= {"pressure", "rate", "conc", "shut_in"} and len(det["traces"]["pressure"]["t"]) == len(det["traces"]["pressure"]["v"]) and det["traces"]["shut_in"]["t"][0] == -180.0
+                  and len(det["falloff"]["g"]) == 120 and det["meta"]["file"] == "s10.txt",
+        "report": set(wr["files"]) >= {"frac_treatment.json", "frac_treatment.md", "stages.csv"} and len(csv_rows) == 4 and csv_rows[0].startswith("display,stage,start,status") and len(table) == 4
+                  and table[0] == "Stage,Start Time,End Time,Clean Volume (bbl),Proppant (lb)" and table[1].startswith("3R,2026-08-03 06:0") and "frac_treatment.report" in audit,
+        "to_frac_hits": fh["stages"] == 3 and [x["stage"] for x in fh_rows] == ["3R", "10", "4"] and fh_rows[0]["start"].startswith("2026-08-03T06:0") and "frac.stages" in audit and "the stages' own treatment records" in fh["source"],
+        "removed": [r_["stage"] for r_ in p2["stages"]] == ["3R", "10"] and "frac_treatment.removed" in audit and "frac_treatment.attach" in audit and "frac_treatment.declared" in audit,
+        "tool": not tool["is_error"] and tool["text"] == FT.text(FT.page(ws, tw, "10")) and "traces" not in json.loads(tool_j["text"]).get("detail", {}) and "frac_treatment" in MC.NAMES and len(MC.NAMES) == 25,
+        "public": stt["treatments_present"] == 5 and len(stt["treatments"]) == 5 and stt["treatment_bytes"] > 6e7 and len(br["stages"]) == 16 and {s_.get("step") for s_ in seen} >= {"treatment", "done"} and seen[-1]["stages"] == br["stages"]
+                  and [r_["stage"] for r_ in fp["stages"] if r_["display"] == "16A(78)-32"] == ["1", "2", "3", "3R", "4", "5", "6A", "6B", "7", "8", "9", "10"]
+                  and [r_["stage"] for r_ in fp["stages"] if r_["display"] == "16B(78)-32"] == ["1", "2", "3", "4"] and max(off) <= 40.0 and fp["lines"][-1].startswith("Data: Utah FORGE")
+                  and fp["public_source"]["name"] == "Utah FORGE" and len(prec["treatments"]) == 5 and "gdr.openei.org/submissions/1611" in FT._index(fs)[next(w_["id"] for w_ in fs.wells() if w_["display"] == "16B(78)-32")]["1"]["source"]
+                  and PP.build(folder, site, "tester", verify=False)["stages"] == [] and "public_source" not in p2,
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "EJ2 three stages kept in a workspace from a plain CSV, a spreadsheet with a stacked header and a frac van's export - each file verbatim with its hash, the channels beside it; a record with no "
+       "source, no stage or no such well, and a depth out of range or without its source, each stopped; the stages in the order a crew counts them (3R, 4, 10), each ISIP its own; the depth of the "
+       "perforations declared for the well and again for one stage, and the gradient the surface ISIP plus that column over that depth; the charts' traces; the report with a row a stage and the "
+       "stage table; that table given to the Frac hits tab and read there as three stages; a stage removed; every step in the audit log; the assistant's tool the page's own text, without the "
+       "charts' points. On the public pad: the five stimulation files found in the folder's stimulation folder, sixteen stages attached to the two wells in both published layouts, each ISIP read, "
+       "the credit on the page, and built again nothing added" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- EJ3 the routes, the commands, the tab, the help --------------------------------------------------------------------
+    Users(str(Path(ws.path, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(ws.path, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(ws.path, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=300) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as ex:
+            return ex.code, json.loads(ex.read())
+    from urllib.parse import quote as _q
+    b64 = _b64.b64encode((d / "s4.xlsx").read_bytes()).decode("ascii")
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_v, pv = call(V, "GET", "/api/frac-treatment")
+        s_vs, pvs = call(V, "GET", f"/api/frac-treatment?well={_q(tw)}&stage=3R")
+        s_va, _ = call(V, "POST", "/api/frac-treatment/attach", {"well_id": tw, "stage": "4", "filename": "s4.xlsx", "content_b64": b64, "source": "x"})
+        s_oa, oa = call(O, "POST", "/api/frac-treatment/attach", {"well_id": tw, "stage": "4", "filename": "s4.xlsx", "content_b64": b64, "source": "post-job data (API)"})
+        s_ob, ob = call(O, "POST", "/api/frac-treatment/attach", {"well_id": tw, "stage": "5", "filename": "bad.csv", "content": "Depth,Gamma\n1,2\n", "source": "x"})
+        s_on, _ = call(O, "POST", "/api/frac-treatment/attach", {"well_id": "nowhere", "stage": "5", "filename": "s4.xlsx", "content_b64": b64, "source": "x"})
+        s_od, od = call(O, "POST", "/api/frac-treatment/declare", {"well_id": tw, "stage": "4", "tvd_ft": "8100", "fluid_psi_ft": "", "source": "perforation record (API)"})
+        s_oe, oe = call(O, "POST", "/api/frac-treatment/declare", {"well_id": tw, "tvd_ft": "", "source": "x"})
+        s_of, of_ = call(O, "POST", "/api/frac-treatment/to-frac-hits", {"well_id": tw})
+        s_ow, ow = call(O, "POST", "/api/frac-treatment/write", {})
+        s_vw, _ = call(V, "POST", "/api/frac-treatment/write", {})
+        s_or, _ = call(O, "POST", "/api/frac-treatment/remove", {"well_id": tw, "stage": "4"})
+        s_o2, _ = call(O, "POST", "/api/frac-treatment/remove", {"well_id": tw, "stage": "4"})
+        s_p2, pp2 = call(V, "GET", "/api/public-pad")
+    finally:
+        svc.stop()
+    env = {**os.environ, "PYTHONPATH": str(pkg.parent) + os.pathsep + os.environ.get("PYTHONPATH", "")}
+    run = lambda *a_: _sp.run([sys.executable, "-m", "gea", *a_], capture_output=True, text=True, env=env, cwd=str(d), timeout=600)
+    cli_s, cli_t, cli_j = run("frac-treatment"), run("frac-treatment", "--workspace", ws.path), run("frac-treatment", "--workspace", ws.path, "--well", "Treat 1H", "--stage", "3R", "--json")
+    cli_a = run("frac-treatment", "--workspace", ws.path, "--well", "Treat 1H", "--stage", "4", "--attach", str(d / "s4.xlsx"), "--source", "post-job data (CLI)")
+    cli_d = run("frac-treatment", "--workspace", ws.path, "--well", "Treat 1H", "--stage", "4", "--tvd", "8050", "--fluid", "0.44", "--source", "perforation record (CLI)")
+    cli_h = run("frac-treatment", "--workspace", ws.path, "--well", "Treat 1H", "--to-frac-hits", "--write")
+    cli_x = run("frac-treatment", "--workspace", ws.path, "--well", "Nobody 9H")
+    cli_n = run("frac-treatment", "--workspace", ws.path, "--stage", "4", "--attach", str(d / "s4.xlsx"), "--source", "x")
+    cli_w = run("frac-treatment", "--workspace", str(d / "nowhere"))
+    cli_pl = run("public-pad", "--list")
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
+    lesson = (pkg / "help" / "tutorial" / "14-production-pages.md").read_text(encoding="utf-8")
+    hp = H.page("frac-treatment") or ""
+    c3 = {
+        "api_read": s_v == 200 and pv["status"] == "OK" and [r_["stage"] for r_ in pv["stages"]] == ["3R", "10"] and len(pv["not_a_measurement"]) >= 6 and s_vs == 200 and pvs["stage"] == "3R"
+                    and pvs["detail"]["final"]["isip_psi"] == pv["stages"][0]["isip_psi"] and "traces" in pvs["detail"],
+        "api_write": s_va == 403 and s_oa == 200 and oa["stage"] == "4" and oa["samples"] == len(s4["t"]) and s_ob == 400 and s_on == 404 and s_od == 200 and od["fluid_psi_ft"] == 0.433 and od["stages"] == ["4"]
+                     and s_oe == 400 and "true vertical depth" in oe.get("error", "") and s_of == 200 and of_["stages"] == 3 and s_ow == 200 and "stages.csv" in ow["files"] and s_vw == 403 and s_or == 200 and s_o2 == 404
+                     and s_p2 == 200 and len(pp2["treatments"]) == 5 and pp2["treatments"][3]["stages"][0] == "3R",
+        "cli": cli_s.returncode == 0 and cli_s.stdout.strip().splitlines()[-1].startswith("OK - SIMULATION") and cli_t.returncode == 0 and "Frac treatment: each stage from its own pumping record" in cli_t.stdout
+               and cli_j.returncode == 0 and json.loads(cli_j.stdout)["stage"] == "3R" and cli_a.returncode == 0 and "kept: stage 4" in cli_a.stdout and "table with a stacked header" in cli_a.stdout
+               and cli_d.returncode == 0 and "declared for stage 4: perforations at 8,050 ft TVD, fluid 0.44 psi/ft" in cli_d.stdout and cli_h.returncode == 0 and "the Frac hits page has 3 stage(s)" in cli_h.stdout
+               and "written: frac_treatment.json" in cli_h.stdout and cli_x.returncode != 0 and "no well 'Nobody 9H'" in cli_x.stderr and cli_n.returncode != 0 and "--attach needs --well and --stage" in cli_n.stderr
+               and cli_w.returncode != 0 and cli_w.stdout == "" and cli_pl.returncode == 0 and "16B Frac Data.zip" in cli_pl.stdout and "doi:10.15121/2371032" in cli_pl.stdout,
+        "page": all(x in page_src for x in ("VIEWS.treatment", "['#/treatment', 'Frac treatment']", "ftPanel", "ftCharts", "/api/frac-treatment/attach", "/api/frac-treatment/declare", "/api/frac-treatment/to-frac-hits",
+                                            "help('treatment')", "never two scales on one plot", "The stimulation records", "What this page will not call a measurement")),
+        "help": not H.check("frac-treatment") and not H.check("public-data") and not H.check("mcp") and H.VIEW_TOPIC.get("treatment") == "frac-treatment"
+                and all(x in hp for x in ("gea frac-treatment --workspace C:\\site", "15 to 60 s, 20 to 90 s and 30 to 120 s", "4,019 psi", "3,985 psi", "the pipe and the perforations together", "Nolte"))
+                and "`frac_treatment`" in (H.page("mcp") or "") and "16B Frac Data.zip" in (H.page("public-data") or "") and "stimulation" in (H.page("public-data") or ""),
+        "readme_lesson": (not readme or ("### Frac treatment" in readme and "`gea frac-treatment`" in readme and "2,969,800 lbm" in readme and readme.index("### Frac treatment") < readme.index("### Frac hits")))
+                         and "**Frac treatment**" in lesson and "frac-treatment" in lesson.split("Help:")[-1] and not TU.check("production-pages"),
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "EJ3 on the API (anyone reads the stages and one stage in full with its traces; only an operator attaches a record - a spreadsheet sent whole - declares the depth, hands the stage times to "
+       "the Frac hits tab, writes the report or removes a stage; a file that is no treatment record 400, a well that is not there 404, a stage already removed 404; the public files list carries "
+       "the stimulation files), the commands (the self-test, the table, one stage as JSON, a record attached, the depth declared, the stage times handed over and the report written; a well that is "
+       "not there, an attach with no well and a folder that is no workspace each stopped; the public list naming the stimulation files), the Frac treatment tab with a panel a measure, the help "
+       "page with the published figures it was checked against, the README and lesson 14" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
 def main() -> int:
@@ -19302,6 +19569,7 @@ def main() -> int:
         section_eg_dysfunction(tmp)
         section_eh_mcp(tmp)
         section_ei_public_pad_benchmark(tmp)
+        section_ej_frac_treatment(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

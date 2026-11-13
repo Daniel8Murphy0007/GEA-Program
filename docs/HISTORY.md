@@ -4,6 +4,23 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.91.0 - 2026-11-13 - frac treatment
+
+- `gea frac-treatment`: each fracturing stage from its own pumping record
+  - what was pumped, the ISIP read back through the ringing with its
+  range, the friction and its two parts from a step-down, the fall-off
+  against G, a step-rate test - from a spreadsheet with a stacked
+  header, a frac van's export or a plain CSV. The Frac treatment tab.
+- The public pad takes Utah FORGE's published stimulation records:
+  sixteen stages on two wells, 132,132 bbl and 2,969,800 lbm by the
+  records' own rates, an ISIP at every stage. Checked against the
+  service company's published reports for the 2022 stages: its 4,019 and
+  3,918 psi against this page's 3,985 and 3,859, and the pressures at 5,
+  10 and 15 minutes within 15 psi.
+- No stage's fall-off shows a closure - the records stop a quarter of an
+  hour after the pumps - and the page offers none.
+- Section EJ. Gate 587.
+
 ## v0.90.0 - 2026-11-13 - a real pad from public data, and the benchmark
 
 - `gea public-pad`: the Utah FORGE wells' published rig recorders (five

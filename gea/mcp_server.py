@@ -252,6 +252,17 @@ def _t_invoice(ws, a: dict) -> Tuple[str, Any]:
     return IC.text(p['check']), p
 
 
+def _t_frac_treatment(ws, a: dict) -> Tuple[str, Any]:
+    from . import frac_treatment as FT
+    p = FT.page(ws, _well(ws, a.get('well')), str(a['stage']) if a.get('stage') not in (None, '') else None)
+    if p.get('detail'):
+        p['detail'] = {k: v for k, v in p['detail'].items() if k != 'traces'}       # the charts' points are for the screen
+        fo = p['detail'].get('falloff')
+        if isinstance(fo, dict):
+            p['detail']['falloff'] = {k: v for k, v in fo.items() if k not in ('g', 'pressure', 'gdpdg', 'minutes_at_g')}
+    return FT.text(p), p
+
+
 def _t_alerts(ws, a: dict) -> Tuple[str, Any]:
     from . import alerts as AL
     n = int(min(max(int(a.get('n') or 50), 1), 500))
@@ -318,6 +329,9 @@ TOOLS: List[tuple] = [
     ('plan_vs_actual', 'Plan against actual', "A surveyed well against its attached directional plan: the distance from the plan at each station against the survey's own uncertainty, and the projection to the bit.",
      _W, _paged('wellplan', lambda m, ws, w: m.page(ws, w), True)),
     ('frac_hits', 'Frac hits', "What each fracturing stage did to the pressure in the monitored wells around it: none, poroelastic, mixed or a frac hit.", {}, _paged('frac_hits', lambda m, ws, w: m.page(ws))),
+    ('frac_treatment', 'Frac treatment', "Each fracturing stage from its own pumping record: what was pumped, the ISIP with its range, the friction and its two parts from a step-down, the pressure after the shut-in, "
+     "a step-rate test; for one stage, every shut-in in it.",
+     {'well': _W['well'], 'stage': {'type': 'string', 'description': "The stage to give in full (1, 3R, 6A); left out, the first stage that was read."}}, _t_frac_treatment),
     ('fluid_balance', 'Fluid balance', "Every barrel into or out of a formation through the site's wells, the storage the pressure says against the storage declared, the Hall plot and the neighbours.",
      {}, _paged('fluid', lambda m, ws, w: m.page(ws))),
     ('pressure_plume', 'Pressure plume (SIMULATION)', "The pressure rise around the injection wells on a grid through time: the area of review, each mapped fault's rise. A SIMULATION on the declared formation.",

@@ -3550,8 +3550,13 @@ VIEWS.publicpad = async () => {
   for (const r of P.files) { h += `<tr><td>${esc(r.well)}<br><span class="muted">${esc(r.what)}</span></td><td>${r.year}</td><td><code>${esc(r.file)}</code><br><span class="muted" title="${esc(r.sha256_expected)}">SHA-256 ${esc(r.sha256_expected.slice(0, 16))}…</span></td><td>${mb(r.bytes_expected)}</td><td><a href="${esc(r.page)}" target="_blank" rel="noopener">${esc(r.title)}</a>${r.doi ? `<br><span class="muted">doi:${esc(r.doi)}</span>` : ''}</td><td>${!P.folder ? '<span class="muted">name the folder</span>' : r.present ? statusPill(r.size_matches ? 'good' : 'warn', r.size_matches ? 'there' : 'there, another size') : statusPill('neutral', 'not there')}</td></tr>`;
     if (r.survey) h += `<tr><td></td><td></td><td><code>${esc(r.survey.file)}</code><br><span class="muted">optional: ${esc(r.survey.why)}</span></td><td>${mb(r.survey.bytes_expected)}</td><td class="muted">the same page</td><td>${!P.folder ? '' : r.survey.present ? statusPill('good', 'there') : statusPill('neutral', 'not there')}</td></tr>`; }
   h += `</tbody></table></div>`;
+  if ((P.treatments || []).length) {
+    h += `<div class="card"><h3>The stimulation records <span class="small muted">optional; ${mb(P.treatment_bytes)} in all; each stage's pumping record, for the Frac treatment tab</span></h3><table class="small"><thead><tr><th>Well</th><th>Year</th><th>File to download</th><th>Stages</th><th>Size</th><th>From</th><th>In the folder</th></tr></thead><tbody>`;
+    for (const r of P.treatments) h += `<tr><td>${esc(r.well)}</td><td>${r.year}</td><td><code>${esc(r.file)}</code><br><span class="muted" title="${esc(r.sha256_expected)}">SHA-256 ${esc(r.sha256_expected.slice(0, 16))}…</span></td><td>${esc(r.stages.join(', '))}</td><td>${mb(r.bytes_expected)}</td><td><a href="${esc(r.page)}" target="_blank" rel="noopener">${esc(r.title)}</a>${r.doi ? `<br><span class="muted">doi:${esc(r.doi)}</span>` : ''}</td><td>${!P.folder ? '' : r.present ? (r.size_matches ? statusPill('good', 'there') : statusPill('warn', 'there, another size')) : statusPill('neutral', 'not there')}</td></tr>`;
+    h += `</tbody></table><p class="small muted">Put them in the same folder as the recorder files, or in a folder named <code>stimulation</code> inside it.</p></div>`;
+  }
   h += `<div class="card"><h3>Make the site</h3>` + (adm ? `<form id="ppForm" class="row"><label>The folder the files are in<input name="folder" value="${esc(fld)}" placeholder="C:\\forge" style="width:22em"></label><button type="button" class="secondary" id="ppCheck">Check the folder</button><label>The folder to make the site in<input name="path" value="${esc(sessionStorage.getItem('ppPath') || '')}" placeholder="C:\\forge-site" style="width:22em"></label><button ${J.state === 'running' ? 'disabled' : ''}>Make the site</button></form><p class="small muted">Making it hashes each file, writes out the recorder columns the program reads, and attaches each well - some minutes for ${mb(P.total_bytes)}. The new site is listed under Administration, Workspaces, and opens in its own window.</p>` : `<p class="small muted">An administrator names the folder and makes the site.</p>`);
-  if (J.state && J.state !== 'idle') h += `<p class="small">${J.state === 'running' ? statusPill('warn', 'making it') + ` ${esc(J.at && J.at.well ? `${J.at.n} of ${J.at.of}: ${J.at.well}, ${J.at.step}${J.at.rows ? ' (' + J.at.rows.toLocaleString() + ' rows)' : ''}` : 'starting')}` : J.state === 'done' ? statusPill('good', 'made') + ` ${esc(J.result.name)} at <code>${esc(J.result.path)}</code>: ${esc(J.result.wells.join(', '))}` : statusPill('serious', 'not made') + ` ${esc(J.error || '')}`}</p>`;
+  if (J.state && J.state !== 'idle') h += `<p class="small">${J.state === 'running' ? statusPill('warn', 'making it') + ` ${esc(J.at && J.at.step === 'treatment' ? `${J.at.well}: the pumping record of stage ${J.at.stage}` : J.at && J.at.well ? `${J.at.n} of ${J.at.of}: ${J.at.well}, ${J.at.step}${J.at.rows ? ' (' + J.at.rows.toLocaleString() + ' rows)' : ''}` : 'starting')}` : J.state === 'done' ? statusPill('good', 'made') + ` ${esc(J.result.name)} at <code>${esc(J.result.path)}</code>: ${esc(J.result.wells.join(', '))}${(J.result.stages || []).length ? `; and the pumping record of ${J.result.stages.length} stimulation stage(s), on the <a href="#/treatment">Frac treatment</a> tab of that site` : ''}` : statusPill('serious', 'not made') + ` ${esc(J.error || '')}`}</p>`;
   h += `</div>`;
   $('#main').innerHTML = h;
   $('#ppCheck') && ($('#ppCheck').onclick = () => { sessionStorage.setItem('ppFolder', $('#ppForm').folder.value.trim()); route(); });
@@ -3559,6 +3564,127 @@ VIEWS.publicpad = async () => {
   if (J.state === 'running') setTimeout(() => { if (location.hash === '#/publicpad') route(); }, 3000);
 };
 
+// ---------- frac treatment: each stage from its own pumping record ----------
+const FTR = {well: null, stage: null};
+function ftNum(v, d) { return v == null ? '<span class="muted">-</span>' : Number(v).toLocaleString(undefined, {maximumFractionDigits: d || 0}); }
+function ftPanel(xs, ys, o) {
+  // one measure a panel, the panels of a figure sharing their x: never two scales on one plot
+  const W = 720, H = o.h || 150, L = 58, R = 12, T = 18, B = o.xlab ? 26 : 8, ok = ys.map((v, i) => v == null ? null : [xs[i], v]).filter(Boolean);
+  if (!ok.length) return '';
+  const x0 = o.x0 ?? Math.min(...xs), x1 = o.x1 ?? Math.max(...xs), ex = (o.extra || []).flatMap(e => e.pts.map(p => p[1]));
+  let lo = o.zero ? 0 : Math.min(...ok.map(p => p[1]), ...ex), hi = Math.max(...ok.map(p => p[1]), ...ex); const pad = (hi - lo) * 0.08 || 1; if (!o.zero) lo -= pad; hi += pad;
+  const sx = v => L + (v - x0) / Math.max(1e-9, x1 - x0) * (W - L - R), sy = v => T + (1 - (v - lo) / Math.max(1e-9, hi - lo)) * (H - T - B), f = o.fmt || (v => Math.round(v).toLocaleString());
+  let g = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(o.title)}" style="max-width:860px;display:block">`;
+  g += `<text x="${L}" y="12" font-size="12" font-weight="600" fill="var(--ink)">${esc(o.title)}</text>`;
+  for (const k of [0, 0.5, 1]) { const v = lo + (hi - lo) * k; g += `<line x1="${L}" x2="${W - R}" y1="${sy(v)}" y2="${sy(v)}" stroke="var(--grid)"/><text x="${L - 6}" y="${sy(v) + 4}" font-size="11" text-anchor="end" fill="var(--muted)">${f(v)}</text>`; }
+  for (const [a, b] of (o.shade || [])) g += `<rect x="${sx(Math.max(a, x0))}" y="${T}" width="${Math.max(1, sx(Math.min(b, x1)) - sx(Math.max(a, x0)))}" height="${H - T - B}" fill="var(--track)" opacity=".55"><title>pumping</title></rect>`;
+  for (const m of (o.marks || [])) if (m.x >= x0 && m.x <= x1) g += `<line x1="${sx(m.x)}" x2="${sx(m.x)}" y1="${T}" y2="${H - B}" stroke="var(--ink2)" stroke-dasharray="3 3" opacity=".7"><title>${esc(m.label)}</title></line>`;
+  for (const e of (o.extra || [])) g += `<polyline points="${e.pts.map(p => `${sx(p[0]).toFixed(1)},${sy(p[1]).toFixed(1)}`).join(' ')}" fill="none" stroke="var(--ink2)" stroke-width="1.2" stroke-dasharray="${e.dash || '5 4'}"><title>${esc(e.name)}</title></polyline>`;
+  if (o.points) g += ok.map(p => `<circle cx="${sx(p[0]).toFixed(1)}" cy="${sy(p[1]).toFixed(1)}" r="4.5" fill="${o.color}" stroke="var(--surface)" stroke-width="2"><title>${esc(o.tip ? o.tip(p[0], p[1]) : `${f(p[1])} ${o.unit}`)}</title></circle>`).join('');
+  else g += `<polyline points="${ok.map(p => `${sx(p[0]).toFixed(1)},${sy(p[1]).toFixed(1)}`).join(' ')}" fill="none" stroke="${o.color}" stroke-width="2" stroke-linejoin="round"/>`;
+  for (const d of (o.dots || [])) g += `<circle cx="${sx(d.x).toFixed(1)}" cy="${sy(d.y).toFixed(1)}" r="5" fill="var(--ink)" stroke="var(--surface)" stroke-width="2"><title>${esc(d.label)}</title></circle><text x="${sx(d.x) + 9}" y="${sy(d.y) - 7}" font-size="11" fill="var(--ink2)">${esc(d.text || '')}</text>`;
+  if (!o.points) { const n = Math.min(90, ok.length), step = ok.length / n, w = (W - L - R) / n;                      // the hover: a strip a bin, each with its own reading
+    for (let k = 0; k < n; k++) { const p = ok[Math.min(ok.length - 1, Math.floor((k + 0.5) * step))]; g += `<rect x="${(L + k * w).toFixed(1)}" y="${T}" width="${w.toFixed(1)}" height="${H - T - B}" fill="transparent"><title>${esc(o.tip ? o.tip(p[0], p[1]) : `${(o.xfmt || (v => v.toFixed(1)))(p[0])} ${o.xunit || ''}: ${f(p[1])} ${o.unit}`)}</title></rect>`; } }
+  if (o.xlab) g += `<text x="${L}" y="${H - 8}" font-size="11" fill="var(--muted)">${esc((o.xfmt || (v => v.toFixed(0)))(x0))}</text><text x="${W - R}" y="${H - 8}" font-size="11" text-anchor="end" fill="var(--muted)">${esc(o.xlab)}, to ${esc((o.xfmt || (v => v.toFixed(0)))(x1))}</text>`;
+  return g + '</svg>';
+}
+function ftCharts(D) {
+  const tr = D.traces || {}, f = D.final, inj = (D.segments || []).filter(s => s.kind === 'INJECTION').map(s => [s.start_s / 60, s.end_s / 60]);
+  const marks = (D.shut_ins || []).filter(s => s.status === 'OK').map(s => ({x: s.at_s / 60, label: `shut-in: ISIP ${s.isip_psi.toLocaleString()} psi`}));
+  let h = '';
+  if (tr.pressure) {
+    const x0 = 0, x1 = Math.max(...tr.pressure.t) / 60, com = {x0, x1, shade: inj, marks, xunit: 'min'};
+    h += `<h4>The stage</h4>` + ftPanel(tr.pressure.t.map(v => v / 60), tr.pressure.v, {...com, title: 'Treating pressure, psi', unit: 'psi', color: 'var(--s1)', h: 190, zero: true});
+    h += ftPanel(tr.rate.t.map(v => v / 60), tr.rate.v, {...com, title: 'Slurry rate, bbl/min', unit: 'bbl/min', color: 'var(--s2)', zero: true, h: tr.conc ? 120 : 146, fmt: v => v.toFixed(0), xlab: tr.conc ? null : 'minutes from the first sample'});
+    if (tr.conc) h += ftPanel(tr.conc.t.map(v => v / 60), tr.conc.v, {...com, title: 'Proppant concentration, lbm/gal', unit: 'lbm/gal', color: 'var(--s3)', zero: true, h: 126, fmt: v => v.toFixed(1), xlab: 'minutes from the first sample'});
+    h += `<p class="small muted">Three panels on one clock, one measure each. Shaded: the stage pumping. Dashed: a shut-in that was read.</p>`;
+  }
+  if (tr.shut_in && f) {
+    const sx = tr.shut_in.t, lines = (f.windows || []).map(w => ({name: `the line fitted ${w.from_s} to ${w.to_s} s after the pumps stopped, read back to the shut-in: ${Math.round(w.isip_psi).toLocaleString()} psi`, pts: [[0, w.isip_psi], [w.to_s, w.isip_psi + w.slope_psi_s * w.to_s]]}));
+    h += `<h4>The shut-in</h4>` + ftPanel(sx, tr.shut_in.pressure, {title: 'Pressure around the shut-in, psi', unit: 'psi', color: 'var(--s1)', h: 210, extra: lines, marks: [{x: 0, label: 'the rate reached zero'}], xunit: 's', xfmt: v => v.toFixed(0),
+      dots: [{x: 0, y: f.isip_psi, label: `ISIP ${f.isip_psi.toLocaleString()} psi (${f.isip_low_psi.toLocaleString()} to ${f.isip_high_psi.toLocaleString()})`, text: `ISIP ${f.isip_psi.toLocaleString()}`}]});
+    h += ftPanel(sx, tr.shut_in.rate, {title: 'Rate, bbl/min', unit: 'bbl/min', color: 'var(--s2)', zero: true, h: 110, fmt: v => v.toFixed(0), marks: [{x: 0, label: 'the rate reached zero'}], xunit: 's', xfmt: v => v.toFixed(0), xlab: 'seconds from the shut-in'});
+    h += `<p class="small muted">Dashed lines: the straight lines fitted to the pressure after the ringing, each read back to the moment the rate reached zero; the dot is their median, the ISIP${f.wide ? ' - here the three disagree widely: the pressure was still falling fast' : ''}.</p>`;
+  }
+  const sd = f && f.step_down;
+  if (sd) {
+    const q1 = Math.max(...sd.points.map(p => p.rate_bpm)), curve = Array.from({length: 40}, (_, k) => { const q = q1 * (k + 1) / 40; return [q, sd.square_coef * q * q + sd.root_coef * Math.sqrt(q)]; });
+    h += `<h4>The step-down</h4>` + ftPanel(sd.points.map(p => p.rate_bpm), sd.points.map(p => p.friction_psi), {title: 'Friction above the ISIP at each rate held, psi', unit: 'psi', color: 'var(--s1)', points: true, zero: true, x0: 0, h: 200, extra: [{name: 'the fit: a part with the rate squared and a part with its root', pts: curve}],
+      tip: (q, v) => `${q} bbl/min: ${Math.round(v).toLocaleString()} psi above the ISIP`, xfmt: v => v.toFixed(0), xlab: 'rate, bbl/min'});
+    h += `<p class="small">At ${sd.at_rate_bpm} bbl/min: <b>${sd.square_psi.toLocaleString()} psi</b> goes with the square of the rate (the pipe and the perforations together) and <b>${sd.root_psi.toLocaleString()} psi</b> with its root (the path just outside the wellbore); the fit misses the points by ${sd.misfit_psi} psi. <span class="muted">Dots: each rate held; dashed: the fit.</span></p>`;
+  }
+  const fo = D.falloff;
+  if (fo && fo.g) {
+    const line = fo.line ? [{name: `the straight line through the origin, ${fo.line.slope_psi.toLocaleString()} psi a unit of G`, pts: [[0, 0], [fo.g[fo.g.length - 1], fo.line.slope_psi * fo.g[fo.g.length - 1]]]}] : [];
+    const pick = fo.pick ? [{x: fo.pick.g, label: `closure candidate: ${fo.pick.pressure_psi.toLocaleString()} psi at G = ${fo.pick.g}`}] : [];
+    const tip = unit => (g, v) => `G = ${g.toFixed(3)} (${(fo.minutes_at_g[fo.g.indexOf(g)] ?? 0)} min): ${Math.round(v).toLocaleString()} ${unit}`;
+    h += `<h4>The fall-off</h4>` + ftPanel(fo.g, fo.pressure, {title: 'Pressure against G, psi', unit: 'psi', color: 'var(--s1)', h: 170, x0: 0, marks: pick, tip: tip('psi')});
+    h += ftPanel(fo.g.slice(0, -2), fo.gdpdg.slice(0, -2), {title: 'G dP/dG, psi', unit: 'psi', color: 'var(--s2)', zero: true, h: 170, x0: 0, x1: fo.g[fo.g.length - 1], extra: line, marks: pick, tip: tip('psi'), xfmt: v => v.toFixed(2), xlab: "Nolte's G"});
+    h += `<p class="small muted">${fo.line ? 'Dashed: the straight line through the origin that G dP/dG follows. ' : ''}${fo.pick ? 'The vertical line is the closure candidate.' : 'No closure is marked.'}</p>`;
+  }
+  return h;
+}
+VIEWS.treatment = async () => {
+  const q = FTR.well ? `?well=${encodeURIComponent(FTR.well)}&stage=${encodeURIComponent(FTR.stage || '')}` : '';
+  const P = await get('/api/frac-treatment' + q);
+  FTR.well = P.well || null; FTR.stage = P.stage || null;
+  let h = `<h2>Frac treatment <span class="small muted">each stage from its own pumping record</span></h2>` + help('treatment');
+  const t = P.totals;
+  h += `<div class="tiles">` + tile('Stages', String(t.stages), 'neutral', '#/treatment', t.stages ? `${t.slurry_bbl.toLocaleString()} bbl of slurry, ${t.proppant_lbm.toLocaleString()} lbm of proppant` : 'attach a treatment record below')
+    + tile('ISIP read', `${t.read} of ${t.stages}`, t.stages && t.read === t.stages ? 'good' : t.read ? 'warn' : 'neutral', '#/treatment', t.read ? `${t.isip_low_psi.toLocaleString()} to ${t.isip_high_psi.toLocaleString()} psi at the surface` : 'a minute of pressure after the pumps stop is needed')
+    + tile('A wide ISIP', String(t.wide), t.wide ? 'warn' : 'neutral', '#/treatment', 'the pressure still falling fast after the ringing')
+    + tile('Stepped down', String(t.step_downs), 'neutral', '#/treatment', 'three rates or more held on the way to the shut-in') + `</div>`;
+  h += `<div class="card"><h3>What the records say</h3><ul class="small">${P.lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul></div>`;
+  if (P.stages.length) {
+    h += `<div class="card"><h3>Stage by stage</h3><div style="overflow-x:auto"><table class="small"><thead><tr><th>Well</th><th>Stage</th><th>Start</th><th>Pumped, min</th><th>Slurry, bbl</th><th>Proppant, lbm</th><th>Rate, bbl/min</th><th>Pressure, psi<div class="muted">average / greatest</div></th><th>ISIP, psi<div class="muted">and its range</div></th><th>Friction, psi<div class="muted">at bbl/min</div></th><th>Rate squared / root</th><th>After 5 / 15 min</th><th>Gradient, psi/ft</th></tr></thead><tbody>`;
+    for (const r of P.stages) {
+      const cur = r.well === P.well && r.stage === P.stage;
+      if (r.status === 'UNREADABLE') { h += `<tr><td>${esc(r.display)}</td><td>${esc(r.stage)}</td><td colspan="11" class="muted">${esc(r.why || 'unreadable')}</td></tr>`; continue; }
+      h += `<tr${cur ? ' style="background:var(--track)"' : ''}><td>${esc(r.display)}</td><td><a href="#/treatment" class="ft-s" data-w="${esc(r.well)}" data-s="${esc(r.stage)}"><b>${esc(r.stage)}</b></a></td><td>${esc((r.start || '-').replace('T', ' ').slice(0, 16))}</td><td>${ftNum(r.minutes)}</td>
+        <td title="${r.slurry_totaliser_bbl == null ? '' : `the record's own totaliser: ${r.slurry_totaliser_bbl.toLocaleString()} bbl`}">${ftNum(r.slurry_bbl)}</td><td title="${r.proppant_totaliser_lbm == null ? '' : `the record's own totaliser: ${r.proppant_totaliser_lbm.toLocaleString()} lbm`}">${ftNum(r.proppant_lbm)}</td>
+        <td>${ftNum(r.rate_avg_bpm)}</td><td>${ftNum(r.pressure_avg_psi)} / ${ftNum(r.pressure_max_psi)}</td>
+        <td>${r.isip_psi == null ? `<span class="muted">${esc(r.why || '-')}</span>` : `<b>${r.isip_psi.toLocaleString()}</b> <span class="muted">${r.isip_low_psi.toLocaleString()}-${r.isip_high_psi.toLocaleString()}</span>${r.isip_wide ? ' ' + statusPill('warn', 'wide') : ''}`}</td>
+        <td>${r.friction_psi == null ? '<span class="muted">-</span>' : `${r.friction_psi.toLocaleString()} <span class="muted">at ${Math.round(r.friction_rate_bpm)}</span>`}</td><td>${r.square_psi == null ? '<span class="muted">-</span>' : `${r.square_psi.toLocaleString()} / ${r.root_psi.toLocaleString()}`}</td>
+        <td>${ftNum(r.p5_psi)} / ${ftNum(r.p15_psi)}</td><td>${r.gradient_psi_ft == null ? '<span class="muted">declare the depth</span>' : r.gradient_psi_ft.toFixed(3)}</td></tr>`;
+    }
+    h += `</tbody></table></div><p class="small muted">Pick a stage for its charts. The volumes are the rate summed over time; hold the pointer on one for the record's own totaliser.</p>${can('operator') ? `<p><button id="ftWrite">Write the report</button></p>` : ''}</div>`;
+  }
+  const D = P.detail;
+  if (D) {
+    const wn = (P.wells.find(w => w.id === P.well) || {}).display || P.well;
+    h += `<div class="card"><h3>${esc(wn)}, stage ${esc(P.stage)}</h3>`;
+    if (D.status !== 'OK') h += `<p>${statusPill('warn', D.status.toLowerCase())} ${esc(D.why || '')}</p>`;
+    h += `<ul class="small">`;
+    if (D.breakdown) h += `<li>First pressure peak <b>${D.breakdown.pressure_psi.toLocaleString()} psi</b> at ${D.breakdown.rate_bpm} bbl/min, ${(D.breakdown.at_s / 60).toFixed(1)} min in; it fell ${D.breakdown.fell_psi.toLocaleString()} psi in ${Math.round(D.breakdown.in_s)} s with the rate held.</li>`;
+    else if (D.pumping) h += `<li class="muted">No pressure peak that the rate did not cause in the opening of the injection.</li>`;
+    (D.shut_ins || []).forEach((s, i) => { h += s.status !== 'OK' ? `<li class="muted">Shut-in at ${(s.at_s / 60).toFixed(1)} min: ${esc(s.why)}.</li>` :
+      `<li>Shut-in at ${(s.at_s / 60).toFixed(1)} min after ${Math.round(s.after_bbl).toLocaleString()} bbl${i === D.final_index ? ' <b>(the stage\'s)</b>' : ''}: ISIP <b>${s.isip_psi.toLocaleString()} psi</b> (${s.isip_low_psi.toLocaleString()} to ${s.isip_high_psi.toLocaleString()})${s.wide ? ' ' + statusPill('warn', 'wide') : ''}${s.friction_psi == null ? '' : `; friction ${s.friction_psi.toLocaleString()} psi at ${s.last_rate_bpm} bbl/min`}${s.step_down ? `; stepped down over ${s.step_down.points.length} rates - ${esc(s.step_down.reads)}` : ''}${s.ringing ? `; the pressure rang ${s.ringing.peak_to_peak_psi} psi peak to peak` : ''}.</li>`; });
+    if (D.bottomhole) h += `<li>At the perforations (${D.bottomhole.tvd_ft.toLocaleString()} ft TVD, fluid ${D.bottomhole.fluid_psi_ft} psi/ft - ${esc(D.bottomhole.source)}): ISIP <b>${D.bottomhole.isip_psi.toLocaleString()} psi</b>, a gradient of <b>${D.bottomhole.gradient_psi_ft.toFixed(3)} psi/ft</b> (${D.bottomhole.low_psi_ft.toFixed(3)} to ${D.bottomhole.high_psi_ft.toFixed(3)}).</li>`;
+    if (D.falloff) h += `<li>Fall-off, ${D.falloff.minutes} min${D.falloff.bled_off_min ? ` (the well was opened at ${D.falloff.bled_off_min} min)` : ''}: ${esc(D.falloff.reads || D.falloff.why || '')}${Object.keys(D.falloff.at || {}).length ? ' Pressure after ' + Object.entries(D.falloff.at).map(([m, v]) => `${m} min ${v.toLocaleString()} psi`).join(', ') + '.' : ''}</li>`;
+    for (const sr of (D.step_rate || [])) h += `<li>Step-rate at ${(sr.start_s / 60).toFixed(1)} min over ${sr.points.length} rates (${sr.points.map(x => `${x.rate_bpm} bbl/min ${x.pressure_psi.toLocaleString()} psi`).join('; ')}): ${esc(sr.reads)}.</li>`;
+    for (const n of (D.notes || [])) h += `<li class="muted">${esc(n)}</li>`;
+    h += `</ul>` + ftCharts(D);
+    h += `<p class="small muted">The record: <span class="mono">${esc(D.meta.file)}</span> (${esc(D.meta.layout)}; ${D.meta.samples.toLocaleString()} samples every ${D.meta.cadence_s} s; SHA-256 ${esc(D.meta.sha256.slice(0, 16))}…) - ${esc(D.meta.source)}. Read as ${Object.entries(D.meta.read_as).map(([k, v]) => `${esc(k.replace('_', ' '))}: <i>${esc(v)}</i>`).join(', ')}.</p>`;
+    if (can('operator')) h += `<p><button type="button" class="secondary" id="ftRm">Remove this stage's record</button> <button type="button" class="secondary" id="ftFH">Give the Frac hits tab this well's stage times</button></p>`;
+    h += `</div>`;
+  }
+  if (can('operator')) {
+    const wopts = P.wells.map(w => `<option value="${esc(w.id)}"${w.id === P.well ? ' selected' : ''}>${esc(w.display)}</option>`).join('');
+    h += `<div class="card"><h3>Attach a stage's treatment record</h3><form id="ftAdd" class="row"><label>Well<select name="well_id">${wopts}</select></label><label>Stage<input name="stage" placeholder="1, 3R, 6A" style="width:7em" required></label><label>The record (CSV or Excel)<input type="file" name="file" accept=".csv,.txt,.xlsx,.xlsm"></label><label>Where it came from<input name="source" placeholder="frac service company's post-job data" required></label><label>Its first moment <span class="muted">(only for a file with elapsed time)</span><input name="start" placeholder="2026-08-03T06:00:00" style="width:13em"></label><button type="submit">Attach</button></form>
+      <p class="small muted">One file a stage: the treating pressure, the slurry rate and, where it has them, the proppant concentration and the totalisers, second by second - a spreadsheet with its header rows as the service company wrote them, a frac van's data-acquisition export, or a plain CSV.</p>
+      <h3>The depth of the perforations</h3><form id="ftDec" class="row"><label>Well<select name="well_id">${wopts}</select></label><label>Stage <span class="muted">(blank: every stage of the well)</span><input name="stage" style="width:7em"></label><label>Perforations, ft TVD<input name="tvd_ft" type="number" step="1" style="width:8em" required></label><label>Fluid gradient, psi/ft<input name="fluid_psi_ft" type="number" step="0.001" placeholder="${P.water_psi_ft} fresh water" style="width:10em"></label><label>Where they came from<input name="source" placeholder="perforation record; fresh water" required></label><button class="secondary" type="submit">Keep</button></form>
+      <p class="small muted">With these the surface ISIP becomes a bottomhole one - the surface pressure plus the column of fluid - and a gradient.</p></div>`;
+  }
+  h += `<div class="card"><h3>What this page will not call a measurement</h3><ul class="small">${P.not_a_measurement.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
+  $('#main').innerHTML = h;
+  document.querySelectorAll('.ft-s').forEach(a => a.onclick = ev => { ev.preventDefault(); FTR.well = a.dataset.w; FTR.stage = a.dataset.s; route(); });
+  $('#ftWrite') && ($('#ftWrite').onclick = async () => { try { const r = await post('/api/frac-treatment/write', {}); toast('Written: ' + r.files.join(', '), 'ok'); } catch (e) { toast(e.message, 'err'); } });
+  $('#ftRm') && ($('#ftRm').onclick = async () => { try { await post('/api/frac-treatment/remove', {well_id: P.well, stage: P.stage}); toast('Removed', 'ok'); FTR.stage = null; route(); } catch (e) { toast(e.message, 'err'); } });
+  $('#ftFH') && ($('#ftFH').onclick = async () => { try { const r = await post('/api/frac-treatment/to-frac-hits', {well_id: P.well}); toast(`The Frac hits tab has ${r.stages} stage(s) for this well`, 'ok'); } catch (e) { toast(e.message, 'err'); } });
+  $('#ftDec') && ($('#ftDec').onsubmit = async ev => { ev.preventDefault(); try { await post('/api/frac-treatment/declare', Object.fromEntries(new FormData(ev.target).entries())); toast('Kept', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+  $('#ftAdd') && ($('#ftAdd').onsubmit = async ev => { ev.preventDefault(); const fd = new FormData(ev.target), f = fd.get('file'); if (!f || !f.name) return toast('Choose the treatment record', 'err');
+    try { const b = Object.fromEntries([...fd.entries()].filter(([k]) => k !== 'file')); toast('Reading the record…', 'ok'); await post('/api/frac-treatment/attach', {...b, filename: f.name, content_b64: await readFile(f)}); FTR.well = b.well_id; FTR.stage = b.stage; toast('Attached', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+};
 // ---------- frac hits: each fracturing stage against the pressure in the wells around it ----------
 const FH = {sel: null};
 function fhKind(t) { return ({'NONE': 'good', 'POROELASTIC': 'neutral', 'MIXED': 'warn', 'FRAC HIT': 'serious'})[t] || 'neutral'; }
@@ -4145,7 +4271,7 @@ function authScreen(first, company) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/publicpad', 'Public data'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/roadmap', 'Roadmap'], ['#/benchmark', 'Benchmark'], ['#/dysfunction', 'Drilling alerts'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/frac', 'Frac hits'], ['#/fluid', 'Fluid balance'], ['#/plume', 'Pressure plume'], ['#/front', 'Fluid front'], ['#/calibration', 'Calibration'], ['#/porepressure', 'Pore pressure'], ['#/torquedrag', 'Torque & drag'], ['#/hydraulics', 'Hydraulics & ECD'], ['#/casing', 'Casing & kick tolerance'], ['#/decline', 'Decline curves'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/mcp', 'Assistant access'], ['#/catalog', 'Catalogue'], ['#/rocks', 'Rocks'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/tutorial', 'Tutorial'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/publicpad', 'Public data'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/roadmap', 'Roadmap'], ['#/benchmark', 'Benchmark'], ['#/dysfunction', 'Drilling alerts'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/treatment', 'Frac treatment'], ['#/frac', 'Frac hits'], ['#/fluid', 'Fluid balance'], ['#/plume', 'Pressure plume'], ['#/front', 'Fluid front'], ['#/calibration', 'Calibration'], ['#/porepressure', 'Pore pressure'], ['#/torquedrag', 'Torque & drag'], ['#/hydraulics', 'Hydraulics & ECD'], ['#/casing', 'Casing & kick tolerance'], ['#/decline', 'Decline curves'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/mcp', 'Assistant access'], ['#/catalog', 'Catalogue'], ['#/rocks', 'Rocks'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/tutorial', 'Tutorial'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w'], '#/control': b => [b.handover_unacked, 'w']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }

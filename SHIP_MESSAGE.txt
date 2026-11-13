@@ -1,21 +1,20 @@
-v0.90.0 — A REAL PAD FROM PUBLIC DATA, AND THE BENCHMARK
+v0.91.0 — FRAC TREATMENT
 
-`gea public-pad`: the Utah FORGE wells' published rig recorders - five
-wells drilled between 2017 and 2023, Creative Commons Attribution 4.0 -
-made into a site of their own, so the rig time, the roadmap, the drilling
-alerts and the benchmark run on real records anyone may check. The
-program does not contain the files and does not fetch them: the site
-downloads them in a browser, and the program checks each against its
-SHA-256, converts three layouts, attaches each well and ends every page
-with the credit. `gea benchmark`: the wells ranked on feet per day, rate
-on bottom, connections and trips, and each set against the pad's best,
-stretch by stretch. On the five wells: 46,417 ft in 1,256 on-bottom
-hours, 812 of them beyond the pad's best. The drilling record learned
-four things from them: on bottom without a flag, a depth REAMED BACK, a
-ten-second record's trips, a stand no bit drilled. The Public data and
-Benchmark tabs; `gea help public-data`, `gea help benchmark`.
-Section EI; gate 584.
+`gea frac-treatment`: each fracturing stage from its own pumping record,
+with nothing fitted to a model of the fracture - what was pumped beside
+the record's own totalisers, the ISIP read back through the ringing over
+three windows with its range, the friction at the last rate held and its
+two parts where the rate was stepped down, the pressure after the shut-in
+and against Nolte's G, a step-rate test. The record is read as the frac
+service company wrote it: a spreadsheet with a stacked header, a frac
+van's export, or a plain CSV. The public pad now takes Utah FORGE's
+published stimulation records - sixteen stages on two wells - and the
+page was checked against the service company's published reports: its
+final ISIPs of 4,019 and 3,918 psi against this page's 3,985 and 3,859,
+the pressures at 5, 10 and 15 minutes within 15 psi. The Frac treatment
+tab; the assistant's `frac_treatment` tool; `gea help frac-treatment`.
+Section EJ; gate 587.
 
 Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
 
-Gate 584.
+Gate 587.

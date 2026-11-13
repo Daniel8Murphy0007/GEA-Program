@@ -70,8 +70,27 @@ FORGE = {
          'survey_file': '16B(78)-32 Well Survey.zip', 'survey_member': '16B(78)-32 Final Survey Report.txt', 'survey_bytes': 608878,
          'survey_sha256': '38c59c9452da709fa971448699eb46fb13f452d2aa8c08fbe88fe73f08ce5302'},
     ],
+    # the stimulation of the two deviated wells: each stage's pumping record, second by second, as the service companies gave it
+    'treatments': [
+        {'well': '16A(78)-32', 'year': 2022, 'page': GDR + '1379', 'doi': '10.15121/1871203', 'title': 'Utah FORGE: Well 16A(78)-32 Stimulation Data (April, 2022)',
+         'file': '16A78-32_Stimulation_Stage 1.zip', 'bytes': 10606717, 'sha256': '6f4e164ddbeb5b2ba2f0d5bf11ae6beac3bddc3ade8d78a516206980d1112eeb',
+         'members': {'1': 'Stage 1/University of Utah Forge 16A(78)-32 Stage 1.xlsx'}},
+        {'well': '16A(78)-32', 'year': 2022, 'page': GDR + '1379', 'doi': '10.15121/1871203', 'title': 'Utah FORGE: Well 16A(78)-32 Stimulation Data (April, 2022)',
+         'file': '16A78-32_Stimulation_Stage 2.zip', 'bytes': 12239514, 'sha256': '4bc2dd974eda150f3f1f8c136b2ad0c445e35c3655358df31095ca2021216239',
+         'members': {'2': 'Stage 2/University of Utah Forge 16A(78)-32 Stage 2.xlsx'}},
+        {'well': '16A(78)-32', 'year': 2022, 'page': GDR + '1379', 'doi': '10.15121/1871203', 'title': 'Utah FORGE: Well 16A(78)-32 Stimulation Data (April, 2022)',
+         'file': '16A78-32_Stimulation_Stage 3.zip', 'bytes': 15423876, 'sha256': 'aeb7bc754126a263c13369345ec3329caaaf0c0a81a05406a2418d55bdda78e6',
+         'members': {'3': 'Stage 3/University of Utah Forge 16A(78)-32 Stage 3.xlsx'}},
+        {'well': '16A(78)-32', 'year': 2024, 'page': GDR + '1611', 'doi': '10.15121/2371032', 'title': 'Utah FORGE: Wells 16A(78)-32 and 16B(78)-32 Stimulation Pressure and Circulation Data April, 2024',
+         'file': '16A Frac Data.zip', 'bytes': 25037870, 'sha256': '9511881e1c2b5fe52b60d47d9f3c0fd70722807a062c39625743c52f425560f4',
+         'members': {k: f'16A(78)-32_Stage {k}_Treatment Data.xlsx' for k in ('3R', '4', '5', '6A', '6B', '7', '8', '9', '10')}},
+        {'well': '16B(78)-32', 'year': 2024, 'page': GDR + '1611', 'doi': '10.15121/2371032', 'title': 'Utah FORGE: Wells 16A(78)-32 and 16B(78)-32 Stimulation Pressure and Circulation Data April, 2024',
+         'file': '16B Frac Data.zip', 'bytes': 3123455, 'sha256': '6e820e388dc93432d5268ab56093c48c83f6666122ec1482218e048e14962e0a',
+         'members': {k: f'16B(78)-32_Stage {k}_Treatment Data.xlsx' for k in ('1', '2', '3', '4')}},
+    ],
 }
 DATASETS = {FORGE['id']: FORGE}
+SUBFOLDERS = ('', 'stimulation')
 # the recorder channels the program reads, by the header's name without its unit
 KEEP = ('Hole Depth', 'Bit Depth', 'Rate Of Penetration', 'Weight on Bit', 'Rotary RPM', 'Standpipe Pressure', 'Hook Load', 'Differential Pressure', 'Total Pump Output', 'Block Height',
         'Convertible Torque', 'Rotary Torque', 'On Bottom', 'Gamma', 'Interpolated TVD', 'Trip Tank Mud Volume', 'Total Mud Volume', 'Inclination', 'Azimuth', 'Pump Total Strokes Rate')
@@ -111,6 +130,30 @@ def sha256_of(path: str, progress: Optional[Callable[[int], None]] = None) -> st
     return h.hexdigest()
 
 
+def _find(folder: str, name: str) -> Optional[str]:
+    """A dataset file in the folder, or in its `stimulation` folder."""
+    for sub in SUBFOLDERS:
+        p = os.path.join(folder, sub, name) if sub else os.path.join(folder, name)
+        if folder and os.path.isfile(p):
+            return p
+    return None
+
+
+def treatment_status(folder: str, dataset_id: str = 'utah-forge', verify: bool = False) -> List[dict]:
+    """The stimulation files against the folder, as `status` does the recorder files. They are optional."""
+    rows = []
+    for x in dataset(dataset_id).get('treatments', []):
+        p = _find(folder, x['file'])
+        r = {'well': x['well'], 'year': x['year'], 'file': x['file'], 'page': x['page'], 'doi': x.get('doi'), 'title': x['title'], 'bytes_expected': x['bytes'], 'sha256_expected': x['sha256'],
+             'stages': list(x['members']), 'present': p is not None, 'bytes': None, 'size_matches': None, 'sha256': None, 'hash_matches': None}
+        if p is not None:
+            r['bytes'] = os.path.getsize(p); r['size_matches'] = r['bytes'] == x['bytes']
+            if verify:
+                r['sha256'] = sha256_of(p); r['hash_matches'] = r['sha256'] == x['sha256']
+        rows.append(r)
+    return rows
+
+
 def status(folder: str, dataset_id: str = 'utah-forge', verify: bool = False) -> dict:
     """Each of the dataset's files against the folder: there or not, its size against the size this release was
     checked with, and - with `verify` - its SHA-256 against the one it had then."""
@@ -131,9 +174,13 @@ def status(folder: str, dataset_id: str = 'utah-forge', verify: bool = False) ->
                            'why': 'the true vertical depth of this deviated hole; without it the measured depth stands in'}
         rows.append(r)
     n = sum(1 for r in rows if r['present'])
+    tr = treatment_status(folder, dataset_id, verify)
+    nt = sum(1 for r in tr if r['present'])
     return {'dataset': ds['id'], 'name': ds['name'], 'about': ds['about'], 'licence': ds['licence'], 'credit': ds['credit'], 'folder': folder, 'folder_exists': bool(folder) and os.path.isdir(folder),
-            'files': rows, 'present': n, 'ready': n >= 2, 'total_bytes': sum(w['bytes'] for w in ds['wells']),
+            'files': rows, 'present': n, 'ready': n >= 2, 'total_bytes': sum(w['bytes'] for w in ds['wells']), 'treatments': tr, 'treatments_present': nt,
+            'treatment_bytes': sum(x['bytes'] for x in ds.get('treatments', [])),
             'lines': [f"{ds['name']}: {n} of {len(rows)} recorder files are in the folder" + ('' if n >= 2 else '; two or more make a pad') + '.',
+                      f"{nt} of {len(tr)} stimulation files are in the folder or its stimulation folder (optional: the stages' pumping records, for the Frac treatment tab).",
                       f"Licence: {ds['licence']['name']}. Credit: {ds['credit']}"]}
 
 
@@ -440,10 +487,60 @@ def build(folder: str, ws_path: str, actor: str, dataset_id: str = 'utah-forge',
         os.makedirs(os.path.join(ws.path, 'records'), exist_ok=True)
         with open(os.path.join(ws.path, 'records', 'public_pad.json'), 'w', encoding='utf-8') as f:
             json.dump(rec, f, indent=1)
-    if added:
-        ws.audit(actor, 'public_pad.build', {'dataset': ds['id'], 'added': added, 'folder': os.path.abspath(folder), 'hashes_match': {e['well']: e.get('hash_matches') for e in rec['wells']}})
-    say({'step': 'done', 'added': added})
-    return {'path': ws.path, 'name': ds['site_name'], 'added': added, 'wells': [e['well'] for e in rec['wells']], 'record': rec}
+    stages = attach_treatments(ws, folder, rec, actor, ds, verify, say) if wells is None or any(x['well'] in wells for x in ds.get('treatments', [])) else []
+    if stages:
+        rec.update(built_utc=_utc(), program_version=__version__)
+        with open(os.path.join(ws.path, 'records', 'public_pad.json'), 'w', encoding='utf-8') as f:
+            json.dump(rec, f, indent=1)
+    if added or stages:
+        ws.audit(actor, 'public_pad.build', {'dataset': ds['id'], 'added': added, 'stages': stages, 'folder': os.path.abspath(folder), 'hashes_match': {e['well']: e.get('hash_matches') for e in rec['wells']}})
+    say({'step': 'done', 'added': added, 'stages': stages} if stages else {'step': 'done', 'added': added})
+    return {'path': ws.path, 'name': ds['site_name'], 'added': added, 'stages': stages, 'wells': [e['well'] for e in rec['wells']], 'record': rec}
+
+
+def attach_treatments(ws, folder: str, rec: dict, actor: str, ds: dict, verify: bool = True, say: Optional[Callable[[dict], None]] = None) -> List[str]:
+    """The published pumping record of each stimulation stage whose file is in the folder, attached to its well for
+    the Frac treatment tab - the stages the site does not have yet."""
+    from . import frac_treatment as FT
+    say = say or (lambda d: None)
+    ids = {w.get('display'): w['id'] for w in ws.wells()}
+    have = FT._index(ws)
+    done: List[str] = []
+    kept = rec.setdefault('treatments', [])
+    for x in ds.get('treatments', []):
+        src = _find(folder, x['file'])
+        wid = ids.get(x['well'])
+        if src is None or wid is None:
+            continue
+        todo = [st for st in x['members'] if st not in (have.get(wid) or {})]
+        if not todo:
+            continue
+        entry: Dict[str, Any] = {'well': x['well'], 'year': x['year'], 'title': x['title'], 'page': x['page'], 'doi': x.get('doi'), 'file': x['file'], 'bytes': os.path.getsize(src),
+                                 'bytes_expected': x['bytes'], 'sha256_expected': x['sha256'], 'stages': [], 'notes': []}
+        if verify:
+            entry['sha256'] = sha256_of(src); entry['hash_matches'] = entry['sha256'] == x['sha256']
+            if not entry['hash_matches']:
+                entry['notes'].append('this file is not byte for byte the one this release was checked against (the repository revises its files): it is used as it is')
+        with zipfile.ZipFile(src) as z:
+            names = set(z.namelist())
+            for st in todo:
+                mem = x['members'][st]
+                if mem not in names:
+                    entry['notes'].append(f'stage {st}: {mem} is not in the zip')
+                    continue
+                say({'well': x['well'], 'step': 'treatment', 'stage': st})
+                try:
+                    FT.attach(ws, wid, st, os.path.basename(mem), z.read(mem), actor, f"{x['title']} ({x['page']}), {x['file']}")
+                except ValueError as e:
+                    entry['notes'].append(f'stage {st}: {e}')
+                    continue
+                entry['stages'].append(st); done.append(f"{x['well']} stage {st}")
+        entry['attached_utc'] = _utc()
+        kept.append(entry)
+        os.makedirs(os.path.join(ws.path, 'records'), exist_ok=True)                   # after each file: a build that is stopped has kept what it did
+        with open(os.path.join(ws.path, 'records', 'public_pad.json'), 'w', encoding='utf-8') as f:
+            json.dump(rec, f, indent=1)
+    return done
 
 
 def start_build(folder: str, ws_path: str, actor: str, **kw) -> dict:
@@ -477,6 +574,11 @@ def text(s: dict) -> str:
         out.append(f"               from {r['page']}" + (f"  doi:{r['doi']}" if r.get('doi') else ''))
         if r.get('survey'):
             out.append(f"               and, for its true vertical depth, {r['survey']['file']}: " + ('there' if r['survey']['present'] else 'not in the folder (optional)'))
+    for r in s.get('treatments') or []:
+        st = 'not in the folder' if not r['present'] else ('there' + ('' if r['size_matches'] else f", {r['bytes']:,} bytes where {r['bytes_expected']:,} were expected")
+                                                         + ('' if r['hash_matches'] is None else (', hash matches' if r['hash_matches'] else ', HASH DIFFERS from the file this release was checked against')))
+        out.append(f"  {r['well']:12s} {r['year']}  {r['file']}  ({r['bytes_expected'] / 1e6:,.0f} MB; stage {', '.join(r['stages'])})  {st}")
+        out.append(f"               from {r['page']}" + (f"  doi:{r['doi']}" if r.get('doi') else ''))
     return '\n'.join(out)
 
 
@@ -540,6 +642,49 @@ def standins(folder: str, stands: int = 14) -> dict:
     return made
 
 
+def treatment_standins(folder: str, sub: str = 'stimulation') -> dict:
+    """Small labelled stages written in the two published layouts of the stimulation records - a spreadsheet with a
+    stacked header, and a frac van's data-acquisition export opened in a spreadsheet - zipped under the published
+    names. SIMULATION. Returns each stage's built-in ISIP."""
+    import tempfile
+    from datetime import datetime as _dt, timedelta as _td
+    from . import frac_treatment as FT
+    from . import xlsx_read as X
+    out_dir = os.path.join(folder, sub) if sub else folder
+    os.makedirs(out_dir, exist_ok=True)
+    made: Dict[str, float] = {}
+    with tempfile.TemporaryDirectory() as tmp:
+        k = 0
+        for x in FORGE['treatments']:
+            with zipfile.ZipFile(os.path.join(out_dir, x['file']), 'w', zipfile.ZIP_DEFLATED) as z:
+                for st, mem in x['members'].items():
+                    k += 1
+                    isip = 3800.0 + 60.0 * k
+                    rec = FT.synthetic(isip=isip, pump_min=8.0, falloff_min=7.0, step_up=False, seed=40 + k)
+                    t0 = _dt(x['year'], 4, 3 + (k % 20), 6, 0, 0)
+                    n = len(rec['t'])
+                    if x['year'] == 2022:                                   # the van's export, a word a cell
+                        rows: List[List[object]] = [['*File', 'was', 'generated', 'by', 'DataAcq', 'ver', 1], [], ['*Start', 'date', 'and', 'time:', t0.strftime('%Y-%m-%d'), t0.strftime('%I:%M:%S'), t0.strftime('%p')], [],
+                                                    ['*Step,', 'Start', 'and', 'Depth', 'flag:'], [], [0.0166667, 0, 0], [], ['*Total', 'number', 'of', 'Data', 'Channels:'], [], [5], [], ['*Names', 'of', 'Data', 'Channels:'], [],
+                                                    ['Time', '(min)', 'TIME'], ['Time', 'um61'], ['A1:', 'Treating', 'Pressure', 'UA46'], ['Slurry', 'Rate', 'UP50'], ['Stage', 'Slurry', 'Volume', 'UX70'], []]
+                        rows += [['', round(float(rec['t'][i]) / 60.0, 5), 0, round(float(rec['pressure'][i]), 1), round(float(rec['rate'][i]), 2), round(float(rec['slurry_total'][i]), 2)] for i in range(n)]
+                    else:                                                   # the stacked header
+                        rows = [['', '', 'Primary', '', '', 'Slurry', '', 'Prop'], ['', 'Time of', 'Treating', 'Slurry', 'Clean', 'Stage', 'Prop', 'Stage'], ['Date', 'Day', 'Pressure', 'Rate', 'Rate', 'Total', 'Conc', 'Total'],
+                                ['(mm:dd:yyyy)', '(hh:mm:ss)', '(psi)', '(bpm)', '(bpm)', '(bbl)', '(ppg)', '(lbm)']]
+                        prop = 0.0
+                        for i in range(n):
+                            ts = t0 + _td(seconds=int(rec['t'][i]))
+                            prop += float(rec['conc'][i]) * float(rec['clean_rate'][i]) * 42.0 / 60.0
+                            rows.append([ts.strftime('%Y-%m-%d'), ts.strftime('%H:%M:%S'), round(float(rec['pressure'][i])), round(float(rec['rate'][i]), 2), round(float(rec['clean_rate'][i]), 3),
+                                         round(float(rec['slurry_total'][i]), 3), round(float(rec['conc'][i]), 2), round(prop, 1)])
+                    tp = os.path.join(tmp, 'x.xlsx')
+                    X.write_simple(tp, rows)
+                    z.write(tp, mem)
+                    made[f"{x['well']}|{st}"] = isip
+                z.writestr('Readme.txt', 'stand-in')
+    return made
+
+
 def selftest() -> dict:
     import tempfile
     import numpy as np
@@ -600,4 +745,17 @@ def selftest() -> dict:
             errs['plain'] = str(e)
         checks.append({'check': 'built again adds nothing; one well is no pad; a folder that is not there, a file in another layout and a workspace not made from this data are each stopped', 'value': [again['added'], sorted(k for k, v in errs.items() if v)],
                        'pass': again['added'] == [] and 'two wells make a pad' in errs['not_public'] and 'no such folder' in errs['no_folder'] and 'not a recorder export' in errs['not_edr'] and 'has no' in errs['not_16a'] and 'was not made from' in errs['plain']})
+        from . import frac_treatment as FT
+        made_t = treatment_standins(folder)
+        st1 = status(folder, verify=True)
+        more = build(folder, site, 'selftest')
+        pg_t = FT.page(Workspace(site))
+        rec1 = record(Workspace(site))
+        off = [abs((r_.get('isip_psi') or 0) - made_t[f"{r_['display']}|{r_['stage']}"]) for r_ in pg_t['stages']]
+        third = build(folder, site, 'selftest')
+        checks.append({'check': 'the stimulation files, put in the folder afterwards: found in its stimulation folder, sixteen stages attached to the two wells in both layouts, each stage\'s ISIP read, the hashes kept, the credit on the page; built again it adds none',
+                       'value': [st1['treatments_present'], len(more['stages']), more['added'], [r_['stage'] for r_ in pg_t['stages']][:5], round(max(off)) if off else None, third['stages']],
+                       'pass': st1['treatments_present'] == 5 and len(more['stages']) == 16 and more['added'] == [] and len(pg_t['stages']) == 16 and [r_['stage'] for r_ in pg_t['stages']][:5] == ['1', '2', '3', '3R', '4']
+                               and max(off) <= 40.0 and len(rec1['treatments']) == 5 and all(e['hash_matches'] is False and len(e['sha256']) == 64 for e in rec1['treatments'])
+                               and pg_t['lines'][-1].startswith('Data: Utah FORGE') and third['stages'] == [] and third['added'] == []})
     return {'ok': all(c['pass'] for c in checks), 'checks': checks, 'label': 'SIMULATION'}

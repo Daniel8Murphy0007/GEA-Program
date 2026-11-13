@@ -2311,6 +2311,9 @@ def make_handler(app: App):
                 if path == '/api/benchmark':
                     from . import benchmark as BM
                     return self._json(200, App._cr(BM.page, app.ws))
+                if path == '/api/frac-treatment':
+                    from . import frac_treatment as FT
+                    return self._json(200, App._cr(FT.page, app.ws, (qs.get('well') or [None])[0], (qs.get('stage') or [None])[0]))
                 if path == '/api/public-pad':
                     from . import public_pad as PP
                     folder = (qs.get('folder') or [''])[0]
@@ -2736,6 +2739,25 @@ def make_handler(app: App):
                     from . import __version__ as _v
                     App.require(user, 'operator')
                     r_ = App._cr(BM.write_report, app.ws, _v, user['name'])
+                    return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
+                if path in ('/api/frac-treatment/attach', '/api/frac-treatment/remove', '/api/frac-treatment/declare', '/api/frac-treatment/to-frac-hits', '/api/frac-treatment/write'):
+                    from . import frac_treatment as FT
+                    from . import wellplan as WPL
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    b_ = dict(body or {})
+                    wid = str(b_.get('well_id') or '')
+                    if path.endswith('/attach'):
+                        m_ = App._cr(FT.attach, app.ws, wid, str(b_.get('stage') or ''), str(b_.get('filename') or 'treatment.csv'), App._cr(WPL.decode_content, b_), user['name'],
+                                     str(b_.get('source') or ''), str(b_.get('start') or '') or None)
+                        return self._json(200, m_)
+                    if path.endswith('/remove'):
+                        return self._json(200, App._cr(FT.remove, app.ws, wid, str(b_.get('stage') or ''), user['name']))
+                    if path.endswith('/declare'):
+                        return self._json(200, App._cr(FT.declare, app.ws, wid, user['name'], str(b_.get('source') or ''), b_.get('tvd_ft'), b_.get('fluid_psi_ft'), str(b_.get('stage') or '') or None))
+                    if path.endswith('/to-frac-hits'):
+                        return self._json(200, App._cr(FT.to_frac_hits, app.ws, wid, user['name']))
+                    r_ = App._cr(FT.write_report, app.ws, _v, user['name'])
                     return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
                 if path == '/api/public-pad/build':
                     from . import public_pad as PP
