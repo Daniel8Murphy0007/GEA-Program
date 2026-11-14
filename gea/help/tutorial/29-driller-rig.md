@@ -5,7 +5,7 @@ Takes: 30 minutes
 > One install, one config file, and the driller's screen on the rig.
 
 ## Before you start
-The rig PC (the EDR's own, or the directional driller's laptop) on the rig network, with the EDR's WITS0 feed available on a TCP port or a serial line - ask the EDR vendor's hand for the port; it is read-only and nothing is ever sent to it. The kit `GEA-Driller-0.92.0.tar.gz` from the office's `installers\` folder (lesson 22) or the release page. On Windows, Python 3.9 or newer from python.org with "Add to PATH" ticked.
+The rig PC (the EDR's own, or the directional driller's laptop) on the rig network, with the EDR's WITS0 feed available on a TCP port or a serial line - ask the EDR vendor's hand for the port; it is read-only and nothing is ever sent to it. The kit `GEA-Driller-0.92.1.tar.gz` from the office's `installers\` folder (lesson 22) or the release page. On Windows, Python 3.9 or newer from python.org with "Add to PATH" ticked.
 
 ## Steps
 1. Unpack the kit. On a Linux PC: `sudo sh install.sh`. On Windows: double-click `install.cmd`. Either makes a Python environment of its own with the package and the trained policy inside it, writes the example config beside it, makes the data folder, runs the self-test (a minute: the twin, the policy against the textbook driller, a short training that learns, the service), and sets the program to start with the PC.

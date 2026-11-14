@@ -407,6 +407,35 @@ def record(ws) -> Optional[dict]:
         return json.load(f)
 
 
+def suggest(current_ws_path: str, dataset_id: str = 'utah-forge') -> dict:
+    """Where the files and the site most likely are, so that the form opens filled in: a `forge` folder in the user's
+    Downloads (or the Downloads folder itself) that has two or more of the dataset's files in it; and for the site, the
+    public-data site this computer already knows, or a `forge-site` folder beside the current workspace."""
+    from . import workspaces as WSS
+    ds = dataset(dataset_id)
+    home = os.path.expanduser('~')
+    folder = ''
+    for c in (os.path.join(home, 'Downloads', 'forge'), os.path.join(home, 'Downloads'), os.path.join(home, 'Documents', 'forge')):
+        try:
+            if os.path.isdir(c) and sum(1 for w in ds['wells'] if os.path.isfile(os.path.join(c, w['file']))) >= 2:
+                folder = c
+                break
+        except OSError:
+            continue
+    path = ''
+    try:
+        for r in WSS.listing(current_ws_path):
+            if r.get('path') and os.path.isfile(os.path.join(r['path'], 'records', 'public_pad.json')):
+                path = r['path']
+                break
+    except Exception:
+        path = ''
+    made = bool(path)
+    if not path:
+        path = os.path.join(os.path.dirname(os.path.abspath(current_ws_path)), 'forge-site')
+    return {'folder': folder, 'path': path, 'site_exists': made}
+
+
 def credit(ws) -> Optional[dict]:
     """For a site made from public data: what its pages and reports must carry - the name, the licence, the credit."""
     try:

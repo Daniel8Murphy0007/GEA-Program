@@ -4104,3 +4104,45 @@ stability; and motor specifications in the tool catalogue.
   their notices, the assistant's `kick_detection` tool, the help page,
   lesson 13, the README. Section EK. Rendered under Playwright with no
   script error. Gate 590.
+
+## 2026-11-14 - the Public data tab in a window that keeps no storage (v0.92.1)
+
+- v0.92.0 shipped (ci, PyPI and the kit build green); the six kits
+  fetched into C:\site\installers and verified, the 0.91.0 ones moved to
+  _to_delete.
+- Daniel, with a picture: the Public data tab says "Could not load this
+  page - Failed to read the 'sessionStorage' property from 'Window':
+  Access is denied for this document." He had been told twice to open
+  that tab and press Make the site. It has never opened on his computer.
+- The fault is mine and is two releases old. The view written for 0.90.0
+  kept its two folders in `sessionStorage`, bare. His Edge keeps no
+  cookies and no storage by policy - the very window section DK was
+  written for in the first place - and there the mention of the property
+  throws. Every other use of the browser's storage in the page is inside
+  a try; this one was not, and nothing checked. The page was rendered
+  under Playwright before each ship, in a browser that allows storage,
+  which proves nothing about one that does not.
+- So three public-pad releases were shipped with results proved in the
+  sandbox and on the files on his disk, and with no way for him to see
+  any of it in his own program. That is what "why isn't the FORGE
+  accessible" means, and he is right.
+- Mended: the folders are kept in the page. Held: section DK now fails
+  if any `sessionStorage.` or `localStorage.` in the page is not inside a
+  try. Proved the way it failed: every one of the 51 tabs opened under
+  Playwright with both storages made to throw and cookies off - none
+  shows the error now - and the public site made from the tab in that
+  window, wells and stimulation stages.
+- And the tab asked too much of him: two folder paths to type. For an
+  administrator it now opens filled in - Downloads\forge where the files
+  are, and the site beside the current one or the public site the
+  computer already has - so it is one button.
+- His other questions, answered to him plainly: the catalogue's 52
+  entries are published measurements (a core table, a log, a temperature
+  record) set on a world map, not wells with a path, so there is nothing
+  of them to draw in 3D or to replay, save Volve, which is a 3D scene
+  already; and the FORGE wells will not be in 3D either until their
+  published surveys and wellhead positions are attached - the work he
+  had put third, and which this makes first after the fix.
+- A rule for the sessions after this one: a tab is not proved until it
+  has been opened in a window like his - storage denied, cookies off.
+  Gate 590.

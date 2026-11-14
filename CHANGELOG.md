@@ -5,6 +5,29 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.92.1] - 2026-11-14 - the Public data tab in a window that keeps no storage
+
+### Fixed
+- **The Public data tab would not open** in a browser window whose policy
+  keeps no cookies and no storage - "Failed to read the 'sessionStorage'
+  property from 'Window': Access is denied for this document" - which is
+  the window on the first computer the program was installed on. Since
+  0.90.0 the tab had kept its two folders in the browser's session
+  storage, outside a try; in such a window the mention of it alone throws,
+  so the tab showed the error and nothing else, and a public site could
+  not be made from the program at all. The folders are kept in the page
+  now. Every other use of the browser's storage was already inside a try;
+  the gate now holds every use to that.
+
+### Changed
+- The Public data form opens filled in for an administrator: the folder
+  the files are in (a `forge` folder in Downloads, or Downloads itself,
+  when two or more of the files are there) and the folder of the site (the
+  public-data site this computer already has, or `forge-site` beside the
+  current site's) - so making the site, or adding the stimulation stages
+  to it, is one button.
+- Gate 590.
+
 ## [v0.92.0] - 2026-11-14 - kick and loss detection
 
 ### Added

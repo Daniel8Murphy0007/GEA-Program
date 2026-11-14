@@ -1,18 +1,14 @@
-v0.92.0 — KICK AND LOSS DETECTION
+v0.92.1 — THE PUBLIC DATA TAB IN A WINDOW THAT KEEPS NO STORAGE
 
-`gea kick`: every drilling record with a pump output and an active pit
-volume replayed for the mud that comes back. Each pumps-off is read as a
-curve - the pit gain at 30 to 300 s - against the fingerprint of the eight
-before it from a like pump rate, and one that runs above it is marked,
-with whether the return line was still running. While circulating, the
-ten-minute change in the pits is set against its own two hours, and a
-change that leaves that trend is named by what the return flow did:
-kick-like, losses, or mud added, moved or dumped at surface. A step is a
-transfer. On a record still being written an event raises an alert once.
-On the public Utah FORGE records: 1,864 pumps-offs, 1,429 read, 22 above
-their fingerprint, two kick-like gains, three stretches of losses. The
-Kick & loss tab; the assistant's `kick_detection` tool; `gea help kick`.
-Section EK; gate 590.
+Fixed: the Public data tab showed "Failed to read the 'sessionStorage'
+property from 'Window': Access is denied for this document" and nothing
+else in a browser window whose policy keeps no cookies and no storage, so
+the public Utah FORGE site could not be made from the program. Since
+0.90.0 the tab had read the browser's session storage outside a try. The
+two folders are kept in the page now, and the gate holds every use of the
+browser's storage inside a try. The form opens filled in for an
+administrator - the folder the files are in and the folder of the site -
+so making the site, or adding the stimulation stages to it, is one button.
 
 Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
 

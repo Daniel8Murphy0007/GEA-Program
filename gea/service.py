@@ -2335,6 +2335,8 @@ def make_handler(app: App):
                     if folder:
                         App.require(user, 'admin')              # it looks into a folder of this computer the caller names
                     st_ = App._cr(PP.status, folder)
+                    if RANK.get(user.get('role'), 0) >= RANK['admin']:
+                        st_['suggest'] = PP.suggest(app.ws.path)                 # only an administrator is told what is on this computer
                     st_['job'] = PP.job()
                     st_['this_site'] = PP.credit(app.ws)
                     return self._json(200, st_)

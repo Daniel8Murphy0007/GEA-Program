@@ -14807,6 +14807,9 @@ def section_dk_cookieless_window(tmp: str) -> None:
         "none_or_wrong": s_none == 200 and j_none.get("user") is None and s_bad == 200 and j_bad.get("user") is None,
         "page_switches": all(x in src for x in ("const COOKIES_OK =", "function withSt(", "cookieless: !COOKIES_OK", "fetch(withSt(path), opt)",
                                                  "a.setAttribute('href', withSt(h))", "setSt(null)", "keeps no cookies")),
+        # a window whose policy keeps no cookies keeps no storage either, and there the very mention of it throws: every use is inside a try
+        "storage_guarded": [m_.start() for m_ in re.finditer(r"(sessionStorage|localStorage)\.", src) if "try {" not in src[max(0, m_.start() - 160):m_.start()]] == []
+                           and len(re.findall(r"(sessionStorage|localStorage)\.", src)) >= 4 and "const PUBV = {folder: '', path: '', asked: false};" in src,
         "window_profile": args[:3] == [r"C:\Edge\msedge.exe", "--app=http://127.0.0.1:8765/", "--window-size=1440,960"]
                           and r"--user-data-dir=C:\Users\x\AppData\Local\GEA-Program\window" in args and "--disable-extensions" in args and "--no-first-run" in args,
         "icon": '<link rel="icon" type="image/png" href="data:image/png;base64,' in src,
@@ -19137,6 +19140,7 @@ def section_ei_public_pad_benchmark(tmp: str) -> None:
     c3 = {
         "api_benchmark": s_vb == 200 and vb["status"] == "OK" and len(vb["wells"]) == 5 and s_vw == 403 and s_ow == 200 and "stretches.csv" in ow["files"],
         "api_public": s_vp == 200 and vp["folder"] == "" and len(vp["files"]) == 5 and vp["this_site"]["name"] == "Utah FORGE" and s_vf == 403 and s_af == 200 and af["present"] == 5 and s_ob == 403 and s_ab == 200
+                      and "suggest" not in vp and af["suggest"]["site_exists"] is True and os.path.normcase(af["suggest"]["path"]) == os.path.normcase(os.path.abspath(site)) and PP.suggest(str(d / "plain"))["path"].endswith("forge-site")
                       and ab["state"] == "running" and job.get("state") == "done" and job["result"]["wells"] == ["58-32", "16A(78)-32", "56-32", "78B-32", "16B(78)-32"] and len(Workspace(str(d / "forge-api")).wells()) == 5
                       and Path(d / "forge-api", "users.json").is_file() and job_bad.get("state") == "failed" and "no such folder" in job_bad.get("error", ""),
         "cli": cli_l.returncode == 0 and "Well_58-32_raw_pason_log.csv" in cli_l.stdout and "doi:10.15121/1998591" in cli_l.stdout and cli_f.returncode == 0 and "5 of 5 recorder files" in cli_f.stdout

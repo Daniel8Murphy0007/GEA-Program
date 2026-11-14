@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.92.1 - 2026-11-14 - the Public data tab in a window that keeps no storage
+
+- The Public data tab did not open where the browser keeps no storage
+  (it read session storage outside a try, since 0.90.0): mended, and the
+  gate holds every use of the browser's storage inside a try. The form
+  opens filled in, so the public site is one button.
+- Gate 590.
+
 ## v0.92.0 - 2026-11-14 - kick and loss detection
 
 - `gea kick`: the flowback at each pumps-off against the fingerprint of
