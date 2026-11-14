@@ -3728,6 +3728,10 @@ def main(argv=None) -> int:
                     t_ = f"{d_.get('well', '')} {d_.get('step', '')}".strip()
                     if d_.get("step") == "treatment":
                         print(f"  {d_.get('well', '')}: the pumping record of stage {d_.get('stage', '')}", flush=True)
+                    elif d_.get("step") == "placing":
+                        print(f"  {d_.get('well', '')}: its survey", flush=True)
+                    elif d_.get("step") == "record":
+                        print(f"  {d_.get('well', '')}: its drilling record, written once for the Simulation, Control room and Drill string tabs", flush=True)
                     elif t_ != last_["t"] and d_.get("step") != "done":
                         last_["t"] = t_
                         print(f"  {d_.get('n', '')}/{d_.get('of', '')} {t_}", flush=True)
@@ -3738,6 +3742,17 @@ def main(argv=None) -> int:
                 for e_ in r["record"]["wells"]:
                     for n_ in e_["notes"]:
                         print(f"  {e_['well']}: {n_}")
+                for e_ in r["record"]["wells"]:
+                    p_ = e_.get("placed")
+                    if p_ and p_.get("stations"):
+                        print(f"  {e_['well']}: " + ("placed" if e_["well"] in r.get("placed", []) else "placed before") + f" from {p_['file']} - {p_['stations']} stations to {p_['td_md_ft']:,.0f} ft, "
+                              + (f"depths from {p_['elev_datum']} at {p_['elev_ft']:,.2f} ft, " if p_.get("elev_ft") is not None else "no elevation, ") + f"azimuths from {p_['north']} north"
+                              + (" (not stated in the file)" if p_.get("north_unstated") else "") + (f"; within {p_['miss_ft']:g} ft of the file's own positions" if p_.get("miss_ft") is not None else "")
+                              + ("" if p_.get("drawn") else "; NOT DRAWN in 3D"))
+                    if p_ and p_.get("why"):
+                        print(f"  {e_['well']}: {p_['why']}")
+                for n_ in r["record"].get("notes", []):
+                    print(f"  {n_}")
                 return 0
             s_ = _PP.status(a.folder or "", verify=a.verify)
         except (_PP.PublicPadError, OSError) as e:

@@ -176,11 +176,15 @@ def status(folder: str, dataset_id: str = 'utah-forge', verify: bool = False) ->
     n = sum(1 for r in rows if r['present'])
     tr = treatment_status(folder, dataset_id, verify)
     nt = sum(1 for r in tr if r['present'])
+    sv = survey_status(folder)
+    ns = sum(1 for r in sv if r['present'] and r['well'])
     return {'dataset': ds['id'], 'name': ds['name'], 'about': ds['about'], 'licence': ds['licence'], 'credit': ds['credit'], 'folder': folder, 'folder_exists': bool(folder) and os.path.isdir(folder),
             'files': rows, 'present': n, 'ready': n >= 2, 'total_bytes': sum(w['bytes'] for w in ds['wells']), 'treatments': tr, 'treatments_present': nt,
-            'treatment_bytes': sum(x['bytes'] for x in ds.get('treatments', [])),
+            'treatment_bytes': sum(x['bytes'] for x in ds.get('treatments', [])), 'surveys': sv, 'surveys_present': ns,
             'lines': [f"{ds['name']}: {n} of {len(rows)} recorder files are in the folder" + ('' if n >= 2 else '; two or more make a pad') + '.',
                       f"{nt} of {len(tr)} stimulation files are in the folder or its stimulation folder (optional: the stages' pumping records, for the Frac treatment tab).",
+                      f"{ns} of {len(SURVEYS)} survey files are in the folder (optional: they place the wells, for the 3D, Collision and Map tabs)" + (
+                          '' if sv[-1]['present'] else f"; {LOCATIONS['file']}, the field's GPS survey of its wells, is not") + '.',
                       f"Licence: {ds['licence']['name']}. Credit: {ds['credit']}"]}
 
 
@@ -436,6 +440,413 @@ def suggest(current_ws_path: str, dataset_id: str = 'utah-forge') -> dict:
     return {'folder': folder, 'path': path, 'site_exists': made}
 
 
+# --------------------------------------------------------------------------------------------------------------
+# the wells placed: each published survey read, with the wellhead it names
+# --------------------------------------------------------------------------------------------------------------
+USFT = 0.3048006096012192
+FT_M = 0.3048
+DECLINATION_DEG = 11.29                 # the magnetic declination the 16A(78)-32 survey report gives for this pad (2020)
+LOCATIONS = {'file': 'Utah FORGE Well and Seismic Locations.csv', 'bytes': 4438, 'sha256': '7bfc9cf730b8521a71a878ab38381a772ea06821e20f07c06c7ee5e3a5351471', 'page': GDR + '1358',
+             'doi': '10.15121/1838418', 'title': 'Utah FORGE: Updated Well, Well Pad, and Seismic Station GPS Coordinates December, 2021', 'points': {'16A(78)-32': '16A-32-WELL'}}
+SURVEYS = {
+    '58-32': {'files': ('Directional_Survey_well_58_32.zip',), 'member': 'DirectionalSurveyRpt_171027103004.pdf', 'format': 'listing-pdf', 'bytes': 425858,
+              'sha256': 'b705a123a89ef619c305ee25d42dfbebd34ed2a51f1b39e914acd9f5e14b518d', 'page': GDR + '1006', 'needs_locations': 'its wellhead and its elevation'},
+    '16A(78)-32': {'files': ('16A(78)-32 Survey.xlsx',), 'format': 'compass-xlsx', 'bytes': 48839, 'sha256': 'ad03773329769f702f748c96244a9e1cba16cd1d762d4e8b93b8c8fea9d36b8d', 'page': GDR + '1283'},
+    '56-32': {'files': ('Well 56-32 trajectory survey data.zip',), 'member': '56-32 DirectionalSurveyRpt_210323105345.pdf', 'positions': '56-32 well_survey_final.csv', 'format': 'listing-pdf',
+              'bytes': 106287, 'sha256': 'c7ec6b7bd091cf898a91cdfaac4824f19fde801f82cc8bc7c879dac19d7060cd', 'page': GDR + '1295'},
+    '78B-32': {'files': ('78B-32 directional survey (1).zip', '78B-32 directional survey.zip'), 'member': 'directional survey78B.csv', 'format': 'stations-csv', 'bytes': 76688,
+               'sha256': '8a94ad6ad8124d281bfd033119765a024c9b66e06c8b39c9f999436b2a7dd854', 'page': GDR + '1330', 'needs_locations': 'its elevation'},
+    '16B(78)-32': {'files': ('16B(78)-32 Well Survey.zip',), 'member': '16B(78)-32 Final Survey Report.txt', 'format': 'report-txt', 'bytes': 608878,
+                   'sha256': '38c59c9452da709fa971448699eb46fb13f452d2aa8c08fbe88fe73f08ce5302', 'page': GDR + '1516'},
+}
+
+
+def _f(x) -> Optional[float]:
+    try:
+        return float(str(x).replace(',', '').strip())
+    except ValueError:
+        return None
+
+
+def pdf_text_rows(content: bytes) -> List[List[str]]:
+    """The words of a PDF whose pages are plain compressed text - each word placed by its own position - as rows read
+    left to right, top to bottom. Nothing is drawn or laid out: a PDF made another way gives no rows."""
+    import re
+    import zlib
+    out: List[List[str]] = []
+    for m in re.finditer(rb'stream\r?\n', content):
+        s = m.end(); e = content.find(b'endstream', s)
+        if e < 0:
+            continue
+        try:
+            d = zlib.decompress(content[s:e])
+        except zlib.error:
+            continue
+        if b'BT' not in d:
+            continue
+        items = []
+        for t in re.finditer(rb'([-\d.]+)\s+([-\d.]+)\s+Tm\b(?:(?!\bTm\b).)*?\(((?:\\.|[^\\)])*)\)\s*Tj', d, re.S):
+            txt = re.sub(rb'\\(.)', rb'\1', t.group(3)).decode('latin-1')
+            items.append((float(t.group(2)), float(t.group(1)), txt))
+        items.sort(key=lambda i: (-i[0], i[1]))
+        rows: List[list] = []
+        for y, x, txt in items:
+            if rows and abs(rows[-1][0] - y) <= 2.0:
+                rows[-1][1].append((x, txt))
+            else:
+                rows.append([y, [(x, txt)]])
+        out.extend([c for _, c in sorted(r[1])] for r in rows)
+    return out
+
+
+def read_survey_listing_pdf(content: bytes) -> dict:
+    """A directional survey report printed to PDF - a survey type, then measured depth, inclination, azimuth, true
+    vertical depth, northing and easting on each line. Such a report names no wellhead and no elevation."""
+    rows = pdf_text_rows(content)
+    head = next((i for i, r in enumerate(rows) if 'Inc.' in r and 'Azimuth' in r and 'TVD' in r and 'N-S' in r and 'E-W' in r), None)
+    if head is None:
+        raise PublicPadError('the survey report is not a listing this reads: no line of headings with Inc., Azimuth, TVD, N-S and E-W')
+    order = [c for c in rows[head] if c in ('Depth', 'Inc.', 'Azimuth', 'TVD', 'N-S', 'E-W')]
+    if order != ['Depth', 'Inc.', 'Azimuth', 'TVD', 'N-S', 'E-W']:
+        raise PublicPadError(f'the survey report\'s columns are not in the order this reads: {order}')
+    st = []
+    for r in rows:
+        c = r[1:] if r and r[0] == '**' else r
+        if len(c) < 7 or not c[0].replace(' ', '').isalpha():
+            continue
+        v = [_f(x) for x in c[1:7]]
+        if any(x is None for x in v):
+            continue
+        st.append({'md': v[0], 'inc': v[1], 'azi': v[2], 'tvd': v[3], 'ns': v[4], 'ew': v[5]})
+    st.sort(key=lambda s: s['md'])
+    if len(st) < 2:
+        raise PublicPadError('the survey report has no stations this could read')
+    return {'stations': st, 'north': None, 'how': []}
+
+
+def read_positions_csv(text: str) -> dict:
+    """A well path published as positions: UTM easting and northing in metres, measured and true vertical depth in
+    feet, and the elevation at each. Its first line is the wellhead."""
+    import csv as _csv
+    rows = [r for r in _csv.DictReader(io.StringIO(text)) if _f(r.get('UTM_E')) is not None]
+    need = ('UTM_E', 'UTM_N', 'Depth', 'Tru_Vdepth', 'Elev_msl_ft')
+    if not rows or any(k not in rows[0] for k in need):
+        raise PublicPadError(f"the path file needs the columns {', '.join(need)}")
+    return {'easting_m': float(rows[0]['UTM_E']), 'northing_m': float(rows[0]['UTM_N']), 'elev_ft': _f(rows[0]['Elev_msl_ft']),
+            'points': [(float(r['Depth']), float(r['UTM_E']), float(r['UTM_N']), float(r['Tru_Vdepth'])) for r in rows]}
+
+
+def read_locations(text: str) -> Dict[str, dict]:
+    """The field's GPS survey of its wells: for each point, its UTM position, latitude, longitude and elevation."""
+    import csv as _csv
+    rows = list(_csv.reader(io.StringIO(text)))
+    hi = next((i for i, r in enumerate(rows) if r and r[0].strip() == 'Point ID'), None)
+    if hi is None:
+        raise PublicPadError('the locations file has no line of headings starting with Point ID')
+    h = [c.strip() for c in rows[hi]]
+    need = ('Latitude', 'Longitude', 'Elevation')
+    if any(k not in h for k in need):
+        raise PublicPadError(f"the locations file needs the columns {', '.join(need)}")
+    head = ' '.join(' '.join(r) for r in rows[:hi])
+    out = {}
+    for r in rows[hi + 1:]:
+        v = [_f(r[h.index(k)]) if h.index(k) < len(r) else None for k in need]
+        if r and r[0].strip() and all(x is not None for x in v):
+            out[r[0].strip()] = {'lat': v[0], 'lon': v[1], 'elev_m': v[2], 'nad83': 'NAD 1983' in head or 'NAD83' in head}
+    return out
+
+
+def read_survey_report(text: str) -> dict:
+    """A directional company's final survey report as text: its heading (the wellhead on a named grid, the elevation
+    of the kelly bushing, the north its azimuths are from) and its stations."""
+    import re
+    head: Dict[str, str] = {}
+    st = []
+    cols: Optional[List[str]] = None
+    for ln in text.splitlines():
+        if ':' in ln and cols is None:
+            k, v = ln.split(':', 1)
+            head[' '.join(k.split()).upper()] = v.strip()
+        t = ln.split()
+        if cols is None:
+            up = [x.upper() for x in t]
+            if 'MD' in up and 'INC' in up and 'AZI' in up:
+                cols = up
+            continue
+        v = [_f(x) for x in t]
+        if len(v) >= 4 and all(x is not None for x in v[:4]):
+            g = lambda name: v[cols.index(name)] if name in cols and cols.index(name) < len(v) else None
+            st.append({'md': g('MD'), 'inc': g('INC'), 'azi': g('AZI'), 'tvd': g('TVD'), 'ns': g('N/S'), 'ew': g('E/W')})
+    num = lambda k: _f((head.get(k) or '').lower().replace('ft', '').replace('deg', ''))
+    if len(st) < 2:
+        raise PublicPadError('the survey report has no stations')
+    if num('WELL EASTING') is None or num('WELL NORTHING') is None:
+        return {'stations': st, 'north': None, 'how': []}
+    zone = head.get('MAP ZONE', '')
+    m = re.search(r'Zone\s+(\d{1,2})\s*([NS])', zone)
+    if 'TRANSVERSE MERCATOR' not in head.get('MAP SYSTEM', '').upper() or not m:
+        raise PublicPadError(f"the survey report's map system is not a UTM zone this reads: {head.get('MAP SYSTEM')!r} {zone!r}")
+    unit = USFT if 'US SURVEY FEET' in head.get('MAP SYSTEM', '').upper() else FT_M
+    north = head.get('NORTH REF', '').strip().lower()
+    if north not in ('grid', 'true'):
+        raise PublicPadError(f"the survey report's north reference is {head.get('NORTH REF')!r}: grid or true is read")
+    kb = num('KB ELEV')
+    if kb is None:
+        raise PublicPadError('the survey report gives no KB ELEV')
+    return {'stations': st, 'easting_m': num('WELL EASTING') * unit, 'northing_m': num('WELL NORTHING') * unit, 'grid': f'UTM{int(m.group(1))}{m.group(2)}', 'datum': 'NAD83',
+            'elev_ft': kb, 'elev_datum': 'KB', 'gl_ft': num('GL ELEV'), 'north': north,
+            'how': [f"the wellhead is the report's WELL EASTING and NORTHING on {head.get('MAP SYSTEM')}, {zone}, {head.get('GEODIC DATUM')}",
+                    f"the azimuths are from {north} north (the report's NORTH REF)", f"the depths are from the kelly bushing, {kb:,.2f} ft above mean sea level (the report's KB ELEV)"]}
+
+
+def read_survey_compass(content: bytes, grid: str = 'UTM12N') -> dict:
+    """A planning package's survey design report saved as a spreadsheet, a word a cell: the platform reference point,
+    the elevation of the kelly bushing, the corrections applied to the azimuths, and the stations."""
+    from . import xlsx_read as X
+    rows = X.rows(content, X.sheets(content)[0])
+    lines = [[str(c) for c in r if c != ''] for r in rows]
+    txt = [' '.join(r) for r in lines]
+    after = lambda r, word: _f(r[r.index(word) + 1]) if word in r and r.index(word) + 1 < len(r) else None
+    plat = next((i for i, t in enumerate(txt) if 'Platform reference point' in t), None)
+    kb = next((after(r, 'permanent.......:') for r in lines if r[:2] == ['KB', 'above']), None)
+    gl = next((after(r, 'permanent.......:') for r in lines if r[:2] == ['GL', 'above']), None)
+    conv = next((after(r, '(+E/W-).:') for r in lines if 'convergence' in r), None)
+    grid_corr = any('Total az corr = magnetic dec - grid conv' in t for t in txt)
+    if plat is None or kb is None:
+        raise PublicPadError('the survey design report names no platform reference point, or no kelly bushing elevation')
+    if not grid_corr:
+        raise PublicPadError('the survey design report does not say its azimuths are corrected by the declination less the grid convergence: which north they are from is not known')
+    nn = ee = None
+    for r in lines[plat + 1:plat + 4]:
+        if r[:1] == ['Latitude']:
+            nn = after(r, '(+N/S-).........:')
+        if r[:1] == ['Departure']:
+            ee = after(r, '(+E/W-)........:')
+    st = []
+    for r in lines:
+        if len(r) >= 12 and r[0].isdigit():
+            v = [_f(x) for x in r[:9]]
+            if all(x is not None for x in v):
+                st.append({'md': v[1], 'inc': v[2], 'azi': v[3], 'tvd': v[5], 'ns': v[7], 'ew': v[8]})
+    if nn is None or ee is None or len(st) < 2:
+        raise PublicPadError('the survey design report has no platform northing and easting, or no stations')
+    return {'stations': st, 'easting_m': ee * USFT, 'northing_m': nn * USFT, 'grid': grid, 'datum': 'NAD83', 'elev_ft': kb, 'elev_datum': 'KB', 'gl_ft': gl, 'north': 'grid', 'convergence_deg': conv,
+            'grid_assumed': True,
+            'how': [f"the wellhead is the report's platform reference point, {nn:,.2f} N and {ee:,.2f} E in US survey feet. The report does not name its grid: it is read on the grid the survey report of "
+                    f"16B(78)-32, drilled from the same pad, names - UTM zone 12N, NAD83",
+                    'the azimuths are from grid north: the report corrects them by the magnetic declination less the grid convergence' + (f' ({conv:+.2f} degrees)' if conv is not None else ''),
+                    f"the depths are from the kelly bushing, {kb:,.0f} ft above mean sea level (the report's KB above permanent)"]}
+
+
+def read_survey_stations_csv(text: str) -> dict:
+    """A survey listing as a spreadsheet's CSV: a type, then the measured depth, inclination and azimuth of each
+    station, and beside the table the wellhead's latitude and longitude."""
+    import csv as _csv
+    rows = list(_csv.reader(io.StringIO(text)))
+    st = []
+    lat = lon = None
+    datum = ''
+    for i, r in enumerate(rows):
+        if 'Lat' in r and 'Long' in r and i + 1 < len(rows):
+            a, b = r.index('Lat'), r.index('Long')
+            nx = rows[i + 1]
+            lat, lon = (_f(nx[a]) if a < len(nx) else None), (_f(nx[b]) if b < len(nx) else None)
+        for c in r:
+            if c.strip().upper().replace(' ', '') in ('NAD83', 'NAD27', 'WGS84'):
+                datum = c.strip().upper().replace(' ', '')
+        if len(r) >= 7 and r[0].strip():
+            v = [_f(x) for x in r[1:7]]
+            if all(x is not None for x in v):
+                st.append({'md': v[0], 'inc': v[1], 'azi': v[2], 'tvd': v[3], 'ns': v[4], 'ew': v[5]})
+    if len(st) < 2:
+        raise PublicPadError('the survey listing has no stations')
+    out: Dict[str, Any] = {'stations': st, 'north': None, 'how': []}
+    if lat is not None and lon is not None:
+        out.update(lat=lat, lon=lon, datum=datum or 'NAD83')
+        out['how'].append(f"the wellhead is the latitude and longitude written beside the table ({datum or 'no datum named: read as NAD83'})")
+    return out
+
+
+def _convergence_deg(lat: float, lon: float, grid: str = 'UTM12N') -> float:
+    """Grid north from true north at a point of a UTM zone, degrees (east positive)."""
+    import math
+    import re
+    zone = int(re.match(r'^UTM(\d{1,2})', grid).group(1))
+    return math.degrees(math.atan(math.tan(math.radians(lon - (zone * 6 - 183))) * math.sin(math.radians(lat))))
+
+
+def read_survey(well: str, folder: str) -> Optional[dict]:
+    """A well's published survey from the folder, by the layout the list names, with the wellhead and the elevation it
+    is placed by and where each came from. None when its file is not in the folder."""
+    import math
+    from . import geodesy as GD
+    sv = SURVEYS.get(well)
+    if not sv:
+        return None
+    src = next((p for p in (_find(folder, f) for f in sv['files']) if p), None)
+    if src is None:
+        return None
+    positions = None
+    if sv.get('member'):
+        with zipfile.ZipFile(src) as z:
+            names = z.namelist()
+            if sv['member'] not in names:
+                raise PublicPadError(f"{os.path.basename(src)} has no {sv['member']} in it")
+            content = z.read(sv['member'])
+            if sv.get('positions') and sv['positions'] in names:
+                positions = read_positions_csv(z.read(sv['positions']).decode('utf-8-sig', 'replace'))
+    else:
+        with open(src, 'rb') as f:
+            content = f.read()
+    text = content.decode('utf-8-sig', 'replace')
+    r = {'report-txt': lambda: read_survey_report(text), 'compass-xlsx': lambda: read_survey_compass(content), 'stations-csv': lambda: read_survey_stations_csv(text),
+         'listing-pdf': lambda: read_survey_listing_pdf(content)}[sv['format']]()
+    st = r['stations']
+    r.update(file=os.path.basename(src), member=sv.get('member'), page=sv['page'], sha256=sha256_of(src), sha256_expected=sv['sha256'], bytes=os.path.getsize(src), sources=[])
+    r['hash_matches'] = r['sha256'] == sv['sha256']
+    if positions is not None:                                                    # the publisher's own positions, beside the report
+        r.update(easting_m=positions['easting_m'], northing_m=positions['northing_m'], grid='UTM12N', datum='NAD83')
+        r['how'].append(f"the wellhead is the first line of {sv['positions']}, beside the report in the same file: UTM zone 12N, NAD83, metres")
+        by = {round(s['md'], 1): s for s in st}
+        worst = None
+        for md, e, n, _tv in positions['points']:
+            s = by.get(round(md, 1))
+            if s is not None:
+                d = math.hypot(positions['easting_m'] + s['ew'] * FT_M - e, positions['northing_m'] + s['ns'] * FT_M - n) / FT_M
+                worst = d if worst is None else max(worst, d)
+        if worst is not None and worst <= 1.0:
+            r['north'] = 'grid'; r['positions_miss_ft'] = round(worst, 2)
+            r['how'].append(f"the report does not say which north its azimuths are from. The publisher's own positions in {sv['positions']} put its northings and eastings straight on the UTM grid "
+                            f"(they agree to {worst:.2f} ft at every station), so the azimuths are read as from grid north")
+        if positions.get('elev_ft') is not None:
+            r.update(elev_ft=positions['elev_ft'], elev_datum='GL')
+            r['how'].append(f"the depths are counted from the elevation the path file starts at, {positions['elev_ft']:,.2f} ft above mean sea level - the wellhead at ground level. The rig floor the survey "
+                            'was measured from stood higher (30 and 32 ft on this pad\'s two deviated wells), and the file does not give that height: the well is drawn that much too deep')
+    need_head = r.get('lat') is None and r.get('easting_m') is None
+    need_elev = r.get('elev_ft') is None
+    if need_head or need_elev:
+        lp = _find(folder, LOCATIONS['file'])
+        point = LOCATIONS['points'].get(well, f'{well}-WELL')
+        if lp is not None:
+            with open(lp, 'rb') as f:
+                loc = read_locations(f.read().decode('utf-8-sig', 'replace')).get(point)
+            if loc is not None:
+                r['sources'].append({'file': LOCATIONS['file'], 'page': LOCATIONS['page'], 'doi': LOCATIONS['doi'], 'sha256': sha256_of(lp), 'sha256_expected': LOCATIONS['sha256'], 'point': point})
+                if need_head:
+                    r.update(lat=loc['lat'], lon=loc['lon'], datum='NAD83')
+                    r['how'].append(f"the report names no wellhead: it is the point {point} of the field's GPS survey of its wells ({LOCATIONS['file']}), latitude and longitude on NAD83")
+                if need_elev:
+                    r.update(elev_ft=round(loc['elev_m'] / FT_M, 2), elev_datum='GL')
+                    r['how'].append(f"the survey gives no elevation: the depths are counted from the ground at the wellhead, {loc['elev_m'] / FT_M:,.2f} ft above mean sea level ({loc['elev_m']:,.2f} m, the point "
+                                    f"{point} of {LOCATIONS['file']}; that file does not name its unit - its figure for 16A(78)-32 is, in metres, the ground level that well's own survey report gives). "
+                                    'The rig floor the survey was measured from stood higher (30 and 32 ft on this pad\'s two deviated wells), and no file gives that height: the well is drawn that much too deep')
+    if r.get('lat') is None and r.get('easting_m') is not None:
+        g = GD.grid_to_wgs84(r['easting_m'], r['northing_m'], r['grid'], r['datum'], 'm')
+        r.update(lat=g['on_zone_datum']['lat'], lon=g['on_zone_datum']['lon'])
+    if r.get('north') is None:                                                   # no file says: said, and what it could move
+        r['north'] = 'true'; r['north_unstated'] = True
+        if any(s.get('ns') is None or s.get('ew') is None for s in st):
+            from . import well3d as W3
+            mc = W3.min_curvature([s['md'] for s in st], [s['inc'] for s in st], [s['azi'] for s in st])
+            reach = max(math.hypot(float(n), float(e)) for n, e in zip(mc['n'], mc['e']))
+        else:
+            reach = max(math.hypot(s['ns'], s['ew']) for s in st)
+        conv = abs(_convergence_deg(r['lat'], r['lon'])) if r.get('lat') is not None else 1.2
+        r['how'].append(f"no file says which north the azimuths are from: they are read as from true north. The hole reaches {reach:,.0f} ft from its wellhead; were the azimuths from grid north "
+                        f"({conv:.2f} degrees away here) its bottom would be {reach * math.radians(conv):,.1f} ft from where it is drawn, and were they magnetic and uncorrected "
+                        f"({DECLINATION_DEG} degrees, the declination the 16A(78)-32 report gives for this pad) {2 * reach * math.sin(math.radians(DECLINATION_DEG) / 2):,.0f} ft")
+    return r
+
+
+def survey_miss_ft(st: List[dict]) -> Optional[float]:
+    """How far the path computed here by minimum curvature from the stations' inclinations and azimuths is from the
+    positions the file itself carries, at the worst station - the reading checked against the file's own arithmetic."""
+    from . import well3d as W3
+    if len(st) < 2 or any(s.get('tvd') is None or s.get('ns') is None or s.get('ew') is None for s in st):
+        return None
+    mc = W3.min_curvature([s['md'] for s in st], [s['inc'] for s in st], [s['azi'] for s in st])
+    worst = 0.0
+    for i, s in enumerate(st):
+        d = ((float(mc['n'][i]) - (s['ns'] - st[0]['ns'])) ** 2 + (float(mc['e'][i]) - (s['ew'] - st[0]['ew'])) ** 2 + (float(mc['v'][i]) - (s['tvd'] - st[0]['tvd'])) ** 2) ** 0.5
+        worst = max(worst, d)
+    return round(worst, 2)
+
+
+def survey_status(folder: str) -> List[dict]:
+    """The survey files against the folder, and the field's GPS survey of its wells. They are optional: they place the
+    wells for the 3D, Collision and Map tabs."""
+    rows = []
+    lp = _find(folder, LOCATIONS['file'])
+    for well, sv in SURVEYS.items():
+        p = next((q for q in (_find(folder, f) for f in sv['files']) if q), None)
+        r = {'well': well, 'file': os.path.basename(p) if p else sv['files'][0], 'page': sv['page'], 'bytes_expected': sv['bytes'], 'sha256_expected': sv['sha256'], 'present': p is not None,
+             'bytes': os.path.getsize(p) if p else None, 'needs_locations': sv.get('needs_locations'), 'locations_present': lp is not None}
+        r['size_matches'] = r['bytes'] == sv['bytes'] if p else None
+        r['can'] = ('not in the folder' if p is None else 'drawn in 3D' if not sv.get('needs_locations') or lp is not None else
+                    ('not placed: ' if 'wellhead' in sv['needs_locations'] else 'placed on the map, not drawn in 3D: ') + f"{sv['needs_locations']} is in {LOCATIONS['file']}, which is not in the folder")
+        rows.append(r)
+    rows.append({'well': None, 'file': LOCATIONS['file'], 'page': LOCATIONS['page'], 'doi': LOCATIONS['doi'], 'bytes_expected': LOCATIONS['bytes'], 'sha256_expected': LOCATIONS['sha256'], 'present': lp is not None,
+                 'bytes': os.path.getsize(lp) if lp else None, 'size_matches': (os.path.getsize(lp) == LOCATIONS['bytes']) if lp else None,
+                 'can': 'the wellhead of 58-32, and the ground elevation of 58-32 and 78B-32' if lp else 'not in the folder'})
+    return rows
+
+
+def place_wells(ws, folder: str, rec: dict, actor: str, say: Optional[Callable[[dict], None]] = None, only: Optional[List[str]] = None) -> List[str]:
+    """Each well that has no survey yet and whose published survey is in the folder: its wellhead declared, its
+    elevation with where it came from, and its survey attached - so the 3D, Collision and Map tabs can draw it."""
+    from . import well3d as W3
+    say = say or (lambda d: None)
+    done: List[str] = []
+    entries = {e['well']: e for e in rec.get('wells', [])}
+    for w in ws.wells():
+        name = w.get('display')
+        if name not in SURVEYS or name not in entries or (only is not None and name not in only):
+            continue
+        if w.get('trajectory') and ((w.get('surface') or {}).get('elevation') or {}).get('ft') is not None:
+            continue                                                             # placed and drawn already; one with a survey and no elevation is read again
+        e = entries[name]
+        try:
+            sv = read_survey(name, folder)
+        except (PublicPadError, ValueError, KeyError, OSError, zipfile.BadZipFile) as ex:
+            e['placed'] = {'drawn': False, 'why': f'its survey file could not be read: {ex}', 'placed_utc': _utc()}
+            continue
+        if sv is None:
+            continue
+        say({'well': name, 'step': 'placing'})
+        sfile = f"{sv['file']}" + (f" ({sv['member']})" if sv.get('member') else '')
+        src = f"Utah FORGE published survey, {sfile}, {sv['page']}"
+        placed: Dict[str, Any] = {'file': sv['file'], 'member': sv.get('member'), 'page': sv['page'], 'bytes': sv['bytes'], 'sha256': sv['sha256'], 'sha256_expected': sv['sha256_expected'],
+                                  'hash_matches': sv['hash_matches'], 'sources': sv['sources'], 'stations': len(sv['stations']), 'td_md_ft': sv['stations'][-1]['md'], 'north': sv['north'],
+                                  'north_unstated': bool(sv.get('north_unstated')), 'how': list(sv['how']), 'placed_utc': _utc()}
+        if sv.get('lat') is None:
+            placed.update(drawn=False, why=f"its survey names no wellhead, and {LOCATIONS['file']} - the field's GPS survey of its wells, {LOCATIONS['page']} - "
+                                           + ('has no point for it' if _find(folder, LOCATIONS['file']) else 'is not in the folder'))
+            e['placed'] = placed
+            continue
+        esrc = src if not sv['sources'] or sv.get('elev_datum') == 'KB' else f"Utah FORGE GPS survey of its wells, {LOCATIONS['file']} ({sv['sources'][0]['point']}), {LOCATIONS['page']}"
+        if sv.get('positions_miss_ft') is not None:
+            esrc = f"Utah FORGE published well path, {sv['file']}, {sv['page']}"
+        surface: Dict[str, Any] = {'lat': round(sv['lat'], 8), 'lon': round(sv['lon'], 8), 'datum': sv.get('datum') or 'NAD83'}
+        if sv.get('elev_ft') is not None:
+            surface['elevation'] = {'ft': sv['elev_ft'], 'datum': sv['elev_datum'], 'source': esrc}
+        ws.set_well(w['id'], surface=surface, actor=actor)
+        csv_ = 'MD (ft),Inc (deg),Azi (deg)\n' + ''.join(f"{s['md']:.2f},{s['inc']:.4f},{s['azi']:.3f}\n" for s in sv['stations'])
+        miss = survey_miss_ft(sv['stations'])
+        W3.attach_trajectory(ws, w['id'], f"{name.replace('(', '_').replace(')', '')}_survey.csv", csv_.encode('utf-8'), actor, sv['north'], 'ft',
+                             depth_reference=sv.get('elev_datum'), grid=sv.get('grid', 'UTM12N') if sv['north'] == 'grid' else None,
+                             source=src + ('; azimuth reference not stated in the file, read as true north' if sv.get('north_unstated') else ''))
+        placed.update(lat=surface['lat'], lon=surface['lon'], datum=surface['datum'], elev_ft=sv.get('elev_ft'), elev_datum=sv.get('elev_datum'), grid=sv.get('grid') if sv['north'] == 'grid' else None,
+                      miss_ft=miss, drawn=sv.get('elev_ft') is not None)
+        if miss is not None:
+            placed['how'].append(f'the path computed here by minimum curvature from the inclinations and azimuths is within {miss:g} ft of the positions the file itself carries, at every station')
+        if not placed['drawn']:
+            placed['why'] = (f"its survey gives no elevation, and {LOCATIONS['file']} - the field's GPS survey of its wells, {LOCATIONS['page']} - is not in the folder: the well is on the map, "
+                             'and is drawn in 3D once that file is there or an elevation is declared on the Setup tab')
+        e['placed'] = placed
+        done.append(name)
+    return done
+
+
 def credit(ws) -> Optional[dict]:
     """For a site made from public data: what its pages and reports must carry - the name, the licence, the credit."""
     try:
@@ -446,6 +857,7 @@ def credit(ws) -> Optional[dict]:
         return None
     return {'name': rec.get('name'), 'licence': rec.get('licence'), 'credit': rec.get('credit'),
             'line': f"Data: {rec.get('name')}, public, under {(rec.get('licence') or {}).get('name')}. {rec.get('credit')}",
+            'placed': [dict(e['placed'], well=e['well']) for e in rec.get('wells', []) if e.get('placed')], 'wells': [e['well'] for e in rec.get('wells', [])],
             'reconstructed': [e['well'] for e in rec.get('wells', []) if e.get('bit_depth_reconstructed')]}
 
 
@@ -517,14 +929,41 @@ def build(folder: str, ws_path: str, actor: str, dataset_id: str = 'utah-forge',
         with open(os.path.join(ws.path, 'records', 'public_pad.json'), 'w', encoding='utf-8') as f:
             json.dump(rec, f, indent=1)
     stages = attach_treatments(ws, folder, rec, actor, ds, verify, say) if wells is None or any(x['well'] in wells for x in ds.get('treatments', [])) else []
-    if stages:
+    before = {e['well']: (e.get('placed') or {}).get('why') for e in rec['wells']}
+    placed = place_wells(Workspace(ws.path), folder, rec, actor, say, only=wells)
+    need = [e for e in rec['wells'] if not os.path.isfile(os.path.join(ws.reports_dir, 'wells', e['well_id'], 'drilling_record.json'))]
+    unwritten: List[str] = []
+    if need and (added or placed):                                             # each well's drilling record written once now: the Simulation, Control room and Drill string tabs read it
+        from . import edr as E
+        from . import series_cache as SCH
+        for e in need:
+            say({'well': e['well'], 'step': 'record'})
+            try:
+                wsn = Workspace(ws.path)
+                cached = SCH.load(SCH.cache_dir(wsn, e['well_id']), SCH.source_path(wsn, e['well_id'])) is not None
+                E.write_record(wsn.well_stream(e['well_id']), os.path.join(wsn.reports_dir, 'wells', e['well_id']), __version__,
+                               cache_dir=None if cached else SCH.cache_dir(wsn, e['well_id']))      # a chart cache that is there may be open in the site's own window: it is left alone
+            except Exception as ex:
+                unwritten.append(f"{e['well']} ({type(ex).__name__}: {ex})")
+        if unwritten:
+            rec['notes'] = [n for n in rec.get('notes', []) if not n.startswith('the drilling record of')] + [
+                'the drilling record of ' + '; '.join(unwritten) + ' was not written by the build: press Refresh on the Home tab of the site, and the Simulation tab has it']
+        else:
+            rec['notes'] = [n for n in rec.get('notes', []) if not n.startswith('the drilling record of')]
+    if stages or placed or need or before != {e['well']: (e.get('placed') or {}).get('why') for e in rec['wells']}:
         rec.update(built_utc=_utc(), program_version=__version__)
         with open(os.path.join(ws.path, 'records', 'public_pad.json'), 'w', encoding='utf-8') as f:
             json.dump(rec, f, indent=1)
-    if added or stages:
-        ws.audit(actor, 'public_pad.build', {'dataset': ds['id'], 'added': added, 'stages': stages, 'folder': os.path.abspath(folder), 'hashes_match': {e['well']: e.get('hash_matches') for e in rec['wells']}})
-    say({'step': 'done', 'added': added, 'stages': stages} if stages else {'step': 'done', 'added': added})
-    return {'path': ws.path, 'name': ds['site_name'], 'added': added, 'stages': stages, 'wells': [e['well'] for e in rec['wells']], 'record': rec}
+    if added or stages or placed:
+        ws.audit(actor, 'public_pad.build', {'dataset': ds['id'], 'added': added, 'stages': stages, 'placed': placed, 'folder': os.path.abspath(folder),
+                                             'hashes_match': {e['well']: e.get('hash_matches') for e in rec['wells']}})
+    done: Dict[str, Any] = {'step': 'done', 'added': added}
+    if stages:
+        done['stages'] = stages
+    if placed:
+        done['placed'] = placed
+    say(done)
+    return {'path': ws.path, 'name': ds['site_name'], 'added': added, 'stages': stages, 'placed': placed, 'wells': [e['well'] for e in rec['wells']], 'notes': rec.get('notes', []), 'record': rec}
 
 
 def attach_treatments(ws, folder: str, rec: dict, actor: str, ds: dict, verify: bool = True, say: Optional[Callable[[dict], None]] = None) -> List[str]:
@@ -608,6 +1047,10 @@ def text(s: dict) -> str:
                                                          + ('' if r['hash_matches'] is None else (', hash matches' if r['hash_matches'] else ', HASH DIFFERS from the file this release was checked against')))
         out.append(f"  {r['well']:12s} {r['year']}  {r['file']}  ({r['bytes_expected'] / 1e6:,.0f} MB; stage {', '.join(r['stages'])})  {st}")
         out.append(f"               from {r['page']}" + (f"  doi:{r['doi']}" if r.get('doi') else ''))
+    for r in s.get('surveys') or []:
+        st = 'not in the folder' if not r['present'] else ('there' + ('' if r['size_matches'] else f", {r['bytes']:,} bytes where {r['bytes_expected']:,} were expected"))
+        out.append(f"  {r['well'] or 'all wells':12s} survey  {r['file']}  ({r['bytes_expected'] / 1e3:,.0f} kB)  {st}" + (f": {r['can']}" if r['present'] else ''))
+        out.append(f"               from {r['page']}" + (f"  doi:{r['doi']}" if r.get('doi') else ''))
     return '\n'.join(out)
 
 
@@ -668,6 +1111,137 @@ def standins(folder: str, stands: int = 14) -> dict:
                 z.writestr(w['survey_member'], '\n'.join(rows) + '\n')
             made['tvd_at'] = (lo, lambda m_, lo_=lo: m_ if m_ < lo_ else lo_ + (m_ - lo_) * 0.5)
         made[w['well']] = {'rows': n, 'hole_from': float(ch['hole'][0]), 'hole_to': float(ch['hole'][-1])}
+    return made
+
+
+def _standin_stations(td: float, kick: float, inc: float, azi: float, step: float = 250.0, wobble: float = 0.0) -> List[dict]:
+    """A made-up hole: straight down to the kick-off, built at 3 degrees a hundred feet to the inclination, held to
+    the end; its positions by minimum curvature, as a survey report carries them."""
+    from . import well3d as W3
+    mds = [0.0]
+    while mds[-1] < td:
+        mds.append(min(td, mds[-1] + step))
+    incs = [0.0 if m <= kick else min(inc, (m - kick) * 0.03) for m in mds]
+    azis = [0.0 if i == 0.0 else azi + wobble * ((k % 3) - 1) for k, i in enumerate(incs)]
+    mc = W3.min_curvature(mds, incs, azis)
+    return [{'md': mds[k], 'inc': round(incs[k], 2), 'azi': round(azis[k], 2), 'tvd': round(float(mc['v'][k]), 2), 'ns': round(float(mc['n'][k]), 2), 'ew': round(float(mc['e'][k]), 2)} for k in range(len(mds))]
+
+
+def _standin_pdf(pages: List[List[List[Tuple[float, str]]]]) -> bytes:
+    """A PDF of plain compressed text, a word at its own position, in the way the survey reports are printed."""
+    import zlib
+    objs: List[bytes] = [b'<< /Type /Catalog /Pages 2 0 R >>', b'', b'<< /Type /Font /Subtype /TrueType /BaseFont /Arial /Encoding /WinAnsiEncoding >>']
+    kids = []
+    for rows in pages:
+        d = []
+        for k, row in enumerate(rows):
+            y = 700.0 - 12.0 * k
+            for x, word in row:
+                d.append('BT\n\t0 Tw\n\t 8 0 0 8 %.4f %.4f Tm\n\t/F2 1 Tf\n\t0 Tc\n\t(%s) Tj\n\t0 Tr\nET\n' % (x, y, word.replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')))
+        z = zlib.compress(''.join(d).encode('latin-1'))
+        objs.append(b'<< /Length %d /Filter /FlateDecode >>\nstream\r\n' % len(z) + z + b'\r\nendstream')
+        objs.append(b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F2 3 0 R >> >> /Contents %d 0 R >>' % len(objs))
+        kids.append(len(objs))
+    objs[1] = b'<< /Type /Pages /Count %d /Kids [%s] >>' % (len(kids), b' '.join(b'%d 0 R' % k for k in kids))
+    out = b'%PDF-1.3\n'
+    at = []
+    for k, o in enumerate(objs):
+        at.append(len(out)); out += b'%d 0 obj\n' % (k + 1) + o + b'\nendobj\n'
+    x = len(out)
+    out += b'xref\n0 %d\n0000000000 65535 f \n' % (len(objs) + 1) + b''.join(b'%010d 00000 n \n' % a for a in at)
+    return out + b'trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n' % (len(objs) + 1, x)
+
+
+def survey_standins(folder: str, td: Optional[Dict[str, float]] = None, locations: bool = True) -> dict:
+    """A made-up survey for each well, written in the layout its published survey has and under the published name -
+    a text report, a planning package's report in a spreadsheet, two reports printed to PDF, a spreadsheet's CSV -
+    and the field's GPS survey of its wells. SIMULATION. Returns what each was made with."""
+    import tempfile
+    from . import xlsx_read as X
+    os.makedirs(folder, exist_ok=True)
+    td = td or {}
+    E0, N0 = 334600.0, 4263400.0                                             # metres, UTM zone 12N: a made-up pad
+    plan = {'58-32': (850.0, 0.0, 6200.0, 4.0, 280.0, 1690.0), '16A(78)-32': (0.0, 0.0, 5000.0, 60.0, 100.0, 1650.0), '56-32': (900.0, 60.0, 7000.0, 5.0, 240.0, 1661.0),
+            '78B-32': (1250.0, -400.0, 7500.0, 3.0, 235.0, 1705.0), '16B(78)-32': (2.0, 36.0, 5000.0, 60.0, 100.0, 1650.5)}
+    made: Dict[str, dict] = {}
+    for well, (de, dn, kick, inc, azi, gl_m) in plan.items():
+        end = float(td.get(well) or kick + 3000.0)
+        st = _standin_stations(end, min(kick, end * 0.6), inc, azi, wobble=0.4 if inc < 10 else 0.0)
+        made[well] = {'stations': st, 'easting_m': E0 + de, 'northing_m': N0 + dn, 'gl_ft': round(gl_m / FT_M, 2), 'kb_ft': round(gl_m / FT_M + 30.0, 2), 'td': end, 'inc': inc, 'azi': azi}
+    listing = lambda st, kind: [[(78.0, 'Survey'), (132.0, 'Meas.'), (326.0, 'Coordinates'), (452.0, 'Vertical'), (498.0, 'Dog Leg')],
+                                [(83.0, 'Type'), (131.0, 'Depth'), (174.0, 'Inc.'), (210.0, 'Azimuth'), (265.0, 'TVD'), (318.0, 'N-S'), (366.0, 'E-W'), (407.0, 'Closure'), (452.0, 'Section'), (498.0, 'Severity')],
+                                [(138.0, '(ft)'), (171.0, '(deg)'), (217.0, '(deg)'), (268.0, '(ft)'), (319.0, '(ft)'), (369.0, '(ft)'), (418.0, '(ft)'), (464.0, '(ft)'), (497.0, '(deg/100)')]] + [
+        ([(78.0, '**'), (86.0, 'TieIn')] if k == 0 else [(86.0, kind)]) + [(134.0, f"{s['md']:,.1f}"), (181.0, f"{s['inc']:.2f}"), (226.0, f"{s['azi']:.2f}"), (268.0, f"{s['tvd']:,.2f}"), (330.0, f"{s['ns']:.2f}"),
+                                                                           (372.0, f"{s['ew']:.2f}"), (420.0, f"{(s['ns'] ** 2 + s['ew'] ** 2) ** 0.5:.2f}"), (469.0, f"{s['ns']:.2f}"), (510.0, '0.500')]
+        for k, s in enumerate(st)] + [[(73.0, 'Calculations using Minimum Curvature Method')]]
+    # 58-32: a report printed to PDF, alone in its zip
+    m = made['58-32']; sv = SURVEYS['58-32']
+    half = len(m['stations']) // 2
+    with zipfile.ZipFile(os.path.join(folder, sv['files'][0]), 'w', zipfile.ZIP_DEFLATED) as z:
+        z.writestr(sv['member'], _standin_pdf([listing(m['stations'][:half], 'MSS'), listing(m['stations'][half:], 'MWD')[:-1][3:] + [[(73.0, 'Calculations using Minimum Curvature Method')]]]))
+        z.writestr('DirectionalPlanRpt_171027102949.pdf', b'%PDF-1.3 stand-in')
+    # 56-32: the same kind of report, and beside it the publisher's positions
+    m = made['56-32']; sv = SURVEYS['56-32']
+    pos = 'UTM_E,UTM_N,Depth,Tru_Vdepth,Elev_msl_ft\n' + ''.join(f"{m['easting_m'] + s['ew'] * FT_M:.2f},{m['northing_m'] + s['ns'] * FT_M:.2f},{s['md']:.2f},{s['tvd']:.2f},{m['gl_ft'] - s['tvd']:.2f}\n"
+                                                                 for s in m['stations']) + ',,,,\n,,,,\n'
+    with zipfile.ZipFile(os.path.join(folder, sv['files'][0]), 'w', zipfile.ZIP_DEFLATED) as z:
+        z.writestr(sv['member'], _standin_pdf([listing(m['stations'], 'MWD')]))
+        z.writestr(sv['positions'], pos); z.writestr('readme.txt', 'stand-in')
+    # 78B-32: a spreadsheet's CSV, its headings on several lines, thousands with commas, the wellhead beside the table
+    m = made['78B-32']; sv = SURVEYS['78B-32']
+    from . import geodesy as GD
+    ll = GD.grid_to_wgs84(m['easting_m'], m['northing_m'], 'UTM12N', 'NAD83', 'm')['on_zone_datum']
+    m['lat'], m['lon'] = round(ll['lat'], 8), round(ll['lon'], 8)
+    q = lambda v: f'"{v:,.2f}"' if abs(v) >= 1000 else f'{v:g}'
+    rows = ['"Survey\nType","Measured\nDepth (ft)","Inclination\n(degrees)","Azimuth\n(degrees)","True Vertical\nDepth (ft)",N-S (ft),E-W (ft),Closure (ft),"Vertical\nSection (ft)","Dog Leg\nSeverity\n(deg/100)",,Well Head,NAD 83,,']
+    for k, s in enumerate(m['stations']):
+        tail = ',,Lat,Long,UTM E,UTM N' if k == 0 else f",,{m['lat']},{m['lon']},{m['easting_m']},{m['northing_m']}" if k == 1 else ',,,,,'
+        rows.append(('** TieIn' if k == 0 else 'MWD') + f",{q(s['md'])},{s['inc']:g},{s['azi']:g},{q(s['tvd'])},{s['ns']:g},{s['ew']:g},{(s['ns'] ** 2 + s['ew'] ** 2) ** 0.5:.1f},{s['ns']:g},0.5" + tail)
+    with zipfile.ZipFile(os.path.join(folder, sv['files'][0]), 'w', zipfile.ZIP_DEFLATED) as z:
+        z.writestr(sv['member'], '\n'.join(rows) + '\n'); z.writestr('directional survey78B.xlsx', b'stand-in')
+    # 16A: a planning package's design report in a spreadsheet, a word a cell
+    m = made['16A(78)-32']; sv = SURVEYS['16A(78)-32']
+    nn, ee = round(m['northing_m'] / USFT, 2), round(m['easting_m'] / USFT, 2)
+    m['northing_m'], m['easting_m'] = nn * USFT, ee * USFT
+    cells: List[List[object]] = [[], ['COMPASS'], ['Design', 'Report', '2020-12-19', 'Page', 1, 'of', 2], ['Well.....................:', '16A(78)-32'], ['Permanent', 'datum..........:', 'Mean', 'Sea', 'Level'],
+                                 ['GL', 'above', 'permanent.......:', round(m['gl_ft']), 'usft'], ['KB', 'above', 'permanent.......:', round(m['gl_ft']) + 30, 'usft'], [],
+                                 ['-----', 'Vertical', 'section', 'origin----------------'], ['Latitude', '(+N/S-).........:', 0, 'usft'], ['Departure', '(+E/W-)........:', 0, 'usft'], [],
+                                 ['-----', 'Platform', 'reference', 'point---------------', '-----', 'Corrections', '---------------------------'],
+                                 ['Latitude', '(+N/S-).........:', nn, 'usft', 'Magnetic', 'dec', '(+E/W-).....:', 11.29, 'degrees'],
+                                 ['Departure', '(+E/W-)........:', ee, 'usft', 'Grid', 'convergence', '(+E/W-).:', -1.18, 'degrees'], ['Total', 'az', 'corr', '(+E/W-)....:', 12.47, 'degrees'],
+                                 ['Azimuth', 'from', 'rotary', 'table', 'to', 'target:', 0, 'degrees', '(Total', 'az', 'corr', '=', 'magnetic', 'dec', '-', 'grid', 'conv)'], [],
+                                 ['Seq', 'Measured', 'Incl', 'Azimuth', 'Course', 'TVD', 'Vertical', 'Displ', 'Displ', 'Total', 'At', 'DLS', 'Srvy', 'Tool'],
+                                 ['#', 'depth', 'angle', 'angle', 'length', 'depth', 'section', '+N/S-', '+E/W-', 'displ', 'Azim', '(deg/', 'tool', 'qual']]
+    m['kb_ft'] = float(round(m['gl_ft']) + 30)
+    for k, s in enumerate(m['stations']):
+        cells.append([k + 1, s['md'], s['inc'], s['azi'], s['md'] - (m['stations'][k - 1]['md'] if k else 0.0), s['tvd'], s['ew'], s['ns'], s['ew'], round((s['ns'] ** 2 + s['ew'] ** 2) ** 0.5, 2), s['azi'], 0.5,
+                      'UNDEFINED' if k == 0 else 'MWD', -1])
+    X.write_simple(os.path.join(folder, sv['files'][0]), cells)
+    # 16B: the directional company's final report as text
+    m = made['16B(78)-32']; sv = SURVEYS['16B(78)-32']
+    nn, ee = round(m['northing_m'] / USFT, 2), round(m['easting_m'] / USFT, 2)
+    m['northing_m'], m['easting_m'] = nn * USFT, ee * USFT
+    rep = ['COMPANY \t\t: Utah Forge', 'WELL   \t\t: 16B(78)-32', 'MAP SYSTEM\t\t: Universal Transverse Mercator (US Survey Feet)', 'GEODIC DATUM\t\t: NAD83 Utah - HARN', 'MAP ZONE\t\t: Zone 12N (114 W to 108 W)',
+           'CALCULATION METHOD\t: Minimum Curvature', f'WELL EASTING \t\t: {ee:.2f}ft ', f'WELL NORTHING \t\t: {nn:.2f}ft ', 'VSECT DIREC \t\t: 100.00deg ', 'NORTH REF\t\t: Grid', f"KB ELEV  \t\t: {m['kb_ft']:.2f}ft ",
+           f"GL ELEV \t\t: {m['gl_ft']:.2f}ft ", 'DATE\t\t\t: 6/26/2023', '', 'SURVEY ', '', 'MD         INC       AZI       TVD        SSTVD        N/S       NORTHING       E/W        EASTING       VSEC        DLS            ',
+           '(ft)      (deg)     (deg)      (ft)       (ft)         (ft)       (Ft)          (ft)        (Ft)         (ft)     (deg/100ft)  ', '', '']
+    rep += [f"{s['md']:.2f}   {s['inc']:.2f}   {s['azi']:.2f}   {s['tvd']:.2f}   {s['tvd'] - m['kb_ft']:.2f}   {s['ns']:.2f}   {nn + s['ns']:.2f}   {s['ew']:.2f}   {ee + s['ew']:.2f}   {s['ew']:.2f}   0.50   " for s in m['stations']]
+    with zipfile.ZipFile(os.path.join(folder, sv['files'][0]), 'w', zipfile.ZIP_DEFLATED) as z:
+        z.writestr(sv['member'], '\r\n'.join(rep) + '\r\n')
+    # the field's GPS survey of its wells: metres, and no unit named
+    if locations:
+        loc = ['"UTM Zone:12 North, Datum Trans:NAD 1983 (Conus)  (Molodensky), Global Ref Datum:WGS 1984, Global Ref Epoch:2005, Geoid Model:GEOID18 (Conus)",,,,,,,', ',,,,,,,',
+               'Point ID,Easting (X),Northing (Y),Latitude,Longitude ,Elevation,Feature Code,Notes']
+        for well in ('16A(78)-32', '56-32', '58-32', '78B-32'):
+            m = made[well]
+            ll = GD.grid_to_wgs84(m['easting_m'], m['northing_m'], 'UTM12N', 'NAD83', 'm')['on_zone_datum']
+            pt = LOCATIONS['points'].get(well, f'{well}-WELL')
+            loc.append(f"{pt[:-5]}-NEC,{m['easting_m'] + 40:.4f},{m['northing_m'] + 40:.4f},{ll['lat'] + 0.0004:.8f},{ll['lon'] + 0.0004:.8f},{m['gl_ft'] * FT_M - 0.3:.4f},WELL-PAD,Measured on pad")
+            loc.append(f"{pt},{m['easting_m']:.4f},{m['northing_m']:.4f},{ll['lat']:.8f},{ll['lon']:.8f},{m['gl_ft'] * FT_M:.4f},WELL,")
+            m.setdefault('lat', round(ll['lat'], 8)); m.setdefault('lon', round(ll['lon'], 8))
+        loc.append('FORB,NA,NA,NA,NA,NA,SEISMIC,General coordinates place station within a locked building')
+        with open(os.path.join(folder, LOCATIONS['file']), 'w', encoding='utf-8', newline='') as f:
+            f.write('\r\n'.join(loc) + '\r\n')
     return made
 
 
@@ -787,4 +1361,85 @@ def selftest() -> dict:
                        'pass': st1['treatments_present'] == 5 and len(more['stages']) == 16 and more['added'] == [] and len(pg_t['stages']) == 16 and [r_['stage'] for r_ in pg_t['stages']][:5] == ['1', '2', '3', '3R', '4']
                                and max(off) <= 40.0 and len(rec1['treatments']) == 5 and all(e['hash_matches'] is False and len(e['sha256']) == 64 for e in rec1['treatments'])
                                and pg_t['lines'][-1].startswith('Data: Utah FORGE') and third['stages'] == [] and third['added'] == []})
+        # the wells placed: a made-up survey in each published layout, the wellhead and the elevation each is placed by
+        from . import collision as CO
+        from . import geodesy as GD
+        from . import well3d as W3
+        bare = os.path.join(tmp, 'bare'); site_b = os.path.join(tmp, 'site-bare')
+        standins(bare, stands=6)
+        made_b = survey_standins(bare, locations=False)
+        rb = build(bare, site_b, 'selftest', verify=False)
+        pb = {e['well']: e.get('placed') or {} for e in rb['record']['wells']}
+        sc_b = W3.workspace_scene(Workspace(site_b))
+        survey_standins(bare)                                                    # the same surveys, and now the field's GPS survey of its wells
+        rb2 = build(bare, site_b, 'selftest', verify=False)
+        pb2 = {e['well']: e.get('placed') or {} for e in rb2['record']['wells']}
+        checks.append({'check': 'without the field\'s GPS survey of its wells: the three wells whose own files give a wellhead and an elevation are drawn, 78B-32 is on the map and not drawn, 58-32 is not placed, and each is told why; '
+                                'with it in the folder, the two are placed and the three are left as they were',
+                       'value': [rb['placed'], sorted(w['name'] for w in sc_b['wells']), (pb['58-32'].get('why') or '')[:40], rb2['placed']],
+                       'pass': rb['placed'] == ['16A(78)-32', '56-32', '78B-32', '16B(78)-32'] and sorted(w['name'] for w in sc_b['wells']) == ['16A(78)-32', '16B(78)-32', '56-32']
+                               and pb['78B-32']['drawn'] is False and pb['78B-32'].get('lat') is not None and 'gives no elevation' in pb['78B-32']['why'] and pb['58-32']['drawn'] is False
+                               and 'names no wellhead' in pb['58-32']['why'] and rb2['placed'] == ['58-32', '78B-32'] and all(p['drawn'] for p in pb2.values())
+                               and pb2['16A(78)-32']['placed_utc'] == pb['16A(78)-32']['placed_utc']})
+        made_s = survey_standins(folder)
+        st2 = status(folder)
+        seen2 = []
+        r2 = build(folder, site, 'selftest', progress=seen2.append)
+        ws2 = Workspace(site); rec2 = record(ws2)
+        pl = {e['well']: e['placed'] for e in rec2['wells']}
+        ok_read = []
+        for well, m in made_s.items():
+            p = pl[well]
+            ll = GD.grid_to_wgs84(m['easting_m'], m['northing_m'], 'UTM12N', 'NAD83', 'm')['on_zone_datum']
+            kb = well in ('16A(78)-32', '16B(78)-32')
+            ok_read.append(p['stations'] == len(m['stations']) and p['td_md_ft'] == m['td'] and abs(p['lat'] - ll['lat']) < 2e-6 and abs(p['lon'] - ll['lon']) < 2e-6
+                           and p['elev_datum'] == ('KB' if kb else 'GL') and abs(p['elev_ft'] - (m['kb_ft'] if kb else m['gl_ft'])) < 0.02 and p['miss_ft'] <= 0.05 and p['drawn']
+                           and p['north'] == ('true' if well in ('58-32', '78B-32') else 'grid') and p['north_unstated'] == (well in ('58-32', '78B-32'))
+                           and p['hash_matches'] is False and len(p['sha256']) == 64 and len(p['how']) >= 3)
+        checks.append({'check': 'the surveys, put in the folder afterwards: a text report, a planning package\'s report in a spreadsheet, two reports printed to PDF and a spreadsheet\'s CSV each read - its stations, its '
+                                'wellhead, the elevation its depths are counted from and which it is, the north its azimuths are from and whether the file said - and each checked against the positions the file carries',
+                       'value': [st2['surveys_present'], r2['placed'], ok_read, {w: (p['elev_datum'], p['north'], p['miss_ft']) for w, p in pl.items()}],
+                       'pass': st2['surveys_present'] == 5 and st2['surveys'][-1]['present'] and r2['placed'] == ['58-32', '16A(78)-32', '56-32', '78B-32', '16B(78)-32'] and all(ok_read) and r2['added'] == []
+                               and seen2[-1].get('placed') == r2['placed'] and any('grid north' in h and 'agree to' in h for h in pl['56-32']['how']) and any('too deep' in h for h in pl['58-32']['how'])
+                               and any('were they magnetic' in h for h in pl['78B-32']['how']) and any('does not name its grid' in h for h in pl['16A(78)-32']['how'])})
+        sc = W3.workspace_scene(ws2)
+        by_s = {w['name']: w for w in sc['wells']}
+        co = CO.page(ws2)
+        pair = next(p for p in co['pairs'] if p['reference_name'] == '16B(78)-32' and p['offset_name'] == '16A(78)-32')
+        a_, b_ = made_s['16A(78)-32'], made_s['16B(78)-32']
+        apart = ((a_['easting_m'] - b_['easting_m']) ** 2 + (a_['northing_m'] - b_['northing_m']) ** 2) ** 0.5
+        deep = {w: abs(by_s[w]['td_z'] - (made_s[w]['stations'][-1]['tvd'] - pl[w]['elev_ft']) * FT_M) for w in by_s}
+        from . import simulation as SIMU
+        sims = [x['id'] for x in SIMU.scenes(ws2) if x['kind'] == 'workspace']
+        third2 = build(folder, site, 'selftest')
+        checks.append({'check': 'the placed wells drawn: all five in the 3D scene, each bottom at the depth below sea level its survey and its elevation give; the two deviated wells, made parallel, found that far apart by the '
+                                'collision scan; each well offered to the simulation with its record; built again it places none',
+                       'value': [len(sc['wells']), sc['not_placed'], round(max(deep.values()), 2), round(apart, 2), pair['closest_m'], len(sims), third2['placed']],
+                       'pass': len(sc['wells']) == 5 and sc['not_placed'] == [] and max(deep.values()) < 0.6 and abs(pair['closest_m'] - apart) < 1.0 and abs(pair['distance_m'] - apart) < 3.0 and len(sims) == 5
+                               and all(w['replay'] for w in sc['wells']) and third2['placed'] == [] and third2['added'] == []})
+        errs2 = {}
+        good = made_s['16B(78)-32']
+        with zipfile.ZipFile(_find(folder, SURVEYS['16B(78)-32']['files'][0])) as z:
+            rep_txt = z.read(SURVEYS['16B(78)-32']['member']).decode('utf-8')
+        from . import xlsx_read as X
+        with open(_find(folder, SURVEYS['16A(78)-32']['files'][0]), 'rb') as f:
+            xb = f.read()
+        rows_x = [[c for c in r_ if c != ''] for r_ in X.rows(xb, X.sheets(xb)[0])]
+        xp = os.path.join(tmp, 'nocorr.xlsx'); X.write_simple(xp, [r_ for r_ in rows_x if 'conv)' not in r_])
+        with open(xp, 'rb') as f:
+            xb2 = f.read()
+        for name, fn in (('magnetic', lambda: read_survey_report(rep_txt.replace(': Grid', ': Magnetic'))), ('state_plane', lambda: read_survey_report(rep_txt.replace('Universal Transverse Mercator', 'State Plane'))),
+                         ('no_kb', lambda: read_survey_report(rep_txt.replace('KB ELEV', 'XX ELEV'))), ('not_listing', lambda: read_survey_listing_pdf(_standin_pdf([[[(72.0, 'A'), (120.0, 'page')]]]))),
+                         ('not_pdf', lambda: read_survey_listing_pdf(b'not a pdf at all')), ('no_correction', lambda: read_survey_compass(xb2)), ('no_points', lambda: read_locations('a,b\n1,2\n')),
+                         ('no_columns', lambda: read_positions_csv('x,y\n1,2\n'))):
+            try:
+                fn(); errs2[name] = ''
+            except PublicPadError as e:
+                errs2[name] = str(e)
+        rows_pdf = pdf_text_rows(_standin_pdf([[[(200.0, 'right (2)'), (80.0, 'left')], [(80.0, 'below')]]]))
+        checks.append({'check': 'what is not read is said: azimuths from magnetic north, a grid that is not a UTM zone, a report with no kelly bushing elevation, a PDF that is no survey listing, a design report that does not '
+                                'say how its azimuths were corrected, a locations file and a path file without their columns; a PDF\'s words come back in reading order',
+                       'value': [sorted(k for k, v in errs2.items() if v), rows_pdf, good['td']],
+                       'pass': all(errs2.values()) and 'grid or true' in errs2['magnetic'] and 'not a UTM zone' in errs2['state_plane'] and 'KB ELEV' in errs2['no_kb'] and 'not a listing' in errs2['not_listing']
+                               and 'which north' in errs2['no_correction'] and rows_pdf == [['left', 'right (2)'], ['below']]})
     return {'ok': all(c['pass'] for c in checks), 'checks': checks, 'label': 'SIMULATION'}

@@ -19431,6 +19431,237 @@ def section_ej_frac_treatment(tmp: str) -> None:
        "page with the published figures it was checked against, the README and lesson 14" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_el_public_pad_placed(tmp: str) -> None:
+    """Section EL - the public pad's wells placed: each published survey layout read (a text report, a planning
+    package's report in a spreadsheet, a report printed to PDF with and without the publisher's positions beside it, a
+    spreadsheet's CSV) with the wellhead, the elevation and the north each is placed by and where each came from; the
+    field's GPS survey of its wells for what a survey file lacks; the wells drawn in the 3D scene, scanned for
+    collision, offered to the simulation; what is not read said; the routes, the commands, the tab, the help, the
+    README and the lesson."""
+    import http.cookiejar
+    import math
+    import shutil
+    import subprocess as _sp
+    import urllib.error
+    import urllib.request
+    import zipfile
+    from urllib.parse import quote as _q
+    from . import collision as CO
+    from . import geodesy as GD
+    from . import helplib as H
+    from . import public_pad as PP
+    from . import simulation as SIMU
+    from . import tutorial as TU
+    from . import well3d as W3
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "el"); d.mkdir()
+    os.environ["GEA_WORKSPACES_FILE"] = str(d / "workspaces.json")
+    # -- EL1 the five layouts read, and what each is placed by --------------------------------------------------------------
+    st = PP.selftest()
+    folder = str(d / "files")
+    PP.standins(folder, stands=8)
+    made = PP.survey_standins(folder)
+    sv = {w_: PP.read_survey(w_, folder) for w_ in PP.SURVEYS}
+    ll = {w_: GD.grid_to_wgs84(m_["easting_m"], m_["northing_m"], "UTM12N", "NAD83", "m")["on_zone_datum"] for w_, m_ in made.items()}
+    stt = PP.status(folder)
+    by_s = {r_["well"]: r_ for r_ in stt["surveys"]}
+    bare = str(d / "bare")
+    PP.standins(bare, stands=8); PP.survey_standins(bare, locations=False)
+    stb = {r_["well"]: r_ for r_ in PP.status(bare)["surveys"]}
+    sv_b = {w_: PP.read_survey(w_, bare) for w_ in PP.SURVEYS}
+    rows_pdf = PP.pdf_text_rows(PP._standin_pdf([[[(300.0, "c"), (80.0, "a (1)"), (200.0, "b\\")], [(80.0, "second")]], [[(80.0, "page two")]]]))
+    refused = {}
+    with zipfile.ZipFile(os.path.join(folder, "16B(78)-32 Well Survey.zip")) as z_:
+        rep = z_.read("16B(78)-32 Final Survey Report.txt").decode("utf-8")
+    for name_, fn_ in (("magnetic", lambda: PP.read_survey_report(rep.replace(": Grid", ": Magnetic"))), ("not_utm", lambda: PP.read_survey_report(rep.replace("Universal Transverse Mercator", "State Plane"))),
+                       ("no_kb", lambda: PP.read_survey_report(rep.replace("KB ELEV", "XX ELEV"))), ("not_listing", lambda: PP.read_survey_listing_pdf(PP._standin_pdf([[[(72.0, "a"), (120.0, "page")]]]))),
+                       ("no_points", lambda: PP.read_locations("a,b\n1,2\n")), ("no_columns", lambda: PP.read_positions_csv("x,y\n1,2\n"))):
+        try:
+            fn_(); refused[name_] = ""
+        except PP.PublicPadError as ex:
+            refused[name_] = str(ex)
+    # a depth entered wrongly at the rig and put right: 77 s at 25,622.8 ft and 14 s at 30,058.5 ft in a record drilled 1,000 to 3,000 ft
+    from datetime import datetime as _dtm, timedelta as _td
+    from . import edr as E
+    hdr_ = "YYYY/MM/DD,HH:MM:SS,Hole Depth (feet),Bit Depth (feet),Rate Of Penetration (ft_per_hr),Weight on Bit (klbs),Rotary RPM (RPM),Hook Load (klbs),Standpipe Pressure (psi),Total Pump Output (gal_per_min),Block Height (feet)"
+    clean = [(1000.0 + 0.05 * k, 1000.0 + 0.05 * k) for k in range(40000)]
+    spiked = list(clean)
+    for k in range(20000, 20077):
+        spiked[k] = (25622.8, 25622.8)
+    for k in range(30000, 30014):
+        spiked[k] = (30058.5, spiked[k][1])
+    recs_ = {}
+    for nm_, rows_ in (("clean", clean), ("spiked", spiked)):
+        with open(d / f"{nm_}.csv", "w", encoding="utf-8", newline="") as f_:
+            f_.write(hdr_ + "\n")
+            for k, (h_, b_) in enumerate(rows_):
+                ts_ = _dtm(2026, 5, 1) + _td(seconds=k)
+                f_.write(f"{ts_:%Y/%m/%d},{ts_:%H:%M:%S},{h_:.2f},{b_:.2f},180.0,30.0,80.0,180.0,2500.0,550.0,50.0\n")
+        s_ = E.read(str(d / f"{nm_}.csv")); de_ = E.depth_events(s_)
+        recs_[nm_] = (de_, E.record(s_, de_))
+    sp_ = [e_ for e_ in recs_["spiked"][0]["events"] if e_["type"] == "SPIKE"]
+    c1 = {
+        "selftest": st["ok"] and len(st["checks"]) >= 14,
+        "spike": recs_["clean"][0]["events"] == [] and [e_["type"] for e_ in recs_["spiked"][0]["events"]] == ["SPIKE", "SPIKE"] and [e_["seconds"] for e_ in sp_] == [77, 14]
+                 and sp_[0]["to_ft"] == 25622.8 and int(recs_["spiked"][0]["excluded"].sum()) == 91 and recs_["spiked"][1]["total_depth_md_ft"] == recs_["clean"][1]["total_depth_md_ft"] == 2999.9
+                 and abs(recs_["spiked"][1]["on_bottom_hours"] - recs_["clean"][1]["on_bottom_hours"]) <= 0.03 and recs_["spiked"][1]["boreholes"] == recs_["clean"][1]["boreholes"]
+                 and any("entered wrongly" in n_ for n_ in recs_["spiked"][1]["notes"]) and "SPIKE" in (H.page("edr") or "") and "entered wrongly" in sp_[0]["effect"],
+        "stations": all(len(sv[w_]["stations"]) == len(made[w_]["stations"]) and sv[w_]["stations"][-1]["md"] == made[w_]["td"] and PP.survey_miss_ft(sv[w_]["stations"]) <= 0.05 for w_ in made),
+        "wellhead": all(abs(sv[w_]["lat"] - ll[w_]["lat"]) < 2e-6 and abs(sv[w_]["lon"] - ll[w_]["lon"]) < 2e-6 for w_ in made),
+        "elevation": all(sv[w_]["elev_datum"] == "KB" and abs(sv[w_]["elev_ft"] - made[w_]["kb_ft"]) < 0.02 for w_ in ("16A(78)-32", "16B(78)-32"))
+                     and all(sv[w_]["elev_datum"] == "GL" and abs(sv[w_]["elev_ft"] - made[w_]["gl_ft"]) < 0.02 and any("too deep" in h_ for h_ in sv[w_]["how"]) for w_ in ("58-32", "56-32", "78B-32")),
+        "north": [sv[w_]["north"] for w_ in ("58-32", "16A(78)-32", "56-32", "78B-32", "16B(78)-32")] == ["true", "grid", "grid", "true", "grid"] and sv["58-32"].get("north_unstated") and sv["78B-32"].get("north_unstated")
+                 and not sv["56-32"].get("north_unstated") and sv["56-32"]["positions_miss_ft"] <= 0.1 and any("were they magnetic" in h_ for h_ in sv["58-32"]["how"])
+                 and any("does not name its grid" in h_ for h_ in sv["16A(78)-32"]["how"]),
+        "sources": [x_["point"] for x_ in sv["58-32"]["sources"]] == ["58-32-WELL"] and [x_["point"] for x_ in sv["78B-32"]["sources"]] == ["78B-32-WELL"] and sv["16B(78)-32"]["sources"] == []
+                   and sv["56-32"]["sources"] == [] and all(len(v["sha256"]) == 64 and v["hash_matches"] is False for v in sv.values()),
+        "status": stt["surveys_present"] == 5 and len(stt["surveys"]) == 6 and stt["surveys"][-1]["well"] is None and stt["surveys"][-1]["present"] and all(by_s[w_]["can"] == "drawn in 3D" for w_ in made)
+                  and any("survey files are in the folder" in ln_ for ln_ in stt["lines"]) and "survey  16A(78)-32 Survey.xlsx" in PP.text(stt) and PP.status("")["surveys_present"] == 0,
+        "without_locations": stb["58-32"]["can"].startswith("not placed: its wellhead and its elevation") and stb["78B-32"]["can"].startswith("placed on the map, not drawn in 3D: its elevation")
+                             and stb["16A(78)-32"]["can"] == "drawn in 3D" and sv_b["58-32"].get("lat") is None and sv_b["78B-32"].get("lat") is not None and sv_b["78B-32"].get("elev_ft") is None,
+        "pdf_rows": rows_pdf == [["a (1)", "b\\", "c"], ["second"], ["page two"]] and PP.pdf_text_rows(b"not a pdf") == [],
+        "refused": all(refused.values()) and "grid or true" in refused["magnetic"] and "not a UTM zone" in refused["not_utm"] and "KB ELEV" in refused["no_kb"] and "not a listing" in refused["not_listing"],
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "EL1 the self-test; a depth entered wrongly at the rig - 25,622.8 ft for 77 s and 30,058.5 ft for 14 s in a hole 3,000 ft deep - read as two spikes, those samples left out and the total depth, "
+       "the hours and the borehole those of the same record without them; a made-up survey in each of the five published layouts read back - every station, the path by minimum curvature within 0.05 ft of the positions the file carries; the wellhead "
+       "from a grid in US survey feet, from a platform reference point, from the publisher's positions, from a latitude beside the table and from the field's GPS survey of its wells; the elevation "
+       "the kelly bushing's where the report gives it and the ground's where only that is published, said to draw the well too deep; grid north where the file says so or the publisher's positions "
+       "show it, true north said to be unstated otherwise with what that could move; the source of each kept with its hash; the folder's list with what each file gives, with and without the GPS "
+       "survey; a PDF's words in reading order; magnetic azimuths, another grid, no kelly bushing elevation, a PDF that is no listing and files without their columns each stopped"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- EL2 the site: placed, drawn, scanned, replayed ---------------------------------------------------------------------
+    site = str(d / "forge-site")
+    seen = []
+    r = PP.build(folder, site, "tester", verify=False, progress=seen.append)
+    ws = Workspace(site); rec = PP.record(ws); pl = {e_["well"]: e_["placed"] for e_ in rec["wells"]}
+    sc = W3.workspace_scene(ws); by_w = {w_["name"]: w_ for w_ in sc["wells"]}
+    co = CO.page(ws)
+    pair = next(p_ for p_ in co["pairs"] if p_["reference_name"] == "16B(78)-32" and p_["offset_name"] == "16A(78)-32")
+    apart = math.hypot(made["16A(78)-32"]["easting_m"] - made["16B(78)-32"]["easting_m"], made["16A(78)-32"]["northing_m"] - made["16B(78)-32"]["northing_m"])
+    deep = {w_: abs(by_w[w_]["td_z"] - (made[w_]["stations"][-1]["tvd"] - pl[w_]["elev_ft"]) * 0.3048) for w_ in by_w}
+    sims = [x_ for x_ in SIMU.scenes(ws) if x_["kind"] == "workspace"]
+    sim1 = SIMU.scene(ws, "well:" + next(w_["id"] for w_ in ws.wells() if w_["display"] == "16A(78)-32"))
+    again = PP.build(folder, site, "tester", verify=False)
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    wl = {w_["display"]: w_ for w_ in Workspace(site).wells()}
+    cred = PP.credit(ws)
+    # a site made before the surveys were in the folder is given them by building again; and one made without the GPS survey is given the two wells it lacked
+    site2 = str(d / "forge-later")
+    r_b = PP.build(bare, site2, "tester", verify=False)
+    pb = {e_["well"]: e_.get("placed") or {} for e_ in r_b["record"]["wells"]}
+    sc_b = W3.workspace_scene(Workspace(site2))
+    shutil.copy(os.path.join(folder, PP.LOCATIONS["file"]), os.path.join(bare, PP.LOCATIONS["file"]))
+    r_b2 = PP.build(bare, site2, "tester", verify=False)
+    pb2 = {e_["well"]: e_.get("placed") or {} for e_ in r_b2["record"]["wells"]}
+    sc_b2 = W3.workspace_scene(Workspace(site2))
+    c2 = {
+        "placed": r["placed"] == ["58-32", "16A(78)-32", "56-32", "78B-32", "16B(78)-32"] and seen[-1].get("placed") == r["placed"] and {"placing", "record"} <= {s_.get("step") for s_ in seen} and r["notes"] == []
+                  and all(p_["drawn"] and p_["stations"] and p_["miss_ft"] <= 0.05 and p_["page"].startswith("https://gdr.openei.org/submissions/") and len(p_["how"]) >= 3 for p_ in pl.values()),
+        "declared": all(wl[w_]["surface"]["datum"] == "NAD83" and wl[w_]["surface"]["elevation"]["datum"] == pl[w_]["elev_datum"] and "Utah FORGE" in wl[w_]["surface"]["elevation"]["source"]
+                        and wl[w_]["trajectory"]["azimuth_reference"] == pl[w_]["north"] and wl[w_]["trajectory"]["depth_reference"] == pl[w_]["elev_datum"] and "Utah FORGE published survey" in wl[w_]["trajectory"]["source"]
+                        for w_ in made) and "read as true north" in wl["58-32"]["trajectory"]["source"] and wl["16B(78)-32"]["trajectory"]["grid"] == "UTM12N"
+                    and "GPS survey of its wells" in wl["78B-32"]["surface"]["elevation"]["source"] and "published well path" in wl["56-32"]["surface"]["elevation"]["source"],
+        "scene": len(sc["wells"]) == 5 and sc["not_placed"] == [] and max(deep.values()) < 0.6 and all(w_["replay"] and w_["n_stations"] == len(made[w_["name"]]["stations"]) for w_ in sc["wells"]),
+        "collision": abs(pair["closest_m"] - apart) < 1.0 and abs(pair["distance_m"] - apart) < 3.0 and len(co["pairs"]) == 20 and co["worst"]["reference_name"] in ("16A(78)-32", "16B(78)-32"),
+        "simulation": len(sims) == 5 and sim1["clock"]["kind"] == "recorded" and "the directional survey (Utah FORGE published survey" in sim1["path_how"]
+                      and all(Path(ws.reports_dir, "wells", w_["id"], "drilling_record.json").is_file() for w_ in ws.wells()),
+        "again": again["placed"] == [] and again["added"] == [] and audit.count('"public_pad.build"') == 1 and '"placed": ["58-32"' in audit and audit.count('"well.trajectory"') == 5,
+        "credit": len(cred["placed"]) == 5 and cred["wells"] == r["wells"] and all(x_["well"] for x_ in cred["placed"]),
+        "later": r_b["placed"] == ["16A(78)-32", "56-32", "78B-32", "16B(78)-32"] and sorted(w_["name"] for w_ in sc_b["wells"]) == ["16A(78)-32", "16B(78)-32", "56-32"]
+                 and pb["78B-32"]["drawn"] is False and "gives no elevation" in pb["78B-32"]["why"] and pb["58-32"]["drawn"] is False and "names no wellhead" in pb["58-32"]["why"]
+                 and r_b2["placed"] == ["58-32", "78B-32"] and len(sc_b2["wells"]) == 5 and all(p_["drawn"] and not p_.get("why") for p_ in pb2.values())
+                 and pb2["16A(78)-32"]["placed_utc"] == pb["16A(78)-32"]["placed_utc"],
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "EL2 the site made with the surveys in the folder: all five wells placed - each wellhead declared on NAD83, each elevation with its datum and the file it came from, each survey attached with "
+       "the north and the depth reference it was read by - and each kept on the site's record with how it was read; all five in the 3D scene with the bottom at the depth its survey and its "
+       "elevation give and the recorder's bit depth to replay; the two deviated wells, made parallel, found that far apart by the collision scan over twenty pairs; each well offered to the "
+       "simulation on its recorder's clock along its surveyed path, its drilling record written by the build; built again nothing placed and nothing audited twice. A site made without the field's "
+       "GPS survey: three wells drawn, 78B-32 on the map without an elevation and 58-32 not placed, each told why; the file put in the folder and the site built again, the two placed and the "
+       "three left as they were" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- EL3 the routes, the commands, the tab, the help --------------------------------------------------------------------
+    Users(str(Path(ws.path, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(ws.path, "users.json"))).add("adm", "admin-pass-12", "admin")
+    svc = Service(ws.path, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=300) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as ex:
+            return ex.code, json.loads(ex.read())
+    try:
+        V, A = opener("v", "viewer-pass-1"), opener("adm", "admin-pass-12")
+        s_v, pv = call(V, "GET", "/api/public-pad")
+        s_vf, _ = call(V, "GET", "/api/public-pad?folder=" + _q(folder))
+        s_a, pa = call(A, "GET", "/api/public-pad?folder=" + _q(folder))
+        s_3, p3 = call(V, "GET", "/api/3d/scene/workspace")
+        s_3l, p3l = call(V, "GET", "/api/3d/scenes")
+        s_c, pc = call(V, "GET", "/api/collision")
+        s_s, ps = call(V, "GET", "/api/sim/scenes")
+        s_m, pm = call(V, "GET", "/api/map")
+        s_b, _ = call(A, "POST", "/api/public-pad/build", {"folder": folder, "path": str(d / "forge-api")})
+        job = {}
+        for _ in range(360):
+            _, pj = call(A, "GET", "/api/public-pad")
+            job = pj["job"]
+            if job.get("state") != "running":
+                break
+            time.sleep(0.5)
+    finally:
+        svc.stop()
+    env = {**os.environ, "PYTHONPATH": str(pkg.parent) + os.pathsep + os.environ.get("PYTHONPATH", "")}
+    run = lambda *a_: _sp.run([sys.executable, "-m", "gea", *a_], capture_output=True, text=True, env=env, cwd=str(d), timeout=600)
+    cli_f, cli_l = run("public-pad", "--folder", folder), run("public-pad", "--list")
+    cli_b = run("public-pad", "--folder", folder, "--build", "--site", str(d / "forge-cli"))
+    cli_b2 = run("public-pad", "--folder", folder, "--build", "--site", str(d / "forge-cli"))
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    view = page_src[page_src.index("VIEWS.publicpad = async"):page_src.index("VIEWS.publicpad = async") + 14000]
+    readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
+    lesson = (pkg / "help" / "tutorial" / "13-drilling-pages.md").read_text(encoding="utf-8")
+    hp = H.page("public-data") or ""
+    map_names = json.dumps(pm)
+    c3 = {
+        "api_read": s_v == 200 and len(pv["surveys"]) == 6 and pv["surveys_present"] == 0 and len(pv["this_site"]["placed"]) == 5 and all(x_["drawn"] for x_ in pv["this_site"]["placed"]) and "suggest" not in pv
+                    and s_vf == 403 and s_a == 200 and pa["surveys_present"] == 5 and all(r_["present"] for r_ in pa["surveys"]),
+        "api_drawn": s_3 == 200 and len(p3["wells"]) == 5 and p3["not_placed"] == [] and s_3l == 200 and p3l["scenes"][0]["id"] == "workspace" and p3l["scenes"][0]["wells"] == 5
+                     and s_c == 200 and len(pc["pairs"]) == 20 and s_s == 200 and sum(1 for x_ in ps["scenes"] if x_["kind"] == "workspace") == 5 and s_m == 200 and all(w_ in map_names for w_ in made),
+        "api_build": s_b == 200 and job.get("state") == "done" and job["result"]["placed"] == r["placed"] and len(W3.workspace_scene(Workspace(str(d / "forge-api")))["wells"]) == 5,
+        "cli": cli_f.returncode == 0 and "5 of 5 survey files are in the folder" in cli_f.stdout and "survey  Directional_Survey_well_58_32.zip" in cli_f.stdout and ": drawn in 3D" in cli_f.stdout
+               and cli_l.returncode == 0 and "Utah FORGE Well and Seismic Locations.csv" in cli_l.stdout and "doi:10.15121/1838418" in cli_l.stdout and "gdr.openei.org/submissions/1006" in cli_l.stdout
+               and cli_b.returncode == 0 and "16B(78)-32: its survey" in cli_b.stdout and "16A(78)-32: placed from 16A(78)-32 Survey.xlsx" in cli_b.stdout and "depths from KB at" in cli_b.stdout
+               and "azimuths from true north (not stated in the file)" in cli_b.stdout and "NOT DRAWN" not in cli_b.stdout and cli_b2.returncode == 0 and "nothing to add" in cli_b2.stdout
+               and "58-32: placed before from" in cli_b2.stdout,
+        "page": all(x in view for x in ("Its wells, placed", "The surveys", "P.surveys_present", "x.north_unstated", "its survey", "placed from their surveys", "not stated in the file", "drawn up to some 30 ft too deep"))
+                and "sessionStorage" not in view and "localStorage" not in view,
+        "help": not H.check("public-data") and all(x in hp for x in ("**The surveys**", "Utah FORGE Well and Seismic Locations.csv", "Directional_Survey_well_58_32.zip", "kelly bushing", "ground level", "grid north",
+                                                                        "not stated", "minimum curvature", "gdr.openei.org/submissions/1358")),
+        "readme_lesson": (not readme or ("placed from its published survey" in " ".join(readme.split()) and "Locations.csv" in readme)) and "placed" in lesson and not TU.check("drilling-pages"),
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "EL3 on the API (anyone reads the list of survey files and how this site's wells were placed; only an administrator has the folder looked into; the 3D scene, the collision scan, the "
+       "simulation's list and the map each carry the five wells; a site made over the API in the background is placed too), the commands (the folder's survey lines with what each gives, the list "
+       "with the GPS survey and its DOI, the site built with a line a well saying what it was placed by, and built again saying it was placed before), the Public data tab with its surveys card and "
+       "the placed wells - and no browser storage in it - the help page, the README and lesson 13" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def section_ek_kick(tmp: str) -> None:
     """Section EK - kick and loss detection: the flowback at each pumps-off against the fingerprint of the connections
     before it, and the pits while circulating against their own trend, named by what the return flow did - on a
@@ -19778,6 +20009,7 @@ def main() -> int:
         section_ei_public_pad_benchmark(tmp)
         section_ej_frac_treatment(tmp)
         section_ek_kick(tmp)
+        section_el_public_pad_placed(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

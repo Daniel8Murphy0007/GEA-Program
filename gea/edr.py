@@ -176,6 +176,9 @@ def _span(idx: np.ndarray, a: int, b: int) -> float:
 DROP_FT = 10.0                     # a fall in hole depth larger than this is an event, never drilling
 REREF_RATE_FT_H = 1000.0           # depth regained faster than this is the recorder counting pipe, not new hole
 SIDETRACK_MIN_DROP_FT = 500.0      # a sidetrack abandons at least this much hole
+SPIKE_MIN_FT = 1000.0              # a depth that leaps this far between two samples ...
+SPIKE_MAX_S = 600.0                # ... and within this long ...
+SPIKE_BACK_FT = 100.0              # ... is back this near where it left is a depth entered wrongly and put right
 TIMEDRILL_ROP_FT_H = 20.0          # the first six hours after a kickoff are time-drilled slower than this
 EVENT_TYPES = ('STALE OPENING', 'RE-REFERENCE', 'SIDETRACK', 'CORRECTION', 'UNRESOLVED')
 
@@ -206,6 +209,10 @@ def depth_events(stream: LiveStream) -> dict:
       slower than it was drilled (or, in a record with no weight on bit, more than twice as fast): the string run and
       reamed back in with the depth tracker counting, after a trip or at total depth. Not new hole; the window is
       excluded, to where the old depth is regained or, if it never is, to the end of the section.
+
+    - SPIKE: the depth leaps by more than SPIKE_MIN_FT from one sample to the next and, within SPIKE_MAX_S, is back
+      within SPIKE_BACK_FT of where it left: a depth entered wrongly at the rig (a digit too many) and put right. No
+      bit was there; the samples between are excluded, and what was drilled either side stands.
 
     A fall that is none of these is UNRESOLVED, handled as a correction, and said to be so. The daily drilling
     reports decide every one; this pass reads the shape and says which shape it read."""
@@ -241,6 +248,24 @@ def depth_events(stream: LiveStream) -> dict:
                                             + f" - and held it for {float(idx[k - 1] - idx[a0]) / 60.0:,.0f} min with nothing drilled: a depth carried over from where the recorder was before; excluded"})
         last = np.flatnonzero(~np.isnan(hole[a:b]) & ~excluded[a:b])                    # where the file left off: the last depth it can be trusted for
         prev_last = float(hole[a + int(last[-1])]) if len(last) else prev_last
+    # 1b. spikes: a depth entered wrongly and put right within minutes (a section opening on a stale depth is the case above)
+    pres = np.flatnonzero(~np.isnan(hole) & ~excluded)
+    if len(pres) > 2:
+        hp = hole[pres]
+        done_to = -1
+        for k in np.flatnonzero(np.diff(hp) > SPIKE_MIN_FT).tolist():
+            if k < done_to:
+                continue
+            base = float(hp[k]); a0 = int(pres[k + 1]); j = k + 1
+            while j < len(pres) and idx[pres[j]] - idx[a0] <= SPIKE_MAX_S and hp[j] - base > SPIKE_BACK_FT:
+                j += 1
+            if j < len(pres) and idx[pres[j]] - idx[a0] <= SPIKE_MAX_S and abs(float(hp[j]) - base) <= SPIKE_BACK_FT:
+                b0 = int(pres[j])
+                excluded[a0:b0] = True; done_to = j
+                secs = float(idx[b0] - idx[a0])
+                out['events'].append({'type': 'SPIKE', 'at': T(a0), 'from_ft': round(base, 1), 'to_ft': round(float(hole[a0]), 1), 'seconds': round(secs),
+                                      'effect': f"the depth read {float(np.nanmax(hole[a0:b0])):,.1f} ft for {secs:,.0f} s and came back to {float(hp[j]):,.1f} ft, beside the {base:,.1f} ft it had left: "
+                                                "a depth entered wrongly and put right, not one the bit was at; those samples are left out and the drilling either side stands"})
     # 2. falls, in time order, each classified by how the depth was regained
     falls = []; lastv = None
     for i in range(n):
@@ -497,7 +522,7 @@ def record(stream: LiveStream, de: Optional[dict] = None) -> dict:
         raw_td = float(np.nanmax(hole))
         if raw_td > td + 0.5:
             out['notes'].append(f"the hole depth channel's largest value is {raw_td:,.1f} ft, which the record does not take as total depth: "
-                                "it lies in a stale opening, a re-referenced window or an abandoned borehole")
+                                "it lies in a stale opening, a re-referenced window, an abandoned borehole or a depth entered wrongly and put right")
         out['boreholes'] = []
         start_ft = out['first_hole_depth_ft']
         for ko in de['kickoffs']:

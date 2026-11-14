@@ -1,15 +1,26 @@
-v0.92.1 — THE PUBLIC DATA TAB IN A WINDOW THAT KEEPS NO STORAGE
+v0.93.0 — THE PUBLIC PAD'S WELLS PLACED AND DRAWN
 
-Fixed: the Public data tab showed "Failed to read the 'sessionStorage'
-property from 'Window': Access is denied for this document" and nothing
-else in a browser window whose policy keeps no cookies and no storage, so
-the public Utah FORGE site could not be made from the program. Since
-0.90.0 the tab had read the browser's session storage outside a try. The
-two folders are kept in the page now, and the gate holds every use of the
-browser's storage inside a try. The form opens filled in for an
-administrator - the folder the files are in and the folder of the site -
-so making the site, or adding the stimulation stages to it, is one button.
+Added: the Utah FORGE wells are placed from their published directional
+surveys, so the 3D, Simulation, Collision and Map tabs of the public site
+draw the pad. Put the survey files in the folder with the recorder files
+(the Public data tab lists them, under a megabyte each) and Make the site
+declares each wellhead and elevation and attaches each survey; a site made
+before is given them by making it again. Five published layouts are read
+as they are - a text report, a planning package's report in a spreadsheet,
+two reports printed to PDF, a spreadsheet's CSV - and the field's GPS
+survey of its wells gives what a survey file lacks. Each path is checked
+against the positions its own file carries (0.01 to 0.11 ft). 16B(78)-32
+runs 297 ft from 16A(78)-32 at its toe.
+
+Fixed: a depth entered wrongly at the rig and put right seconds later was
+read as a re-referenced depth or a sidetrack. It is named a SPIKE now and
+left out: 58-32's total depth is the 7,536 ft it was drilled to (it read
+25,622.8 ft), and 16A(78)-32 no longer shows a borehole to 735,423 ft.
+
+Said beside each well: the three vertical wells have only a ground
+elevation published and are drawn up to some 30 ft too deep; two of them
+do not say which north their azimuths are from.
 
 Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
 
-Gate 590.
+Gate 593.

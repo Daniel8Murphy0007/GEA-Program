@@ -345,6 +345,8 @@ def _workspace(ws, wid: str, build_cache: bool = True) -> dict:
         for i, x in enumerate(tw['x']):
             b = bit[i] if bit[i] is not None else lastb
             h = (hx[i] if hx is not None and hx[i] is not None else (hole[i] if hole[i] is not None else lasth))
+            if hx is not None and hx[i] is not None:
+                b = min(b, h)                             # the bit is never below the bottom of the hole: a depth entered wrongly at the rig is not where it was
             lastb, lasth = b, max(lasth, h) if hx is None else h
             T.append((t0 + timedelta(seconds=round(float(x)))).isoformat() if t0 else None)
             B.append(_r(max(0.0, b) * FT, 7)); H.append(_r(lasth * FT, 7))

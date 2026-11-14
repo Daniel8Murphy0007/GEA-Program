@@ -4146,3 +4146,54 @@ stability; and motor specifications in the tool catalogue.
 - A rule for the sessions after this one: a tab is not proved until it
   has been opened in a window like his - storage denied, cookies off.
   Gate 590.
+
+## 2026-11-14 - the public pad's wells placed and drawn (v0.93.0)
+
+- Asked after 0.92.1: "now what is next on the list?" - and before it,
+  "why can't I 3D visualize?". The FORGE wells had a drilling record and
+  no position, no elevation and no survey, so the 3D, Simulation,
+  Collision and Map tabs had nothing of them to draw. This release
+  places them from what the project publishes.
+- Four survey files were already beside the recorder files. Two more
+  were fetched with the owner's yes: the field's GPS survey of its wells
+  (4 kB, gdr.openei.org/submissions/1358) and the 58-32 survey (a zip of
+  PDFs, submissions/1006). Each file is in a different layout, and each
+  is read as published: 16B's final report as text; 16A's design report
+  saved as a spreadsheet, a word a cell; 56-32's and 58-32's reports
+  printed to PDF - plain compressed text, a word at its own position,
+  read with the standard library; 78B-32's spreadsheet CSV.
+- What each file says and does not say is kept and shown. 16A's report
+  does not name its grid: read on the one 16B's report names (UTM 12N,
+  NAD83, US survey feet), which puts its wellhead within 2 m of the GPS
+  survey's. 56-32's report does not say its north: the publisher's own
+  UTM positions lie straight on its northings and eastings (0.08 ft), so
+  grid north. 58-32 and 78B-32 say nothing: read as true north, and the
+  page prints what grid north (3.4 and 1.6 ft) or an uncorrected magnetic
+  north (33 and 15 ft) would move. The three vertical wells have only a
+  ground elevation published: depths counted from the ground, drawn up
+  to a rig floor's height too deep, and said so.
+- Checked: every path by minimum curvature against the positions its own
+  file carries - 0.01 ft on 16A (422 stations) and 16B (428), 0.07 to
+  0.11 ft on the three vertical wells. The collision scan over the real
+  surveys: 16B 90.4 m (297 ft) from 16A at its toe, never nearer than
+  30.7 m; the wellheads 37 m apart.
+- Found on the way, in the public records: a depth entered wrongly at
+  the rig and put right seconds later - 25,622.8 ft for 77 s and
+  30,058.5 ft for 14 s on 58-32, 735,423 ft for 14 s on 16A. The depth
+  pass had read the first as a re-reference (and excluded twelve hours
+  of drilling with it, taking 25,622.8 ft as total depth) and the last
+  as a sidetrack abandoning a borehole to 735,423 ft. It is a SPIKE now:
+  a leap of more than 1,000 ft that is back within 100 ft inside ten
+  minutes. A section that opens on a stale depth is still the stale
+  opening it was - the spike rule looks only at what that rule left.
+  The client site's three records carry no spike: their depth pass is
+  the same, event for event; the figures stay in C:\site.
+- The public figures that moved, all on 58-32 and one decimal on 16A:
+  58-32 drilled 6,783 ft (was 6,288), 156 ft/day, 16.5 ft/h, median
+  connection 14.1 min; the pad's gap 823 of 1,270 on-bottom hours. The
+  roadmap's split verdict and the drilling alerts' counts stand.
+- The build now writes each well's drilling record the first time, so a
+  new public site's Simulation tab has its wells at once; before, it
+  offered only the worked example until Refresh was pressed.
+- Every tab opened in a window with storage denied and cookies off.
+  Gate 593.

@@ -4,6 +4,20 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.93.0 - 2026-11-14 - the public pad's wells placed and drawn
+
+- The Utah FORGE wells are placed from their published surveys: five
+  layouts read as published (a text report, a planning package's report
+  in a spreadsheet, two reports printed to PDF, a spreadsheet's CSV), the
+  field's GPS survey of its wells for the wellhead and the ground
+  elevation a survey file lacks. Each path checked against its own
+  file's positions; the 3D, Simulation, Collision and Map tabs draw the
+  pad; 16B runs 297 ft from 16A at its toe.
+- The drilling record names a SPIKE - a depth entered wrongly at the rig
+  and put right within minutes - and leaves it out; 58-32's total depth
+  is 7,536 ft again and 16A no longer shows a borehole to 735,423 ft.
+- Gate 593.
+
 ## v0.92.1 - 2026-11-14 - the Public data tab in a window that keeps no storage
 
 - The Public data tab did not open where the browser keeps no storage

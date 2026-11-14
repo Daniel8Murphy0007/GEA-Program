@@ -5,6 +5,66 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.93.0] - 2026-11-14 - the public pad's wells placed and drawn
+
+### Added
+- **The Utah FORGE wells are placed**, each from its published
+  directional survey, so the 3D, Simulation, Collision and Map tabs of the
+  public site draw the pad. With the survey files in the folder, **Make
+  the site** (or `gea public-pad --folder C:\forge --build --site
+  C:\forge-site`) declares each wellhead, declares its elevation with the
+  file it came from, and attaches its survey with the north it was read
+  by; a site made before is given them by making it again. Five layouts
+  are read as published: a directional company's final report as text
+  (16B(78)-32), a planning package's design report in a spreadsheet, a
+  word a cell (16A(78)-32), a survey report printed to PDF with the
+  publisher's positions beside it (56-32) and alone (58-32), and a
+  spreadsheet's CSV (78B-32). What a survey file lacks comes from the
+  field's GPS survey of its wells, `Utah FORGE Well and Seismic
+  Locations.csv`: the wellhead of 58-32, and the ground elevation of
+  58-32 and 78B-32.
+- Each path is computed by minimum curvature and compared with the
+  positions its own file carries: within 0.01 ft on the two deviated
+  wells, 0.07 to 0.11 ft on the three vertical ones. On the Collision tab
+  16B(78)-32 runs 90.4 m (297 ft) from 16A(78)-32 at its toe and no
+  nearer than 30.7 m anywhere.
+- The Public data tab has a card for the survey files - where each is
+  published, its size and hash, whether it is in the folder and what it
+  gives - and, on the public site itself, a table of its wells as placed:
+  the stations, the wellhead, the elevation the depths are counted from
+  and whether it is the kelly bushing or the ground, the north the
+  azimuths were read from and whether the file said, the check against
+  the file's positions, and in words how each was read.
+- A PDF whose pages are plain compressed text, a word at its own
+  position, is read with the standard library alone; any other PDF gives
+  no rows and the well is told so.
+- The build writes each well's drilling record the first time, so the
+  Simulation, Control room and Drill string tabs of a new public site
+  work at once.
+
+### Fixed
+- **A depth entered wrongly at the rig and put right** was read as a
+  re-referenced depth or a sidetrack. The drilling record now names it a
+  SPIKE: the hole depth leaps more than 1,000 ft from one sample to the
+  next and within ten minutes is back within 100 ft of where it left -
+  those samples are left out and the drilling either side stands. Utah
+  FORGE's 58-32 has two (25,622.8 ft for 77 s, 30,058.5 ft for 14 s) and
+  16A(78)-32 one (735,423 ft for 14 s). 58-32's total depth is now the
+  7,536 ft it was drilled to, where it read 25,622.8 ft, and the twelve
+  hours of drilling that had been excluded with it are counted; 16A's
+  record no longer shows an abandoned borehole to 735,423 ft. The
+  benchmark's row for 58-32 moves from 6,288 to 6,783 ft drilled.
+- The simulation's bit is never drawn below the bottom of the hole.
+
+### Changed
+- What the public files do not give is said beside each well and in the
+  help: the three vertical wells have only a ground elevation published,
+  so their depths are counted from the ground and they are drawn up to a
+  rig floor's height (some 30 ft) too deep; 58-32 and 78B-32 do not say
+  which north their azimuths are from, are read as from true north, and
+  the tab prints what another north would move.
+- Gate 593.
+
 ## [v0.92.1] - 2026-11-14 - the Public data tab in a window that keeps no storage
 
 ### Fixed

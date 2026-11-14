@@ -808,7 +808,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.92.1.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.93.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1119,17 +1119,22 @@ each - 16A(78)-32's bit depth is RECONSTRUCTED from the block and the
 slips and is marked so on every page. Every page and report of that site
 ends with the credit the licence asks for.
 
-What this release made of them, on the five files as published:
+What this release made of them, on the five files as published (two of
+them carry a depth entered wrongly at the rig and put right seconds
+later - 25,622.8 and 30,058.5 ft on 58-32, 735,423 ft on 16A(78)-32 -
+which the drilling record reads as a SPIKE and leaves out; the release
+that first made this pad took the first for a re-referenced depth and
+the last for a sidetrack, and 58-32's row stood at 6,288 ft):
 
 | Well | Drilled, ft | Days | ft/day | On bottom, ft/h | Median connection, min |
 |---|---|---|---|---|---|
-| 58-32 (2017) | 6,288 | 43.5 | 145 | 15.9 | 14.4 |
-| 16A(78)-32 (2020) | 11,035 | 67.8 | 163 | 34.4 | 11.3 |
+| 58-32 (2017) | 6,783 | 43.5 | 156 | 16.5 | 14.1 |
+| 16A(78)-32 (2020) | 11,035 | 67.8 | 163 | 34.3 | 11.3 |
 | 56-32 (2021) | 9,232 | 19.0 | 487 | 46.6 | 7.5 |
 | 78B-32 (2021) | 9,372 | 29.1 | 322 | 84.7 | 7.7 |
 | 16B(78)-32 (2023) | 10,490 | 52.4 | 200 | 45.7 | 10.2 |
 
-Against the pad's best the five wells spent 812 of their 1,256 on-bottom
+Against the pad's best the five wells spent 823 of their 1,270 on-bottom
 hours beyond it. The roadmap's own check on them is split - running nearer
 the window was the faster half on two wells and the slower on two - which
 is the page saying, of wells drilled six years apart in three hole sizes,
@@ -1156,6 +1161,26 @@ ISIP is the lower because it is read back along the decline, not taken at
 the top of the ringing. No
 stage's fall-off shows a closure: the records stop a quarter of an hour
 after the pumps, and the page says so and offers none.
+
+And the pad is drawn. With the wells' published directional surveys in
+the folder too - five small files, and `Utah FORGE Well and Seismic
+Locations.csv`, the field's GPS survey of its wells - each well is placed
+from its published survey: the wellhead declared, the elevation with the
+file it came from, the survey attached with the north it was read by. The
+five layouts are read as they are: a directional company's report as
+text, a planning package's report in a spreadsheet, two reports printed
+to PDF, a spreadsheet's CSV. Every path is computed by minimum curvature
+and compared with the positions its own file carries - within 0.01 ft on
+the two deviated wells (422 and 428 stations, to 10,955 and 10,947 ft),
+0.07 to 0.11 ft on the three vertical ones. The 3D tab then shows the
+injector 16A(78)-32 and the producer 16B(78)-32 building to 65 degrees
+side by side, and the Collision tab measures them: 16B runs 90.4 m
+(297 ft) from 16A at its toe, and no nearer than 30.7 m anywhere - the
+wellheads are 37 m apart. The Simulation tab replays each well down its
+own surveyed path on its recorder's clock. What the files do not give is
+said beside each well: the three vertical wells have only a ground
+elevation published, so they are drawn up to a rig floor's height too
+deep, and two of them do not say which north their azimuths are from.
 
 Data: Utah FORGE, Energy & Geoscience Institute at the University of Utah,
 funded by the U.S. Department of Energy; Geothermal Data Repository,
@@ -1826,7 +1851,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.92.1.exe` (for 0.92.1): the
+Every release also carries `GEA-Program-Setup-0.93.0.exe` (for 0.93.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1845,7 +1870,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.92.1.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.93.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

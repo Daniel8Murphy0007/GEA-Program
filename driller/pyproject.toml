@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gea-driller"
-version = "0.92.1"
+version = "0.93.0"
 description = "GEA Driller - the directional driller's agent on the rig PC: a policy trained in a physics twin, advisory or armed, feeding GEA-Program"
 readme = "README.md"
 license = {text = "MPL-2.0"}
