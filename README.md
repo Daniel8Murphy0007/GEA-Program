@@ -808,7 +808,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.91.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.92.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1033,6 +1033,37 @@ said and when, and what the rig did next - whether a trip out of the hole
 followed. The thresholds are settings, each changed with its source. On a
 record still being written an event raises an alert once. The **Drilling
 alerts** tab, `gea dysfunction`, `gea help dysfunction`.
+
+### Kick and loss detection
+
+The mud that comes back, and the mud in the pits, against their own
+baselines - replayed over every drilling record that has a pump output and
+an active pit volume. At each pumps-off the pits rise by a few barrels as
+the surface lines drain back, much the same from one connection to the
+next: each is read as a curve (the gain at 30, 60, 120, 180 and 300 s) and
+set against the fingerprint of the eight before it from a like pump rate,
+and a flowback that runs above it at its last two readings is marked -
+with, where the record has a return flow, whether the flow line was still
+running. While circulating with the pumps steady, the ten-minute change in
+the pits is set against its own two hours, and a change that leaves that
+trend is named by what the return flow did: up with the pits is KICK-LIKE,
+down with them is LOSSES, flat is mud added, moved or dumped at surface as
+far as the record can say; without a return flow the page says it cannot
+tell. A step is a transfer. An event is a place in the record to look at,
+with when the pumps were stopped after it - not a kick called. On a record
+still being written it raises an alert once. The **Kick & loss** tab,
+`gea kick`, `gea help kick`; an assistant reads it as the `kick_detection`
+tool.
+
+On the public Utah FORGE records that carry a pit volume: 56-32 has 436
+pumps-offs, 310 of them read against a fingerprint (typically 7.3 bbl back
+after two minutes), 3 above it and two stretches of losses; 78B-32 has 379
+and 208, 7 above, two kick-like gains and one stretch of losses; 16B(78)-32
+has 1,049 and 911, 12 above. At every one of the ten flowbacks above their
+fingerprint on the two wells with a return flow, the return line was down
+as usual - mud moved into the pits during the connection is the likelier
+reading, and the page says which it saw. Data: Utah FORGE, CC BY 4.0
+(`gea help public-data`).
 
 ### Assistant access (MCP)
 
@@ -1795,7 +1826,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.91.0.exe` (for 0.91.0): the
+Every release also carries `GEA-Program-Setup-0.92.0.exe` (for 0.92.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1814,7 +1845,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.91.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.92.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

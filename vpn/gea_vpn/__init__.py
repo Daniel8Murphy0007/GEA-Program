@@ -6,4 +6,4 @@ a rig PC or a window's computer, it waits for the connect information the office
 zip), brings the WireGuard tunnel up from it, keeps it up from boot, and shows on a page of its own whether the hub
 and the office answer. Standard library only; WireGuard does the tunnel."""
 NAME = "GEA-VPN"
-__version__ = "0.91.0"
+__version__ = "0.92.0"

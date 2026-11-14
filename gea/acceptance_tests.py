@@ -18763,7 +18763,7 @@ def section_eh_mcp(tmp: str) -> None:
     plain = MC._plain({"a": np.float64(1.5), "_work": [1, 2], "b": [np.int64(3), float("nan")], "c": np.arange(4), "d": (1, "x")})
     c1 = {
         "selftest": st["ok"] and len(st["checks"]) >= 7,
-        "tools": len(defs) == 25 and defs[0]["name"] == "site" and all(d_["annotations"]["readOnlyHint"] is True and d_["annotations"]["destructiveHint"] is False and d_["annotations"]["openWorldHint"] is False
+        "tools": len(defs) == 26 and defs[0]["name"] == "site" and all(d_["annotations"]["readOnlyHint"] is True and d_["annotations"]["destructiveHint"] is False and d_["annotations"]["openWorldHint"] is False
                                                                         and d_["inputSchema"]["type"] == "object" and d_["inputSchema"]["additionalProperties"] is False and d_["title"] for d_ in defs)
                  and "well" in defs[1]["inputSchema"]["properties"] and "json" in defs[2]["inputSchema"]["properties"] and "json" not in MC.tool_definition("help")["inputSchema"]["properties"]
                  and not [n_ for n_ in MC.NAMES if any(w_ in n_ for w_ in ("write", "set", "declare", "attach", "remove", "delete", "run"))],
@@ -18775,7 +18775,7 @@ def section_eh_mcp(tmp: str) -> None:
     failed1 = [k_ for k_, v in c1.items() if not v]
     ok(not failed1,
        "EH1 the MCP server: the self-test (a client of an earlier revision through its handshake and a client of revision 2026-07-28 statelessly, each listing and calling the tools; a line that is "
-       "not JSON, a tool, a well, an argument and a method that do not exist, a batch; a withheld tool; the access log; an assistant's configuration file added to and restored); twenty-five tools, "
+       "not JSON, a tool, a well, an argument and a method that do not exist, a batch; a withheld tool; the access log; an assistant's configuration file added to and restored); twenty-six tools, "
        "each read-only by its own declaration with its arguments closed, none named for a change; the revisions spoken; the command a client starts - the console interpreter, never the windowless "
        "one; a page as plain JSON with the working arrays left out" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
 
@@ -18853,12 +18853,12 @@ def section_eh_mcp(tmp: str) -> None:
                      and "SIMULATION" in answers["pressure_plume"]["text"].splitlines()[0] and "RIG-1" in answers["site"]["text"] and _ver in answers["site"]["text"],
         "json": all(isinstance(v, (dict, list)) for n_, v in parsed.items() if n_ != "well") and parsed["well"] is None and as_json["well"]["is_error"] and parsed["roadmap"]["status"] == "OK" and not [k_ for k_ in parsed["rig_time"] if str(k_).startswith("_")]
                 and len(parsed["drilling_alerts"]["wells"]) == 2,
-        "child_legacy": rc_o == 0 and len(out_o) == 4 and out_o[0]["result"]["protocolVersion"] == "2025-11-25" and len(out_o[1]["result"]["tools"]) == 25 and "resultType" not in out_o[1]["result"]
+        "child_legacy": rc_o == 0 and len(out_o) == 4 and out_o[0]["result"]["protocolVersion"] == "2025-11-25" and len(out_o[1]["result"]["tools"]) == 26 and "resultType" not in out_o[1]["result"]
                         and out_o[2]["result"]["content"][0]["text"] == answers["rig_time"]["text"] and "motor stall" in out_o[3]["result"]["content"][0]["text"] and "Traceback" not in err_o,
         "child_modern": rc_m == 0 and len(out_m) == 4 and out_m[0]["result"]["supportedVersions"] == list(MC.SUPPORTED) and out_m[1]["result"]["resultType"] == "complete"
                         and out_m[1]["result"]["cacheScope"] == "private" and out_m[2]["result"]["_meta"][MC.K_SERVER] == {"name": "gea-program", "title": "GEA-Program", "version": _ver}
                         and out_m[2]["result"]["isError"] is False and out_m[3]["error"]["code"] == -32022 and out_m[3]["error"]["data"]["requested"] == "2099-01-01" and "Traceback" not in err_m,
-        "withheld": kept["tools"] is not None and "audit" not in kept["tools"] and rc_w == 0 and "audit" not in [t_["name"] for t_ in out_w[0]["result"]["tools"]] and len(out_w[0]["result"]["tools"]) == 24
+        "withheld": kept["tools"] is not None and "audit" not in kept["tools"] and rc_w == 0 and "audit" not in [t_["name"] for t_ in out_w[0]["result"]["tools"]] and len(out_w[0]["result"]["tools"]) == 25
                     and out_w[1]["error"]["code"] == -32602 and "[cut at 3,000 of" in out_w[2]["result"]["content"][0]["text"],
         "narrowed": rc_a == 0 and [t_["name"] for t_ in out_a[0]["result"]["tools"]] == ["site"] and out_a[1]["error"]["code"] == -32602,
         "no_workspace": rc_x.returncode == 2 and rc_x.stdout == b"" and b"not a workspace" in rc_x.stderr,
@@ -18926,7 +18926,7 @@ def section_eh_mcp(tmp: str) -> None:
     its = (pkg / "help" / "IT_SECURITY.md").read_text(encoding="utf-8")
     backups = sorted(p_.name for p_ in cfgp.parent.iterdir() if ".before-gea-" in p_.name)
     c3 = {
-        "api": s_vg == 200 and len(vg["tools"]) == 25 and all(t_["offered"] for t_ in vg["tools"]) and vg["config"]["mcpServers"]["gea"]["args"][-1] == os.path.abspath(wsp) and len(vg["log"]) >= 6
+        "api": s_vg == 200 and len(vg["tools"]) == 26 and all(t_["offered"] for t_ in vg["tools"]) and vg["config"]["mcpServers"]["gea"]["args"][-1] == os.path.abspath(wsp) and len(vg["log"]) >= 6
                and vg["claude_desktop"]["found"] and not vg["claude_desktop"]["installed"] and s_vs == 403 and s_os == 200 and os_["offered"] == ["site", "roadmap", "help"] and os_["max_chars"] == 20000
                and s_bs == 400 and s_oa == 200,
         "claude_desktop": s_oc == 403 and s_ac == 200 and len(ac["done"]) == 1 and cfg_added["globalShortcut"] == "Ctrl+Space" and cfg_added["mcpServers"]["files"] == {"command": "npx", "args": ["-y", "x"]}
@@ -19067,7 +19067,7 @@ def section_ei_public_pad_benchmark(tmp: str) -> None:
                      and bm["pad_best_connection_min"] is not None and len(bm["stretches"]) >= 3 and all(s_["best_well"] in bm["names"] for s_ in bm["stretches"] if s_["best_rop_ft_h"]),
         "report": set(wr["files"]) == {"benchmark.json", "benchmark.md", "benchmark.csv", "stretches.csv"} and len(rows_b) == 6 and rows_b[0].startswith("display,drilled_ft,days,feet_per_day") and len(rows_s) == len(bm["stretches"]) + 1
                   and "benchmark.report" in audit, 
-        "tool": not bm_txt["is_error"] and bm_txt["text"] == BM.text(BM.page(ws)) and "benchmark" in MC.NAMES and len(MC.NAMES) == 25,
+        "tool": not bm_txt["is_error"] and bm_txt["text"] == BM.text(BM.page(ws)) and "benchmark" in MC.NAMES and len(MC.NAMES) == 26,
     }
     failed2 = [k_ for k_, v in c2.items() if not v]
     ok(not failed2,
@@ -19329,7 +19329,7 @@ def section_ej_frac_treatment(tmp: str) -> None:
                   and table[0] == "Stage,Start Time,End Time,Clean Volume (bbl),Proppant (lb)" and table[1].startswith("3R,2026-08-03 06:0") and "frac_treatment.report" in audit,
         "to_frac_hits": fh["stages"] == 3 and [x["stage"] for x in fh_rows] == ["3R", "10", "4"] and fh_rows[0]["start"].startswith("2026-08-03T06:0") and "frac.stages" in audit and "the stages' own treatment records" in fh["source"],
         "removed": [r_["stage"] for r_ in p2["stages"]] == ["3R", "10"] and "frac_treatment.removed" in audit and "frac_treatment.attach" in audit and "frac_treatment.declared" in audit,
-        "tool": not tool["is_error"] and tool["text"] == FT.text(FT.page(ws, tw, "10")) and "traces" not in json.loads(tool_j["text"]).get("detail", {}) and "frac_treatment" in MC.NAMES and len(MC.NAMES) == 25,
+        "tool": not tool["is_error"] and tool["text"] == FT.text(FT.page(ws, tw, "10")) and "traces" not in json.loads(tool_j["text"]).get("detail", {}) and "frac_treatment" in MC.NAMES and len(MC.NAMES) == 26,
         "public": stt["treatments_present"] == 5 and len(stt["treatments"]) == 5 and stt["treatment_bytes"] > 6e7 and len(br["stages"]) == 16 and {s_.get("step") for s_ in seen} >= {"treatment", "done"} and seen[-1]["stages"] == br["stages"]
                   and [r_["stage"] for r_ in fp["stages"] if r_["display"] == "16A(78)-32"] == ["1", "2", "3", "3R", "4", "5", "6A", "6B", "7", "8", "9", "10"]
                   and [r_["stage"] for r_ in fp["stages"] if r_["display"] == "16B(78)-32"] == ["1", "2", "3", "4"] and max(off) <= 40.0 and fp["lines"][-1].startswith("Data: Utah FORGE")
@@ -19425,6 +19425,209 @@ def section_ej_frac_treatment(tmp: str) -> None:
        "the stimulation files), the commands (the self-test, the table, one stage as JSON, a record attached, the depth declared, the stage times handed over and the report written; a well that is "
        "not there, an attach with no well and a folder that is no workspace each stopped; the public list naming the stimulation files), the Frac treatment tab with a panel a measure, the help "
        "page with the published figures it was checked against, the README and lesson 14" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
+def section_ek_kick(tmp: str) -> None:
+    """Section EK - kick and loss detection: the flowback at each pumps-off against the fingerprint of the connections
+    before it, and the pits while circulating against their own trend, named by what the return flow did - on a
+    record built with each event at a known place; what is not judged and why; the settings with their bounds and
+    their source; through a recorder's export into a workspace, the report, the trace around an event; the alert on a
+    record still being written, raised once; the assistant's tool; the API, the CLI, the tab, the help, the README and
+    the lessons."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.error
+    import urllib.request
+    from . import __version__ as _ver
+    from . import alerts as AL
+    from . import helplib as H
+    from . import kick as KD
+    from . import mcp_server as MC
+    from . import notify as NT
+    from . import tutorial as TU
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ek"); d.mkdir()
+    # -- EK1 the arithmetic --------------------------------------------------------------------------------------------------
+    st = KD.selftest()
+    rec = KD.synthetic_record(True, seed=21, stands=30)
+    tr = rec["truth_kick"]
+    r = KD.analyse_record(rec)
+    fb, ev = r["flowbacks"], r["circulating"]["events"]
+    at = lambda rows, x, tol=5.0: [e for e in rows if abs(e["t"] - x) <= tol]
+    kinds_at = lambda x: [e["kind"] for e in ev if e["t"] - 60.0 <= x <= e["t_end"] + 60.0]
+    flowing, short = at(fb, tr["flowing_at"]), at(fb, tr["short_at"])
+    # a transfer into the pits during a connection; the pumps cycled for half a minute; a rate too unlike the others
+    odd = KD.synthetic_record(False, seed=22, stands=14)
+    offs, _, thr = KD.pumps_off(odd["t"], odd["ch"]["q"])
+    k8 = offs[8]["a"]
+    odd["ch"]["pit"][k8 + 90:] += 25.0
+    k10 = offs[10]["a"]
+    odd["ch"]["q"][k10 + 20:k10 + 50] = 550.0
+    ro = KD.analyse_record(odd)
+    slow = KD.synthetic_record(False, seed=23, stands=12)
+    offs_s, _, _ = KD.pumps_off(slow["t"], slow["ch"]["q"])
+    a9 = offs_s[9]["a"]
+    on9 = int(np.flatnonzero(slow["ch"]["q"][:a9] < 30.0)[-1]) + 1
+    slow["ch"]["q"][on9:a9] = 250.0
+    rs_ = KD.analyse_record(slow)
+    c1 = {
+        "selftest": st["ok"] and len(st["checks"]) >= 9,
+        "pumps_off": len(fb) == 30 and all(e["off_s"] >= 60 for e in fb) and abs(r["pumps_on_gpm"] - 55.0) < 1.0 and all(abs(e["rate_before"] - 550.0) < 5.0 for e in fb),
+        "flowing": len(flowing) == 1 and flowing[0]["status"] == "ABOVE" and flowing[0]["returns_running"] is True and flowing[0]["excess_bbl"] > 5.0 and flowing[0]["fingerprint"][str(flowing[0]["read_at_s"])]["n"] == 8
+                   and [e["status"] for e in fb].count("ABOVE") == 1,
+        "short": len(short) == 1 and short[0]["status"] == "BELOW" and -6.5 <= short[0]["excess_bbl"] <= -3.5 and [e["status"] for e in fb].count("BELOW") == 1,
+        "fingerprint": r["counts"]["no_baseline"] == 4 and r["counts"]["read"] == 26 and abs(r["typical_flowback_bbl"] - 6.7) <= 0.4 and all(set(e["dv"]) <= {"30", "60", "120", "180", "300"} for e in fb),
+        "circulating": kinds_at(tr["kick_at"]) == ["KICK-LIKE"] and kinds_at(tr["gain_flat_at"]) == ["GAIN, RETURNS FLAT"] and kinds_at(tr["loss_at"]) == ["LOSSES"] and "TRANSFER" in kinds_at(tr["transfer_at"])
+                       and len(ev) == 4 and r["circulating"]["judged_h"] > 8.0,
+        "sized": next(e for e in ev if e["kind"] == "KICK-LIKE")["off_trend_bbl"] > 9.0 and next(e for e in ev if e["kind"] == "LOSSES")["off_trend_bbl"] < -9.0
+                 and next(e for e in ev if e["kind"] == "KICK-LIKE")["pumps_off_after_min"] is not None and "the returns +1" in KD.describe(next(e for e in ev if e["kind"] == "KICK-LIKE")),
+        "transfer_in_a_connection": ro["flowbacks"][8]["status"] == "TRANSFER" and "mud moved at surface" in ro["flowbacks"][8]["why"] and ro["counts"]["above"] == 0 and ro["counts"]["transfer"] == 1,
+        "cycled": len(ro["flowbacks"]) == 13 and not at(ro["flowbacks"], float(odd["t"][k10]), 120.0) and ro["counts"]["read"] >= 8,
+        "unlike_rate": rs_["flowbacks"][9]["status"] == "NO BASELINE" and "like pump rate" in rs_["flowbacks"][9]["why"] and rs_["flowbacks"][9]["rate_before"] < 300.0 and rs_["flowbacks"][10]["status"] == "NORMAL",
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "EK1 kick and loss detection on a record built with each event at a known place: thirty pumps-offs found, each read as a curve at 30 to 300 s; the connection where the well flows the one "
+       "flowback above the fingerprint of the eight before it, its return line still running; the connection 5 bbl short the one below; the first four with no fingerprint and said so; circulating, "
+       "a gain with the returns up kick-like, the same gain with the returns flat not, a fall with the returns down losses, a step a transfer, each sized and with when the pumps were stopped after "
+       "it; a transfer into the pits during a connection caught as a step and left out; a connection with the pumps cycled in it not read at all; a pumps-off from an unlike rate not set against the others; "
+       "the self-test" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- EK2 the workspace, the alert, the assistant ------------------------------------------------------------------------
+    ws = Workspace.create(str(d / "ws"), "Pad 3", actor="tester")
+    wa = ws.add_well_file(KD.write_edr(rec, str(d / "a.csv")), display="Well A", actor="tester")["id"]
+    wb = ws.add_well_file(KD.write_edr(KD.synthetic_record(True, seed=24, returns=False), str(d / "b.csv")), display="Well B", actor="tester")["id"]
+    nopit = KD.synthetic_record(False, seed=25, stands=12)
+    from . import dysfunction as DY
+    wc = ws.add_well_file(DY.write_edr(nopit, str(d / "c.csv")), display="Well C", actor="tester")["id"]
+    p = KD.page(ws)
+    by = {w_["display"]: w_ for w_ in p["wells"]}
+    pt = KD.page(ws, wb, full=False)
+    by_t = {w_["display"]: w_ for w_ in pt["wells"]}
+    ka = next(e for e in by["Well A"]["events"] if e["kind"] == "KICK-LIKE")
+    trc = KD.trace(ws, wa, ka["t"] - 600.0, ka["t_end"] + 600.0)
+    wr = KD.write_report(ws, _ver, "tester")
+    fcsv = (Path(wr["folder"]) / "flowbacks.csv").read_text(encoding="utf-8").strip().splitlines()
+    ecsv = (Path(wr["folder"]) / "events.csv").read_text(encoding="utf-8").strip().splitlines()
+    bad = {}
+    for name, kw in (("bound", {"gain_min_bbl": 5000}), ("no_source", {"gain_min_bbl": 12})):
+        try:
+            KD.set_settings(ws, "tester", "", **kw) if name == "no_source" else KD.set_settings(ws, "tester", "x", **kw); bad[name] = ""
+        except KD.KickError as ex:
+            bad[name] = str(ex)
+    s1 = KD.set_settings(ws, "tester", "well control procedure (test)", gain_min_bbl=100, flowback_min_bbl=50)
+    p_hi = KD.page(ws)
+    s2 = KD.set_settings(ws, "tester", "well control procedure (test)", gain_min_bbl=8, flowback_min_bbl=4)
+    tool = MC.call_tool(ws, "kick_detection", {})
+    tool_expect = KD.text(KD.page(ws))
+    audit0 = Path(ws.audit_path).read_text(encoding="utf-8")
+    # a record still being written, the well flowing at its last connection
+    live = KD.synthetic_record(True, seed=26, stands=12, ends_now=True)
+    wl = ws.add_well_file(KD.write_edr(live, str(d / "live.csv")), display="Well L", actor="tester")["id"]
+    le = KD.live_events(ws)
+    raised = AL.check_conditions(ws, None, force=True)
+    again = AL.check_conditions(ws, None, force=True)
+    kraised = [e for e in raised if e["event"].startswith("kick.")]
+    c2 = {
+        "page": p["status"] == "OK" and by["Well A"]["counts"]["above"] == 1 and by["Well A"]["counts"]["KICK-LIKE"] == 1 and by["Well A"]["counts"]["LOSSES"] == 1 and by["Well A"]["channels"]["pit"] == "Total Mud Volume"
+                and by["Well A"]["channels"]["out"] == "Flow" and any("read only against itself" in n_ for n_ in by["Well A"]["notes"]) and not by["Well A"]["live"] and len(by["Well A"]["flowbacks"]) == 30,
+        "no_returns": by["Well B"]["counts"]["KICK-LIKE"] == 0 and by["Well B"]["counts"]["GAIN"] == 2 and by["Well B"]["counts"]["FALL"] == 1 and by["Well B"]["has"]["out"] is False
+                      and "no return flow in this record" in " ".join(p["lines"]) and by["Well B"]["counts"]["above"] == 1,
+        "not_judged": by["Well C"]["status"] == "NO PIT VOLUME" and "no active pit volume" in by["Well C"]["why"] and "Well C: not judged" in " ".join(p["lines"]),
+        "trimmed": pt["well"] == wb and len(by_t["Well B"]["flowbacks"]) == 30 and len(by_t["Well A"]["flowbacks"]) == 1 and [e["kind"] for e in by_t["Well A"]["events"]] == ["KICK-LIKE", "LOSSES"],
+        "trace": set(trc) == {"t", "q", "pit", "out"} and len(trc["t"]) == len(trc["pit"]) > 100 and trc["t"][0] == 0.0 and max(trc["pit"]) - min(trc["pit"]) > 8.0,
+        "report": wr["files"] == ["kick.json", "kick.md", "flowbacks.csv", "events.csv"] and len(fcsv) == 1 + 30 + 30 and fcsv[0].startswith("well,time,depth_ft,rate_before_gpm,off_s,gain_30s_bbl")
+                  and any(",ABOVE," in ln for ln in fcsv) and any(",KICK-LIKE," in ln for ln in ecsv) and "kick.report" in audit0 and "What this will not call a measurement" in (Path(wr["folder"]) / "kick.md").read_text(encoding="utf-8"),
+        "settings": "between 1 and 100" in bad["bound"] and "where they came from" in bad["no_source"] and s1["gain_min_bbl"] == 100.0 and sum(w_["counts"].get("above", 0) + w_["counts"].get("KICK-LIKE", 0) + w_["counts"].get("LOSSES", 0)
+                    + w_["counts"].get("GAIN", 0) for w_ in p_hi["wells"] if w_["status"] == "OK") == 0 and s2["gain_min_bbl"] == 8.0 and audit0.count("kick.settings") == 2 and p_hi["settings_source"] == "well control procedure (test)",
+        "tool": not tool["is_error"] and tool["text"] == tool_expect and "Kick and loss detection, replayed over the record" in tool["text"] and "kick_detection" in MC.NAMES and len(MC.NAMES) == 26,
+        "alert": len(le) == 1 and le[0]["event"] == "kick.flowback" and le[0]["well"] == "Well L" and len(kraised) == 1 and kraised[0]["event"] == "kick.flowback" and "flowback +" in kraised[0]["detail"]
+                 and not [e for e in again if e["event"].startswith("kick.")] and {"kick.flowback", "kick.gain", "kick.loss"} <= set(AL.EVENTS) and {"kick.flowback", "kick.gain", "kick.loss"} <= set(NT.EVENTS)
+                 and "flowback above its fingerprint on Well L" in NT._subject(kraised[0]),
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "EK2 through a recorder's export into a workspace: a well with a return flow read in full, the channels it was read from named and the paddle said to be read only against itself; a well "
+       "without one whose gains and fall are found and not named; a well with no pit volume said not to be judged; for a screen only the chosen well's long lists; the pit, the pump output and "
+       "the return flow around an event; the report with a row a pumps-off and a row an event; a setting outside its bounds or without its source stopped, raised out of reach nothing flagged, "
+       "put back; the assistant's tool. A record still being written whose well flows at its last connection raises kick.flowback once, with its notice" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- EK3 the routes, the commands, the tab, the help --------------------------------------------------------------------
+    Users(str(Path(ws.path, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(ws.path, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(ws.path, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=300) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as ex:
+            return ex.code, json.loads(ex.read())
+    from urllib.parse import quote as _q
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_v, pv = call(V, "GET", "/api/kick")
+        s_vb, pvb = call(V, "GET", "/api/kick?well=" + _q(wb))
+        s_t, tv = call(V, "GET", f"/api/kick/trace?well={_q(wa)}&from={ka['t'] - 300}&to={ka['t'] + 900}")
+        s_t1, _ = call(V, "GET", f"/api/kick/trace?well={_q(wa)}&from=10&to=5")
+        s_t2, _ = call(V, "GET", f"/api/kick/trace?well={_q(wa)}&from=0&to=999999")
+        s_t3, _ = call(V, "GET", "/api/kick/trace?well=nowhere&from=0&to=600")
+        s_t4, _ = call(V, "GET", f"/api/kick/trace?well={_q(wa)}&from=x&to=600")
+        s_vs, _ = call(V, "POST", "/api/kick/settings", {"gain_min_bbl": 9, "source": "x"})
+        s_os, os_ = call(O, "POST", "/api/kick/settings", {"gain_min_bbl": "9", "flowback_sigma": "", "source": "well control procedure (API)"})
+        s_ob, ob = call(O, "POST", "/api/kick/settings", {"returns_change": 3, "source": "x"})
+        s_o0, _ = call(O, "POST", "/api/kick/settings", {"gain_min_bbl": 8, "source": "well control procedure (API)"})
+        s_vw, _ = call(V, "POST", "/api/kick/write", {})
+        s_ow, ow = call(O, "POST", "/api/kick/write", {})
+    finally:
+        svc.stop()
+    env = {**os.environ, "PYTHONPATH": str(pkg.parent) + os.pathsep + os.environ.get("PYTHONPATH", "")}
+    run = lambda *a_: _sp.run([sys.executable, "-m", "gea", *a_], capture_output=True, text=True, env=env, cwd=str(d), timeout=600)
+    cli_s, cli_t, cli_j = run("kick"), run("kick", "--workspace", ws.path), run("kick", "--workspace", ws.path, "--well", "Well B", "--json")
+    cli_w = run("kick", "--workspace", ws.path, "--write")
+    cli_set = run("kick", "--workspace", ws.path, "--set", "gain_min_bbl=10", "--source", "well control procedure (CLI)")
+    cli_bad = run("kick", "--workspace", ws.path, "--set", "gain_min_bbl=10")
+    cli_no = run("kick", "--workspace", ws.path, "--set", "nonsense=1", "--source", "x")
+    cli_x = run("kick", "--workspace", ws.path, "--well", "Nobody 9H")
+    cli_f = run("kick", "--workspace", str(d / "nowhere"))
+    run("kick", "--workspace", ws.path, "--set", "gain_min_bbl=8", "--source", "well control procedure (CLI)")
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
+    lesson = (pkg / "help" / "tutorial" / "13-drilling-pages.md").read_text(encoding="utf-8")
+    hp = H.page("kick") or ""
+    c3 = {
+        "api_read": s_v == 200 and pv["status"] == "OK" and len(pv["wells"]) == 4 and pv["well"] == wa and s_vb == 200 and pvb["well"] == wb and len(next(w_ for w_ in pvb["wells"] if w_["well"] == wa)["flowbacks"]) == 1
+                    and s_t == 200 and set(tv) == {"t", "q", "pit", "out"} and s_t1 == 400 and s_t2 == 400 and s_t3 == 404 and s_t4 == 400,
+        "api_write": s_vs == 403 and s_os == 200 and os_["gain_min_bbl"] == 9.0 and os_["flowback_sigma"] == 4.0 and os_["source"] == "well control procedure (API)" and s_ob == 400 and "between 0.02 and 0.5" in ob.get("error", "")
+                     and s_o0 == 200 and s_vw == 403 and s_ow == 200 and ow["files"][0] == "kick.json",
+        "cli": cli_s.returncode == 0 and cli_s.stdout.strip().splitlines()[-1].startswith("OK - SIMULATION") and cli_t.returncode == 0 and "Kick and loss detection, replayed over the record" in cli_t.stdout
+               and "kick-like" in cli_t.stdout and "flowback above" in cli_t.stdout and cli_j.returncode == 0 and json.loads(cli_j.stdout)["well"] == wb and cli_w.returncode == 0 and "written: kick.json, kick.md, flowbacks.csv, events.csv" in cli_w.stdout
+               and cli_set.returncode == 0 and "kept: gain_min_bbl 10" in cli_set.stdout and cli_bad.returncode != 0 and "where they came from" in cli_bad.stderr and cli_no.returncode != 0 and "no setting 'nonsense'" in cli_no.stderr
+               and cli_x.returncode != 0 and "no well 'Nobody 9H'" in cli_x.stderr and cli_f.returncode != 0 and cli_f.stdout == "",
+        "page": all(x in page_src for x in ("VIEWS.kick", "['#/kick', 'Kick & loss']", "kdFlowbacks", "/api/kick/trace", "/api/kick/settings", "/api/kick/write", "help('kick')", "'kick.flowback': 'Flowback above its fingerprint'",
+                                            "'kick.gain': 'Pit gain with the returns up'", "'kick.loss': 'Pit fall with the returns down'", "The places to look")),
+        "help": not H.check("kick") and not H.check("alerts") and not H.check("mcp") and H.VIEW_TOPIC.get("kick") == "kick" and all(x in hp for x in ("gea kick --workspace C:\\site", "four scatters and by 4 bbl", "by four scatters and by 8 bbl",
+                "30, 60, 120, 180 and 300 s", "KICK-LIKE", "a flow check, a shut-in and the pressures")) and "`kick.flowback`" in (H.page("alerts") or "") and "`kick_detection`" in (H.page("mcp") or ""),
+        "readme_lesson": (not readme or ("### Kick and loss detection" in readme and "`gea kick`" in readme)) and "**Kick & loss**" in lesson and "kick" in [x.strip() for x in lesson.split("Help:")[-1].split(",")] and not TU.check("drilling-pages"),
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "EK3 on the API (anyone reads the page - the chosen well in full, the others' flagged events only - and the record around an event; a stretch that ends before it starts, one over six hours, "
+       "a moment that is no number and a well that is not there each stopped; only an operator changes a number, a blank left as it was and one out of bounds stopped, or writes the report), the "
+       "commands (the self-test, the page, the page as JSON for a named well, the report, a number changed with its source; one without a source, one that is no setting, a well that is not there "
+       "and a folder that is no workspace each stopped), the Kick & loss tab with its chart and the three alert names, the help page, the alerts and assistant pages, the README and lesson 13"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
 def main() -> int:
@@ -19570,6 +19773,7 @@ def main() -> int:
         section_eh_mcp(tmp)
         section_ei_public_pad_benchmark(tmp)
         section_ej_frac_treatment(tmp)
+        section_ek_kick(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

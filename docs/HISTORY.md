@@ -4,6 +4,18 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.92.0 - 2026-11-14 - kick and loss detection
+
+- `gea kick`: the flowback at each pumps-off against the fingerprint of
+  the eight before it, and the pits while circulating against their own
+  two hours, each event named by what the return flow did. Alerts on a
+  record still being written. The Kick & loss tab.
+- On the public Utah FORGE records: 1,864 pumps-offs on three wells,
+  1,429 read against a fingerprint, 22 above it; two kick-like gains and
+  three stretches of losses on the two wells with a return flow. Pad 3's
+  records have no active pit volume and are said not to be judged.
+- Section EK. Gate 590.
+
 ## v0.91.0 - 2026-11-13 - frac treatment
 
 - `gea frac-treatment`: each fracturing stage from its own pumping record

@@ -5,6 +5,40 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.92.0] - 2026-11-14 - kick and loss detection
+
+### Added
+- **Kick & loss** - `gea kick`: every drilling record with a pump output
+  and an active pit volume replayed for the mud that comes back. THE
+  FLOWBACK: each pumps-off (the pumps stopping after two minutes of
+  pumping and staying off a minute) is read as a curve - the pit volume
+  above what it was when the pumps stopped, at 30, 60, 120, 180 and 300 s
+  - and set against the fingerprint of the eight pumps-offs before it
+  from a like pump rate; one above it at its last two readings by four
+  scatters and 4 bbl is marked, with whether the return line was still
+  running where the record has one; a step of 5 bbl inside half a minute
+  is a transfer and is left out. CIRCULATING: with the pumps steady, the
+  ten-minute change in the pits against its own two hours; a change off
+  that trend by four scatters and 8 bbl, the pits themselves moving that
+  way, is an event named by what the return flow did - KICK-LIKE (up with
+  the pits), LOSSES (down with them), or a gain or fall with the returns
+  flat (mud added, moved or dumped at surface, as far as the record can
+  say); without a return flow, a gain or a fall and no more. The numbers
+  are settings, changed with their source. Report `reports/kick/` (json,
+  md, a row a pumps-off, a row an event). On a record still being written:
+  alerts `kick.flowback`, `kick.gain`, `kick.loss`, once per event. The
+  **Kick & loss** tab (the pit gain at every pumps-off; the pit volume,
+  the pump output and the return flow around any event, a panel each),
+  the routes, the assistant's `kick_detection` tool (twenty-six tools
+  now), `gea help kick`, lesson 13.
+
+### Changed
+- The public pad's conversion of 16B(78)-32 keeps the return flow and the
+  recorder's own gain/loss channel; a site made before this release has
+  them when its well is attached again.
+- `gea public-pad --build` names each stimulation stage as it attaches it.
+- Section EK. Gate 590.
+
 ## [v0.91.0] - 2026-11-13 - frac treatment
 
 ### Added

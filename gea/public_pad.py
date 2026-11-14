@@ -93,7 +93,7 @@ DATASETS = {FORGE['id']: FORGE}
 SUBFOLDERS = ('', 'stimulation')
 # the recorder channels the program reads, by the header's name without its unit
 KEEP = ('Hole Depth', 'Bit Depth', 'Rate Of Penetration', 'Weight on Bit', 'Rotary RPM', 'Standpipe Pressure', 'Hook Load', 'Differential Pressure', 'Total Pump Output', 'Block Height',
-        'Convertible Torque', 'Rotary Torque', 'On Bottom', 'Gamma', 'Interpolated TVD', 'Trip Tank Mud Volume', 'Total Mud Volume', 'Inclination', 'Azimuth', 'Pump Total Strokes Rate')
+        'Convertible Torque', 'Rotary Torque', 'On Bottom', 'Gamma', 'Interpolated TVD', 'Trip Tank Mud Volume', 'Total Mud Volume', 'Inclination', 'Azimuth', 'Pump Total Strokes Rate', 'Flow', 'PVT Total Mud Gain/Loss')
 SENTINELS = ('-999.25', '-9999.00', '-9999', '-999.250000')
 MONTHS = {m: f'{i + 1:02d}' for i, m in enumerate(('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'))}
 _LOCK = threading.Lock()

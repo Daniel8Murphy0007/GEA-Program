@@ -1751,7 +1751,7 @@ function shelveDialog(wellId, alarmId) {
   post('/api/alarms/shelve', {well_id: wellId, alarm_id: alarmId, hours: hrs.trim() ? +hrs : null, note}).then(j => { toast(`Shelved ${alarmId} (${j.status})`, j.status === 'DONE' ? 'ok' : 'err'); route(); }).catch(e => toast(e.message, 'err'));
 }
 // ---------- program alerts: earthquakes, the watch, motors, penetrators, dossiers ----------
-const AL_NAMES = {'seismic.protocol': 'Protocol level reached', 'seismic.event': 'Earthquake near an operation', 'seismic.watch_down': 'Earthquake watch not reaching the catalogue', 'seismic.watch_up': 'Earthquake watch back', 'motor.due': 'Service interval used up', 'penetrator.outside': 'Penetrator outside its rating', 'dossier.changed': 'Workspace no longer matches a dossier', 'invoice.differs': 'Invoice differs', 'frac.hit': 'Frac hit', 'drilling.washout': 'Off-bottom pressure falling', 'drilling.stall': 'Motor stall', 'drilling.tight': 'Pick-up weight off its trend', 'tls.expiring': 'HTTPS certificate expiring', 'condition.cleared': 'Cleared'};
+const AL_NAMES = {'seismic.protocol': 'Protocol level reached', 'seismic.event': 'Earthquake near an operation', 'seismic.watch_down': 'Earthquake watch not reaching the catalogue', 'seismic.watch_up': 'Earthquake watch back', 'motor.due': 'Service interval used up', 'penetrator.outside': 'Penetrator outside its rating', 'dossier.changed': 'Workspace no longer matches a dossier', 'invoice.differs': 'Invoice differs', 'frac.hit': 'Frac hit', 'drilling.washout': 'Off-bottom pressure falling', 'drilling.stall': 'Motor stall', 'drilling.tight': 'Pick-up weight off its trend', 'kick.flowback': 'Flowback above its fingerprint', 'kick.gain': 'Pit gain with the returns up', 'kick.loss': 'Pit fall with the returns down', 'tls.expiring': 'HTTPS certificate expiring', 'condition.cleared': 'Cleared'};
 function alKind(e) { return ({'tls.expiring': 'warn', 'seismic.protocol': 'serious', 'seismic.watch_down': 'serious', 'penetrator.outside': 'serious', 'dossier.changed': 'serious', 'motor.due': 'warn', 'seismic.event': 'warn'})[e] || 'good'; }
 async function alCard() {
   let A; try { A = await get('/api/alerts'); } catch (e) { return ''; }
@@ -3564,6 +3564,65 @@ VIEWS.publicpad = async () => {
   if (J.state === 'running') setTimeout(() => { if (location.hash === '#/publicpad') route(); }, 3000);
 };
 
+// ---------- kick and loss: the flowback at each pumps-off, and the pits while circulating ----------
+const KDV = {well: null, show: null};
+function kdFlowbacks(W) {
+  // one measure: the pit gain at each pumps-off, read where its fingerprint was read; the flagged ones marked and named
+  const fb = W.flowbacks.filter(f => f.read_at_s != null && f.dv[String(f.read_at_s)] != null);
+  if (!fb.length) return '<p class="small muted">No pumps-off has a fingerprint yet: four from a like pump rate are needed before a fifth is read against them.</p>';
+  const xs = fb.map((f, i) => i + 1), ys = fb.map(f => f.dv[String(f.read_at_s)]);
+  const dots = fb.map((f, i) => f.status === 'ABOVE' ? {x: i + 1, y: ys[i], label: `${f.time.replace('T', ' ').slice(0, 16)}: ${ys[i].toFixed(1)} bbl, ${f.excess_bbl > 0 ? '+' : ''}${f.excess_bbl} against its fingerprint`, text: ''} : null).filter(Boolean);
+  return ftPanel(xs, ys, {title: 'Pit gain at each pumps-off, bbl (read 1 to 5 minutes after the pumps stopped)', unit: 'bbl', color: 'var(--s1)', points: true, h: 220, dots, fmt: v => v.toFixed(0),
+    tip: (x, v) => { const f = fb[x - 1]; return `${f.time.replace('T', ' ').slice(0, 16)}${f.depth_ft == null ? '' : ', ' + Math.round(f.depth_ft).toLocaleString() + ' ft'}: ${v.toFixed(1)} bbl at ${f.read_at_s} s; its fingerprint ${f.fingerprint[String(f.read_at_s)].median.toFixed(1)} bbl; ${f.status.toLowerCase()}`; },
+    xfmt: v => v.toFixed(0), xlab: 'pumps-offs in the order they came'}) +
+    `<p class="small muted">Each dot a pumps-off. Black: above its fingerprint - the eight before it from a like pump rate. Hold the pointer on a dot for its time and depth.</p>`;
+}
+VIEWS.kick = async () => {
+  const P = await get('/api/kick' + (KDV.well ? '?well=' + encodeURIComponent(KDV.well) : ''));
+  KDV.well = P.well;
+  let h = `<h2>Kick & loss <span class="small muted">the flowback and the pits against their own baselines</span></h2>` + help('kick');
+  const ok = P.wells.filter(w => w.status === 'OK'), sum = k => ok.reduce((a, w) => a + (w.counts[k] || 0), 0);
+  h += `<div class="tiles">` + tile('Records judged', `${ok.length} of ${P.wells.length}`, ok.length ? 'neutral' : 'warn', '#/kick', ok.length < P.wells.length ? 'the rest have no pit volume or no pump rate' : 'each has a pump rate and a pit volume')
+    + tile('Flowbacks above', String(sum('above')), sum('above') ? 'warn' : 'good', '#/kick', `of ${sum('read')} read against a fingerprint`)
+    + tile('Kick-like gains', String(sum('KICK-LIKE')), sum('KICK-LIKE') ? 'warn' : 'good', '#/kick', 'the pits up and the returns up, the pumps steady')
+    + tile('Losses', String(sum('LOSSES')), sum('LOSSES') ? 'warn' : 'good', '#/kick', 'the pits down and the returns down') + `</div>`;
+  h += `<div class="card"><h3>What the records say</h3><ul class="small">${P.lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>${can('operator') && ok.length ? `<p><button id="kdWrite">Write the report</button></p>` : ''}</div>`;
+  if (P.wells.length > 1) h += `<p>${P.wells.map(w => `<button type="button" class="${w.well === P.well ? '' : 'secondary'} kd-w" data-w="${esc(w.well)}"${w.status === 'OK' ? '' : ' disabled'}>${esc(w.display)}</button>`).join(' ')}</p>`;
+  const W = P.wells.find(w => w.well === P.well && w.status === 'OK');
+  if (W) {
+    const c = W.counts, shown = [];
+    h += `<div class="card"><h3>${esc(W.display)} ${W.live ? statusPill('warn', 'still being written') : ''}</h3><p class="small">${c.pumps_off.toLocaleString()} pumps-offs, ${c.read.toLocaleString()} read against a fingerprint${W.typical_flowback_bbl == null ? '' : ` (typically ${W.typical_flowback_bbl} bbl back after two minutes)`}; ${c.transfer} had a transfer in them and ${c.no_baseline} had too few before them. Circulating: ${W.judged_h} h judged of ${W.steady_h} h steady.</p>`;
+    h += kdFlowbacks(W);
+    const rowsF = W.flowbacks.filter(f => f.status === 'ABOVE'), rowsE = W.events.filter(e => e.kind !== 'TRANSFER').sort((a, b) => ['KICK-LIKE', 'LOSSES'].includes(b.kind) - ['KICK-LIKE', 'LOSSES'].includes(a.kind) || Math.abs(b.off_trend_bbl || 0) - Math.abs(a.off_trend_bbl || 0)).slice(0, 40);
+    if (rowsF.length || rowsE.length) {
+      h += `<h4>The places to look</h4><div style="overflow-x:auto"><table class="small"><thead><tr><th>When</th><th>Depth, ft</th><th>What</th><th>Reading</th><th></th></tr></thead><tbody>`;
+      for (const f of rowsF) { const k = `f:${f.t}`; shown.push([k, f.t - 600, f.t + 900, f.t]); h += `<tr><td>${esc(f.time.replace('T', ' ').slice(0, 16))}</td><td>${f.depth_ft == null ? '-' : Math.round(f.depth_ft).toLocaleString()}</td><td>${statusPill('warn', 'flowback above')}</td><td>${esc(`+${f.dv[String(f.read_at_s)]} bbl at ${f.read_at_s} s against ${f.fingerprint[String(f.read_at_s)].median} for the ${f.fingerprint[String(f.read_at_s)].n} before it`)}${f.returns_running == null ? '' : f.returns_running ? '; the return line still running' : '; the return line down as usual'}</td><td><a href="#/kick" class="kd-s" data-k="${k}">show</a></td></tr>`; }
+      for (const e of rowsE) { const k = `e:${e.t}`; shown.push([k, e.t - 900, e.t_end + 900, e.t]); h += `<tr><td>${esc(e.time.replace('T', ' ').slice(0, 16))}</td><td>${e.depth_ft == null ? '-' : Math.round(e.depth_ft).toLocaleString()}</td><td>${statusPill(e.kind === 'KICK-LIKE' || e.kind === 'LOSSES' ? 'warn' : 'neutral', e.kind.toLowerCase())}</td><td>${esc(e.reads)}</td><td><a href="#/kick" class="kd-s" data-k="${k}">show</a></td></tr>`; }
+      h += `</tbody></table></div><p class="small muted">${Object.entries(P.kinds).filter(([k]) => c[k]).map(([k, v]) => `<b>${esc(k.toLowerCase())}</b> (${c[k]}): ${esc(v)}`).join('; ')}.</p>`;
+    }
+    const sel = shown.find(x => x[0] === KDV.show);
+    if (sel) {
+      try {
+        const T = await get(`/api/kick/trace?well=${encodeURIComponent(W.well)}&from=${sel[1]}&to=${sel[2]}`), x = T.t.map(v => (v - (sel[3] - sel[1])) / 60), mk = [{x: 0, label: 'the event'}];
+        h += `<h4>The record around it</h4>` + (T.pit ? ftPanel(x, T.pit, {title: 'Active pit volume, bbl', unit: 'bbl', color: 'var(--s1)', h: 180, marks: mk, xunit: 'min', fmt: v => v.toFixed(0)}) : '')
+          + (T.q ? ftPanel(x, T.q, {title: 'Pump output, gal/min', unit: 'gal/min', color: 'var(--s2)', zero: true, h: 120, marks: mk, xunit: 'min', fmt: v => v.toFixed(0), xlab: T.out ? null : 'minutes from the event'}) : '')
+          + (T.out ? ftPanel(x, T.out, {title: 'Return flow, as the recorder gives it', unit: '', color: 'var(--s3)', zero: true, h: 120, marks: mk, xunit: 'min', fmt: v => v.toFixed(0), xlab: 'minutes from the event'}) : '')
+          + `<p class="small muted">A panel a measure on one clock; the dashed line is where the event begins.</p>`;
+      } catch (e) { h += `<p class="small muted">${esc(e.message)}</p>`; }
+    }
+    for (const n of W.notes) h += `<p class="small muted">${esc(n)}</p>`;
+    h += `</div>`;
+  }
+  for (const w of P.wells.filter(w => w.status !== 'OK')) h += `<div class="card"><p class="small">${statusPill('neutral', 'not judged')} <b>${esc(w.display)}</b>: ${esc(w.why || '')}.</p></div>`;
+  h += `<div class="card"><h3>The rules' numbers</h3><p class="small">${Object.keys(P.settings).map(k => `${esc(P.words[k])}: <b>${P.settings[k]}</b>`).join('; ')}. ${P.settings_source ? 'From: ' + esc(P.settings_source) + '.' : 'As the program came.'}</p>`;
+  if (can('operator')) h += `<form id="kdSet" class="row">${Object.keys(P.settings).map(k => `<label title="${esc(P.words[k])}; ${P.bounds[k][0]} to ${P.bounds[k][1]}">${esc(k.replace(/_/g, ' '))}<input name="${k}" type="number" step="any" value="${P.settings[k]}" style="width:6em"></label>`).join('')}<label>Where the numbers came from<input name="source" placeholder="well control procedure, rev 4"></label><button class="secondary" type="submit">Keep</button></form>`;
+  h += `</div><div class="card"><h3>What this page will not call a measurement</h3><ul class="small">${P.not_a_measurement.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
+  $('#main').innerHTML = h;
+  document.querySelectorAll('.kd-w').forEach(b => b.onclick = () => { KDV.well = b.dataset.w; KDV.show = null; route(); });
+  document.querySelectorAll('.kd-s').forEach(a => a.onclick = ev => { ev.preventDefault(); KDV.show = a.dataset.k; route(); });
+  $('#kdWrite') && ($('#kdWrite').onclick = async () => { try { const r = await post('/api/kick/write', {}); toast('Written: ' + r.files.join(', '), 'ok'); } catch (e) { toast(e.message, 'err'); } });
+  $('#kdSet') && ($('#kdSet').onsubmit = async ev => { ev.preventDefault(); try { await post('/api/kick/settings', Object.fromEntries(new FormData(ev.target).entries())); toast('Kept', 'ok'); route(); } catch (e) { toast(e.message, 'err'); } });
+};
 // ---------- frac treatment: each stage from its own pumping record ----------
 const FTR = {well: null, stage: null};
 function ftNum(v, d) { return v == null ? '<span class="muted">-</span>' : Number(v).toLocaleString(undefined, {maximumFractionDigits: d || 0}); }
@@ -4271,7 +4330,7 @@ function authScreen(first, company) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/publicpad', 'Public data'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/roadmap', 'Roadmap'], ['#/benchmark', 'Benchmark'], ['#/dysfunction', 'Drilling alerts'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/treatment', 'Frac treatment'], ['#/frac', 'Frac hits'], ['#/fluid', 'Fluid balance'], ['#/plume', 'Pressure plume'], ['#/front', 'Fluid front'], ['#/calibration', 'Calibration'], ['#/porepressure', 'Pore pressure'], ['#/torquedrag', 'Torque & drag'], ['#/hydraulics', 'Hydraulics & ECD'], ['#/casing', 'Casing & kick tolerance'], ['#/decline', 'Decline curves'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/mcp', 'Assistant access'], ['#/catalog', 'Catalogue'], ['#/rocks', 'Rocks'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/tutorial', 'Tutorial'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/publicpad', 'Public data'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/roadmap', 'Roadmap'], ['#/benchmark', 'Benchmark'], ['#/dysfunction', 'Drilling alerts'], ['#/kick', 'Kick & loss'], ['#/collision', 'Collision'], ['#/plan', 'Plan vs actual'], ['#/treatment', 'Frac treatment'], ['#/frac', 'Frac hits'], ['#/fluid', 'Fluid balance'], ['#/plume', 'Pressure plume'], ['#/front', 'Fluid front'], ['#/calibration', 'Calibration'], ['#/porepressure', 'Pore pressure'], ['#/torquedrag', 'Torque & drag'], ['#/hydraulics', 'Hydraulics & ECD'], ['#/casing', 'Casing & kick tolerance'], ['#/decline', 'Decline curves'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/mcp', 'Assistant access'], ['#/catalog', 'Catalogue'], ['#/rocks', 'Rocks'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/tutorial', 'Tutorial'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w'], '#/control': b => [b.handover_unacked, 'w']};
 function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }

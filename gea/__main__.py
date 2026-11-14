@@ -682,6 +682,14 @@ def main(argv=None) -> int:
     p_bm.add_argument("--write", action="store_true", help="write reports/benchmark/benchmark.json, .md, .csv and stretches.csv")
     p_bm.add_argument("--actor", type=str, default="cli")
     p_bm.add_argument("--json", action="store_true")
+    p_kd = sub.add_parser("kick", help="kick and loss detection replayed over every drilling record: the flowback at each pumps-off against the fingerprint of the connections before it, and the pits while circulating against their own trend, named by what the return flow did")
+    p_kd.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (a record built with each event at a known place)")
+    p_kd.add_argument("--well", type=str, default=None, help="a well, by its name or id: with --json, the well whose long lists are kept")
+    p_kd.add_argument("--set", action="append", default=[], metavar="NAME=VALUE", help="change one of the rules' numbers (flowback_sigma, flowback_min_bbl, gain_sigma, gain_min_bbl, returns_change); needs --source")
+    p_kd.add_argument("--source", type=str, default="", help="where the changed number came from")
+    p_kd.add_argument("--write", action="store_true", help="write reports/kick/kick.json, .md, flowbacks.csv and events.csv")
+    p_kd.add_argument("--actor", type=str, default="cli")
+    p_kd.add_argument("--json", action="store_true")
     p_ft = sub.add_parser("frac-treatment", help="each fracturing stage from its own pumping record: what was pumped, the ISIP read back through the ringing with its range, the friction and its two parts from a step-down, the fall-off against G, a step-rate test - nothing fitted to a model of the fracture")
     p_ft.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (stages built with every answer known)")
     p_ft.add_argument("--well", type=str, default=None, help="a well, by its name or id: with --stage, that stage in full")
@@ -3622,6 +3630,43 @@ def main(argv=None) -> int:
             raise SystemExit(f"benchmark: {e.args[0] if e.args else e}")
         print(_json.dumps(p, default=str) if a.json else _BM.text(p))
         return 0
+    elif a.cmd == "kick":
+        import json as _json
+        from . import kick as _KD
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if not a.workspace:
+            r = _KD.selftest()
+            print("\n".join(f"{'PASS' if c['pass'] else 'FAIL'}  {c['check']}: {c['value']}" for c in r["checks"]) + f"\n{'OK' if r['ok'] else 'FAILED'} - {r['label']}")
+            return 0 if r["ok"] else 1
+        try:
+            ws = Workspace(a.workspace)
+            wid = None
+            if a.well:
+                wid = next((w["id"] for w in ws.wells() if a.well in (w["id"], w.get("display"))), None)
+                if wid is None:
+                    raise SystemExit(f"kick: no well {a.well!r} in this workspace")
+            if a.set:
+                kw_ = {}
+                for x_ in a.set:
+                    if "=" not in x_:
+                        raise SystemExit("kick: --set takes NAME=VALUE, e.g. --set gain_min_bbl=10")
+                    k_, v_ = x_.split("=", 1)
+                    if k_.strip() not in _KD.DEFAULTS:
+                        raise SystemExit(f"kick: no setting {k_.strip()!r}: {', '.join(_KD.DEFAULTS)}")
+                    kw_[k_.strip()] = v_.strip()
+                s_ = _KD.set_settings(ws, a.actor, a.source, **kw_)
+                print("kept: " + ", ".join(f"{k_} {s_[k_]:g}" for k_ in kw_) + f" ({s_['source']})")
+            if a.write:
+                from . import __version__ as _ver92
+                r = _KD.write_report(ws, _ver92, a.actor)
+                print(f"written: {', '.join(r['files'])} under {r['folder']}")
+            p = _KD.page(ws, wid)
+        except (_KD.KickError, WorkspaceError, ValueError, OSError) as e:
+            raise SystemExit(f"kick: {e.args[0] if e.args else e}")
+        print(_json.dumps(p, default=str) if a.json else _KD.text(p))
+        return 0
     elif a.cmd == "frac-treatment":
         import json as _json
         from . import frac_treatment as _FT
@@ -3681,7 +3726,9 @@ def main(argv=None) -> int:
 
                 def say_(d_):
                     t_ = f"{d_.get('well', '')} {d_.get('step', '')}".strip()
-                    if t_ != last_["t"] and d_.get("step") != "done":
+                    if d_.get("step") == "treatment":
+                        print(f"  {d_.get('well', '')}: the pumping record of stage {d_.get('stage', '')}", flush=True)
+                    elif t_ != last_["t"] and d_.get("step") != "done":
                         last_["t"] = t_
                         print(f"  {d_.get('n', '')}/{d_.get('of', '')} {t_}", flush=True)
                 r = _PP.build(a.folder, a.site, a.actor, verify=True, progress=say_)

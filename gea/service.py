@@ -2311,6 +2311,21 @@ def make_handler(app: App):
                 if path == '/api/benchmark':
                     from . import benchmark as BM
                     return self._json(200, App._cr(BM.page, app.ws))
+                if path == '/api/kick':
+                    from . import kick as KD
+                    return self._json(200, App._cr(KD.page, app.ws, (qs.get('well') or [None])[0], None, False))
+                if path == '/api/kick/trace':
+                    from . import kick as KD
+                    try:
+                        t_a, t_b = float((qs.get('from') or [''])[0]), float((qs.get('to') or [''])[0])
+                    except ValueError:
+                        raise ApiError(400, 'give the two moments in seconds of the record: from and to')
+                    if not (0 < t_b - t_a <= 6 * 3600):
+                        raise ApiError(400, 'the stretch is from before to, and six hours at most')
+                    wid_ = (qs.get('well') or [''])[0]
+                    if not any(w['id'] == wid_ for w in app.ws.wells()):
+                        raise ApiError(404, f'no well {wid_!r}')
+                    return self._json(200, App._cr(KD.trace, app.ws, wid_, t_a, t_b))
                 if path == '/api/frac-treatment':
                     from . import frac_treatment as FT
                     return self._json(200, App._cr(FT.page, app.ws, (qs.get('well') or [None])[0], (qs.get('stage') or [None])[0]))
@@ -2739,6 +2754,16 @@ def make_handler(app: App):
                     from . import __version__ as _v
                     App.require(user, 'operator')
                     r_ = App._cr(BM.write_report, app.ws, _v, user['name'])
+                    return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
+                if path in ('/api/kick/settings', '/api/kick/write'):
+                    from . import kick as KD
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    b_ = dict(body or {})
+                    if path.endswith('/settings'):
+                        s_ = App._cr(KD.set_settings, app.ws, user['name'], str(b_.get('source') or ''), **{k: b_.get(k) for k in KD.DEFAULTS if k in b_})
+                        return self._json(200, {k: s_[k] for k in list(KD.DEFAULTS) + ['source']})
+                    r_ = App._cr(KD.write_report, app.ws, _v, user['name'])
                     return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
                 if path in ('/api/frac-treatment/attach', '/api/frac-treatment/remove', '/api/frac-treatment/declare', '/api/frac-treatment/to-frac-hits', '/api/frac-treatment/write'):
                     from . import frac_treatment as FT

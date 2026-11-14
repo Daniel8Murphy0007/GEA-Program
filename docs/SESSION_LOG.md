@@ -4043,3 +4043,64 @@ stability; and motor specifications in the tool catalogue.
   assistant's `frac_treatment` tool, the help page, lesson 14, the
   README. Section EJ. Rendered under Playwright with no script error.
   Gate 587.
+
+## 2026-11-14 - kick and loss detection (v0.92.0)
+
+- v0.91.0 shipped (ci, PyPI and the kit build green); the six kits
+  fetched into C:\site\installers and verified against the release's
+  SHA-256, the 0.90.0 ones moved to _to_delete; item 7 marked shipped in
+  C:\site\GEA_innovation_list.md.
+- Next on the list was item 5, hard-line alerts. Before building, a look
+  at what it would run on: no well of Pad 3 has a wellhead position, an
+  elevation or a directional survey declared (the dataset is three
+  recorder files and nothing else), and there are no lease lines. The
+  FORGE site's wells are not placed either, though their surveys and
+  wellhead positions are published. Daniel's order: Pad 3's own geometry
+  first, then kick detection, then the FORGE build. What Pad 3 needs was
+  listed for him (each well's name and API number, wellhead position and
+  datum, elevation, survey; the lease or unit boundary and the setback
+  rule), a folder made for it (C:\site\_incoming\Pad 3 geometry), and
+  kick detection begun while those are on their way.
+- All five FORGE records carry a pit volume in their raw files; the site
+  as built has it for three (56-32, 78B-32, 16B), and a return flow for
+  two. So the rules were written against a labelled record and then
+  replayed on those three, and the real records changed them.
+- The first replay was unreadable: on one well 52 gains, 33 falls and
+  328 transfers. A geothermal rig's pits are worked all day - mud added,
+  moved, dumped - and a rule tuned on a tidy pit system calls all of it.
+  What it became: the thresholds doubled (four scatters and 4 bbl for a
+  flowback, 8 bbl for a circulating change); the events that are named
+  (kick-like, losses) listed, the rest counted; and the fingerprint made
+  of the eight pumps-offs before, whatever was said of them, so that a
+  flowback that stays at a new level becomes the fingerprint - as a
+  rig's does when its lines are changed - where before it was flagged
+  for ever.
+- A gain is off its trend AND the pits rose. On 78B-32 the pits had been
+  falling 20 bbl every ten minutes for two hours; when that stopped, the
+  change was "+21 bbl off its trend" and the rule said kick-like. A fall
+  that slows is not a gain.
+- What the records say now: 56-32, 436 pumps-offs, 310 read, 3 above
+  their fingerprint, two stretches of losses; 78B-32, 379 and 208, 7
+  above, two kick-like gains, one stretch of losses; 16B, 1,049 and 911,
+  12 above. And the useful thing the return flow adds: at all ten
+  flowbacks above their fingerprint on the two wells that have one, the
+  return line was down as usual. The pits rose and the well was not
+  flowing - mud moved in during the connection, slowly enough not to be
+  a step. The page says which it saw.
+- A flowback below its fingerprint is weak evidence - the return line
+  lined up to the trip tank does it - so those are counted, not listed.
+- Pad 3's three records are said not to be judged: they have a trip
+  tank volume and no active pit volume, as the list foresaw.
+- 16B's record had been converted without its return flow; the
+  converter keeps it now, for a site made or a well attached from here
+  on.
+- Not done: the trip sheet (the hole fill on a trip against the steel
+  pulled), which is what Pad 3's trip tank could give; the pit volume
+  and return flow of 16A and 58-32, which their converters do not carry
+  yet; a declared list of which tanks are active.
+- The small fault of 0.91.0 is mended: the terminal build of the public
+  pad names each stimulation stage as it attaches it.
+- The CLI `gea kick`, the routes, the Kick & loss tab, three alerts with
+  their notices, the assistant's `kick_detection` tool, the help page,
+  lesson 13, the README. Section EK. Rendered under Playwright with no
+  script error. Gate 590.
