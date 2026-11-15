@@ -4197,3 +4197,28 @@ stability; and motor specifications in the tool catalogue.
   offered only the worked example until Refresh was pressed.
 - Every tab opened in a window with storage denied and cookies off.
   Gate 593.
+
+## 2026-11-14 - the recorder's self-test across the hour (v0.93.1)
+
+- 0.93.0 shipped to PyPI and passed its tests, and the kit build failed:
+  on the recorder, "Install it as the Pi would and run the self-test
+  from the install" printed `NO manifest: 10 files, 5 sensors` with
+  every other line ok.
+- The cause was in the test, not the recorder. The recorder closes a
+  file and opens the next at the top of each hour; the self-test
+  recorded at whatever time it was and expected one file a channel. The
+  job ran as 19:00 UTC passed, so each of the five channels had two
+  files, each correct. A test that fails for ten seconds or so of every
+  hour had passed every build since the recorder was first shipped; it
+  would have failed an install on a box in those same seconds.
+- Mended by taking the chance out: the self-test's clock is set so the
+  hour turns half way through its recording, every time. It now expects
+  two files a channel, the second starting on the hour, and reads both
+  back as one unbroken run of samples against what the source made. The
+  gate runs it too (it had left it to the kit build alone).
+- The tag v0.93.0 is on the origin and is not moved; the version is
+  reissued as 0.93.1, with the same program. The kit build step was
+  repeated here as the workflow runs it - the kit built, unpacked, its
+  wheel installed in a fresh environment, the self-test and the config
+  check run from the install.
+  Gate 593.

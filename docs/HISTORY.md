@@ -4,6 +4,14 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.93.1 - 2026-11-14 - the recorder's self-test across the hour
+
+- The field recorder's self-test expected one file a channel and failed
+  when the hour turned during it - which stopped the 0.93.0 kit build at
+  19:00 UTC. It records across the top of an hour every time now and
+  checks the split. 0.93.0 reissued; the program is unchanged.
+- Gate 593.
+
 ## v0.93.0 - 2026-11-14 - the public pad's wells placed and drawn
 
 - The Utah FORGE wells are placed from their published surveys: five

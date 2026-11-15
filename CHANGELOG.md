@@ -5,6 +5,26 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.93.1] - 2026-11-14 - the recorder's self-test across the hour
+
+### Fixed
+- **The field recorder's self-test failed when the hour turned during
+  it.** It recorded its test signal at the time it was run and expected
+  one file a channel; the recorder starts a new file each hour, so a run
+  that crossed the top of the hour wrote two a channel and the test
+  called its own manifest wrong ("10 files, 5 sensors"). Nothing was
+  wrong with the recording. It stopped the build of the 0.93.0 kits,
+  which ran at 19:00 UTC, and it would have failed an install on the box
+  in the same seconds of any hour (`install.sh` runs it). The self-test
+  now always records across the top of an hour - the clock it reads is
+  set so the hour turns half way through - and checks what that must
+  give: two files a channel, the second starting on the hour, every
+  sample read back as one unbroken run. The same at any time of day, and
+  the split is checked on every build and every install.
+- 0.93.0's program is the same as this one; its release has no recorder
+  kit, so the kits are published under 0.93.1.
+- Gate 593.
+
 ## [v0.93.0] - 2026-11-14 - the public pad's wells placed and drawn
 
 ### Added

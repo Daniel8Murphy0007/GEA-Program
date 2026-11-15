@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -45,9 +46,14 @@ WantedBy=multi-user.target
 def selftest(seconds: float = 20.0, as_json: bool = False, keep: str = '') -> int:
     """The test signal recorded free-running for `seconds` of samples into a temporary folder; every file read back
     with this program's own reader; every sample compared to what the source made; the manifest and the hashes
-    checked. The same check the build runs before the box is published."""
+    checked. The same check the build runs before the box is published.
+
+    The recording is always made across the top of an hour - the clock the test reads is set so that the hour turns
+    half way through - so every channel closes one file and opens the next, and the split is checked every time,
+    whatever the time of day the test is run at. (Before 0.93.1 it ran at the time it was, expected one file a
+    channel, and failed when the hour happened to turn during it.)"""
     import numpy as np
-    from . import mseed, service, sources, writer as _writer
+    from . import clock as _clock, mseed, service, sources, writer as _writer
     cfg = json.loads(json.dumps(_config.EXAMPLE))
     cfg['adc']['driver'] = 'sim'
     cfg['output']['dir'] = keep or tempfile.mkdtemp(prefix='gea-recorder-selftest-')
@@ -60,7 +66,14 @@ def selftest(seconds: float = 20.0, as_json: bool = False, keep: str = '') -> in
     def add(name, ok, detail=''):
         checks.append({'check': name, 'ok': bool(ok), 'detail': detail})
     t0 = time.time()
-    h = service.run_for(cfg, seconds, realtime=False, seed=7)
+    hour = (math.floor(t0 / 3600.0) + 1) * 3600.0
+    off = hour - seconds / 2.0 - t0                        # the test's clock: the hour turns half way through the recording
+    real_now = _clock.now
+    _clock.now = lambda: time.time() + off
+    try:
+        h = service.run_for(cfg, seconds, realtime=False, seed=7)
+    finally:
+        _clock.now = real_now
     elapsed = time.time() - t0
     fs = float(cfg['adc']['sample_rate'])
     add('recorded', h['samples'] >= seconds * fs and h['state'] == 'stopped', f"{h['samples']:,} samples per channel in {elapsed:.1f} s")
@@ -72,8 +85,10 @@ def selftest(seconds: float = 20.0, as_json: bool = False, keep: str = '') -> in
         man = {'files': []}
         add('manifest', False, str(e))
     else:
-        add('manifest', man.get('n_files', 0) == len(cfg['adc']['channels']) and man['n_files'] == len(man['files']) and len(man['sensors']) == len(cfg['adc']['channels']),
-            f"{man.get('n_files')} files, {len(man.get('sensors', []))} sensors")
+        nch = len(cfg['adc']['channels'])
+        per = {(c['id'], c['code']): sum(1 for e in man.get('files', []) if e['sensor_id'] == c['id'] and e['code'] == c['code']) for c in cfg['adc']['channels']}
+        add('manifest', man.get('n_files', 0) == len(man['files']) == 2 * nch and all(v == 2 for v in per.values()) and len(man['sensors']) == nch,
+            f"{man.get('n_files')} files, {len(man.get('sensors', []))} sensors: two files a channel, one either side of the hour")
     # the source again, with the same seed, free-running: what every sample should be
     src = sources.SimSource(cfg, realtime=False, seed=7); src.open()
     want = []
@@ -85,9 +100,15 @@ def selftest(seconds: float = 20.0, as_json: bool = False, keep: str = '') -> in
         entries = [e for e in man['files'] if e['sensor_id'] == c['id'] and e['code'] == c['code']]
         if not entries:
             all_ok = False; detail.append(f"{c['id']}: no file"); continue
-        e = entries[0]
-        p = os.path.join(cfg['output']['dir'], e['file'])
-        recs = mseed.read(p)
+        entries.sort(key=lambda e: e['start_utc'])
+        recs = []; digest = True; n_listed = 0; first_ok = True
+        for e in entries:                                  # the hour's file and the next hour's, in order: one unbroken run of samples
+            p = os.path.join(cfg['output']['dir'], e['file'])
+            rr = mseed.read(p)
+            first_ok = first_ok and bool(rr) and rr[0]['timing_quality'] == 0
+            recs.extend(rr); n_listed += e['samples']
+            digest = digest and _writer.sha256_file(p) == e['sha256']
+        split_ok = len(entries) < 2 or abs(recs_start(entries[1], cfg) - hour) < 1.0 / float(c['rate'])
         data = np.concatenate([r['data'] for r in recs]) if recs else np.zeros(0, dtype=np.int32)
         ratio = int(round(fs / float(c['rate'])))
         exp = want[j]
@@ -95,14 +116,13 @@ def selftest(seconds: float = 20.0, as_json: bool = False, keep: str = '') -> in
             n_full = len(exp) // ratio
             exp = np.round(exp[:n_full * ratio].reshape(n_full, ratio).mean(axis=1)).astype(np.int32)
         exp = exp[:len(data)]
-        same = len(data) == e['samples'] and len(data) >= len(exp) - ratio and np.array_equal(data[:len(exp)], exp)
-        digest = _writer.sha256_file(p) == e['sha256']
+        same = len(data) == n_listed and len(data) >= len(exp) - ratio and np.array_equal(data[:len(exp)], exp)
         times_ok = all(abs((recs[k + 1]['starttime'] - recs[k]['starttime']) - len(recs[k]['data']) / float(c['rate'])) < 1e-4 for k in range(len(recs) - 1))
         hdr_ok = all(r['station'] == c['id'][:5] and r['channel'] == c['code'] and r['network'] == cfg['network'] and abs(r['rate'] - float(c['rate'])) < 1e-9 for r in recs)
-        ok_c = same and digest and times_ok and hdr_ok and recs and recs[0]['timing_quality'] == 0
+        ok_c = bool(same and digest and times_ok and hdr_ok and recs and first_ok and split_ok)
         all_ok = all_ok and ok_c
-        detail.append(f"{c['id']}.{c['code']}: {len(data):,} samples in {len(recs)} records{'' if ok_c else ' - WRONG'}")
-    add('every sample read back as written, records contiguous, headers right, hashes right', all_ok, '; '.join(detail))
+        detail.append(f"{c['id']}.{c['code']}: {len(data):,} samples in {len(recs)} records, {len(entries)} files{'' if ok_c else ' - WRONG'}")
+    add('every sample read back as written across the hour, records contiguous, the second file starting on the hour, headers right, hashes right', all_ok, '; '.join(detail))
     sens = os.path.join(cfg['output']['dir'], 'sensors.csv')
     add('sensors.csv', os.path.isfile(sens) and open(sens, encoding='utf-8').readline().startswith('sensor_id,lat,lon'), sens)
     ok = all(c['ok'] for c in checks)
@@ -115,6 +135,12 @@ def selftest(seconds: float = 20.0, as_json: bool = False, keep: str = '') -> in
         for c in checks:
             print(f"  {'ok' if c['ok'] else 'NO'}  {c['check']}: {c['detail']}")
     return 0 if ok else 1
+
+
+def recs_start(entry: dict, cfg: dict) -> float:
+    """The start of a manifest entry's file, epoch seconds, from its own first record."""
+    from . import mseed
+    return float(mseed.read(os.path.join(cfg['output']['dir'], entry['file']))[0]['starttime'])
 
 
 def install(config_path: str, user: str, datadir: str) -> int:

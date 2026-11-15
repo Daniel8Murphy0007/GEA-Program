@@ -15752,8 +15752,14 @@ def section_dr_field_recorder(tmp: str) -> None:
         _rc = RMON.ChannelRing({"id": "Y", "code": "HHZ", "kind": "geophone"}, 200.0)
         _rc.add((np.sin(np.arange(2400) / 200 * 2 * np.pi * 5) * 2 ** 23).astype(np.int32), 1000.0)
         _ring_clips = _rc.snapshot(0)["clips_10s"] > 0 and _rc.snapshot(0)["quiet"] is False
+        # the box's own self-test: recorded across the top of an hour whatever the time of day, so the split is checked every time
+        _st = subprocess.run([sys.executable, "-m", "gea_recorder", "selftest", "--seconds", "6", "--json"], cwd=str(rec_dir), capture_output=True, text=True, timeout=300)
+        _stj = json.loads(_st.stdout) if _st.returncode == 0 and _st.stdout.strip().startswith("{") else {}
+        _stc = {c_["check"]: c_ for c_ in _stj.get("checks", [])}
         c1 = {
             "config": ok_cfg["adc"]["channels"][3]["rate"] == 10.0 and ok_cfg["output"]["file_minutes"] == 60 and all(bad),
+            "selftest_across_the_hour": _stj.get("ok") is True and len(_stc) == 4 and "10 files, 5 sensors: two files a channel" in _stc.get("manifest", {}).get("detail", "")
+                                        and all("2 files" in x_ for x_ in next((c_["detail"] for k_, c_ in _stc.items() if k_.startswith("every sample")), "").split("; ")),
             "quality": (q_pps["quality"], q_ms["quality"], q_ntp["quality"], q_un["quality"], q_none["quality"]) == (100, 90, 60, 20, 0) and q_pps["pps"] and not q_ntp["pps"],
         "monitor": _ring_quiet and _ring_clips,
             "drate": RSRC.ads1256_drate_for(200.0, 5) == RSRC.ADS1256_DRATE[2000] and RSRC.ads1256_drate_for(1000.0, 8) == RSRC.ADS1256_DRATE[15000],
