@@ -2311,6 +2311,12 @@ def make_handler(app: App):
                 if path == '/api/benchmark':
                     from . import benchmark as BM
                     return self._json(200, App._cr(BM.page, app.ws))
+                if path == '/api/slide-sheet':
+                    from . import slide_sheet as SS
+                    wid_ = (qs.get('well') or [None])[0]
+                    if wid_ and wid_ not in [w_['id'] for w_ in app.ws.wells()]:
+                        raise ApiError(404, f'no well {wid_}')
+                    return self._json(200, App._cr(SS.page, app.ws, wid_))
                 if path == '/api/hardline':
                     from . import hardline as HL
                     return self._json(200, App._cr(HL.page, app.ws))
@@ -2759,6 +2765,12 @@ def make_handler(app: App):
                     from . import __version__ as _v
                     App.require(user, 'operator')
                     r_ = App._cr(BM.write_report, app.ws, _v, user['name'])
+                    return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
+                if path == '/api/slide-sheet/write':
+                    from . import slide_sheet as SS
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    r_ = App._cr(SS.write_report, app.ws, _v, user['name'])
                     return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
                 if path in ('/api/hardline/declare', '/api/hardline/remove', '/api/hardline/write'):
                     from . import hardline as HL

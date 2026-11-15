@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.95.0 - 2026-11-15 - the slide sheet
+
+- Slide sheet: each slide and each rotated stretch from the drilling
+  record, the toolface where the record has one, the build and the turn
+  from the survey; the courses; the assembly's tendency run by run.
+  Proven on the public pad: the five slides that built 16A's curve.
+- The Public data tab says "this site" when it is the one you are in.
+- Gate 599.
+
 ## v0.94.0 - 2026-11-15 - hard lines
 
 - Hard line: each well against a declared boundary and its setback, in

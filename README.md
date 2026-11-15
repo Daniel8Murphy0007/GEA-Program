@@ -808,7 +808,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.94.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.95.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1215,6 +1215,29 @@ and its bit, held on its direction, would reach it in 582 ft more hole;
 The boundary and the setback are the site's statement - a plat decides
 where a lease line is - and the well is where its survey puts it. The
 **Hard line** tab, `gea hardline`, `gea help hardline`.
+
+### Slide sheet
+
+The directional driller's slide sheet, made from the drilling record and
+the survey. Every slide and every rotated stretch in the order drilled -
+from, to, footage, time, rate, weight on bit, the toolface held where the
+record carries one - with the inclination and azimuth the survey gives at
+its two ends, so each slide shows what it built. Survey course by survey
+course: how much was slid, the dogleg, the build and the turn. And for
+each run of an assembly, between two trips: what the hole does per
+100 ft while only rotated - the assembly's own build or drop, and its
+walk - and the dogleg per 100 ft slid.
+
+On the Utah FORGE public pad the injection well 16A(78)-32 has 38 slides,
+7.3% of its footage; five of them between 5,892 and 6,797 ft built its
+curve, the last four by 2.3 to 3.7 degrees each, and with a slide in the
+course the dogleg per 100 ft slid has a median of 7.5 degrees. The three
+vertical wells were nudged back with 27 to 31 slides each. 16B(78)-32,
+whose curve was not slid, has 14, and the only record with a toolface.
+
+A slide is the record's rotary speed under ten turns a minute while
+drilling; the sheet says what the hole did, not what the motor could do.
+The **Slide sheet** tab, `gea slide-sheet`, `gea help slide-sheet`.
 
 ### Plan vs actual and the survey tools
 
@@ -1880,7 +1903,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.94.0.exe` (for 0.94.0): the
+Every release also carries `GEA-Program-Setup-0.95.0.exe` (for 0.95.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1899,7 +1922,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.94.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.95.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

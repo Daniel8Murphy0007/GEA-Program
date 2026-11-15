@@ -682,6 +682,12 @@ def main(argv=None) -> int:
     p_bm.add_argument("--write", action="store_true", help="write reports/benchmark/benchmark.json, .md, .csv and stretches.csv")
     p_bm.add_argument("--actor", type=str, default="cli")
     p_bm.add_argument("--json", action="store_true")
+    p_ss = sub.add_parser("slide-sheet", help="each slide and each rotated stretch of a well from its drilling record and its survey: footage, rate, toolface, build and turn; the assembly's tendency rotating and the dogleg per 100 ft slid, run by run")
+    p_ss.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (a hole whose every slide and every degree is known)")
+    p_ss.add_argument("--well", type=str, default=None, help="a well, by its name or id: the one whose runs and slides are printed")
+    p_ss.add_argument("--write", action="store_true", help="write reports/slide_sheet/slide_sheet.json, .md, slide_sheet.csv, courses.csv and runs.csv")
+    p_ss.add_argument("--actor", type=str, default="cli")
+    p_ss.add_argument("--json", action="store_true")
     p_hl = sub.add_parser("hardline", help="each well against a declared boundary and its setback: how near the hard line it runs and where, where the bit is and what its heading reaches")
     p_hl.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (paths and boundaries with every distance known)")
     p_hl.add_argument("--declare", type=str, default=None, metavar="NAME", help="declare a boundary under this name; needs --setback-ft, --source and either --layer or --corners")
@@ -3645,6 +3651,32 @@ def main(argv=None) -> int:
             raise SystemExit(f"benchmark: {e.args[0] if e.args else e}")
         print(_json.dumps(p, default=str) if a.json else _BM.text(p))
         return 0
+    elif a.cmd == "slide-sheet":
+        import json as _json
+        from . import slide_sheet as _SS
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if not a.workspace:
+            r = _SS.selftest()
+            print("\n".join(f"{'PASS' if c['pass'] else 'FAIL'}  {c['check']}: {c['value']}" for c in r["checks"]) + f"\n{'OK' if r['ok'] else 'FAILED'} - {r['label']}")
+            return 0 if r["ok"] else 1
+        try:
+            ws = Workspace(a.workspace)
+            wid = None
+            if a.well:
+                wid = next((w["id"] for w in ws.wells() if a.well in (w["id"], w.get("display"))), None)
+                if wid is None:
+                    raise SystemExit(f"slide-sheet: no well {a.well!r} in this workspace")
+            if a.write:
+                from . import __version__ as _ver95
+                r = _SS.write_report(ws, _ver95, a.actor)
+                print(f"written: {', '.join(r['files'])} under {r['folder']}")
+            p = _SS.page(ws, wid)
+        except WorkspaceError as e:
+            raise SystemExit(f"slide-sheet: {e}")
+        print(_json.dumps(p, default=str) if a.json else _SS.text(p))
+        return 0
     elif a.cmd == "hardline":
         import json as _json
         from . import hardline as _HL
@@ -3775,6 +3807,8 @@ def main(argv=None) -> int:
                     t_ = f"{d_.get('well', '')} {d_.get('step', '')}".strip()
                     if d_.get("step") == "treatment":
                         print(f"  {d_.get('well', '')}: the pumping record of stage {d_.get('stage', '')}", flush=True)
+                    elif d_.get("step") == "reconverting":
+                        print(f"  {d_.get('well', '')}: written out again, with the toolface channels", flush=True)
                     elif d_.get("step") == "placing":
                         print(f"  {d_.get('well', '')}: its survey", flush=True)
                     elif d_.get("step") == "record":
@@ -3798,6 +3832,8 @@ def main(argv=None) -> int:
                               + ("" if p_.get("drawn") else "; NOT DRAWN in 3D"))
                     if p_ and p_.get("why"):
                         print(f"  {e_['well']}: {p_['why']}")
+                for w_ in r.get("reconverted") or []:
+                    print(f"  {w_}: written out again from the published export, with its toolface channels")
                 if r.get("boundary"):
                     print(f"  the pad: {r['boundary']} declared as the boundary for the Hard line tab, from {r['record']['boundary']['file']}")
                 for n_ in r["record"].get("notes", []):

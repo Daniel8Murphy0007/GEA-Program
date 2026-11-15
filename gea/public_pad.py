@@ -93,7 +93,9 @@ DATASETS = {FORGE['id']: FORGE}
 SUBFOLDERS = ('', 'stimulation')
 # the recorder channels the program reads, by the header's name without its unit
 KEEP = ('Hole Depth', 'Bit Depth', 'Rate Of Penetration', 'Weight on Bit', 'Rotary RPM', 'Standpipe Pressure', 'Hook Load', 'Differential Pressure', 'Total Pump Output', 'Block Height',
-        'Convertible Torque', 'Rotary Torque', 'On Bottom', 'Gamma', 'Interpolated TVD', 'Trip Tank Mud Volume', 'Total Mud Volume', 'Inclination', 'Azimuth', 'Pump Total Strokes Rate', 'Flow', 'PVT Total Mud Gain/Loss')
+        'Convertible Torque', 'Rotary Torque', 'On Bottom', 'Gamma', 'Interpolated TVD', 'Trip Tank Mud Volume', 'Total Mud Volume', 'Inclination', 'Azimuth', 'Pump Total Strokes Rate', 'Flow', 'PVT Total Mud Gain/Loss',
+        'Gravity Toolface', 'Magnetic Toolface', 'Tool Face')
+CONVERTER = 2                      # 2: the toolface channels kept from the wide export (for the slide sheet)
 SENTINELS = ('-999.25', '-9999.00', '-9999', '-999.250000')
 MONTHS = {m: f'{i + 1:02d}' for i, m in enumerate(('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'))}
 _LOCK = threading.Lock()
@@ -472,6 +474,43 @@ def boundary_status(folder: str) -> dict:
     return {'file': BOUNDARY['file'], 'page': BOUNDARY['page'], 'doi': BOUNDARY['doi'], 'title': BOUNDARY['title'], 'bytes_expected': BOUNDARY['bytes'], 'sha256_expected': BOUNDARY['sha256'],
             'present': p is not None, 'bytes': os.path.getsize(p) if p else None, 'size_matches': (os.path.getsize(p) == BOUNDARY['bytes']) if p else None,
             'can': f"the project area, declared as the boundary for the Hard line tab (setback {BOUNDARY['setback_ft']:g} ft - none is published - and a warning within {BOUNDARY['warn_ft']:g} ft)"}
+
+
+def reconvert(ws, folder: str, rec: dict, actor: str, ds: dict, say: Optional[Callable[[dict], None]] = None) -> List[str]:
+    """A well whose record was written out of a wide export by an earlier converter, and whose published file is in
+    the folder: written out again with the channels this release keeps (the toolface, for the slide sheet), in place
+    of the first copy. Its drilling record is then written again by the build."""
+    from . import well3d as W3
+    say = say or (lambda d: None)
+    done: List[str] = []
+    by = {w['well']: w for w in ds['wells']}
+    for e in rec.get('wells', []):
+        w = by.get(e['well'])
+        if not w or w['format'] != 'zip-edr' or int(e.get('converter') or 1) >= CONVERTER or not os.path.isfile(os.path.join(folder, w['file'])):
+            continue
+        say({'well': e['well'], 'step': 'reconverting'})
+        try:
+            wr = ws.well(e['well_id'])
+            dst = os.path.join(ws.path, 'wells', e['well_id'], 'source', wr['files'][0])
+            tmp_dir = os.path.join(ws.path, '_incoming', 'public'); os.makedirs(tmp_dir, exist_ok=True)
+            tmp = os.path.join(tmp_dir, f"{e['well_id']}_again.csv")
+            r = convert(w, folder, tmp)
+            os.replace(tmp, dst)
+            wr['source'] = dict(wr.get('source') or {}, sha256=sha256_of(dst), bytes=os.path.getsize(dst))
+            W3._write_well(ws, wr)
+            for stale in ('drilling_record.json',):
+                p = os.path.join(ws.reports_dir, 'wells', e['well_id'], stale)
+                if os.path.isfile(p):
+                    os.remove(p)
+            e['converter'] = CONVERTER
+            e.update({kk: vv for kk, vv in r.items() if kk != 'notes'})
+            e['notes'] = [n for n in e.get('notes', []) if 'written out again' not in n] + [f'written out again by converter {CONVERTER}, which keeps the toolface channels of the published export']
+            ws.audit(actor, 'public_pad.reconverted', {'well': e['well'], 'converter': CONVERTER, 'sha256': wr['source']['sha256']})
+            done.append(e['well'])
+        except (OSError, ValueError, KeyError) as ex:
+            e['notes'] = [n for n in e.get('notes', []) if 'could not be written out again' not in n] + [
+                f'could not be written out again with the toolface channels ({type(ex).__name__}: {ex}): close the site\'s own window and press Make the site again']
+    return done
 
 
 def declare_boundary(ws, folder: str, rec: dict, actor: str) -> Optional[dict]:
@@ -950,6 +989,7 @@ def build(folder: str, ws_path: str, actor: str, dataset_id: str = 'utah-forge',
             path = os.path.join(tmp_dir, f"{w['well'].replace('(', '_').replace(')', '')}_recorder.csv")
             r = convert(w, folder, path, lambda n_, w_=w, k_=k: say({'well': w_['well'], 'step': 'converting', 'rows': n_, 'n': k_ + 1, 'of': len(todo)}))
             entry.update({kk: vv for kk, vv in r.items() if kk != 'notes'}); entry['notes'].extend(r['notes'])
+            entry['converter'] = CONVERTER
             if w.get('survey_file') and os.path.isfile(os.path.join(folder, w['survey_file'])):
                 entry['survey_file'] = w['survey_file']
         say({'well': w['well'], 'step': 'attaching', 'n': k + 1, 'of': len(todo)})
@@ -968,10 +1008,11 @@ def build(folder: str, ws_path: str, actor: str, dataset_id: str = 'utah-forge',
     stages = attach_treatments(ws, folder, rec, actor, ds, verify, say) if wells is None or any(x['well'] in wells for x in ds.get('treatments', [])) else []
     before = {e['well']: (e.get('placed') or {}).get('why') for e in rec['wells']}
     placed = place_wells(Workspace(ws.path), folder, rec, actor, say, only=wells)
+    redone = reconvert(Workspace(ws.path), folder, rec, actor, ds, say) if wells is None else []
     bd = declare_boundary(Workspace(ws.path), folder, rec, actor) if wells is None else None
     need = [e for e in rec['wells'] if not os.path.isfile(os.path.join(ws.reports_dir, 'wells', e['well_id'], 'drilling_record.json'))]
     unwritten: List[str] = []
-    if need and (added or placed):                                             # each well's drilling record written once now: the Simulation, Control room and Drill string tabs read it
+    if need and (added or placed or redone):                                             # each well's drilling record written once now: the Simulation, Control room and Drill string tabs read it
         from . import edr as E
         from . import series_cache as SCH
         for e in need:
@@ -988,11 +1029,11 @@ def build(folder: str, ws_path: str, actor: str, dataset_id: str = 'utah-forge',
                 'the drilling record of ' + '; '.join(unwritten) + ' was not written by the build: press Refresh on the Home tab of the site, and the Simulation tab has it']
         else:
             rec['notes'] = [n for n in rec.get('notes', []) if not n.startswith('the drilling record of')]
-    if stages or placed or need or bd or before != {e['well']: (e.get('placed') or {}).get('why') for e in rec['wells']}:
+    if stages or placed or need or bd or redone or before != {e['well']: (e.get('placed') or {}).get('why') for e in rec['wells']}:
         rec.update(built_utc=_utc(), program_version=__version__)
         with open(os.path.join(ws.path, 'records', 'public_pad.json'), 'w', encoding='utf-8') as f:
             json.dump(rec, f, indent=1)
-    if added or stages or placed or bd:
+    if added or stages or placed or bd or redone:
         ws.audit(actor, 'public_pad.build', {'dataset': ds['id'], 'added': added, 'stages': stages, 'placed': placed, 'boundary': bool(bd and bd.get('declared')), 'folder': os.path.abspath(folder),
                                              'hashes_match': {e['well']: e.get('hash_matches') for e in rec['wells']}})
     done: Dict[str, Any] = {'step': 'done', 'added': added}
@@ -1002,8 +1043,10 @@ def build(folder: str, ws_path: str, actor: str, dataset_id: str = 'utah-forge',
         done['placed'] = placed
     if bd and bd.get('declared'):
         done['boundary'] = BOUNDARY['name']
+    if redone:
+        done['reconverted'] = redone
     say(done)
-    return {'path': ws.path, 'name': ds['site_name'], 'added': added, 'stages': stages, 'placed': placed, 'boundary': (BOUNDARY['name'] if bd and bd.get('declared') else None), 'wells': [e['well'] for e in rec['wells']], 'notes': rec.get('notes', []), 'record': rec}
+    return {'path': ws.path, 'name': ds['site_name'], 'added': added, 'stages': stages, 'placed': placed, 'boundary': (BOUNDARY['name'] if bd and bd.get('declared') else None), 'reconverted': redone, 'wells': [e['well'] for e in rec['wells']], 'notes': rec.get('notes', []), 'record': rec}
 
 
 def attach_treatments(ws, folder: str, rec: dict, actor: str, ds: dict, verify: bool = True, say: Optional[Callable[[dict], None]] = None) -> List[str]:
@@ -1137,10 +1180,11 @@ def standins(folder: str, stands: int = 14) -> dict:
         else:                                                   # the zip of a wide ten-second export, and its survey
             buf = io.StringIO()
             buf.write('YYYY/MM/DD,HH:MM:SS,Rate Of Penetration (ft_per_hr),Time Of Penetration (min_per_ft),Hole Depth (feet),Bit Depth (feet),Hook Load (klbs),Standpipe Pressure (psi),Pump 1 strokes/min (SPM),'
-                      'Rotary RPM (RPM),Weight on Bit (klbs),Total Pump Output (gal_per_min),Block Height (feet),Mud Tank 1 Volume (barrels),Differential Pressure (psi),Convertible Torque (kft_lb),EYE TEMP (F)\n')
+                      'Rotary RPM (RPM),Weight on Bit (klbs),Total Pump Output (gal_per_min),Block Height (feet),Mud Tank 1 Volume (barrels),Differential Pressure (psi),Convertible Torque (kft_lb),EYE TEMP (F),'
+                      'Gravity Toolface (degrees),Magnetic Toolface (degrees),Toolface Targ (degrees)\n')
             for i in range(0, n, 10):
                 buf.write(f"{ts[i]:%Y/%m/%d},{ts[i]:%H:%M:%S},{150.0 if rec['drilling'][i] else 0.0:.1f},0.4,{ch['hole'][i]:.2f},{ch['bit'][i]:.2f},{ch['hookload'][i]:.1f},{ch['spp'][i]:.1f},60,{ch['rpm'][i]:.1f},"
-                          f"{20.0 if rec['drilling'][i] else 0.0:.1f},{ch['flow'][i]:.1f},{ch['block'][i]:.2f},200,{ch['diff'][i]:.1f},5.0,150\n")
+                          f"{20.0 if rec['drilling'][i] else 0.0:.1f},{ch['flow'][i]:.1f},{ch['block'][i]:.2f},200,{ch['diff'][i]:.1f},5.0,150,30.0,120.0,25.0\n")
             with zipfile.ZipFile(p, 'w', zipfile.ZIP_DEFLATED) as z:
                 z.writestr(w['member'], buf.getvalue()); z.writestr('kpi_daily/readme.txt', 'x')
             lo, hi = float(np.nanmin(ch['hole'])), float(np.nanmax(ch['hole']))

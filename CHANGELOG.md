@@ -5,6 +5,40 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.95.0] - 2026-11-15 - the slide sheet
+
+### Added
+- **Slide sheet**: every slide and every rotated stretch of a well, made
+  from its drilling record and its survey. The **Slide sheet** tab, `gea
+  slide-sheet` and the assistant's tool `slide_sheet` give each stretch's
+  from, to, footage, drilling time, rate, weight on bit and differential
+  pressure, the toolface held where the record carries one, and the
+  inclination and azimuth the survey gives at its two ends - so each
+  slide shows what it built. Survey course by survey course: the footage
+  slid and rotated, the dogleg, the build and the turn. For each run of
+  an assembly, between two trips to surface: what the hole does per
+  100 ft while only rotated - the assembly's build or drop, and its walk
+  - and the dogleg per 100 ft slid.
+- On the Utah FORGE public pad: 16A(78)-32 has 38 slides, 7.3% of its
+  footage; five between 5,892 and 6,797 ft built its curve, and with a
+  slide in the course the dogleg per 100 ft slid has a median of 7.5
+  degrees. The toolface channels of 16B(78)-32's wide export are kept
+  now, and a site made before is given them by Make the site again.
+
+### Fixed
+- **The Public data tab spoke of "that site" when it was the site you
+  were in**, and gave no way on from there: after Make the site it now
+  says "this site", with links to its 3D, Collision, Map, Hard line and
+  Slide sheet tabs, and the site's own card says its tabs are the ones
+  above.
+
+### Changed
+- A depth counted forward faster than 2,000 ft/h is left out of the slide
+  sheet and its footage said; a toolface that is one number at every
+  sample of a slide is not given.
+- The assistant's tools are 28.
+- Gate 599.
+
 ## [v0.94.0] - 2026-11-15 - hard lines
 
 ### Added

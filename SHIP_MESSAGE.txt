@@ -1,22 +1,20 @@
-v0.94.0 — HARD LINES
+v0.95.0 — THE SLIDE SHEET
 
-Added: the Hard line tab. Declare a boundary - a lease line, a unit, the
-edge of a project area, or an area to keep out of - as a polygon of a
-layer or as corners typed in, with its setback and a warning distance,
-and every well with a survey is measured against it in plan: how far from
-the hard line it runs at its nearest and where along the hole, with the
-survey's one-sigma beside it; how much of the hole is within the warning,
-inside the setback or over the line; where the bit is, and how much more
-hole on its direction reaches the hard line. The pad is drawn from above.
-On a record still being written an alert is raised as the bit comes near.
+Added: the Slide sheet tab. Every slide and every rotated stretch of a
+well, made from its drilling record and its survey: from, to, footage,
+time, rate, weight on bit, the toolface held where the record carries
+one, and what the hole built and turned across it. Survey course by
+course: how much was slid, the dogleg, the build and the turn. And for
+each run of an assembly: what the hole does per 100 ft while rotated,
+and the dogleg per 100 ft slid.
 
-On the Utah FORGE public pad the boundary is the project's own published
-project area: 78B-32 stands 85 ft inside its south side, and 16B(78)-32's
-bit would reach the east side in 582 ft more hole.
+On the Utah FORGE public pad, 16A(78)-32 has 38 slides; five of them
+between 5,892 and 6,797 ft built its curve, and the dogleg per 100 ft
+slid has a median of 7.5 degrees.
 
-Also: an Open the site button on the Public data tab, so the public site
-opens in its own window with one click.
+Fixed: after Make the site, the Public data tab spoke of "that site" even
+when you were in it. It says "this site" now and links to its tabs.
 
 Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
 
-Gate 596.
+Gate 599.

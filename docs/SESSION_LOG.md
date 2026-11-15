@@ -4266,3 +4266,38 @@ stability; and motor specifications in the tool catalogue.
   or outside by the last bit of a sine, and Windows' sine differs from
   Linux's there. The hole now stops 100 m short of the sides. The
   version had not been published and keeps its number.
+
+## 2026-11-15 - the slide sheet (v0.95.0)
+
+- Item 6 of the list, built on the public pad now that its wells have
+  surveys and drilling records together.
+- First, a second question the program should have answered itself:
+  after Make the site the owner looked for the Open the site button and
+  found none - he was in the public site's own window, where the button
+  is not shown, and the line above it spoke of "that site". It says
+  "this site" now, with links to the tabs.
+- The sheet is made from what the record already says: drilling with the
+  rotary speed under ten turns a minute is a slide (the rig-time rule),
+  consecutive samples of one kind are a stretch, the survey carried
+  evenly between its stations gives each stretch's two attitudes. Runs
+  of an assembly are told by the bit coming above 300 ft.
+- What the real records taught, on the owner's computer: a depth counted
+  forward at thousands of feet an hour had been read as footage slid
+  (136 ft "slid" in two minutes on 56-32); it is left out now, with its
+  footage said, and a stretch never spans it or a depth set back. Rows
+  of no length at the start of a run are folded or dropped. Survey
+  stations a few feet apart (16A's, in its curve) gave no rate: stations
+  nearer than 30 ft are taken together. A tendency needs five courses.
+- 16B's wide export has toolface channels the first converter did not
+  keep. They are kept now, and the build writes an older site's copy
+  out again. In four of its slides the gravity toolface is one number
+  at every sample - a value left standing - and none is given.
+- The figures, from the published files: 16A 38 slides, 784 ft, 7.3%;
+  its curve built by five slides between 5,892 and 6,797 ft, the last
+  four 2.3 to 3.7 degrees each; dogleg per 100 ft slid 7.5 degrees over
+  28 courses; rotated +0.22 degrees per 100 ft. The vertical wells 27 to
+  31 slides each. 16B 14 slides, 1.8%.
+- The made record goes through the whole chain in the gate - written as
+  a recorder's export, read, its depth passed, its rig states told - and
+  comes out with the ten slides, the toolface and the yield it was made
+  with. Every tab opened in a window with storage denied. Gate 599.
