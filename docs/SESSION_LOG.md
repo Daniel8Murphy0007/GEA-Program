@@ -4222,3 +4222,47 @@ stability; and motor specifications in the tool catalogue.
   wheel installed in a fresh environment, the self-test and the config
   check run from the install.
   Gate 593.
+
+## 2026-11-15 - hard lines (v0.94.0)
+
+- Item 5 of the list. The owner's order for it had been the client
+  site's own geometry first, then kick detection, then the public pad;
+  the client site's geometry had not arrived (its folder is still
+  empty), so it is built on the public pad, and works on the client site
+  the day a boundary is declared there.
+- Before it, a question that should not have needed asking: "I do not
+  know how to access the FORGE site". It had been made the night before,
+  complete, in the installed program - five wells placed, sixteen stages,
+  every hash matching - and the Public data tab told him only that it was
+  "listed under Administration, Workspaces". The tab has an Open the site
+  button now.
+- The boundary is what the site declares: a polygon of a layer it brought
+  or corners typed in, to stay inside or to keep out of, with a setback,
+  a warning distance and a source. No default setback: the rule is the
+  regulator's and the operator's.
+- The measure is in plan, in the 3D tab's frame, from points every 2 m
+  along the path to the nearest point of the boundary; the distance to
+  the hard line is that less the setback, which is exact. The survey's
+  one-sigma across the line, from the collision check's covariance, is
+  printed beside it and not taken off. The bit is the drilling record's
+  bottom of the hole, carried beyond the last station on its direction;
+  a hole more than 500 ft deeper than its last station is not projected.
+- The public pad's boundary is the project's own: its published extent
+  (gdr.openei.org/submissions/715, fetched with the owner's yes), whose
+  second polygon it calls the project area. No setback is published, so
+  0 ft and a 330 ft warning, said to be chosen here. Read on the real
+  files on the owner's computer: 78B-32 85 ft inside the south side at
+  8,104 ft MD; 58-32 269 ft; 16B's last station 524 ft from the east
+  side, 582 ft more hole on its heading; 16A's bit, 191 ft beyond its
+  last station, 575 ft from it; 56-32 1,523 ft.
+- The gate reckons each stand-in well's distance a second way - on the
+  grid, from the survey's own northings and eastings - and holds the page
+  to it within 8 ft.
+- The tab opened in a window with storage denied and cookies off, with
+  every other tab. Gate 596.
+- The first attempt to ship was stopped by the gate on Windows, on one
+  check of the new section and nothing in the program: the test's own
+  hole ended exactly on a corner of its square, where a point is inside
+  or outside by the last bit of a sine, and Windows' sine differs from
+  Linux's there. The hole now stops 100 m short of the sides. The
+  version had not been published and keeps its number.

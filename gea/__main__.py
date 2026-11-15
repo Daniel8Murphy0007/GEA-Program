@@ -682,6 +682,21 @@ def main(argv=None) -> int:
     p_bm.add_argument("--write", action="store_true", help="write reports/benchmark/benchmark.json, .md, .csv and stretches.csv")
     p_bm.add_argument("--actor", type=str, default="cli")
     p_bm.add_argument("--json", action="store_true")
+    p_hl = sub.add_parser("hardline", help="each well against a declared boundary and its setback: how near the hard line it runs and where, where the bit is and what its heading reaches")
+    p_hl.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (paths and boundaries with every distance known)")
+    p_hl.add_argument("--declare", type=str, default=None, metavar="NAME", help="declare a boundary under this name; needs --setback-ft, --source and either --layer or --corners")
+    p_hl.add_argument("--layer", type=str, default=None, help="--declare: the layer of polygons the boundary is in (its id or its name)")
+    p_hl.add_argument("--feature", type=str, default=None, help="--declare: which polygon of the layer, by its number or its label")
+    p_hl.add_argument("--corners", type=str, default=None, help='--declare: the corners typed in, "lat,lon;lat,lon;lat,lon" in decimal degrees')
+    p_hl.add_argument("--datum", type=str, default="WGS84", help="--corners: their datum (WGS84, NAD83, NAD27)")
+    p_hl.add_argument("--keep-out", action="store_true", help="--declare: an area to keep out of (without it, a boundary to stay inside)")
+    p_hl.add_argument("--setback-ft", type=float, default=None, help="--declare: the distance to keep from the boundary, feet")
+    p_hl.add_argument("--warn-ft", type=float, default=0.0, help="--declare: warn within this distance of the hard line, feet")
+    p_hl.add_argument("--source", type=str, default="", help="--declare: where the boundary and its setback came from")
+    p_hl.add_argument("--remove", type=str, default=None, metavar="ID", help="take a declared boundary off")
+    p_hl.add_argument("--write", action="store_true", help="write reports/hardline/hardline.json, .md and .csv")
+    p_hl.add_argument("--actor", type=str, default="cli")
+    p_hl.add_argument("--json", action="store_true")
     p_kd = sub.add_parser("kick", help="kick and loss detection replayed over every drilling record: the flowback at each pumps-off against the fingerprint of the connections before it, and the pits while circulating against their own trend, named by what the return flow did")
     p_kd.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (a record built with each event at a known place)")
     p_kd.add_argument("--well", type=str, default=None, help="a well, by its name or id: with --json, the well whose long lists are kept")
@@ -3630,6 +3645,38 @@ def main(argv=None) -> int:
             raise SystemExit(f"benchmark: {e.args[0] if e.args else e}")
         print(_json.dumps(p, default=str) if a.json else _BM.text(p))
         return 0
+    elif a.cmd == "hardline":
+        import json as _json
+        from . import hardline as _HL
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if not a.workspace:
+            r = _HL.selftest()
+            print("\n".join(f"{'PASS' if c['pass'] else 'FAIL'}  {c['check']}: {c['value']}" for c in r["checks"]) + f"\n{'OK' if r['ok'] else 'FAILED'} - {r['label']}")
+            return 0 if r["ok"] else 1
+        try:
+            ws = Workspace(a.workspace)
+            if a.remove:
+                b_ = _HL.remove(ws, a.actor, a.remove)
+                print(f"removed: {b_['name']}")
+            if a.declare:
+                if a.setback_ft is None:
+                    raise SystemExit("hardline: --declare needs --setback-ft, the distance to keep from the boundary (0 when the boundary is itself the hard line)")
+                b_ = _HL.declare(ws, a.actor, a.declare, "keep_out" if a.keep_out else "stay_inside", a.setback_ft, a.warn_ft, a.source, layer=a.layer, feature=a.feature, corners=a.corners, datum=a.datum)
+                print(f"declared: {b_['name']} ({b_['id']}) - " + (f"polygon {b_['feature_label']!r} of the layer {b_['layer']}" if b_.get("layer") else f"{len(b_['corners'])} corners typed in")
+                      + f", setback {b_['setback_ft']:,.0f} ft, warning within {b_['warn_ft']:,.0f} ft")
+            if a.write:
+                from . import __version__ as _ver94
+                r = _HL.write_report(ws, _ver94, a.actor)
+                print(f"written: {', '.join(r['files'])} under {r['folder']}")
+            p = _HL.page(ws)
+        except (WorkspaceError, _HL.HardLineError) as e:
+            raise SystemExit(f"hardline: {e}")
+        except KeyError as e:
+            raise SystemExit(f"hardline: {e.args[0]}")
+        print(_json.dumps(p, default=str) if a.json else _HL.text(p))
+        return 0
     elif a.cmd == "kick":
         import json as _json
         from . import kick as _KD
@@ -3751,6 +3798,8 @@ def main(argv=None) -> int:
                               + ("" if p_.get("drawn") else "; NOT DRAWN in 3D"))
                     if p_ and p_.get("why"):
                         print(f"  {e_['well']}: {p_['why']}")
+                if r.get("boundary"):
+                    print(f"  the pad: {r['boundary']} declared as the boundary for the Hard line tab, from {r['record']['boundary']['file']}")
                 for n_ in r["record"].get("notes", []):
                     print(f"  {n_}")
                 return 0

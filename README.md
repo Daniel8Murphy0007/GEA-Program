@@ -808,7 +808,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.93.1.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.94.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1186,6 +1186,35 @@ Data: Utah FORGE, Energy & Geoscience Institute at the University of Utah,
 funded by the U.S. Department of Energy; Geothermal Data Repository,
 gdr.openei.org; CC BY 4.0. The **Public data** tab, `gea public-pad`,
 `gea help public-data`.
+
+### Hard line
+
+Each well against a boundary the site declares - a lease line, a unit, the
+edge of a project area, or an area to keep out of - and the distance to
+keep from it. The boundary is a polygon of a layer the site brought (a
+shapefile of the lease or the plat) or corners typed in; the hard line is
+that boundary moved in by the setback. For every well with a survey the
+**Hard line** tab gives, in plan: how far from the hard line it runs at
+its nearest and where along the hole that is, with the survey's own
+one-sigma across the line beside it; how much of the hole is within the
+warning distance, inside the setback or over the boundary; where the bit
+is - the bottom of the hole from the drilling record, carried beyond the
+last survey station on its direction - and how much more hole on that
+direction reaches the hard line. The pad is drawn from above with the
+boundary, its bands and each path. On a record still being written an
+alert is raised once as the bit comes within the warning distance, once
+inside the setback, once over the line.
+
+On the Utah FORGE public pad the boundary is the project's own published
+project area (no setback is published; 0 ft, with a 330 ft warning). The
+monitoring well 78B-32 stands 85 ft inside its south side; 58-32 is
+269 ft from it; 16B(78)-32's last station is 524 ft from the east side
+and its bit, held on its direction, would reach it in 582 ft more hole;
+16A(78)-32's bit is 575 ft from it and would reach it in 723 ft.
+
+The boundary and the setback are the site's statement - a plat decides
+where a lease line is - and the well is where its survey puts it. The
+**Hard line** tab, `gea hardline`, `gea help hardline`.
 
 ### Plan vs actual and the survey tools
 
@@ -1851,7 +1880,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.93.1.exe` (for 0.93.1): the
+Every release also carries `GEA-Program-Setup-0.94.0.exe` (for 0.94.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1870,7 +1899,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.93.1.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.94.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

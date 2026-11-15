@@ -1,17 +1,22 @@
-v0.93.1 — THE RECORDER'S SELF-TEST ACROSS THE HOUR
+v0.94.0 — HARD LINES
 
-Fixed: the field recorder's self-test failed when the hour turned during
-it - it expected one file a channel, and the recorder rightly starts a
-new file each hour. That stopped the build of the 0.93.0 kits, which ran
-at 19:00 UTC; nothing was wrong with the recording. The self-test now
-records across the top of an hour every time and checks the split: two
-files a channel, the second starting on the hour, every sample read back.
+Added: the Hard line tab. Declare a boundary - a lease line, a unit, the
+edge of a project area, or an area to keep out of - as a polygon of a
+layer or as corners typed in, with its setback and a warning distance,
+and every well with a survey is measured against it in plan: how far from
+the hard line it runs at its nearest and where along the hole, with the
+survey's one-sigma beside it; how much of the hole is within the warning,
+inside the setback or over the line; where the bit is, and how much more
+hole on its direction reaches the hard line. The pad is drawn from above.
+On a record still being written an alert is raised as the bit comes near.
 
-This release carries everything in 0.93.0 - the Utah FORGE wells placed
-from their published surveys and drawn on the 3D, Simulation, Collision
-and Map tabs, and a depth entered wrongly at the rig read as a SPIKE -
-with its kits.
+On the Utah FORGE public pad the boundary is the project's own published
+project area: 78B-32 stands 85 ft inside its south side, and 16B(78)-32's
+bit would reach the east side in 582 ft more hole.
+
+Also: an Open the site button on the Public data tab, so the public site
+opens in its own window with one click.
 
 Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
 
-Gate 593.
+Gate 596.

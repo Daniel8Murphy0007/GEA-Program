@@ -691,7 +691,7 @@ def workspace_scene(ws, margin_km: float = 8.0, layer_tol_m: float = 25.0) -> di
     except Exception as e:                                    # the plume is a projection; its absence never empties the scene
         skipped.append({'id': 'plume', 'display': 'Pressure plume', 'why': f'not computed: {type(e).__name__}: {e}'})
     return {'id': 'workspace', 'title': ws.manifest.get('name') or 'This workspace', 'kind': 'workspace',
-            'frame': ({'crs': f'local transverse Mercator on WGS84 centred at {lat0:.5f}, {lon0:.5f} (north is true north at the centre)', 'origin': [0.0, 0.0],
+            'frame': ({'crs': f'local transverse Mercator on WGS84 centred at {lat0:.5f}, {lon0:.5f} (north is true north at the centre)', 'origin': [0.0, 0.0], 'lat0': lat0, 'lon0': lon0,
                        'unit': 'm', 'z': 'depth below mean sea level, metres, positive down', 'check': '', 'area': why_view,
                        'layer_detail_m': round(tol_m, 1)} if view is not None else None),
             'wells': out_wells, 'planned': planned, 'not_placed': listed, 'picks_only': [], 'surfaces': [], 'layers': layers, 'layers_not_drawn': skipped,

@@ -2311,6 +2311,9 @@ def make_handler(app: App):
                 if path == '/api/benchmark':
                     from . import benchmark as BM
                     return self._json(200, App._cr(BM.page, app.ws))
+                if path == '/api/hardline':
+                    from . import hardline as HL
+                    return self._json(200, App._cr(HL.page, app.ws))
                 if path == '/api/kick':
                     from . import kick as KD
                     return self._json(200, App._cr(KD.page, app.ws, (qs.get('well') or [None])[0], None, False))
@@ -2756,6 +2759,24 @@ def make_handler(app: App):
                     from . import __version__ as _v
                     App.require(user, 'operator')
                     r_ = App._cr(BM.write_report, app.ws, _v, user['name'])
+                    return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
+                if path in ('/api/hardline/declare', '/api/hardline/remove', '/api/hardline/write'):
+                    from . import hardline as HL
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    b_ = dict(body or {})
+                    try:
+                        if path.endswith('/declare'):
+                            return self._json(200, HL.declare(app.ws, user['name'], str(b_.get('name') or ''), str(b_.get('kind') or 'stay_inside'), b_.get('setback_ft'), b_.get('warn_ft'), str(b_.get('source') or ''),
+                                                              layer=(str(b_.get('layer')) if b_.get('layer') else None), feature=b_.get('feature'), corners=(str(b_.get('corners')) if b_.get('corners') else None),
+                                                              datum=str(b_.get('datum') or 'WGS84')))
+                        if path.endswith('/remove'):
+                            return self._json(200, HL.remove(app.ws, user['name'], str(b_.get('id') or '')))
+                    except HL.HardLineError as e:
+                        raise ApiError(400, str(e))
+                    except KeyError as e:
+                        raise ApiError(404, str(e.args[0]))
+                    r_ = App._cr(HL.write_report, app.ws, _v, user['name'])
                     return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
                 if path in ('/api/kick/settings', '/api/kick/write'):
                     from . import kick as KD

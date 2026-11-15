@@ -18772,7 +18772,7 @@ def section_eh_mcp(tmp: str) -> None:
     plain = MC._plain({"a": np.float64(1.5), "_work": [1, 2], "b": [np.int64(3), float("nan")], "c": np.arange(4), "d": (1, "x")})
     c1 = {
         "selftest": st["ok"] and len(st["checks"]) >= 7,
-        "tools": len(defs) == 26 and defs[0]["name"] == "site" and all(d_["annotations"]["readOnlyHint"] is True and d_["annotations"]["destructiveHint"] is False and d_["annotations"]["openWorldHint"] is False
+        "tools": len(defs) == 27 and defs[0]["name"] == "site" and all(d_["annotations"]["readOnlyHint"] is True and d_["annotations"]["destructiveHint"] is False and d_["annotations"]["openWorldHint"] is False
                                                                         and d_["inputSchema"]["type"] == "object" and d_["inputSchema"]["additionalProperties"] is False and d_["title"] for d_ in defs)
                  and "well" in defs[1]["inputSchema"]["properties"] and "json" in defs[2]["inputSchema"]["properties"] and "json" not in MC.tool_definition("help")["inputSchema"]["properties"]
                  and not [n_ for n_ in MC.NAMES if any(w_ in n_ for w_ in ("write", "set", "declare", "attach", "remove", "delete", "run"))],
@@ -18862,12 +18862,12 @@ def section_eh_mcp(tmp: str) -> None:
                      and "SIMULATION" in answers["pressure_plume"]["text"].splitlines()[0] and "RIG-1" in answers["site"]["text"] and _ver in answers["site"]["text"],
         "json": all(isinstance(v, (dict, list)) for n_, v in parsed.items() if n_ != "well") and parsed["well"] is None and as_json["well"]["is_error"] and parsed["roadmap"]["status"] == "OK" and not [k_ for k_ in parsed["rig_time"] if str(k_).startswith("_")]
                 and len(parsed["drilling_alerts"]["wells"]) == 2,
-        "child_legacy": rc_o == 0 and len(out_o) == 4 and out_o[0]["result"]["protocolVersion"] == "2025-11-25" and len(out_o[1]["result"]["tools"]) == 26 and "resultType" not in out_o[1]["result"]
+        "child_legacy": rc_o == 0 and len(out_o) == 4 and out_o[0]["result"]["protocolVersion"] == "2025-11-25" and len(out_o[1]["result"]["tools"]) == 27 and "resultType" not in out_o[1]["result"]
                         and out_o[2]["result"]["content"][0]["text"] == answers["rig_time"]["text"] and "motor stall" in out_o[3]["result"]["content"][0]["text"] and "Traceback" not in err_o,
         "child_modern": rc_m == 0 and len(out_m) == 4 and out_m[0]["result"]["supportedVersions"] == list(MC.SUPPORTED) and out_m[1]["result"]["resultType"] == "complete"
                         and out_m[1]["result"]["cacheScope"] == "private" and out_m[2]["result"]["_meta"][MC.K_SERVER] == {"name": "gea-program", "title": "GEA-Program", "version": _ver}
                         and out_m[2]["result"]["isError"] is False and out_m[3]["error"]["code"] == -32022 and out_m[3]["error"]["data"]["requested"] == "2099-01-01" and "Traceback" not in err_m,
-        "withheld": kept["tools"] is not None and "audit" not in kept["tools"] and rc_w == 0 and "audit" not in [t_["name"] for t_ in out_w[0]["result"]["tools"]] and len(out_w[0]["result"]["tools"]) == 25
+        "withheld": kept["tools"] is not None and "audit" not in kept["tools"] and rc_w == 0 and "audit" not in [t_["name"] for t_ in out_w[0]["result"]["tools"]] and len(out_w[0]["result"]["tools"]) == 26
                     and out_w[1]["error"]["code"] == -32602 and "[cut at 3,000 of" in out_w[2]["result"]["content"][0]["text"],
         "narrowed": rc_a == 0 and [t_["name"] for t_ in out_a[0]["result"]["tools"]] == ["site"] and out_a[1]["error"]["code"] == -32602,
         "no_workspace": rc_x.returncode == 2 and rc_x.stdout == b"" and b"not a workspace" in rc_x.stderr,
@@ -18935,7 +18935,7 @@ def section_eh_mcp(tmp: str) -> None:
     its = (pkg / "help" / "IT_SECURITY.md").read_text(encoding="utf-8")
     backups = sorted(p_.name for p_ in cfgp.parent.iterdir() if ".before-gea-" in p_.name)
     c3 = {
-        "api": s_vg == 200 and len(vg["tools"]) == 26 and all(t_["offered"] for t_ in vg["tools"]) and vg["config"]["mcpServers"]["gea"]["args"][-1] == os.path.abspath(wsp) and len(vg["log"]) >= 6
+        "api": s_vg == 200 and len(vg["tools"]) == 27 and all(t_["offered"] for t_ in vg["tools"]) and vg["config"]["mcpServers"]["gea"]["args"][-1] == os.path.abspath(wsp) and len(vg["log"]) >= 6
                and vg["claude_desktop"]["found"] and not vg["claude_desktop"]["installed"] and s_vs == 403 and s_os == 200 and os_["offered"] == ["site", "roadmap", "help"] and os_["max_chars"] == 20000
                and s_bs == 400 and s_oa == 200,
         "claude_desktop": s_oc == 403 and s_ac == 200 and len(ac["done"]) == 1 and cfg_added["globalShortcut"] == "Ctrl+Space" and cfg_added["mcpServers"]["files"] == {"command": "npx", "args": ["-y", "x"]}
@@ -19076,7 +19076,7 @@ def section_ei_public_pad_benchmark(tmp: str) -> None:
                      and bm["pad_best_connection_min"] is not None and len(bm["stretches"]) >= 3 and all(s_["best_well"] in bm["names"] for s_ in bm["stretches"] if s_["best_rop_ft_h"]),
         "report": set(wr["files"]) == {"benchmark.json", "benchmark.md", "benchmark.csv", "stretches.csv"} and len(rows_b) == 6 and rows_b[0].startswith("display,drilled_ft,days,feet_per_day") and len(rows_s) == len(bm["stretches"]) + 1
                   and "benchmark.report" in audit, 
-        "tool": not bm_txt["is_error"] and bm_txt["text"] == BM.text(BM.page(ws)) and "benchmark" in MC.NAMES and len(MC.NAMES) == 26,
+        "tool": not bm_txt["is_error"] and bm_txt["text"] == BM.text(BM.page(ws)) and "benchmark" in MC.NAMES and len(MC.NAMES) == 27,
     }
     failed2 = [k_ for k_, v in c2.items() if not v]
     ok(not failed2,
@@ -19339,7 +19339,7 @@ def section_ej_frac_treatment(tmp: str) -> None:
                   and table[0] == "Stage,Start Time,End Time,Clean Volume (bbl),Proppant (lb)" and table[1].startswith("3R,2026-08-03 06:0") and "frac_treatment.report" in audit,
         "to_frac_hits": fh["stages"] == 3 and [x["stage"] for x in fh_rows] == ["3R", "10", "4"] and fh_rows[0]["start"].startswith("2026-08-03T06:0") and "frac.stages" in audit and "the stages' own treatment records" in fh["source"],
         "removed": [r_["stage"] for r_ in p2["stages"]] == ["3R", "10"] and "frac_treatment.removed" in audit and "frac_treatment.attach" in audit and "frac_treatment.declared" in audit,
-        "tool": not tool["is_error"] and tool["text"] == FT.text(FT.page(ws, tw, "10")) and "traces" not in json.loads(tool_j["text"]).get("detail", {}) and "frac_treatment" in MC.NAMES and len(MC.NAMES) == 26,
+        "tool": not tool["is_error"] and tool["text"] == FT.text(FT.page(ws, tw, "10")) and "traces" not in json.loads(tool_j["text"]).get("detail", {}) and "frac_treatment" in MC.NAMES and len(MC.NAMES) == 27,
         "public": stt["treatments_present"] == 5 and len(stt["treatments"]) == 5 and stt["treatment_bytes"] > 6e7 and len(br["stages"]) == 16 and {s_.get("step") for s_ in seen} >= {"treatment", "done"} and seen[-1]["stages"] == br["stages"]
                   and [r_["stage"] for r_ in fp["stages"] if r_["display"] == "16A(78)-32"] == ["1", "2", "3", "3R", "4", "5", "6A", "6B", "7", "8", "9", "10"]
                   and [r_["stage"] for r_ in fp["stages"] if r_["display"] == "16B(78)-32"] == ["1", "2", "3", "4"] and max(off) <= 40.0 and fp["lines"][-1].startswith("Data: Utah FORGE")
@@ -19435,6 +19435,234 @@ def section_ej_frac_treatment(tmp: str) -> None:
        "the stimulation files), the commands (the self-test, the table, one stage as JSON, a record attached, the depth declared, the stage times handed over and the report written; a well that is "
        "not there, an attach with no well and a folder that is no workspace each stopped; the public list naming the stimulation files), the Frac treatment tab with a panel a measure, the help "
        "page with the published figures it was checked against, the README and lesson 14" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
+def section_em_hardline(tmp: str) -> None:
+    """Section EM - hard lines: a well's path against a declared boundary and its setback, in plan - the nearest
+    point, the hole within the warning distance, inside the setback and over the line, the bit carried beyond the last
+    survey station, what its heading reaches - on paths and boundaries with every distance known; a boundary from a
+    layer's polygon and from corners typed in, to stay inside and to keep out of; on the public pad, the published
+    extent declared by the build and every well's distance against an independent reckoning on the grid; the alert on
+    a record still being written, raised once; the report, the assistant's tool, the API, the CLI, the tab, the help,
+    the README and the lesson."""
+    import http.cookiejar
+    import math
+    import subprocess as _sp
+    import urllib.error
+    import urllib.request
+    from . import __version__ as _ver
+    from . import alerts as AL
+    from . import geodesy as GD
+    from . import hardline as HL
+    from . import helplib as H
+    from . import mcp_server as MC
+    from . import public_pad as PP
+    from . import tutorial as TU
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "em"); d.mkdir()
+    os.environ["GEA_WORKSPACES_FILE"] = str(d / "workspaces.json")
+    FT_ = 0.3048
+    # -- EM1 the geometry ---------------------------------------------------------------------------------------------------
+    st = HL.selftest()
+    sq = [np.array([[-1000.0, -1000.0], [1000.0, -1000.0], [1000.0, 1000.0], [-1000.0, 1000.0]])]
+    # a hole built at 45 degrees toward the north-east from the centre, 1,800 m of it: its toe 900 m east and north, 100 m inside the corner's sides
+    # (it stops well short of the corner itself: a point on the line is inside or outside by the last bit of a sine, which differs between machines)
+    md = np.array([0.0, 900.0, 1800.0]); s45 = math.sqrt(0.5)
+    ne = HL.analyse_path(md, md * 0.5, md * 0.5, md * s45, sq, "stay_inside", 60.96, 100.0)
+    out_ = HL.analyse_path([0.0, 500.0], [1500.0, 1500.0], [0.0, 0.0], [0.0, 500.0], sq, "stay_inside", 0.0, 50.0)
+    ko = HL.analyse_path([0.0, 500.0], [1500.0, 1500.0], [0.0, 0.0], [0.0, 500.0], sq, "keep_out", 100.0, 500.0)
+    refused = {}
+    plain = Workspace.create(str(d / "plain"), "Plain", actor="tester")
+    for nm_, fn_ in (("no_name", lambda: HL.declare(plain, "t", "", "stay_inside", 100, 50, "x", corners="31,-102;31,-101.9;31.1,-101.9")),
+                     ("kind", lambda: HL.declare(plain, "t", "L", "around", 100, 50, "x", corners="31,-102;31,-101.9;31.1,-101.9")),
+                     ("setback", lambda: HL.declare(plain, "t", "L", "stay_inside", "far", 50, "x", corners="31,-102;31,-101.9;31.1,-101.9")),
+                     ("negative", lambda: HL.declare(plain, "t", "L", "stay_inside", -5, 50, "x", corners="31,-102;31,-101.9;31.1,-101.9")),
+                     ("no_source", lambda: HL.declare(plain, "t", "L", "stay_inside", 100, 50, "", corners="31,-102;31,-101.9;31.1,-101.9")),
+                     ("no_polygon", lambda: HL.declare(plain, "t", "L", "stay_inside", 100, 50, "x")), ("no_layer", lambda: HL.declare(plain, "t", "L", "stay_inside", 100, 50, "x", layer="nowhere")),
+                     ("two_corners", lambda: HL.declare(plain, "t", "L", "stay_inside", 100, 50, "x", corners="31,-102;31,-101.9")),
+                     ("datum", lambda: HL.declare(plain, "t", "L", "stay_inside", 100, 50, "x", corners="31,-102;31,-101.9;31.1,-101.9", datum="MARS"))):
+        try:
+            fn_(); refused[nm_] = ""
+        except HL.HardLineError as ex:
+            refused[nm_] = str(ex)
+    p_none = HL.page(plain)
+    kept = HL.declare(plain, "tester", "Section 14 lease", "stay_inside", 330, 100, "lease plat (gate)", corners="31.00,-102.00\n31.00,-101.98\n31.02,-101.98\n31.02,-102.00\n31.00,-102.00", datum="NAD83")
+    kept2 = HL.declare(plain, "tester", "Section 14 lease", "keep_out", 0, 0, "the offset operator's lease (gate)", corners="31.03,-102.00;31.03,-101.98;31.05,-101.98")
+    p_nw = HL.page(plain)
+    try:
+        HL.remove(plain, "tester", "nothing"); gone = ""
+    except KeyError as ex:
+        gone = str(ex)
+    HL.remove(plain, "tester", kept2["id"])
+    c1 = {
+        "selftest": st["ok"] and len(st["checks"]) >= 7 and st["label"] == "SIMULATION",
+        "oblique": abs(ne["min_margin_m"] - 39.04) < 1e-6 and abs(ne["min_distance_m"] - 100.0) < 1e-6 and ne["status"] == "WITHIN THE WARNING DISTANCE" and ne["bit"]["status"] == "WITHIN THE WARNING DISTANCE"
+                   and abs(ne["bit"]["azimuth_deg"] - 45.0) < 1e-6 and abs(ne["bit"]["inclination_deg"] - 45.0) < 1e-6 and abs(ne["bit"]["reach_m"] - 39.04 / 0.5) < 0.01
+                   and abs(ne["bit"]["ahead_margin_m"] - (39.04 - 152.4 * 0.5)) < 1e-6 and abs(ne["warn_m"] - (1800.0 - (1000.0 - 60.96 - 100.0) / 0.5)) <= 2.0 and ne["setback_m"] == 0.0 and ne["over_m"] == 0.0
+                   and abs(ne["at_md_m"] - 1800.0) < 1e-9,
+        "outside": out_["status"] == "OVER THE BOUNDARY" and abs(out_["min_distance_m"] + 500.0) < 1e-6 and abs(out_["over_m"] - 500.0) < 1e-6 and out_["bit"]["status"] == "OVER THE BOUNDARY",
+        "keep_out": ko["status"] == "WITHIN THE WARNING DISTANCE" and abs(ko["min_margin_m"] - 400.0) < 1e-6 and ko["setback_m"] == 0.0,
+        "refused": all(refused.values()) and "name the boundary" in refused["no_name"] and "stay_inside, keep_out" in refused["kind"] and "numbers of feet" in refused["setback"] and "between 0 and 10,000" in refused["negative"]
+                   and "where the boundary" in refused["no_source"] and "a polygon of a layer, or corners" in refused["no_polygon"] and "no layer of polygons" in refused["no_layer"]
+                   and "three corners" in refused["two_corners"] and "datum" in refused["datum"],
+        "none": p_none["status"] == "NO BOUNDARY" and "No boundary is declared" in p_none["lines"][0] and p_none["rows"] == [],
+        "kept": kept["id"] == "section-14-lease" and kept2["id"] == "section-14-lease-2" and len(kept["corners"]) == 4 and kept["datum"] == "NAD83" and p_nw["status"] == "NO WELLS" and len(p_nw["boundaries"]) == 2
+                and p_nw["boundaries"][0]["corners_n"] == 4 and "none is measured" in " ".join(p_nw["lines"]) and "no boundary nothing" in gone and len(HL.settings(plain)["boundaries"]) == 1
+                and Path(plain.audit_path).read_text(encoding="utf-8").count('"hardline.declared"') == 2 and '"hardline.removed"' in Path(plain.audit_path).read_text(encoding="utf-8"),
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "EM1 the self-test; a hole built at 45 degrees toward the north-east of a square and stopped 100 m short of its sides, the hard line a setback inside them: the distance, the hole within the "
+       "warning, the bit's azimuth and inclination, what 500 ft more of it comes to and how much more hole reaches the hard line; a hole outside a boundary it should be inside, over it by its distance; an area to keep out of with the warning beyond its "
+       "setback; a boundary with no name, another kind, a setback that is no number or below nought, no source, no polygon, a layer that is not there, two corners or a datum unknown, each "
+       "stopped; a site with no boundary told what to declare; corners kept with their datum, a second of the same name numbered, a site with no placed well told so, one removed and one that is "
+       "not there refused, each in the audit log" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- EM2 the public pad: the published extent declared by the build, and each well against an independent reckoning ------
+    folder, site = str(d / "files"), str(d / "forge-site")
+    made_r = PP.standins(folder, stands=8)
+    made = PP.survey_standins(folder, td={w_: v["hole_to"] - 100.0 for w_, v in made_r.items() if isinstance(v, dict) and "hole_to" in v})
+    bnd = PP.boundary_standin(folder)
+    stt = PP.status(folder)
+    seen = []
+    r = PP.build(folder, site, "tester", verify=False, progress=seen.append)
+    ws = Workspace(site)
+    p = HL.page(ws)
+    rows = {x_["well"]: x_ for x_ in p["rows"]}
+    ring_utm = [np.array(bnd["project_utm"])]
+    want = {}
+    for w_, m_ in made.items():                                       # on the grid: the wellhead plus each station's northing and easting
+        ex = np.array([m_["easting_m"] + s_["ew"] * FT_ for s_ in m_["stations"]]); ny = np.array([m_["northing_m"] + s_["ns"] * FT_ for s_ in m_["stations"]])
+        dd, _, _, _, ins = HL.boundary_distance(ex, ny, ring_utm)
+        want[w_] = float(np.min(np.where(ins, dd, -dd))) / FT_
+    again = PP.build(folder, site, "tester", verify=False)
+    # a tighter line by corners: its east side 400 m east of the pad's origin, which the two deviated wells run through
+    E0, N0 = 334600.0, 4263400.0
+    ll = lambda e_, n_: GD.grid_to_wgs84(e_, n_, "UTM12N", "NAD83", "m")["on_zone_datum"]
+    tight = "\n".join(f"{ll(e_, n_)['lat']:.8f}, {ll(e_, n_)['lon']:.8f}" for e_, n_ in ((E0 - 300, N0 - 600), (E0 - 300, N0 + 300), (E0 + 400, N0 + 300), (E0 + 400, N0 - 600)))
+    b_t = HL.declare(ws, "tester", "Tight unit", "stay_inside", 100, 200, "gate", corners=tight, datum="NAD83")
+    p2 = HL.page(ws)
+    rt = {x_["well"]: x_ for x_ in p2["rows"] if x_["boundary"] == b_t["id"]}
+    toe = made["16A(78)-32"]["stations"][-1]
+    over_want = (toe["ew"] * FT_ - 400.0) / FT_                         # how far past the east side the last station is, on the grid
+    ev1 = HL.live_events(ws)
+    raised = AL.check_conditions(ws, None, force=True); raised2 = AL.check_conditions(ws, None, force=True)
+    hl_raised = [e_ for e_ in raised if e_["event"].startswith("hardline.")]
+    wr = HL.write_report(ws, _ver, "tester")
+    csv_rows = (Path(wr["folder"]) / "hardline.csv").read_text(encoding="utf-8").strip().splitlines()
+    tool = MC.call_tool(ws, "hard_line", {}); tool_j = MC.call_tool(ws, "hard_line", {"json": True}, 400000)
+    HL.remove(ws, "tester", "forge-project-area")
+    third = PP.build(folder, site, "tester", verify=False)
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    rec = PP.record(ws)
+    c2 = {
+        "status": stt["boundary"]["present"] and stt["boundary"]["size_matches"] is False and "the project area" in stt["boundary"]["can"] and "MIlford_FORGE_Extent.zip" in PP.text(stt),
+        "declared_by_build": r["boundary"] == "FORGE project area" and seen[-1].get("boundary") == "FORGE project area" and rec["boundary"]["declared"] and rec["boundary"]["hash_matches"] is False
+                             and len(rec["boundary"]["sha256"]) == 64 and [l_["display"] for l_ in ws.layers()] == ["FORGE extent"] and again["boundary"] is None and third["boundary"] is None
+                             and '"boundary": true' in audit,
+        "page": p["status"] == "OK" and len(p["rows"]) == 5 and p["boundaries"][0]["setback_ft"] == 0.0 and p["boundaries"][0]["warn_ft"] == 330.0 and p["boundaries"][0]["feature_label"] == "FORGE project area"
+                and p["boundaries"][0]["datum"] == "NAD83" and all(x_["status"] == "CLEAR" for x_ in p["rows"]) and p["lines"][-1].startswith("Data: Utah FORGE") and p["public_source"]["name"] == "Utah FORGE"
+                and len(p["wells"]) == 5 and all(len(w_["x"]) == len(w_["y"]) >= 2 for w_ in p["wells"]) and len(p["boundaries"][0]["rings_xy"][0]) == 4,
+        "distances": all(abs(rows[w_]["min_distance_ft"] - want[w_]) <= 8.0 for w_ in made) and all(rows[w_]["sigma_ft"] is not None for w_ in made),
+        "bit": all(rows[w_]["bit"]["from_record"] and 60.0 <= rows[w_]["bit"]["beyond_survey_ft"] <= 140.0 and rows[w_]["bit"]["uncovered_ft"] is None for w_ in made)
+               and rows["16A(78)-32"]["bit"]["reach_ft"] is not None and abs(rows["16A(78)-32"]["bit"]["azimuth_deg"] - 100.0) < 2.5 and abs(rows["16A(78)-32"]["bit"]["inclination_deg"] - 60.0) < 1.0,
+        "tight": rt["16A(78)-32"]["status"] == "OVER THE BOUNDARY" and rt["16B(78)-32"]["status"] == "OVER THE BOUNDARY" and abs(-rt["16A(78)-32"]["min_distance_ft"] - over_want) <= 12.0
+                 and rt["16A(78)-32"]["over_ft_of_hole"] > 0 and rt["16A(78)-32"]["first_warn_md_ft"] < rt["16A(78)-32"]["first_setback_md_ft"] < rt["16A(78)-32"]["first_over_md_ft"]
+                 and rt["58-32"]["status"] == "OVER THE BOUNDARY" and p2["worst"]["status"] == "OVER THE BOUNDARY" and rt["16A(78)-32"]["bit"]["status"] == "OVER THE BOUNDARY",
+        "alerts": len(ev1) >= 3 and {e_["event"] for e_ in ev1} == {"hardline.crossed"} and len(hl_raised) == len(ev1) and not [e_ for e_ in raised2 if e_["event"].startswith("hardline.")]
+                  and all("over the boundary" in e_["detail"] for e_ in ev1) and "hardline.crossed" in AL.EVENTS,
+        "report": set(wr["files"]) == {"hardline.json", "hardline.md", "hardline.csv"} and len(csv_rows) == 11 and csv_rows[0].startswith("well,boundary,status,nearest_to_hard_line_ft") and "hardline.report" in audit,
+        "tool": not tool["is_error"] and tool["text"].startswith("Hard line: each well against the declared boundary") and "Tight unit" in tool["text"] and "hard_line" in MC.NAMES and len(MC.NAMES) == 27
+                and len(json.loads(tool_j["text"])["rows"]) == 10,
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "EM2 on the public pad (stand-ins): the published extent found in the folder; the build adds it as a layer and declares its project area as the boundary - setback nought, none being "
+       "published - with the file's hash kept, once (removed afterwards it stays removed); the page with every well's nearest distance to the line within 8 ft of the same reckoned on the grid "
+       "from the survey's own northings and eastings, the survey's one-sigma beside it, the bit taken from the drilling record a hundred feet beyond the last station and projected, the deviated "
+       "well's heading and what it reaches; a tighter boundary typed in as corners that the two deviated wells run through: over the boundary by the distance their last station is past it, "
+       "the warning, the setback and the line met in that order down the hole; the alert for each well over it raised once and not again; the report with a row a well and a boundary; the "
+       "assistant's tool the page's own text" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- EM3 the routes, the commands, the tab, the help --------------------------------------------------------------------
+    Users(str(Path(ws.path, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(ws.path, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(ws.path, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=300) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as ex:
+            return ex.code, json.loads(ex.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_v, pv = call(V, "GET", "/api/hardline")
+        s_vd, _ = call(V, "POST", "/api/hardline/declare", {"name": "X", "kind": "stay_inside", "setback_ft": 0, "source": "x", "corners": tight})
+        s_od, od = call(O, "POST", "/api/hardline/declare", {"name": "Project area again", "kind": "stay_inside", "setback_ft": "0", "warn_ft": "330", "source": "the published extent (api)",
+                                                             "layer": "FORGE-extent", "feature": "1"})
+        s_ob, ob = call(O, "POST", "/api/hardline/declare", {"name": "Bad", "kind": "stay_inside", "setback_ft": "0", "source": "x", "corners": "1,2"})
+        s_ok, ok_ = call(O, "POST", "/api/hardline/declare", {"name": "Keep out", "kind": "keep_out", "setback_ft": "50", "warn_ft": "0", "source": "an offset lease (api)", "corners": tight, "datum": "NAD83"})
+        s_v2, pv2 = call(V, "GET", "/api/hardline")
+        s_ow, ow = call(O, "POST", "/api/hardline/write", {})
+        s_vw, _ = call(V, "POST", "/api/hardline/write", {})
+        s_or, _ = call(O, "POST", "/api/hardline/remove", {"id": ok_.get("id", "")})
+        s_o2, _ = call(O, "POST", "/api/hardline/remove", {"id": ok_.get("id", "")})
+        s_pp, ppd = call(V, "GET", "/api/public-pad")
+    finally:
+        svc.stop()
+    env = {**os.environ, "PYTHONPATH": str(pkg.parent) + os.pathsep + os.environ.get("PYTHONPATH", "")}
+    run = lambda *a_: _sp.run([sys.executable, "-m", "gea", *a_], capture_output=True, text=True, env=env, cwd=str(d), timeout=600)
+    cli_s, cli_t, cli_j = run("hardline"), run("hardline", "--workspace", ws.path), run("hardline", "--workspace", ws.path, "--json")
+    cli_d = run("hardline", "--workspace", ws.path, "--declare", "CLI lease", "--corners", tight.replace("\n", ";"), "--datum", "NAD83", "--setback-ft", "330", "--warn-ft", "100", "--source", "lease plat (CLI)", "--write")
+    cli_l = run("hardline", "--workspace", ws.path, "--declare", "CLI layer", "--layer", "FORGE extent", "--feature", "FORGE study area", "--keep-out", "--setback-ft", "0", "--source", "x")
+    cli_n = run("hardline", "--workspace", ws.path, "--declare", "No setback", "--corners", tight.replace("\n", ";"), "--source", "x")
+    cli_r = run("hardline", "--workspace", ws.path, "--remove", "cli-lease")
+    cli_x = run("hardline", "--workspace", ws.path, "--remove", "cli-lease")
+    cli_w = run("hardline", "--workspace", str(d / "nowhere"))
+    cli_pb = run("public-pad", "--folder", folder)
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    view = page_src[page_src.index("const HLV = "):page_src.index("// ---------- kick and loss:")]
+    readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
+    lesson = (pkg / "help" / "tutorial" / "13-drilling-pages.md").read_text(encoding="utf-8")
+    hp = H.page("hardline") or ""
+    c3 = {
+        "api_read": s_v == 200 and pv["status"] == "OK" and len(pv["boundaries"]) == 1 and pv["layers"][0]["id"] == "FORGE-extent" and [f_["label"] for f_ in pv["layers"][0]["features"]] == ["FORGE study area", "FORGE project area"]
+                    and len(pv["not_a_measurement"]) >= 6 and s_v2 == 200 and len(pv2["boundaries"]) == 3 and len(pv2["rows"]) == 15,
+        "api_write": s_vd == 403 and s_od == 200 and od["layer"] == "FORGE-extent" and od["feature_label"] == "FORGE project area" and s_ob == 400 and "three corners" in ob.get("error", "") and s_ok == 200
+                     and ok_["kind"] == "keep_out" and s_ow == 200 and "hardline.csv" in ow["files"] and s_vw == 403 and s_or == 200 and s_o2 == 404 and s_pp == 200 and ppd["boundary"]["file"] == "MIlford_FORGE_Extent.zip",
+        "cli": cli_s.returncode == 0 and cli_s.stdout.strip().splitlines()[-1].startswith("OK - SIMULATION") and cli_t.returncode == 0 and "Hard line: each well against the declared boundary" in cli_t.stdout
+               and "OVER THE BOUNDARY" in cli_t.stdout and cli_j.returncode == 0 and json.loads(cli_j.stdout)["status"] == "OK" and cli_d.returncode == 0 and "declared: CLI lease (cli-lease) - 4 corners typed in, setback 330 ft"
+               in cli_d.stdout and "written: hardline.json, hardline.md, hardline.csv" in cli_d.stdout and cli_l.returncode == 0 and "polygon 'FORGE study area' of the layer FORGE-extent" in cli_l.stdout
+               and cli_n.returncode != 0 and "--setback-ft" in cli_n.stderr and cli_r.returncode == 0 and "removed: CLI lease" in cli_r.stdout and cli_x.returncode != 0 and "no boundary cli-lease" in cli_x.stderr
+               and cli_w.returncode != 0 and cli_w.stdout == "" and cli_pb.returncode == 0 and "the pad" in cli_pb.stdout and "MIlford_FORGE_Extent.zip" in cli_pb.stdout,
+        "page": all(x in page_src for x in ("VIEWS.hardline", "['#/hardline', 'Hard line']", "hlMap", "/api/hardline/declare", "/api/hardline/remove", "/api/hardline/write", "help('hardline')", "'hardline.crossed': 'Bit over the boundary'",
+                                            "The pad from above", "id=\"ppOpen\"", "/api/workspaces/open', {path: b.dataset.p}", "Open the site", "declared as the boundary, on the Hard line tab"))
+                and "sessionStorage" not in view and "localStorage" not in view,
+        "help": not H.check("hardline") and not H.check("alerts") and not H.check("public-data") and not H.check("mcp") and H.VIEW_TOPIC.get("hardline") == "hardline"
+                and all(x in hp for x in ("gea hardline --workspace C:\\site", "--setback-ft 330", "exact", "one-sigma", "85 ft", "8,104 ft MD", "582 ft more hole", "hardline.crossed", "a plat or a survey of the ground"))
+                and "`hard_line`" in (H.page("mcp") or "") and "hardline.setback" in (H.page("alerts") or "") and "MIlford_FORGE_Extent.zip" in (H.page("public-data") or ""),
+        "readme_lesson": (not readme or ("### Hard line" in readme and "`gea hardline`" in readme and "85 ft inside its south side" in readme and readme.index("### Hard line") < readme.index("### Plan vs actual and the survey tools")))
+                         and "**Hard line**" in lesson and "hardline" in lesson.split("Help:")[-1] and not TU.check("drilling-pages"),
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "EM3 on the API (anyone reads the page with the layers a boundary can be chosen from; only an operator declares a boundary - a layer's polygon by its number, corners with their datum - "
+       "writes the report or removes one; two corners 400, a boundary already removed 404; the public files list carries the extent), the commands (the self-test, the table, the page as JSON, "
+       "corners declared and the report written, a layer's polygon by its label as an area to keep out of, a declaration without a setback stopped, one removed and then not there, a folder that "
+       "is no workspace stopped; the public folder's line for the pad), the Hard line tab with the pad from above - and no browser storage in it - the alert's names, the Open the site button on "
+       "the Public data tab, the help page with the figures of the public pad, the alerts, assistant and public-data pages, the README and lesson 13" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
 def section_el_public_pad_placed(tmp: str) -> None:
@@ -19783,7 +20011,7 @@ def section_ek_kick(tmp: str) -> None:
                   and any(",ABOVE," in ln for ln in fcsv) and any(",KICK-LIKE," in ln for ln in ecsv) and "kick.report" in audit0 and "What this will not call a measurement" in (Path(wr["folder"]) / "kick.md").read_text(encoding="utf-8"),
         "settings": "between 1 and 100" in bad["bound"] and "where they came from" in bad["no_source"] and s1["gain_min_bbl"] == 100.0 and sum(w_["counts"].get("above", 0) + w_["counts"].get("KICK-LIKE", 0) + w_["counts"].get("LOSSES", 0)
                     + w_["counts"].get("GAIN", 0) for w_ in p_hi["wells"] if w_["status"] == "OK") == 0 and s2["gain_min_bbl"] == 8.0 and audit0.count("kick.settings") == 2 and p_hi["settings_source"] == "well control procedure (test)",
-        "tool": not tool["is_error"] and tool["text"] == tool_expect and "Kick and loss detection, replayed over the record" in tool["text"] and "kick_detection" in MC.NAMES and len(MC.NAMES) == 26,
+        "tool": not tool["is_error"] and tool["text"] == tool_expect and "Kick and loss detection, replayed over the record" in tool["text"] and "kick_detection" in MC.NAMES and len(MC.NAMES) == 27,
         "alert": len(le) == 1 and le[0]["event"] == "kick.flowback" and le[0]["well"] == "Well L" and len(kraised) == 1 and kraised[0]["event"] == "kick.flowback" and "flowback +" in kraised[0]["detail"]
                  and not [e for e in again if e["event"].startswith("kick.")] and {"kick.flowback", "kick.gain", "kick.loss"} <= set(AL.EVENTS) and {"kick.flowback", "kick.gain", "kick.loss"} <= set(NT.EVENTS)
                  and "flowback above its fingerprint on Well L" in NT._subject(kraised[0]),
@@ -20016,6 +20244,7 @@ def main() -> int:
         section_ej_frac_treatment(tmp)
         section_ek_kick(tmp)
         section_el_public_pad_placed(tmp)
+        section_em_hardline(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

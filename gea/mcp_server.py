@@ -331,6 +331,8 @@ TOOLS: List[tuple] = [
     ('frac_hits', 'Frac hits', "What each fracturing stage did to the pressure in the monitored wells around it: none, poroelastic, mixed or a frac hit.", {}, _paged('frac_hits', lambda m, ws, w: m.page(ws))),
     ('kick_detection', 'Kick and loss detection', "Every drilling record replayed for kicks and losses: the flowback at each pumps-off against the fingerprint of the connections before it, "
      "and the pits while circulating against their own trend, each event named by what the return flow did.", {}, _paged('kick', lambda m, ws, w: m.page(ws))),
+    ('hard_line', 'Hard line', "Each well against the boundary the site declared - a lease line, a unit, an area to keep out of - with its setback: how near the hard line it runs and where, "
+     "where the bit is and what its heading reaches.", {}, _paged('hardline', lambda m, ws, w: m.page(ws))),
     ('frac_treatment', 'Frac treatment', "Each fracturing stage from its own pumping record: what was pumped, the ISIP with its range, the friction and its two parts from a step-down, the pressure after the shut-in, "
      "a step-rate test; for one stage, every shut-in in it.",
      {'well': _W['well'], 'stage': {'type': 'string', 'description': "The stage to give in full (1, 3R, 6A); left out, the first stage that was read."}}, _t_frac_treatment),

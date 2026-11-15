@@ -4,6 +4,17 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.94.0 - 2026-11-15 - hard lines
+
+- Hard line: each well against a declared boundary and its setback, in
+  plan - the nearest point, the hole within the warning distance, inside
+  the setback and over the line, the bit carried beyond the last survey
+  station, what its heading reaches; the pad drawn from above; three
+  alerts on a record still being written. On the public pad the
+  project's published extent is the boundary.
+- An Open the site button on the Public data tab.
+- Gate 596.
+
 ## v0.93.1 - 2026-11-14 - the recorder's self-test across the hour
 
 - The field recorder's self-test expected one file a channel and failed

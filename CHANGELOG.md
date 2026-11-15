@@ -5,6 +5,43 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.94.0] - 2026-11-15 - hard lines
+
+### Added
+- **Hard line**: each well against a boundary the site declares - a lease
+  line, a unit, the edge of a project area, or an area to keep out of -
+  and the distance to keep from it. The **Hard line** tab, `gea
+  hardline`, and the assistant's tool `hard_line` give, for every well
+  with a survey and in plan: the distance from the hard line (the
+  boundary moved in by the setback) at its nearest and where along the
+  hole that is, with the survey's own one-sigma across the line beside
+  it; how much of the hole is within the warning distance, inside the
+  setback or over the boundary; where the bit is - the bottom of the hole
+  from the drilling record, carried beyond the last survey station on
+  its direction - and how much more hole on that direction reaches the
+  hard line. The pad is drawn from above: the boundary, its setback and
+  warning bands, each path, its nearest point and its bit.
+- A boundary is a polygon of a layer the site brought (a shapefile of the
+  lease, the unit or the plat, added on the Map tab) or corners typed in
+  with their datum; it is kept with its setback, its warning distance,
+  its source, who declared it and when.
+- Alerts `hardline.warn`, `hardline.setback` and `hardline.crossed`: on a
+  drilling record still being written, the bit within the warning
+  distance of a hard line, inside the setback, or over the boundary -
+  each raised once for a well, a boundary and a level.
+- On the Utah FORGE public pad, with the project's published extent
+  (`MIlford_FORGE_Extent.zip`) in the folder, **Make the site** adds it as
+  a layer and declares its project area as the boundary. 78B-32 stands
+  85 ft inside its south side; 16B(78)-32's bit, held on its direction,
+  would reach the east side in 582 ft more hole.
+- **Open the site** on the Public data tab: once the public site is made,
+  one button opens it in its own window. Before, the tab only said where
+  it was listed.
+
+### Changed
+- The assistant's tools are 27.
+- Gate 596.
+
 ## [v0.93.1] - 2026-11-14 - the recorder's self-test across the hour
 
 ### Fixed

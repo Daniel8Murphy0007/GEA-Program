@@ -180,7 +180,7 @@ def status(folder: str, dataset_id: str = 'utah-forge', verify: bool = False) ->
     ns = sum(1 for r in sv if r['present'] and r['well'])
     return {'dataset': ds['id'], 'name': ds['name'], 'about': ds['about'], 'licence': ds['licence'], 'credit': ds['credit'], 'folder': folder, 'folder_exists': bool(folder) and os.path.isdir(folder),
             'files': rows, 'present': n, 'ready': n >= 2, 'total_bytes': sum(w['bytes'] for w in ds['wells']), 'treatments': tr, 'treatments_present': nt,
-            'treatment_bytes': sum(x['bytes'] for x in ds.get('treatments', [])), 'surveys': sv, 'surveys_present': ns,
+            'treatment_bytes': sum(x['bytes'] for x in ds.get('treatments', [])), 'surveys': sv, 'surveys_present': ns, 'boundary': boundary_status(folder),
             'lines': [f"{ds['name']}: {n} of {len(rows)} recorder files are in the folder" + ('' if n >= 2 else '; two or more make a pad') + '.',
                       f"{nt} of {len(tr)} stimulation files are in the folder or its stimulation folder (optional: the stages' pumping records, for the Frac treatment tab).",
                       f"{ns} of {len(SURVEYS)} survey files are in the folder (optional: they place the wells, for the 3D, Collision and Map tabs)" + (
@@ -459,6 +459,43 @@ SURVEYS = {
     '16B(78)-32': {'files': ('16B(78)-32 Well Survey.zip',), 'member': '16B(78)-32 Final Survey Report.txt', 'format': 'report-txt', 'bytes': 608878,
                    'sha256': '38c59c9452da709fa971448699eb46fb13f452d2aa8c08fbe88fe73f08ce5302', 'page': GDR + '1516'},
 }
+
+
+BOUNDARY = {'file': 'MIlford_FORGE_Extent.zip', 'bytes': 4130, 'sha256': 'e6e169b1601c85eeaa26e3989c175694aa5aab4113c97826e34ed7bbaabdcee4', 'page': GDR + '715', 'doi': '10.15121/1405034',
+            'title': 'Utah FORGE: Milford Site Location, Seismometer Locations, Basin Depth Models, and Potentiometric Contours', 'label': 'FORGE project area', 'layer': 'FORGE extent',
+            'name': 'FORGE project area', 'setback_ft': 0.0, 'warn_ft': 330.0}
+
+
+def boundary_status(folder: str) -> dict:
+    """The project's published extent against the folder. Optional: it is the boundary for the Hard line tab."""
+    p = _find(folder, BOUNDARY['file'])
+    return {'file': BOUNDARY['file'], 'page': BOUNDARY['page'], 'doi': BOUNDARY['doi'], 'title': BOUNDARY['title'], 'bytes_expected': BOUNDARY['bytes'], 'sha256_expected': BOUNDARY['sha256'],
+            'present': p is not None, 'bytes': os.path.getsize(p) if p else None, 'size_matches': (os.path.getsize(p) == BOUNDARY['bytes']) if p else None,
+            'can': f"the project area, declared as the boundary for the Hard line tab (setback {BOUNDARY['setback_ft']:g} ft - none is published - and a warning within {BOUNDARY['warn_ft']:g} ft)"}
+
+
+def declare_boundary(ws, folder: str, rec: dict, actor: str) -> Optional[dict]:
+    """The project's published extent, when it is in the folder and the site has placed wells: added as a layer and its
+    project area declared as the boundary the wells stay inside. Once: a boundary the site then removes stays removed."""
+    from . import hardline as HL
+    src = _find(folder, BOUNDARY['file'])
+    if src is None or rec.get('boundary') or not any((e.get('placed') or {}).get('drawn') for e in rec.get('wells', [])):
+        return None
+    out: Dict[str, Any] = {'file': BOUNDARY['file'], 'page': BOUNDARY['page'], 'doi': BOUNDARY['doi'], 'bytes': os.path.getsize(src), 'sha256': sha256_of(src), 'sha256_expected': BOUNDARY['sha256'], 'declared_utc': _utc()}
+    out['hash_matches'] = out['sha256'] == BOUNDARY['sha256']
+    try:
+        lay = next((x for x in ws.layers() if x.get('display') == BOUNDARY['layer']), None)
+        if lay is None:
+            lay = ws.add_layer(src, BOUNDARY['layer'], actor=actor, citation=f"{BOUNDARY['title']}, {BOUNDARY['page']}, doi:{BOUNDARY['doi']}, CC BY 4.0",
+                               note='the project area and the study area, as published')
+        b = HL.declare(ws, actor, BOUNDARY['name'], 'stay_inside', BOUNDARY['setback_ft'], BOUNDARY['warn_ft'],
+                       f"Utah FORGE published extent, {BOUNDARY['file']}, {BOUNDARY['page']}; no setback is published for it: 0 ft, and a warning distance of {BOUNDARY['warn_ft']:g} ft chosen here",
+                       layer=lay['id'], feature=BOUNDARY['label'])
+        out.update(layer=lay['id'], boundary=b['id'], declared=True)
+    except (ValueError, KeyError, OSError) as ex:
+        out.update(declared=False, why=f'{type(ex).__name__}: {ex}')
+    rec['boundary'] = out
+    return out
 
 
 def _f(x) -> Optional[float]:
@@ -931,6 +968,7 @@ def build(folder: str, ws_path: str, actor: str, dataset_id: str = 'utah-forge',
     stages = attach_treatments(ws, folder, rec, actor, ds, verify, say) if wells is None or any(x['well'] in wells for x in ds.get('treatments', [])) else []
     before = {e['well']: (e.get('placed') or {}).get('why') for e in rec['wells']}
     placed = place_wells(Workspace(ws.path), folder, rec, actor, say, only=wells)
+    bd = declare_boundary(Workspace(ws.path), folder, rec, actor) if wells is None else None
     need = [e for e in rec['wells'] if not os.path.isfile(os.path.join(ws.reports_dir, 'wells', e['well_id'], 'drilling_record.json'))]
     unwritten: List[str] = []
     if need and (added or placed):                                             # each well's drilling record written once now: the Simulation, Control room and Drill string tabs read it
@@ -950,20 +988,22 @@ def build(folder: str, ws_path: str, actor: str, dataset_id: str = 'utah-forge',
                 'the drilling record of ' + '; '.join(unwritten) + ' was not written by the build: press Refresh on the Home tab of the site, and the Simulation tab has it']
         else:
             rec['notes'] = [n for n in rec.get('notes', []) if not n.startswith('the drilling record of')]
-    if stages or placed or need or before != {e['well']: (e.get('placed') or {}).get('why') for e in rec['wells']}:
+    if stages or placed or need or bd or before != {e['well']: (e.get('placed') or {}).get('why') for e in rec['wells']}:
         rec.update(built_utc=_utc(), program_version=__version__)
         with open(os.path.join(ws.path, 'records', 'public_pad.json'), 'w', encoding='utf-8') as f:
             json.dump(rec, f, indent=1)
-    if added or stages or placed:
-        ws.audit(actor, 'public_pad.build', {'dataset': ds['id'], 'added': added, 'stages': stages, 'placed': placed, 'folder': os.path.abspath(folder),
+    if added or stages or placed or bd:
+        ws.audit(actor, 'public_pad.build', {'dataset': ds['id'], 'added': added, 'stages': stages, 'placed': placed, 'boundary': bool(bd and bd.get('declared')), 'folder': os.path.abspath(folder),
                                              'hashes_match': {e['well']: e.get('hash_matches') for e in rec['wells']}})
     done: Dict[str, Any] = {'step': 'done', 'added': added}
     if stages:
         done['stages'] = stages
     if placed:
         done['placed'] = placed
+    if bd and bd.get('declared'):
+        done['boundary'] = BOUNDARY['name']
     say(done)
-    return {'path': ws.path, 'name': ds['site_name'], 'added': added, 'stages': stages, 'placed': placed, 'wells': [e['well'] for e in rec['wells']], 'notes': rec.get('notes', []), 'record': rec}
+    return {'path': ws.path, 'name': ds['site_name'], 'added': added, 'stages': stages, 'placed': placed, 'boundary': (BOUNDARY['name'] if bd and bd.get('declared') else None), 'wells': [e['well'] for e in rec['wells']], 'notes': rec.get('notes', []), 'record': rec}
 
 
 def attach_treatments(ws, folder: str, rec: dict, actor: str, ds: dict, verify: bool = True, say: Optional[Callable[[dict], None]] = None) -> List[str]:
@@ -1047,7 +1087,7 @@ def text(s: dict) -> str:
                                                          + ('' if r['hash_matches'] is None else (', hash matches' if r['hash_matches'] else ', HASH DIFFERS from the file this release was checked against')))
         out.append(f"  {r['well']:12s} {r['year']}  {r['file']}  ({r['bytes_expected'] / 1e6:,.0f} MB; stage {', '.join(r['stages'])})  {st}")
         out.append(f"               from {r['page']}" + (f"  doi:{r['doi']}" if r.get('doi') else ''))
-    for r in s.get('surveys') or []:
+    for r in ([dict(s['boundary'], well='the pad')] if s.get('boundary') else []) + (s.get('surveys') or []):
         st = 'not in the folder' if not r['present'] else ('there' + ('' if r['size_matches'] else f", {r['bytes']:,} bytes where {r['bytes_expected']:,} were expected"))
         out.append(f"  {r['well'] or 'all wells':12s} survey  {r['file']}  ({r['bytes_expected'] / 1e3:,.0f} kB)  {st}" + (f": {r['can']}" if r['present'] else ''))
         out.append(f"               from {r['page']}" + (f"  doi:{r['doi']}" if r.get('doi') else ''))
@@ -1243,6 +1283,27 @@ def survey_standins(folder: str, td: Optional[Dict[str, float]] = None, location
         with open(os.path.join(folder, LOCATIONS['file']), 'w', encoding='utf-8', newline='') as f:
             f.write('\r\n'.join(loc) + '\r\n')
     return made
+
+
+def boundary_standin(folder: str) -> dict:
+    """A made-up extent around the made-up pad of `survey_standins`, as a shapefile in a zip under the published name:
+    a study area and, inside it, a project area. SIMULATION. Returns the project area's corners, UTM zone 12N metres."""
+    import tempfile
+    from . import shapefile as SH
+    E0, N0 = 334600.0, 4263400.0
+    proj = [(E0 - 500.0, N0 - 800.0), (E0 - 500.0, N0 + 500.0), (E0 + 1700.0, N0 + 500.0), (E0 + 1700.0, N0 - 800.0)]
+    study = [(E0 - 6000.0, N0 - 6000.0), (E0 - 6000.0, N0 + 6000.0), (E0 + 8000.0, N0 + 6000.0), (E0 + 8000.0, N0 - 6000.0)]
+    wkt = ('PROJCS["NAD_1983_UTM_Zone_12N",GEOGCS["GCS_North_American_1983",DATUM["D_North_American_1983",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],'
+           'UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-111.0],'
+           'PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]')
+    os.makedirs(folder, exist_ok=True)
+    with tempfile.TemporaryDirectory() as tmp:
+        SH.write(os.path.join(tmp, 'FORGE_extent'), 'Polygon', [([study + study[:1]], {'Id': 0, 'Descrip': 'FORGE study area'}), ([proj + proj[:1]], {'Id': 0, 'Descrip': BOUNDARY['label']})],
+                 [('Id', 'N', 6, 0), ('Descrip', 'C', 50, 0)], prj_wkt=wkt)
+        with zipfile.ZipFile(os.path.join(folder, BOUNDARY['file']), 'w', zipfile.ZIP_DEFLATED) as z:
+            for fn in sorted(os.listdir(tmp)):
+                z.write(os.path.join(tmp, fn), fn)
+    return {'project_utm': proj}
 
 
 def treatment_standins(folder: str, sub: str = 'stimulation') -> dict:
