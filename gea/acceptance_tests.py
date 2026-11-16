@@ -15445,7 +15445,7 @@ def section_dp_records_workspaces(tmp: str) -> None:
         # -- DP5 workspaces ------------------------------------------------------------------------------------------------
         names_ = [x["name"] for x in wl2.get("workspaces", [])] if s_wl2 == 200 else []
         port_used = []
-        reg = WSS.open_workspace(other, wsp, 8766, actor="tester", popen=lambda c_, **k_: port_used.append(c_), taken=lambda p_: p_ in (8766, 8767))
+        reg = WSS.open_workspace(other, wsp, 8766, actor="tester", popen=lambda c_, **k_: port_used.append(c_), taken=lambda p_: p_ in (8766, 8767), probe=lambda p_: None)
         c5 = {
             "listing": s_wl == 200 and len(wl["workspaces"]) == 1 and wl["workspaces"][0]["current"] is True,
             "made": s_new == 200 and Path(other, "workspace.json").is_file() and nw.get("name") == "Client look" and Path(other, "users.json").is_file(),
@@ -19439,6 +19439,174 @@ def section_ej_frac_treatment(tmp: str) -> None:
        "page with the published figures it was checked against, the README and lesson 14" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_ep_bar_boundary_workspaces(tmp: str) -> None:
+    """Section EP - finding one's way: the top bar's tabs under headings, every tab under exactly one; a declared
+    boundary drawn in the 3D scene where the wells are, against an independent projection of its corners; the map
+    opened on the wells and the boundary about them with a margin on the ground; and Administration's workspaces
+    told apart by the panel that answers on a port, so two that used the same port are never both said to be
+    running on it and one is never opened under the other's name."""
+    import http.cookiejar
+    import math
+    import urllib.error
+    import urllib.request
+    from . import edr as E
+    from . import geodesy as GD
+    from . import hardline as HL
+    from . import helplib as H
+    from . import site_map as SM
+    from . import well3d as W
+    from . import workspaces as WSS
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ep"); d.mkdir()
+    os.environ["GEA_WORKSPACES_FILE"] = str(d / "workspaces.json")
+    FT_ = 0.3048
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
+    readme1 = " ".join(readme.split())
+    # -- EP1 the top bar ----------------------------------------------------------------------------------------------------
+    tabs = TU.tabs()
+    gm = re.search(r"const NAV_GROUPS = \[(.*?)\n\];", page_src, re.S)
+    groups = [(g_, re.findall(r"'(#/[a-z0-9]*)'", ts_)) for g_, ts_ in re.findall(r"\['([^']+)', \[([^\]]*)\]\]", gm.group(1))] if gm else []
+    grouped = [t_ for _, ts_ in groups for t_ in ts_]
+    nav_code = page_src[page_src.index("const NAV_GROUPS = "):page_src.index("async function refreshBadges()")]
+    les2 = TU.lesson("sign-in")["markdown"]
+    c1 = {
+        "every_tab_once": sorted(grouped) == sorted(tabs) and len(set(grouped)) == len(grouped) == len(tabs),
+        "headings": 6 <= len(groups) <= 12 and all(1 < len(ts_) <= 12 for _, ts_ in groups) and len({g_ for g_, _ in groups}) == len(groups) and groups[0][1][0] == "#/"
+                    and max(len(g_) for g_, _ in groups) <= 24,
+        "together": all(any(set(want_) <= set(ts_) for _, ts_ in groups) for want_ in (("#/map", "#/3d", "#/collision", "#/hardline", "#/slides", "#/plan"), ("#/fluid", "#/plume", "#/front", "#/calibration"),
+                                                                                       ("#/tutorial", "#/help"), ("#/rigtime", "#/benchmark", "#/roadmap"), ("#/audit", "#/admin", "#/verify"))),
+        "bar": all(x in nav_code for x in ("data-navg", 'aria-expanded="${g === NAVG}"', 'aria-current="page"', "needing attention under this heading", "navTabOf(location.hash)", ".split('/')[1]", 'class="navg"', 'class="navt"'))
+               and "sessionStorage" not in nav_code and "localStorage" not in nav_code and "cur.startsWith(h)" not in page_src and "nav .navg button[aria-expanded=true]" in page_src,
+        "search": "under ${esc(navGroupOf(th) || '')} in the bar at the top" in page_src and "Search looks at the tabs' names" in page_src,
+        "lesson": all(g_.replace("&", "&") in les2 for g_, _ in groups) and "under headings" in les2 and not TU.check("sign-in"),
+        "readme": not readme or ("### The top bar, under headings" in readme and all(g_ in readme1 for g_, _ in groups)),
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       f"EP1 the top bar: the {len(tabs)} tabs under {len(groups)} headings, every tab under exactly one and none alone; the pages that belong together under one heading; a heading opens its "
+       "tabs without leaving the page, the heading of the tab one is on is marked and the badges are carried up to it; a tab is matched by its own name, not by how another begins; no browser "
+       "storage in it; the search box finds a tab by name and says which heading it is under; lesson 2 and the README name the headings"
+       + (f" [failed: {', '.join(failed1)}; ungrouped {sorted(set(tabs) - set(grouped))}]" if failed1 else ""))
+    # -- EP2 the boundary in 3D, and where the map opens --------------------------------------------------------------------
+    ev = E.selftest_events(str(d))
+    ws = Workspace.create(str(d / "ws"), "Pad EP", actor="tester")
+    wa = ws.add_well_file(ev["path"], display="EP-1H", actor="tester"); wb = ws.add_well_file(ev["path"], display="EP-2", actor="tester")
+    la0, lo0 = 31.40, -104.00
+    ws.set_well(wa["id"], surface={"lat": la0, "lon": lo0, "datum": "WGS84", "elevation": {"ft": 3000.0, "datum": "KB", "source": "test plat"}}, actor="tester")
+    ws.set_well(wb["id"], surface={"lat": la0 + 0.002, "lon": lo0 + 0.001, "datum": "WGS84", "elevation": {"ft": 3040.0, "datum": "KB", "source": "test plat"}}, actor="tester")
+    W.attach_trajectory(ws, wa["id"], "s.csv", b"MD (ft),Inc (deg),Azi (deg)\n0,0,90\n8000,0,90\n9000,90,90\n12000,90,90\n", "tester", "true", "ft", None, None, None, "test survey")
+    W.attach_trajectory(ws, wb["id"], "s.csv", b"MD (ft),Inc (deg),Azi (deg)\n0,0,0\n6000,0,0\n", "tester", "true", "ft", None, None, None, "test survey")
+    sc0 = W.workspace_scene(ws)
+    v0 = SM.overview(ws)["view"]
+    corners = [(la0 - 0.01, lo0 - 0.012), (la0 - 0.01, lo0 + 0.02), (la0 + 0.012, lo0 + 0.02), (la0 + 0.012, lo0 - 0.012)]
+    b1 = HL.declare(ws, "tester", "Unit 7", "stay_inside", 330, 100, "unit order (gate)", corners="\n".join(f"{a_:.6f}, {b_:.6f}" for a_, b_ in corners), datum="WGS84")
+    sc1 = W.workspace_scene(ws)
+    v1 = SM.overview(ws)["view"]
+    hp1 = HL.page(ws)
+    lay = next((l_ for l_ in sc1["layers"] if l_["id"] == f"hardline-{b1['id']}"), None)
+    fr = GD._tm(sc1["frame"]["lat0"], sc1["frame"]["lon0"], 1.0, 0.0, 0.0, "WGS84")
+    want_xy = [(GD.project(a_, b_, fr)["easting_m"], GD.project(a_, b_, fr)["northing_m"]) for a_, b_ in corners]
+    tops = [w_["path"]["z"][0] for w_ in sc1["wells"]]; bots = [max(w_["path"]["z"]) for w_ in sc1["wells"]]
+    far = HL.declare(ws, "tester", "A county away", "keep_out", 0, 0, "gate", corners=f"{la0 + 1.0:.4f},{lo0:.4f};{la0 + 1.0:.4f},{lo0 + 0.05:.4f};{la0 + 1.05:.4f},{lo0 + 0.05:.4f}", datum="WGS84")
+    wide = HL.declare(ws, "tester", "The basin", "stay_inside", 0, 0, "gate", corners=f"{la0 - 1.0:.4f},{lo0 - 1.0:.4f};{la0 - 1.0:.4f},{lo0 + 1.0:.4f};{la0 + 1.0:.4f},{lo0 + 1.0:.4f};{la0 + 1.0:.4f},{lo0 - 1.0:.4f}", datum="WGS84")
+    sc2 = W.workspace_scene(ws)
+    v2 = SM.overview(ws)["view"]
+    ids2 = [l_["id"] for l_ in sc2["layers"] if l_.get("role") == "boundary"]
+    for b_ in (b1, far, wide):
+        HL.remove(ws, "tester", b_["id"])
+    sc3 = W.workspace_scene(ws)
+    # wells far apart: the margin is a quarter of their spread, the same on the ground east as north
+    ws_f = Workspace.create(str(d / "wsf"), "Far apart", actor="tester")
+    f1 = ws_f.add_well_file(ev["path"], display="F-1", actor="tester"); f2 = ws_f.add_well_file(ev["path"], display="F-2", actor="tester")
+    ws_f.set_well(f1["id"], surface={"lat": 60.0, "lon": 5.0, "datum": "WGS84"}, actor="tester"); ws_f.set_well(f2["id"], surface={"lat": 60.4, "lon": 5.0, "datum": "WGS84"}, actor="tester")
+    vf = SM.overview(ws_f)["view"]
+    kcos = math.cos(math.radians(la0))
+    lines = (lay or {}).get("lines") or []
+    c2 = {
+        "none_before": not any(l_.get("role") == "boundary" for l_ in sc0["layers"]) and not any(l_.get("role") == "boundary" for l_ in sc3["layers"]),
+        "drawn": lay is not None and lay["role"] == "boundary" and len(lines) == W.BOUNDARY_LEVELS == 3 and "Unit 7" in lay["name"] and "to stay inside" in lay["name"] and "setback 330 ft" in lay["name"]
+                 and lay["citation"] == "unit order (gate)" and lay["vertices"] == 15,
+        "ring": all(len(l_["x"]) == 5 and l_["x"][0] == l_["x"][-1] and l_["y"][0] == l_["y"][-1]
+                    and all(abs(l_["x"][k_] - want_xy[k_][0]) < 0.2 and abs(l_["y"][k_] - want_xy[k_][1]) < 0.2 for k_ in range(4)) for l_ in lines)
+                and 2500.0 < abs(want_xy[1][0] - want_xy[0][0]) < 3500.0,
+        "levels": bool(lines) and abs(lines[0]["z"] - min(tops)) < 0.06 and abs(lines[-1]["z"] - max(bots)) < 0.06 and lines[0]["z"] < lines[1]["z"] < lines[2]["z"]
+                  and abs(min(tops) + 3040.0 * FT_) < 0.02 and lines[0]["v"] == "at the wellhead" and lines[-1]["v"] == "at the deepest hole",
+        "far_and_wide": ids2 == [f"hardline-{b1['id']}"] and len(sc2["wells"]) == 2,
+        "page_unchanged": len(hp1["rows"]) == 2 and hp1["status"] != "NO WELLS" and [w_["id"] for w_ in sc1["wells"]] == [w_["id"] for w_ in sc0["wells"]],
+        "map_wells": v0["why"] == "the placed wells" and v0["margin_km"] == SM.VIEW_MARGIN_KM == 2.0 and abs((la0 - v0["bbox"][1]) * 111.2 - 2.0) < 0.01 and abs((v0["bbox"][3] - (la0 + 0.002)) * 111.2 - 2.0) < 0.01
+                     and abs((lo0 - v0["bbox"][0]) * kcos * 111.2 - 2.0) < 0.02,
+        "map_boundary": v1["why"] == "the placed wells and the declared boundary" and v1["bbox"][0] < lo0 - 0.012 and v1["bbox"][2] > lo0 + 0.02 and v1["bbox"][1] < la0 - 0.01 and v1["bbox"][3] > la0 + 0.012
+                        and (v1["bbox"][3] - v1["bbox"][1]) < 0.08 and v2["bbox"] == v1["bbox"],
+        "map_spread": vf["why"] == "the placed wells" and abs(vf["margin_km"] - 0.1 * 111.2) < 0.01 and abs((60.0 - vf["bbox"][1]) - 0.1) < 1e-9
+                      and abs((5.0 - vf["bbox"][0]) * math.cos(math.radians(60.2)) - 0.1) < 1e-9,
+        "page": "with ${fmt(o.view.margin_km, 1)} km around them" in page_src,
+        "help": not H.check("map") and not H.check("well3d") and not H.check("hardline") and "two kilometres" in (H.page("map") or "") and "carried straight down" in (H.page("well3d") or "")
+                and "3D" in (H.page("hardline") or ""),
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "EP2 a boundary declared on the Hard line tab is a layer of the 3D scene: its ring closed, each corner where an independent projection puts it (0.2 m), drawn at the highest wellhead, at "
+       "the deepest hole and between; one a county away is not drawn, nor one the size of a basin; with none declared, and with each removed, the scene has none; the wells and the Hard line page are as they were. The "
+       "map opens on the placed wells with two kilometres about them, the same on the ground east as north; on the wells and a boundary declared about them; a boundary the size of a basin "
+       "does not widen it; wells far apart get a quarter of their spread"
+       + (f" [failed: {', '.join(failed2)}; v0 {v0}; vf {vf}]" if failed2 else ""))
+    # -- EP3 workspaces told apart by the panel that answers ----------------------------------------------------------------
+    here = Workspace.create(str(d / "here"), "Here", actor="tester")
+    wb_ = Workspace.create(str(d / "b"), "Site B", actor="tester"); wc_ = Workspace.create(str(d / "c"), "Site C", actor="tester")
+    svc = Service(wc_.path, port=0, scheduler=False).start()
+    port_c = int(svc.url.rstrip("/").rsplit(":", 1)[1])
+    try:
+        with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(svc.url.rstrip("/") + "/api/session", timeout=30) as r_:
+            anon = json.loads(r_.read())
+        asked = WSS.panel_on(port_c)
+        WSS.remember(wb_.path, "Site B", port_c); WSS.remember(wc_.path, "Site C", port_c)       # both used this port, at different times
+        real = {x_["name"]: x_ for x_ in WSS.listing(here.path, 8765)}
+        r_b = WSS.open_workspace(wb_.path, here.path, 8765, popen=lambda c_, **k_: None)          # B asked for while C's panel answers on the port B last used
+        WSS.remember(wb_.path, "Site B", port_c)
+        r_c = WSS.open_workspace(wc_.path, here.path, 8765, popen=lambda c_, **k_: None)
+    finally:
+        svc.stop()
+    shut = WSS.panel_on(port_c, timeout=0.5)
+    WSS.remember(wb_.path, "Site B", 8791); WSS.remember(wc_.path, "Site C", 8791)
+    for w_, utc_ in ((wb_, "2026-11-16T01:00:00Z"), (wc_, "2026-11-15T01:00:00Z")):
+        os.makedirs(os.path.join(w_.path, "records"), exist_ok=True)
+        with open(os.path.join(w_.path, "records", "runlog.jsonl"), "a", encoding="utf-8") as f_:
+            f_.write(json.dumps({"event": "start", "utc": utc_, "url": "http://127.0.0.1:8791/"}) + "\n")
+    up = lambda p_: p_ == 8791
+    silent = {x_["name"]: x_ for x_ in WSS.listing(here.path, 8765, taken=up, probe=lambda p_: None)}                 # nobody can be asked: the later start
+    told = {x_["name"]: x_ for x_ in WSS.listing(here.path, 8765, taken=up, probe=lambda p_: WSS.panel_id(wc_.path))}  # the panel says it is C's
+    other = {x_["name"]: x_ for x_ in WSS.listing(here.path, 8765, taken=up, probe=lambda p_: "0123456789abcdef")}     # a panel of a workspace not in the list
+    down = {x_["name"]: x_ for x_ in WSS.listing(here.path, 8765, taken=lambda p_: False, probe=lambda p_: WSS.panel_id(wc_.path))}
+    cmds = []
+    o_b = WSS.open_workspace(wb_.path, here.path, 8765, popen=lambda c_, **k_: cmds.append(c_), taken=up, probe=lambda p_: WSS.panel_id(wc_.path))
+    WSS.remember(wb_.path, "Site B", 8791)
+    o_c = WSS.open_workspace(wc_.path, here.path, 8765, popen=lambda c_, **k_: cmds.append(c_), taken=up, probe=lambda p_: WSS.panel_id(wc_.path))
+    it_a, it_b = (pkg / "help" / "IT_SECURITY.md").read_text(encoding="utf-8"), ((pkg.parent / "docs" / "IT_SECURITY.md").read_text(encoding="utf-8") if (pkg.parent / "docs" / "IT_SECURITY.md").is_file() else None)
+    c3 = {
+        "id": len(WSS.panel_id(wc_.path)) == 16 and WSS.panel_id(wc_.path) == WSS.panel_id(wc_.path + os.sep) == WSS.panel_id('"' + wc_.path + '"') and WSS.panel_id(wc_.path) != WSS.panel_id(wb_.path)
+              and wc_.path not in json.dumps(anon),
+        "asked": anon.get("panel_id") == WSS.panel_id(wc_.path) and anon.get("user") is None and asked == WSS.panel_id(wc_.path) and shut is None,
+        "real": real["Site C"]["running"] is True and real["Site C"]["port"] == port_c and real["Site B"]["running"] is False and real["Site B"]["port"] is None and real["Site B"]["last_port"] == port_c
+                and real["Here"]["current"] is True and real["Here"]["running"] is True,
+        "real_open": r_b["port"] != port_c and r_b["already_running"] is False and r_c["port"] == port_c and r_c["already_running"] is True,
+        "one_only": [n_ for n_, x_ in silent.items() if x_["running"] and not x_["current"]] == ["Site B"] and [n_ for n_, x_ in told.items() if x_["running"] and not x_["current"]] == ["Site C"]
+                    and not any(x_["running"] for x_ in other.values() if not x_["current"]) and not any(x_["running"] for x_ in down.values() if not x_["current"]),
+        "opened": o_b["port"] == 8766 and o_b["already_running"] is False and cmds[0][cmds[0].index("--workspace") + 1] == wb_.path and cmds[0][cmds[0].index("--port") + 1] == "8766"
+                  and o_c["port"] == 8791 and o_c["already_running"] is True,
+        "docs": "panel_id" in it_a and (it_b is None or it_a == it_b) and not H.check("install") and "the panel that answers" in (H.page("install") or "")
+                and (not readme or "never both said to be running" in readme1),
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "EP3 a control panel says which workspace it is to whoever asks its port - a hash of its folder, never the folder - and the Workspaces table asks: of two workspaces that last used the same "
+       "port, only the one whose panel answers there is running (against a real panel, and with the answer given); when the panel cannot be asked, the one that started there last; neither "
+       "when the port is shut or another workspace's; a workspace is opened on a free port when another's panel holds the port it used, and on its own when its own answers"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def section_eo_course_and_help(tmp: str) -> None:
     """Section EO - the tutorial and the help as a whole: no tab of the control panel without a lesson that walks
     through it and no help page without a lesson that names it; a lesson pointing at another by name, so a course
@@ -20601,6 +20769,7 @@ def main() -> int:
         section_em_hardline(tmp)
         section_en_slide_sheet(tmp)
         section_eo_course_and_help(tmp)
+        section_ep_bar_boundary_workspaces(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

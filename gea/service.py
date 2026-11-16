@@ -1849,6 +1849,7 @@ def make_handler(app: App):
                                                       'prefs': app.users.prefs(s['name']), 'via': s.get('via', 'password')} if s else None),
                                             'users': app.users.count(), 'company_sign_in': _OI.public(app.ws),
                                             'workspace': app.ws.manifest['name'], 'site': app.ws.manifest.get('site', {}),
+                                            'panel_id': __import__('gea.workspaces', fromlist=['panel_id']).panel_id(app.ws.path),
                                             'wall_pass': (lambda p: {k: p[k] for k in ('id', 'label', 'expires_utc')} if p else None)(self._wall_pass())})
                 if path == '/api/oidc/start':
                     from . import oidc as _OI

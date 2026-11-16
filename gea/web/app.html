@@ -15,7 +15,9 @@ body{margin:0;background:var(--page);color:var(--ink);font:15px/1.5 var(--sans)}
 a{color:var(--accent)}a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--grid)}
 header h1{font-size:18px;margin:0 8px 0 0}header .site{color:var(--muted)}header .spacer{flex:1}
-nav{display:flex;flex-wrap:wrap;gap:4px;padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--grid)}
+nav{background:var(--surface);border-bottom:1px solid var(--grid)}nav .navg,nav .navt{display:flex;flex-wrap:wrap;gap:4px;padding:6px 16px}nav .navg{border-bottom:1px solid var(--grid);padding-bottom:0;gap:2px}
+nav .navg button{background:none;border:0;border-bottom:3px solid transparent;border-radius:6px 6px 0 0;padding:6px 12px 5px;color:var(--ink2);font:inherit;font-weight:600;cursor:pointer}nav .navg button:hover{background:var(--page)}nav .navg button[aria-expanded=true]{border-bottom-color:var(--accent);color:var(--ink)}nav .navg button.here::after{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-left:6px;vertical-align:middle}
+nav .navg .b{display:inline-block;min-width:18px;padding:0 5px;margin-left:5px;border-radius:9px;background:var(--serious);color:#fff;font-size:11px;line-height:18px;text-align:center;font-weight:600}nav .navg .b.w{background:var(--warn)}
 nav a{padding:6px 10px;border-radius:6px;text-decoration:none;color:var(--ink2)}nav a[aria-current=page]{background:var(--accent);color:var(--accent-ink)}
 main{max-width:1280px;margin:0 auto;padding:16px}
 h2{font-size:20px;margin:8px 0 12px}h3{font-size:16px;margin:16px 0 8px}
@@ -620,7 +622,7 @@ VIEWS.map = async () => {
   const show = {}; for (const l of o.layers) show[l.id] = l.status === 'OK' && (l.kind === 'structure' || l.kind === 'areas');
   const notPlaced = o.wells.filter(w => !w.placed), placed = o.wells.filter(w => w.placed);
   let h = `<h2>Site map</h2>` + help('map');
-  h += `<p class="small muted">Frame: ${esc(o.frame)}. Opened on ${esc(o.view.why)}. Drag to pan, wheel or + − to zoom, Home to return; click the map for what each layer says about that spot.</p>`;
+  h += `<p class="small muted">Frame: ${esc(o.frame)}. Opened on ${esc(o.view.why)}${o.view.margin_km ? `, with ${fmt(o.view.margin_km, 1)} km around them` : ''}. Drag to pan, wheel or + − to zoom, Home to return; click the map for what each layer says about that spot.</p>`;
   h += `<div class="mp-wrap"><div><div class="row" style="margin:0 0 6px"><span class="tb" role="group" aria-label="Zoom and pan"><button type="button" class="secondary" data-mp="in" aria-label="Zoom in">+</button><button type="button" class="secondary" data-mp="out" aria-label="Zoom out">−</button><button type="button" class="secondary" data-mp="home">Home</button></span>
       <label class="small">Rings around wells<select id="mpRings"><option value="">none</option><option value="1,5,10">1, 5, 10 km</option><option value="5,10,25">5, 10, 25 km</option></select></label></div>
     <div class="mp-read" id="mpRead" aria-live="polite">Point at the map for its position.</div>
@@ -2154,7 +2156,7 @@ VIEWS.prefs = async () => {
 VIEWS.search = async (q) => {
   q = q || new URLSearchParams((location.hash.split('?')[1] || '')).get('q') || '';
   let h = `<h2>Search</h2>${help('search')}<form class="row card" id="sForm"><label>Find<input id="sq" value="${esc(q)}" autofocus></label><button type="submit">Find</button></form>`;
-  if (q.length >= 2) { try { const r = await get('/api/search?q=' + encodeURIComponent(q)); h += `<p class="small muted">${r.hits.length} hit(s)${r.truncated ? ' (showing the first)' : ''} for “${esc(q)}”</p>`; for (const x of r.hits) h += `<div class="hit"><span class="k">${esc(x.kind)}</span><a href="${esc(x.href)}" ${x.href.startsWith('/') ? 'target="_blank" rel="noopener"' : ''}>${esc(x.title)}</a><span class="small muted">${esc(x.detail)}</span></div>`; if (!r.hits.length) h += `<p class="muted">Nothing matched. Search looks at well names and ids, alarm ids and tags, report file names, job labels, configuration names, patches and schedules.</p>`; } catch (e) { h += `<p class="serious">${esc(e.message)}</p>`; } }
+  if (q.length >= 2) { try { const r = await get('/api/search?q=' + encodeURIComponent(q)); const tabs = NAV.filter(([, l]) => l.toLowerCase().includes(q.toLowerCase())); h += `<p class="small muted">${r.hits.length + tabs.length} hit(s)${r.truncated ? ' (showing the first)' : ''} for “${esc(q)}”</p>`; for (const [th, tl] of tabs) h += `<div class="hit"><span class="k">tab</span><a href="${th}">${esc(tl)}</a><span class="small muted">under ${esc(navGroupOf(th) || '')} in the bar at the top</span></div>`; for (const x of r.hits) h += `<div class="hit"><span class="k">${esc(x.kind)}</span><a href="${esc(x.href)}" ${x.href.startsWith('/') ? 'target="_blank" rel="noopener"' : ''}>${esc(x.title)}</a><span class="small muted">${esc(x.detail)}</span></div>`; if (!r.hits.length && !tabs.length) h += `<p class="muted">Nothing matched. Search looks at the tabs' names, well names and ids, alarm ids and tags, report file names, job labels, configuration names, patches and schedules. A word inside a help page is found on the <a href="#/help">Help</a> tab.</p>`; } catch (e) { h += `<p class="serious">${esc(e.message)}</p>`; } }
   $('#main').innerHTML = h;
   $('#sForm').onsubmit = ev => { ev.preventDefault(); location.hash = '#/search?q=' + encodeURIComponent($('#sq').value); };
 };
@@ -4531,7 +4533,36 @@ function authScreen(first, company) {
 // ---------- routing ---------------------------------------------------------------------
 const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/publicpad', 'Public data'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/roadmap', 'Roadmap'], ['#/benchmark', 'Benchmark'], ['#/dysfunction', 'Drilling alerts'], ['#/kick', 'Kick & loss'], ['#/collision', 'Collision'], ['#/hardline', 'Hard line'], ['#/slides', 'Slide sheet'], ['#/plan', 'Plan vs actual'], ['#/treatment', 'Frac treatment'], ['#/frac', 'Frac hits'], ['#/fluid', 'Fluid balance'], ['#/plume', 'Pressure plume'], ['#/front', 'Fluid front'], ['#/calibration', 'Calibration'], ['#/porepressure', 'Pore pressure'], ['#/torquedrag', 'Torque & drag'], ['#/hydraulics', 'Hydraulics & ECD'], ['#/casing', 'Casing & kick tolerance'], ['#/decline', 'Decline curves'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/mcp', 'Assistant access'], ['#/catalog', 'Catalogue'], ['#/rocks', 'Rocks'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/tutorial', 'Tutorial'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w'], '#/control': b => [b.handover_unacked, 'w']};
-function renderNav() { const cur = (location.hash || '#/').split('?')[0]; $('#nav').innerHTML = NAV.map(([h, l]) => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return `<a href="${h}" ${(h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h)) ? 'aria-current="page"' : ''}>${l}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join(''); }
+// the tabs under headings, in the order of the work: every tab of NAV under exactly one (the gate holds it so)
+const NAV_GROUPS = [
+  ['Start', ['#/', '#/setup', '#/sites', '#/publicpad']],
+  ['Wells & data', ['#/wells', '#/files', '#/live', '#/survey', '#/catalog', '#/rocks', '#/tools']],
+  ['Watch & report', ['#/control', '#/alarms', '#/approvals', '#/reports']],
+  ['Well paths', ['#/map', '#/3d', '#/collision', '#/hardline', '#/slides', '#/plan']],
+  ['Drilling', ['#/rigtime', '#/benchmark', '#/roadmap', '#/dysfunction', '#/kick', '#/drillstring', '#/simulation', '#/torquedrag', '#/hydraulics', '#/porepressure', '#/casing']],
+  ['Completion & production', ['#/completion', '#/treatment', '#/frac', '#/decline', '#/economics', '#/invoices']],
+  ['Disposal', ['#/fluid', '#/plume', '#/front', '#/calibration']],
+  ['Seismic', ['#/seismic', '#/opseis', '#/sar']],
+  ['Keep it running', ['#/config', '#/verify', '#/jobs', '#/audit', '#/admin', '#/mcp']],
+  ['Learn', ['#/tutorial', '#/help']],
+];
+// which heading is open is kept for as long as the window is, and nowhere else; going to a tab opens its heading
+let NAVG = null, NAVG_AT = null;
+function navTabOf(cur) { const v = '#/' + ((cur || '#/').split('?')[0].split('/')[1] || ''); return NAV.some(([h]) => h === v) ? v : null; }
+function navGroupOf(tab) { const g = NAV_GROUPS.find(([, ts]) => ts.includes(tab)); return g ? g[0] : null; }
+function renderNav() {
+  const tab = navTabOf(location.hash), here = navGroupOf(tab);
+  if (NAVG_AT !== tab) { NAVG_AT = tab; if (here) NAVG = here; }
+  if (!NAVG) NAVG = here || NAV_GROUPS[0][0];
+  const label = Object.fromEntries(NAV);
+  const badge = h => { const f = BADGE[h]; const [n, k] = f ? f(BADGES) : [0, '']; return [n || 0, k]; };
+  const groups = NAV_GROUPS.map(([g, ts], i) => { let n = 0, warn = true; for (const h of ts) { const [m, k] = badge(h); if (m) { n += m; if (k !== 'w') warn = false; } }
+    return `<button type="button" data-navg="${esc(g)}" aria-expanded="${g === NAVG}" aria-controls="navTabs" class="${g === here ? 'here' : ''}"${g === here ? ' title="the tab you are on is under this heading"' : ''}>${esc(g)}${n ? `<span class="b ${warn ? 'w' : ''}" title="${n} needing attention under this heading">${n}</span>` : ''}</button>`; }).join('');
+  const open = NAV_GROUPS.find(([g]) => g === NAVG) || NAV_GROUPS[0];
+  const tabs = open[1].map(h => { const [n, k] = badge(h); return `<a href="${h}" ${h === tab ? 'aria-current="page"' : ''}>${esc(label[h] || h)}${n ? `<span class="b ${k}" title="${n} needing attention">${n}</span>` : ''}</a>`; }).join('');
+  $('#nav').innerHTML = `<div class="navg" role="group" aria-label="Headings">${groups}</div><div class="navt" id="navTabs" aria-label="${esc(open[0])}">${tabs}</div>`;
+  $('#nav').querySelectorAll('[data-navg]').forEach(b => b.onclick = () => { NAVG = b.dataset.navg; renderNav(); const again = [...$('#nav').querySelectorAll('[data-navg]')].find(x => x.dataset.navg === NAVG); if (again) again.focus(); });
+}
 async function refreshBadges() { if (!me) return; try { BADGES = await get('/api/badges'); renderNav(); const t = BADGES.alarms_unacked ? `(${BADGES.alarms_unacked}) ` : ''; document.title = `${t}GEA-Program · ${workspaceName}`; } catch (e) {} }
 setInterval(refreshBadges, 30000);
 let routeChain = Promise.resolve();

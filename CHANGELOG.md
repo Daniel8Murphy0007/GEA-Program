@@ -5,6 +5,41 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.97.0] - 2026-11-16 - the top bar under headings
+
+### Changed
+- **The top bar.** The 53 tabs sit under ten headings in the order of the
+  work - Start; Wells & data; Watch & report; Well paths; Drilling;
+  Completion & production; Disposal; Seismic; Keep it running; Learn. The
+  bar is two rows - the headings, and the tabs of the open one - where it
+  had been five to seven. A heading opens its tabs without leaving the
+  page; the heading of the tab you are on is marked; a heading carries the
+  count of what needs attention under it. Nothing is kept in the browser.
+- **The Map opens closer.** On the placed wells, and the boundary declared
+  about them on the Hard line tab, with a quarter of their spread and at
+  least two kilometres of ground around them, the same east as north. It
+  had opened with thirteen kilometres on every side.
+
+### Added
+- **The hard line on the 3D tab.** A declared boundary is a layer of the
+  scene: its line on the ground drawn at the highest wellhead, at the
+  deepest hole and halfway between, so a path is seen against it at its
+  own depth.
+- The search box finds a tab by its name and says which heading it is
+  under.
+
+### Fixed
+- **Two workspaces shown running on the same port.** Administration's
+  Workspaces table took a workspace as running when anything answered on
+  the port it last used; two that had used the same port at different
+  times were both shown running, and **Open in its own window** on the one
+  that was not could open the other's control panel under its name. Each
+  control panel now says which workspace it is to whoever asks its port (a
+  hash of its folder, never the folder), the table asks, and a workspace
+  whose port another holds is started on a free one.
+- A tab in the bar is matched by its own name, not by how another tab's
+  address begins.
+
 ## [v0.96.0] - 2026-11-15 - the tutorial and the help, renovated
 
 ### Added

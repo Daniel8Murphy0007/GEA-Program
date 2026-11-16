@@ -4343,3 +4343,37 @@ help tabs.
 - Twelve older gate checks read lesson 13 or 14 by its file name; they
   now ask the course whether a page is taught. Section EO, three checks.
   Every tab opened in a window with storage denied. Gate 602.
+
+## 2026-11-16 - the top bar under headings (v0.97.0)
+
+With no data yet for the three items left on the list, the owner chose
+from what needs none: group the top bar, draw the hard line on the 3D
+tab, fix the Map's opening zoom. His two screenshots came with it.
+
+- The first screenshot: the bar, seven rows of tabs in his window, half
+  the screen before any page begins. The tabs now sit under ten headings;
+  the bar is the headings and the open heading's tabs. Which heading is
+  open is kept in the page's own memory and nowhere else. A tab was being
+  matched by whether the address began with its own; it is matched by its
+  name now.
+- The second screenshot showed something not asked about: two workspaces
+  both "running on port 8766". The table took a workspace as running when
+  anything answered on the port it last used. Worse than the wrong word:
+  opening the one that was not running went to that port and opened the
+  other site's panel. Each panel now answers /api/session with a hash of
+  its workspace's folder; the table and the open ask it. A panel that
+  cannot be asked - an older version, or one on HTTPS, whose certificate
+  is not looked past for this - is told by the later start in the run
+  logs.
+- The boundary in 3D is the line on the ground carried straight down, at
+  three levels from the highest wellhead to the deepest hole; the setback
+  is a distance and is named, not drawn. A boundary whose line comes no
+  nearer than 30 km to a wellhead is left out.
+- The Map had opened with 0.12 degrees - thirteen kilometres - around the
+  wells on every side, and more east-west than north-south on the ground.
+  Two kilometres or a quarter of the spread, equal on the ground, and the
+  declared boundary taken in when it lies about the wells.
+- Section EP, three checks; the workspaces check runs against a real
+  panel on a port of its own as well as with the answer given. Every tab
+  opened in a window with storage denied, and the bar worked by hand in
+  one at his window's width. Gate 605.

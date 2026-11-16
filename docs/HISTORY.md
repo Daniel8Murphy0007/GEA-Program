@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.97.0 - 2026-11-16 - the top bar under headings
+
+- The 53 tabs under ten headings: two rows where there were five to seven.
+- A declared boundary drawn on the 3D tab; the Map opened on the wells and
+  the boundary with two kilometres around.
+- Workspaces told apart by the panel that answers on a port: two that used
+  the same port are never both running, one never opened as the other.
+- Gate 605.
+
 ## v0.96.0 - 2026-11-15 - the tutorial and the help, renovated
 
 - The course under a rule the gate holds: every tab reached by a lesson,

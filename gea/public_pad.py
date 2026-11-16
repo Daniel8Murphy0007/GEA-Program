@@ -430,7 +430,7 @@ def suggest(current_ws_path: str, dataset_id: str = 'utah-forge') -> dict:
             continue
     path = ''
     try:
-        for r in WSS.listing(current_ws_path):
+        for r in WSS.listing(current_ws_path, taken=lambda _p: False):          # the folders are what is wanted here, not who is running
             if r.get('path') and os.path.isfile(os.path.join(r['path'], 'records', 'public_pad.json')):
                 path = r['path']
                 break

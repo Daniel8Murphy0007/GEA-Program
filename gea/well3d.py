@@ -529,6 +529,43 @@ def _rot_to_local(meta: dict, lat: float, lon: float, frame_lon0: float) -> Tupl
     return conv - loc, f'{g} grid north, the convergence {conv:+.3f} degrees there, turned {conv - loc:+.3f} to the scene grid'
 
 
+BOUNDARY_LEVELS = 3             # the levels a declared boundary's ring is drawn at, the wellhead's to the deepest hole's
+BOUNDARY_REACH_M = 30000.0      # a boundary whose line comes no nearer than this to any wellhead is not drawn
+
+
+def boundary_layers(ws, frame: dict, wells: List[dict]) -> List[dict]:
+    """Each boundary declared on the Hard line tab as a layer of the scene: its rings in the scene's frame, drawn at
+    BOUNDARY_LEVELS depths from the highest wellhead to the deepest hole. The boundary is a line on the ground; the
+    levels below it are that line carried straight down, so a path can be seen against it at its own depth."""
+    from . import geodesy as GD
+    from . import hardline as HL
+    tops = [float(w['path']['z'][0]) for w in wells if (w.get('path') or {}).get('z')]
+    bots = [float(max(w['path']['z'])) for w in wells if (w.get('path') or {}).get('z')]
+    if not tops:
+        return []
+    z0, z1 = min(tops), max(bots)
+    levels = [round(z0 + (z1 - z0) * k / (BOUNDARY_LEVELS - 1), 1) for k in range(BOUNDARY_LEVELS)] if z1 > z0 else [round(z0, 1)]
+    wx = [w['slot'][0] for w in wells]; wy = [w['slot'][1] for w in wells]
+    out = []
+    for b in HL.settings(ws).get('boundaries', []):
+        lines = []
+        for ring in HL.rings(ws, b):
+            xs, ys = [], []
+            for la, lo in ring + ring[:1]:
+                q = GD.project(la, lo, frame)
+                xs.append(round(q['easting_m'], 1)); ys.append(round(q['northing_m'], 1))
+            dd = HL.boundary_distance(np.asarray(wx, dtype=float), np.asarray(wy, dtype=float), [np.column_stack([xs[:-1], ys[:-1]])])[0]
+            if float(np.min(dd)) > BOUNDARY_REACH_M:
+                continue
+            for k, z in enumerate(levels):
+                lines.append({'v': 'at the wellhead' if k == 0 else ('at the deepest hole' if k == len(levels) - 1 else 'carried down'), 'z': z, 'x': xs, 'y': ys})
+        if lines:
+            sb = float(b.get('setback_ft') or 0.0)
+            out.append({'id': f"hardline-{b['id']}", 'name': f"Hard line: {b['name']} ({'to keep out of' if b.get('kind') == 'keep_out' else 'to stay inside'}; setback {sb:,.0f} ft, not drawn) - the line on the ground, carried down",
+                        'formation': '', 'role': 'boundary', 'value_attr': '', 'lines': lines, 'citation': b.get('source') or '', 'vertices': sum(len(l_['x']) for l_ in lines)})
+    return out
+
+
 def workspace_scene(ws, margin_km: float = 8.0, layer_tol_m: float = 25.0) -> dict:
     """The workspace's wells that have a surface position, a reference elevation and a directional survey, in a local
     frame (metres east and north of the wells' centre, depth below sea level), with the formation-top contour layers
@@ -668,6 +705,13 @@ def workspace_scene(ws, margin_km: float = 8.0, layer_tol_m: float = 25.0) -> di
             if lines:
                 layers.append({'id': rec['id'], 'name': nm, 'formation': rec.get('formation') or '', 'role': role, 'value_attr': va, 'lines': lines,
                                'citation': rec.get('citation') or '', 'vertices': sum(len(l_['x']) for l_ in lines)})
+    # the declared boundaries (the Hard line tab), drawn where the wells are: the ring at the highest wellhead, at the
+    # deepest hole and at levels between - a line on the ground has no depth, so it is carried straight down
+    if out_wells:
+        try:
+            layers.extend(boundary_layers(ws, frame, out_wells))
+        except Exception as e:
+            skipped.append({'id': 'hardline', 'display': 'Hard line', 'why': f'not drawn: {type(e).__name__}: {e}'})
     # the pressure plume's contours at the formation's top (SIMULATION), when the ledger has one; with no well placed
     # and no contour layer, the plume alone gives the scene its frame
     try:

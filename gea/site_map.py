@@ -136,14 +136,38 @@ def wells(ws) -> List[dict]:
     return out
 
 
+VIEW_MARGIN_KM = 2.0            # the least ground shown around the placed wells when the map opens
+VIEW_BOUNDARY_MAX_DEG = 0.5     # a declared boundary that, with the wells, spans more than this (about 55 km) does not set the opening view
+
+
 def default_view(ws, wl: List[dict], layers: List[dict]) -> dict:
-    """Where the map opens: the placed wells with a margin; else the Seismicity Response Areas; else the area most of the
+    """Where the map opens: the placed wells and the boundary declared about them, with a margin of a quarter of
+    their spread and at least two kilometres; else the Seismicity Response Areas; else the area most of the
     site's layers cover (the layers whose centres lie within five degrees of their median centre)."""
     placed = [w for w in wl if w['placed']]
     if placed:
         lats = [w['lat'] for w in placed]; lons = [w['lon'] for w in placed]
-        m = max(0.12, (max(lats) - min(lats)) * 0.4, (max(lons) - min(lons)) * 0.4)
-        return {'bbox': [min(lons) - m, min(lats) - m, max(lons) + m, max(lats) + m], 'why': 'the placed wells'}
+        why = 'the placed wells'
+        # a declared boundary (the Hard line tab) belongs in the opening view when it lies about the wells: a lease
+        # is the ground the pad is on. One far larger than the pad, or far from it (a basin, another county), is not.
+        try:
+            from . import hardline as HL
+            near = []
+            for b in HL.settings(ws).get('boundaries', []):
+                for ring in HL.rings(ws, b):
+                    la = [q[0] for q in ring] + lats; lo = [q[1] for q in ring] + lons
+                    if max(max(la) - min(la), (max(lo) - min(lo)) * math.cos(math.radians(lats[0]))) <= VIEW_BOUNDARY_MAX_DEG:
+                        near.append(([q[0] for q in ring], [q[1] for q in ring]))
+            if near:
+                for la, lo in near:
+                    lats += la; lons += lo
+                why = 'the placed wells and the declared boundary'
+        except Exception:
+            pass                                              # the boundary is a convenience here; the wells alone open the map
+        k = math.cos(math.radians((max(lats) + min(lats)) / 2.0)) or 1.0
+        # a margin of a quarter of the spread and never under VIEW_MARGIN_KM, the same on the ground east as north
+        m = max(VIEW_MARGIN_KM / 111.2, (max(lats) - min(lats)) * 0.25, (max(lons) - min(lons)) * k * 0.25)
+        return {'bbox': [min(lons) - m / k, min(lats) - m, max(lons) + m / k, max(lats) + m], 'why': why, 'margin_km': round(m * 111.2, 2)}
     for s in ws.sites():
         sra = s.get('sra')
         if sra and sra.get('centre_wgs84'):

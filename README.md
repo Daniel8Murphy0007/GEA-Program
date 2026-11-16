@@ -489,6 +489,27 @@ account ticks lessons off, and the tab says how long the rest will take.
 who do not sit at the screen. From a terminal: `gea tutorial`,
 `gea tutorial --lesson 3`, `gea tutorial --handout --workspace C:\site`.
 
+### The top bar, under headings
+
+The control panel's tabs sit under ten headings in the order of the work -
+Start; Wells & data; Watch & report; Well paths; Drilling; Completion &
+production; Disposal; Seismic; Keep it running; Learn - so the bar is two
+rows where it had been five to seven: the headings, and the tabs of the
+one that is open. A heading opens its tabs without leaving the page, the
+heading of the tab you are on is marked, and a heading carries the count
+of what needs attention under it. The search box finds a tab by its name
+and says which heading it is under. Every tab is under exactly one
+heading, and the acceptance gate holds it so.
+
+In the same release: a boundary declared on the Hard line tab is drawn on
+the **3D** tab among the well paths, its line carried straight down to the
+deepest hole; the **Map** opens on the placed wells and the boundary about
+them with two kilometres of ground around, where it had opened thirteen
+kilometres out; and Administration's **Workspaces** asks each control
+panel which workspace it is, so two workspaces that used the same port at
+different times are never both said to be running on it, and one is never
+opened under the other's name.
+
 ### The tutorial and the help, renovated
 
 The course is held to one rule by the acceptance gate: no tab without a
@@ -835,7 +856,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.96.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.97.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1930,7 +1951,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.96.0.exe` (for 0.96.0): the
+Every release also carries `GEA-Program-Setup-0.97.0.exe` (for 0.97.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1949,7 +1970,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.96.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.97.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

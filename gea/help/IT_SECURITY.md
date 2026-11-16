@@ -190,6 +190,13 @@ declared extras.
   workspace (`records\tutorial_progress.json`, by account name, no more);
   the handout is written only on request into `exports\tutorial\` and
   carries nothing of the site but its name. Both are audit lines.
+- **Which workspace a panel is** (`gea help install`, Other workspaces): the
+  sign-in page's own request (`/api/session`, answered before sign-in) now
+  carries `panel_id`, the first 16 hex digits of the SHA-256 of the
+  workspace folder's path. It lets Administration's Workspaces table tell
+  one workspace's control panel from another's on this computer's ports; it
+  is not the folder and does not give it. The table's question goes to
+  127.0.0.1 only, past any proxy setting, and reads nothing else.
 - **The help search** (`gea help help`): the Help tab's search box sends
   the words typed to this computer's own service, which looks through the
   help pages installed with the program and answers; nothing is kept and

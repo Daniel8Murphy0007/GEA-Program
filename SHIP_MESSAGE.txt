@@ -1,31 +1,23 @@
-v0.96.0 — THE TUTORIAL AND THE HELP, RENOVATED
+v0.97.0 — THE TOP BAR UNDER HEADINGS
 
-Every tab of the control panel now has a lesson, and the gate holds the
-course to it: no tab without a lesson that walks through it, no help
-page without a lesson that names it.
+Changed: the 53 tabs sit under ten headings in the order of the work -
+Start; Wells & data; Watch & report; Well paths; Drilling; Completion &
+production; Disposal; Seismic; Keep it running; Learn. The bar is two
+rows where it had been five to seven. A heading opens its tabs without
+leaving the page, the heading of the tab you are on is marked, and a
+heading carries the count of what needs attention under it. The search
+box finds a tab by its name.
 
-Added: three lessons - a real pad to practise on (the public Utah FORGE
-site), the shelves (catalogue, rocks, strata survey, tools and ports),
-an assistant that reads the site. The lessons on drilling and completion
-end with what to look at on the practice pad and the figure to find.
+Added: a boundary declared on the Hard line tab is drawn on the 3D tab,
+its line carried straight down to the deepest hole.
 
-Added: the Tutorial tab shows how many lessons are done and about how
-long the rest take, finds a lesson by a word or a tab's name, shows the
-office's or the pad's alone, and has a button for every page a lesson is
-about. The Help tab lists its pages under headings in the order of the
-work and searches the text of every page as you type; each page says
-which tab it is for and which lessons teach it; the tester guide and the
-IT security overview open there. On every tab, the help panel names the
-lesson that teaches it. gea help --find toolface.
+Changed: the Map opens on the placed wells and the boundary about them
+with two kilometres of ground around, not thirteen.
 
-Changed: the two long lessons (the drilling pages, the production pages)
-are eight short ones. 38 lessons in eleven parts. Lessons point at each
-other by name, so the numbers stay right. Every tick is kept, by the
-lesson's name; the two split lessons start unticked.
+Fixed: two workspaces that had used the same port were both shown
+running on it, and opening the one that was not could open the other's
+control panel under its name. Each panel now says which workspace it is
+(a hash of its folder), the Workspaces table asks, and a workspace whose
+port another holds starts on a free one.
 
-Asked first: can public data finish the three items left? Not today -
-the Volve planning export is behind Equinor's sign-in, the FORGE
-drilling program states no procedure a record can be held to, and no
-public rig takes a setpoint. The list file says so item by item.
-
-Gate 602.
+Gate 605.
