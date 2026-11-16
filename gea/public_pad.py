@@ -95,7 +95,11 @@ SUBFOLDERS = ('', 'stimulation')
 KEEP = ('Hole Depth', 'Bit Depth', 'Rate Of Penetration', 'Weight on Bit', 'Rotary RPM', 'Standpipe Pressure', 'Hook Load', 'Differential Pressure', 'Total Pump Output', 'Block Height',
         'Convertible Torque', 'Rotary Torque', 'On Bottom', 'Gamma', 'Interpolated TVD', 'Trip Tank Mud Volume', 'Total Mud Volume', 'Inclination', 'Azimuth', 'Pump Total Strokes Rate', 'Flow', 'PVT Total Mud Gain/Loss',
         'Gravity Toolface', 'Magnetic Toolface', 'Tool Face')
-CONVERTER = 2                      # 2: the toolface channels kept from the wide export (for the slide sheet)
+CONVERTER = 3                      # 2: the toolface channels kept from the wide export (for the slide sheet); 3: the pit volume,
+#                                    the return flow and the trip volume kept from the 16A(78)-32 and 58-32 layouts (kick and loss, the trip sheet)
+# the converter each layout was last changed by: a site's well written out by an earlier one is written out again
+FORMAT_CONVERTER = {'zip-edr': 2, 'forge-16a': 3, 'forge-58-32': 3}
+KEPT_SINCE = {'zip-edr': 'the toolface channels', 'forge-16a': 'the pit volume, the return flow and the trip volume', 'forge-58-32': 'the pit volume and the flow out'}
 SENTINELS = ('-999.25', '-9999.00', '-9999', '-999.250000')
 MONTHS = {m: f'{i + 1:02d}' for i, m in enumerate(('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'))}
 _LOCK = threading.Lock()
@@ -271,7 +275,8 @@ def convert_58_32(lines: Iterable[str], out, tick: Optional[Callable[[int], None
     it = iter(lines)
     hdr = [h.strip() for h in next(it).rstrip('\r\n').split(',')]
     want = (('Depth (ft)', 'Hole Depth (feet)'), ('Bit Depth (ft)', 'Bit Depth (feet)'), ('ROP(1 ft)', 'Rate Of Penetration (ft_per_hr)'), ('Rotary Speed (rpm)', 'Rotary RPM (RPM)'),
-            ('Pump Pressure (psi)', 'Standpipe Pressure (psi)'), ('Hookload (k lbs)', 'Hook Load (klbs)'), ('Flow In (gal/min)', 'Total Pump Output (gal_per_min)'), ('Block Ht (ft)', 'Block Height (feet)'))
+            ('Pump Pressure (psi)', 'Standpipe Pressure (psi)'), ('Hookload (k lbs)', 'Hook Load (klbs)'), ('Flow In (gal/min)', 'Total Pump Output (gal_per_min)'), ('Block Ht (ft)', 'Block Height (feet)'),
+            ('Pit Total (bbls)', 'Pit Total (barrels)'), ('Flow Out (gal/min)', 'Flow Out (gal_per_min)'))
     if hdr[:2] != ['Date', 'Time'] or 'Depth (ft)' not in hdr or 'Bit Depth (ft)' not in hdr:
         raise PublicPadError('not the 58-32 recorder layout: it starts Date, Time and has Depth (ft) and Bit Depth (ft)')
     idx = [(hdr.index(a), b) for a, b in want if a in hdr]
@@ -292,7 +297,8 @@ def convert_58_32(lines: Iterable[str], out, tick: Optional[Callable[[int], None
         if tick and n % 200000 == 0:
             tick(n)
     return {'rows': n, 'channels': [_name(b) for _, b in idx],
-            'notes': ['the 2017 layout written out under the names the program reads, U.S. units; this recorder has no weight on bit and no differential pressure in its time record']}
+            'notes': ['the 2017 layout written out under the names the program reads, U.S. units; this recorder has no weight on bit and no differential pressure in its time record',
+                      'its pit volume is the total of the pits, not the active system alone, and its flow out is in gallons a minute as the recorder gives it']}
 
 
 def convert_16a(lines: Iterable[str], out, tick: Optional[Callable[[int], None]] = None) -> dict:
@@ -309,7 +315,8 @@ def convert_16a(lines: Iterable[str], out, tick: Optional[Callable[[int], None]]
     cols = (('Total Depth', 'Hole Depth (feet)', 1.0), (None, 'Bit Depth (feet)', 1.0), ('ROP Depth/Hour', 'Rate Of Penetration (ft_per_hr)', 1.0), ('Weight on Bit', 'Weight on Bit (klbs)', 1.0),
             ('Top Drive RPM', 'Rotary RPM (RPM)', 1.0), ('Pump Pressure', 'Standpipe Pressure (psi)', 1.0), ('Hookload', 'Hook Load (klbs)', 1.0), ('Differential Pressure', 'Differential Pressure (psi)', 1.0),
             ('Flow In', 'Total Pump Output (gal_per_min)', 1.0), ('Block Position', 'Block Height (feet)', 1.0), ('Top Drive Torque (ft-lbs)', 'Convertible Torque (kft_lb)', 0.001),
-            ('On Bottom', 'On Bottom (unitless)', 1.0), ('Depth Hole TVD', 'Interpolated TVD (feet)', 1.0), ('MWD Gamma (API)', 'Gamma (api)', 1.0))
+            ('On Bottom', 'On Bottom (unitless)', 1.0), ('Depth Hole TVD', 'Interpolated TVD (feet)', 1.0), ('MWD Gamma (API)', 'Gamma (api)', 1.0),
+            ('Pit Volume Active', 'Pit Volume Active (barrels)', 1.0), ('Return Flow', 'Return Flow (percent)', 1.0), ('Trip Volume Active', 'Trip Volume Active (barrels)', 1.0))
     cols = tuple(c for c in cols if c[0] is None or c[0] in ix)
     out.write('YYYY/MM/DD,HH:MM:SS,' + ','.join(c[1] for c in cols) + '\n')
     i_t, i_blk, i_slip, i_onb, i_hole = ix['Time'], ix['Block Position'], ix['Slips Set'], ix['On Bottom'], ix['Total Depth']
@@ -359,7 +366,8 @@ def convert_16a(lines: Iterable[str], out, tick: Optional[Callable[[int], None]]
             tick(n)
     return {'rows': n, 'channels': [_name(c[1]) for c in cols], 'bit_depth_reconstructed': True, 'on_bottom_rows': on_rows,
             'notes': ['the bit depth is RECONSTRUCTED, not recorded: the hole depth while the on-bottom flag is set, unmoved in the slips, otherwise moved by the block; exact on bottom, approximate over a trip',
-                      'the surface torque is the top drive\'s, in kft-lb; the true vertical depth is the recorder\'s own']}
+                      'the surface torque is the top drive\'s, in kft-lb; the true vertical depth is the recorder\'s own',
+                      'the active pit volume, the return flow and the trip volume are the recorder\'s own; the file gives the return flow no unit, and it runs from 0 to 100']}
 
 
 def _text_lines(path: str, member: Optional[str] = None):
@@ -477,16 +485,18 @@ def boundary_status(folder: str) -> dict:
 
 
 def reconvert(ws, folder: str, rec: dict, actor: str, ds: dict, say: Optional[Callable[[dict], None]] = None) -> List[str]:
-    """A well whose record was written out of a wide export by an earlier converter, and whose published file is in
-    the folder: written out again with the channels this release keeps (the toolface, for the slide sheet), in place
-    of the first copy. Its drilling record is then written again by the build."""
+    """A well whose record was written out of its published layout by an earlier converter than the one that layout
+    now has, and whose published file is in the folder: written out again with the channels this release keeps (the
+    toolface of the wide export, for the slide sheet; the pit volume, the return flow and the trip volume of the
+    16A(78)-32 and 58-32 layouts, for kick and loss and the trip sheet), in place of the first copy. Its drilling
+    record is then written again by the build."""
     from . import well3d as W3
     say = say or (lambda d: None)
     done: List[str] = []
     by = {w['well']: w for w in ds['wells']}
     for e in rec.get('wells', []):
         w = by.get(e['well'])
-        if not w or w['format'] != 'zip-edr' or int(e.get('converter') or 1) >= CONVERTER or not os.path.isfile(os.path.join(folder, w['file'])):
+        if not w or int(e.get('converter') or 1) >= FORMAT_CONVERTER.get(w['format'], 1) or not os.path.isfile(os.path.join(folder, w['file'])):
             continue
         say({'well': e['well'], 'step': 'reconverting'})
         try:
@@ -504,12 +514,12 @@ def reconvert(ws, folder: str, rec: dict, actor: str, ds: dict, say: Optional[Ca
                     os.remove(p)
             e['converter'] = CONVERTER
             e.update({kk: vv for kk, vv in r.items() if kk != 'notes'})
-            e['notes'] = [n for n in e.get('notes', []) if 'written out again' not in n] + [f'written out again by converter {CONVERTER}, which keeps the toolface channels of the published export']
+            e['notes'] = [n for n in e.get('notes', []) if 'written out again' not in n] + [f"written out again by converter {CONVERTER}, which keeps {KEPT_SINCE[w['format']]} of the published file"]
             ws.audit(actor, 'public_pad.reconverted', {'well': e['well'], 'converter': CONVERTER, 'sha256': wr['source']['sha256']})
             done.append(e['well'])
         except (OSError, ValueError, KeyError) as ex:
             e['notes'] = [n for n in e.get('notes', []) if 'could not be written out again' not in n] + [
-                f'could not be written out again with the toolface channels ({type(ex).__name__}: {ex}): close the site\'s own window and press Make the site again']
+                f"could not be written out again with {KEPT_SINCE[w['format']]} ({type(ex).__name__}: {ex}): close the site's own window and press Make the site again"]
     return done
 
 
@@ -1163,19 +1173,22 @@ def standins(folder: str, stands: int = 14) -> dict:
         elif w['format'] == 'forge-58-32':
             with open(p, 'w', encoding='utf-8', newline='') as f:
                 f.write('Date,Time,Depth (ft),Depth (m),Block Ht (ft),Block Ht (m),Bit Depth (ft),Bit Depth (m),ROP(1 ft),ROP(1 m),Hookload (k lbs),Hookload (kg),Pump Pressure (psi),Pump Press (KPa),'
-                        'Surface Torque (psi),Surface Torque (KPa),Rotary Speed (rpm),Pump 1 (spm),Pump 2 (spm),Pit Total (bbls),Pit Total (m3),Flow In (gal/min),Flow In (liters/min)\n')
+                        'Surface Torque (psi),Surface Torque (KPa),Rotary Speed (rpm),Pump 1 (spm),Pump 2 (spm),Pit Total (bbls),Pit Total (m3),Flow In (gal/min),Flow In (liters/min),Flow Out (gal/min),Flow Out (liters/min)\n')
                 for i in range(n):
                     blk = '-9999.00' if i < 5 else f"{ch['block'][i]:.2f}"
                     f.write(f"{ts[i].month}/{ts[i].day}/{ts[i]:%y},{ts[i]:%H:%M:%S},{ch['hole'][i]:.2f},{ch['hole'][i] * 0.3048:.2f},{blk},0,{ch['bit'][i]:.2f},{ch['bit'][i] * 0.3048:.2f},"
-                            f"{150.0 if rec['drilling'][i] else 0.0:.1f},0,{ch['hookload'][i]:.1f},0,{ch['spp'][i]:.1f},0,100,0,{ch['rpm'][i]:.0f},60,60,300,48,{ch['flow'][i]:.1f},0\n")
+                            f"{150.0 if rec['drilling'][i] else 0.0:.1f},0,{ch['hookload'][i]:.1f},0,{ch['spp'][i]:.1f},0,100,0,{ch['rpm'][i]:.0f},60,60,{300.0 if ch['flow'][i] > 0 else 303.0:.2f},48,{ch['flow'][i]:.1f},0,"
+                            f"{ch['flow'][i] * 0.12:.1f},0\n")
         elif w['format'] == 'forge-16a':
             slips = (ch['hookload'] < 60.0).astype(int)
             with open(p, 'w', encoding='utf-8', newline='') as f:
-                f.write('Time,Block Position,Weight on Bit,Hookload,Slips Set,ROP Depth/Hour,MWD Gamma (API),On Bottom,Top Drive RPM,Top Drive Torque (ft-lbs),Flow In,Pump Pressure,SPM Total,RigMode,'
+                f.write('Time,Block Position,Weight on Bit,Hookload,Slips Set,ROP Depth/Hour,MWD Gamma (API),On Bottom,Top Drive RPM,Top Drive Torque (ft-lbs),Flow In,Pump Pressure,SPM Total,'
+                        'Pit Volume Active,Pit G/L Active,Gas Total - units,Trip Volume Active,Trip G/L,Return Flow,RigMode,'
                         'Total Depth,Bit Diameter,Bit RPM,Depth Hole TVD,Differential Pressure,Downhole Torque,Drill Mode\n')
                 for i in range(n):
                     f.write(f"{ts[i]:%d}/{ts[i]:%b}/{ts[i]:%Y} {ts[i]:%H:%M:%S},{ch['block'][i]:.4f},{20.0 if rec['drilling'][i] else 0.0:.2f},{ch['hookload'][i]:.3f},{slips[i]},{150.0 if rec['drilling'][i] else 0.0:.1f},"
-                            f"-999.25,{onb[i]},{ch['rpm'][i]:.2f},{5000.0 if ch['rpm'][i] > 0 else 0.0:.1f},{ch['flow'][i]:.2f},{ch['spp'][i]:.2f},120,2,{ch['hole'][i]:.4f},8.75,0,{ch['hole'][i] * 0.9:.4f},"
+                            f"-999.25,{onb[i]},{ch['rpm'][i]:.2f},{5000.0 if ch['rpm'][i] > 0 else 0.0:.1f},{ch['flow'][i]:.2f},{ch['spp'][i]:.2f},120,"
+                            f"{400.0 if ch['flow'][i] > 0 else 403.0:.3f},0,0,0,0,{35.0 if ch['flow'][i] > 0 else 0.0:.2f},2,{ch['hole'][i]:.4f},8.75,0,{ch['hole'][i] * 0.9:.4f},"
                             f"{ch['diff'][i]:.2f},0,2\n")
         else:                                                   # the zip of a wide ten-second export, and its survey
             buf = io.StringIO()

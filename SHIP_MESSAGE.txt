@@ -1,23 +1,22 @@
-v0.97.0 — THE TOP BAR UNDER HEADINGS
+v0.98.0 — THE TRIP SHEET, AND KICK AND LOSS ON ALL FIVE PUBLIC WELLS
 
-Changed: the 53 tabs sit under ten headings in the order of the work -
-Start; Wells & data; Watch & report; Well paths; Drilling; Completion &
-production; Disposal; Seismic; Keep it running; Learn. The bar is two
-rows where it had been five to seven. A heading opens its tabs without
-leaving the page, the heading of the tab you are on is marked, and a
-heading carries the count of what needs attention under it. The search
-box finds a tab by its name.
+Added: the Trip sheet tab, under Drilling. For every trip of 1,000 ft or
+more, the mud the hole took or gave beside what the pipe accounts for -
+read from the trip tank where the record carries one that moves with the
+pipe, and otherwise from the pits. A trip where neither moved is said to
+be not read: a blank is not a short fill. Mud moved at surface is taken
+out; the change during a break is not counted. The pipe is declared with
+its source; without one, each trip is set against the well's own like
+trips. gea trip-sheet, gea help trip-sheet, the assistant's trip_sheet.
 
-Added: a boundary declared on the Hard line tab is drawn on the 3D tab,
-its line carried straight down to the deepest hole.
+Added: kick and loss now judges all five Utah FORGE wells. The pit
+volume and return flow of the 16A(78)-32 and 58-32 files are kept when
+they are written out; a public site made earlier is given them by Make
+the site once more.
 
-Changed: the Map opens on the placed wells and the boundary about them
-with two kilometres of ground around, not thirteen.
+On the public pad no record carries a trip tank that moves, so every
+trip there is read from the pits and each well is set against itself:
+16B(78)-32 took 0.85 bbl per 100 ft pulling out and gave 1.78 running
+in, at the median.
 
-Fixed: two workspaces that had used the same port were both shown
-running on it, and opening the one that was not could open the other's
-control panel under its name. Each panel now says which workspace it is
-(a hash of its folder), the Workspaces table asks, and a workspace whose
-port another holds starts on a free one.
-
-Gate 605.
+Gate 608.

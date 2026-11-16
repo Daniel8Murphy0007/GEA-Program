@@ -18774,7 +18774,7 @@ def section_eh_mcp(tmp: str) -> None:
     plain = MC._plain({"a": np.float64(1.5), "_work": [1, 2], "b": [np.int64(3), float("nan")], "c": np.arange(4), "d": (1, "x")})
     c1 = {
         "selftest": st["ok"] and len(st["checks"]) >= 7,
-        "tools": len(defs) == 28 and defs[0]["name"] == "site" and all(d_["annotations"]["readOnlyHint"] is True and d_["annotations"]["destructiveHint"] is False and d_["annotations"]["openWorldHint"] is False
+        "tools": len(defs) == 29 and defs[0]["name"] == "site" and all(d_["annotations"]["readOnlyHint"] is True and d_["annotations"]["destructiveHint"] is False and d_["annotations"]["openWorldHint"] is False
                                                                         and d_["inputSchema"]["type"] == "object" and d_["inputSchema"]["additionalProperties"] is False and d_["title"] for d_ in defs)
                  and "well" in defs[1]["inputSchema"]["properties"] and "json" in defs[2]["inputSchema"]["properties"] and "json" not in MC.tool_definition("help")["inputSchema"]["properties"]
                  and not [n_ for n_ in MC.NAMES if any(w_ in n_ for w_ in ("write", "set", "declare", "attach", "remove", "delete", "run"))],
@@ -18864,12 +18864,12 @@ def section_eh_mcp(tmp: str) -> None:
                      and "SIMULATION" in answers["pressure_plume"]["text"].splitlines()[0] and "RIG-1" in answers["site"]["text"] and _ver in answers["site"]["text"],
         "json": all(isinstance(v, (dict, list)) for n_, v in parsed.items() if n_ != "well") and parsed["well"] is None and as_json["well"]["is_error"] and parsed["roadmap"]["status"] == "OK" and not [k_ for k_ in parsed["rig_time"] if str(k_).startswith("_")]
                 and len(parsed["drilling_alerts"]["wells"]) == 2,
-        "child_legacy": rc_o == 0 and len(out_o) == 4 and out_o[0]["result"]["protocolVersion"] == "2025-11-25" and len(out_o[1]["result"]["tools"]) == 28 and "resultType" not in out_o[1]["result"]
+        "child_legacy": rc_o == 0 and len(out_o) == 4 and out_o[0]["result"]["protocolVersion"] == "2025-11-25" and len(out_o[1]["result"]["tools"]) == 29 and "resultType" not in out_o[1]["result"]
                         and out_o[2]["result"]["content"][0]["text"] == answers["rig_time"]["text"] and "motor stall" in out_o[3]["result"]["content"][0]["text"] and "Traceback" not in err_o,
         "child_modern": rc_m == 0 and len(out_m) == 4 and out_m[0]["result"]["supportedVersions"] == list(MC.SUPPORTED) and out_m[1]["result"]["resultType"] == "complete"
                         and out_m[1]["result"]["cacheScope"] == "private" and out_m[2]["result"]["_meta"][MC.K_SERVER] == {"name": "gea-program", "title": "GEA-Program", "version": _ver}
                         and out_m[2]["result"]["isError"] is False and out_m[3]["error"]["code"] == -32022 and out_m[3]["error"]["data"]["requested"] == "2099-01-01" and "Traceback" not in err_m,
-        "withheld": kept["tools"] is not None and "audit" not in kept["tools"] and rc_w == 0 and "audit" not in [t_["name"] for t_ in out_w[0]["result"]["tools"]] and len(out_w[0]["result"]["tools"]) == 27
+        "withheld": kept["tools"] is not None and "audit" not in kept["tools"] and rc_w == 0 and "audit" not in [t_["name"] for t_ in out_w[0]["result"]["tools"]] and len(out_w[0]["result"]["tools"]) == 28
                     and out_w[1]["error"]["code"] == -32602 and "[cut at 3,000 of" in out_w[2]["result"]["content"][0]["text"],
         "narrowed": rc_a == 0 and [t_["name"] for t_ in out_a[0]["result"]["tools"]] == ["site"] and out_a[1]["error"]["code"] == -32602,
         "no_workspace": rc_x.returncode == 2 and rc_x.stdout == b"" and b"not a workspace" in rc_x.stderr,
@@ -18937,7 +18937,7 @@ def section_eh_mcp(tmp: str) -> None:
     its = (pkg / "help" / "IT_SECURITY.md").read_text(encoding="utf-8")
     backups = sorted(p_.name for p_ in cfgp.parent.iterdir() if ".before-gea-" in p_.name)
     c3 = {
-        "api": s_vg == 200 and len(vg["tools"]) == 28 and all(t_["offered"] for t_ in vg["tools"]) and vg["config"]["mcpServers"]["gea"]["args"][-1] == os.path.abspath(wsp) and len(vg["log"]) >= 6
+        "api": s_vg == 200 and len(vg["tools"]) == 29 and all(t_["offered"] for t_ in vg["tools"]) and vg["config"]["mcpServers"]["gea"]["args"][-1] == os.path.abspath(wsp) and len(vg["log"]) >= 6
                and vg["claude_desktop"]["found"] and not vg["claude_desktop"]["installed"] and s_vs == 403 and s_os == 200 and os_["offered"] == ["site", "roadmap", "help"] and os_["max_chars"] == 20000
                and s_bs == 400 and s_oa == 200,
         "claude_desktop": s_oc == 403 and s_ac == 200 and len(ac["done"]) == 1 and cfg_added["globalShortcut"] == "Ctrl+Space" and cfg_added["mcpServers"]["files"] == {"command": "npx", "args": ["-y", "x"]}
@@ -19078,7 +19078,7 @@ def section_ei_public_pad_benchmark(tmp: str) -> None:
                      and bm["pad_best_connection_min"] is not None and len(bm["stretches"]) >= 3 and all(s_["best_well"] in bm["names"] for s_ in bm["stretches"] if s_["best_rop_ft_h"]),
         "report": set(wr["files"]) == {"benchmark.json", "benchmark.md", "benchmark.csv", "stretches.csv"} and len(rows_b) == 6 and rows_b[0].startswith("display,drilled_ft,days,feet_per_day") and len(rows_s) == len(bm["stretches"]) + 1
                   and "benchmark.report" in audit, 
-        "tool": not bm_txt["is_error"] and bm_txt["text"] == BM.text(BM.page(ws)) and "benchmark" in MC.NAMES and len(MC.NAMES) == 28,
+        "tool": not bm_txt["is_error"] and bm_txt["text"] == BM.text(BM.page(ws)) and "benchmark" in MC.NAMES and len(MC.NAMES) == 29,
     }
     failed2 = [k_ for k_, v in c2.items() if not v]
     ok(not failed2,
@@ -19341,7 +19341,7 @@ def section_ej_frac_treatment(tmp: str) -> None:
                   and table[0] == "Stage,Start Time,End Time,Clean Volume (bbl),Proppant (lb)" and table[1].startswith("3R,2026-08-03 06:0") and "frac_treatment.report" in audit,
         "to_frac_hits": fh["stages"] == 3 and [x["stage"] for x in fh_rows] == ["3R", "10", "4"] and fh_rows[0]["start"].startswith("2026-08-03T06:0") and "frac.stages" in audit and "the stages' own treatment records" in fh["source"],
         "removed": [r_["stage"] for r_ in p2["stages"]] == ["3R", "10"] and "frac_treatment.removed" in audit and "frac_treatment.attach" in audit and "frac_treatment.declared" in audit,
-        "tool": not tool["is_error"] and tool["text"] == FT.text(FT.page(ws, tw, "10")) and "traces" not in json.loads(tool_j["text"]).get("detail", {}) and "frac_treatment" in MC.NAMES and len(MC.NAMES) == 28,
+        "tool": not tool["is_error"] and tool["text"] == FT.text(FT.page(ws, tw, "10")) and "traces" not in json.loads(tool_j["text"]).get("detail", {}) and "frac_treatment" in MC.NAMES and len(MC.NAMES) == 29,
         "public": stt["treatments_present"] == 5 and len(stt["treatments"]) == 5 and stt["treatment_bytes"] > 6e7 and len(br["stages"]) == 16 and {s_.get("step") for s_ in seen} >= {"treatment", "done"} and seen[-1]["stages"] == br["stages"]
                   and [r_["stage"] for r_ in fp["stages"] if r_["display"] == "16A(78)-32"] == ["1", "2", "3", "3R", "4", "5", "6A", "6B", "7", "8", "9", "10"]
                   and [r_["stage"] for r_ in fp["stages"] if r_["display"] == "16B(78)-32"] == ["1", "2", "3", "4"] and max(off) <= 40.0 and fp["lines"][-1].startswith("Data: Utah FORGE")
@@ -19437,6 +19437,228 @@ def section_ej_frac_treatment(tmp: str) -> None:
        "the stimulation files), the commands (the self-test, the table, one stage as JSON, a record attached, the depth declared, the stage times handed over and the report written; a well that is "
        "not there, an attach with no well and a folder that is no workspace each stopped; the public list naming the stimulation files), the Frac treatment tab with a panel a measure, the help "
        "page with the published figures it was checked against, the README and lesson 14" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
+def section_eq_trip_sheet(tmp: str) -> None:
+    """Section EQ - the trip sheet: each trip's mud against the pipe that was moved, read from the trip tank where it
+    moves and from the pits where it does not, on a record whose every barrel is known - a short fill, losses, mud
+    moved at surface taken out, a break not counted, a trip with no volume moving not read - with a pipe declared
+    and without; the pipe's arithmetic; and on the public pad's stand-ins, the pit volume and return flow of the two
+    layouts that dropped them kept, an older site's records written out again, and kick and loss judging all five."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.error
+    import urllib.request
+    from . import __version__ as _ver
+    from . import helplib as H
+    from . import kick as KD
+    from . import mcp_server as MC
+    from . import public_pad as PP
+    from . import series_cache as SCH
+    from . import trip_sheet as TS
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "eq"); d.mkdir()
+    os.environ["GEA_WORKSPACES_FILE"] = str(d / "workspaces.json")
+    # -- EQ1 a record whose every barrel is known ----------------------------------------------------------------------------
+    st = TS.selftest()
+    syn = TS.synthetic_edr(str(d / "trips.csv"))
+    ws = Workspace.create(str(d / "ws"), "Pad EQ", actor="tester")
+    w = ws.add_well_file(syn["path"], display="Trip 1H", actor="tester")
+    p0 = TS.page(ws)
+    t0 = p0["wells"][0]["trips"]
+    refused = {}
+    for nm_, kw_ in (("bore", dict(od_in=5.0, id_in=5.5, source="tally")), ("source", dict(od_in=5.0, id_in=4.276, source="")), ("weight", dict(od_in=5.0, id_in=4.276, source="tally", weight_lb_ft=60.0)),
+                     ("pull", dict(od_in=5.0, id_in=4.276, source="tally", pull="damp")), ("words", dict(od_in="five", id_in=4.276, source="tally"))):
+        try:
+            TS.declare_pipe(ws, "tester", w["id"], **kw_); refused[nm_] = ""
+        except TS.TripSheetError as ex:
+            refused[nm_] = str(ex)
+    try:
+        TS.declare_pipe(ws, "tester", "no-such-well", 5.0, 4.276, "tally"); no_well = False
+    except KeyError:
+        no_well = True
+    kept = TS.declare_pipe(ws, "tester", w["id"], 5.0, 4.276, "pipe tally (gate)", weight_lb_ft=22.6)
+    p1 = TS.page(ws)
+    t1 = p1["wells"][0]["trips"]
+    per = syn["per_trip_bbl"]
+    exp = syn["expect"]
+    wr = TS.write_report(ws, _ver, "tester")
+    trips_csv = Path(wr["folder"], "trips.csv").read_text(encoding="utf-8").splitlines()
+    iv_csv = Path(wr["folder"], "intervals.csv").read_text(encoding="utf-8").splitlines()
+    tool = MC.call_tool(ws, "trip_sheet", {"well": "Trip 1H"}); tool_j = MC.call_tool(ws, "trip_sheet", {"well": "Trip 1H", "json": True}, 900000)
+    wet = TS.declare_pipe(ws, "tester", w["id"], 5.0, 4.276, "pipe tally (gate)", weight_lb_ft=22.6, pull="wet", run="closed")
+    p2 = TS.page(ws)
+    TS.remove_pipe(ws, "tester", w["id"])
+    p3 = TS.page(ws)
+    try:
+        TS.remove_pipe(ws, "tester", w["id"]); gone = ""
+    except KeyError as ex:
+        gone = str(ex)
+    plain = Workspace.create(str(d / "plain"), "Plain", actor="tester")
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    sf = t1[2] if len(t1) == 7 else {}
+    c1 = {
+        "selftest": st["ok"] and len(st["checks"]) >= 6 and st["label"] == "SIMULATION",
+        "trips": len(t1) == 7 and [x["direction"] for x in t1] == [e_[0] for e_ in exp] and all(abs(x["feet"] - syn["trip_ft"]) < 5.0 for x in t1),
+        "sources": [x["source"] for x in t1] == [e_[1] for e_ in exp],
+        "verdicts": [x["status"] for x in t1] == [e_[2] for e_ in exp] and all(x["basis"] == "pipe" for x in t1[:6]) and p1["wells"][0]["counts"]["AS EXPECTED"] == 4,
+        "barrels": all(abs(x["measured_bbl"] - e_[3]) < 0.5 for x, e_ in zip(t1[:6], exp[:6])) and all(abs(abs(x["expected_bbl"]) - per * x["read_ft"] / syn["trip_ft"]) < 0.05 for x in t1[:6])
+                   and abs(per - 16.448) < 0.01 and all(x["tolerance_bbl"] == 5.0 for x in t1[:6]),
+        "short_fill": abs(sf.get("departure_bbl", 0) - 0.8224 * 8.0) < 0.4 and sf.get("worst") is not None and abs(sum(iv["departure_bbl"] for iv in sf["intervals"]) - sf["departure_bbl"]) < 0.1
+                      and max(iv["departure_bbl"] for iv in sf["intervals"][1:3]) > 2.5 and abs(sf["intervals"][0]["departure_bbl"]) < 1.2 and "bbl short" in sf["reads"] and "most of it between" in sf["reads"],
+        "losses": abs(t1[5]["departure_bbl"] + per * 0.5) < 0.5 and "bbl short" in t1[5]["reads"] and "the hole gave" in t1[5]["reads"],
+        "surface": abs(t1[3]["transfers_bbl"] - 15.0) < 1.5 and t1[3]["read_ft"] < t1[3]["feet"] and abs(t1[3]["departure_bbl"]) < 1.0 and "moved at surface taken out" in t1[3]["reads"]
+                   and abs(t1[4]["breaks_bbl"] + 12.0) < 0.7 and abs(t1[4]["departure_bbl"]) < 1.0 and "during the breaks not counted" in t1[4]["reads"],
+        "not_read": t1[6]["measured_bbl"] is None and t1[6]["curve"] is None and "not read" in t1[6]["reads"] and any("not read" in n_ for n_ in p1["wells"][0]["notes"]),
+        "no_pipe": [x["status"] for x in t0] == ["NO BASIS"] * 6 + ["NOT READ"] and all(x["expected_bbl"] is None for x in t0) and any("no pipe is declared" in n_ for n_ in p0["wells"][0]["notes"])
+                   and [x["status"] for x in p3["wells"][0]["trips"]] == [x["status"] for x in t0] and "no pipe is declared" in gone,
+        "wet_closed": abs(p2["wells"][0]["displacement"]["in_bbl_100ft"] - 2.59861) < 1e-3 and p2["wells"][0]["trips"][0]["status"] == "SHORT FILL" and p2["wells"][0]["trips"][1]["status"] == "SHORT RETURN"
+                      and wet["pull"] == "wet",
+        "refused": all(refused.values()) and "less than the outside" in refused["bore"] and "where the pipe" in refused["source"] and "lb/ft" in refused["weight"] and "dry" in refused["pull"]
+                   and "numbers" in refused["words"] and no_well,
+        "report": set(wr["files"]) == {"trip_sheet.json", "trip_sheet.md", "trips.csv", "intervals.csv"} and len(trips_csv) == 8 and trips_csv[0].startswith("well,n,start,end,direction")
+                  and len(iv_csv) == 1 + sum(len(x["intervals"]) for x in t1) and "trip_sheet.report" in audit and audit.count('"trip_sheet.pipe"') == 2 and '"trip_sheet.pipe_removed"' in audit
+                  and kept["by"] == "tester" and json.loads(Path(ws.path, "records", "trip_sheet.json").read_text(encoding="utf-8"))["pipes"] == {},
+        "tool": not tool["is_error"] and tool["text"].startswith("Trip sheet: the mud the hole took or gave") and "short fill" in tool["text"] and "trip_sheet" in MC.NAMES and len(MC.NAMES) == 29
+                and "curve" not in json.loads(tool_j["text"])["wells"][0]["trips"][0] and len(json.loads(tool_j["text"])["wells"][0]["trips"]) == 7,
+        "plain": TS.page(plain)["status"] == "NO DRILLING RECORD" and TS.page(plain)["wells"] == [] and "No well of this site" in TS.page(plain)["lines"][0],
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "EQ1 seven trips whose mud is known, through a recorder's export into a workspace: with the pipe declared (0.8224 bbl of steel per 100 ft), the two read from the trip tank and two from "
+       "the pits are what the pipe accounts for; the hole that took nothing for 800 ft is a short fill of 6.58 bbl, laid on the stretch it happened in; half the mud coming back is losses; 15 "
+       "bbl moved into the pits in 20 s is taken out and 12 bbl during a break is not counted, and both trips read true; a trip with no volume moving is not read, and is not called short. "
+       "With no pipe and too few like trips, nothing is judged and it says so; pulled wet and run closed the same record reads differently, as it should; a pipe that cannot be is turned "
+       "away; the report, the audit lines and the assistant's tool"
+       + (f" [failed: {', '.join(failed1)}; {[(x['status'], x['measured_bbl'], x['departure_bbl']) for x in t1]}]" if failed1 else ""))
+    # -- EQ2 the public pad: the channels two layouts dropped, kept; an older site written out again; kick and loss on all five --
+    folder, site = str(d / "files"), str(d / "forge-site")
+    PP.standins(folder, stands=8)
+    b1 = PP.build(folder, site, "tester", verify=False)
+    pws = Workspace(site)
+    rec = PP.record(pws)
+    ent = {e_["well"]: e_ for e_ in rec["wells"]}
+    conv_made = {e_["well"]: e_.get("converter") for e_ in rec["wells"]}
+    ch = {wl_: set(SCH.ensure(pws, ent[wl_]["well_id"])._ch) for wl_ in ("16A(78)-32", "58-32", "16B(78)-32")}
+    kp = KD.page(pws)
+    krows = {r_["display"]: r_ for r_ in kp["wells"]}
+    tp = TS.page(pws)
+    # a second site, as an earlier version left it: the two layouts written out without their pit volume, every well at converter 2.
+    # Nothing of it is read through its chart cache before the build has written it out again (a mapped file is not replaced on Windows).
+    older = str(d / "forge-older")
+    b1o = PP.build(folder, older, "tester", verify=False)
+    ows = Workspace(older)
+    orec = PP.record(ows)
+    oent = {e_["well"]: e_ for e_ in orec["wells"]}
+    old_headers = {}
+    for wl_ in ("16A(78)-32", "58-32"):
+        src = Path(ows.path, "wells", oent[wl_]["well_id"], "source", ows.well(oent[wl_]["well_id"])["files"][0])
+        rows_ = src.read_text(encoding="utf-8").splitlines()
+        keep_ = [i_ for i_, h_ in enumerate(rows_[0].split(",")) if not any(k_ in h_ for k_ in ("Pit ", "Return Flow", "Flow Out", "Trip Volume"))]
+        src.write_text("\n".join(",".join(r_.split(",")[i_] for i_ in keep_) for r_ in rows_) + "\n", encoding="utf-8")
+        old_headers[wl_] = src.read_text(encoding="utf-8").splitlines()[0]
+    for e_ in orec["wells"]:
+        e_["converter"] = 2
+    Path(older, "records", "public_pad.json").write_text(json.dumps(orec), encoding="utf-8")
+    seen = []
+    b2 = PP.build(folder, older, "tester", verify=False, progress=seen.append)
+    b3 = PP.build(folder, older, "tester", verify=False)
+    pws2 = Workspace(older)
+    rec2 = {e_["well"]: e_ for e_ in PP.record(pws2)["wells"]}
+    new_ch = set(SCH.ensure(pws2, oent["16A(78)-32"]["well_id"])._ch)
+    kp2 = {r_["display"]: r_ for r_ in KD.page(pws2)["wells"]}
+    c2 = {
+        "kept": {"Pit Volume Active", "Return Flow", "Trip Volume Active"} <= ch["16A(78)-32"] and {"Pit Total", "Flow Out"} <= ch["58-32"] and PP.CONVERTER == 3
+                and PP.FORMAT_CONVERTER == {"zip-edr": 2, "forge-16a": 3, "forge-58-32": 3} and all(v_ in (None, 3) for v_ in conv_made.values()) and conv_made["16A(78)-32"] == 3 and conv_made["58-32"] == 3,
+        "kick_all": all(krows[wl_]["status"] == "OK" and krows[wl_]["counts"]["pumps_off"] > 3 for wl_ in ("16A(78)-32", "58-32")) and krows["16A(78)-32"]["channels"]["pit"] == "Pit Volume Active"
+                    and krows["16A(78)-32"]["channels"]["out"] == "Return Flow" and krows["58-32"]["channels"]["pit"] == "Pit Total" and krows["58-32"]["channels"]["out"] == "Flow Out",
+        "older_site": "Pit Volume Active" not in old_headers["16A(78)-32"] and "Return Flow" not in old_headers["16A(78)-32"] and "Pit Total" not in old_headers["58-32"]
+                      and "Hole Depth" in old_headers["16A(78)-32"] and b1o["reconverted"] == [],
+        "again": b1["reconverted"] == [] and sorted(b2["reconverted"]) == ["16A(78)-32", "58-32"] and b3["reconverted"] == [] and sum(1 for s_ in seen if s_.get("step") == "reconverting") == 2
+                 and "Pit Volume Active" in new_ch and kp2["16A(78)-32"]["status"] == "OK" and kp2["58-32"]["status"] == "OK" and rec2["16A(78)-32"]["converter"] == 3 and rec2["16B(78)-32"]["converter"] == 2
+                 and any("the pit volume, the return flow and the trip volume" in n_ for n_ in rec2["16A(78)-32"]["notes"]) and any("the pit volume and the flow out" in n_ for n_ in rec2["58-32"]["notes"])
+                 and Path(pws2.audit_path).read_text(encoding="utf-8").count('"public_pad.reconverted"') == 2,
+        "trips_page": tp["status"] == "OK" and len(tp["wells"]) == 5 and tp["lines"][-1].startswith("Data: Utah FORGE") and all(r_["status"] in ("OK", "NO TRIPS", "NO VOLUME") for r_ in tp["wells"]),
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "EQ2 on the public pad's stand-ins: the 16A(78)-32 layout is written out with its active pit volume, its return flow and its trip volume, and the 58-32 layout with its pit total and "
+       "its flow out; kick and loss judges both, by those channels; a second site as an earlier version left it - the two records without them, at the converter before - has exactly those "
+       "two written out again by the build, once, the wide export left as it was, and is then judged; the trip sheet's page carries the credit"
+       + (f" [failed: {', '.join(failed2)}; b2 {b2.get('reconverted')}; kick {dict((k_, v_['status']) for k_, v_ in krows.items())}]" if failed2 else ""))
+    # -- EQ3 the routes, the commands, the tab, the help ------------------------------------------------------------------
+    Users(str(Path(ws.path, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(ws.path, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(ws.path, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=300) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as ex:
+            return ex.code, json.loads(ex.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_v, pv = call(V, "GET", "/api/trip-sheet")
+        s_vx, _ = call(V, "GET", "/api/trip-sheet?well=nowhere")
+        s_vp, _ = call(V, "POST", "/api/trip-sheet/pipe", {"well": w["id"], "od_in": 5, "id_in": 4.276, "source": "x"})
+        s_vw, _ = call(V, "POST", "/api/trip-sheet/write", {})
+        s_ob, ob = call(O, "POST", "/api/trip-sheet/pipe", {"well": w["id"], "od_in": 5, "id_in": 6, "source": "x"})
+        s_on, _ = call(O, "POST", "/api/trip-sheet/pipe", {"well": "nowhere", "od_in": 5, "id_in": 4.276, "source": "x"})
+        s_op, op_ = call(O, "POST", "/api/trip-sheet/pipe", {"well": w["id"], "od_in": "5", "id_in": "4.276", "weight_lb_ft": "22.6", "pull": "dry", "run": "open", "source": "pipe tally (gate)"})
+        s_o2, po = call(O, "GET", "/api/trip-sheet?well=" + w["id"])
+        s_ow, ow = call(O, "POST", "/api/trip-sheet/write", {})
+        s_or, _ = call(O, "POST", "/api/trip-sheet/pipe-remove", {"well": w["id"]})
+        s_or2, _ = call(O, "POST", "/api/trip-sheet/pipe-remove", {"well": w["id"]})
+    finally:
+        svc.stop()
+    env = {**os.environ, "PYTHONPATH": str(pkg.parent) + os.pathsep + os.environ.get("PYTHONPATH", "")}
+    run = lambda *a_: _sp.run([sys.executable, "-m", "gea", *a_], capture_output=True, text=True, env=env, cwd=str(d), timeout=600)
+    cli_s = run("trip-sheet")
+    cli_p = run("trip-sheet", "--workspace", ws.path, "--well", "Trip 1H", "--pipe", "5,4.276", "--weight", "22.6", "--source", "pipe tally (gate)", "--write")
+    cli_j = run("trip-sheet", "--workspace", ws.path, "--json")
+    cli_x, cli_b, cli_w = run("trip-sheet", "--workspace", ws.path, "--well", "Nobody 9H"), run("trip-sheet", "--workspace", ws.path, "--well", "Trip 1H", "--pipe", "5,7", "--source", "x"), run("trip-sheet", "--workspace", str(d / "nowhere"))
+    cli_r = run("trip-sheet", "--workspace", ws.path, "--well", "Trip 1H", "--remove-pipe")
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    view = page_src[page_src.index("const TRV = "):page_src.index("// ---------- slide sheet:")]
+    readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
+    hp = H.page("trip-sheet") or ""
+    c3 = {
+        "api": s_v == 200 and pv["status"] == "OK" and pv["well"] == w["id"] and len(pv["wells"][0]["trips"]) == 7 and len(pv["not_a_measurement"]) >= 6 and pv["rules"]["step_bbl"] == 5.0
+               and s_vx == 404 and s_vp == 403 and s_vw == 403 and s_ob == 400 and "less than the outside" in ob.get("error", "") and s_on == 404 and s_op == 200 and op_["weight_lb_ft"] == 22.6
+               and s_o2 == 200 and po["wells"][0]["trips"][2]["status"] == "SHORT FILL" and po["wells"][0]["pipe"]["by"] == "op" and s_ow == 200 and "trips.csv" in ow["files"] and s_or == 200 and s_or2 == 404,
+        "cli": cli_s.returncode == 0 and cli_s.stdout.strip().splitlines()[-1] == "OK - SIMULATION" and cli_p.returncode == 0 and "pulling out 0.822 bbl per 100 ft" in cli_p.stdout
+               and "written: trip_sheet.json, trip_sheet.md, trips.csv, intervals.csv" in cli_p.stdout and "short fill" in cli_p.stdout and cli_j.returncode == 0
+               and json.loads(cli_j.stdout)["wells"][0]["counts"]["SHORT FILL"] == 1 and cli_x.returncode != 0 and "no well 'Nobody 9H'" in cli_x.stderr and cli_b.returncode != 0
+               and "less than the outside" in cli_b.stderr and cli_w.returncode != 0 and cli_w.stdout == "" and cli_r.returncode == 0 and "taken off" in cli_r.stdout,
+        "page": all(x in page_src for x in ("VIEWS.trips", "['#/trips', 'Trip sheet']", "/api/trip-sheet/pipe-remove", "/api/trip-sheet/write", "help('trips')", "Declare the pipe", "Take it off", "The sheet",
+                                            "what the pipe accounts for", "too few to set a trip against", "pipe moved in the trip, ft"))
+                and "sessionStorage" not in view and "localStorage" not in view and "ftPanel(" in view and "'#/kick', '#/trips'" in page_src,
+        "help": not H.check("trip-sheet") and not H.check("kick") and not H.check("public-data") and not H.check("mcp") and H.VIEW_TOPIC.get("trips") == "trip-sheet" and H.group_of("trip-sheet") == "Drilling"
+                and all(x in hp for x in ("gea trip-sheet --workspace C:\\site", "2,748 lb a barrel", "0.822 bbl per 100 ft", "NOT READ", "0.85 bbl per 100 ft", "does not carry", "no alert on a record still being written"))
+                and "`trip_sheet`" in (H.page("mcp") or "") and "all five wells are judged" in (H.page("kick") or "") and "flow out of 58-32" in (H.page("public-data") or ""),
+        "readme_lesson": (not readme or ("### Trip sheet" in readme and "`gea trip-sheet`" in readme and readme.index("### Slide sheet") < readme.index("### Trip sheet")))
+                         and "**Trip sheet**" in TU.course_text() and [l_["id"] for l_ in TU.teaches("trip-sheet")] == ["drilling-watch"] and (TU.for_tab("#/trips") or {}).get("id") == "drilling-watch"
+                         and not any(TU.check(l_["id"]) for l_ in TU.lessons()) and TU.coverage()["tabs_unreached"] == [],
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "EQ3 on the API (anyone reads the sheet; a well that is not there 404; only an operator declares a pipe, takes it off or writes the report; a pipe that cannot be 400), the commands (the "
+       "self-test, a pipe declared with the report written, the page as JSON, a well that is not there, a pipe that cannot be and a folder that is no workspace each stopped, the pipe taken "
+       "off), the Trip sheet tab under Drilling with its trip drawn one measure a panel - and no browser storage in it - the help page with the figures of the public pad, the kick, "
+       "public-data and assistant pages, the README and lesson 17"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
 def section_ep_bar_boundary_workspaces(tmp: str) -> None:
@@ -19882,9 +20104,9 @@ def section_en_slide_sheet(tmp: str) -> None:
                      and p["wells"][0]["display"] == "Slide 1H" and "Slide 1H: 10 slide(s), 300 ft slid of 4,850 ft drilled (6.2%)" in p["lines"][0],
         "report": set(wr["files"]) == {"slide_sheet.json", "slide_sheet.md", "slide_sheet.csv", "courses.csv", "runs.csv"} and len(rows_csv) == len(det["rows"]) + 1 and rows_csv[0].startswith("well,n,kind,run,from_ft,to_ft")
                   and len(runs_csv) == 3 and len(courses_csv) == 32 and "slide_sheet.report" in audit,
-        "tool": not tool["is_error"] and tool["text"] == SS.text(SS.page(ws, w["id"])) and len(json.loads(tool_j["text"])["detail"]["rows"]) == len(det["rows"]) and "slide_sheet" in MC.NAMES and len(MC.NAMES) == 28,
+        "tool": not tool["is_error"] and tool["text"] == SS.text(SS.page(ws, w["id"])) and len(json.loads(tool_j["text"])["detail"]["rows"]) == len(det["rows"]) and "slide_sheet" in MC.NAMES and len(MC.NAMES) == 29,
         "plain": SS.page(plain)["status"] == "NO DRILLING RECORD" and SS.page(plain)["wells"] == [] and "No well of this site has a drilling record" in SS.page(plain)["lines"][0],
-        "public": conv_new == PP.CONVERTER and b1["reconverted"] == [] and b2["reconverted"] == ["16B(78)-32"] and b3["reconverted"] == [] and any(s_.get("step") == "reconverting" for s_ in seen)
+        "public": conv_new == PP.CONVERTER and b1["reconverted"] == [] and set(b2["reconverted"]) == {"16B(78)-32", "16A(78)-32", "58-32"} and b3["reconverted"] == [] and any(s_.get("step") == "reconverting" for s_ in seen)
                   and {"Gravity Toolface", "Magnetic Toolface"} <= set(c16._ch) and e16b["converter"] == PP.CONVERTER and any("written out again" in n_ for n_ in e16b["notes"])
                   and fp["detail"]["toolface"] == "gravity and magnetic" and fp["lines"][-1].startswith("Data: Utah FORGE") and len(fp["wells"]) == 5
                   and "public_pad.reconverted" in Path(Workspace(site).audit_path).read_text(encoding="utf-8")
@@ -19943,7 +20165,7 @@ def section_en_slide_sheet(tmp: str) -> None:
                and "-- Slide 1H: the slides (10;" in cli_t.stdout and "20 right" in cli_t.stdout and "written: slide_sheet.json, slide_sheet.md, slide_sheet.csv, courses.csv, runs.csv" in cli_t.stdout
                and cli_j.returncode == 0 and json.loads(cli_j.stdout)["wells"][0]["slides"] == 10 and cli_x.returncode != 0 and "no well 'Nobody 9H'" in cli_x.stderr and cli_w.returncode != 0 and cli_w.stdout == "",
         "page": all(x in page_src for x in ("VIEWS.slides", "['#/slides', 'Slide sheet']", "/api/slide-sheet/write", "help('slides')", "Share of the course slid, %", "The runs of an assembly", "Dogleg per 100 ft slid",
-                                            "You are in the public site: its tabs are the ones above.", "of ${P.this_site ? 'this site' : 'that site'}", "written out again with its toolface"))
+                                            "You are in the public site: its tabs are the ones above.", "of ${P.this_site ? 'this site' : 'that site'}", "written out again with the channels this version keeps"))
                 and "sessionStorage" not in view and "localStorage" not in view,
         "help": not H.check("slide-sheet") and not H.check("public-data") and not H.check("mcp") and H.VIEW_TOPIC.get("slides") == "slide-sheet"
                 and all(x in hp for x in ("gea slide-sheet --workspace C:\\site", "ten turns a minute", "7.5 degrees", "5,892 and 6,797 ft", "a value left standing", "five courses or more", "the motor's own yield"))
@@ -20096,7 +20318,7 @@ def section_em_hardline(tmp: str) -> None:
         "alerts": len(ev1) >= 3 and {e_["event"] for e_ in ev1} == {"hardline.crossed"} and len(hl_raised) == len(ev1) and not [e_ for e_ in raised2 if e_["event"].startswith("hardline.")]
                   and all("over the boundary" in e_["detail"] for e_ in ev1) and "hardline.crossed" in AL.EVENTS,
         "report": set(wr["files"]) == {"hardline.json", "hardline.md", "hardline.csv"} and len(csv_rows) == 11 and csv_rows[0].startswith("well,boundary,status,nearest_to_hard_line_ft") and "hardline.report" in audit,
-        "tool": not tool["is_error"] and tool["text"].startswith("Hard line: each well against the declared boundary") and "Tight unit" in tool["text"] and "hard_line" in MC.NAMES and len(MC.NAMES) == 28
+        "tool": not tool["is_error"] and tool["text"].startswith("Hard line: each well against the declared boundary") and "Tight unit" in tool["text"] and "hard_line" in MC.NAMES and len(MC.NAMES) == 29
                 and len(json.loads(tool_j["text"])["rows"]) == 10,
     }
     failed2 = [k_ for k_, v in c2.items() if not v]
@@ -20533,7 +20755,7 @@ def section_ek_kick(tmp: str) -> None:
                   and any(",ABOVE," in ln for ln in fcsv) and any(",KICK-LIKE," in ln for ln in ecsv) and "kick.report" in audit0 and "What this will not call a measurement" in (Path(wr["folder"]) / "kick.md").read_text(encoding="utf-8"),
         "settings": "between 1 and 100" in bad["bound"] and "where they came from" in bad["no_source"] and s1["gain_min_bbl"] == 100.0 and sum(w_["counts"].get("above", 0) + w_["counts"].get("KICK-LIKE", 0) + w_["counts"].get("LOSSES", 0)
                     + w_["counts"].get("GAIN", 0) for w_ in p_hi["wells"] if w_["status"] == "OK") == 0 and s2["gain_min_bbl"] == 8.0 and audit0.count("kick.settings") == 2 and p_hi["settings_source"] == "well control procedure (test)",
-        "tool": not tool["is_error"] and tool["text"] == tool_expect and "Kick and loss detection, replayed over the record" in tool["text"] and "kick_detection" in MC.NAMES and len(MC.NAMES) == 28,
+        "tool": not tool["is_error"] and tool["text"] == tool_expect and "Kick and loss detection, replayed over the record" in tool["text"] and "kick_detection" in MC.NAMES and len(MC.NAMES) == 29,
         "alert": len(le) == 1 and le[0]["event"] == "kick.flowback" and le[0]["well"] == "Well L" and len(kraised) == 1 and kraised[0]["event"] == "kick.flowback" and "flowback +" in kraised[0]["detail"]
                  and not [e for e in again if e["event"].startswith("kick.")] and {"kick.flowback", "kick.gain", "kick.loss"} <= set(AL.EVENTS) and {"kick.flowback", "kick.gain", "kick.loss"} <= set(NT.EVENTS)
                  and "flowback above its fingerprint on Well L" in NT._subject(kraised[0]),
@@ -20770,6 +20992,7 @@ def main() -> int:
         section_en_slide_sheet(tmp)
         section_eo_course_and_help(tmp)
         section_ep_bar_boundary_workspaces(tmp)
+        section_eq_trip_sheet(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

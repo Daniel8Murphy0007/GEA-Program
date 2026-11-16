@@ -5,6 +5,36 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.98.0] - 2026-11-16 - the trip sheet, and kick and loss on all five public wells
+
+### Added
+- **Trip sheet**: the mud the hole took or gave on every trip, against
+  the pipe that was moved. The **Trip sheet** tab (under Drilling), `gea
+  trip-sheet`, `gea help trip-sheet`, the assistant's `trip_sheet` tool.
+  Each trip of 1,000 ft or more is read from the trip tank where the
+  record carries one that moves with the pipe, and otherwise from the
+  pits; where neither moved, the trip is said to be not read. Mud moved at
+  surface (5 bbl inside half a minute) is taken out and the change during
+  a break is not counted. The pipe is declared with its source - its
+  diameters, its weight with tool joints, pulled dry or wet, run open or
+  closed - and a trip departs past 5 bbl or a quarter of what the pipe
+  accounts for: a short fill, a hole that gave more, losses. With no pipe
+  declared, each trip is set against the well's own like trips.
+- **Kick & loss on all five public wells.** The 16A(78)-32 file's active
+  pit volume, return flow and trip volume, and the 58-32 file's pit total
+  and flow out, are kept when the files are written out; both wells had
+  been "not judged". A public site made by an earlier version is given
+  them by **Make the site** once more (some minutes: the 16A(78)-32 file
+  is over a gigabyte).
+
+### Notes
+- On the Utah FORGE public pad no well's record carries a trip tank that
+  moves - 16B(78)-32's reads zero throughout - so every trip there is read
+  from the pits, and with no pipe declared each well is set against
+  itself. That is what those records support.
+- No alert is raised from the trip sheet on a record still being written
+  in this version.
+
 ## [v0.97.0] - 2026-11-16 - the top bar under headings
 
 ### Changed

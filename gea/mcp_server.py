@@ -331,6 +331,8 @@ TOOLS: List[tuple] = [
     ('frac_hits', 'Frac hits', "What each fracturing stage did to the pressure in the monitored wells around it: none, poroelastic, mixed or a frac hit.", {}, _paged('frac_hits', lambda m, ws, w: m.page(ws))),
     ('kick_detection', 'Kick and loss detection', "Every drilling record replayed for kicks and losses: the flowback at each pumps-off against the fingerprint of the connections before it, "
      "and the pits while circulating against their own trend, each event named by what the return flow did.", {}, _paged('kick', lambda m, ws, w: m.page(ws))),
+    ('trip_sheet', 'Trip sheet', "The mud the hole took or gave on every trip of a well against the pipe that was moved, read from the trip tank or the pits of its drilling record: "
+     "short fills, losses, and the trips the record cannot read.", _W, _paged('trip_sheet', lambda m, ws, w: m.slim(m.page(ws, w, None, False)), True)),
     ('slide_sheet', 'Slide sheet', "Each slide and each rotated stretch of a well from its drilling record, with the toolface where the record carries one and the hole's build and turn from the survey; "
      "the assembly's tendency while rotating and the dogleg per 100 ft slid, run by run.", _W, _paged('slide_sheet', lambda m, ws, w: m.page(ws, w), True)),
     ('hard_line', 'Hard line', "Each well against the boundary the site declared - a lease line, a unit, an area to keep out of - with its setback: how near the hard line it runs and where, "

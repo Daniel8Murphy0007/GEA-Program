@@ -856,7 +856,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.97.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.98.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1286,6 +1286,36 @@ whose curve was not slid, has 14, and the only record with a toolface.
 A slide is the record's rotary speed under ten turns a minute while
 drilling; the sheet says what the hole did, not what the motor could do.
 The **Slide sheet** tab, `gea slide-sheet`, `gea help slide-sheet`.
+
+### Trip sheet
+
+The crew's trip sheet, written from the drilling record. Pulling pipe
+takes steel out of the hole and the hole must be given that volume of
+mud; running pipe puts it back. For every trip of 1,000 ft or more, the
+page gives the mud the hole took or gave beside what the pipe accounts
+for, and names the trip where they part: a short fill pulling out, a hole
+that gave more running in, losses either way.
+
+The mud is read from the trip tank where the record carries one that
+moves with the pipe, and otherwise from the pits - and where neither
+moved, the trip is said to be not read, because a blank is not a short
+fill. Mud moved at surface (5 bbl inside half a minute) is taken out; the
+change during a break inside the trip is reported and not counted. The
+pipe is the operator's declaration - its diameters, its weight with tool
+joints, pulled dry or wet, run open or closed - with its source. With no
+pipe declared, each trip is set against the well's own trips in the same
+direction, which finds the trip that differs and cannot check the pipe.
+
+On the Utah FORGE public pad no well's record carries a trip tank that
+moves, so every trip is read from the pits: 16B(78)-32's 38 like trips
+pulling out took 0.85 bbl per 100 ft at the median, and its 85 running in
+gave 1.78. In the same release the two FORGE layouts that had dropped
+their pit volume and return flow keep them, so **Kick & loss** now judges
+all five wells; a public site made earlier is given them by **Make the
+site** once more.
+
+The **Trip sheet** tab, `gea trip-sheet`, `gea help trip-sheet`. A
+departure is a place in the record to look at, not a kick called.
 
 ### Plan vs actual and the survey tools
 
@@ -1951,7 +1981,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.97.0.exe` (for 0.97.0): the
+Every release also carries `GEA-Program-Setup-0.98.0.exe` (for 0.98.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1970,7 +2000,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.97.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.98.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

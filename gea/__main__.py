@@ -682,6 +682,19 @@ def main(argv=None) -> int:
     p_bm.add_argument("--write", action="store_true", help="write reports/benchmark/benchmark.json, .md, .csv and stretches.csv")
     p_bm.add_argument("--actor", type=str, default="cli")
     p_bm.add_argument("--json", action="store_true")
+    p_tr = sub.add_parser("trip-sheet", help="the mud the hole took or gave on every trip against the pipe that was moved, read from the trip tank or the pits of the drilling record: short fills, losses, and the trips the record cannot read")
+    p_tr.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (volumes that are known)")
+    p_tr.add_argument("--well", type=str, default=None, help="a well, by its name or id: the one whose trips are listed, or whose pipe is declared")
+    p_tr.add_argument("--pipe", type=str, default=None, help="declare the well's pipe: its outside and inside diameters in inches (5,4.276)")
+    p_tr.add_argument("--weight", type=float, default=None, help="with --pipe: its weight with tool joints, lb/ft (22.6); without it the steel is its body's alone")
+    p_tr.add_argument("--pull", choices=["dry", "wet"], default="dry", help="with --pipe: pulled dry (the steel) or wet (the steel and what the pipe holds)")
+    p_tr.add_argument("--run", choices=["open", "closed"], default="open", help="with --pipe: run open, the pipe filling (the steel), or closed against a float (the steel and the bore)")
+    p_tr.add_argument("--source", type=str, default="", help="with --pipe: where its figures came from (the tally, the pipe's data sheet)")
+    p_tr.add_argument("--remove-pipe", action="store_true", help="take the well's declared pipe off")
+    p_tr.add_argument("--write", action="store_true", help="write reports/trip_sheet/trip_sheet.json, .md, trips.csv and intervals.csv")
+    p_tr.add_argument("--actor", type=str, default="cli")
+    p_tr.add_argument("--json", action="store_true")
+
     p_ss = sub.add_parser("slide-sheet", help="each slide and each rotated stretch of a well from its drilling record and its survey: footage, rate, toolface, build and turn; the assembly's tendency rotating and the dogleg per 100 ft slid, run by run")
     p_ss.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (a hole whose every slide and every degree is known)")
     p_ss.add_argument("--well", type=str, default=None, help="a well, by its name or id: the one whose runs and slides are printed")
@@ -3651,6 +3664,47 @@ def main(argv=None) -> int:
             raise SystemExit(f"benchmark: {e.args[0] if e.args else e}")
         print(_json.dumps(p, default=str) if a.json else _BM.text(p))
         return 0
+    elif a.cmd == "trip-sheet":
+        import json as _json
+        from . import trip_sheet as _TS
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if not a.workspace:
+            r = _TS.selftest()
+            print("\n".join(f"{'PASS' if c['pass'] else 'FAIL'}  {c['name']}" for c in r["checks"]) + f"\n{'OK' if r['ok'] else 'FAILED'} - {r['label']}")
+            return 0 if r["ok"] else 1
+        try:
+            ws = Workspace(a.workspace)
+            wid = None
+            if a.well:
+                wid = next((w["id"] for w in ws.wells() if a.well in (w["id"], w.get("display"))), None)
+                if wid is None:
+                    raise SystemExit(f"trip-sheet: no well {a.well!r} in this workspace")
+            if a.pipe or a.remove_pipe:
+                if wid is None:
+                    raise SystemExit("trip-sheet: name the well the pipe is for (--well)")
+                if a.remove_pipe:
+                    _TS.remove_pipe(ws, a.actor, wid)
+                    print(f"the pipe declared for {a.well} is taken off")
+                else:
+                    parts = [x.strip() for x in a.pipe.replace("x", ",").split(",") if x.strip()]
+                    if len(parts) != 2:
+                        raise SystemExit("trip-sheet: --pipe takes the outside and the inside diameter in inches: 5,4.276")
+                    rec = _TS.declare_pipe(ws, a.actor, wid, parts[0], parts[1], a.source, weight_lb_ft=a.weight, pull=a.pull, run=a.run)
+                    d_ = _TS.displacement(rec)
+                    print(f"declared for {a.well}: {rec['od_in']:g} x {rec['id_in']:g} in; pulling out {abs(d_['out_bbl_100ft']):.3f} bbl per 100 ft, running in {d_['in_bbl_100ft']:.3f} (the steel from {d_['steel_from']})")
+            if a.write:
+                from . import __version__ as _ver98
+                r = _TS.write_report(ws, _ver98, a.actor)
+                print(f"written: {', '.join(r['files'])} under {r['folder']}")
+            p = _TS.page(ws, wid)
+        except WorkspaceError as e:
+            raise SystemExit(f"trip-sheet: {e}")
+        except (_TS.TripSheetError, KeyError) as e:
+            raise SystemExit(f"trip-sheet: {e.args[0] if e.args else e}")
+        print(_json.dumps(p, default=str) if a.json else _TS.text(p))
+        return 0
     elif a.cmd == "slide-sheet":
         import json as _json
         from . import slide_sheet as _SS
@@ -3808,7 +3862,7 @@ def main(argv=None) -> int:
                     if d_.get("step") == "treatment":
                         print(f"  {d_.get('well', '')}: the pumping record of stage {d_.get('stage', '')}", flush=True)
                     elif d_.get("step") == "reconverting":
-                        print(f"  {d_.get('well', '')}: written out again, with the toolface channels", flush=True)
+                        print(f"  {d_.get('well', '')}: written out again, with the channels this version keeps", flush=True)
                     elif d_.get("step") == "placing":
                         print(f"  {d_.get('well', '')}: its survey", flush=True)
                     elif d_.get("step") == "record":
@@ -3833,7 +3887,7 @@ def main(argv=None) -> int:
                     if p_ and p_.get("why"):
                         print(f"  {e_['well']}: {p_['why']}")
                 for w_ in r.get("reconverted") or []:
-                    print(f"  {w_}: written out again from the published export, with its toolface channels")
+                    print(f"  {w_}: written out again from its published file, with the channels this version keeps (the toolface; the pit volume, the return flow and the trip volume)")
                 if r.get("boundary"):
                     print(f"  the pad: {r['boundary']} declared as the boundary for the Hard line tab, from {r['record']['boundary']['file']}")
                 for n_ in r["record"].get("notes", []):

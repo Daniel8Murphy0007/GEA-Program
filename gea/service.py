@@ -2338,6 +2338,12 @@ def make_handler(app: App):
                 if path == '/api/hardline':
                     from . import hardline as HL
                     return self._json(200, App._cr(HL.page, app.ws))
+                if path == '/api/trip-sheet':
+                    from . import trip_sheet as TS
+                    wid_ = (qs.get('well') or [None])[0]
+                    if wid_ and wid_ not in [w_['id'] for w_ in app.ws.wells()]:
+                        raise ApiError(404, f'no well {wid_}')
+                    return self._json(200, App._cr(TS.page, app.ws, wid_, None, False))
                 if path == '/api/kick':
                     from . import kick as KD
                     return self._json(200, App._cr(KD.page, app.ws, (qs.get('well') or [None])[0], None, False))
@@ -2789,6 +2795,23 @@ def make_handler(app: App):
                     from . import __version__ as _v
                     App.require(user, 'operator')
                     r_ = App._cr(SS.write_report, app.ws, _v, user['name'])
+                    return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
+                if path in ('/api/trip-sheet/pipe', '/api/trip-sheet/pipe-remove', '/api/trip-sheet/write'):
+                    from . import trip_sheet as TS
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    b_ = dict(body or {})
+                    try:
+                        if path.endswith('/pipe'):
+                            return self._json(200, TS.declare_pipe(app.ws, user['name'], str(b_.get('well') or ''), b_.get('od_in'), b_.get('id_in'), str(b_.get('source') or ''),
+                                                                   weight_lb_ft=b_.get('weight_lb_ft'), pull=str(b_.get('pull') or 'dry'), run=str(b_.get('run') or 'open')))
+                        if path.endswith('/pipe-remove'):
+                            return self._json(200, TS.remove_pipe(app.ws, user['name'], str(b_.get('well') or '')))
+                    except TS.TripSheetError as e:
+                        raise ApiError(400, str(e))
+                    except KeyError as e:
+                        raise ApiError(404, str(e.args[0]))
+                    r_ = App._cr(TS.write_report, app.ws, _v, user['name'])
                     return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
                 if path in ('/api/hardline/declare', '/api/hardline/remove', '/api/hardline/write'):
                     from . import hardline as HL

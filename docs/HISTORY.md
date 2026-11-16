@@ -4,6 +4,16 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.98.0 - 2026-11-16 - the trip sheet, and kick and loss on all five public wells
+
+- Trip sheet: each trip's mud against the pipe that was moved, from the
+  trip tank where it moves and the pits where it does not; a trip with no
+  volume moving is not read. The pipe declared; without one, the well
+  against its own trips.
+- The 16A(78)-32 and 58-32 layouts keep their pit volume and return flow:
+  kick and loss judges all five public wells.
+- Gate 608.
+
 ## v0.97.0 - 2026-11-16 - the top bar under headings
 
 - The 53 tabs under ten headings: two rows where there were five to seven.

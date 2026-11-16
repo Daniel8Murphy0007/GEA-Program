@@ -4377,3 +4377,41 @@ tab, fix the Map's opening zoom. His two screenshots came with it.
   panel on a port of its own as well as with the answer given. Every tab
   opened in a window with storage denied, and the bar worked by hand in
   one at his window's width. Gate 605.
+
+## 2026-11-16 - the trip sheet, and kick and loss on all five public wells (v0.98.0)
+
+Two things chosen from what the FORGE files already on the owner's
+computer can support: carry the pit channels two converters dropped, and
+a trip sheet from the trip tank. He was told beforehand that the trip
+sheet would be dropped if the trip-tank columns were empty in the trips.
+
+- They were. 16B(78)-32's wide export has dozens of columns about trips
+  and tanks; its trip tank volume is zero in every row that has a reading,
+  746,670 of them, and the recorder's own trip accumulators with it. 16A(78)-32's trip volume
+  stands at 39.7 bbl through most trips and jumps by hundreds of barrels
+  in others. No public well has a trip tank that moves with the pipe.
+- But the pits do. Running in, 16B's pits rise 1.78 bbl per 100 ft at the
+  median of 85 trips, and pulling out fall 0.85 over 38 - close to the
+  bore and the steel of a 5 in drill pipe (1.78 and 0.82). The hole was
+  filled from the active system. So the sheet reads the trip tank where
+  it moves and the pits where it does not, says which, and where neither
+  moved says the trip is not read: on 16A(78)-32 that is half the trips,
+  and calling them short fills would have been the worst thing the page
+  could do.
+- With no pipe declared, a trip is set against the well's own like
+  trips, and only when those agree (scatter within 0.6 of the median).
+  On 56-32 pulling out and on 78B-32 they do not, and nothing is judged
+  there. No pipe is declared on the public site: the end-of-well reports
+  were not read for it, and a figure that fits is not a source.
+- Three things found on the real records and not on the made one: pipe
+  worked up and down counted as footage (the trip's own progress is used
+  now); a pit that sloshes five barrels in half a minute (a 20-second
+  running median); and footage run while a tank was being filled, which
+  is not read and so is not expected of the reading either.
+- Kick and loss on 16A(78)-32 and 58-32, with the channels kept: 935 and
+  562 pumps-offs read where there had been none. A site made earlier has
+  the two records written out again by the build; the wide export, whose
+  converter did not change, is left as it is.
+- Every command and both pages run on the owner's machine against the
+  real files before the gate. Section EQ, three checks. Every tab opened
+  in a window with storage denied. Gate 608.
