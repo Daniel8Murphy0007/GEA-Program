@@ -1,4 +1,4 @@
-# 8. Live data: the patch panel
+# 9. Live data: the patch panel
 Who: office
 Where: #/live
 Takes: 30 minutes
@@ -14,7 +14,7 @@ WITS Level 0 (serial, or TCP), WITSML 1.4.1 and WITSML 2.x over ETP, OPC UA, MQT
 4. Stop the simulator. The patch goes DEGRADED (no sample for longer than `stale_after_s`) and then DOWN; it retries with a backoff of 2 to 60 seconds and says so. Start the simulator again: CONNECTED, with no gap in what was recorded while it was up.
 5. For the real rig: the same form with the rig's address, or the COM port for a serial line (the `serial` extra: `pip install "gea-program[serial]"`). Nothing is ever sent to the rig; every port is read-only.
 6. A gauge panel on the pad: protocol `modbus_rtu`, `dnp3` or `hartip`; **Load the example map** and put in the panel's registers or points with their units and the map's source. A historian: `piwebapi`, with the PI Point paths; the credentials are named by environment variables, never kept in the map.
-7. The Patch panel tab carries a badge with the patches that are DOWN; a `patch.down` event goes to the notification rules (lesson 9).
+7. The Patch panel tab carries a badge with the patches that are DOWN; a `patch.down` event goes to the notification rules ({lesson:alarms}).
 
 ## You know it worked when
 The well's page shows the live channels on its chart and the patch reads CONNECTED after you stopped and started the source.

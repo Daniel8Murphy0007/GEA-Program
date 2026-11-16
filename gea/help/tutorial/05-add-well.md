@@ -1,6 +1,7 @@
-# 4. Add a well from a file
+# 5. Add a well from a file
 Who: office
 Where: #/wells
+Pages: #/files
 Takes: 20 minutes
 > A file becomes a well with the same reports as any other: a gauge history, a drilling recorder's export, a well log, a catalogue entry.
 

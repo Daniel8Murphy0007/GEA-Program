@@ -4,6 +4,18 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.96.0 - 2026-11-15 - the tutorial and the help, renovated
+
+- The course under a rule the gate holds: every tab reached by a lesson,
+  every help page named by one. 38 lessons in eleven parts; the two long
+  lessons split into eight; three new (the practice pad, the shelves, the
+  assistant); lessons point at each other by name.
+- Tutorial tab: progress and time left, a finder, a button per page.
+  Help tab: headings, a search through every page's text, each page with
+  its tab and its lessons, the two documents. `gea help --find`.
+- Every tab's help panel names its lesson.
+- Gate 602.
+
 ## v0.95.0 - 2026-11-15 - the slide sheet
 
 - Slide sheet: each slide and each rotated stretch from the drilling

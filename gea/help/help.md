@@ -1,0 +1,13 @@
+# The help pages
+
+> Every help page under the job a reader came with, a search through the text of all of them, and on each page the tab it belongs to and the lessons that teach it - the same pages a terminal prints.
+
+**The command**: the **Help** tab. The pages are listed under headings, in the order of the work - Start here; Bring a well and its data in; The well page and its checks; Watch the pad; Where the wells are; Drilling; Completion, production and disposal; Seismic and seismicity; Reports and what leaves the site; Keep it running; The programs around GEA - with the headings as links at the top. **Find a word in every page** searches the text of every page as you type: several words find the pages that carry all of them, the likeliest first, each with the sentence the word is in. Open a page: the line above it says which tab the page is for, as a link, and which lessons of the tutorial teach it; the buttons below go to the page before and after. **The two documents** at the foot are longer than a page: the tester guide, and the IT security overview for the people who approve an installation. Outside the Help tab, the **Help** button at the top right (the ?) turns on a short panel under every tab's heading - what the tab is for, a link to its page here, and the lesson that walks through it. From a terminal: `gea help` prints the list under the same headings; `gea help hardline` prints a page; `gea help --find toolface` lists the pages that carry a word, and `gea help --find lease setback` the pages that carry both; `gea guide` and `gea security` print the two documents.
+
+**What it writes**: nothing. The pages are Markdown files in the program's own `help` folder, installed with it; reading and searching them touches no workspace, and what is typed in the search box is sent only to this computer's own service and is not kept.
+
+**The number to check**: each page has the same four lines in the same order - the command, what it writes, the number to check, what the page will not call a measurement - and the acceptance gate holds every page to them. The count under each heading adds up to the pages `gea help` lists. A search for a tab's own name should put that tab's page first: `gea help --find "hard line"`.
+
+**What this page will not call a measurement**: a search hit is a page that carries the words, not an answer - the likeliest first is by how often and where the words occur, nothing more. A help page says what the program does and what to check it against; where a page and the program disagree, the program is what ran, and the disagreement is a fault to report.
+
+Related: `gea help tutorial`, `gea help start`, `gea guide`.

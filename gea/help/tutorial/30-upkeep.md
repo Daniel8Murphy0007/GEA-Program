@@ -1,6 +1,7 @@
-# 21. Backups, jobs, the audit log, the doctor and verification
+# 30. Backups, jobs, the audit log, the doctor and verification
 Who: office
 Where: #/audit
+Pages: #/verify, #/jobs
 Takes: 30 minutes
 > Keeping a site running for years: the copy off the machine, what ran and what failed, who did what, which code is running, and the gate that proves it.
 

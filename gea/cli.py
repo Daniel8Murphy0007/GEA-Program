@@ -79,9 +79,27 @@ def cmd_help(argv) -> int:
         print(__doc__)
         print(index_text())
         return 0
+    if argv[0] in ('--find', '--search'):
+        from .helplib import search
+        q = ' '.join(argv[1:])
+        hits = search(q)
+        if not q.strip():
+            print('gea help --find toolface: the pages that carry a word (every word, when there are several)')
+            return 2
+        if not hits:
+            print(f"no help page carries '{q}'. `gea help` lists them all.")
+            return 1
+        print(f"{len(hits)} help page(s) carry '{q}', the likeliest first; `gea help {hits[0]['topic']}` prints the first.")
+        for h in hits:
+            print(f"  {h['topic']:16s} {h['title']} ({h['group']})")
+            if h['excerpt']:
+                print(f"  {'':16s}   {h['excerpt'][:200]}")
+        return 0
     text = page(argv[0])
     if text is None:
-        print(f"no help page named '{argv[0]}'. The topics: " + ', '.join(t['topic'] for t in topics()))
+        from .helplib import search
+        near = search(argv[0], limit=5)
+        print(f"no help page named '{argv[0]}'." + (" Pages that carry the word: " + ', '.join(h['topic'] for h in near) + '.' if near else '') + " The topics: " + ', '.join(t['topic'] for t in topics()))
         return 2
     print(text)
     return 0

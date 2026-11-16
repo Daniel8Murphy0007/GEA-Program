@@ -1,4 +1,4 @@
-# 7. Declarations in one sheet
+# 8. Declarations in one sheet
 Who: office
 Where: #/setup
 Takes: 20 minutes

@@ -469,23 +469,50 @@ program on the office PC with a scene drilling itself.
 
 ### The tutorial
 
-Every step of GEA and the programs around it, as 29 lessons on the
-**Tutorial** tab (since 0.76.0; `gea help tutorial`): the office's lessons
-first - install, sign in, set up the site, bring wells and data in, the
-well page, the declarations sheet, the patch panel, alarms and
-notifications, the control room, the daily summary and the month-end
-packet, the map and the 3D view, the drilling and production pages,
-seismic, the recorder from the office, reports, the signed dossier and the
-Reader, users and HTTPS, backups and the gate, new versions from inside
-the program, GEA-VPN - and the pad attendant's after: the box and its
-parts, installing the recorder on the Pi, the monitor, the USB mirror and
-joining the VPN - and GEA Driller from the office and on the rig PC. Each lesson names who it is for, the page it is done on
-(a button opens it), how long it takes, the numbered steps with the
-buttons as the page names them, and how you know it worked; each account
-ticks lessons off. **Print the handout** gives the whole course as one
-page for the people who do not sit at the screen. From a terminal:
-`gea tutorial`, `gea tutorial --lesson 3`, `gea tutorial --handout
---workspace C:\site`.
+Every step of GEA and the programs around it, as lessons on the
+**Tutorial** tab (since 0.76.0; `gea help tutorial`). The office's lessons
+come first, in the order of the work: install, sign in, set up the site, a
+real pad to practise on, bring wells and data in, the well page, the
+declarations sheet, the patch panel, the reference shelves, alarms, the
+control room, the daily summary, the map and the 3D view, where the hole
+is going, what the rig did, trouble while drilling, the drill string, the
+engineering checks, completion and the frac, disposal water, the money,
+seismic, reports, the signed dossier and the Reader, users and HTTPS, an
+assistant that reads the site, backups and the gate, new versions,
+GEA-VPN. The people on the pad come after: the box and its parts,
+installing the recorder on the Pi, the monitor, the USB mirror, and GEA
+Driller on the rig PC. Each lesson names who it is for, the pages it is
+done on (a button opens each), how long it takes, the numbered steps with
+the buttons as the page names them, and how you know it worked; each
+account ticks lessons off, and the tab says how long the rest will take.
+**Print the handout** gives the whole course as one page for the people
+who do not sit at the screen. From a terminal: `gea tutorial`,
+`gea tutorial --lesson 3`, `gea tutorial --handout --workspace C:\site`.
+
+### The tutorial and the help, renovated
+
+The course is held to one rule by the acceptance gate: no tab without a
+lesson that walks through it, and no help page without a lesson that
+names it. The two long lessons that every new drilling and production
+page had been added to are now eight short ones, each on the pages that
+belong together, and three lessons are new - the public pad as a place to
+practise, the reference shelves (the catalogue, the rocks, the strata
+survey, tools and ports), and an assistant that reads the site. The
+lessons on drilling and completion end with **On the practice pad**: what
+to look at on the Utah FORGE site, with the figure to find there. A lesson
+points at another by name, and the number is filled in when it is read,
+so the course can be re-ordered without a wrong number left behind;
+everyone's ticks are kept by the lesson's name. On every tab, the help
+panel under the heading names the lesson that teaches it.
+
+The **Help** tab lists its pages under headings in the order of the work,
+and **Find a word in every page** searches the text of all of them as you
+type - several words find the pages that carry every one, the likeliest
+first, each with the sentence the word is in. A page says which tab it is
+for and which lessons teach it. The tester guide and the IT security
+overview open from the same tab. From a terminal: `gea help` prints the
+list under the same headings, `gea help --find toolface` lists the pages
+that carry a word, `gea help help` is the page about all of it.
 
 ### GEA-VPN: the programs on separate computers, one private network
 
@@ -808,7 +835,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.95.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.96.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1903,7 +1930,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.95.0.exe` (for 0.95.0): the
+Every release also carries `GEA-Program-Setup-0.96.0.exe` (for 0.96.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -1922,7 +1949,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.95.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.96.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

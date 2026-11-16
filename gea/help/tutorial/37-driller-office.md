@@ -1,4 +1,4 @@
-# 28. GEA Driller from the office
+# 37. GEA Driller from the office
 Who: office
 Where: #/drillstring
 Takes: 40 minutes
@@ -14,7 +14,7 @@ GEA Driller is a program for the rig PC. It reads the rig's own feed and the pre
 4. The closed loop: **Arm for this section** to 300 ft further, confirm. The panel turns red: every decision is now a command, and the agent's panel says the null downlink kept it and sent nothing. **Disarm now**, or wait for the section's end - it disarms itself, and says why.
 5. Back in GEA, choose the well the records go under and press **Pull from it**: a job fetches the records, checks each against its SHA-256 and keeps them under the well. The table says how many decisions, accepted, rejected, done otherwise, the hole under advice, the armed sections and the commands; the last decisions are listed below. **Stop it** closes the twin's records.
 6. **Shadow a drilled well**: choose a well with a drilling-recorder export and press it. A job replays the drilled lateral through the advisor - at every 30 ft the agent sees only what the rig had shown to that point - and sets its recommendation beside what the record did next; the table says how often the steer agreed or opposed, the weight, speed and flow, at each stretch the gamma marks as out of the layer whether the advisor called the way back at the first reading, and how often the vibration index read off the record's surface torque and weight stood over the limit and the advisor eased there; the **SHADOW MODE** report under the well's reports has the drawing. Nothing of the export leaves this computer.
-7. A real rig PC: its address in **The rig PC's address** (`http://192.168.1.60:8790`), the well, **Pull** - the same table. **Open the driller's screen** opens its screen from here. Over a modem, the rig PC joins GEA-VPN as a member of kind `driller` (lesson 23) and the address is its private one, `http://10.77.0.4:8790`.
+7. A real rig PC: its address in **The rig PC's address** (`http://192.168.1.60:8790`), the well, **Pull** - the same table. **Open the driller's screen** opens its screen from here. Over a modem, the rig PC joins GEA-VPN as a member of kind `driller` ({lesson:vpn}) and the address is its private one, `http://10.77.0.4:8790`.
 
 ## You know it worked when
 The table shows your three answers under your name, one armed section with its commands and none sent, and the well's folder holds `driller\decisions.jsonl` with its `.sha256`.

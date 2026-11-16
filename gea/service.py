@@ -1911,6 +1911,7 @@ def make_handler(app: App):
                     return self._json(200, app.badges())
                 if path == '/api/tutorial' or path.startswith('/api/tutorial/'):
                     from . import __version__
+                    from . import helplib as H
                     from . import tutorial as TU
                     if path == '/api/tutorial':
                         return self._json(200, TU.overview(app.ws, user['name']))
@@ -1932,17 +1933,33 @@ def make_handler(app: App):
                     pr = TU.progress(app.ws, user['name'])
                     ls = TU.lessons()
                     i = next(k for k, l in enumerate(ls) if l['id'] == les['id'])
+                    known = TU.tabs()
                     return self._json(200, {k: v for k, v in les.items() if k not in ('path', 'markdown')} | {'done_utc': pr.get(les['id']),
+                                            'page_names': [known.get(pg, pg) for pg in les['pages']], 'of': len(ls),
+                                            'help_titles': {t: next((ti for tt, ti, _ in H.INDEX if tt == t), t) for t in les['help']},
                                             'prev': ls[i - 1]['id'] if i > 0 else None, 'next': ls[i + 1]['id'] if i + 1 < len(ls) else None})
                 if path == '/api/help' or path.startswith('/api/help/'):
                     from . import helplib as H
+                    from . import tutorial as TU
                     if path == '/api/help':
-                        return self._json(200, {'topics': [{**t, 'summary': H.summary_of(t['topic'])} for t in H.topics()], 'views': H.VIEW_TOPIC})
+                        return self._json(200, {'topics': [{**t, 'short': t['summary'], 'summary': H.summary_of(t['topic'])} for t in H.topics()], 'views': H.VIEW_TOPIC,
+                                                'groups': [g for g, _ in H.GROUPS], 'lessons': TU.by_view(),
+                                                'documents': [{'name': n, 'title': ti, 'summary': su} for n, (ti, su) in H.DOCUMENTS.items()]})
+                    if path == '/api/help/search':
+                        q = (qs.get('q') or [''])[0][:120]
+                        return self._json(200, {'q': q, 'hits': H.search(q)})
                     t = path[len('/api/help/'):]
+                    if t in H.DOCUMENTS:
+                        md = H.document(t)
+                        if md is None:
+                            raise ApiError(404, f'the {t} document is missing from this installation')
+                        return self._json(200, {'topic': t, 'title': H.DOCUMENTS[t][0], 'markdown': md, 'html': H.to_html(md), 'document': True, 'tab': '', 'tab_name': '', 'lessons': [], 'group': 'Documents'})
                     md = H.page(t)
                     if md is None:
                         raise ApiError(404, f'no help page named {t}')
-                    return self._json(200, {'topic': t, 'markdown': md, 'html': H.to_html(md)})
+                    tab = H.view_of(t, TU.tabs())
+                    return self._json(200, {'topic': t, 'markdown': md, 'html': H.to_html(md), 'tab': tab, 'tab_name': TU.tabs().get(tab, '') if tab else '',
+                                            'group': H.group_of(t), 'lessons': [{'n': l['n'], 'id': l['id'], 'title': l['title']} for l in TU.teaches(t)]})
                 if path == '/api/sessions':
                     App.require(user, 'admin')
                     return self._json(200, {'sessions': app.sessions_list(), 'session_hours': SESSION_HOURS,

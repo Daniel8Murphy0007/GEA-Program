@@ -56,6 +56,8 @@ from pathlib import Path
 
 import numpy as np
 
+from . import tutorial as TU   # the lessons, which many sections read
+
 _PASS = 0
 _FAILS: list = []
 _RESULTS: list = []          # (passed, message) in run order - the FAT/SAT protocol reads this
@@ -2662,7 +2664,7 @@ def section_aj_help(tmp: str) -> None:
         st, idx = call("GET", "/api/help")
         st2, pg = call("GET", "/api/help/drift")
         st3 = call("GET", "/api/help/nope")[0]
-        ok(st_anon == 401 and st == 200 and [t["topic"] for t in idx["topics"]] == [t for t, _, _ in H.INDEX] and all(t["summary"] for t in idx["topics"])
+        ok(st_anon == 401 and st == 200 and [t["topic"] for t in idx["topics"]] == [t["topic"] for t in H.topics()] and sorted(t["topic"] for t in idx["topics"]) == sorted(t for t, _, _ in H.INDEX) and all(t["summary"] for t in idx["topics"])
            and idx["views"] == H.VIEW_TOPIC and st2 == 200 and pg["markdown"] == H.page("drift") and "<b>The command</b>" in pg["html"]
            and "NONE ON RECORD" in pg["html"] and "datasheet" in pg["html"] and st3 == 404,
            "AJ3 the API serves the same pages to a signed-in viewer: the index with each page's summary and the view-to-topic map, "
@@ -16355,7 +16357,7 @@ def section_du_tutorial(tmp: str) -> None:
         "contract": not bad_contract,
         "pages_exist": not bad_where,
         "both_audiences": {l["who"] for l in ls} == {"office", "pad"} and sum(1 for l in ls if l["who"] == "pad") >= 3,
-        "parts": parts_cover and len(TU.PARTS) == 9,
+        "parts": parts_cover and len(TU.PARTS) >= 9,
         "buttons_known": not unknown_buttons,
         "every_program": all(any(w in (l["title"] + " " + l["summary"]).lower() for l in ls) for w in ("install", "reader", "recorder", "vpn", "dossier", "patch", "backup", "driller")),
     }
@@ -16363,7 +16365,7 @@ def section_du_tutorial(tmp: str) -> None:
     ok(not failed1,
        f"DU1 the {len(ls)} lessons are numbered without a gap, each with who it is for, the page it is done on (a page of the control panel), how long, "
        "a summary, three or more numbered steps, the \"you know it worked when\" section and help pages that exist; every button named in bold is on "
-       "the page or in a help page; both audiences, eight parts; install, the reader, the recorder, the VPN, the dossier, the patches and the backup "
+       "the page or in a help page; both audiences, every lesson inside a part; install, the reader, the recorder, the VPN, the dossier, the patches and the backup "
        "each have a lesson" + (f" [failed: {', '.join(failed1)}" + (f"; {list(bad_contract.items())[:2]}" if bad_contract else "") + (f"; where {bad_where}" if bad_where else "")
                               + (f"; buttons {unknown_buttons[:4]}" if unknown_buttons else "") + "]" if failed1 else ""))
     # -- DU2 progress, the handout, the routes, the tab, the command, the help ----------------------------------------------
@@ -16424,7 +16426,7 @@ def section_du_tutorial(tmp: str) -> None:
                   and s_ol == 200 and les_o["n"] == 3 and les_o["prev"] == "sign-in",
         "print": s_vp == 200 and b"<!doctype html>" in page_ and "inline" in str(ph.get("Content-Disposition", "")) and f"GEA-Tutorial-{__version__}" in str(ph.get("Content-Disposition", "")),
         "audit": {"tutorial.handout", "tutorial.print"} <= acts,
-        "tab": "['#/tutorial', 'Tutorial']" in app_src and "VIEWS.tutorial" in app_src and all(t_ in app_src for t_ in ("/api/tutorial/done", "/api/tutorial/handout", "Open the page this lesson is about", "Mark this lesson done", "Print the handout")),
+        "tab": "['#/tutorial', 'Tutorial']" in app_src and "VIEWS.tutorial" in app_src and all(t_ in app_src for t_ in ("/api/tutorial/done", "/api/tutorial/handout", "The pages this lesson is about", "Mark this lesson done", "Print the handout")),
         "cli": 'add_parser("tutorial"' in main_src and '"--lesson"' in main_src and '"--handout"' in main_src and "TU.write_handout" in main_src,
         "help": not H.check("tutorial") and any(t_ == "tutorial" for t_, _, _ in H.INDEX) and H.VIEW_TOPIC.get("tutorial") == "tutorial",
         "ol_render": "<ol>" in H.to_html("1. one\n2. two\n") and "</ol>" in H.to_html("1. one\n2. two\n") and "<ul>" in H.to_html("- a\n- b\n"),
@@ -16989,7 +16991,7 @@ def section_dx_third_dimension(tmp: str) -> None:
                     and all(s_.get("azi") is not None for s_ in snap["surveys"]),
         "screen": "The plan view" in screen and "drawPlan" in screen and "turn_deg_100ft" in screen and "off the plan line" in screen and 'placeholder="aim' in screen,
         "surveys_file": "azimuth_deg" in sv_text.splitlines()[0] and len(sv_text.splitlines()) >= 2 and sv_text.splitlines()[1].split(",")[2] not in ("", "0.00"),
-        "help": not H.check("driller") and "The third dimension" in (pkg / "help" / "driller.md").read_text(encoding="utf-8") and "plan view" in (pkg / "help" / "tutorial" / "28-driller-office.md").read_text(encoding="utf-8"),
+        "help": not H.check("driller") and "The third dimension" in (pkg / "help" / "driller.md").read_text(encoding="utf-8") and "plan view" in TU.lesson("driller-office")["markdown"],
     }
     failed2 = [k for k, v in c2.items() if not v]
     ok(not failed2,
@@ -17150,7 +17152,7 @@ def section_dy_vibration(tmp: str) -> None:
         "screen": "from surface data" in screen and "downhole tool" in screen,
         "refusal": win_refused,
         "help": not H.check("driller") and "The vibration index from the feed" in (pkg / "help" / "driller.md").read_text(encoding="utf-8")
-                and "surface" in (pkg / "help" / "tutorial" / "29-driller-rig.md").read_text(encoding="utf-8"),
+                and "surface" in TU.lesson("driller-rig")["markdown"],
     }
     failed2 = [k for k, v in c2.items() if not v]
     ok(not failed2,
@@ -17428,7 +17430,7 @@ def section_ea_vpn_client(tmp: str) -> None:
         "updates": "GEA-VPN-Setup-" in UP.KITS and "GEA-VPN-" in UP.KITS and UP.KITS.index("GEA-VPN-Setup-") < UP.KITS.index("GEA-VPN-"),
         "readme": "GEA-VPN-Setup-" in readme and "127.0.0.1:8795" in readme and "wireguard.com" in readme,
         "card": "GEA-VPN-Setup-" in app_src and "127.0.0.1:8795" in app_src,
-        "help": not H.check("vpn") and "The client program" in (pkg / "help" / "vpn.md").read_text(encoding="utf-8") and "GEA-VPN-Setup-" in (pkg / "help" / "tutorial" / "23-vpn.md").read_text(encoding="utf-8")
+        "help": not H.check("vpn") and "The client program" in (pkg / "help" / "vpn.md").read_text(encoding="utf-8") and "GEA-VPN-Setup-" in TU.lesson("vpn")["markdown"]
                 and "installtunnelservice" in (pkg / "help" / "IT_SECURITY.md").read_text(encoding="utf-8") and "vpn/" in (pkg.parent / "README.md").read_text(encoding="utf-8"),
     }
     failed2 = [k for k, v in c2.items() if not v]
@@ -17615,7 +17617,7 @@ def section_eb_fluid(tmp: str) -> None:
     cli_b = _sp.run([sys.executable, "-m", "gea", "fluid", "--workspace", wsp, "--declare", "--well", far["id"], "--role", "injection"], capture_output=True, text=True, cwd=str(pkg.parent))
     page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
     readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
-    lesson = (pkg / "help" / "tutorial" / "14-production-pages.md").read_text(encoding="utf-8")
+    lesson = TU.course_text()
     c3 = {
         "api": s_vg == 200 and vg["status"] == "OK" and s_vd == 403 and s_od == 200 and od["role"] == "production" and s_bd == 400 and s_nw == 400 and s_or == 200 and orp["n_rows"] == 200
                and s_br == 400 and s_of == 200 and of_["porosity"] == 0.06 and s_ow == 200 and "fluid_balance.json" in ow["files"] and s_g2 == 200
@@ -17626,7 +17628,7 @@ def section_eb_fluid(tmp: str) -> None:
         "page": all(x in page_src for x in ("VIEWS.fluid", "['#/fluid', 'Fluid balance']", "/api/fluid/declare", "/api/fluid/report", "/api/fluid/formation", "flBalancePlot", "flHallPlot", "help('fluid')")),
         "help": not H.check("fluid") and H.VIEW_TOPIC.get("fluid") == "fluid" and any(t == "fluid" for t, _, _ in H.INDEX)
                 and all(x in (H.page("fluid") or "") for x in ("McCain", "Hall", "SIMULATION", "gea fluid --workspace C:\\site", "7,758")),
-        "readme_lesson": (not readme or ("### Fluid balance" in readme and "`gea fluid`" in readme)) and "Fluid balance" in lesson and "fluid" in lesson.split("Help:")[-1],
+        "readme_lesson": (not readme or ("### Fluid balance" in readme and "`gea fluid`" in readme)) and "Fluid balance" in lesson and bool(TU.teaches("fluid")),
     }
     failed3 = [k for k, v in c3.items() if not v]
     ok(not failed3,
@@ -17826,7 +17828,7 @@ def section_ec_plume(tmp: str) -> None:
     cli_r = _sp.run([sys.executable, "-m", "gea", "plume", "--workspace", wsp, "--write"], capture_output=True, text=True, cwd=str(pkg.parent))
     page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
     readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
-    lesson = (pkg / "help" / "tutorial" / "14-production-pages.md").read_text(encoding="utf-8")
+    lesson = TU.course_text()
     c3 = {
         "api": s_vg == 200 and vg["status"] == "OK" and vg["label"] == "SIMULATION" and s_vf == 200 and vf["status"] == "EMPTY" and s_vs == 403 and s_os == 200 and os_["threshold_psi"] == 25.0
                and os_["cells"] == 41 and s_bs == 400 and s_sl == 200 and sl_["sealing_layers"] == [lay["id"]] and s_ns == 400 and s_ow == 200 and "plume.json" in ow["files"] and s_vw == 403
@@ -17838,7 +17840,7 @@ def section_ec_plume(tmp: str) -> None:
         "page": all(x in page_src for x in ("VIEWS.plume", "['#/plume', 'Pressure plume']", "/api/plume/settings", "pmPlan", "help('plume')", "SIMULATION")),
         "help": not H.check("plume") and H.VIEW_TOPIC.get("plume") == "plume" and any(t == "plume" for t, _, _ in H.INDEX)
                 and all(x in (H.page("plume") or "") for x in ("0.001127", "Theis", "SIMULATION", "gea plume --workspace C:\\site", "sealing")),
-        "readme_lesson": (not readme or ("### Pressure plume" in readme and "`gea plume`" in readme)) and "Pressure plume" in lesson and "plume" in lesson.split("Help:")[-1],
+        "readme_lesson": (not readme or ("### Pressure plume" in readme and "`gea plume`" in readme)) and "Pressure plume" in lesson and bool(TU.teaches("plume")),
     }
     failed3 = [k_ for k_, v in c3.items() if not v]
     ok(not failed3,
@@ -18058,7 +18060,7 @@ def section_ed_front(tmp: str) -> None:
     cli_r = _sp.run([sys.executable, "-m", "gea", "front", "--workspace", wsp, "--write"], capture_output=True, text=True, cwd=str(pkg.parent))
     page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
     readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
-    lesson = (pkg / "help" / "tutorial" / "14-production-pages.md").read_text(encoding="utf-8")
+    lesson = TU.course_text()
     c3 = {
         "api": s_vg == 200 and vg["status"] == "OK" and vg["label"] == "SIMULATION" and s_vw == 200 and len(vw["fronts"]) == 1 and s_vn == 200 and vn["status"] == "EMPTY" and s_vs == 403
                and s_os == 200 and os_["cells"] == 41 and os_["projection_days"] == 365 and s_bs == 400 and s_g2 == 200 and g2["fronts"][0]["frame"]["cells"] == 41
@@ -18070,7 +18072,7 @@ def section_ed_front(tmp: str) -> None:
         "page": all(x in page_src for x in ("VIEWS.front", "['#/front', 'Fluid front']", "/api/front/settings", "ffPlan", "ffSection", "help('front')")),
         "help": not H.check("front") and H.VIEW_TOPIC.get("front") == "front" and any(t == "front" for t, _, _ in H.INDEX)
                 and all(x in (H.page("front") or "") for x in ("van Leer", "0.433", "SIMULATION", "gea front --workspace C:\\site", "pi phi h d^2 / (3 q)")),
-        "readme_lesson": (not readme or ("### Fluid front" in readme and "`gea front`" in readme)) and "Fluid front" in lesson and "front" in lesson.split("Help:")[-1],
+        "readme_lesson": (not readme or ("### Fluid front" in readme and "`gea front`" in readme)) and "Fluid front" in lesson and bool(TU.teaches("front")),
     }
     failed3 = [k_ for k_, v in c3.items() if not v]
     ok(not failed3,
@@ -18317,7 +18319,7 @@ def section_ee_calibration(tmp: str) -> None:
     cli_h = _sp.run([sys.executable, "-m", "gea", "fluid", "--help"], capture_output=True, text=True, cwd=str(pkg.parent))
     page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
     readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
-    lesson = (pkg / "help" / "tutorial" / "14-production-pages.md").read_text(encoding="utf-8")
+    lesson = TU.course_text()
     c3 = {
         "api": s_vg == 200 and vg["status"] == "STALE" and vg["label"] == "SIMULATION" and s_vr == 403 and s_or == 200 and or_["formations"][0]["status"] in ("CALIBRATED", "NO RUN FITS") and s_g2 == 200
                and g2["status"] == "OK" and g2["result"]["formations"][0]["n_runs"] == 8 and s_os == 200 and os_["runs"] == 10 and os_["sigma_psi"] == 20.0 and os_["sample_sealing"] is False and s_bs == 400
@@ -18330,7 +18332,7 @@ def section_ee_calibration(tmp: str) -> None:
                                             "observation (a gauge, no flow)")),
         "help": not H.check("calibration") and H.VIEW_TOPIC.get("calibration") == "calibration" and any(t == "calibration" for t, _, _ in H.INDEX)
                 and all(x in (H.page("calibration") or "") for x in ("Latin hypercube", "Peaceman", "NO RUN FITS", "SIMULATION", "gea calibrate --workspace C:\\site --run")) and "observation" in (H.page("fluid") or ""),
-        "readme_lesson": (not readme or ("### Calibration" in readme and "`gea calibrate`" in readme)) and "**Calibration**" in lesson and "calibration" in lesson.split("Help:")[-1],
+        "readme_lesson": (not readme or ("### Calibration" in readme and "`gea calibrate`" in readme)) and "**Calibration**" in lesson and bool(TU.teaches("calibration")),
     }
     failed3 = [k_ for k_, v in c3.items() if not v]
     ok(not failed3,
@@ -18480,7 +18482,7 @@ def section_ef_roadmap(tmp: str) -> None:
     cli_x = _sp.run([sys.executable, "-m", "gea", "roadmap", "--workspace", str(d / "nowhere")], capture_output=True, text=True, cwd=str(pkg.parent))
     page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
     readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
-    lesson = (pkg / "help" / "tutorial" / "13-drilling-pages.md").read_text(encoding="utf-8")
+    lesson = TU.course_text()
     c3 = {
         "api": s_vg == 200 and vg["status"] == "OK" and len(vg["stretches"]) == len(pg["stretches"]) and s_vn == 200 and vn["next"]["well"] == ids[1] and s_vw == 403 and s_ow == 200 and "roadmap.csv" in ow["files"],
         "cli": cli_w.returncode == 0 and "Drilling roadmap" in cli_w.stdout and "The check supports the roadmap" in cli_w.stdout and "lateral 0 to 1,000 ft from the heel" in cli_w.stdout
@@ -18488,7 +18490,7 @@ def section_ef_roadmap(tmp: str) -> None:
         "page": all(x in page_src for x in ("VIEWS.roadmap", "['#/roadmap', 'Roadmap']", "/api/roadmap/write", "rmBar", "help('roadmap')", "Well by well", "Nearer against farther")),
         "help": not H.check("roadmap") and H.VIEW_TOPIC.get("roadmap") == "roadmap" and any(t_ == "roadmap" for t_, _, _ in H.INDEX)
                 and all(x in (H.page("roadmap") or "") for x in ("gea roadmap --workspace C:\\site", "twelve stands", "ten degrees of horizontal", "rank correlation", "never a forecast")),
-        "readme_lesson": (not readme or ("### Drilling roadmap" in readme and "`gea roadmap`" in readme)) and "**Roadmap**" in lesson and "roadmap" in lesson.split("Help:")[-1] and not TU.check("drilling-pages"),
+        "readme_lesson": (not readme or ("### Drilling roadmap" in readme and "`gea roadmap`" in readme)) and "**Roadmap**" in lesson and bool(TU.teaches("roadmap")) and not any(TU.check(l_["id"]) for l_ in TU.lessons()),
     }
     failed3 = [k_ for k_, v in c3.items() if not v]
     ok(not failed3,
@@ -18712,7 +18714,7 @@ def section_eg_dysfunction(tmp: str) -> None:
     cli_a = _sp.run([sys.executable, "-m", "gea", "alerts", "--help"], capture_output=True, text=True, cwd=str(pkg.parent))
     page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
     readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
-    lesson = (pkg / "help" / "tutorial" / "13-drilling-pages.md").read_text(encoding="utf-8")
+    lesson = TU.course_text()
     c3 = {
         "api": s_vg == 200 and vg["status"] == "OK" and len(vg["wells"]) == 2 and vg["settings"]["stall_min_psi"] == 300.0 and s_vs == 403 and s_os == 200 and os_["stall_min_psi"] == 400.0
                and os_["washout_fall"] == 0.06 and s_bs == 400 and s_ns == 400 and s_g2 == 200 and g2["settings"]["stall_min_psi"] == 400.0 and g2["sources"]["stall_min_psi"] == "motor hand (api)"
@@ -18725,7 +18727,7 @@ def section_eg_dysfunction(tmp: str) -> None:
         "help": not H.check("dysfunction") and H.VIEW_TOPIC.get("dysfunction") == "dysfunction" and any(t_ == "dysfunction" for t_, _, _ in H.INDEX)
                 and all(x in (H.page("dysfunction") or "") for x in ("gea dysfunction --workspace C:\\site", "flow^1.8", "Theil-Sen", "drilling.washout", "the trip finds which", "a rule's silence"))
                 and "drilling.tight" in (H.page("alerts") or ""),
-        "readme_lesson": (not readme or ("### Drilling alerts" in readme and "`gea dysfunction`" in readme)) and "**Drilling alerts**" in lesson and "dysfunction" in lesson.split("Help:")[-1],
+        "readme_lesson": (not readme or ("### Drilling alerts" in readme and "`gea dysfunction`" in readme)) and "**Drilling alerts**" in lesson and bool(TU.teaches("dysfunction")),
     }
     failed3 = [k_ for k_, v in c3.items() if not v]
     ok(not failed3,
@@ -18931,7 +18933,7 @@ def section_eh_mcp(tmp: str) -> None:
     cli_u, cli_o, cli_b, cli_a = run("--call", "format_disk"), run("--offer", "site,rig_time,help", "--source", "cli (gate)"), run("--offer", "site,format_disk"), run("--offer", "all")
     page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
     readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
-    lesson = (pkg / "help" / "tutorial" / "20-admin.md").read_text(encoding="utf-8")
+    lesson = TU.course_text()
     its = (pkg / "help" / "IT_SECURITY.md").read_text(encoding="utf-8")
     backups = sorted(p_.name for p_ in cfgp.parent.iterdir() if ".before-gea-" in p_.name)
     c3 = {
@@ -18952,7 +18954,7 @@ def section_eh_mcp(tmp: str) -> None:
                 and all(f"`{n_}`" in (H.page("mcp") or "") for n_ in MC.NAMES),
         "it_readme_lesson": "Assistant access (MCP)" in its and "opens no port" in its and "leaves the computer" in its
                             and its == ((pkg.parent / "docs" / "IT_SECURITY.md").read_text(encoding="utf-8") if (pkg.parent / "docs" / "IT_SECURITY.md").is_file() else its)
-                            and (not readme or ("### Assistant access (MCP)" in readme and "`gea mcp`" in readme)) and "**Assistant access**" in lesson and "mcp" in lesson.split("Help:")[-1] and not TU.check("admin"),
+                            and (not readme or ("### Assistant access (MCP)" in readme and "`gea mcp`" in readme)) and "**Assistant access**" in lesson and bool(TU.teaches("mcp")) and not TU.check("admin") and not TU.check("assistant"),
     }
     failed3 = [k_ for k_, v in c3.items() if not v]
     ok(not failed3,
@@ -19142,7 +19144,7 @@ def section_ei_public_pad_benchmark(tmp: str) -> None:
     cli_bm, cli_bj, cli_bw = run("benchmark", "--workspace", site), run("benchmark", "--workspace", site, "--json"), run("benchmark", "--workspace", site, "--write")
     page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
     readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
-    lesson = (pkg / "help" / "tutorial" / "13-drilling-pages.md").read_text(encoding="utf-8")
+    lesson = TU.course_text()
     c3 = {
         "api_benchmark": s_vb == 200 and vb["status"] == "OK" and len(vb["wells"]) == 5 and s_vw == 403 and s_ow == 200 and "stretches.csv" in ow["files"],
         "api_public": s_vp == 200 and vp["folder"] == "" and len(vp["files"]) == 5 and vp["this_site"]["name"] == "Utah FORGE" and s_vf == 403 and s_af == 200 and af["present"] == 5 and s_ob == 403 and s_ab == 200
@@ -19160,7 +19162,7 @@ def section_ei_public_pad_benchmark(tmp: str) -> None:
                 and all(x in (H.page("benchmark") or "") for x in ("gea benchmark --workspace C:\\site", "300 ft or more", "25th percentile")) and "REAMED BACK" in (H.page("edr") or "") and "within 0.1 ft" in (H.page("edr") or "")
                 and "`benchmark`" in (H.page("mcp") or ""),
         "readme_lesson": (not readme or ("### Benchmark" in readme and "### Public data: a real pad" in readme and "`gea public-pad`" in readme and "`gea benchmark`" in readme))
-                         and "**Benchmark**" in lesson and "**Public data**" in lesson and "benchmark" in lesson.split("Help:")[-1] and "public-data" in lesson.split("Help:")[-1] and not TU.check("drilling-pages"),
+                         and "**Benchmark**" in lesson and "**Public data**" in lesson and bool(TU.teaches("benchmark")) and bool(TU.teaches("public-data")) and not any(TU.check(l_["id"]) for l_ in TU.lessons()),
     }
     failed3 = [k_ for k_, v in c3.items() if not v]
     ok(not failed3,
@@ -19407,7 +19409,7 @@ def section_ej_frac_treatment(tmp: str) -> None:
     cli_pl = run("public-pad", "--list")
     page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
     readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
-    lesson = (pkg / "help" / "tutorial" / "14-production-pages.md").read_text(encoding="utf-8")
+    lesson = TU.course_text()
     hp = H.page("frac-treatment") or ""
     c3 = {
         "api_read": s_v == 200 and pv["status"] == "OK" and [r_["stage"] for r_ in pv["stages"]] == ["3R", "10"] and len(pv["not_a_measurement"]) >= 6 and s_vs == 200 and pvs["stage"] == "3R"
@@ -19426,7 +19428,7 @@ def section_ej_frac_treatment(tmp: str) -> None:
                 and all(x in hp for x in ("gea frac-treatment --workspace C:\\site", "15 to 60 s, 20 to 90 s and 30 to 120 s", "4,019 psi", "3,985 psi", "the pipe and the perforations together", "Nolte"))
                 and "`frac_treatment`" in (H.page("mcp") or "") and "16B Frac Data.zip" in (H.page("public-data") or "") and "stimulation" in (H.page("public-data") or ""),
         "readme_lesson": (not readme or ("### Frac treatment" in readme and "`gea frac-treatment`" in readme and "2,969,800 lbm" in readme and readme.index("### Frac treatment") < readme.index("### Frac hits")))
-                         and "**Frac treatment**" in lesson and "frac-treatment" in lesson.split("Help:")[-1] and not TU.check("production-pages"),
+                         and "**Frac treatment**" in lesson and bool(TU.teaches("frac-treatment")) and not any(TU.check(l_["id"]) for l_ in TU.lessons()),
     }
     failed3 = [k_ for k_, v in c3.items() if not v]
     ok(not failed3,
@@ -19435,6 +19437,180 @@ def section_ej_frac_treatment(tmp: str) -> None:
        "the stimulation files), the commands (the self-test, the table, one stage as JSON, a record attached, the depth declared, the stage times handed over and the report written; a well that is "
        "not there, an attach with no well and a folder that is no workspace each stopped; the public list naming the stimulation files), the Frac treatment tab with a panel a measure, the help "
        "page with the published figures it was checked against, the README and lesson 14" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
+def section_eo_course_and_help(tmp: str) -> None:
+    """Section EO - the tutorial and the help as a whole: no tab of the control panel without a lesson that walks
+    through it and no help page without a lesson that names it; a lesson pointing at another by name, so a course
+    re-ordered keeps its references right; the help index under headings, every page under exactly one; the search
+    through every page's text; each page with the tab it is for and the lessons that teach it; the two documents;
+    the routes, the commands, the two tabs, the help pages and the README."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+    from . import helplib as H
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "eo"); d.mkdir()
+    # -- EO1 the course: coverage, the lessons' pages, references by name ---------------------------------------------------
+    ls = TU.lessons()
+    cov = TU.coverage()
+    tabs = TU.tabs()
+    views = TU.by_view()
+    files = sorted(f for f in os.listdir(TU.LESSON_DIR) if f.endswith(".md"))
+    raw = {f: (Path(TU.LESSON_DIR) / f).read_text(encoding="utf-8") for f in files}
+    refs = sum(len(TU._REF.findall(t)) for t in raw.values())
+    course = TU.course_text()
+    # a course of three lessons re-ordered: the reference follows the lesson, and one to a lesson that is not there is named
+    real_dir = TU.LESSON_DIR
+    small = d / "lessons"; small.mkdir()
+
+    def les(n, slug, extra=""):
+        (small / f"{n:02d}-{slug}.md").write_text(f"# {n}. The {slug} lesson\nWho: office\nWhere: #/setup\nTakes: 5 minutes\n> About {slug}.\n\n## Steps\n1. One.\n2. Two{extra}.\n3. Three.\n\n"
+                                                  f"## You know it worked when\nIt did.\n\nHelp: start\n", encoding="utf-8")
+    try:
+        TU.LESSON_DIR = str(small)
+        les(1, "alpha", " (see {lesson:gamma}; {Lesson:beta} comes first)"); les(2, "beta"); les(3, "gamma")
+        before = TU.lesson("alpha")["body"]
+        chk_before = TU.check("alpha")
+        for f in list(small.iterdir()):
+            f.unlink()
+        les(1, "gamma"); les(2, "alpha", " (see {lesson:gamma}; {Lesson:beta} comes first)"); les(3, "beta")
+        after = TU.lesson("alpha")["body"]
+        les(4, "delta", " (see {lesson:nowhere})")
+        chk_missing = TU.check("delta")
+        les(5, "epsilon"); p5 = small / "05-epsilon.md"; p5.write_text(p5.read_text(encoding="utf-8").replace("Where: #/setup", "Where: #/setup\nPages: #/nosuchtab"), encoding="utf-8")
+        chk_page = TU.check("epsilon")
+    finally:
+        TU.LESSON_DIR = real_dir
+    hand = TU.handout_html("9.9.9", "Pad 3")
+    c1 = {
+        "coverage": cov["tabs_unreached"] == [] and cov["help_untaught"] == [] and cov["outside_parts"] == [] and cov["tabs"] == len(tabs) >= 50 and cov["lessons"] == len(ls) >= 36,
+        "contract": not any(TU.check(l["id"]) for l in ls) and [l["n"] for l in ls] == list(range(1, len(ls) + 1))
+                    and all(f.startswith(f"{l['n']:02d}-{l['id']}.") for f, l in zip(files, ls)),
+        "pages": all(l["pages"] and l["pages"][0] == l["where"] and all(pg in tabs for pg in l["pages"]) for l in ls) and set(views) == {t[2:] or "home" for t in tabs}
+                 and all(1 <= len(v) <= 4 for v in views.values()),
+        "lookups": (TU.for_tab("#/hardline") or {}).get("id") == "well-paths" and (TU.for_tab("#/mcp") or {}).get("id") == "assistant" and (TU.for_tab("#/publicpad") or {}).get("id") == "practice-pad"
+                   and [l["id"] for l in TU.teaches("slide-sheet")] == ["well-paths"] and TU.teaches("no-such-page") == [] and TU.for_tab("#/nosuchtab") is None
+                   and views["hardline"][0]["id"] == "well-paths" and views["seismic"][0]["id"] == "seismic",
+        "by_name": refs >= 20 and "{lesson:" not in course and "{Lesson:" not in course
+                   and "see lesson 3; Lesson 2 comes first" in before and chk_before == [] and "see lesson 1; Lesson 3 comes first" in after
+                   and chk_missing == ["no lesson named nowhere"] and chk_page == ["page #/nosuchtab is not a tab of the control panel"],
+        "practice_pad": course.count("## On the practice pad") >= 5 and all(l["id"] in ("practice-pad",) or "{lesson:practice-pad}" not in raw[f] or "## On the practice pad" in raw[f] for f, l in zip(files, ls)),
+        "handout": f"Lessons {TU._span('office')} are for the office" in hand and f"Lessons {TU._span('pad')} are for the people on the pad" in hand and "Collision, Hard line, Slide sheet, Plan vs actual" in hand
+                   and TU._minutes("45 minutes") == 45 and TU._minutes("20 minutes to read; a day to build") == 20 and TU._minutes("2 hours") == 120 and TU._minutes("") == 0,
+    }
+    failed1 = [k for k, v in c1.items() if not v]
+    ok(not failed1,
+       f"EO1 the course reaches every one of the {len(tabs)} tabs of the control panel and names every help page (none unreached, none untaught, no lesson outside a part); each of the {len(ls)} "
+       "lessons keeps the contract with its file numbered as its title and the pages it walks through all tabs that exist; a tab and a help page each find their lesson; a lesson points at "
+       "another by name and the number follows when the course is re-ordered, a name that is no lesson and a page that is no tab each named; the lessons on the public pad say what to look "
+       "at there; the handout's cover takes its lesson numbers from the lessons"
+       + (f" [failed: {', '.join(failed1)}; {cov if 'coverage' in failed1 else ''}]" if failed1 else ""))
+    # -- EO2 the help: the index under headings, the search, the page's tab and lessons, the two documents -----------------
+    idx = [t for t, _, _ in H.INDEX]
+    grouped = [t for _, ts in H.GROUPS for t in ts]
+    tops = H.topics()
+    it = H.index_text()
+    s_tf, s_hl, s_two, s_none, s_one = H.search("toolface"), H.search("hard line"), H.search("lease setback"), H.search("zzzqx"), H.search("a")
+    with_tab = {t: H.view_of(t, tabs) for t in idx}
+    c2 = {
+        "groups": sorted(idx) == sorted(grouped) and len(set(grouped)) == len(grouped) and all(ts for _, ts in H.GROUPS) and len(H.GROUPS) >= 8
+                  and [t["topic"] for t in tops] == grouped and all(t["group"] == H.group_of(t["topic"]) and t["present"] for t in tops) and H.group_of("no-such-page") == "",
+        "pages": not any(H.check(t) for t in idx) and not H.check("help") and not H.check("tutorial"),
+        "index_text": all(("\n" + g + "\n") in it for g, _ in H.GROUPS) and it.index("Start here") < it.index("Drilling") < it.index("Keep it running") and "gea help --find toolface" in it
+                      and all(f"  {t} " in it or f"  {t}  " in it for t in idx),
+        "search": s_tf and s_tf[0]["topic"] == "slide-sheet" and "toolface" in s_tf[0]["excerpt"].lower() and not s_tf[0]["excerpt"].startswith("#")
+                  and s_hl and s_hl[0]["topic"] == "hardline" and s_two and s_two[0]["topic"] == "hardline" and all("lease" in (H.page(h["topic"]) or "").lower() and "setback" in (H.page(h["topic"]) or "").lower() for h in s_two)
+                  and s_none == [] and s_one == [] and H.search("") == [] and len(H.search("the", limit=7)) == 7
+                  and all(h["score"] >= s_tf[i + 1]["score"] for i, h in enumerate(s_tf[:-1])),
+        "tabs": with_tab["hardline"] == "#/hardline" and with_tab["slide-sheet"] == "#/slides" and with_tab["well3d"] == "#/3d" and with_tab["start"] == "" and with_tab["osdu"] == ""
+                and with_tab["drift"] == "" and H.view_of("drift") == "#/well" and sum(1 for v in with_tab.values() if v) >= 40 and H.VIEW_TOPIC.get("reports") == "well-report",
+        "documents": set(H.DOCUMENTS) == {"guide", "security"} and len(H.document("guide") or "") > 2000 and len(H.document("security") or "") > 2000 and H.document("drift") is None,
+    }
+    env = {**os.environ, "PYTHONPATH": str(pkg.parent) + os.pathsep + os.environ.get("PYTHONPATH", "")}
+    run = lambda *a_: _sp.run([sys.executable, "-m", "gea", *a_], capture_output=True, text=True, env=env, cwd=str(d), timeout=300)
+    cli_f, cli_n, cli_e, cli_i, cli_x, cli_t = run("help", "--find", "toolface"), run("help", "--find", "zzzqx"), run("help", "--find"), run("help"), run("help", "no-such-page"), run("tutorial")
+    c2["cli"] = (cli_f.returncode == 0 and "gea help slide-sheet" in cli_f.stdout.splitlines()[0] and cli_f.stdout.splitlines()[1].split()[0] == "slide-sheet"
+                 and cli_n.returncode == 1 and "no help page carries 'zzzqx'" in cli_n.stdout and cli_e.returncode == 2 and cli_i.returncode == 0 and "Where the wells are" in cli_i.stdout
+                 and cli_x.returncode == 2 and "no help page named 'no-such-page'" in cli_x.stdout and cli_t.returncode == 0 and f"{len(ls)} lessons" in cli_t.stdout and "Where the wells are" in cli_t.stdout)
+    failed2 = [k for k, v in c2.items() if not v]
+    ok(not failed2,
+       f"EO2 the {len(idx)} help pages each sit under exactly one of {len(H.GROUPS)} headings and each keeps its four lines; the index prints under the headings in the order of the work; the "
+       "search finds a word in the text of every page, the page about it first and with the sentence it is in, several words only where all are, nothing for a word no page carries; each "
+       "page knows the tab it is for; the tester guide and the security overview open by name; gea help --find, gea help and gea tutorial say the same at a terminal"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+    # -- EO3 the routes, the two tabs, the help pages, the README -----------------------------------------------------------
+    ws = Workspace.create(str(d / "ws"), "Pad 3 course", actor="tester")
+    Users(str(Path(ws.path, "users.json"))).add("v", "viewer-pass-1", "viewer")
+    svc = Service(ws.path, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=120) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as ex:
+            return ex.code, json.loads(ex.read() or b"{}")
+    try:
+        anon = urllib.request.build_opener()
+        s_a, _ = call(anon, "GET", "/api/help/search?q=toolface")
+        V = opener("v", "viewer-pass-1")
+        s_h, hx = call(V, "GET", "/api/help")
+        s_s, sx = call(V, "GET", "/api/help/search?q=" + urllib.parse.quote("lease setback"))
+        s_s0, sx0 = call(V, "GET", "/api/help/search?q=")
+        s_p, px = call(V, "GET", "/api/help/hardline")
+        s_ps, pxs = call(V, "GET", "/api/help/start")
+        s_d, dx = call(V, "GET", "/api/help/security")
+        s_g, gx = call(V, "GET", "/api/help/guide")
+        s_x, _ = call(V, "GET", "/api/help/no-such-page")
+        s_t, tx = call(V, "GET", "/api/tutorial")
+        s_l, lx = call(V, "GET", "/api/tutorial/well-paths")
+        call(V, "POST", "/api/tutorial/done", {"lesson": "well-paths"})
+        s_t2, tx2 = call(V, "GET", "/api/tutorial")
+    finally:
+        svc.stop()
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    view = page_src[page_src.index("let TUV = "):page_src.index("VIEWS.prefs = ")]
+    readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
+    hp, tp = H.page("help") or "", H.page("tutorial") or ""
+    wp = next(l for p_ in tx["parts"] for l in p_["lessons"] if l["id"] == "well-paths") if s_t == 200 else {}
+    c3 = {
+        "help_api": s_a in (401, 403) and s_h == 200 and hx["groups"] == [g for g, _ in H.GROUPS] and len(hx["topics"]) == len(idx) and all(t["group"] and t["short"] and t["summary"] for t in hx["topics"])
+                    and hx["lessons"]["hardline"][0]["id"] == "well-paths" and {x["name"] for x in hx["documents"]} == {"guide", "security"} and hx["views"]["slides"] == "slide-sheet",
+        "search_api": s_s == 200 and sx["hits"][0]["topic"] == "hardline" and sx["q"] == "lease setback" and s_s0 == 200 and sx0["hits"] == [],
+        "page_api": s_p == 200 and px["tab"] == "#/hardline" and px["tab_name"] == "Hard line" and px["group"] == "Where the wells are" and [l["id"] for l in px["lessons"]] == ["well-paths"] and "<h2>" in px["html"]
+                    and s_ps == 200 and pxs["tab"] == "" and len(pxs["lessons"]) >= 2 and s_d == 200 and dx["document"] is True and len(dx["html"]) > 2000 and s_g == 200 and gx["title"] == "The tester guide" and s_x == 404,
+        "tutorial_api": s_t == 200 and tx["minutes"] == tx["minutes_left"] > 600 and wp.get("page_names") == ["Collision", "Hard line", "Slide sheet", "Plan vs actual"]
+                        and s_l == 200 and lx["of"] == len(ls) and lx["pages"] == ["#/collision", "#/hardline", "#/slides", "#/plan"] and lx["page_names"] == wp.get("page_names")
+                        and lx["help_titles"]["hardline"] == "Hard line" and "lesson 4" in lx["html"] and s_t2 == 200 and tx2["n_done"] == 1 and tx2["minutes_left"] == tx["minutes"] - 35,
+        "tabs": all(x in view for x in ('id="tuQ"', 'id="tuWho"', 'id="tuTodo"', 'id="hpQ"', 'id="hpHits"', "/api/help/search?q=", "The pages this lesson is about", "this page is for the", "taught in",
+                                         "Continue with the next lesson", "The two documents", "only what is left", 'role="progressbar"'))
+                and "in the tutorial:" in page_src and "sessionStorage" not in view and "localStorage" not in view and "!(view === 'tutorial' && arg)" in page_src,
+        "help_pages": all(x in hp for x in ("gea help --find toolface", "**Find a word in every page**", "**The two documents**", "gea guide", "likeliest first"))
+                      and all(x in tp for x in ("**Find a lesson**", "**only what is left**", "**On the practice pad**", "no tab of the control panel without a lesson", "by the lesson's name"))
+                      and not re.search(r"\b\d+ lessons\b", tp) and any(t == "help" for t, _, _ in H.INDEX),
+        "readme": not readme or ("### The tutorial and the help, renovated" in readme and "`gea help --find toolface`" in " ".join(readme.split()) and "no tab without a lesson" in " ".join(readme.split())),
+    }
+    failed3 = [k for k, v in c3.items() if not v]
+    ok(not failed3,
+       "EO3 on the API (nobody unsigned reads; the help index with its headings, each tab's lessons and the two documents; the search; a page with its tab, its heading and its lessons; a "
+       "document by name; a page that is not there 404; the tutorial with the minutes left, falling when a lesson is ticked, and a lesson with the names of its pages), the Tutorial tab with "
+       "its progress, its finder and a button for every page of a lesson, the Help tab with its headings and its search - and no browser storage in either - each tab's own panel naming its "
+       "lesson, the two help pages and the README"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
 def section_en_slide_sheet(tmp: str) -> None:
@@ -19590,7 +19766,7 @@ def section_en_slide_sheet(tmp: str) -> None:
     page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
     view = page_src[page_src.index("const SSV = "):page_src.index("// ---------- hard line:")]
     readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
-    lesson = (pkg / "help" / "tutorial" / "13-drilling-pages.md").read_text(encoding="utf-8")
+    lesson = TU.course_text()
     hp = H.page("slide-sheet") or ""
     c3 = {
         "api": s_v == 200 and pv["status"] == "OK" and pv["well"] == w["id"] and len(pv["detail"]["rows"]) == len(det["rows"]) and len(pv["not_a_measurement"]) >= 6 and pv["rules"]["min_courses"] == 5
@@ -19605,7 +19781,7 @@ def section_en_slide_sheet(tmp: str) -> None:
                 and all(x in hp for x in ("gea slide-sheet --workspace C:\\site", "ten turns a minute", "7.5 degrees", "5,892 and 6,797 ft", "a value left standing", "five courses or more", "the motor's own yield"))
                 and "`slide_sheet`" in (H.page("mcp") or "") and "toolface channels" in (H.page("public-data") or ""),
         "readme_lesson": (not readme or ("### Slide sheet" in readme and "`gea slide-sheet`" in readme and "7.5 degrees" in readme and readme.index("### Hard line") < readme.index("### Slide sheet")))
-                         and "**Slide sheet**" in lesson and "slide-sheet" in lesson.split("Help:")[-1] and not TU.check("drilling-pages"),
+                         and "**Slide sheet**" in lesson and bool(TU.teaches("slide-sheet")) and not any(TU.check(l_["id"]) for l_ in TU.lessons()),
     }
     failed3 = [k_ for k_, v in c3.items() if not v]
     ok(not failed3,
@@ -19813,7 +19989,7 @@ def section_em_hardline(tmp: str) -> None:
     page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
     view = page_src[page_src.index("const HLV = "):page_src.index("// ---------- kick and loss:")]
     readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
-    lesson = (pkg / "help" / "tutorial" / "13-drilling-pages.md").read_text(encoding="utf-8")
+    lesson = TU.course_text()
     hp = H.page("hardline") or ""
     c3 = {
         "api_read": s_v == 200 and pv["status"] == "OK" and len(pv["boundaries"]) == 1 and pv["layers"][0]["id"] == "FORGE-extent" and [f_["label"] for f_ in pv["layers"][0]["features"]] == ["FORGE study area", "FORGE project area"]
@@ -19832,7 +20008,7 @@ def section_em_hardline(tmp: str) -> None:
                 and all(x in hp for x in ("gea hardline --workspace C:\\site", "--setback-ft 330", "exact", "one-sigma", "85 ft", "8,104 ft MD", "582 ft more hole", "hardline.crossed", "a plat or a survey of the ground"))
                 and "`hard_line`" in (H.page("mcp") or "") and "hardline.setback" in (H.page("alerts") or "") and "MIlford_FORGE_Extent.zip" in (H.page("public-data") or ""),
         "readme_lesson": (not readme or ("### Hard line" in readme and "`gea hardline`" in readme and "85 ft inside its south side" in readme and readme.index("### Hard line") < readme.index("### Plan vs actual and the survey tools")))
-                         and "**Hard line**" in lesson and "hardline" in lesson.split("Help:")[-1] and not TU.check("drilling-pages"),
+                         and "**Hard line**" in lesson and bool(TU.teaches("hardline")) and not any(TU.check(l_["id"]) for l_ in TU.lessons()),
     }
     failed3 = [k_ for k_, v in c3.items() if not v]
     ok(not failed3,
@@ -20046,7 +20222,7 @@ def section_el_public_pad_placed(tmp: str) -> None:
     page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
     view = page_src[page_src.index("VIEWS.publicpad = async"):page_src.index("VIEWS.publicpad = async") + 14000]
     readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
-    lesson = (pkg / "help" / "tutorial" / "13-drilling-pages.md").read_text(encoding="utf-8")
+    lesson = TU.course_text()
     hp = H.page("public-data") or ""
     map_names = json.dumps(pm)
     c3 = {
@@ -20064,7 +20240,7 @@ def section_el_public_pad_placed(tmp: str) -> None:
                 and "sessionStorage" not in view and "localStorage" not in view,
         "help": not H.check("public-data") and all(x in hp for x in ("**The surveys**", "Utah FORGE Well and Seismic Locations.csv", "Directional_Survey_well_58_32.zip", "kelly bushing", "ground level", "grid north",
                                                                         "not stated", "minimum curvature", "gdr.openei.org/submissions/1358")),
-        "readme_lesson": (not readme or ("placed from its published survey" in " ".join(readme.split()) and "Locations.csv" in readme)) and "placed" in lesson and not TU.check("drilling-pages"),
+        "readme_lesson": (not readme or ("placed from its published survey" in " ".join(readme.split()) and "Locations.csv" in readme)) and "placed" in lesson and not any(TU.check(l_["id"]) for l_ in TU.lessons()),
     }
     failed3 = [k_ for k_, v in c3.items() if not v]
     ok(not failed3,
@@ -20251,7 +20427,7 @@ def section_ek_kick(tmp: str) -> None:
     run("kick", "--workspace", ws.path, "--set", "gain_min_bbl=8", "--source", "well control procedure (CLI)")
     page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
     readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
-    lesson = (pkg / "help" / "tutorial" / "13-drilling-pages.md").read_text(encoding="utf-8")
+    lesson = TU.course_text()
     hp = H.page("kick") or ""
     c3 = {
         "api_read": s_v == 200 and pv["status"] == "OK" and len(pv["wells"]) == 4 and pv["well"] == wa and s_vb == 200 and pvb["well"] == wb and len(next(w_ for w_ in pvb["wells"] if w_["well"] == wa)["flowbacks"]) == 1
@@ -20266,7 +20442,7 @@ def section_ek_kick(tmp: str) -> None:
                                             "'kick.gain': 'Pit gain with the returns up'", "'kick.loss': 'Pit fall with the returns down'", "The places to look")),
         "help": not H.check("kick") and not H.check("alerts") and not H.check("mcp") and H.VIEW_TOPIC.get("kick") == "kick" and all(x in hp for x in ("gea kick --workspace C:\\site", "four scatters and by 4 bbl", "by four scatters and by 8 bbl",
                 "30, 60, 120, 180 and 300 s", "KICK-LIKE", "a flow check, a shut-in and the pressures")) and "`kick.flowback`" in (H.page("alerts") or "") and "`kick_detection`" in (H.page("mcp") or ""),
-        "readme_lesson": (not readme or ("### Kick and loss detection" in readme and "`gea kick`" in readme)) and "**Kick & loss**" in lesson and "kick" in [x.strip() for x in lesson.split("Help:")[-1].split(",")] and not TU.check("drilling-pages"),
+        "readme_lesson": (not readme or ("### Kick and loss detection" in readme and "`gea kick`" in readme)) and "**Kick & loss**" in lesson and bool(TU.teaches("kick")) and not any(TU.check(l_["id"]) for l_ in TU.lessons()),
     }
     failed3 = [k_ for k_, v in c3.items() if not v]
     ok(not failed3,
@@ -20424,6 +20600,7 @@ def main() -> int:
         section_el_public_pad_placed(tmp)
         section_em_hardline(tmp)
         section_en_slide_sheet(tmp)
+        section_eo_course_and_help(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

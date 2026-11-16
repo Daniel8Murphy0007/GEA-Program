@@ -206,7 +206,7 @@ function unitLabel(unit) { const si = (PREFS.units || SITE.units || 'field') ===
 // help panels: the same text as `gea help <topic>` (gea/help/*.md), fetched once; a view maps to a topic
 let HELPIDX = null;   // {topics: [{topic,title,summary}], views: {view: topic}}
 async function loadHelp() { if (HELPIDX) return HELPIDX; try { HELPIDX = await get('/api/help'); } catch (e) { HELPIDX = {topics: [], views: {}}; } return HELPIDX; }
-function help(view) { if (!PREFS.help_open || !HELPIDX) return ''; const t = HELPIDX.views[view]; const h = (HELPIDX.topics || []).find(x => x.topic === t); return h ? `<div class="help" role="note"><h4>${esc(h.title)}</h4><p>${esc(h.summary)} <a href="#/help/${esc(h.topic)}">more…</a></p></div>` : ''; }
+function help(view) { if (!PREFS.help_open || !HELPIDX) return ''; const t = HELPIDX.views[view]; const h = (HELPIDX.topics || []).find(x => x.topic === t); const ls = view === 'tutorial' ? [] : (HELPIDX.lessons || {})[view] || []; return h ? `<div class="help" role="note"><h4>${esc(h.title)}</h4><p>${esc(h.summary)} <a href="#/help/${esc(h.topic)}">more…</a>${ls.length ? ` · in the tutorial: ${ls.map(l => `<a href="#/tutorial/${esc(l.id)}" title="${esc(l.title)}">lesson ${l.n}</a>`).join(', ')}` : ''}</p></div>` : ''; }
 function stamp() { document.querySelectorAll('h2').forEach(x => x.dataset.printed = tz(new Date().toISOString())); }
 const can = r => me && ROLE[me.role] >= ROLE[r];
 function need(r) { return can(r) ? '' : `<p class="muted small">Needs the ${r} role.</p>`; }
@@ -2062,36 +2062,85 @@ VIEWS.admin = async () => {
   document.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { if (!confirm('Remove schedule ' + b.dataset.rm + '?')) return; try { await post('/api/schedule/remove', {name: b.dataset.rm}); route(); } catch (e) { toast(e.message, 'err'); } });
 };
 
+// the tutorial: what is shown of the list is kept here for as long as the window is open, and nowhere else
+let TUV = {who: 'all', q: ''};
 VIEWS.tutorial = async (ident) => {
   if (ident) {
     let L; try { L = await get('/api/tutorial/' + encodeURIComponent(ident)); } catch (e) { $('#main').innerHTML = `<h2>Tutorial</h2><p class="serious">${esc(e.message)}</p><p><a href="#/tutorial">All lessons</a></p>`; return; }
     const who = {office: 'the office', pad: 'the pad attendant'}[L.who] || L.who;
-    let h = `<h2>Lesson ${L.n}: ${esc(L.title)}</h2><p class="small muted">${esc(L.part)} · for ${esc(who)} · ${esc(L.takes)} · <a href="#/tutorial">all lessons</a></p>`;
-    h += `<div class="row" style="margin:6px 0 10px"><a class="btn" href="${esc(L.where)}">Open the page this lesson is about</a><button type="button" id="tuDone" class="${L.done_utc ? 'secondary' : ''}">${L.done_utc ? 'Done ✓ — mark it not done' : 'Mark this lesson done'}</button>${L.done_utc ? `<span class="small muted">done ${tz(L.done_utc)}</span>` : ''}</div>`;
+    let h = `<h2>Lesson ${L.n} of ${L.of}: ${esc(L.title)}</h2><p class="small muted"><a href="#/tutorial">Tutorial</a> › ${esc(L.part)} · for ${esc(who)} · ${esc(L.takes)}</p>`;
+    h += `<div class="row" style="margin:6px 0 10px"><span class="small muted">The pages this lesson is about:</span>${(L.pages || []).map((pg, k) => `<a class="btn ${k ? 'secondary' : ''}" href="${esc(pg)}">Open ${esc((L.page_names || [])[k] || pg)}</a>`).join('')}</div>`;
     h += `<div class="card helppage tutorial">${L.html}</div>`;
-    h += `<p class="small muted">The detail: ${L.help.map(t => `<a href="#/help/${esc(t)}">gea help ${esc(t)}</a>`).join(' · ')}</p>`;
+    h += `<div class="row" style="margin:6px 0 10px"><button type="button" id="tuDone" class="${L.done_utc ? 'secondary' : ''}">${L.done_utc ? 'Done ✓ — mark it not done' : 'Mark this lesson done'}</button>${L.done_utc ? `<span class="small muted">done ${tz(L.done_utc)}</span>` : `<span class="small muted">when what <b>You know it worked when</b> describes is there</span>`}</div>`;
+    h += `<p class="small muted">The detail, on the Help tab: ${L.help.map(t => `<a href="#/help/${esc(t)}">${esc((L.help_titles || {})[t] || t)}</a>`).join(' · ')}</p>`;
     h += `<div class="row">${L.prev ? `<a class="btn secondary" href="#/tutorial/${esc(L.prev)}">← Previous lesson</a>` : ''}${L.next ? `<a class="btn" href="#/tutorial/${esc(L.next)}">Next lesson →</a>` : '<span class="small muted">That was the last lesson.</span>'}</div>`;
     $('#main').innerHTML = h;
-    $('#tuDone').onclick = async () => { try { await post('/api/tutorial/done', {lesson: L.id, done: !L.done_utc}); toast(L.done_utc ? 'Marked not done' : `Lesson ${L.n} done`, 'ok'); route(); } catch (e) { toast(e.message, 'err'); } };
+    $('#tuDone').onclick = async () => { try { await post('/api/tutorial/done', {lesson: L.id, done: !L.done_utc}); toast(L.done_utc ? 'Marked not done' : `Lesson ${L.n} done`, 'ok'); if (!L.done_utc && L.next) location.hash = '#/tutorial/' + L.next; else route(); } catch (e) { toast(e.message, 'err'); } };
     return;
   }
   const o = await get('/api/tutorial');
-  let h = `<h2>Tutorial</h2>${help('tutorial')}<p class="small muted">Every step of GEA and the programs around it, lesson by lesson - the office's lessons first, the pad attendant's after. Each names the page it is done on, what you press, and how you know it worked. Tick them off as you go; ${o.n_done} of ${o.n_lessons} done.${o.next ? ` <a href="#/tutorial/${esc(o.next)}">Continue with the next one</a>.` : ' All done.'}</p>`;
-  h += `<div class="row" style="margin:0 0 12px"><a class="btn secondary" href="${esc(withSt('/api/tutorial/handout.html'))}" target="_blank" rel="noopener">Print the handout</a>${can('operator') ? `<button type="button" class="secondary" id="tuWrite">Write the handout into exports\\tutorial</button>` : ''}<span class="small muted">one page with every lesson, for the people who do not sit at this screen; the browser's Print makes the PDF</span></div>`;
-  for (const p of o.parts) {
-    h += `<div class="card"><h3>${esc(p.name)} <span class="small muted">${p.done} of ${p.lessons.length} done</span></h3>`;
-    for (const l of p.lessons) h += `<div class="hit"><span class="k">${l.done_utc ? statusPill('good', 'done') : `<span class="muted">${l.n}</span>`}</span><a href="#/tutorial/${esc(l.id)}">${l.n}. ${esc(l.title)}</a><span class="small muted">${esc(l.summary)} <i>${esc(o.who[l.who] || l.who)} · ${esc(l.takes)}</i></span></div>`;
-    h += `</div>`;
-  }
+  const hm = m => m >= 60 ? `${Math.floor(m / 60)} h ${m % 60 ? (m % 60) + ' min' : ''}`.trim() : `${m} min`;
+  let h = `<h2>Tutorial</h2>${help('tutorial')}<p class="small muted">Every step of GEA and the programs around it, lesson by lesson - the office's lessons first, the people on the pad after. Each names the pages it is done on, what you press, and how you know it worked. Tick them off as you go.</p>`;
+  h += `<div class="card"><h3>${o.n_done} of ${o.n_lessons} lessons done${o.n_done < o.n_lessons ? ` <span class="small muted">about ${hm(o.minutes_left)} at the screen left of ${hm(o.minutes)}</span>` : ''}</h3><div class="ck-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${o.n_lessons}" aria-valuenow="${o.n_done}" aria-label="Lessons done"><span style="width:${(100 * o.n_done / Math.max(1, o.n_lessons)).toFixed(0)}%"></span></div>`;
+  h += `<div class="row" style="margin:10px 0 0">${o.next ? `<a class="btn" href="#/tutorial/${esc(o.next)}">${o.n_done ? 'Continue with the next lesson' : 'Start with lesson 1'}</a>` : statusPill('good', 'all done')}<a class="btn secondary" href="${esc(withSt('/api/tutorial/handout.html'))}" target="_blank" rel="noopener">Print the handout</a>${can('operator') ? `<button type="button" class="secondary" id="tuWrite">Write the handout into exports\\tutorial</button>` : ''}<span class="small muted">the handout is one page with every lesson, for the people who do not sit at this screen; the browser's Print makes the PDF</span></div></div>`;
+  h += `<div class="row" style="margin:0 0 8px"><label>Find a lesson<input id="tuQ" type="search" value="${esc(TUV.q)}" placeholder="a page, a word: hard line, backup, frac" style="width:22em"></label><label>For<select id="tuWho">${[['all', 'everyone'], ['office', 'the office'], ['pad', 'the people on the pad']].map(([v, l]) => `<option value="${v}" ${TUV.who === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label><label><input type="checkbox" id="tuTodo" ${TUV.todo ? 'checked' : ''}> only what is left</label></div><div id="tuList"></div>`;
   $('#main').innerHTML = h;
+  const draw = () => {
+    const words = TUV.q.toLowerCase().split(/\s+/).filter(Boolean);
+    let out = '', shown = 0;
+    for (const p of o.parts) {
+      const ls = p.lessons.filter(l => (TUV.who === 'all' || l.who === TUV.who) && (!TUV.todo || !l.done_utc) && words.every(w => (l.title + ' ' + l.summary + ' ' + (l.page_names || []).join(' ') + ' ' + l.help.join(' ') + ' ' + p.name).toLowerCase().includes(w)));
+      if (!ls.length) continue;
+      shown += ls.length;
+      out += `<div class="card"><h3>${esc(p.name)} <span class="small muted">${p.done} of ${p.lessons.length} done</span></h3>`;
+      for (const l of ls) out += `<div class="hit"><span class="k" style="min-width:64px">${l.done_utc ? statusPill('good', 'done') : `<span class="muted">${l.n}</span>`}</span><span><a href="#/tutorial/${esc(l.id)}">${l.n}. ${esc(l.title)}</a><br><span class="small muted">${esc(l.summary)}</span><br><span class="small muted"><i>${esc(o.who[l.who] || l.who)} · ${esc(l.takes)}</i> · ${(l.pages || []).map((pg, k) => `<a href="${esc(pg)}">${esc((l.page_names || [])[k] || pg)}</a>`).join(', ')}</span></span></div>`;
+      out += `</div>`;
+    }
+    $('#tuList').innerHTML = out || `<p class="small muted">No lesson matches. The <a href="#/help">Help</a> tab's search looks through every help page.</p>`;
+  };
+  draw();
+  $('#tuQ').oninput = ev => { TUV.q = ev.target.value; draw(); };
+  $('#tuWho').onchange = ev => { TUV.who = ev.target.value; draw(); };
+  $('#tuTodo').onchange = ev => { TUV.todo = ev.target.checked; draw(); };
   const w = $('#tuWrite'); if (w) w.onclick = async () => { try { const r = await post('/api/tutorial/handout', {}); toast(`Written: ${r.html}`, 'ok'); } catch (e) { toast(e.message, 'err'); } };
 };
+// the help tab: the pages under the job a reader came with, a search through every page's text, and each page with the tab it belongs to and the lessons that teach it
+let HPV = {q: '', t: null, n: 0};
 VIEWS.help = async (topic) => {
   const idx = await loadHelp();
-  let h = `<h2>Help</h2><p class="small muted">By the job you came with. The same text prints with <span class="mono">gea help drift</span> (any topic in the index); the tester guide with <span class="mono">gea guide</span>. New here? The <a href="#/tutorial">Tutorial</a> walks every step.</p>`;
-  if (topic) { try { const pg = await get('/api/help/' + encodeURIComponent(topic)); h += `<div class="card helppage">${pg.html}</div><p><a href="#/help">All topics</a></p>`; } catch (e) { h += `<p class="serious">${esc(e.message)}</p>`; } }
-  else h += `<div class="card">${idx.topics.map(t => `<div class="hit"><span class="k">${esc(t.topic)}</span><a href="#/help/${esc(t.topic)}">${esc(t.title)}</a><span class="small muted">${esc(t.summary)}</span></div>`).join('')}</div>`;
+  let h = `<h2>Help</h2><p class="small muted">By the job you came with. The same text prints with <span class="mono">gea help drift</span> (any page below), a word is found with <span class="mono">gea help --find toolface</span>. New here? The <a href="#/tutorial">Tutorial</a> walks every step.</p>`;
+  if (topic) {
+    try {
+      const pg = await get('/api/help/' + encodeURIComponent(topic));
+      const order = (idx.topics || []).map(t => t.topic), k = order.indexOf(pg.topic);
+      const tOf = t => ((idx.topics || []).find(x => x.topic === t) || {}).title || t;
+      h += `<p class="small muted"><a href="#/help">Help</a> › ${esc(pg.group || '')}${pg.tab ? ` · this page is for the <a href="${esc(pg.tab)}">${esc(pg.tab_name || pg.tab)}</a> tab` : ''}${(pg.lessons || []).length ? ` · taught in ${pg.lessons.map(l => `<a href="#/tutorial/${esc(l.id)}" title="${esc(l.title)}">lesson ${l.n}</a>`).join(', ')}` : ''}</p>`;
+      h += `<div class="card helppage">${pg.html}</div>`;
+      h += `<div class="row">${k > 0 ? `<a class="btn secondary" href="#/help/${esc(order[k - 1])}">← ${esc(tOf(order[k - 1]))}</a>` : ''}<a class="btn secondary" href="#/help">All pages</a>${k >= 0 && k + 1 < order.length ? `<a class="btn secondary" href="#/help/${esc(order[k + 1])}">${esc(tOf(order[k + 1]))} →</a>` : ''}</div>`;
+    } catch (e) { h += `<p class="serious">${esc(e.message)}</p><p><a href="#/help">All pages</a></p>`; }
+    $('#main').innerHTML = h;
+    return;
+  }
+  const groups = idx.groups && idx.groups.length ? idx.groups : [''];
+  h += `<div class="card"><div class="row"><label>Find a word in every page<input id="hpQ" type="search" value="${esc(HPV.q)}" placeholder="toolface, setback, backup, ISIP" style="width:24em"></label><span class="small muted" id="hpN"></span></div><div id="hpHits"></div></div>`;
+  h += `<p class="small" id="hpJump">${groups.map((g, k) => `<a href="#/help" data-jump="hpG${k}">${esc(g)}</a>`).join(' · ')}</p>`;
+  groups.forEach((g, k) => {
+    const ts = (idx.topics || []).filter(t => !g || t.group === g);
+    h += `<div class="card" id="hpG${k}"><h3>${esc(g || 'The pages')} <span class="small muted">${ts.length} page${ts.length === 1 ? '' : 's'}</span></h3>${ts.map(t => `<div class="hit"><span class="k">${esc(t.topic)}</span><span><a href="#/help/${esc(t.topic)}" title="${esc(t.summary)}">${esc(t.title)}</a> <span class="small muted">${esc(t.short || t.summary)}</span></span></div>`).join('')}</div>`;
+  });
+  if ((idx.documents || []).length) h += `<div class="card"><h3>The two documents <span class="small muted">longer than a page; they ship with the program</span></h3>${idx.documents.map(d => `<div class="hit"><span class="k">gea ${esc(d.name)}</span><span><a href="#/help/${esc(d.name)}">${esc(d.title)}</a> <span class="small muted">${esc(d.summary)}</span></span></div>`).join('')}</div>`;
   $('#main').innerHTML = h;
+  document.querySelectorAll('#hpJump [data-jump]').forEach(a => a.onclick = ev => { ev.preventDefault(); const el = document.getElementById(a.dataset.jump); if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'}); });
+  const find = async () => {
+    const q = HPV.q.trim(), n = ++HPV.n;
+    if (q.length < 2) { $('#hpHits').innerHTML = ''; $('#hpN').textContent = ''; return; }
+    let r; try { r = await get('/api/help/search?q=' + encodeURIComponent(q)); } catch (e) { if (n === HPV.n && $('#hpN')) $('#hpN').textContent = e.message; return; }
+    if (n !== HPV.n || !$('#hpHits')) return;
+    $('#hpN').textContent = r.hits.length ? `${r.hits.length} page${r.hits.length === 1 ? '' : 's'}, the likeliest first` : 'no page carries that';
+    $('#hpHits').innerHTML = r.hits.map(x => `<div class="hit"><span class="k">${esc(x.topic)}</span><span><a href="#/help/${esc(x.topic)}">${esc(x.title)}</a> <span class="small muted">${esc(x.group)}</span>${x.excerpt ? `<br><span class="small">${esc(x.excerpt)}</span>` : ''}</span></div>`).join('');
+  };
+  $('#hpQ').oninput = ev => { HPV.q = ev.target.value; clearTimeout(HPV.t); HPV.t = setTimeout(find, 220); };
+  if (HPV.q) find();
 };
 VIEWS.prefs = async () => {
   let h = `<h2>Your preferences</h2>${help('prefs')}<div class="card"><div class="row"><label>Units<select id="pUnits"><option value="field" ${PREFS.units === 'field' ? 'selected' : ''}>field (psi, °F, ft)</option><option value="si" ${PREFS.units === 'si' ? 'selected' : ''}>SI (kPa, °C, m)</option></select></label><label>Time zone<input id="pTz" value="${esc(PREFS.time_zone || 'UTC')}" list="tzList2"></label><label>Theme<select id="pTheme">${['auto', 'light', 'dark'].map(t => `<option ${PREFS.theme === t ? 'selected' : ''}>${t}</option>`).join('')}</select></label><label><input type="checkbox" id="pHelp" ${PREFS.help_open ? 'checked' : ''}> show the help panels</label><button id="pSave" type="button">Save</button></div><datalist id="tzList2">${['UTC', 'America/Chicago', 'America/Denver', 'America/New_York', 'America/Los_Angeles', 'Europe/London', 'Europe/Oslo', 'Asia/Dubai', 'Asia/Kuala_Lumpur', 'Australia/Perth'].map(z => `<option value="${z}">`).join('')}</datalist><p class="small muted">Site defaults: ${esc(SITE.units || 'field')} units, ${esc(SITE.time_zone || 'UTC')}. Now, in your zone: ${tz(new Date().toISOString())}. Example: 2500 psi shows as ${U(2500, 'psi')}.</p></div>`;
@@ -4503,7 +4552,7 @@ async function _route() {
     else if (view === 'help') await VIEWS.help(arg ? decodeURIComponent(arg) : undefined);
     else if (VIEWS[view]) await VIEWS[view](arg ? decodeURIComponent(arg) : undefined);
     else $('#main').innerHTML = `<h2>Not found</h2>`;
-    const h2 = $('#main h2'); if (h2 && view !== 'wall' && PREFS.help_open && !$('#main .help')) { await loadHelp(); if (HELPIDX.views[view]) h2.insertAdjacentHTML('afterend', help(view)); }
+    const h2 = $('#main h2'); if (h2 && view !== 'wall' && !(view === 'tutorial' && arg) && PREFS.help_open && !$('#main .help')) { await loadHelp(); if (HELPIDX.views[view]) h2.insertAdjacentHTML('afterend', help(view)); }
     stamp(); refreshBadges();
   } catch (e) { $('#main').innerHTML = `<div class="card"><h2>Could not load this page</h2><p>${esc(e.message)}</p></div>`; if (e.status === 401) { me = null; boot(); } }
   $('#main').focus({preventScroll: true});

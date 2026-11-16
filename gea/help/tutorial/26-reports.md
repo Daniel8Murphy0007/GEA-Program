@@ -1,4 +1,4 @@
-# 18. Reports, report history and the evidence pack
+# 26. Reports, report history and the evidence pack
 Who: office
 Where: #/reports
 Takes: 20 minutes
@@ -11,8 +11,9 @@ Takes: 20 minutes
 4. **save to...** beside any report copies it to the export root (Administration, File roots). **Build the evidence pack there** zips every report with a manifest and a SHA-256 list - the folder a reviewer gets.
 5. **Update every report from its source** (Audit / Update) runs the dashboard for every well and then every station as one job - after a source file changed, or after a new version of the program. The Audit / Update tab's data card says per report `current` or `stale`.
 6. The report's **source statement** on its last page is the part a reviewer reads first: the files by hash, the declarations by source, the version of the program.
+7. For a client's own systems, from a terminal: `gea workspace --path C:\site --action osdu-export --site retama-block` writes the site as the manifest an OSDU data platform loads (the partition, the ACL groups and the legal tag are the platform's; `gea help osdu` has them), and `gea workspace --path C:\site --action quakeml-export --site retama-block` writes the site's associated earthquakes in the format a regulator's catalogue tools read.
 
 ## You know it worked when
 The well report opens as a PDF with the depth events confirmed by a named person, and Report history shows two versions after you write it twice.
 
-Help: well-report, report-history, files, audit-update
+Help: well-report, report-history, files, audit-update, osdu, quakeml

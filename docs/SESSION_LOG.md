@@ -4301,3 +4301,45 @@ stability; and motor specifications in the tool catalogue.
   a recorder's export, read, its depth passed, its rig states told - and
   comes out with the ten slides, the toolface and the yield it was made
   with. Every tab opened in a window with storage denied. Gate 599.
+
+## 2026-11-15 - the tutorial and the help, renovated (v0.96.0)
+
+Asked after v0.95.0 shipped: can public data stand in for the three
+items left on the list - and if not, renovate and update the tutorial and
+help tabs.
+
+- The three items. Compass EDM (8): Equinor's Volve release is believed
+  to carry a planning-package export among its well technical data, but
+  it sits behind Equinor's portal, where the owner signs in and accepts
+  the licence; nothing could be confirmed from the pages that can be read
+  without it. Procedure compliance (4): Utah FORGE publishes its "drilling
+  well on paper" deck for 16B(78)-32 (CC BY 4.0). Read: it is a plan - a
+  build rate, a tangent, hole sizes and depths, a schedule - and states no
+  connection, tripping or flow-check procedure and no drilling limit a
+  record could be held to. Rig control (11): no public rig to send a
+  setpoint to. So none of the three can be finished from public data
+  today, and the renovation went ahead.
+- What was wrong with the course. Every release since 0.88.0 added a
+  step to one of two lessons; lesson 13 had fourteen steps over sixteen
+  pages. Thirty of the 53 tabs were named in a lesson only in passing,
+  three (Configuration, Survey, Rocks) by none, and seven help pages by
+  no lesson. Lessons named each other by number.
+- What was done. The course is 38 lessons in eleven parts. The two long
+  lessons are eight. Three are new. Each lesson has a Pages line - the
+  tabs it walks through - and tutorial.coverage() says what no lesson
+  reaches; the gate holds it empty. A lesson names another as
+  {lesson:name}; the number is read from the files. Every command a new
+  lesson gives was run on the public site first.
+- The tabs. Tutorial: progress, time left, a finder, the office's or the
+  pad's, a button per page. Help: eleven headings, a search through every
+  page's text, each page with its tab and its lessons, the tester guide
+  and the security overview readable there. Each tab's panel names its
+  lesson. Neither tab keeps anything in the browser.
+- Found on the owner's machine before shipping: the first cut opened
+  every lesson file for every question asked of the course - 1,444 opens
+  to list 38 lessons - which a local disk hides and a shared folder does
+  not (4.7 s a listing). The lessons are now read once and kept until a
+  file of the folder changes: 0.2 s.
+- Twelve older gate checks read lesson 13 or 14 by its file name; they
+  now ask the course whether a page is taught. Section EO, three checks.
+  Every tab opened in a window with storage denied. Gate 602.

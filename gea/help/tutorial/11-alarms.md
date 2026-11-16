@@ -1,6 +1,7 @@
-# 9. Alarms, notifications and approvals
+# 11. Alarms, notifications and approvals
 Who: office
 Where: #/alarms
+Pages: #/approvals
 Takes: 20 minutes
 > Setpoints that fire on every refresh, the event log, where the messages go, and the two signatures a well test needs.
 

@@ -1,4 +1,4 @@
-# 24. The box: what it is and what is in it
+# 33. The box: what it is and what is in it
 Who: pad
 Where: #/seismic
 Takes: 20 minutes to read; a day to build
@@ -14,13 +14,13 @@ Geophones buried around the pad (8-80 Hz, the band the drill bit and the pumps s
 4. Sensors: vertical geophones (4.5 or 10 Hz), each buried a foot down, the **reference** within 40 ft of the substructure and the others in a ring around the pad; non-polarising electrodes (copper-copper sulphate) in pairs 50-100 ft apart. Every sensor's place is measured in feet east and north of the wellhead and written in the config.
 5. Power: 5 V at 3 A; a 12 V battery through a buck converter runs it a week. The box draws 3-5 W.
 6. Storage: the card, and a USB stick as the **mirror** - every closed file is copied to it, so the stick carried to the office is the record.
-7. Enclosure: a sealed box with cable glands; a 7-10 inch HDMI panel in the lid, or the doghouse TV, for the monitor (lesson 26).
-8. Network: the pad's switch or a cellular modem. The box serves one page on port 8780; nothing is opened inbound. Over a modem it joins the office through GEA-VPN (lesson 27).
+7. Enclosure: a sealed box with cable glands; a 7-10 inch HDMI panel in the lid, or the doghouse TV, for the monitor ({lesson:monitor}).
+8. Network: the pad's switch or a cellular modem. The box serves one page on port 8780; nothing is opened inbound. Over a modem it joins the office through GEA-VPN ({lesson:mirror-vpn}).
 
 ## How much it writes
 8 channels at 200 samples a second is 55 MB an hour; one file per channel per hour, each with a SHA-256 beside it and a manifest. It never deletes anything; under 500 MB free it stops recording and says so.
 
 ## You know it worked when
-The box powers up on its battery, the GPS antenna has the sky, every sensor's cable comes through a gland to the ADC's inputs, and you have written down each sensor's input number and its feet east and north of the wellhead for the config (lesson 25).
+The box powers up on its battery, the GPS antenna has the sky, every sensor's cable comes through a gland to the ADC's inputs, and you have written down each sensor's input number and its feet east and north of the wellhead for the config ({lesson:install-recorder}).
 
 Help: recorder

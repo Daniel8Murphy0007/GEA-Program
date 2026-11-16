@@ -1,13 +1,14 @@
 # 2. Sign in and find your way around
 Who: office
 Where: #/
+Pages: #/tutorial, #/help
 Takes: 15 minutes
 > The first account, the four roles, the tabs, the search box, the help panels and the serve window.
 
 ## Steps
 1. The first time the control panel opens it shows **First administrator**: this workspace has no accounts yet. Type a name and a password and press **Create and sign in**; this account is the administrator. Keep the password somewhere safe - nobody can read it back.
-2. Sign in. The tabs run across the top (on a phone they stack): Home, Control room, Setup, Sites, Wells, Map, 3D, the engineering pages, Seismic, Patch panel, Files, Alarms, Approvals, Configuration, Reports, Verification, Survey, Tools & ports, Catalogue, Rocks, Jobs, Audit / Update, Administration, Tutorial and Help.
-3. Click **Help** in the top right (the ? button). A short panel appears under the heading of every page saying what it is for, with a **more...** link to the full help page. Leave it on while you learn; turn it off later in your preferences.
+2. Sign in. The tabs run across the top (on a phone they stack), in the order of the work: Home, Control room, Setup, Sites and Public data; Wells, Map and 3D; the engineering pages, from Simulation to Invoice check - drilling, completion, disposal water and the money; Seismic, Operations & seismicity and the SAR panel; then Patch panel, Files, Alarms, Approvals, Configuration, Reports, Verification, Survey, Tools & ports, Assistant access, Catalogue, Rocks, Jobs, Audit / Update, Administration, Tutorial and Help.
+3. Click **Help** in the top right (the ? button). A short panel appears under the heading of every page saying what it is for, with a **more...** link to the full help page and the lesson of this tutorial that walks through the page. Leave it on while you learn; turn it off later in your preferences. The **Help** tab holds every page under the job you came with, and its search box finds a word in any of them; the **Tutorial** tab is this course, where each person ticks the lessons off.
 4. Type a well name or a report name in the **search box** and press Enter: the program finds wells, alarms, reports, jobs, configuration entries, patches and schedules by name.
 5. Open **Administration**, **Users**, and add one account per person. The **roles**: *viewer* reads everything and changes nothing; *operator* adds wells and data, declares what the operator knows and writes reports; *approver* signs off well tests and approvals; *admin* manages users, settings, backups and the VPN. A person has one role; give the smallest that does the job.
 6. Look at the window behind the control panel - the **serve window**. It is the server: it prints every sign-in, every job and every stop as it happens. Closing it stops the site; minimise it instead.

@@ -25,7 +25,8 @@ HELP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'help')
 # the index order: by the job a reader arrives with, never by module
 INDEX: List[tuple] = [
     ('start', 'Start', 'install, the first run, what the program will not claim'),
-    ('tutorial', 'The tutorial', "Every step of GEA and the programs around it as 29 lessons on the Tutorial tab - the office's first, the pad attendant's after - each with the page, the steps, and how you know it worked; printable as one handout"),
+    ('tutorial', 'The tutorial', "Every step of GEA and the programs around it as lessons on the Tutorial tab - the office's first, the people on the pad after - each with the pages it is done on, the steps, and how you know it worked; every tab is reached by a lesson; printable as one handout"),
+    ('help', 'The help pages', "every help page under the job you came with, a search through the text of all of them, each page with the tab it is for and the lessons that teach it; the same from a terminal with gea help and gea help --find"),
     ('install', 'Install on Windows', 'GEA-Program-Setup: a per-user install with no administrator rights, the control panel in a window of its own, its icon in the notification area, shortcuts, upgrades in place, the site workspace left where it is, other workspaces opened from Administration'),
     ('data-in', 'Bring data in', 'CSV, LAS, SEG-Y, operator tables, WITS0, WITSML, OPC UA, MQTT, Modbus, the patch panel'),
     ('quality', 'Quality rules', 'RANGE, ROC, FLATLINE, SPIKE, STALE, GAP, each with the limit that fired'),
@@ -112,18 +113,97 @@ INDEX: List[tuple] = [
     ('company-sign-in', 'Company sign-in', "people sign in with the account the company manages (Entra ID, Okta, Google, Ping, Keycloak, AD FS by OpenID Connect), the role from its app roles or groups; local accounts stay"),
     ('upkeep', 'Upkeep', 'housekeeping, sessions, the TLS proxy, the load test'),
 ]
+# the index under headings, by the job a reader arrives with: every page of INDEX under exactly one
+GROUPS: List[tuple] = [
+    ('Start here', ('start', 'tutorial', 'help', 'install', 'setup', 'site', 'sites', 'public-data')),
+    ('Bring a well and its data in', ('data-in', 'files', 'edr', 'dlis', 'records', 'declare', 'patches', 'field-ports', 'historian', 'etp', 'catalog', 'rocks', 'tools')),
+    ('The well page and its checks', ('charts', 'quality', 'drift', 'instruments', 'well-tests', 'transients', 'vibration', 'conformance')),
+    ('Watch the pad', ('control-room', 'alarms', 'notifications', 'pad-summary', 'month-end')),
+    ('Where the wells are', ('map', 'well3d', 'structure', 'interval', 'slip', 'collision', 'hardline', 'slide-sheet', 'plan')),
+    ('Drilling', ('rig-time', 'benchmark', 'roadmap', 'dysfunction', 'kick', 'drillstring', 'simulation', 'torque-drag', 'hydraulics', 'pore-pressure', 'casing')),
+    ('Completion, production and disposal', ('penetrator', 'frac-treatment', 'frac-hits', 'fluid', 'plume', 'front', 'calibration', 'decline', 'economics', 'invoice-check')),
+    ('Seismic and seismicity', ('seismic', 'seedlink', 'bit-image', 'opseis', 'alerts', 'sra', 'quakeml')),
+    ('Reports and what leaves the site', ('well-report', 'report-history', 'dossier', 'reader', 'osdu', 'ppdm')),
+    ('Keep it running', ('upkeep', 'backup', 'audit-update', 'doctor', 'soak', 'https', 'company-sign-in', 'mcp')),
+    ('The programs around GEA', ('recorder', 'vpn', 'driller')),
+]
+# the two documents that ship beside the pages and open from the Help tab by these names
+DOCUMENTS = {'guide': ('The tester guide', 'click by click through a first evaluation of the program, with what each step should show'),
+             'security': ('IT security', "what the program reads, writes, listens on and sends, for the people who approve its installation")}
 # the four lines every page must carry, in this order
 REQUIRED_LINES = ('**The command**', '**What it writes**', '**The number to check**', '**What this page will not call a measurement**')
 # the dashboard view -> the topic its help panel shows
 VIEW_TOPIC: Dict[str, str] = {
     'home': 'start', 'wells': 'data-in', 'well': 'drift', 'live': 'patches', 'patch': 'patches', 'files': 'files', 'alarms': 'alarms',
-    'approvals': 'well-tests', 'config': 'site', 'reports': 'drift', 'verify': 'start', 'survey': 'data-in', 'jobs': 'site',
+    'approvals': 'well-tests', 'config': 'site', 'reports': 'well-report', 'verify': 'start', 'survey': 'data-in', 'jobs': 'site',
     'admin': 'site', 'prefs': 'site', 'tutorial': 'tutorial', 'search': 'start', 'welcome': 'start', 'seismic': 'seismic', 'seismic_station': 'seismic', 'track': 'seismic', 'sar': 'seismic', 'sites': 'sites', 'setup': 'setup', 'map': 'map', '3d': 'well3d', 'simulation': 'simulation', 'drillstring': 'drillstring', 'completion': 'penetrator', 'opseis': 'opseis', 'economics': 'economics', 'invoices': 'invoice-check', 'rigtime': 'rig-time', 'collision': 'collision', 'plan': 'plan', 'frac': 'frac-hits', 'benchmark': 'benchmark', 'publicpad': 'public-data', 'treatment': 'frac-treatment', 'kick': 'kick', 'hardline': 'hardline', 'slides': 'slide-sheet', 'mcp': 'mcp', 'roadmap': 'roadmap', 'dysfunction': 'dysfunction', 'fluid': 'fluid', 'plume': 'plume', 'front': 'front', 'calibration': 'calibration', 'porepressure': 'pore-pressure', 'torquedrag': 'torque-drag', 'hydraulics': 'hydraulics', 'casing': 'casing', 'records': 'records', 'decline': 'decline', 'control': 'control-room', 'wall': 'control-room', 'audit': 'audit-update', 'tools': 'tools', 'catalog': 'catalog', 'rocks': 'rocks',
 }
 
 
+def group_of(topic: str) -> str:
+    return next((g for g, ts in GROUPS if topic in ts), '')
+
+
+def view_of(topic: str, known=None) -> str:
+    """The tab a help page belongs to (hardline -> #/hardline), '' for a page with no tab of its own. With the
+    panel's own tabs given, a page whose view is not a tab (a well's page, a lesson) has none."""
+    views = [v for v, t in VIEW_TOPIC.items() if t == topic]
+    if topic in views:
+        tab = '#/' + topic
+    else:
+        tab = '#/' + ('' if views[0] == 'home' else views[0]) if len(views) == 1 else ''
+    return tab if (known is None or tab in known) else ''
+
+
 def topics() -> List[dict]:
-    return [{'topic': t, 'title': title, 'summary': summ, 'present': os.path.isfile(os.path.join(HELP_DIR, f'{t}.md'))} for t, title, summ in INDEX]
+    """Every page of the index in the order of the groups, each with its group."""
+    by = {t: (title, summ) for t, title, summ in INDEX}
+    out = []
+    for g, ts in GROUPS:
+        for t in ts:
+            if t in by:
+                out.append({'topic': t, 'title': by[t][0], 'summary': by[t][1], 'group': g, 'present': os.path.isfile(os.path.join(HELP_DIR, f'{t}.md'))})
+    seen = {o['topic'] for o in out}
+    out += [{'topic': t, 'title': title, 'summary': summ, 'group': 'More', 'present': os.path.isfile(os.path.join(HELP_DIR, f'{t}.md'))} for t, title, summ in INDEX if t not in seen]
+    return out
+
+
+def document(name: str) -> Optional[str]:
+    """One of the two documents that ship beside the pages: guide, security."""
+    return {'guide': guide_text, 'security': security_text}.get(name, lambda: None)()
+
+
+def search(query: str, limit: int = 40) -> List[dict]:
+    """The pages that carry every word of a question, best first: a word in the title or the summary counts for
+    more than one in the text. Each hit carries the sentence the first word was found in."""
+    words = [w for w in re.findall(r'[a-z0-9][a-z0-9.\-]*', (query or '').lower()) if len(w) > 1]
+    if not words:
+        return []
+    hits = []
+    for t in topics():
+        text = page(t['topic']) or ''
+        low = text.lower()
+        head = (t['topic'] + ' ' + t['title'] + ' ' + t['summary']).lower()
+        if not all(w in low or w in head for w in words):
+            continue
+        score = sum(10 * head.count(w) + low.count(w) for w in words)
+        excerpt = ''
+        for sent in re.split(r'(?<=[.:;])\s+|\n+', text):
+            sl = sent.lower()
+            if sent.startswith('#') or not any(w in sl for w in words):
+                continue
+            sent = re.sub(r'[*`>#]', '', sent).strip()
+            k = min(sent.lower().find(w) for w in words if w in sent.lower())
+            if len(sent) > 240:
+                a = max(0, k - 90)
+                a = sent.find(' ', a) + 1 if a else 0
+                b = sent.rfind(' ', a, a + 240)
+                sent = ('... ' if a else '') + sent[a:b if b > a else a + 240] + ' ...'
+            excerpt = sent
+            break
+        hits.append({'topic': t['topic'], 'title': t['title'], 'group': t['group'], 'score': score, 'excerpt': excerpt})
+    hits.sort(key=lambda h: (-h['score'], h['topic']))
+    return hits[:limit]
 
 
 def page(topic: str) -> Optional[str]:
@@ -164,10 +244,14 @@ def check(topic: str) -> List[str]:
 def index_text() -> str:
     lines = ['GEA-Program help, by the job you came with. `gea help <topic>` prints a page; the same text is on every dashboard page.', '']
     w = max(len(t) for t, _, _ in INDEX)
-    for t, title, summ in INDEX:
-        lines.append(f'  {t:{w}s}  {title} - {summ}')
+    group = None
+    for t in topics():
+        if t['group'] != group:
+            lines += ([''] if group is not None else []) + [t['group']]
+            group = t['group']
+        lines.append(f"  {t['topic']:{w}s}  {t['title']} - {t['summary']}")
     lines += ['', 'Each page has four lines: the command, what it writes, the number to check, and what the page will not call a measurement.',
-              'The click-by-click tester guide: gea guide.']
+              '`gea help --find toolface` lists the pages that carry a word. The click-by-click tester guide: gea guide.']
     return '\n'.join(lines)
 
 

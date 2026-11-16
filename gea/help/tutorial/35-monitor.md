@@ -1,4 +1,4 @@
-# 26. The monitor on the box
+# 35. The monitor on the box
 Who: pad
 Where: #/seismic
 Takes: 10 minutes

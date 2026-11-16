@@ -190,6 +190,11 @@ declared extras.
   workspace (`records\tutorial_progress.json`, by account name, no more);
   the handout is written only on request into `exports\tutorial\` and
   carries nothing of the site but its name. Both are audit lines.
+- **The help search** (`gea help help`): the Help tab's search box sends
+  the words typed to this computer's own service, which looks through the
+  help pages installed with the program and answers; nothing is kept and
+  nothing leaves the computer. It needs a signed-in account, like every
+  other page.
 - **GEA Driller** (since 0.77.0, `gea help driller`): the agent on the rig
   PC reads the EDR's feed and sends nothing to it; its screen on port 8790
   is read-only but for the driller's answers and the closed-loop switch,

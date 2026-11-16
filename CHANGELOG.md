@@ -5,6 +5,49 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.96.0] - 2026-11-15 - the tutorial and the help, renovated
+
+### Added
+- **Every tab has a lesson.** The tutorial is now held to a rule by the
+  acceptance gate: no tab of the control panel without a lesson that
+  walks through it, no help page without a lesson that names it. Three
+  lessons are new: **A real pad to practise on** (the public Utah FORGE
+  site, made from the Public data tab), **The shelves** (the catalogue,
+  the rocks, the strata survey, tools and ports) and **An assistant that
+  reads the site**.
+- **On the practice pad.** The lessons on drilling and completion end
+  with what to look at on the public site and the figure to find there -
+  78B-32 85 ft from the boundary, the five slides that built 16A's
+  curve, the service company's ISIP beside the page's.
+- **The Tutorial tab**: a card with how many lessons are done and about
+  how long the rest take; **Find a lesson** by a word, a tab's name or a
+  help page's; the office's lessons or the pad's alone; **only what is
+  left**; a button for every page a lesson is about; marking a lesson
+  done goes on to the next.
+- **The Help tab**: the pages under headings in the order of the work;
+  **Find a word in every page**, a search through the text of every page
+  as you type, the likeliest first with the sentence the word is in; each
+  page with the tab it is for and the lessons that teach it; the tester
+  guide and the IT security overview readable on the tab.
+- **On every tab**, the help panel under the heading names the lesson
+  that teaches that tab.
+- `gea help --find toolface` lists the pages that carry a word; `gea
+  help` prints the index under the same headings; a new page, `gea help
+  help`.
+
+### Changed
+- The two long lessons - the drilling pages and the production pages,
+  to which every new page had been added a step - are now eight: where
+  the hole is going; what the rig did; trouble while drilling; the drill
+  string; the engineering checks; completion and the frac; disposal
+  water; the money. The course is 38 lessons in eleven parts.
+- A lesson points at another by name and the number is filled in when it
+  is read, so a course re-ordered keeps its references right. Ticks are
+  kept by the lesson's name, as before: every lesson that existed keeps
+  its tick; the two that were split start unticked.
+- The Reports tab's help panel is the client well report's page, not the
+  drift page.
+
 ## [v0.95.0] - 2026-11-15 - the slide sheet
 
 ### Added

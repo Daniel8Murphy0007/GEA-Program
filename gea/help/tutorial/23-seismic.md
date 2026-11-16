@@ -1,6 +1,7 @@
-# 15. Seismic stations, arrays and tracks
+# 23. Seismic stations, arrays and tracks
 Who: office
 Where: #/seismic
+Pages: #/sar
 Takes: 45 minutes
 > Raw seismic records in, spectra and persistent lines out, one measured number before anything else is promised - the distance at which a known rig shows in this station's record - and, with an array, the direction it came from.
 

@@ -1,20 +1,31 @@
-v0.95.0 — THE SLIDE SHEET
+v0.96.0 — THE TUTORIAL AND THE HELP, RENOVATED
 
-Added: the Slide sheet tab. Every slide and every rotated stretch of a
-well, made from its drilling record and its survey: from, to, footage,
-time, rate, weight on bit, the toolface held where the record carries
-one, and what the hole built and turned across it. Survey course by
-course: how much was slid, the dogleg, the build and the turn. And for
-each run of an assembly: what the hole does per 100 ft while rotated,
-and the dogleg per 100 ft slid.
+Every tab of the control panel now has a lesson, and the gate holds the
+course to it: no tab without a lesson that walks through it, no help
+page without a lesson that names it.
 
-On the Utah FORGE public pad, 16A(78)-32 has 38 slides; five of them
-between 5,892 and 6,797 ft built its curve, and the dogleg per 100 ft
-slid has a median of 7.5 degrees.
+Added: three lessons - a real pad to practise on (the public Utah FORGE
+site), the shelves (catalogue, rocks, strata survey, tools and ports),
+an assistant that reads the site. The lessons on drilling and completion
+end with what to look at on the practice pad and the figure to find.
 
-Fixed: after Make the site, the Public data tab spoke of "that site" even
-when you were in it. It says "this site" now and links to its tabs.
+Added: the Tutorial tab shows how many lessons are done and about how
+long the rest take, finds a lesson by a word or a tab's name, shows the
+office's or the pad's alone, and has a button for every page a lesson is
+about. The Help tab lists its pages under headings in the order of the
+work and searches the text of every page as you type; each page says
+which tab it is for and which lessons teach it; the tester guide and the
+IT security overview open there. On every tab, the help panel names the
+lesson that teaches it. gea help --find toolface.
 
-Install from inside the program: Audit/Update, "Fetch the kits", "Install now".
+Changed: the two long lessons (the drilling pages, the production pages)
+are eight short ones. 38 lessons in eleven parts. Lessons point at each
+other by name, so the numbers stay right. Every tick is kept, by the
+lesson's name; the two split lessons start unticked.
 
-Gate 599.
+Asked first: can public data finish the three items left? Not today -
+the Volve planning export is behind Equinor's sign-in, the FORGE
+drilling program states no procedure a record can be held to, and no
+public rig takes a setpoint. The list file says so item by item.
+
+Gate 602.
