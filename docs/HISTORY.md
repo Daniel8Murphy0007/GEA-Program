@@ -4,6 +4,17 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.101.0 - 2026-11-17 - the agent's card
+
+- GEA Driller's policy has a model card and a scorecard, worked out from
+  the policy file: what it reads and chooses, the reward as the table the
+  twin pays from, the agent between the textbook driller and the oracle
+  on sixty held-out scenes, where each one's reward came from.
+- On the rig PC (`gea-driller card`, the screen) and on GEA's Drill
+  string tab. The policy named by the hash of its weights, in the
+  manifest and on every decision.
+- Gate 617.
+
 ## v0.100.0 - 2026-11-17 - stick-slip, bit bounce and the friction factor at each connection
 
 - Drilling alerts gains three rules. Stick-slip: the surface torque's

@@ -5,6 +5,44 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.101.0] - 2026-11-17 - the agent's card
+
+### Added
+- **The agent's card**: GEA Driller's policy now has a model card and a
+  scorecard, worked out from the policy file each time it is asked for.
+  It says what the policy is for and what it is not for, the 34 things it
+  reads, the six it chooses between, how it was trained, the reward it
+  was trained on, and how it does on sixty held-out scenes of the twin
+  beside the textbook driller (the bar) and the oracle told the layer
+  (the ceiling) - with where each driller's reward came from: the layer,
+  the hole, rig time, the limits, the corridor.
+- It is in three places: `gea-driller card` on the rig PC (`--json`,
+  `--write` for `model_card.json` and `model_card.md`), **The agent's
+  card** on the rig PC's screen, and the GEA Driller card on GEA's Drill
+  string tab.
+- **The policy is named by the hash of its weights.** The file's own hash
+  changes with every release's version stamp; the weights' hash stays the
+  same for as long as the agent is the same agent. It is in the rig PC's
+  manifest and on every decision, and GEA marks a pulled record that was
+  decided by other weights than the card's.
+
+### Changed
+- The twin's reward is one table (`REWARD` in the driller's `twin.py`)
+  that the step pays from, where it had been numbers written into the
+  step. The card prints that table. Every episode comes out exactly as it
+  did: the held-out figures are unchanged to the last digit.
+
+### Notes
+- What the card says of the agent as shipped: about 84 % of the hole in
+  the layer against the textbook driller's 79 % and the oracle's 98 % -
+  under a quarter of the way from the bar to the ceiling - and about half
+  again as many days a lateral. The breakdown shows why: a day of rig
+  time costs the agent little more than a point of some hundred and
+  thirty, less than it earns by drilling gently. Nothing was retrained in
+  this release; this is the measure the next one is held to.
+- Every figure on the card is a simulation's. No drilled lateral is in
+  them.
+
 ## [v0.100.0] - 2026-11-17 - stick-slip, bit bounce and the friction factor at each connection
 
 ### Added

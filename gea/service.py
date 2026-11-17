@@ -2209,7 +2209,7 @@ def make_handler(app: App):
                 if path == '/api/driller':
                     from . import driller_link as _DL
                     return self._json(200, {'wells': _DL.wells_with_records(app.ws), 'sim': _DL.status(app.ws), 'all_wells': [{'id': w['id'], 'display': w.get('display', w['id'])} for w in app.ws.wells()],
-                                            'shadow': _DL.shadow_wells(app.ws)})
+                                            'shadow': _DL.shadow_wells(app.ws), 'card': _DL.card()})
                 if path.startswith('/api/driller/'):
                     from . import driller_link as _DL
                     wid = path[len('/api/driller/'):]

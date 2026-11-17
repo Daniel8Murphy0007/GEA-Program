@@ -4510,3 +4510,40 @@ already hold.
   name is looked for before it is written.
 - Section ES, three checks. Every tab opened in a window with storage
   denied. Gate 614.
+
+## 2026-11-17 - the agent's card (v0.101.0)
+
+- v0.100.0 shipped and its six kits were fetched and checked. While it
+  shipped the owner brought an independent evaluation of the suite. It
+  was read against the source: about half of what it asks for is already
+  in the program, and it takes the directional agent to be further along
+  than it is. The review and a plan are kept on the site, not here. The
+  owner said go; the first step is to make the agent's standing plain
+  before anything is tuned.
+- The standing, on the sixty held-out scenes: the agent keeps 83.5 % of
+  the hole in the layer, the textbook driller 78.9 %, the oracle 98.4 % -
+  23 % of the way from the bar to the ceiling - and takes 4.55 days a
+  lateral against the textbook's 2.96.
+- A card can only be trusted if it cannot drift from the thing it
+  describes. The reward was numbers written into the twin's step; it is
+  now one table the step pays from, each term kept by name as it is
+  paid, and the card prints the table. The change was held to leaving
+  every episode exactly as it was: the three drillers' figures on sixty
+  scenes are the same to the last digit before and after.
+- Keeping the terms by name gave the breakdown, and the breakdown
+  corrected the first reading of the agent's slowness. It had looked as
+  if vibration were priced too high. It is not: the textbook driller
+  loses under two points a lateral to the limits. Rig time is priced too
+  low: a day and a half more costs the agent under three points of a
+  hundred and thirty, and the hole it keeps in the layer by drilling
+  gently earns eight. The next release starts there.
+- Two hashes. The policy file carries the release's version, so its hash
+  changes at every ship though the agent does not; the weights' hash is
+  taken over the numbers that decide. It is in the manifest and on every
+  decision, and GEA marks a pulled record decided by other weights.
+- GEA gets the card the way it runs shadow mode: the driller's own
+  program as a process, so GEA still imports nothing of it. The scenes
+  take seconds, so the page is answered at once and the card is there
+  the next time it is opened.
+- Section ET, three checks. Every tab opened in a window with storage
+  denied. Gate 617.

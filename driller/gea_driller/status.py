@@ -53,7 +53,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:4px 6px;b
   <p class="small muted" id="answers"></p>
   <div id="armbox"></div>
  </div>
- <div class="panel" style="margin-top:12px"><h2>The agent</h2><p class="small muted" id="agent"></p></div>
+ <div class="panel" style="margin-top:12px"><h2>The agent</h2><p class="small muted" id="agent"></p><p class="small"><a href="/card" target="_blank" rel="noopener">The agent's card</a> <span class="muted">- what it reads, the reward it was trained on, and how it does on held-out scenes of the twin beside the textbook driller and the oracle (the scenes are drilled when first asked: half a minute)</span></p></div>
 </div>
 </main><div id="toast"></div>
 <script>
@@ -90,7 +90,7 @@ function render(l){L=l;const st=$('#state');st.className='state'+(l.ok?'':' bad'
  else{$('#rec').textContent=l.ok?'waiting for the next decision…':l.state;$('#reasons').innerHTML=''}
  const a=l.advisor.answers;$('#answers').textContent=`${l.advisor.decisions} decisions on record · accepted ${a.accepted}, rejected ${a.rejected}, done otherwise ${a.overridden}, unanswered ${a.unanswered}`;
  $('#hist').innerHTML=l.advisor.history.slice().reverse().map(h=>`<tr><td>${h.utc.slice(11,19)}</td><td>${h.md.toFixed(0)}</td><td>${esc(h.recommend.words)}</td><td>${h.answer?esc(h.answer.what+(h.answer.by?' · '+h.answer.by:'')):(h.armed?'command':'—')}</td></tr>`).join('');
- const p=l.advisor.policy;$('#agent').textContent=`Policy trained ${p.trained_steps?p.trained_steps.toLocaleString():'?'} twin steps in ${p.iterations||'?'} batches (${p.trained_utc||'shipped'}). ${l.advisor.downlink}. ${l.twin?'THIS IS THE TWIN AS THE RIG - a simulation, labelled: scene '+l.twin.seed+', '+l.twin.in_layer_pct.toFixed(0)+'% of the hole in the layer so far.':''}`;
+ const p=l.advisor.policy;$('#agent').textContent=`Policy trained ${p.trained_steps?p.trained_steps.toLocaleString():'?'} twin steps in ${p.iterations||'?'} batches (${p.trained_utc||'shipped'}), weights ${(p.weights_sha256||'').slice(0,12)}. ${l.advisor.downlink}. ${l.twin?'THIS IS THE TWIN AS THE RIG - a simulation, labelled: scene '+l.twin.seed+', '+l.twin.in_layer_pct.toFixed(0)+'% of the hole in the layer so far.':''}`;
  const ab=$('#armbox');if(!l.advisor.closed_loop_allowed){ab.innerHTML='<p class="small muted">Advisory only: the closed loop is not allowed in this configuration.</p>';return}
  const ar=l.advisor.armed;if(ar){ab.className='arm on';ab.innerHTML=`<b>CLOSED LOOP ARMED</b> by ${esc(ar.by)} for ${ar.from_md.toFixed(0)}–${ar.to_md.toFixed(0)} ft MD since ${ar.utc.slice(11,19)} UTC · ${ar.commands} command(s) · ${ar.sends?'the downlink sends':'the downlink keeps and does not send'}<div class="row"><button class="danger" id="disarm">Disarm now</button></div>`;$('#disarm').onclick=async()=>{try{await post('/api/disarm',{by:$('#who').value});toast('disarmed')}catch(e){toast(e.message)}}}
  else{ab.className='arm';ab.innerHTML=`<b>Closed loop</b> <span class="small muted">arm the agent for one section; it disarms itself on a stale feed, a crossed limit or the section's end</span><div class="row"><input id="armto" placeholder="to MD ft" style="width:110px"><input id="armn" placeholder="note" style="width:160px"><button class="danger" id="arm">Arm for this section</button></div>`;$('#arm').onclick=async()=>{const to=parseFloat($('#armto').value);if(!(to>0))return toast('the section\'s end MD');if(!confirm(`Arm the closed loop to ${to} ft MD as ${$('#who').value||'(no name)'}? Every decision becomes a command until the section is drilled or anything crosses a limit.`))return;try{await post('/api/arm',{by:$('#who').value,to_md:to,note:$('#armn').value});toast('armed')}catch(e){toast(e.message)}}}}
@@ -152,6 +152,14 @@ class StatusServer:
                         return self._send(200, LIVE_PAGE.replace('__WELL__', html.escape(cfg['well'])).replace('__VERSION__', __version__).encode('utf-8'), 'text/html; charset=utf-8')
                     if path == '/live.json':
                         return self._send(200, json.dumps(srv.live()).encode('utf-8'))
+                    if path in ('/card', '/card.json'):
+                        from . import card as _card
+                        c = _card.ready((cfg.get('policy') or {}).get('file') or None)
+                        if c is None:
+                            return self._send(202, json.dumps({'state': 'the held-out scenes are being drilled; ask again in half a minute'}).encode('utf-8'))
+                        if path == '/card.json' or 'error' in c:
+                            return self._send(200, json.dumps(c).encode('utf-8'))
+                        return self._send(200, _card.text(c).encode('utf-8'), 'text/plain; charset=utf-8')
                     if path == '/health':
                         l = srv.live()
                         return self._send(200, json.dumps({'program': NAME, 'version': __version__, 'site': cfg['site'], 'well': cfg['well'], 'ok': l['ok'], 'state': l['state'],

@@ -7,6 +7,7 @@
     gea-driller sim [--seed 7] [--pace 3] [--port 8790]               the twin as the rig, on this computer, to look at the screen
     gea-driller train --seconds 600 --out policy.json [--resume policy.json]   train the policy in the twin
     gea-driller evaluate [--policy policy.json] [--scenes 60] [--json]  the policy between the textbook driller and the oracle on held-out scenes
+    gea-driller card [--policy policy.json] [--json] [--write DIR]     the agent's model card and scorecard: what it reads, the reward it was trained on, the held-out scenes
     gea-driller shadow --lateral lateral.csv --out shadow [--model model.json] [--well NAME]   a drilled lateral replayed against the record (SHADOW MODE)
     gea-driller selftest [--json]                                      the twin, the policy and the service checked; exit 0 when right
     gea-driller status [--url http://127.0.0.1:8790]                   what the running program says
@@ -114,6 +115,13 @@ def selftest(as_json: bool = False, seconds: float = 12.0) -> int:
     finally:
         drl.stop()
     man = json.load(open(os.path.join(d, 'manifest.json'), encoding='utf-8'))
+    from . import card as C
+    c = C.build(None, 6)
+    terms_ok = all(abs(sum(e['reward_terms'].values()) - e['reward']) < 1e-6 for e in P.evaluate(T.TextbookDriller(), range(2), 'textbook')['episodes'])
+    add("the agent's card: every input named, the reward printed from the twin's own table and adding up to what was paid, the policy named by its weights in the manifest",
+        [r['name'] for r in c['reads']] == list(T.OBS_NAMES) and all(r['what'] for r in c['reads']) and {r['term']: r['weight'] for r in c['reward']} == dict(T.REWARD) and terms_ok
+        and len(c['policy']['weights_sha256']) == 64 and (man.get('policy') or {}).get('weights_sha256') == c['policy']['weights_sha256'] and c['label'] == 'SIMULATION',
+        c['policy']['weights_sha256'][:16])
     import hashlib
     hashes_ok = all(hashlib.sha256(open(os.path.join(d, f['file']), 'rb').read()).hexdigest() == f['sha256'] for f in man['files'] if f['sha256'])
     add('the records and the manifest with every hash', {'decisions.jsonl', 'commands.jsonl', 'surveys.csv'} <= {f['file'] for f in man['files']} and hashes_ok, f"{len(man['files'])} files")
@@ -137,6 +145,8 @@ def main(argv=None) -> int:
     p = sub.add_parser('train'); p.add_argument('--seconds', type=float, default=600.0); p.add_argument('--out', default='policy.json'); p.add_argument('--resume', default=''); p.add_argument('--seed', type=int, default=0)
     p.add_argument('--batch', type=int, default=8192); p.add_argument('--envs', type=int, default=32); p.add_argument('--lr', type=float, default=3e-4)
     p = sub.add_parser('evaluate'); p.add_argument('--policy', default=''); p.add_argument('--scenes', type=int, default=60); p.add_argument('--json', action='store_true')
+    p = sub.add_parser('card'); p.add_argument('--policy', default=''); p.add_argument('--scenes', type=int, default=60); p.add_argument('--json', action='store_true')
+    p.add_argument('--write', default='', help='a folder to write model_card.json and model_card.md into')
     p = sub.add_parser('shadow'); p.add_argument('--lateral', required=True, help='the lateral as CSV: md_ft, tvd_ft, gamma_api, wob_klb, rpm, flow_gpm, rop_ft_hr, spp_psi, hours - one row per foot')
     p.add_argument('--out', required=True, help='the folder for driller_shadow.html/.md/.json and the replay records'); p.add_argument('--model', default='', help='the pre-drill model as JSON (the config\'s "model" block); without it one is read off the lateral\'s own gamma, in hindsight')
     p.add_argument('--well', default='the well'); p.add_argument('--site', default='the site'); p.add_argument('--policy', default=''); p.add_argument('--twin-lateral', type=int, default=None, help='write a lateral drilled in the twin by this scene seed to --lateral first (a labelled stand-in)')
@@ -180,6 +190,15 @@ def main(argv=None) -> int:
                 print(f"  {e['label']:<9s} in the layer {e['in_layer_pct']:5.1f}%  sweet spot {e['sweet_pct']:5.1f}%  in the corridor {e['corridor_pct']:5.1f}%  {e['ft_per_day']:6.0f} ft/day  mean DLS {e['mean_dls']:.2f}  stuck {e['stuck']}  lost {e['lost']}  losses {e['losses']}  reward {e['reward']:7.1f}")
             st = three['standing']
             print(f"  the agent stands {st['in_layer_pct_of_the_way']:.0f}% of the way from the textbook to the oracle in the hole in the layer, {st['reward_of_the_way']:.0f}% in reward")
+        return 0
+    if a.cmd == 'card':
+        from . import card as C
+        c = C.build(a.policy or None, a.scenes)
+        if a.write:
+            names = C.write(c, a.write)
+            if not a.json:
+                print(f"written: {', '.join(names)} in {a.write}")
+        print(json.dumps(c, indent=1) if a.json else C.text(c))
         return 0
     if a.cmd == 'shadow':
         from . import policy as P, service as S, shadow as SH

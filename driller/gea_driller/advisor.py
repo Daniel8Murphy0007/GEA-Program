@@ -90,7 +90,8 @@ class Records:
             digest = open(sc, encoding='utf-8').read().split()[0] if os.path.isfile(sc) else None
             files.append({'file': n, 'bytes': os.path.getsize(p), 'sha256': digest})
         m = {'program': 'GEA Driller', 'version': __version__, 'site': self.cfg['site'], 'well': self.cfg['well'], 'written_utc': _utc(), 'files': files,
-             'counts': dict(self.counts), 'model': {k: v for k, v in self.cfg['model'].items() if k != 'note'}}
+             'counts': dict(self.counts), 'model': {k: v for k, v in self.cfg['model'].items() if k != 'note'},
+             'policy': getattr(self, 'policy', None)}
         tmp = os.path.join(self.dir, 'manifest.json.tmp')
         with open(tmp, 'w', encoding='utf-8') as f:
             json.dump(m, f, indent=1)
@@ -128,6 +129,8 @@ def make_downlink(cfg: dict) -> Downlink:
 class Advisor:
     def __init__(self, cfg: dict, policy: Policy, feed, records: Records, downlink: Optional[Downlink] = None):
         self.cfg = cfg; self.policy = policy; self.feed = feed; self.records = records
+        self.policy_sha = policy.weights_sha256()             # which agent decided: the weights' own hash, in the manifest and on every decision
+        records.policy = {'weights_sha256': self.policy_sha, **{k: policy.meta.get(k) for k in ('trained_steps', 'iterations', 'trained_utc', 'version')}}
         self.downlink = downlink or make_downlink(cfg)
         self.lock = threading.Lock()
         self.gammas: List[float] = []
@@ -296,7 +299,7 @@ class Advisor:
             },
             'confidence': {k: round(v['confidence'], 3) for k, v in ch.items()}, 'value': round(ex['value'], 2),
             'reasons': self._reasons(ctx, ch), 'context': {k: (round(v, 2) if isinstance(v, float) else ({kk: (round(vv, 3) if isinstance(vv, float) else vv) for kk, vv in v.items()} if isinstance(v, dict) else v)) for k, v in ctx.items()},
-            'action': [ch[n]['index'] for n in T.ACTION_NAMES], 'clipped': clipped, 'answer': None, 'armed': bool(self.armed), 'policy': self.policy.meta.get('trained_utc'),
+            'action': [ch[n]['index'] for n in T.ACTION_NAMES], 'clipped': clipped, 'answer': None, 'armed': bool(self.armed), 'policy': self.policy.meta.get('trained_utc'), 'policy_sha': self.policy_sha[:16],
         }
         with self.lock:
             if self.current is not None and self.current.get('answer') is None:
@@ -488,4 +491,4 @@ class Advisor:
                     'arm_log': self.arm_log[-10:], 'closed_loop_allowed': bool(self.cfg['closed_loop'].get('allowed')), 'downlink': self.downlink.describe(),
                     'hole_model': {'bed': self.bed, 'balling': self.balling, 'wear': self.wear}, 'decisions': self.records.counts['decisions'], 'estimate': dict(self.est) if self.est else None,
                     'position': dict(self.pos) if self.pos else None, 'plan_azimuth_deg': self.plan_az,
-                    'policy': {k: self.policy.meta.get(k) for k in ('trained_steps', 'iterations', 'trained_utc', 'version')}}
+                    'policy': {'weights_sha256': self.policy_sha, **{k: self.policy.meta.get(k) for k in ('trained_steps', 'iterations', 'trained_utc', 'version')}}}

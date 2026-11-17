@@ -19439,6 +19439,143 @@ def section_ej_frac_treatment(tmp: str) -> None:
        "page with the published figures it was checked against, the README and lesson 14" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_et_driller_card(tmp: str) -> None:
+    """Section ET - the agent's card (0.101.0): the reward as a table the twin pays from, adding up to what was
+    paid and leaving every episode as it was; the card's parts and its two hashes; the card kept ready without
+    holding a screen up; the policy's weights named in the manifest and on every decision; the card through GEA
+    (the driller's program run as a process), a pulled record told from another agent's, the tab, the screen, the
+    command, the help, the README and the lesson."""
+    import importlib
+    import subprocess as _sp
+    from . import driller_link as DL
+    from . import helplib as H
+    pkg = Path(__file__).parent
+    d = Path(tmp, "et"); d.mkdir()
+    prog = DL.program()
+    if prog is None:
+        c_none = DL.card(wait=True)
+        ok(c_none["status"] == "NO PROGRAM" and "not installed" in c_none["why"],
+           "ET the driller's program (gea-driller) is not installed beside GEA in this install: the card says so, and there is nothing else to check here")
+        return
+    if prog["env"] and prog["env"] not in sys.path:
+        sys.path.insert(0, prog["env"])
+    T = importlib.import_module("gea_driller.twin"); P = importlib.import_module("gea_driller.policy"); S = importlib.import_module("gea_driller.service")
+    C = importlib.import_module("gea_driller.card"); A = importlib.import_module("gea_driller.advisor")
+    # -- ET1 the reward and the card -------------------------------------------------------------------------------------------
+    tb = P.evaluate(T.TextbookDriller(), range(4), "textbook")
+    sums = [abs(sum(e["reward_terms"].values()) - e["reward"]) for e in tb["episodes"]]
+    lat = T.Lateral(T.Scene(3)); lat.reset()
+    _, r1, _, _ = lat.step((2, 1, 1, 1, 0, 1))
+    paid1 = sum(lat.terms.values())
+    pol = P.Policy.load(S.SHIPPED_POLICY)
+    sha_w = pol.weights_sha256()
+    js = json.loads(Path(S.SHIPPED_POLICY).read_text(encoding="utf-8"))
+    js["meta"] = {**js["meta"], "version": "9.9.9"}; js["version"] = "9.9.9"
+    (d / "restamped.json").write_text(json.dumps(js), encoding="utf-8")
+    js2 = json.loads(json.dumps(js)); js2["weights"]["b3"][0] += 1e-3
+    (d / "other.json").write_text(json.dumps(js2), encoding="utf-8")
+    c = C.build(None, 8)
+    c_re = C.build(str(d / "restamped.json"), 2)
+    c_other = C.build(str(d / "other.json"), 2)
+    rows = {r["driller"]: r for r in c["evaluation"]["rows"]}
+    txt = C.text(c)
+    first = C.ready(str(d / "restamped.json"))
+    t_end = time.time() + 120.0
+    while C.ready(str(d / "restamped.json")) is None and time.time() < t_end:
+        time.sleep(0.5)
+    kept = C.ready(str(d / "restamped.json"))
+    names = C.write(c, str(d / "card"))
+    c1 = {
+        "table": set(T.REWARD) == set(T.REWARD_WORDS) == {k for _, ks in T.REWARD_GROUPS for k in ks} and len([k for _, ks in T.REWARD_GROUPS for k in ks]) == len(T.REWARD)
+                 and T.REWARD["in_layer"] == 1.0 and T.REWARD["hour"] == -0.05 and T.REWARD["stuck_pipe"] == -8.0,
+        "adds_up": max(sums) < 1e-6 and abs(paid1 - r1) < 1e-9 and all(set(e["reward_terms"]) == set(T.REWARD) for e in tb["episodes"]),
+        "parts": c["label"] == "SIMULATION" and [r["name"] for r in c["reads"]] == list(T.OBS_NAMES) and all(r["what"] for r in c["reads"]) and [r["name"] for r in c["chooses"]] == list(T.ACTION_NAMES)
+                 and all(r["what"] and r["between"] for r in c["chooses"]) and {r["term"]: r["weight"] for r in c["reward"]} == dict(T.REWARD) and len(c["not_for"]) >= 4
+                 and c["network"]["parameters"] == sum(v.size for v in pol.p.values()) and c["training"]["trained_steps"] == pol.meta["trained_steps"] and "0-59" in c["training"]["scenes"],
+        "scorecard": c["evaluation"]["scenes"] == 8 and set(rows) == {"textbook", "agent", "oracle"} and rows["oracle"]["in_layer_pct"] > rows["agent"]["in_layer_pct"]
+                     and rows["oracle"]["in_layer_pct"] > rows["textbook"]["in_layer_pct"] and all(abs(sum(r["reward_by"].values()) - r["reward"]) < 0.3 for r in rows.values())
+                     and set(rows["agent"]["reward_by"]) == {g for g, _ in T.REWARD_GROUPS} and len(c["evaluation"]["lines"]) == 4 and "No drilled lateral" in c["evaluation"]["lines"][-1],
+        "hashes": len(sha_w) == 64 and c["policy"]["weights_sha256"] == sha_w and c_re["policy"]["weights_sha256"] == sha_w and c_re["policy"]["file_sha256"] != c["policy"]["file_sha256"]
+                  and c_other["policy"]["weights_sha256"] != sha_w and c_re["policy"]["stamped_version"] == "9.9.9",
+        "text": all(x in txt for x in ("the agent's card (SIMULATION)", "Not for:", "The scorecard", "Where the reward came from", "The reward it was trained on", "weights sha256 " + sha_w, "It reads 34 things"))
+                and names == ["model_card.json", "model_card.md"] and json.loads((d / "card" / "model_card.json").read_text(encoding="utf-8"))["policy"]["weights_sha256"] == sha_w,
+        "ready": first is None and kept is not None and kept["policy"]["weights_sha256"] == sha_w and C.ready(str(d / "restamped.json")) is kept,
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "ET1 the agent's reward is one table - every term with its weight, its words and its heading - and the twin pays from it: an episode's terms add up to its reward and a single step's to what "
+       "that step paid; the card names every input and every choice, prints that table, carries the three drillers on held-out scenes with where each one's reward came from, and says no drilled "
+       "lateral is in it; the weights' hash is the same in a file stamped with another version and different when one number of the weights is, where the file's hash changes with the stamp; the "
+       "card is written as JSON and markdown; and a screen that asks for it is answered at once, the scenes drilled behind it, and the same card after" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- ET2 the manifest, the decisions, and the card through GEA ---------------------------------------------------------------
+    from .workspace import Workspace
+    cfgm = importlib.import_module("gea_driller.config")
+    rec_dir = d / "rig"; rec_dir.mkdir()
+    cfg = cfgm.check(json.loads(json.dumps(cfgm.EXAMPLE)))
+    man = None; dec_sha = None
+    if cfg is not None:
+        cfg["output"]["dir"] = str(rec_dir)
+        recs = A.Records(cfg)
+        adv = A.Advisor(cfg, pol, None, recs)
+        man = recs.manifest()
+        dec_sha = adv.policy_sha
+    gc = DL.card(wait=True)
+    gc2 = DL.card()
+    gtxt = DL.card_text(gc)
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad ET", actor="tester")
+    from .service import Service, Users
+    import http.cookiejar
+    import urllib.request
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    try:
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(svc.url.rstrip("/") + "/api/login", method="POST", data=json.dumps({"name": "v", "password": "viewer-pass-1"}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        with o.open(svc.url.rstrip("/") + "/api/driller", timeout=120) as rr_:
+            api = json.loads(rr_.read())
+    finally:
+        svc.stop()
+    cli = _sp.run([sys.executable, "-m", "gea_driller", "card", "--scenes", "4", "--json"], capture_output=True, text=True, cwd=prog["env"] or str(pkg.parent),
+                  env={**os.environ, **({"PYTHONPATH": prog["env"] + os.pathsep + os.environ.get("PYTHONPATH", "")} if prog["env"] else {})})
+    cj = json.loads(cli.stdout[cli.stdout.index("{"):]) if cli.returncode == 0 and "{" in cli.stdout else {}
+    c2 = {
+        "manifest": cfg is None or ((man.get("policy") or {}).get("weights_sha256") == sha_w and dec_sha == sha_w and man["policy"].get("trained_utc") == pol.meta.get("trained_utc")),
+        "gea_card": gc["status"] == "OK" and gc["policy"]["weights_sha256"] == sha_w and gc["evaluation"]["scenes"] == 60 and gc2 is gc and gc["label"] == "SIMULATION"
+                    and {r["driller"] for r in gc["evaluation"]["rows"]} == {"textbook", "agent", "oracle"},
+        "standing": next(r for r in gc["evaluation"]["rows"] if r["driller"] == "oracle")["in_layer_pct"] > next(r for r in gc["evaluation"]["rows"] if r["driller"] == "agent")["in_layer_pct"]
+                    > next(r for r in gc["evaluation"]["rows"] if r["driller"] == "textbook")["in_layer_pct"] and 0.0 < gc["evaluation"]["standing"]["in_layer_pct_of_the_way"] < 100.0,
+        "gea_text": "the agent's card (SIMULATION)" in gtxt and "weights sha256 " + sha_w in gtxt and "No drilled lateral" in gtxt,
+        "api": api.get("card", {}).get("status") == "OK" and api["card"]["policy"]["weights_sha256"] == sha_w and "reward" in api["card"] and "reads" in api["card"],
+        "cli": cli.returncode == 0 and cj.get("evaluation", {}).get("scenes") == 4 and cj.get("policy", {}).get("weights_sha256") == sha_w,
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "ET2 the policy is named where it decides and where it is read: the weights' hash in the rig PC's manifest and on the advisor that stamps every decision; GEA gets the card by running the "
+       "driller's own program, keeps it, and gives the same one to the page (any signed-in user reads it); on sixty held-out scenes the oracle is above the agent and the agent above the textbook "
+       "driller, the agent's standing somewhere between the two; `gea-driller card --json` answers with the same weights" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- ET3 the tab, the screen, the help ---------------------------------------------------------------------------------------
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    st_src = Path(importlib.import_module("gea_driller.status").__file__).read_text(encoding="utf-8")
+    main_src = Path(importlib.import_module("gea_driller.__main__").__file__).read_text(encoding="utf-8")
+    readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
+    hp = H.page("driller") or ""
+    lesson = TU.lesson("driller-office")["markdown"]
+    c3 = {
+        "page": all(x in page_src for x in ("function drillerAgentCard", "The agent's card", "Where each driller's reward came from", "The reward it was trained on", "not the agent on this card",
+                                            "h += drillerAgentCard(D.card, recs);")),
+        "screen": all(x in st_src for x in ("'/card', '/card.json'", "The agent's card", "weights_sha256")) and "gea-driller card" in main_src,
+        "help": not H.check("driller") and all(x in hp for x in ("**The agent's card**", "gea-driller card", "printed from the very table the twin pays from", "which agent decided", "model_card.json")),
+        "readme_lesson": (not readme or ("**The agent's card**" in readme and "no drilled lateral is in them" in readme)) and "**The agent's card**" in lesson and not TU.check("driller-office"),
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "ET3 the card on GEA's Drill string tab (the scorecard, where each reward came from, the reward's table, what the agent reads, and a pulled record decided by other weights marked), on the "
+       "rig PC's screen and in its command line; the help page, the README and lesson 37" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def section_es_stickslip_sticking(tmp: str) -> None:
     """Section ES - stick-slip, bit bounce and the friction factor at each connection (0.100.0): the three self-tests
     and the rules on arrays made by hand (what is flagged, and what is set aside and why); a workspace - a recorder
@@ -21332,6 +21469,7 @@ def main() -> int:
         section_eq_trip_sheet(tmp)
         section_er_trip_alerts(tmp)
         section_es_stickslip_sticking(tmp)
+        section_et_driller_card(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

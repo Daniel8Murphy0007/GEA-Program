@@ -1,30 +1,25 @@
-v0.100.0 — STICK-SLIP, BIT BOUNCE AND THE FRICTION FACTOR AT EACH CONNECTION
+v0.101.0 — THE AGENT'S CARD
 
-Added: stick-slip on the Drilling alerts tab. In two-minute blocks of
-rotary drilling the surface torque's swing at periods of 3 to 15 seconds
-is taken as a share of the torque; a block is flagged when the swing is
-a tenth or more and one period carries it. The pipe rocked while
-sliding, a swing at the rotary's own speed and a swing with no period
-are set aside and counted.
+Added: GEA Driller's policy has a model card and a scorecard, worked out
+from the policy file each time. What it is for and not for, the 34
+things it reads, the six it chooses between, how it was trained, the
+reward it was trained on, and the agent beside the textbook driller and
+the oracle on sixty held-out scenes of the twin - with where each
+driller's reward came from.
 
-Added: bit bounce - the hook load jumping from one second to the next
-about its own level.
+It is on the rig PC (gea-driller card, and the screen) and on the GEA
+Driller card of GEA's Drill string tab.
 
-Added: the friction factor at each connection. The Torque & drag model,
-with the string declared there, is asked at every connection what
-open-hole factor makes the string weigh what the hook read. A rise of
-0.05 over the connections before is flagged: the slow climb the
-tight-hole rule lets pass.
+Added: the policy is named by the hash of its weights, in the rig PC's
+manifest and on every decision; GEA marks a pulled record decided by
+other weights than the card's.
 
-Added: alerts drilling.stickslip, drilling.bounce, drilling.sticking,
-and four settings, each changed with its source.
+Changed: the twin's reward is one table the step pays from, and the card
+prints it. Every episode comes out exactly as it did.
 
-These are surface readings, once a second: a floor, not a measurement at
-the bit. A rise in the friction factor is not a forecast of stuck pipe.
+As shipped the card says: about 84 % of the hole in the layer against
+the textbook's 79 % and the oracle's 98 %, and about half again as many
+days a lateral. Nothing was retrained; this is the measure the next
+release is held to. Every figure is a simulation's.
 
-Changed: the standalone check turned away any tag with a three-digit
-minor as another program's mark. GEA's own minor is now three digits; by
-the owner's decision such a tag is turned away only when it is above
-GEA's own version.
-
-Gate 614.
+Gate 617.

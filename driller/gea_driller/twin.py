@@ -55,6 +55,22 @@ DP_LIMIT = 600.0
 DAY_LIMIT = 12.0
 DLS_MAX_TOOL = 6.0
 AZ_LIMIT = 30.0                                        # the lateral is not asked further than this off the plan
+# The reward, as the agent was trained on it: every number the step below pays or charges, by name. The model card
+# prints this table, so what is written of the reward and what is paid are one thing.
+REWARD = {'in_layer': 1.0, 'out_of_layer': -0.2, 'sweet_spot': 0.4, 'dogleg': -0.25, 'hour': -0.05, 'vibration_over': -1.2, 'ecd_over': -1.0, 'losses': -3.0,
+          'motor_dp_over': -0.8, 'motor_stall': -1.0, 'stuck_pipe': -8.0, 'off_plan_line': -0.15, 'off_plan_azimuth': -0.01, 'outside_corridor': -0.6, 'lateral_lost': -5.0,
+          'conditioning_needed': -0.1, 'conditioning_idle': -0.6, 'finished': 10.0, 'finished_per_day': -0.5, 'out_of_days': -5.0, 'out_of_steps': -5.0}
+REWARD_WORDS = {'in_layer': 'each 30 ft step drilled in the layer', 'out_of_layer': 'each step drilled outside it', 'sweet_spot': 'more, for a step in the middle half of the layer',
+                'dogleg': 'times (the dogleg in deg/100 ft over 3) squared, each step', 'hour': 'each hour of rig time', 'vibration_over': 'times the vibration index above its limit, each step',
+                'ecd_over': 'times the ppg of ECD above the fracture gradient, each step', 'losses': 'when the excess ECD ends in losses (and six hours)',
+                'motor_dp_over': 'times each 100 psi of motor differential above its limit', 'motor_stall': 'when that ends in a stall (and half an hour)',
+                'stuck_pipe': 'when a cuttings bed sticks the pipe (the lateral ends; a day)', 'off_plan_line': 'times (the offset from the plan line over the corridor) squared, each step',
+                'off_plan_azimuth': 'times the degrees off the plan azimuth, squared, each step', 'outside_corridor': 'times each 50 ft outside the corridor, each step',
+                'lateral_lost': 'when the hole is 150 ft outside the corridor (the lateral ends)', 'conditioning_needed': 'a circulating or reaming step the hole needed',
+                'conditioning_idle': 'one it did not need', 'finished': 'when the lateral reaches total depth', 'finished_per_day': 'times the days it took, then',
+                'out_of_days': 'when the days run out first', 'out_of_steps': 'when 400 steps run out first'}
+REWARD_GROUPS = (('the layer', ('in_layer', 'out_of_layer', 'sweet_spot')), ('the hole', ('dogleg',)), ('rig time', ('hour', 'conditioning_needed', 'conditioning_idle', 'finished', 'finished_per_day', 'out_of_days', 'out_of_steps')),
+                 ('the limits', ('vibration_over', 'ecd_over', 'losses', 'motor_dp_over', 'motor_stall', 'stuck_pipe')), ('the corridor', ('off_plan_line', 'off_plan_azimuth', 'outside_corridor', 'lateral_lost')))
 CORRIDOR_END_FT = 150.0                                # this far outside the corridor the lateral is lost
 
 
@@ -231,6 +247,7 @@ class Lateral:
         self.max_dls = 0.0
         self.vib_excess = 0.0
         self.ecd_excess = 0.0
+        self.terms = {k: 0.0 for k in REWARD}                 # the reward, by what paid or charged it
         self.belief = 1.0
         self.path: List[Tuple[float, float, float, float, float]] = [(self.vs, self.tvd, self.incl, self.y, self.az)]
         self.filter = PositionFilter(s.model_top(0.0), s.dip_deg + s.model_dip_error, s.model_thickness, s.model_g_in, s.model_g_above, s.model_g_below,
@@ -296,11 +313,11 @@ class Lateral:
             self.wob, self.rpm, self.flow = 0.0, rpm, flow
             self.ecd = s.mud_weight + 0.4 * (flow / 500.0) ** 2 + 0.8 * self.bed
             # conditioning a hole that needs it is cheap; conditioning one that does not is rig time thrown away
-            reward -= 0.1 if needed else 0.6
-            reward -= 0.05 * hrs
+            reward += self._pay('conditioning_needed' if needed else 'conditioning_idle')
+            reward += self._pay('hour', hrs)
             ecd_over = max(0.0, self.ecd - s.frac_gradient)
             if ecd_over > 0:
-                reward -= 1.0 * ecd_over; self.ecd_excess += ecd_over
+                reward += self._pay('ecd_over', ecd_over); self.ecd_excess += ecd_over
             info['hours'] = hrs
             self.gammas.append(s.gamma(self.vs, self.tvd, self.r, self.y)); self.gammas = self.gammas[-5:]
             return self._finish(reward, info)
@@ -359,36 +376,36 @@ class Lateral:
         if in_corridor:
             self.footage_corridor += STEP_FT
         # the reward: contact first, then the hole's quality, then the hours, then the limits, then the corridor
-        reward += 1.0 if in_layer else -0.2
-        reward += 0.4 if sweet else 0.0
-        reward -= 0.25 * (dls / 3.0) ** 2
-        reward -= 0.05 * hrs
+        reward += self._pay('in_layer' if in_layer else 'out_of_layer')
+        reward += self._pay('sweet_spot') if sweet else 0.0
+        reward += self._pay('dogleg', (dls / 3.0) ** 2)
+        reward += self._pay('hour', hrs)
         vib_over = max(0.0, self.vib - VIB_LIMIT)
         if vib_over > 0:
-            reward -= 1.2 * vib_over; self.vib_excess += vib_over
+            reward += self._pay('vibration_over', vib_over); self.vib_excess += vib_over
         ecd_over = max(0.0, self.ecd - s.frac_gradient)
         if ecd_over > 0:
-            reward -= 1.0 * ecd_over; self.ecd_excess += ecd_over
+            reward += self._pay('ecd_over', ecd_over); self.ecd_excess += ecd_over
             if self.r.rand() < 0.08 * min(1.0, ecd_over):
                 self.events.append(f'losses at {self.vs:.0f} ft: ECD {self.ecd:.2f} over the fracture gradient {s.frac_gradient:.2f}')
-                reward -= 3.0; self.hours += 6.0
+                reward += self._pay('losses'); self.hours += 6.0
         dp_over = max(0.0, self.dp - DP_LIMIT)
         if dp_over > 0:
-            reward -= 0.8 * dp_over / 100.0
+            reward += self._pay('motor_dp_over', dp_over / 100.0)
             if self.r.rand() < 0.05 * min(1.0, dp_over / 200.0):
-                self.events.append(f'motor stall at {self.vs:.0f} ft: differential {self.dp:.0f} psi'); reward -= 1.0; self.hours += 0.5
+                self.events.append(f'motor stall at {self.vs:.0f} ft: differential {self.dp:.0f} psi'); reward += self._pay('motor_stall'); self.hours += 0.5
         if self.bed > 0.6 and self.r.rand() < 0.15 * (self.bed - 0.6) / 0.4:
             self.events.append(f'stuck pipe at {self.vs:.0f} ft: cuttings bed {self.bed:.2f}')
-            reward -= 8.0; self.hours += 24.0
+            reward += self._pay('stuck_pipe'); self.hours += 24.0
             self.done = True; self.ended = 'stuck pipe'
         outside = abs(self.y) - s.corridor_ft
-        reward -= 0.15 * min(1.0, abs(self.y) / s.corridor_ft) ** 2     # the plan line is where the hole belongs: a cost growing toward the corridor's edge
-        reward -= 0.01 * self.az ** 2                                    # and the plan's azimuth is where the hole points: a degree or two off is cheap, ten is not
+        reward += self._pay('off_plan_line', min(1.0, abs(self.y) / s.corridor_ft) ** 2)     # the plan line is where the hole belongs: a cost growing toward the corridor's edge
+        reward += self._pay('off_plan_azimuth', self.az ** 2)             # and the plan's azimuth is where the hole points: a degree or two off is cheap, ten is not
         if outside > 0:
-            reward -= 0.6 * outside / 50.0                               # every step outside the corridor costs, the further the more
+            reward += self._pay('outside_corridor', outside / 50.0)       # every step outside the corridor costs, the further the more
             if outside > CORRIDOR_END_FT and not self.done:
                 self.events.append(f"outside the corridor at {self.vs:.0f} ft: {self.y:+.0f} ft of the plan line against ±{s.corridor_ft:.0f}")
-                reward -= 5.0; self.done = True; self.ended = 'outside the corridor'
+                reward += self._pay('lateral_lost'); self.done = True; self.ended = 'outside the corridor'
         self.gammas.append(s.gamma(self.vs, self.tvd, self.r, self.y)); self.gammas = self.gammas[-5:]
         self.filter.predict(dx, dy)
         deep_r, have_r = s.deep_distance(self.vs, self.tvd, self.r, self.y)
@@ -400,17 +417,23 @@ class Lateral:
         self.path.append((self.vs, self.tvd, self.incl, self.y, self.az))
         return self._finish(reward, info)
 
+    def _pay(self, name: str, times: float = 1.0) -> float:
+        """One term of the reward: its weight times what it is charged on, kept by name for the scorecard."""
+        v = REWARD[name] * times
+        self.terms[name] += v
+        return v
+
     def _finish(self, reward: float, info: dict) -> Tuple[np.ndarray, float, bool, dict]:
         s = self.scene
         if not self.done and self.vs >= s.length_ft:
             self.done = True; self.ended = 'total depth'
-            reward += 10.0 - 0.5 * self.hours / 24.0                  # the lateral finished: the days it took, against ten
+            reward += self._pay('finished') + self._pay('finished_per_day', self.hours / 24.0)     # the lateral finished: the days it took, against ten
         if not self.done and self.hours >= DAY_LIMIT * 24.0:
             self.done = True; self.ended = 'out of days'
-            reward -= 5.0
+            reward += self._pay('out_of_days')
         if not self.done and self.steps >= 400:
             self.done = True; self.ended = 'out of steps'
-            reward -= 5.0
+            reward += self._pay('out_of_steps')
         info['done'] = self.done; info['ended'] = self.ended
         return self.observe(), float(reward), self.done, info
 
@@ -438,7 +461,8 @@ class Lateral:
                 'max_offset_ft': self.max_offset, 'corridor_ft': s.corridor_ft, 'hours': self.hours, 'days': self.hours / 24.0,
                 'ft_per_day': self.footage / max(self.hours / 24.0, 1e-6), 'tortuosity_deg': self.tortuosity, 'mean_dls': self.dls_sum / max(self.steps - self.conditioning_steps, 1),
                 'max_dls': self.max_dls, 'conditioning_steps': self.conditioning_steps, 'events': list(self.events), 'ended': self.ended, 'steps': self.steps,
-                'vibration_excess': self.vib_excess, 'ecd_excess': self.ecd_excess, 'stuck': self.ended == 'stuck pipe', 'lost': self.ended == 'outside the corridor', 'bit_wear': self.wear}
+                'vibration_excess': self.vib_excess, 'ecd_excess': self.ecd_excess, 'stuck': self.ended == 'stuck pipe', 'lost': self.ended == 'outside the corridor', 'bit_wear': self.wear,
+                'reward_terms': dict(self.terms)}
 
 
 # -- the textbook driller, to be beaten, and the oracle, which cannot be ------------------------------------------------------

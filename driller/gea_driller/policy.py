@@ -90,6 +90,13 @@ class Policy:
                 'obs_names': list(T.OBS_NAMES), 'action_names': list(T.ACTION_NAMES), 'obs_mean': self.obs_mean.tolist(), 'obs_std': self.obs_std.tolist(),
                 'weights': {k: v.tolist() for k, v in self.p.items()}, 'meta': self.meta}
 
+    def weights_sha256(self) -> str:
+        """The SHA-256 of the numbers that decide: the weights and the observation's scaling, written the one way.
+        The policy file's own hash changes with the version stamped in it; this does not."""
+        import hashlib
+        body = {'weights': {k: self.p[k].tolist() for k in sorted(self.p)}, 'obs_mean': self.obs_mean.tolist(), 'obs_std': self.obs_std.tolist()}
+        return hashlib.sha256(json.dumps(body, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
+
     def save(self, path: str) -> None:
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(self.to_json(), f)
@@ -281,7 +288,8 @@ def evaluate(act_fn: Callable[[np.ndarray], Sequence[int]], scenes: Sequence[int
             'reward': f('reward'), 'mean_dls': f('mean_dls'), 'tortuosity_deg': f('tortuosity_deg'), 'stuck': int(sum(x['stuck'] for x in res)),
             'losses': int(sum(1 for x in res for e in x['events'] if e.startswith('losses'))), 'days': f('days'), 'vibration_excess': f('vibration_excess'),
             'conditioning_steps': f('conditioning_steps'), 'corridor_pct': f('corridor_pct'), 'max_offset_ft': f('max_offset_ft'),
-            'lost': int(sum(x['lost'] for x in res)), 'episodes': res}
+            'lost': int(sum(x['lost'] for x in res)), 'reward_terms': {k: float(np.mean([x['reward_terms'][k] for x in res])) for k in T.REWARD},
+            'worst_in_layer_pct': float(min(x['in_layer_pct'] for x in res)), 'episodes': res}
 
 
 def evaluate_all(pol: Policy, scenes: Sequence[int] = range(20)) -> dict:

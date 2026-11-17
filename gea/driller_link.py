@@ -45,6 +45,61 @@ def program() -> Optional[dict]:
     return None
 
 
+# -- the agent's card ---------------------------------------------------------------------------------------------------
+_CARD: dict = {}
+_CARD_BUSY: dict = {}
+
+
+def card(wait: bool = False, timeout_s: float = 300.0) -> dict:
+    """The agent's model card and scorecard, as the driller's own program works it out (`gea-driller card --json`,
+    run as a process of its own): what the policy reads, the reward it was trained on, and how it does on held-out
+    scenes of the twin beside the textbook driller and the oracle. The scenes take seconds to drill, so the first
+    asking starts the run and answers WORKING; `wait` runs it now. Kept for as long as this program runs."""
+    import threading
+    prog = program()
+    if prog is None:
+        return {'status': 'NO PROGRAM', 'why': "the driller's program (gea-driller) is not installed beside GEA: the kit and the setup carry it"}
+    key = prog['path']
+    if key in _CARD:
+        return _CARD[key]
+
+    def work() -> dict:
+        env = dict(os.environ)
+        if prog['env']:
+            env['PYTHONPATH'] = prog['env'] + (os.pathsep + env['PYTHONPATH'] if env.get('PYTHONPATH') else '')
+        try:
+            r = subprocess.run([sys.executable, '-m', 'gea_driller', 'card', '--json'], capture_output=True, text=True, env=env, timeout=timeout_s)
+            if r.returncode != 0:
+                return {'status': 'NOT READ', 'why': f"the driller's card run failed: {(r.stderr or r.stdout).strip()[-400:]}"}
+            return {'status': 'OK', **json.loads(r.stdout[r.stdout.index('{'):])}
+        except Exception as e:
+            return {'status': 'NOT READ', 'why': f'{type(e).__name__}: {e}'}
+
+    def keep():
+        try:
+            _CARD[key] = work()
+        finally:
+            _CARD_BUSY[key] = False
+    if wait:
+        _CARD[key] = work()
+        return _CARD[key]
+    if not _CARD_BUSY.get(key):
+        _CARD_BUSY[key] = True
+        threading.Thread(target=keep, name='gea-driller-card', daemon=True).start()
+    return {'status': 'WORKING', 'why': 'the held-out scenes are being drilled; open the page again in half a minute'}
+
+
+def card_text(c: dict) -> str:
+    if c.get('status') != 'OK':
+        return f"The agent's card: {c.get('status')} - {c.get('why')}"
+    ev = c['evaluation']
+    out = [f"{c['program']} {c['version']} - the agent's card ({c['label']})"] + ev['lines']
+    out.append(f"  {'driller':<9s} {'in layer':>8s} {'ft/day':>7s} {'days':>5s} {'reward':>7s}")
+    out += [f"  {r['driller']:<9s} {r['in_layer_pct']:>7.1f}% {r['ft_per_day']:>7,.0f} {r['days']:>5.2f} {r['reward']:>7.1f}" for r in ev['rows']]
+    out.append(f"weights sha256 {c['policy']['weights_sha256']}; trained {c['training'].get('trained_utc')}")
+    return '\n'.join(out)
+
+
 # -- the twin as the rig, on this computer ------------------------------------------------------------------------------
 
 def sim_dir(ws) -> str:
@@ -252,7 +307,7 @@ def pull(ws, source: str, well_id: str, actor: str = 'system', timeout: float = 
         json.dump(man, fh, indent=1)
     summ = summarize(d)
     rec = {'source': source, 'well': well_id, 'site': man.get('site'), 'rig_well': man.get('well'), 'driller_version': man.get('version'), 'pulled_utc': _utc(), 'by': actor,
-           'fetched': fetched, 'kept': kept, 'bad': bad, 'summary': summ, 'model': man.get('model')}
+           'fetched': fetched, 'kept': kept, 'bad': bad, 'summary': summ, 'model': man.get('model'), 'policy': man.get('policy')}
     with open(os.path.join(d, 'last_pull.json'), 'w', encoding='utf-8') as fh:
         json.dump(rec, fh, indent=1)
     ws.audit(actor, 'driller.pull', {'well': well_id, 'source': source, 'fetched': fetched, 'bad': bad, 'decisions': summ['decisions'], 'commands': summ['commands']},
