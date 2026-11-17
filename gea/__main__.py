@@ -634,14 +634,18 @@ def main(argv=None) -> int:
     p_rm.add_argument("--write", action="store_true", help="write reports/roadmap/roadmap.json, .md and .csv")
     p_rm.add_argument("--actor", type=str, default="cli")
     p_rm.add_argument("--json", action="store_true")
-    p_dy = sub.add_parser("dysfunction", help="drilling alerts replayed over each well's record: the off-bottom pressure falling at a steady flow (a washout), the differential pressure spiking with the bit stopped (a motor stall), the pick-up weight leaving its own trend (the hole getting tight) - what each rule would have said, when, and whether a trip followed")
-    p_dy.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (a labelled record with a washout, three stalls and a tightening hole put in, and a sound one)")
+    p_dy = sub.add_parser("dysfunction", help="drilling alerts replayed over each well's record: the off-bottom pressure falling at a steady flow (a washout), the differential pressure spiking with the bit stopped (a motor stall), the pick-up weight leaving its own trend (the hole getting tight), the surface torque swinging with one period (stick-slip), the hook load jumping from second to second (the bit bouncing), the friction factor that fits each connection's weights climbing (the hole holding the pipe) - what each rule would have said, when, and whether a trip followed")
+    p_dy.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (a labelled record with a washout, three stalls, a tightening hole, stick-slip and a bouncing bit put in, a made hole whose friction factor climbs, and a sound one)")
     p_dy.add_argument("--washout-fall", type=float, default=None, help="settings: the fall in off-bottom pressure that flags a reading, as a fraction (default 0.06)")
     p_dy.add_argument("--washout-min-psi", type=float, default=None, help="settings: and the least fall in psi (default 100)")
     p_dy.add_argument("--stall-rise", type=float, default=None, help="settings: the rise in differential pressure over its median that is a stall, as a fraction (default 0.6)")
     p_dy.add_argument("--stall-min-psi", type=float, default=None, help="settings: and the least rise in psi (default 300)")
     p_dy.add_argument("--drag-sigma", type=float, default=None, help="settings: how many scatters off its trend a pick-up or slack-off weight is flagged at (default 3)")
     p_dy.add_argument("--drag-min-klbf", type=float, default=None, help="settings: and the least distance in klbf (default 10)")
+    p_dy.add_argument("--stickslip-swing", type=float, default=None, help="settings: the swing of the surface torque about its trend that flags stick-slip, as a fraction of the torque (default 0.1)")
+    p_dy.add_argument("--bounce-min-klbf", type=float, default=None, help="settings: the least jump of the hook load about its own slow level that flags a bouncing bit, in klbf (default 5)")
+    p_dy.add_argument("--bounce-share", type=float, default=None, help="settings: and the least share of the weight on bit (default 0.25)")
+    p_dy.add_argument("--stick-rise", type=float, default=None, help="settings: the rise in the open-hole friction factor of the last five connections over the twenty before them that is flagged (default 0.05)")
     p_dy.add_argument("--source", type=str, default="", help="who set a changed setting and on what grounds")
     p_dy.add_argument("--write", action="store_true", help="write reports/dysfunction/drilling_alerts.json, .md and events.csv")
     p_dy.add_argument("--actor", type=str, default="cli")
@@ -2966,7 +2970,8 @@ def main(argv=None) -> int:
             return 0 if r["ok"] else 1
         try:
             ws = Workspace(a.workspace)
-            kw_ = {"washout_fall": a.washout_fall, "washout_min_psi": a.washout_min_psi, "stall_rise": a.stall_rise, "stall_min_psi": a.stall_min_psi, "drag_sigma": a.drag_sigma, "drag_min_klbf": a.drag_min_klbf}
+            kw_ = {"washout_fall": a.washout_fall, "washout_min_psi": a.washout_min_psi, "stall_rise": a.stall_rise, "stall_min_psi": a.stall_min_psi, "drag_sigma": a.drag_sigma, "drag_min_klbf": a.drag_min_klbf,
+                   "stickslip_swing": a.stickslip_swing, "bounce_min_klbf": a.bounce_min_klbf, "bounce_share": a.bounce_share, "stick_rise": a.stick_rise}
             if any(v is not None for v in kw_.values()):
                 st_ = _DY.set_settings(ws, a.actor, a.source, **kw_)
                 print("settings: " + ", ".join(f"{k} {st_[k]:g}" for k in _DY.DEFAULTS))

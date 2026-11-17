@@ -5,6 +5,67 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.100.0] - 2026-11-17 - stick-slip, bit bounce and the friction factor at each connection
+
+### Added
+- **Stick-slip**, on the Drilling alerts tab. The record is read in
+  two-minute blocks of rotary drilling on bottom; in each the surface
+  torque's swing at periods of 3 to 15 seconds is taken as a share of the
+  torque. A block is flagged when the swing is a tenth or more and one
+  period carries it: the string winding up and letting go. Each event
+  gives when, how deep, for how long, how large, every how many seconds,
+  and whether a trip out of the hole came within a day.
+- What is not stick-slip is **set aside and counted**, not flagged: the
+  pipe rocked left and right while sliding (the torque touches zero every
+  cycle), a swing at the rotary's own speed or two or three times it
+  (folded onto a slower period by the once-a-second sampling: a bent
+  joint, a three-cone bit), and a swing with no period.
+- **Bit bounce**: the hook load jumping from one second to the next about
+  its own nine-second level, flagged at 5 klbf and a quarter of the
+  weight on bit.
+- **The friction factor at each connection.** The Torque & drag page fits
+  one friction factor to a whole well. The same model, with the string
+  declared there, is now asked at every connection what open-hole factor
+  makes the string weigh what the hook read as it was picked up and as it
+  was slacked off. The factor of the last five connections against the
+  twenty before them: a rise of 0.05 is flagged. It sees the slow climb
+  that the tight-hole rule, which follows each weight's own trend, lets
+  pass without a word.
+- Three alerts on a record still being written: `drilling.stickslip`,
+  `drilling.bounce`, `drilling.sticking`.
+- Four settings with the other drilling alerts', each changed with its
+  source: `--stickslip-swing`, `--bounce-min-klbf`, `--bounce-share`,
+  `--stick-rise`.
+
+### Changed
+- **The standalone check and the version number.** The check turned away
+  any tag written with a three-digit minor, as another program's mark;
+  GEA's own minor has now reached three digits. By the owner's decision
+  the rule is changed, not dropped: such a tag is turned away only when
+  it is above GEA's own version, so GEA's numbering goes on and a tag GEA
+  has not reached is still not GEA's.
+
+### Notes
+- These are surface readings, once a second. What the bit's speed did is
+  measured only by a tool at the bit; a top drive that damps the torque
+  hides the swing while the bit still sticks; a swing faster than three
+  seconds a cycle - most stick-slip above about 4,000 ft - is blurred, so
+  what is read is a floor. Sideways vibration and whirl do not reach the
+  surface sensors, and no rule speaks of them.
+- A rise in the friction factor is the hole holding the pipe harder. It
+  is not a forecast of stuck pipe.
+- The friction factor needs the drill string declared on the Torque &
+  drag tab. A well without one says so. Where a quarter of the weights are
+  ones no factor from 0 to 0.8 gives the declared string, the page says
+  the declarations are not the rig's and judges nothing.
+- Stick-slip and bit bounce need a record every two seconds or faster and
+  a surface torque channel; a record every ten seconds is not judged, and
+  says so.
+- On the public Utah FORGE records: 29 stick-slip events on 16A(78)-32 in
+  258 hours of rotary drilling, 12 on 56-32, 5 on 78B-32, the period
+  lengthening with depth. No FORGE well has a string declared, so the
+  friction factor is proved on a made hole only.
+
 ## [v0.99.0] - 2026-11-17 - the trip sheet's alerts
 
 ### Added

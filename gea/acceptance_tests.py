@@ -19439,6 +19439,228 @@ def section_ej_frac_treatment(tmp: str) -> None:
        "page with the published figures it was checked against, the README and lesson 14" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_es_stickslip_sticking(tmp: str) -> None:
+    """Section ES - stick-slip, bit bounce and the friction factor at each connection (0.100.0): the three self-tests
+    and the rules on arrays made by hand (what is flagged, and what is set aside and why); a workspace - a recorder
+    export with a saw-tooth in its torque and a bouncing hook load, and a made hole whose friction factor climbs, read
+    back through the export, the survey and the string declared on the Torque & drag page - with the alerts raised
+    once, a declaration that is not the rig's, the settings and the report; the routes, the tab, the command, the
+    help, the README and the lesson."""
+    import http.cookiejar
+    import subprocess as _sp
+    import urllib.error
+    import urllib.request
+    from . import __version__ as _ver
+    from . import alerts as AL
+    from . import client_reports as CR
+    from . import dysfunction as DY
+    from . import helplib as H
+    from . import mcp_server as MC
+    from . import notify as NT
+    from . import rig_state as RS
+    from . import sticking as SK
+    from . import stickslip as VB
+    from . import torque_drag as TND
+    from . import well3d as W3
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "es"); d.mkdir()
+    # -- ES1 the rules ---------------------------------------------------------------------------------------------------------
+    sv, sk_, sd = VB.selftest(), SK.selftest(), DY.selftest()
+    n = 4 * 3600
+    t = np.arange(n, dtype=np.float64); rng = np.random.default_rng(41)
+    rot = np.ones(n, bool); hole = 9000.0 + t / 40.0; rpm = np.full(n, 50.0)
+    P = dict(DY.DEFAULTS)
+    quiet = 12.0 + rng.normal(0, 0.2, n)
+    saw = quiet.copy(); seg = slice(3600, 6000); saw[seg] = 10.0 + 5.0 * ((t[seg] % 8.0) / 8.0) + rng.normal(0, 0.2, 2400)
+    r_q = VB.stickslip(t, quiet, rot, hole, rpm, P)
+    r_s = VB.stickslip(t, saw, rot, hole, rpm, P)
+    small = quiet.copy(); small[seg] = 11.7 + 0.6 * ((t[seg] % 8.0) / 8.0) + rng.normal(0, 0.05, 2400)           # the same shape at a twentieth of the torque
+    r_small = VB.stickslip(t, small, rot, hole, rpm, P)
+    one = quiet.copy(); one[3600:3720] = saw[3600:3720]                                                             # one block of it: not an event
+    r_one = VB.stickslip(t, one, rot, hole, rpm, P)
+    slide = VB.stickslip(t, saw, np.zeros(n, bool), hole, rpm, P)                                                   # never in rotary drilling
+    dropped = saw.copy(); dropped[::37] = np.nan                                                                    # the recorder dropping a sample in 37
+    r_drop = VB.stickslip(t, dropped, rot, hole, rpm, P)
+    hl = 180.0 + rng.normal(0, 0.5, n); hb = hl.copy(); hb[seg] += rng.choice([-7.0, 7.0], 2400)
+    step = hl.copy(); step[4000:] += 25.0                                                                           # the driller slacking off 25 klbf once
+    b_q, b_b, b_step = VB.bounce(t, hl, rot, hole, None, P), VB.bounce(t, hb, rot, hole, None, P), VB.bounce(t, step, rot, hole, None, P)
+    su = SK.made_hole()
+    fan_o, fan_i = SK.hook_fan(su, 13000.0, "out"), SK.hook_fan(su, 13000.0, "in")
+    open_o, open_i = SK.hook_fan({**su, "shoe_ft": None}, 13000.0, "out"), SK.hook_fan({**su, "shoe_ft": None}, 13000.0, "in")      # no casing: at no friction the two are one weight
+    ws1 = Workspace.create(str(d / "ws1"), "Pad ES settings", actor="tester")
+    # the standalone check's rule on a tag with a three-digit minor: GEA's own up to its own version, another program's above it
+    guard = True
+    sc_path = pkg.parent / "tools" / "standalone_check.py"
+    if sc_path.is_file():
+        import importlib.util as _ilu
+        sp_ = _ilu.spec_from_file_location("gea_standalone_check_es", str(sc_path)); SC = _ilu.module_from_spec(sp_); sp_.loader.exec_module(SC)
+        own_ = int(_ver.split(".")[1])
+        ahead_ = lambda text_: [a_.group(0) for a_ in SC.AHEAD_TAG.finditer(text_) if int(a_.group(1)) > SC.own_minor()]
+        guard = (SC.own_minor() == own_ and not ahead_(f"the tag v0.{own_}.0 and v0.{max(own_ - 1, 100)}.3") and ahead_(f"see v0.{own_ + 1}.0") == [f"v0.{own_ + 1}.0"] and ahead_("v0." + "436" + ".0 and v0.99.0") == ["v0." + "436" + ".0"]
+                 and not [p_ for p_ in SC.FOREIGN_PATTERNS if p_.startswith(r"\bv0\.")] and any(p_.startswith(r"\bv1\.") for p_ in SC.FOREIGN_PATTERNS) and not SC.check_text(["CHANGELOG.md", "docs/HISTORY.md"]))
+    try:
+        DY.set_settings(ws1, "tester", "x", stickslip_swing=5.0); bad_bound = ""
+    except Exception as e:
+        bad_bound = f"{type(e).__name__}: {e}"
+    c1 = {
+        "selftests": sv["ok"] and sk_["ok"] and sd["ok"] and len(sd["checks"]) >= len(sv["checks"]) + len(sk_["checks"]) + 10,
+        "quiet": r_q["status"] == "OK" and not r_q["events"] and r_q["flagged_min"] == 0 and b_q["status"] == "OK" and not b_q["events"],
+        "saw": len(r_s["events"]) == 1 and r_s["events"][0]["t"] == 3600.0 and r_s["events"][0]["t_last"] == 6000.0 and abs(r_s["events"][0]["period_s"] - 8.0) <= 0.5
+               and 0.12 <= r_s["events"][0]["swing"] <= 0.22 and r_s["events"][0]["minutes"] == 40.0 and r_s["events"][0]["rpm"] == 50.0 and 9000 + 3600 / 40.0 - 1 <= r_s["events"][0]["depth_ft"] <= 9000 + 3600 / 40.0 + 1,
+        "small_one_slide": not r_small["events"] and not r_one["events"] and r_one["flagged_min"] == 2.0 and slide["status"] == "NO ROTARY DRILLING" and not slide["events"],
+        "dropped": len(r_drop["events"]) == 1 and r_drop["events"][0]["minutes"] == 40.0 and abs(r_drop["events"][0]["period_s"] - 8.0) <= 0.5,
+        "bounce": len(b_b["events"]) == 1 and b_b["events"][0]["t"] == 3600.0 and 5.5 <= b_b["events"][0]["bounce_klbf"] <= 9.0 and b_b["events"][0]["wob_klbf"] is None and not b_b["with_wob"] and not b_step["events"],
+        "model": bool(np.all(np.diff(fan_o) > 0)) and bool(np.all(np.diff(fan_i) < 0)) and abs(open_o[0] - open_i[0]) < 1e-9 and fan_o[0] > fan_i[0] and len(fan_o) == len(SK.GRID),
+        "settings": set(DY.DEFAULTS) >= {"stickslip_swing", "bounce_min_klbf", "bounce_share", "stick_rise"} and all(k in DY.BOUNDS and k in DY.WORDS for k in DY.DEFAULTS)
+                    and "stickslip_swing must be between" in bad_bound and DY.KINDS == ("washout", "stall", "tight", "stickslip", "bounce", "sticking"),
+        "guard": guard,
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "ES1 the three self-tests (the surface torque's swing, the hook load's jump, the friction factor at each connection) and the rules on arrays made by hand: a quiet record gives nothing; a saw-tooth "
+       "of 5 on 12 every eight seconds for forty minutes is one stick-slip event with its start, its end, its period and its depth; the same shape at a twentieth of the torque, one block of it alone, and "
+       "a record never in rotary drilling are no event; a sample dropped in every 37 changes nothing; the hook load jumping 7 klbf either way is one bounce event and the driller slacking off 25 klbf once "
+       "is none; the hook load for every factor at once rises with the factor pulling out and falls running in, from one weight where nothing rubs; every setting has its bounds and its words; and the standalone check takes a tag with a three-digit minor as GEA's own up to GEA's own version and "
+       "turns it away above that, the rule on the major version standing"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- ES2 a workspace -------------------------------------------------------------------------------------------------------
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad ES", actor="tester")
+    DY.write_edr(VB.add_swings(DY.synthetic_record(True, ends_now=True), at_end=True), str(d / "rig.csv"))
+    wid = ws.add_well_file(str(d / "rig.csv"), display="RIG-1", actor="tester")["id"]
+    made = DY.synthetic_record(False, stands=60, ends_now=True, weights=lambda k, dd: (SK.made_weight(su, dd, SK.made_factor(k), "out"), SK.made_weight(su, dd, SK.made_factor(k), "in")))
+    DY.write_edr(made, str(d / "made.csv"))
+    wid2 = ws.add_well_file(str(d / "made.csv"), display="MADE-2", actor="tester")["id"]
+    s_ = su["survey"]
+    (d / "s.csv").write_text("MD (ft),Inc (deg),Azi (deg)\n" + "".join(f"{m:.1f},{i:.3f},{z:.1f}\n" for m, i, z in zip(s_["md_ft"], s_["inc_deg"], s_["azi_deg"])), encoding="utf-8")
+    ws.set_well(wid2, surface={"lat": 31.42, "lon": -104.10, "datum": "NAD83", "elevation": {"ft": 3000.0, "datum": "KB", "source": "test plat"}}, actor="tester")
+    W3.attach_trajectory(ws, wid2, "s.csv", (d / "s.csv").read_bytes(), "tester", "true", "ft", None, None, None, "test survey")
+    pg0 = DY.page(ws)
+    k0 = next(w_ for w_ in pg0["wells"] if w_["well"] == wid2)["sticking"]
+    RS.set_casing(ws, "tester", wid2, "9-5/8", 4000, "tally (test)")
+    TND.set_well(ws, "tester", wid2, "BHA report (test)", su["string"], 10.0, 0.18, 0.24, 40.0)
+    pg = DY.page(ws)
+    w1 = next(w_ for w_ in pg["wells"] if w_["well"] == wid); w2 = next(w_ for w_ in pg["wells"] if w_["well"] == wid2)
+    ss, bo, sk = w1["stickslip"], w1["bounce"], w2["sticking"]
+    live = DY.live_events(ws)
+    raised1 = AL.check_conditions(ws, None, force=True)
+    raised2 = AL.check_conditions(ws, None, force=True)
+    dr1 = sorted((e for e in raised1 if e["event"].startswith("drilling.")), key=lambda e: e["event"])
+    subj = {e["event"]: NT._subject(e) for e in dr1}
+    wr = DY.write_report(ws, _ver, "tester")
+    txt = (Path(wr["folder"]) / "drilling_alerts.md").read_text(encoding="utf-8")
+    rows = (Path(wr["folder"]) / "events.csv").read_text(encoding="utf-8").strip().splitlines()
+    TND.set_well(ws, "tester", wid2, "a block weight that is not the rig's (gate)", None, None, None, None, 140.0)
+    k_wrong = next(w_ for w_ in DY.page(ws)["wells"] if w_["well"] == wid2)["sticking"]
+    TND.set_well(ws, "tester", wid2, "BHA report (test)", None, None, None, None, 40.0)
+    DY.set_settings(ws, "tester", "drilling engineer (gate): this top drive's torque is noisy", stickslip_swing=0.5, bounce_min_klbf=30.0, stick_rise=0.3)
+    pg_strict = DY.page(ws)
+    DY.set_settings(ws, "tester", "", stickslip_swing=0.10, bounce_min_klbf=5.0, stick_rise=0.05)
+    pg_back = DY.page(ws)
+    audit = Path(ws.audit_path).read_text(encoding="utf-8")
+    c2 = {
+        "stickslip": ss["status"] == "OK" and ss["n"] == 2 and abs(ss["events"][0]["period_s"] - VB.MADE_PERIOD_S) <= 0.5 and 60 <= ss["events"][0]["minutes"] <= 80 and not ss["events"][0].get("open")
+                     and ss["events"][1].get("open") and ss["events"][1]["ended"] == "open at the end of the record" and ss["rocked_min"] >= 30 and 0.12 <= ss["events"][0]["swing"] <= 0.22
+                     and len(ss["series"]) >= 30 and sum(1 for p_ in ss["series"] if p_[2]) >= 3,
+        "bounce": bo["status"] == "OK" and bo["n"] == 1 and bo["with_wob"] and 6.0 <= bo["events"][0]["bounce_klbf"] <= 10.0 and bo["events"][0]["wob_klbf"] == 20.0 and not bo["events"][0].get("open"),
+        "others_as_before": len(w1["washout"]["events"]) == 1 and w1["stall"]["n"] == 3 and len(w1["tight"]["events"]) == 1 and w1["channels"].get("torque") == "Convertible Torque"
+                            and w2["stickslip"]["status"] == "NO CHANNELS" and not w2["bounce"]["events"] and not w2["tight"]["events"] and w1["sticking"]["status"] == "NO STRING",
+        "needs_string": k0["status"] == "NO STRING" and "Torque & drag" in k0["why"] and not k0["events"],
+        "sticking": sk["status"] == "OK" and sk["counts"]["read"] >= 58 and sk["counts"]["weights_no_fit"] == 0 and len(sk["events"]) == 1 and sk["events"][0]["which"] == "pick-up and slack-off"
+                    and sk["events"][0].get("open") and abs(sk["events"][0]["mu_from"] - 0.24) <= 0.03 and sk["events"][0]["mu_to"] >= 0.33 and 10000 + 95 * 41 <= sk["events"][0]["depth_ft"] <= 10000 + 95 * 52
+                    and abs(sk["median_out"] - 0.24) <= 0.03 and sk["block_klbf"] == 40.0 and sk["declared"] == 0.24 and "test survey" in sk["how"] and "cased to 4,000 ft" in sk["how"]
+                    and all(abs(r_["mu_out"] - 0.24) <= 0.03 for r_ in sk["readings"][:38] if r_.get("mu_out") is not None),
+        "live": sorted(e["event"] for e in live) == ["drilling.sticking", "drilling.stickslip", "drilling.tight"]
+                and next(e for e in live if e["event"] == "drilling.sticking")["well_id"] == wid2 and "friction factor" in next(e for e in live if e["event"] == "drilling.sticking")["detail"],
+        "alerts": [e["event"] for e in dr1] == ["drilling.sticking", "drilling.stickslip", "drilling.tight"] and not [e for e in raised2 if e["event"].startswith("drilling.")]
+                  and subj.get("drilling.stickslip", "").startswith("[GEA] stick-slip in the surface torque on RIG-1: surface torque swinging")
+                  and subj.get("drilling.sticking", "").startswith("[GEA] friction factor rising on MADE-2: the friction factor that fits the pick-up and slack-off weight up from")
+                  and all(x in AL.EVENTS and x in NT.EVENTS for x in DY.EVENTS.values()) and NT._subject({"event": "drilling.bounce", "well": "W", "detail": "x"}).startswith("[GEA] the hook load jumping"),
+        "wrong_block": k_wrong["status"] == "DOES NOT FIT" and "not as declared" in k_wrong["why"] and not k_wrong["events"],
+        "settings": all(not w_[k_]["events"] for w_ in pg_strict["wells"] for k_ in ("stickslip", "bounce", "sticking")) and pg_strict["settings"]["stickslip_swing"] == 0.5
+                    and "noisy" in pg_strict["sources"]["stick_rise"] and len(next(w_ for w_ in pg_back["wells"] if w_["well"] == wid)["stickslip"]["events"]) == 2
+                    and len(next(w_ for w_ in pg_back["wells"] if w_["well"] == wid2)["sticking"]["events"]) == 1 and "stick_rise" not in pg_back["sources"] and "dysfunction.settings" in audit,
+        "report": sum(1 for r_ in rows[1:] if ",stickslip," in r_) == 2 and sum(1 for r_ in rows[1:] if ",bounce," in r_) == 1 and sum(1 for r_ in rows[1:] if ",sticking," in r_) == 1
+                  and "measured only by a tool at the bit" in txt and "not a forecast of stuck pipe" in txt and "a trip out of the hole" in txt and not [t_ for t_ in CR.FORBIDDEN_TERMS if t_ in txt.lower()],
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "ES2 a workspace of two recorder exports still being written. One carries a surface torque with a saw-tooth through two stands and again at its end, a stand with the pipe rocked and a stand with the "
+       "hook load jumping: two stick-slip events, the second open, the rocked stand set aside, one bounce event - and the washout, the stalls and the tight hole read as before. The other is a made hole whose "
+       "friction factor climbs from the 41st connection: with no string declared the page says what to declare; with the survey, the shoe and the string declared, the factor read back from the export is "
+       "the hole's own for the first forty connections and one event is open at the end - where the tight-hole rule says nothing. The open events raise their alerts once, with their subject lines; a block "
+       "declared 100 klbf too heavy is told apart from a hole (no factor fits) and judged not at all; the settings changed with their source stop every event and put back restore them; the report has a row "
+       "an event and says what none of it measures" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- ES3 the routes, the command, the tab, the help ---------------------------------------------------------------------
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer"); Users(str(Path(wsp, "users.json"))).add("op", "op-pass-123", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+
+    def opener(name, pw_):
+        o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw_}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o.open(rq, timeout=30)
+        return o
+
+    def call(o, method, path, body=None):
+        rq = urllib.request.Request(base_url + path, method=method, data=(json.dumps(body).encode() if body is not None else None))
+        if method == "POST":
+            rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1")
+        try:
+            with o.open(rq, timeout=300) as rr_:
+                return rr_.status, json.loads(rr_.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+    try:
+        V, O = opener("v", "viewer-pass-1"), opener("op", "op-pass-123")
+        s_vg, vg = call(V, "GET", "/api/dysfunction")
+        s_vs, _ = call(V, "POST", "/api/dysfunction/settings", {"stick_rise": "0.1", "source": "x"})
+        s_os, os_ = call(O, "POST", "/api/dysfunction/settings", {"stick_rise": "0.08", "bounce_share": "", "source": "drilling engineer (api)"})
+        s_bs, _ = call(O, "POST", "/api/dysfunction/settings", {"stickslip_swing": "0.001", "source": "x"})
+        s_ns, _ = call(O, "POST", "/api/dysfunction/settings", {"bounce_min_klbf": "8"})
+        s_g2, g2 = call(V, "GET", "/api/dysfunction")
+        s_pb, _ = call(O, "POST", "/api/dysfunction/settings", {"stick_rise": "0.05", "source": ""})
+    finally:
+        svc.stop()
+    cli_w = _sp.run([sys.executable, "-m", "gea", "dysfunction", "--workspace", wsp], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_s = _sp.run([sys.executable, "-m", "gea", "dysfunction", "--workspace", wsp, "--stickslip-swing", "0.5", "--source", "motor hand (cli)", "--json"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_b = _sp.run([sys.executable, "-m", "gea", "dysfunction", "--workspace", wsp, "--stick-rise", "0.2"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_p = _sp.run([sys.executable, "-m", "gea", "dysfunction", "--workspace", wsp, "--stickslip-swing", "0.1"], capture_output=True, text=True, cwd=str(pkg.parent))
+    cli_t = _sp.run([sys.executable, "-m", "gea", "dysfunction"], capture_output=True, text=True, cwd=str(pkg.parent))
+    js = json.loads(cli_s.stdout[cli_s.stdout.index("{"):]) if cli_s.returncode == 0 and "{" in cli_s.stdout else {}
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
+    lesson = TU.lesson("drilling-watch")["markdown"]
+    hp = H.page("dysfunction") or ""
+    tool = MC.tool_definition("drilling_alerts")
+    mans = MC.call_tool(ws, "drilling_alerts", {})
+    c3 = {
+        "api": s_vg == 200 and vg["status"] == "OK" and all(k_ in vg["wells"][0] for k_ in ("stickslip", "bounce", "sticking")) and vg["settings"]["stick_rise"] == 0.05 and vg["bounds"]["stickslip_swing"] == [0.03, 1.0]
+               and s_vs == 403 and s_os == 200 and os_["stick_rise"] == 0.08 and os_["bounce_share"] == 0.25 and s_bs == 400 and s_ns == 400 and s_g2 == 200 and g2["settings"]["stick_rise"] == 0.08
+               and g2["sources"]["stick_rise"] == "drilling engineer (api)" and s_pb == 200,
+        "cli": cli_w.returncode == 0 and "stickslip  surface torque swinging" in cli_w.stdout and "sticking   the friction factor that fits" in cli_w.stdout and "a trip out of the hole" in cli_w.stdout
+               and cli_s.returncode == 0 and js.get("settings", {}).get("stickslip_swing") == 0.5 and all(not w_["stickslip"]["events"] for w_ in js.get("wells", [{"stickslip": {"events": [1]}}]))
+               and cli_b.returncode != 0 and "source" in cli_b.stderr and cli_p.returncode == 0
+               and cli_t.returncode == 0 and "OK - SIMULATION" in cli_t.stdout and "FAIL" not in cli_t.stdout and "stick-slip" in cli_t.stdout and "friction factor" in cli_t.stdout,
+        "page": all(x in page_src for x in ("Surface torque: stick-slip", "Hook load: bit bounce", "Friction factor at each connection", "'drilling.stickslip': 'Stick-slip in the surface torque'",
+                                            "'drilling.bounce': 'Hook load jumping (bit bounce)'", "'drilling.sticking': 'Friction factor rising'", "stick_rise: 'Friction-factor rise'", "opt.dp")),
+        "help": not H.check("dysfunction") and not H.check("alerts") and not H.check("torque-drag")
+                and all(x in hp for x in ("STICK-SLIP", "BIT BOUNCE", "FRICTION FACTOR", "drilling.stickslip", "drilling.sticking", "3 to 15 seconds", "a three-cone bit", "is a floor", "its forecast", "none of the six rules"))
+                and "drilling.sticking" in (H.page("alerts") or "") and "**The friction factor at each connection**" in (H.page("torque-drag") or ""),
+        "mcp": "stick-slip" in tool["description"] and "friction factor" in tool["description"] and not mans["is_error"] and "stickslip" in mans["text"] and "sticking" in mans["text"],
+        "readme_lesson": (not readme or ("**Stick-slip**" in readme and "**The friction factor at\neach connection**" in readme and "a forecast\nof stuck pipe" in readme))
+                         and "Six rules are replayed" in lesson and "Friction factor at each connection" in lesson and not TU.check("drilling-watch"),
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "ES3 on the API (the replay carries the three new rules for anyone; only an operator changes their numbers, each with its source, inside its bounds; a blank field leaves its number alone), the command "
+       "(the replay with the new events; a setting kept and the page as JSON; a setting without its source stopped; the self-test with every check of the three modules), the tab's three new parts and "
+       "the three alert names on the Alarms tab, the help pages (Drilling alerts, Alerts, Torque & drag), the assistant's tool, the README and lesson 17" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def section_er_trip_alerts(tmp: str) -> None:
     """Section ER - the trip sheet on a record still being written: a trip under way that departs raises an alert
     once - more mud at surface than the pipe accounts for, or losses - and a trip under way in which nothing moves
@@ -21109,6 +21331,7 @@ def main() -> int:
         section_ep_bar_boundary_workspaces(tmp)
         section_eq_trip_sheet(tmp)
         section_er_trip_alerts(tmp)
+        section_es_stickslip_sticking(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

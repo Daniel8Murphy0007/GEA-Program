@@ -1,20 +1,30 @@
-v0.99.0 — THE TRIP SHEET'S ALERTS
+v0.100.0 — STICK-SLIP, BIT BOUNCE AND THE FRICTION FACTOR AT EACH CONNECTION
 
-Added: on a drilling record still being written, a trip that departs
-raises an alert once, while it is under way or within half an hour of
-its end - trip.fill for more mud at surface than the pipe accounts for
-(a short fill pulling out, a hole that gave more running in), trip.loss
-for losses. They go to the Alarms tab and the notification rules.
+Added: stick-slip on the Drilling alerts tab. In two-minute blocks of
+rotary drilling the surface torque's swing at periods of 3 to 15 seconds
+is taken as a share of the torque; a block is flagged when the swing is
+a tenth or more and one period carries it. The pipe rocked while
+sliding, a swing at the rotary's own speed and a swing with no period
+are set aside and counted.
 
-Added: trip.unread - a trip under way in which nothing in the record
-moves with the pipe, where the trip before it was read. The hole is
-being filled from another tank, or it is taking nothing; the record
-cannot tell which, and the alert says so.
+Added: bit bounce - the hook load jumping from one second to the next
+about its own level.
 
-Changed: a trip marked not read is described as either - another tank,
-or a hole that took nothing. It had been described as the first alone.
+Added: the friction factor at each connection. The Torque & drag model,
+with the string declared there, is asked at every connection what
+open-hole factor makes the string weigh what the hook read. A rise of
+0.05 over the connections before is flagged: the slow climb the
+tight-hole rule lets pass.
 
-A trip is judged once the pipe has moved 1,000 ft. The Trip sheet tab
-marks the record being written and the trip under way.
+Added: alerts drilling.stickslip, drilling.bounce, drilling.sticking,
+and four settings, each changed with its source.
 
-Gate 611.
+These are surface readings, once a second: a floor, not a measurement at
+the bit. A rise in the friction factor is not a forecast of stuck pipe.
+
+Changed: the standalone check turned away any tag with a three-digit
+minor as another program's mark. GEA's own minor is now three digits; by
+the owner's decision such a tag is turned away only when it is above
+GEA's own version.
+
+Gate 614.

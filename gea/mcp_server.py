@@ -315,7 +315,7 @@ TOOLS: List[tuple] = [
      _paged('roadmap', lambda m, ws, w: m.page(ws, w), True)),
     ('benchmark', 'Benchmark across wells', "The wells of the pad against one another: feet per day, on-bottom rate, connections and trips for each, ranked, and each well's on-bottom time against the pad's best - "
      "every stretch at the rate of the fastest well through it.", {}, _paged('benchmark', lambda m, ws, w: m.page(ws))),
-    ('drilling_alerts', 'Drilling alerts', "Washout, motor stall and tight hole as rules replayed over each well's drilling record: what each would have said, when, and whether a trip out of the hole followed.",
+    ('drilling_alerts', 'Drilling alerts', "Washout, motor stall, tight hole, stick-slip, bit bounce and a rising friction factor as rules replayed over each well's drilling record: what each would have said, when, and whether a trip out of the hole followed.",
      {}, _paged('dysfunction', lambda m, ws, w: m.page(ws))),
     ('torque_drag', 'Torque and drag', "A well's pick-up, slack-off and rotating hook loads from the declared string, mud and friction factors, against the rig's own points.",
      _W, _paged('torque_drag', lambda m, ws, w: m.page(ws, 'workspace', w), True)),

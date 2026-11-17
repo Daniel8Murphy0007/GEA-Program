@@ -4,6 +4,24 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.100.0 - 2026-11-17 - stick-slip, bit bounce and the friction factor at each connection
+
+- Drilling alerts gains three rules. Stick-slip: the surface torque's
+  swing at periods of 3 to 15 s in two-minute blocks of rotary drilling,
+  flagged when a tenth of the torque or more and carried by one period;
+  the pipe rocked, a swing at the rotary's own speed and a swing with no
+  period set aside and counted. Bit bounce: the hook load jumping about
+  its own nine-second level.
+- The friction factor at each connection: the Torque & drag model and
+  declarations asked at every connection what open-hole factor fits the
+  pick-up and the slack-off weight; the last five against the twenty
+  before, a rise of 0.05 flagged.
+- Alerts drilling.stickslip, drilling.bounce, drilling.sticking.
+- The standalone check: a tag with a three-digit minor is turned away
+  only above GEA's own version (the owner's decision), so the numbering
+  goes on.
+- Gate 614.
+
 ## v0.99.0 - 2026-11-17 - the trip sheet's alerts
 
 - On a record still being written: trip.fill and trip.loss for a trip

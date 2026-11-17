@@ -10,6 +10,8 @@
 
 **What it writes**: the string and its figures in `drillstring\torque_drag.json` (audit line `torque_drag.declare`), the audit line `report.torque_drag`, and the reports `reports\wells\<well>\torque_drag.*` (or `reports\torque_drag_example.*`; PDF, HTML, markdown, JSON).
 
+**The friction factor at each connection**: the page fits one factor to a whole well. The **Drilling alerts** tab takes the same model and the same declarations to each connection of the drilling record - what open-hole factor makes this string weigh what the hook read as it was picked up, and as it was slacked off - and flags the factor climbing over the connections before (`gea help dysfunction`). Declaring the string here is what turns that rule on for the well.
+
 **The number to check**: the string's buoyed weight against the hook load of a vertical well at TD less the block; one depth's pick-up against the driller's broomstick sheet; a fitted friction factor against the field's usual range.
 
 **What this page will not call a measurement**: the friction factor - it is fitted, a number that makes the model match the rig, not a property measured in the hole. Where the string touches - the soft-string model lays the string on the hole as a cable, without its stiffness or the hole's clearance. Buckling - a string pushed past its buckling load in compression is not modelled.

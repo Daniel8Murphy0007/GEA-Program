@@ -4444,3 +4444,69 @@ short fill matters while the trip is under way.
   way (a short fill, losses, nothing moving), the same record dated
   months ago, and one that ends now with its last trip over. Every tab
   opened in a window with storage denied. Gate 611.
+
+## 2026-11-17 - stick-slip, bit bounce and the friction factor at each connection (v0.100.0)
+
+The comparison with the other product in this field showed its alert
+list longer than ours by stick-slip, bit bounce, vibration and stuck
+pipe. Two of the gaps could be closed from what the recorder files
+already hold.
+
+- The real records were read before any rule was written. The public
+  Utah FORGE files sampled once a second carry a surface torque, and in
+  them stick-slip is plain to the eye: on 16A(78)-32 near 10,960 ft the
+  torque climbs from 10 to 14 kft.lbf and drops, every eight seconds; on
+  78B-32 at 8,513 ft from 4 to 18, every nine, with the rotary speed
+  jumping at each release, and a trip out of the hole an hour later.
+- The same files showed what must not be called stick-slip. Eighteen
+  hundred minutes of 16A have the torque running to nearly zero and back
+  every eighteen seconds at 20 rpm: the pipe rocked left and right while
+  sliding, which the rig-state rule reads as rotary drilling. And on two
+  wells at 79 rpm the torque swings every 24 to 27 seconds - which is
+  three times the rotary speed, 3.96 Hz, folded by the one-second
+  sampling onto 0.04 Hz: a three-cone bit, real, but not the string
+  winding up. Both are set aside and counted, and so is a swing as large
+  with no period at all.
+- So the rule asks for two things: a swing of a tenth of the torque at
+  periods of 3 to 15 seconds, and one period carrying 40 % of what the
+  torque did. The period it then reports lengthens with depth - four
+  seconds near 4,800 ft, eight near 10,960 ft - as a longer string's
+  must, which no threshold put there.
+- The first cut ran from 4 to 30 seconds. It lost 54 minutes of clear
+  stick-slip at 4,850 ft whose period is just under four seconds, and it
+  let in weight being fed on a half-minute cycle. Three samples a cycle
+  is the least the record supports; above about 4,000 ft the period is
+  shorter than that, and the page says what is read is a floor.
+- Bit bounce is the hook load about its own nine-second mean. A running
+  median was tried first and read a jump of 9 klbf as 18: the median of
+  a load that sits at two levels is one of the levels.
+- The friction factor: the Torque & drag page's model, its recursion run
+  with the open-hole factor as a vector so that one pass from the bit up
+  gives the hook load for every factor, at a grid of depths. A made hole
+  of factor 0.24 is read back at 0.23 to 0.24 through a recorder export.
+  The scatter the rise is judged against is taken from one connection to
+  the next: taken about the median of the twenty, a steady climb widened
+  its own scatter and hid itself.
+- Where the declarations are wrong the weights say so: a block declared
+  100 klbf too heavy leaves three weights in four that no factor from 0
+  to 0.8 gives. The page names that and judges nothing.
+- No FORGE well and no well of the site has a string declared, so the
+  friction factor is proved on a made hole only. That is said in the
+  changelog.
+- The number. This minor is the first written with three digits, and
+  the standalone check's list of another program's marks had that shape
+  in it, with the instruction to add to the list and never remove. The
+  release was first prepared a patch number short of it and the question
+  put to the owner, who said to change the rule so the numbering goes on.
+  That program's tags run through the same numbers GEA is coming to, so
+  no narrower pattern would do. The rule now turns such a tag away only
+  when it is above GEA's own version: every tag GEA writes of itself is
+  at or below that, and one it has not reached is still not its own. The
+  check on the major version stands as it was.
+- A slip, caught by the gate: the new stick-slip code was first saved
+  under the name of the machine-vibration module and replaced it.
+  Section BH failed at once. The module was put back, byte for byte the
+  one of the last tag, and the new code is `stickslip.py`. A new module's
+  name is looked for before it is written.
+- Section ES, three checks. Every tab opened in a window with storage
+  denied. Gate 614.

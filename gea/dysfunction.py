@@ -1,9 +1,12 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
-"""dysfunction - three things a drilling record shows before the crew has to deal with them: the off-bottom
-pressure falling at a steady flow (a washout), the differential pressure spiking with the bit stopped (a motor
-stall), and the pick-up weight leaving its own trend connection after connection (the hole getting tight).
+"""dysfunction - things a drilling record shows before the crew has to deal with them: the off-bottom pressure
+falling at a steady flow (a washout), the differential pressure spiking with the bit stopped (a motor stall), the
+pick-up weight leaving its own trend connection after connection (the hole getting tight) - and, since 0.100.0, the
+surface torque winding up and letting go (stick-slip), the hook load jumping from second to second (the bit
+bouncing), both in `stickslip`, and the friction factor that fits each connection's weights climbing (the hole
+holding the pipe), in `sticking`.
 
 Each is an old driller's rule, written down so it is applied to every stand of every well the same way, and each
 is replayed over the whole of a well's record so the page shows what it would have said and when - beside what
@@ -36,8 +39,9 @@ the rig did next.
   not a trend) or at the end of the record.
 
 The numbers 6 %, 100 psi, 60 %, 300 psi, 3 scatters and 10 klbf are settings (`records/dysfunction.json`), each
-changed with its source. An event at the end of a record that is still being written raises an alert
-(`drilling.washout`, `drilling.stall`, `drilling.tight`) once.
+changed with its source - as are the stick-slip swing, the bounce and the friction-factor rise of the other two
+modules. An event at the end of a record that is still being written raises an alert (`drilling.washout`,
+`drilling.stall`, `drilling.tight`, `drilling.stickslip`, `drilling.bounce`, `drilling.sticking`) once.
 
 What it will not call a measurement: a washout - the pressure fell at a steady flow, which is also a pump losing
 a valve, a lighter mud, a lost nozzle or a gauge; the trip finds which, and the page prints whether a trip
@@ -58,18 +62,24 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-DEFAULTS = {'washout_fall': 0.06, 'washout_min_psi': 100.0, 'stall_rise': 0.6, 'stall_min_psi': 300.0, 'drag_sigma': 3.0, 'drag_min_klbf': 10.0}
-BOUNDS = {'washout_fall': (0.02, 0.5), 'washout_min_psi': (20.0, 2000.0), 'stall_rise': (0.2, 5.0), 'stall_min_psi': (50.0, 3000.0), 'drag_sigma': (1.5, 10.0), 'drag_min_klbf': (2.0, 200.0)}
+from . import sticking as SK
+from . import stickslip as VB
+
+DEFAULTS = {'washout_fall': 0.06, 'washout_min_psi': 100.0, 'stall_rise': 0.6, 'stall_min_psi': 300.0, 'drag_sigma': 3.0, 'drag_min_klbf': 10.0, **VB.DEFAULTS, **SK.DEFAULTS}
+BOUNDS = {'washout_fall': (0.02, 0.5), 'washout_min_psi': (20.0, 2000.0), 'stall_rise': (0.2, 5.0), 'stall_min_psi': (50.0, 3000.0), 'drag_sigma': (1.5, 10.0), 'drag_min_klbf': (2.0, 200.0),
+          **VB.BOUNDS, **SK.BOUNDS}
 WORDS = {'washout_fall': 'the fall in off-bottom pressure that flags a reading, as a fraction', 'washout_min_psi': 'and the least fall in psi',
          'stall_rise': 'the rise in differential pressure over its median that is a stall, as a fraction', 'stall_min_psi': 'and the least rise in psi',
-         'drag_sigma': 'how many scatters off its trend a pick-up or slack-off weight is flagged at', 'drag_min_klbf': 'and the least distance in klbf'}
+         'drag_sigma': 'how many scatters off its trend a pick-up or slack-off weight is flagged at', 'drag_min_klbf': 'and the least distance in klbf', **VB.WORDS, **SK.WORDS}
 FLOW_EXP = 1.8
 WASH_BASE, WASH_MIN_BASE = 5, 3
 DRAG_BASE, DRAG_MIN_BASE, DRAG_MAX_EVENT = 15, 6, 12
 STALL_MAX_CADENCE_S = 5.0
 STALL_MAX_S = 90.0
 LIVE_SOURCE_S, LIVE_EVENT_S, LIVE_RECORD_S = 7200.0, 1800.0, 2 * 86400.0
-EVENTS = {'washout': 'drilling.washout', 'stall': 'drilling.stall', 'tight': 'drilling.tight'}
+EVENTS = {'washout': 'drilling.washout', 'stall': 'drilling.stall', 'tight': 'drilling.tight', 'stickslip': 'drilling.stickslip', 'bounce': 'drilling.bounce', 'sticking': 'drilling.sticking'}
+KINDS = tuple(EVENTS)
+LIST_MAX = 200
 _NAMES = {'diff': ('differential pressure', 'diff press', 'diff'), 'wob': ('weight on bit', 'wob')}
 _LOCK = threading.Lock()
 _MEMO: Dict[tuple, dict] = {}
@@ -434,8 +444,9 @@ def tight(readings: List[dict], trips: List[dict], P: dict) -> List[dict]:
 # --------------------------------------------------------------------------------------------------------------
 # one record, and the workspace
 # --------------------------------------------------------------------------------------------------------------
-def analyse_arrays(t: np.ndarray, t0: datetime, ch: Dict[str, Optional[np.ndarray]], drilling: np.ndarray, rs: dict, P: dict) -> dict:
-    """Everything for one record from its arrays and its rig states (`rs`: rig_state.analyse_arrays' result)."""
+def analyse_arrays(t: np.ndarray, t0: datetime, ch: Dict[str, Optional[np.ndarray]], drilling: np.ndarray, rs: dict, P: dict, su: Optional[dict] = None) -> dict:
+    """Everything for one record from its arrays and its rig states (`rs`: rig_state.analyse_arrays' result). `su`: what
+    the friction-factor rule needs of the well (sticking.setup), where the string is declared."""
     from . import rig_state as RS
     t = np.asarray(t, dtype=np.float64)
     st = rs['_state']
@@ -447,23 +458,33 @@ def analyse_arrays(t: np.ndarray, t0: datetime, ch: Dict[str, Optional[np.ndarra
     sl = stalls(t, ch, pumps, st == RS.SLIDE, P)
     wt = weights(t, ch, rs['connections'], np.isin(st, (RS.SLIPS, RS.OFFHOOK)))
     t_ev = tight(wt['readings'], rs['trips'], P) if wt['status'] == 'OK' else []
+    rotary = st == RS.ROT
+    ss = VB.stickslip(t, ch.get('torque'), rotary, ch.get('hole'), ch.get('rpm'), P)
+    bo = VB.bounce(t, ch.get('hookload'), rotary, ch.get('hole'), ch.get('wob'), P)
+    sk = SK.analyse(su or {'status': 'NO STRING', 'why': 'the drill string is not declared for this well (the Torque & drag tab: the sections from the bit up, the mud, the block)'},
+                    wt['readings'], rs['trips'], rs.get('block_weight_klbf'), P)
     outs = sorted(x['t_start'] for x in rs['trips'] if x.get('direction') == 'OUT')
     for e in sl['events']:
         k = int(np.searchsorted(outs, e['t']))
         if k < len(outs) and outs[k] - e['t'] <= 86400.0:
             e['trip_after_h'] = round((outs[k] - e['t']) / 3600.0, 2)
-    for e in w_ev + sl['events'] + t_ev:
+    for e in ss['events'] + bo['events']:
+        k = int(np.searchsorted(outs, e['t_last']))
+        if k < len(outs) and outs[k] - e['t_last'] <= 86400.0:
+            e['trip_out_after_h'] = round((outs[k] - e['t_last']) / 3600.0, 2)
+    for e in w_ev + sl['events'] + t_ev + ss['events'] + bo['events'] + sk['events']:
         e['time'] = stamp(e['t'])
         if e.get('t_last') is not None:
             e['last_time'] = stamp(e['t_last'])
-    for r in wr['readings'] + wt['readings']:
+    for r in wr['readings'] + wt['readings'] + sk['readings']:
         r['time'] = r.get('time') or stamp(r['t'])
     foot = rs.get('footage') or {}
     drilled = (foot.get('rotary_ft') or 0.0) + (foot.get('slide_ft') or 0.0)
     return {'t_end': float(t[-1]), 'record_end': stamp(t[-1]), 'record_start': stamp(t[0]), 'connections': len(rs['connections']), 'drilled_ft': round(drilled, 0),
             'washout': {**{k: v for k, v in wr.items() if k != 'readings'}, 'readings': wr['readings'], 'events': w_ev},
             'stall': {**sl, 'per_1000_ft': (round(len(sl['events']) / drilled * 1000.0, 2) if drilled > 0 and sl['status'] == 'OK' else None)},
-            'tight': {**{k: v for k, v in wt.items() if k != 'readings'}, 'readings': wt['readings'], 'events': t_ev}}
+            'tight': {**{k: v for k, v in wt.items() if k != 'readings'}, 'readings': wt['readings'], 'events': t_ev},
+            'stickslip': ss, 'bounce': bo, 'sticking': sk}
 
 
 def _find(c, names: Tuple[str, ...]) -> Optional[str]:
@@ -484,7 +505,7 @@ def well(ws, well_id: str) -> dict:
     c = DS._cache(ws, well_id, build=True)
     P = settings(ws)
     key = (ws.path, well_id, c.meta.get('built_utc'), c.meta.get('source_mtime'), c.meta.get('source_size'), tuple(P[k] for k in sorted(DEFAULTS)),
-           RS.settings(ws).get('block_weight_klbf', {}).get(well_id))
+           RS.settings(ws).get('block_weight_klbf', {}).get(well_id), SK.signature(ws, well_id))
     with _LOCK:
         if key in _MEMO:
             return _MEMO[key]
@@ -492,10 +513,18 @@ def well(ws, well_id: str) -> dict:
     ch = {k: (np.asarray(c.channel(v), dtype=np.float64) if v in c._ch else None) for k, v in RS._CH.items()}
     dn = _find(c, _NAMES['diff'])
     ch['diff'] = np.asarray(c.channel(dn), dtype=np.float64) if dn else None
+    tn, wn = _find(c, VB.TORQUE_NAMES), _find(c, _NAMES['wob'])
+    ch['torque'] = np.asarray(c.channel(tn), dtype=np.float64) if tn else None
+    ch['wob'] = np.asarray(c.channel(wn), dtype=np.float64) if wn else None
+    try:
+        su = SK.setup(ws, well_id)
+    except Exception as e:
+        su = {'status': 'NOT READ', 'why': f'{type(e).__name__}: {e}'}
     t0 = datetime.fromisoformat(c.meta['start_time']).replace(tzinfo=None)
-    r = analyse_arrays(np.asarray(c.index, dtype=np.float64), t0, ch, np.asarray(c.extra('drilling'), dtype=bool), rs, P)
+    r = analyse_arrays(np.asarray(c.index, dtype=np.float64), t0, ch, np.asarray(c.extra('drilling'), dtype=bool), rs, P, su)
     w = ws.well(well_id)
-    r.update(well=well_id, display=w.get('display') or well_id, source_mtime=c.meta.get('source_mtime'), channels={**{k: v for k, v in RS._CH.items() if ch.get(k) is not None}, **({'diff': dn} if dn else {})})
+    r.update(well=well_id, display=w.get('display') or well_id, source_mtime=c.meta.get('source_mtime'),
+             channels={**{k: v for k, v in RS._CH.items() if ch.get(k) is not None}, **({'diff': dn} if dn else {}), **({'torque': tn} if tn else {}), **({'wob': wn} if wn else {})})
     with _LOCK:
         if len(_MEMO) > 16:
             _MEMO.clear()
@@ -545,7 +574,7 @@ def live_events(ws, now: Optional[datetime] = None) -> List[dict]:
             continue
         if not is_live(r, now):
             continue
-        for kind in ('washout', 'stall', 'tight'):
+        for kind in KINDS:
             for e in r[kind]['events']:
                 if e.get('open') or (r['t_end'] - e['t']) <= LIVE_EVENT_S:
                     out.append({**e, 'well_id': wid, 'well': r['display'], 'event': EVENTS[kind], 'key': f"{EVENTS[kind]}:{wid}:{e['time']}", 'detail': describe(e)})
@@ -553,6 +582,10 @@ def live_events(ws, now: Optional[datetime] = None) -> List[dict]:
 
 
 def describe(e: dict) -> str:
+    if e['kind'] in ('stickslip', 'bounce'):
+        return VB.describe(e)
+    if e['kind'] == 'sticking':
+        return SK.describe(e)
     if e['kind'] == 'washout':
         return (f"off-bottom pressure {e['fall'] * 100:.0f}% ({e['fall_psi']:,.0f} psi) below the {e['baseline_psi']:,.0f} psi of the stands before, at {e['flow']:g} gal/min, "
                 f"from {e['depth_ft']:,.0f} ft over {e['readings']} connection(s)")
@@ -581,6 +614,12 @@ def page(ws, now: Optional[datetime] = None) -> dict:
         st['events'] = sorted(ev, key=lambda e: -e['rise_psi'])[:200] if len(ev) > 200 else ev
         st['listed'] = len(st['events'])
         row['stall'] = st
+        for kind, size in (('stickslip', 'swing'), ('bounce', 'bounce_klbf')):       # a long record can hold hundreds: the page lists the largest
+            d = dict(row[kind]); ev = d['events']
+            d['n'] = len(ev)
+            d['events'] = sorted(sorted(ev, key=lambda e: -e[size])[:LIST_MAX], key=lambda e: e['t']) if len(ev) > LIST_MAX else ev
+            d['listed'] = len(d['events'])
+            row[kind] = d
         out['wells'].append(row)
     if not out['wells']:
         out['status'] = 'EMPTY'
@@ -588,7 +627,7 @@ def page(ws, now: Optional[datetime] = None) -> dict:
         return out
     L = out['lines']
     for w in out['wells']:
-        wo, sl, tg = w['washout'], w['stall'], w['tight']
+        wo, sl, tg, ss, bo, sk = w['washout'], w['stall'], w['tight'], w['stickslip'], w['bounce'], w['sticking']
         bits = []
         if wo['status'] == 'OK':
             n = len(wo['events']); tr = sum(1 for e in wo['events'] if e.get('trip_after_h') is not None)
@@ -604,9 +643,24 @@ def page(ws, now: Optional[datetime] = None) -> dict:
             bits.append(f"{len(tg['events'])} tight-hole event(s) in {sum(1 for x in tg['readings'] if 'flagged' in x)} connections weighed")
         else:
             bits.append(f"tight hole not judged ({tg.get('why')})")
+        if ss['status'] == 'OK':
+            bits.append(f"{ss['n']} stick-slip event(s), {ss['flagged_min']:g} min of {ss['hours']:g} h of rotary drilling"
+                        + (f" ({ss['rocked_min']:g} min with the pipe rocked set aside)" if ss['rocked_min'] else ''))
+        else:
+            bits.append(f"stick-slip not judged ({ss.get('why')})")
+        if bo['status'] == 'OK':
+            bits.append(f"{bo['n']} bit-bounce event(s), {bo['flagged_min']:g} min")
+        else:
+            bits.append(f"bit bounce not judged ({bo.get('why')})")
+        if sk['status'] == 'OK':
+            bits.append(f"{len(sk['events'])} rise(s) in the friction factor over {sk['counts']['read']} connections"
+                        + (f" (pick-up factor {sk['median_out']:g} at the median)" if sk.get('median_out') is not None else ''))
+        else:
+            bits.append(f"friction factor not judged ({sk.get('why')})")
         L.append(f"{w['display']} ({w['record_start'][:10]} to {w['record_end'][:10]}, {w['drilled_ft']:,.0f} ft drilled" + (', still being written' if w['live'] else '') + '): ' + '; '.join(bits) + '.')
     L.append('Each rule is replayed over the whole record: what it would have said, and when. A washout event is a fall in pressure at a steady flow - the trip finds the cause; '
-             'a stall is a spike the bit stopped under; a tight-hole event is a pick-up weight off its own trend. No event means the rule did not fire, not that the string was sound.')
+             'a stall is a spike the bit stopped under; a tight-hole event is a pick-up weight off its own trend; stick-slip and bit bounce are read at the surface, once a second - what the bit did '
+             'is measured only by a tool at the bit; a rise in the friction factor is the hole holding the pipe harder, not a forecast of stuck pipe. No event means the rule did not fire, not that the string was sound.')
     from . import public_pad as _PP
     cr = _PP.credit(ws)
     if cr:
@@ -620,7 +674,7 @@ def page(ws, now: Optional[datetime] = None) -> dict:
 def all_events(p: dict) -> List[dict]:
     rows = []
     for w in p['wells']:
-        for kind in ('washout', 'stall', 'tight'):
+        for kind in KINDS:
             for e in w[kind]['events']:
                 rows.append({'well': w['display'], **e, 'what': describe(e)})
     return sorted(rows, key=lambda e: (e['well'], e['time']))
@@ -631,7 +685,8 @@ def text(p: dict) -> str:
     out.extend(p['lines'])
     for e in all_events(p)[:400]:
         tail = f" - {e['ended']}" + (f" {e['trip_after_h']:g} h later" if e.get('trip_after_h') is not None else '') if e.get('ended') else ''
-        out.append(f"  {e['well'][:18]:18s}  {e['time'][:16].replace('T', ' ')}  {e['kind']:8s}  {e['what']}{tail}")
+        tail += f"; a trip out of the hole {e['trip_out_after_h']:g} h after it" if e.get('trip_out_after_h') is not None else ''
+        out.append(f"  {e['well'][:18]:18s}  {e['time'][:16].replace('T', ' ')}  {e['kind']:9s}  {e['what']}{tail}")
     for n in p.get('notes', []):
         out.append('  note: ' + n)
     return '\n'.join(out)
@@ -649,7 +704,8 @@ def write_report(ws, program_version: str, actor: str = 'system') -> dict:
         wr = csv.writer(f)
         wr.writerow(['well', 'time', 'kind', 'depth_ft', 'what', 'ended', 'trip_after_h'])
         for e in all_events(p):
-            wr.writerow([e['well'], e['time'], e['kind'], e.get('depth_ft'), e['what'], e.get('ended') or '', e.get('trip_after_h') if e.get('trip_after_h') is not None else ''])
+            th = e.get('trip_after_h') if e.get('trip_after_h') is not None else e.get('trip_out_after_h')
+            wr.writerow([e['well'], e['time'], e['kind'], e.get('depth_ft'), e['what'], e.get('ended') or '', th if th is not None else ''])
     files = ['drilling_alerts.json', 'drilling_alerts.md', 'events.csv']
     ws.audit(actor, 'dysfunction.report', {'files': files, 'wells': [w['well'] for w in p['wells']], 'events': len(all_events(p))})
     return {'folder': d, 'files': files, 'page': p}
@@ -658,13 +714,14 @@ def write_report(ws, program_version: str, actor: str = 'system') -> dict:
 # --------------------------------------------------------------------------------------------------------------
 # the labelled record and the self-test
 # --------------------------------------------------------------------------------------------------------------
-def synthetic_record(faults: bool = True, seed: int = 3, stands: int = 40, ends_now: bool = False) -> dict:
+def synthetic_record(faults: bool = True, seed: int = 3, stands: int = 40, ends_now: bool = False, weights=None) -> dict:
     """A one-second record of `stands` stands of 95 ft at 150 ft/h with a connection after each (30 s picked up off
     bottom with the pumps on, four minutes in the slips, a minute back to bottom). With `faults`: stands 10-14 at
     500 gal/min instead of 550 (NOT a washout); three motor stalls (stands 5, 16, 17: +700 psi for 15 s, the bit
     stopped, then picked up); the off-bottom pressure falling 3.5 % a stand from stand 18 until a trip out of 2,000 ft
     after stand 23, sound again after it; the pick-up weight climbing 6 klbf a connection from stand 34 to the end of
-    the record. `ends_now` dates it so that its last sample is now. SIMULATION."""
+    the record. `ends_now` dates it so that its last sample is now. `weights(k, hole_ft)` gives stand k's pick-up and
+    slack-off weight in place of the ones here (the friction-factor rule's made hole). SIMULATION."""
     rng = np.random.default_rng(seed)
     cols: Dict[str, list] = {k: [] for k in ('hole', 'bit', 'hookload', 'block', 'flow', 'spp', 'rpm', 'diff', 'drill')}
     S = {'hole': 10000.0, 'bit': 10000.0, 'block': 105.0, 'ref': 0.0}
@@ -692,6 +749,8 @@ def synthetic_record(faults: bool = True, seed: int = 3, stands: int = 40, ends_
         p_off = lambda d: 2600.0 * (q / 550.0) ** FLOW_EXP * (1.0 + (d - 10000.0) / 60000.0) * wf
         pu = 200.0 + 0.002 * (S['hole'] - 10000.0) + dadd + rng.normal(0, 1.0)
         so = 185.0 - 0.001 * (S['hole'] - 10000.0) - 0.7 * dadd + rng.normal(0, 1.0)
+        if weights is not None:
+            pu, so = weights(k, S['hole'])
         if S['ref'] == 0.0:
             S['ref'] = p_off(S['hole'])
         parts = [(0.4, True), (0.6, False)] if (faults and k in (5, 16, 17)) else [(1.0, False)]
@@ -739,6 +798,9 @@ def write_edr(rec: dict, path: str) -> str:
     ch = rec['ch']; t0 = rec['t0']
     hdr = ['YYYY/MM/DD', 'HH:MM:SS', 'Hole Depth (feet)', 'Bit Depth (feet)', 'Rate Of Penetration (ft_per_hr)', 'Weight on Bit (klbs)', 'Rotary RPM (RPM)', 'Standpipe Pressure (psi)',
            'Hook Load (klbs)', 'Differential Pressure (psi)', 'Total Pump Output (gal_per_min)', 'Block Height (feet)', 'On Bottom (unitless)']
+    tq = ch.get('torque')                                  # a record given a surface torque (stickslip.add_swings) carries it as the recorder would
+    if tq is not None:
+        hdr.append('Convertible Torque (kft_lb)')
     with open(path, 'w', encoding='utf-8', newline='') as f:
         w = csv.writer(f)
         w.writerow(hdr)
@@ -747,14 +809,14 @@ def write_edr(rec: dict, path: str) -> str:
             ts = t0 + timedelta(seconds=float(rec['t'][i]))
             on = int(ch['hole'][i] - ch['bit'][i] < 0.5)
             w.writerow([ts.strftime('%Y/%m/%d'), ts.strftime('%H:%M:%S'), f"{ch['hole'][i]:.2f}", f"{ch['bit'][i]:.2f}", f"{150.0 if d[i] else 0.0:.1f}", f"{20.0 if d[i] else 0.0:.1f}", f"{ch['rpm'][i]:.1f}",
-                        f"{ch['spp'][i]:.1f}", f"{ch['hookload'][i]:.1f}", f"{ch['diff'][i]:.1f}", f"{ch['flow'][i]:.1f}", f"{ch['block'][i]:.2f}", str(on)])
+                        f"{ch['spp'][i]:.1f}", f"{ch['hookload'][i]:.1f}", f"{ch['diff'][i]:.1f}", f"{ch['flow'][i]:.1f}", f"{ch['block'][i]:.2f}", str(on)] + ([f"{tq[i]:.3f}"] if tq is not None else []))
     return path
 
 
 def analyse_record(rec: dict, P: Optional[dict] = None) -> dict:
     from . import rig_state as RS
     rs = RS.analyse_arrays(rec['t'], rec['t0'], rec['ch'], rec['drilling'], rec['ch']['hole'], rec.get('block_weight'))
-    return analyse_arrays(rec['t'], rec['t0'], rec['ch'], rec['drilling'], rs, {**DEFAULTS, **(P or {})})
+    return analyse_arrays(rec['t'], rec['t0'], rec['ch'], rec['drilling'], rs, {**DEFAULTS, **(P or {})}, rec.get('su'))
 
 
 def selftest() -> dict:
@@ -776,7 +838,23 @@ def selftest() -> dict:
     checks.append({'check': 'the tightening hole: one event from the second or third connection of the climb, open at the end of the record', 'value': [(e['time'], e['depth_ft'], e['connections'], e['pickup_over_klbf'], e['ended']) for e in te],
                    'pass': len(te) == 1 and 10000 + 95 * 34 <= te[0]['depth_ft'] <= 10000 + 95 * 37 and te[0].get('open') and 20 <= te[0]['pickup_over_klbf'] <= 36 and te[0]['slackoff_under_klbf'] > 8})
     clean = analyse_record(synthetic_record(False))
-    checks.append({'check': 'a sound record: no event of any kind', 'value': {k: len(clean[k]['events']) for k in ('washout', 'stall', 'tight')}, 'pass': all(len(clean[k]['events']) == 0 for k in ('washout', 'stall', 'tight'))})
+    checks.append({'check': 'a sound record: no event of any kind', 'value': {k: len(clean[k]['events']) for k in KINDS}, 'pass': all(len(clean[k]['events']) == 0 for k in KINDS)})
+    sw = analyse_record(VB.add_swings(synthetic_record(True)))
+    ss, bo = sw['stickslip'], sw['bounce']
+    checks.append({'check': 'the same record given a surface torque: the saw-tooth of stands 3 and 4 is one stick-slip event with its period, the rocked stand is set aside, the bounce is one event, '
+                            'and the washout, the stalls and the tight hole are read as before',
+                   'value': [[(e['time'], e['minutes'], e['swing'], e['period_s']) for e in ss['events']], ss['rocked_min'], [(e['time'], e['minutes'], e['bounce_klbf']) for e in bo['events']],
+                             {k: len(sw[k]['events']) for k in ('washout', 'stall', 'tight')}],
+                   'pass': len(ss['events']) == 1 and abs(ss['events'][0]['period_s'] - VB.MADE_PERIOD_S) <= 0.5 and 60 <= ss['events'][0]['minutes'] <= 80 and ss['rocked_min'] >= 30
+                           and len(bo['events']) == 1 and 6.0 <= bo['events'][0]['bounce_klbf'] <= 10.0 and [len(sw[k]['events']) for k in ('washout', 'stall', 'tight')] == [1, 3, 1]})
+    hole = SK.made_hole()
+    made = synthetic_record(False, stands=60, weights=lambda k, d: (SK.made_weight(hole, d, SK.made_factor(k), 'out'), SK.made_weight(hole, d, SK.made_factor(k), 'in')))
+    made['su'] = hole
+    sk = analyse_record(made)['sticking']
+    checks.append({'check': 'a made hole whose friction factor climbs from the 41st connection: the factor read at each connection from the record itself, one event, open at the end; the tight-hole rule, '
+                            'which follows a slow climb, says nothing', 'value': [sk['status'], sk.get('counts'), [(e['which'], e['depth_ft'], e['mu_from'], e['mu_to'], e['ended']) for e in sk['events']]],
+                   'pass': sk['status'] == 'OK' and sk['counts']['read'] >= 58 and len(sk['events']) == 1 and sk['events'][0].get('open') and abs(sk['events'][0]['mu_from'] - 0.24) <= 0.03
+                           and sk['events'][0]['mu_to'] >= 0.33})
     strict = analyse_record(rec, {'washout_fall': 0.3, 'stall_min_psi': 900.0, 'drag_min_klbf': 60.0})
     checks.append({'check': 'the settings are the rule: at 30 %, 900 psi and 60 klbf none of it is an event', 'value': {k: len(strict[k]['events']) for k in ('washout', 'stall', 'tight')},
                    'pass': all(len(strict[k]['events']) == 0 for k in ('washout', 'stall', 'tight'))})
@@ -784,4 +862,6 @@ def selftest() -> dict:
     checks.append({'check': 'a record every ten seconds is not judged for stalls, and says so', 'value': coarse['status'], 'pass': coarse['status'] == 'TOO COARSE' and not coarse['events']})
     m, c, sc = _line(np.arange(15.0) * 100.0, 200.0 + 0.02 * np.arange(15.0) * 100.0 + np.r_[np.zeros(14), 50.0])
     checks.append({'check': 'the trend line shrugs off one wild point (Theil-Sen)', 'value': [round(m, 4), round(c, 2)], 'pass': abs(m - 0.02) < 1e-6 and abs(c - 200.0) < 1e-6})
+    checks.extend(VB.selftest()['checks'])
+    checks.extend(SK.selftest()['checks'])
     return {'ok': all(x['pass'] for x in checks), 'checks': checks, 'label': 'SIMULATION'}

@@ -68,7 +68,7 @@ EXAMPLE = {
 }
 EVENTS = ('alarm.activated', 'alarm.shelved', 'job.failed', 'patch.down', 'patch.up', 'approval.pending', 'file.imported', 'test',
           'seismic.protocol', 'seismic.event', 'seismic.watch_down', 'seismic.watch_up', 'motor.due', 'penetrator.outside', 'dossier.changed',
-          'condition.cleared', 'pad.summary', 'invoice.differs', 'frac.hit', 'tls.expiring', 'drilling.washout', 'drilling.stall', 'drilling.tight', 'kick.flowback', 'kick.gain', 'kick.loss', 'trip.fill', 'trip.loss', 'trip.unread', 'hardline.warn', 'hardline.setback', 'hardline.crossed')
+          'condition.cleared', 'pad.summary', 'invoice.differs', 'frac.hit', 'tls.expiring', 'drilling.washout', 'drilling.stall', 'drilling.tight', 'drilling.stickslip', 'drilling.bounce', 'drilling.sticking', 'kick.flowback', 'kick.gain', 'kick.loss', 'trip.fill', 'trip.loss', 'trip.unread', 'hardline.warn', 'hardline.setback', 'hardline.crossed')
 _LOCK = threading.Lock()
 
 
@@ -189,8 +189,10 @@ def _subject(ev: dict) -> str:
         return f"[GEA] HTTPS certificate: {ev.get('detail', '')}"
     if k == 'frac.hit':
         return f"[GEA] frac hit: stage {ev.get('stage', '')} of {w} on {ev.get('monitor', '')} - {ev.get('detail', '')}"
-    if k in ('drilling.washout', 'drilling.stall', 'drilling.tight'):
-        return f"[GEA] {dict(washout='off-bottom pressure falling', stall='motor stall', tight='pick-up weight off its trend')[k.split('.')[1]]} on {w}: {ev.get('detail', '')}"
+    if k in ('drilling.washout', 'drilling.stall', 'drilling.tight', 'drilling.stickslip', 'drilling.bounce', 'drilling.sticking'):
+        _names = dict(washout='off-bottom pressure falling', stall='motor stall', tight='pick-up weight off its trend', stickslip='stick-slip in the surface torque', bounce='the hook load jumping (bit bounce)',
+                      sticking='friction factor rising')
+        return f"[GEA] {_names[k.split('.')[1]]} on {w}: {ev.get('detail', '')}"
     if k in ('kick.flowback', 'kick.gain', 'kick.loss'):
         return f"[GEA] {dict(flowback='flowback above its fingerprint', gain='pit gain with the returns up', loss='pit fall with the returns down')[k.split('.')[1]]} on {w}: {ev.get('detail', '')}"
     if k in ('trip.fill', 'trip.loss', 'trip.unread'):

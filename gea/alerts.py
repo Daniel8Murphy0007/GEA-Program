@@ -20,6 +20,10 @@ worth an event, for the conditions the operator does not watch by hand:
 - `drilling.washout`, `drilling.stall`, `drilling.tight` - in a drilling record still being written (its file changed
   in the last two hours), a washout or tight-hole event open at its end, or a motor stall in its last half hour (the
   Drilling alerts tab; checked every 15 minutes, once per event);
+- `drilling.stickslip`, `drilling.bounce`, `drilling.sticking` - in a drilling record still being written: the surface
+  torque swinging with one period (stick-slip) or the hook load jumping from second to second (the bit bouncing),
+  under way at its end or begun in its last half hour; and the friction factor that fits the connections' weights
+  risen over the connections before, still rising at its end (the Drilling alerts tab; once per event);
 - `kick.flowback`, `kick.gain`, `kick.loss` - in a drilling record still being written, in its last half hour: a
   flowback above the fingerprint of the connections before it, a gain in the pits with the returns up, or a fall with
   the returns down (the Kick & loss tab; checked every 15 minutes, once per event);
@@ -48,7 +52,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 EVENTS = ('seismic.protocol', 'seismic.event', 'seismic.watch_down', 'seismic.watch_up', 'motor.due', 'penetrator.outside',
-          'dossier.changed', 'invoice.differs', 'frac.hit', 'drilling.washout', 'drilling.stall', 'drilling.tight', 'kick.flowback', 'kick.gain', 'kick.loss', 'trip.fill', 'trip.loss', 'trip.unread', 'hardline.warn', 'hardline.setback', 'hardline.crossed', 'tls.expiring', 'condition.cleared')
+          'dossier.changed', 'invoice.differs', 'frac.hit', 'drilling.washout', 'drilling.stall', 'drilling.tight', 'drilling.stickslip', 'drilling.bounce', 'drilling.sticking', 'kick.flowback', 'kick.gain', 'kick.loss', 'trip.fill', 'trip.loss', 'trip.unread', 'hardline.warn', 'hardline.setback', 'hardline.crossed', 'tls.expiring', 'condition.cleared')
 CONDITIONS_EVERY_S = 900          # motors and penetrators: every 15 minutes
 DOSSIERS_EVERY_S = 86400          # dossiers: once a day
 _LOCK = threading.Lock()

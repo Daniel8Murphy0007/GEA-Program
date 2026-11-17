@@ -10,7 +10,11 @@ Three checks, each printed, all three gating (exit 1 on any finding):
      paho-mqtt, xlrd, pyserial) and gea itself. No other package, ever.
   2. text: no tracked text file names another program's package, module or
      document-numbering scheme. The list of patterns is at the top of this file;
-     add to it, never remove.
+     add to it, never remove. One pattern was changed, by the owner's decision of
+     2026-11-17, when GEA's own minor version reached three digits: a tag written
+     v0.NNN.x used to be turned away outright, as that other program's; it is now
+     turned away only when NNN is above GEA's own version (gea/__init__.py), so
+     GEA's numbering goes on and a tag GEA has not reached is still not GEA's.
   3. metadata: pyproject.toml declares no dependency outside the allowed set,
      and the package data list names only files that exist.
 
@@ -42,7 +46,6 @@ FOREIGN_PATTERNS = [
     r'IMPORT_RECORD',              # the import record it produced
     r'register_audit',             # the audit that measured what the import left behind
     r'\bv1\.\d+\.\d+\b',           # that program's simulator version chain (GEA is 0.x)
-    r'\bv0\.[1-9]\d{2}\.\d+\b',    # that program's own version chain (three-digit minor)
     r'22Aug2026|grok_',            # the design-note thread the first template came from
     r'\bRule 7\b|\bPAPER_',        # its rule names and paper numbers
     r'aetheric',                   # sibling programs
@@ -58,6 +61,19 @@ FOREIGN_PATTERNS = [
 # A FOREIGN pattern may be named in a changelog or history line that records its removal: mark that line
 # '# standalone-check: allow' is not available in Markdown, so those two files are read with the removal
 # words themselves stripped first (the guard still fails on any other occurrence).
+# A tag with a three-digit minor is GEA's own up to the version GEA has reached, and another program's above it.
+AHEAD_TAG = re.compile(r'\bv0\.([1-9]\d{2})\.\d+\b')
+
+
+def own_minor() -> int:
+    """The minor of GEA's own version, from gea/__init__.py (0 where it cannot be read: every such tag is then turned away)."""
+    try:
+        m = re.search(r'^__version__\s*=\s*["\']0\.(\d+)\.\d+', open(os.path.join(ROOT, 'gea', '__init__.py'), encoding='utf-8').read(), re.M)
+        return int(m.group(1)) if m else 0
+    except OSError:
+        return 0
+
+
 REMOVAL_CONTEXT_FILES = ('CHANGELOG.md', 'docs/HISTORY.md', 'docs/SESSION_LOG.md')
 TEXT_EXT = {'.py', '.md', '.txt', '.toml', '.yml', '.yaml', '.json', '.csv', '.cff', '.ps1', '.sh', '.html', '.gitignore', '.gitattributes'}
 SELF = os.path.relpath(os.path.abspath(__file__), ROOT).replace(os.sep, '/')
@@ -103,6 +119,7 @@ def check_imports() -> list[str]:
 def check_text(files: list[str]) -> list[str]:
     findings = []
     rx = re.compile('|'.join(f'({p})' for p in FOREIGN_PATTERNS), re.IGNORECASE)
+    own = own_minor()
     for rel in files:
         if rel == SELF:
             continue
@@ -124,6 +141,9 @@ def check_text(files: list[str]) -> list[str]:
             m = rx.search(line)
             if m:
                 findings.append(f'{rel}:{i}: {m.group(0)!r} in: {line.strip()[:90]}')
+            ahead = [a.group(0) for a in AHEAD_TAG.finditer(line) if int(a.group(1)) > own]
+            if ahead:
+                findings.append(f'{rel}:{i}: {ahead[0]!r} (a version GEA has not reached: its own is 0.{own}) in: {line.strip()[:90]}')
     return findings
 
 

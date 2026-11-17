@@ -856,7 +856,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.99.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.100.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1081,6 +1081,26 @@ said and when, and what the rig did next - whether a trip out of the hole
 followed. The thresholds are settings, each changed with its source. On a
 record still being written an event raises an alert once. The **Drilling
 alerts** tab, `gea dysfunction`, `gea help dysfunction`.
+
+Three more rules read the string itself. **Stick-slip**: in two-minute
+blocks of rotary drilling the surface torque's swing at periods of 3 to 15
+seconds, as a share of the torque; a block is flagged when the swing is a
+tenth or more and one period carries it - the string winding up and letting
+go - and what is not that is set aside and counted: the pipe rocked while
+sliding, a swing at the rotary's own speed folded by the once-a-second
+sampling, a swing with no period. **Bit bounce**: the hook load jumping
+from one second to the next about its own level. **The friction factor at
+each connection**: the Torque & drag page fits one friction factor to a
+whole well; this asks the same model, with the string declared there, what
+factor makes the string weigh what the hook read at every connection - a
+number with the depth and the shape of the hole taken out of it - and flags
+it climbing over the connections before: the slow climb that the tight-hole
+rule follows without a word. On the public Utah FORGE records the torque of
+16A(78)-32 is flagged for ten of its 258 hours of rotary drilling, the
+period lengthening with depth as a longer string's must. What none of it is:
+a measurement at the bit (a surface reading, once a second, is a floor), a
+word on sideways vibration (it does not reach the surface), or a forecast
+of stuck pipe.
 
 ### Kick and loss detection
 
@@ -1990,7 +2010,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.99.0.exe` (for 0.99.0): the
+Every release also carries `GEA-Program-Setup-0.100.0.exe` (for 0.100.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -2009,7 +2029,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.99.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.100.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

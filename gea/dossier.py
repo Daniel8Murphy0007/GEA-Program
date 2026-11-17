@@ -448,7 +448,7 @@ def _results(ws, well_id: Optional[str]) -> List[tuple]:
                 out.append(('results/roadmap.json', json.dumps(rp, indent=1, sort_keys=True, default=str).encode('utf-8')))
             dp = DYd.page(ws)
             if dp['status'] == 'OK':
-                slim = [{**w, **{k: {kk: vv for kk, vv in w[k].items() if kk != 'readings'} for k in ('washout', 'tight')}} for w in dp['wells']]
+                slim = [{**w, **{k: {kk: vv for kk, vv in w[k].items() if kk not in ('readings', 'series')} for k in ('washout', 'tight', 'stickslip', 'bounce', 'sticking') if k in w}} for w in dp['wells']]
                 out.append(('results/drilling_alerts.json', json.dumps({**dp, 'wells': slim}, indent=1, sort_keys=True, default=str).encode('utf-8')))
     except Exception as e:
         out.append(('results/drilling_not_run.txt', f'the roadmap and the drilling alerts did not run: {type(e).__name__}: {e}\n'.encode('utf-8')))
