@@ -1,22 +1,20 @@
-v0.98.0 — THE TRIP SHEET, AND KICK AND LOSS ON ALL FIVE PUBLIC WELLS
+v0.99.0 — THE TRIP SHEET'S ALERTS
 
-Added: the Trip sheet tab, under Drilling. For every trip of 1,000 ft or
-more, the mud the hole took or gave beside what the pipe accounts for -
-read from the trip tank where the record carries one that moves with the
-pipe, and otherwise from the pits. A trip where neither moved is said to
-be not read: a blank is not a short fill. Mud moved at surface is taken
-out; the change during a break is not counted. The pipe is declared with
-its source; without one, each trip is set against the well's own like
-trips. gea trip-sheet, gea help trip-sheet, the assistant's trip_sheet.
+Added: on a drilling record still being written, a trip that departs
+raises an alert once, while it is under way or within half an hour of
+its end - trip.fill for more mud at surface than the pipe accounts for
+(a short fill pulling out, a hole that gave more running in), trip.loss
+for losses. They go to the Alarms tab and the notification rules.
 
-Added: kick and loss now judges all five Utah FORGE wells. The pit
-volume and return flow of the 16A(78)-32 and 58-32 files are kept when
-they are written out; a public site made earlier is given them by Make
-the site once more.
+Added: trip.unread - a trip under way in which nothing in the record
+moves with the pipe, where the trip before it was read. The hole is
+being filled from another tank, or it is taking nothing; the record
+cannot tell which, and the alert says so.
 
-On the public pad no record carries a trip tank that moves, so every
-trip there is read from the pits and each well is set against itself:
-16B(78)-32 took 0.85 bbl per 100 ft pulling out and gave 1.78 running
-in, at the median.
+Changed: a trip marked not read is described as either - another tank,
+or a hole that took nothing. It had been described as the first alone.
 
-Gate 608.
+A trip is judged once the pipe has moved 1,000 ft. The Trip sheet tab
+marks the record being written and the trip under way.
+
+Gate 611.

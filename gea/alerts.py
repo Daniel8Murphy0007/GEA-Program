@@ -23,6 +23,10 @@ worth an event, for the conditions the operator does not watch by hand:
 - `kick.flowback`, `kick.gain`, `kick.loss` - in a drilling record still being written, in its last half hour: a
   flowback above the fingerprint of the connections before it, a gain in the pits with the returns up, or a fall with
   the returns down (the Kick & loss tab; checked every 15 minutes, once per event);
+- `trip.fill`, `trip.loss`, `trip.unread` - in a drilling record still being written, a trip of 1,000 ft or more,
+  under way or ended in its last half hour, whose mud departs from what the pipe accounts for: more at surface (a
+  short fill pulling out, a hole that gave more running in), or losses; and a trip under way in which nothing moves
+  with the pipe where the trip before it was read (the Trip sheet tab; checked every 15 minutes, once per trip);
 - `hardline.warn`, `hardline.setback`, `hardline.crossed` - in a drilling record still being written, the bit within
   the warning distance of a declared boundary's hard line, inside its setback, or over the boundary (the Hard line
   tab; checked every 15 minutes, once a well, a boundary and a level);
@@ -44,7 +48,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 EVENTS = ('seismic.protocol', 'seismic.event', 'seismic.watch_down', 'seismic.watch_up', 'motor.due', 'penetrator.outside',
-          'dossier.changed', 'invoice.differs', 'frac.hit', 'drilling.washout', 'drilling.stall', 'drilling.tight', 'kick.flowback', 'kick.gain', 'kick.loss', 'hardline.warn', 'hardline.setback', 'hardline.crossed', 'tls.expiring', 'condition.cleared')
+          'dossier.changed', 'invoice.differs', 'frac.hit', 'drilling.washout', 'drilling.stall', 'drilling.tight', 'kick.flowback', 'kick.gain', 'kick.loss', 'trip.fill', 'trip.loss', 'trip.unread', 'hardline.warn', 'hardline.setback', 'hardline.crossed', 'tls.expiring', 'condition.cleared')
 CONDITIONS_EVERY_S = 900          # motors and penetrators: every 15 minutes
 DOSSIERS_EVERY_S = 86400          # dossiers: once a day
 _LOCK = threading.Lock()
@@ -208,6 +212,18 @@ def check_conditions(ws, notifier, now: Optional[datetime] = None, force: bool =
             st['kick_seen'] = sorted(done)[-1000:]
         except Exception as ex:
             last['kick_error'] = f'{type(ex).__name__}: {ex}'
+        try:
+            from . import trip_sheet as TS
+            done = set(st.setdefault('trip_seen', []))
+            for e in TS.live_events(ws, now):
+                if e['key'] in done:
+                    continue
+                done.add(e['key'])
+                raised.append(raise_alert(ws, notifier, {'event': e['event'], 'key': e['key'], 'well_id': e['well_id'], 'well': e['well'], 'what': f"the trip under way on {e['well']}" if e['under_way'] else f"a trip on {e['well']}",
+                                                         'depth_ft': e.get('depth_ft'), 'time': e['time'], 'detail': e['detail']}, now))
+            st['trip_seen'] = sorted(done)[-1000:]
+        except Exception as ex:
+            last['trip_error'] = f'{type(ex).__name__}: {ex}'
         try:
             from . import hardline as HL
             if HL.settings(ws)['boundaries']:

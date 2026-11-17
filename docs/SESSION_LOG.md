@@ -4415,3 +4415,32 @@ sheet would be dropped if the trip-tank columns were empty in the trips.
 - Every command and both pages run on the owner's machine against the
   real files before the gate. Section EQ, three checks. Every tab opened
   in a window with storage denied. Gate 608.
+
+## 2026-11-17 - the trip sheet's alerts (v0.99.0)
+
+The trip sheet shipped reading a record when its page was opened. A
+short fill matters while the trip is under way.
+
+- The alert follows the others: every fifteen minutes, on a record whose
+  file changed in the last two hours and whose last sample is near now,
+  once per trip. A trip under way is already one of the rig-time page's
+  trips as soon as the pipe has moved 1,000 ft, so nothing new decides
+  what a trip is; the price is that the first ten stands are not judged,
+  and the page and the help say so.
+- Writing the test found what the first version's words had wrong. The
+  made record ended in a trip whose hole took nothing, and the page
+  called it not read - correctly: nothing moved with the pipe. But the
+  words said such a hole "was filled from a tank the record does not
+  carry". A hole that takes nothing at all looks exactly the same. The
+  record cannot tell them apart, and the page, the help and the report
+  now say that.
+- That case is the one a driller most needs told about, and it cannot be
+  called a short fill. So a third alert, trip.unread: a trip under way in
+  which nothing moves with the pipe, where the trip before it was read
+  from the same record. It says both readings and asks for a look. It
+  needs no pipe declared; the other two need something to set the trip
+  against.
+- Section ER, three checks: three records that end now in a trip under
+  way (a short fill, losses, nothing moving), the same record dated
+  months ago, and one that ends now with its last trip over. Every tab
+  opened in a window with storage denied. Gate 611.

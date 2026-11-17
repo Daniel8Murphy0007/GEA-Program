@@ -4,6 +4,15 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.99.0 - 2026-11-17 - the trip sheet's alerts
+
+- On a record still being written: trip.fill and trip.loss for a trip
+  that departs, once, under way or within half an hour of its end;
+  trip.unread for a trip under way that stops being read.
+- A trip not read is said to be either another tank or a hole that took
+  nothing: the record cannot tell which.
+- Gate 611.
+
 ## v0.98.0 - 2026-11-16 - the trip sheet, and kick and loss on all five public wells
 
 - Trip sheet: each trip's mud against the pipe that was moved, from the

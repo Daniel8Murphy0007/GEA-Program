@@ -19439,6 +19439,121 @@ def section_ej_frac_treatment(tmp: str) -> None:
        "page with the published figures it was checked against, the README and lesson 14" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_er_trip_alerts(tmp: str) -> None:
+    """Section ER - the trip sheet on a record still being written: a trip under way that departs raises an alert
+    once - more mud at surface than the pipe accounts for, or losses - and a trip under way in which nothing moves
+    with the pipe, where the trip before it was read, raises the third; a record that is not being written raises
+    none, and neither does a trip that ended long before the record's end; the notice, the Alarms tab's names, the
+    page's marks, the help and the lesson."""
+    import http.cookiejar
+    import urllib.error
+    import urllib.request
+    from . import alerts as AL
+    from . import helplib as H
+    from . import notify as NT
+    from . import trip_sheet as TS
+    from .service import Service, Users
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "er"); d.mkdir()
+    os.environ["GEA_WORKSPACES_FILE"] = str(d / "workspaces.json")
+    # -- ER1 what is raised, and what is not --------------------------------------------------------------------------------
+    made = {}
+    for nm_, share_ in (("fill", 0.4), ("loss", 1.6), ("unread", 0.0)):
+        syn = TS.synthetic_edr(str(d / f"{nm_}.csv"), ends_now=True, under_way_ft=1200.0, under_way_share=share_)
+        ws_ = Workspace.create(str(d / f"ws-{nm_}"), f"Pad {nm_}", actor="tester")
+        w_ = ws_.add_well_file(syn["path"], display="Trip L", actor="tester")
+        before = TS.live_events(ws_)
+        TS.declare_pipe(ws_, "tester", w_["id"], 5.0, 4.276, "pipe tally (gate)", weight_lb_ft=22.6)
+        made[nm_] = {"ws": ws_, "well": w_, "before": before, "events": TS.live_events(ws_), "page": TS.page(ws_)}
+    old = TS.synthetic_edr(str(d / "old.csv"), under_way_ft=1200.0, under_way_share=0.4)             # the same record, dated months ago
+    ws_old = Workspace.create(str(d / "ws-old"), "Pad old", actor="tester")
+    w_old = ws_old.add_well_file(old["path"], display="Trip O", actor="tester")
+    TS.declare_pipe(ws_old, "tester", w_old["id"], 5.0, 4.276, "pipe tally (gate)", weight_lb_ft=22.6)
+    ev_old, p_old = TS.live_events(ws_old), TS.page(ws_old)
+    whole = TS.synthetic_edr(str(d / "whole.csv"), ends_now=True)                                        # ends now, no trip under way: its last trip is not read, and is over
+    ws_wh = Workspace.create(str(d / "ws-whole"), "Pad whole", actor="tester")
+    w_wh = ws_wh.add_well_file(whole["path"], display="Trip W", actor="tester")
+    TS.declare_pipe(ws_wh, "tester", w_wh["id"], 5.0, 4.276, "pipe tally (gate)", weight_lb_ft=22.6)
+    ev_wh = TS.live_events(ws_wh)
+    ef, el_, eu = made["fill"]["events"], made["loss"]["events"], made["unread"]["events"]
+    tf = made["fill"]["page"]["wells"][0]["trips"]
+    c1 = {
+        "fill": len(ef) == 1 and ef[0]["event"] == "trip.fill" and ef[0]["status"] == "SHORT FILL" and ef[0]["under_way"] is True and ef[0]["trip"] == 7 and ef[0]["well"] == "Trip L"
+                and ef[0]["detail"].startswith("short fill - pulling out") and "to the end of the record" in ef[0]["detail"] and "bbl short" in ef[0]["detail"] and ef[0]["key"].startswith("trip.fill:") and ef[0]["key"].endswith(":SHORT FILL"),
+        "loss": len(el_) == 1 and el_[0]["event"] == "trip.loss" and el_[0]["status"] == "TOOK MORE" and "bbl more" in el_[0]["detail"],
+        "unread": len(eu) == 1 and eu[0]["event"] == "trip.unread" and eu[0]["status"] == "NOT READ" and "nothing in the record is moving with the pipe" in eu[0]["detail"]
+                  and "read from the pits" in eu[0]["detail"] and "or it is taking nothing" in eu[0]["detail"],
+        "needs_basis": made["fill"]["before"] == [] and made["loss"]["before"] == [] and [e_["event"] for e_ in made["unread"]["before"]] == ["trip.unread"],
+        "marks": [x["status"] for x in tf] == ["AS EXPECTED", "AS EXPECTED", "SHORT FILL", "AS EXPECTED", "AS EXPECTED", "SHORT RETURN", "SHORT FILL"] and [x["under_way"] for x in tf] == [False] * 6 + [True]
+                 and made["fill"]["page"]["wells"][0]["live"] is True and abs(tf[6]["feet"] - 1200.0) < 5.0 and abs(tf[6]["departure_bbl"] - 0.6 * 0.8224 * 12.0) < 0.4 and tf[6]["tolerance_bbl"] == 5.0,
+        "earlier_trips_quiet": all(e_["trip"] == 7 for e_ in ef + el_ + eu),
+        "not_live": ev_old == [] and p_old["wells"][0]["live"] is False and p_old["wells"][0]["trips"][6]["status"] == "SHORT FILL" and p_old["wells"][0]["trips"][6]["under_way"] is True,
+        "over": ev_wh == [],
+        "rules": TS.EVENTS == {"gain": "trip.fill", "loss": "trip.loss", "unread": "trip.unread"} and TS.LIVE_EVENT_S == 1800.0 and made["fill"]["page"]["rules"]["live_event_s"] == 1800.0,
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "ER1 on a record whose last sample is now, stopped in a trip out of 1,200 ft: the hole taking four tenths of what the pipe accounts for is trip.fill, a short fill of 5.9 bbl so far; taking "
+       "half as much again is trip.loss; nothing moving with the pipe, where the trip before was read from the pits, is trip.unread, and says the record cannot tell another tank from a hole "
+       "taking nothing. With no pipe declared the first two are not raised - there is nothing to set the trip against - and the third still is. The earlier trips of the same record raise "
+       "nothing; the same record dated months ago raises nothing; a record that ends now with its last trip over and unread raises nothing"
+       + (f" [failed: {', '.join(failed1)}; {[(e_['event'], e_['trip']) for e_ in ef + el_ + eu]}; old {ev_old}; whole {ev_wh}]" if failed1 else ""))
+    # -- ER2 the alert, once, with its notice ------------------------------------------------------------------------------
+    wsf = made["fill"]["ws"]
+    raised = AL.check_conditions(wsf, None, force=True)
+    again = AL.check_conditions(wsf, None, force=True)
+    tr_ = [e_ for e_ in raised if e_["event"].startswith("trip.")]
+    raised_u = [e_ for e_ in AL.check_conditions(made["unread"]["ws"], None, force=True) if e_["event"].startswith("trip.")]
+    raised_o = [e_ for e_ in AL.check_conditions(ws_old, None, force=True) if e_["event"].startswith("trip.")]
+    rec_ = [a_ for a_ in AL.recent(wsf, 50) if str(a_.get("event", "")).startswith("trip.")]
+    c2 = {
+        "once": len(tr_) == 1 and tr_[0]["event"] == "trip.fill" and tr_[0]["well"] == "Trip L" and "the trip under way on Trip L" in tr_[0]["what"] and "bbl short" in tr_[0]["detail"]
+                and not [e_ for e_ in again if e_["event"].startswith("trip.")] and len(rec_) == 1,
+        "unread": len(raised_u) == 1 and raised_u[0]["event"] == "trip.unread" and raised_o == [],
+        "kept": any(k_.startswith("trip.fill:") for k_ in AL.state(wsf).get("trip_seen", [])) and "trip_error" not in (AL.state(wsf).get("last") or {}),
+        "events": {"trip.fill", "trip.loss", "trip.unread"} <= set(AL.EVENTS) and {"trip.fill", "trip.loss", "trip.unread"} <= set(NT.EVENTS),
+        "notice": "a trip with more mud at surface than the pipe accounts for on Trip L" in NT._subject(tr_[0]) if tr_ else False,
+        "notices": "a trip with losses on W" in NT._subject({"event": "trip.loss", "well": "W", "detail": "x"}) and "a trip under way that is not read on W" in NT._subject({"event": "trip.unread", "well": "W", "detail": "x"}),
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "ER2 the service's check raises trip.fill once for the trip under way, with what it is in words, and not again on the next check; trip.unread once on the record where nothing moves; "
+       "nothing on the record dated months ago; the three are alerts and notification events, each with its subject line"
+       + (f" [failed: {', '.join(failed2)}; {[(e_['event'], e_.get('what')) for e_ in raised]}; last {AL.state(wsf).get('last')}]" if failed2 else ""))
+    # -- ER3 the page, the API, the help ---------------------------------------------------------------------------------
+    Users(str(Path(wsf.path, "users.json"))).add("v", "viewer-pass-1", "viewer")
+    svc = Service(wsf.path, port=0, scheduler=False).start()
+    base_url = svc.url.rstrip("/")
+    try:
+        o_ = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq = urllib.request.Request(base_url + "/api/login", method="POST", data=json.dumps({"name": "v", "password": "viewer-pass-1"}).encode())
+        rq.add_header("Content-Type", "application/json"); rq.add_header("X-GEA-Action", "1"); o_.open(rq, timeout=30)
+        with o_.open(base_url + "/api/trip-sheet", timeout=120) as r_:
+            pv = json.loads(r_.read())
+    finally:
+        svc.stop()
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    readme = " ".join(((pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else "").split())
+    hp, ha = H.page("trip-sheet") or "", H.page("alerts") or ""
+    les = TU.lesson("drilling-watch")["markdown"]
+    c3 = {
+        "api": pv["wells"][0]["live"] is True and pv["wells"][0]["trips"][6]["under_way"] is True and pv["wells"][0]["trips"][6]["status"] == "SHORT FILL" and pv["events"]["unread"] == "trip.unread",
+        "page": all(x in page_src for x in ("'trip.fill': 'Trip: more mud at surface than the pipe accounts for'", "'trip.loss': 'Trip: losses'", "'trip.unread': 'Trip under way that is not read'",
+                                            "statusPill('warn', cur.live ? 'under way' : 'the record ends in it')", "statusPill('warn', 'being written')", "a trip is judged once the pipe has moved 1,000 ft")),
+        "help": not H.check("trip-sheet") and not H.check("alerts") and all(x in hp for x in ("**The alerts**", "`trip.fill`", "`trip.loss`", "`trip.unread`", "once the pipe has moved that far", "cannot tell which"))
+                and "no alert on a record still being written" not in hp and all(x in ha for x in ("`trip.fill`", "`trip.unread`", "gea help trip-sheet")),
+        "lesson": "raises an alert once the pipe has moved 1,000 ft" in les and not TU.check("drilling-watch"),
+        "readme": not readme or ("`trip.fill`" in readme and "`trip.unread`" in readme),
+        "module": all(x in (TS.__doc__ or "") for x in ("`trip.fill`", "`trip.unread`", "1,000 ft")) and "`trip.fill`, `trip.loss`, `trip.unread`" in (AL.__doc__ or ""),
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "ER3 the Trip sheet's page marks the record that is being written and the trip that is under way; the Alarms tab names the three alerts; the help page says what each is for, that a trip "
+       "is judged once the pipe has moved 1,000 ft, and that an unread trip may be another tank or a hole taking nothing; the alerts page, the lesson and the README carry them"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def section_eq_trip_sheet(tmp: str) -> None:
     """Section EQ - the trip sheet: each trip's mud against the pipe that was moved, read from the trip tank where it
     moves and from the pits where it does not, on a record whose every barrel is known - a short fill, losses, mud
@@ -19646,7 +19761,7 @@ def section_eq_trip_sheet(tmp: str) -> None:
                                             "what the pipe accounts for", "too few to set a trip against", "pipe moved in the trip, ft"))
                 and "sessionStorage" not in view and "localStorage" not in view and "ftPanel(" in view and "'#/kick', '#/trips'" in page_src,
         "help": not H.check("trip-sheet") and not H.check("kick") and not H.check("public-data") and not H.check("mcp") and H.VIEW_TOPIC.get("trips") == "trip-sheet" and H.group_of("trip-sheet") == "Drilling"
-                and all(x in hp for x in ("gea trip-sheet --workspace C:\\site", "2,748 lb a barrel", "0.822 bbl per 100 ft", "NOT READ", "0.85 bbl per 100 ft", "does not carry", "no alert on a record still being written"))
+                and all(x in hp for x in ("gea trip-sheet --workspace C:\\site", "2,748 lb a barrel", "0.822 bbl per 100 ft", "NOT READ", "0.85 bbl per 100 ft", "does not carry", "once the pipe has moved that far"))
                 and "`trip_sheet`" in (H.page("mcp") or "") and "all five wells are judged" in (H.page("kick") or "") and "flow out of 58-32" in (H.page("public-data") or ""),
         "readme_lesson": (not readme or ("### Trip sheet" in readme and "`gea trip-sheet`" in readme and readme.index("### Slide sheet") < readme.index("### Trip sheet")))
                          and "**Trip sheet**" in TU.course_text() and [l_["id"] for l_ in TU.teaches("trip-sheet")] == ["drilling-watch"] and (TU.for_tab("#/trips") or {}).get("id") == "drilling-watch"
@@ -20993,6 +21108,7 @@ def main() -> int:
         section_eo_course_and_help(tmp)
         section_ep_bar_boundary_workspaces(tmp)
         section_eq_trip_sheet(tmp)
+        section_er_trip_alerts(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

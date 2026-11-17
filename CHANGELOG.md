@@ -5,6 +5,35 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.99.0] - 2026-11-17 - the trip sheet's alerts
+
+### Added
+- **Alerts from the trip sheet**, on a drilling record still being
+  written. A trip that departs raises an alert once, while it is under
+  way or within half an hour of its end: `trip.fill` when there is more
+  mud at surface than the pipe accounts for (a short fill pulling out, a
+  hole that gave more running in), `trip.loss` for losses. They go to the
+  Alarms tab and the notification rules like every other alert.
+- **`trip.unread`**: a trip under way in which nothing in the record
+  moves with the pipe, where the trip before it was read. The hole is
+  being filled from another tank, or it is taking nothing; the record
+  cannot tell which, and the alert says so.
+- The Trip sheet tab marks a record that is being written and the trip
+  that is under way.
+
+### Changed
+- A trip marked *not read* is now described as what it is: the hole was
+  filled from a tank the record does not carry, or took nothing at all -
+  the record cannot tell which. It had been described as the first alone.
+
+### Notes
+- A trip is a trip once the pipe has moved 1,000 ft: neither the page nor
+  its alerts judge the first ten stands. The flowback at each pumps-off
+  is the Kick & loss tab's.
+- A trip is set against a pipe or against the well's own like trips;
+  with neither, `trip.fill` and `trip.loss` are not raised. Declare the
+  pipe.
+
 ## [v0.98.0] - 2026-11-16 - the trip sheet, and kick and loss on all five public wells
 
 ### Added

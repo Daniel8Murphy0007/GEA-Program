@@ -15,7 +15,8 @@ This module writes that sheet from the drilling record:
 - the volume is read from the trip tank where the record carries one that moves with the pipe, and otherwise from
   the pits - many rigs fill the hole from the active system, and a trip tank whose sensor reads nothing is common in
   a recorder's export. Which one each trip was read from is said with it. Where neither moved with the pipe the trip
-  is NOT READ: the hole was filled from a tank this record does not carry, and a blank is not a short fill;
+  is NOT READ: the hole was filled from a tank this record does not carry - or took nothing at all, which the
+  record cannot tell from it - and a blank is not called a short fill;
 - only the change while the pipe was being handled is counted (moving, or in the slips with the pumps off). A
   change of STEP_BBL or more inside half a minute is mud moved at surface - a tank refilled or emptied - and is taken
   out and reported; the change during a break inside the trip (circulating, filling pipe) is reported and not
@@ -39,6 +40,15 @@ is mixed, moved and lost at surface during a trip, and only the fast moves are t
 operator's declaration, and a string of several sizes is not one pipe (the heavy-weight pipe and the collars come
 through the table last and displace more: the last stands of a trip out and the first of a trip in read high); a
 trip read from the pits against a trip read from a trip tank - they are not compared with one another.
+
+On a record still being written (its file changed in the last two hours and its last sample is near now), a trip
+that departs raises an alert once - `trip.fill` for more mud at surface than the pipe accounts for (a short fill
+pulling out, a hole that gave more running in), `trip.loss` for losses - while it is under way or within half an
+hour of its end. A trip is a trip once the pipe has moved 1,000 ft, so that is the soonest one can be judged: the
+first ten stands of a trip are not watched by this page, and the flowback at each pumps-off is the Kick & loss tab's.
+A third alert, `trip.unread`, is for the one thing the reading cannot settle: a trip under way in which nothing moves
+with the pipe, where the trip before it was read. The hole is being filled from another tank, or it is taking
+nothing; the record cannot tell which, and somebody should look.
 """
 from __future__ import annotations
 
@@ -67,6 +77,10 @@ SPREAD_MAX = 0.6                 # like trips whose scatter is more than this sh
 READ_SHARE = 0.5                 # a trip is judged when at least this share of its footage could be read
 SMOOTH_S = 20.0                  # the volume is read through a running median this long: a pit sloshes
 CURVE_POINTS = 120
+LIVE_EVENT_S = 1800.0            # an alert is for a trip under way, or one that ended in the record's last half hour
+UNDER_WAY_S = 300.0              # a trip whose last pipe moved this near the record's end is still under way
+EVENTS = {'gain': 'trip.fill', 'loss': 'trip.loss', 'unread': 'trip.unread'}
+GAIN_SIDE = ('SHORT FILL', 'GAVE MORE')
 TANK_NAMES = ('trip tank mud volume', 'trip tank volume', 'trip volume active', 'trip tank 1 volume', 'trip tank')
 PIT_NAMES = ('total mud volume', 'pit volume active', 'active pit volume', 'pit total', 'pvt total mud volume', 'total active volume')
 PULL = {'dry': 'pulled dry: the steel alone', 'wet': 'pulled wet: the steel and what the pipe holds'}
@@ -76,7 +90,7 @@ STATUS = {'AS EXPECTED': 'the mud at surface is what the pipe accounts for',
           'TOOK MORE': 'pulling out, the hole took more mud than the pipe pulled: losses',
           'GAVE MORE': 'running in, more mud came back than the pipe run: the hole is giving',
           'SHORT RETURN': 'running in, less mud came back than the pipe run: losses',
-          'NOT READ': 'neither the trip tank nor the pits moved with the pipe: the hole was filled from a tank this record does not carry',
+          'NOT READ': 'neither the trip tank nor the pits moved with the pipe: the hole was filled from a tank this record does not carry, or took nothing at all - the record cannot tell which',
           'TRANSFER': 'more mud was moved at surface inside the trip than the pipe accounts for: not judged',
           'LITTLE READ': 'less than half of the trip was run with the pumps off and no mud being moved at surface: not judged',
           'NO BASIS': 'no pipe is declared and the well has too few like trips to set this one against'}
@@ -86,8 +100,9 @@ NOT_A_MEASUREMENT = [
     'the pit volume as the hole\'s alone: mud is mixed, moved and lost at surface during a trip, and only a move of 5 bbl inside half a minute is taken out',
     'the pipe: it is the operator\'s declaration; a string of several sizes is not one pipe, and the heavy pipe and the collars displace more as they come through the table',
     'the well against its own trips as a check of the pipe: it finds the trip that differs from the others and cannot find what is wrong on every trip',
-    'a trip marked NOT READ as a hole that took nothing: the record carries no volume that moved with the pipe',
+    'a trip marked NOT READ as a hole that took nothing - or as one that did not: the record carries no volume that moved with the pipe, and cannot tell a hole filled from another tank from a hole that took nothing at all',
     'a trip read from the pits beside one read from a trip tank: they are not compared with one another',
+    'the first 1,000 ft of a trip: a trip is a trip once the pipe has moved that far, and neither the page nor its alert judges it before',
 ]
 _LOCK = threading.Lock()
 _MEMO: Dict[tuple, dict] = {}
@@ -238,7 +253,8 @@ def _mad_sigma(x: List[float]) -> Tuple[float, float]:
     return m, max(SCATTER_FLOOR, 1.4826 * float(np.median(np.abs(a - m))))
 
 
-def analyse_arrays(t: np.ndarray, bit: np.ndarray, state: np.ndarray, trips: List[dict], volumes: Dict[str, Optional[np.ndarray]], pipe: Optional[dict] = None) -> dict:
+def analyse_arrays(t: np.ndarray, bit: np.ndarray, state: np.ndarray, trips: List[dict], volumes: Dict[str, Optional[np.ndarray]], pipe: Optional[dict] = None,
+                   t_last: Optional[float] = None) -> dict:
     """Every trip of a record read: `volumes` holds the trip tank's and the pits' arrays (either may be None), `state`
     the rig-time page's state of each sample, `trips` its trips."""
     from . import rig_state as RS
@@ -252,7 +268,7 @@ def analyse_arrays(t: np.ndarray, bit: np.ndarray, state: np.ndarray, trips: Lis
         row = {'n': n_, 'direction': tr['direction'], 'start': tr.get('start'), 'end': tr.get('end'), 't_start': tr['t_start'], 't_end': tr['t_end'],
                'from_ft': tr['from_ft'], 'to_ft': tr['to_ft'], 'feet': float(tr['feet']), 'hours': tr.get('elapsed_hours'), 'source': None, 'measured_bbl': None, 'rate_bbl_100ft': None,
                'transfers_bbl': 0.0, 'breaks_bbl': 0.0, 'expected_bbl': None, 'basis': None, 'departure_bbl': None, 'tolerance_bbl': None, 'status': 'NOT READ', 'intervals': [], 'worst': None,
-               'curve': None}
+               'curve': None, 'under_way': bool(t_last is not None and t_last - tr['t_end'] <= UNDER_WAY_S)}
         if iz - ia < 3 or row['feet'] <= 0:
             out.append(row); continue
         ts, hs = t[ia:iz + 1], handling_all[ia:iz + 1]
@@ -369,7 +385,7 @@ def analyse_arrays(t: np.ndarray, bit: np.ndarray, state: np.ndarray, trips: Lis
 def describe(x: dict) -> str:
     """One trip in a sentence."""
     way = 'pulling out' if x['direction'] == 'OUT' else 'running in'
-    head = f"{way} {x['feet']:,.0f} ft, {x['from_ft']:,.0f} to {x['to_ft']:,.0f} ft"
+    head = f"{way} {x['feet']:,.0f} ft{' to the end of the record' if x.get('under_way') else ''}, {x['from_ft']:,.0f} to {x['to_ft']:,.0f} ft"
     if x['status'] == 'NOT READ':
         return head + ': not read - neither the trip tank nor the pits moved with the pipe' + (f" ({x['transfers_bbl']:,.0f} bbl was moved at surface)" if x.get('transfers_bbl') else '')
     if (x['measured_bbl'] < 0) == (x['direction'] == 'OUT'):
@@ -436,14 +452,14 @@ def well(ws, well_id: str) -> dict:
             if (c.unit(n) or '').lower() in ('m3', 'm^3'):
                 v = v * 6.289811
             vols[k] = v
-        a = analyse_arrays(np.array(rs['_t'], dtype=np.float64), np.array(c.channel('Bit Depth'), dtype=np.float64), rs['_state'], rs['trips'], vols, pipe)
-        r = {**base, 'status': 'OK', **a, 'n_trips': len(rs['trips']), 'record_start': rs.get('t0'),
+        a = analyse_arrays(np.array(rs['_t'], dtype=np.float64), np.array(c.channel('Bit Depth'), dtype=np.float64), rs['_state'], rs['trips'], vols, pipe, float(rs['_t'][-1]))
+        r = {**base, 'status': 'OK', **a, 'n_trips': len(rs['trips']), 'record_start': rs.get('t0'), 't_last': float(rs['_t'][-1]),
              'record_end': (datetime.fromisoformat(rs['t0']) + timedelta(seconds=float(rs['_t'][-1]))).isoformat(timespec='seconds')}
         used = {x['source'] for x in a['trips'] if x['source']}
         if names['trip tank'] and 'trip tank' not in used:
             r['notes'].append(f"the trip tank in this record ({names['trip tank']}) does not move with the pipe in any trip: " + ('the pits are read' if 'pits' in used else 'nothing is read'))
         if a['counts'].get('NOT READ'):
-            r['notes'].append(f"{a['counts']['NOT READ']} trip(s) not read: no volume in the record moved with the pipe, so the hole was filled from a tank the record does not carry")
+            r['notes'].append(f"{a['counts']['NOT READ']} trip(s) not read: no volume in the record moved with the pipe - the hole was filled from a tank the record does not carry, or took nothing, and the record cannot tell which")
         if not pipe:
             r['notes'].append('no pipe is declared: each trip is set against the well\'s own like trips, which finds the trip that differs and cannot check the pipe')
     with _LOCK:
@@ -453,9 +469,44 @@ def well(ws, well_id: str) -> dict:
     return r
 
 
+def live_events(ws, now: Optional[datetime] = None) -> List[dict]:
+    """What an alert is raised for: in a record still being written, a trip that departs - under way, or ended in the
+    record's last half hour."""
+    from . import dysfunction as DY
+    from . import series_cache as SCH
+    out = []
+    ts = (now or datetime.now(timezone.utc)).timestamp()
+    for w in ws.wells():
+        wid = w['id']
+        try:
+            if ts - os.path.getmtime(SCH.source_path(ws, wid)) > DY.LIVE_SOURCE_S:
+                continue
+            r = well(ws, wid)
+        except Exception:
+            continue
+        if r.get('status') != 'OK' or not DY.is_live(r, now):
+            continue
+        for x in r['trips']:
+            if x['status'] in DEPARTED and (x.get('under_way') or r['t_last'] - x['t_end'] <= LIVE_EVENT_S):
+                ev = EVENTS['gain' if x['status'] in GAIN_SIDE else 'loss']
+                out.append({'event': ev, 'key': f"{ev}:{wid}:{x.get('start')}:{x['status']}", 'well_id': wid, 'well': r['display'], 'time': x.get('start'), 'depth_ft': x['to_ft'],
+                            'status': x['status'], 'under_way': bool(x.get('under_way')), 'trip': x['n'], 'detail': x['status'].lower() + ' - ' + x['reads']})
+        # a trip under way that is not read, where the trip before it was: the tank that was moving with the pipe has stopped.
+        # The hole is being filled from another tank, or it is taking nothing - the record cannot tell which, and says so.
+        last = r['trips'][-1]
+        if last.get('under_way') and last['status'] == 'NOT READ' and len(r['trips']) > 1 and r['trips'][-2].get('source'):
+            ev = EVENTS['unread']
+            out.append({'event': ev, 'key': f"{ev}:{wid}:{last.get('start')}", 'well_id': wid, 'well': r['display'], 'time': last.get('start'), 'depth_ft': last['to_ft'], 'status': 'NOT READ',
+                        'under_way': True, 'trip': last['n'],
+                        'detail': f"{'pulling out' if last['direction'] == 'OUT' else 'running in'} {last['feet']:,.0f} ft so far and nothing in the record is moving with the pipe, where the trip before "
+                                  f"was read from the {r['trips'][-2]['source']}: the hole is being filled from another tank, or it is taking nothing"})
+    return out
+
+
 def page(ws, well_id: Optional[str] = None, now: Optional[datetime] = None, full: bool = True) -> dict:
     """Every well's trips counted, and the chosen well's sheet. With `full` off only the chosen well keeps its trips'
     intervals and curves (for a screen)."""
+    from . import dysfunction as DY
     wells = []
     for w in ws.wells():
         try:
@@ -466,15 +517,18 @@ def page(ws, well_id: Optional[str] = None, now: Optional[datetime] = None, full
             raise
     out: Dict[str, Any] = {'status': 'OK' if wells else 'NO DRILLING RECORD', 'generated_utc': _utc(now), 'title': ws.manifest.get('name') or 'this workspace', 'statuses': STATUS,
                            'pull': PULL, 'run': RUN, 'not_a_measurement': NOT_A_MEASUREMENT,
-                           'rules': {'step_bbl': STEP_BBL, 'step_s': STEP_S, 'min_rate_bbl_100ft': MIN_RATE, 'interval_ft': INTERVAL_FT, 'min_bbl': MIN_BBL, 'share': SHARE, 'sigma': SIGMA,
+                           'events': EVENTS,
+                           'rules': {'live_event_s': LIVE_EVENT_S, 'step_bbl': STEP_BBL, 'step_s': STEP_S, 'min_rate_bbl_100ft': MIN_RATE, 'interval_ft': INTERVAL_FT, 'min_bbl': MIN_BBL, 'share': SHARE, 'sigma': SIGMA,
                                      'like_trips_min': FINGERPRINT_MIN, 'steel_lb_per_bbl': STEEL_LB_PER_BBL}}
     rows, lines = [], []
     for r in wells:
         c = r.get('counts') or {}
         row = {k: r.get(k) for k in ('well', 'display', 'status', 'why', 'channels', 'pipe', 'notes', 'n_trips', 'record_start', 'record_end', 'fingerprints', 'displacement')}
         row['counts'] = c
+        row['live'] = False
         if r['status'] == 'OK':
             row['trips'] = r['trips']
+            row['live'] = DY.is_live(r, now)
             dep = sum(c.get(k, 0) for k in DEPARTED)
             read = sum(c.get(k, 0) for k in ('AS EXPECTED',) + DEPARTED)
             src = sorted({x['source'] for x in r['trips'] if x['source']})
@@ -573,12 +627,14 @@ def write_report(ws, program_version: str, actor: str = 'system') -> dict:
 SYNTHETIC_PIPE = {'od_in': 5.0, 'id_in': 4.276, 'weight_lb_ft': 22.6, 'pull': 'dry', 'run': 'open'}
 
 
-def synthetic_edr(path: str, trip_ft: float = 2000.0) -> dict:
+def synthetic_edr(path: str, trip_ft: float = 2000.0, ends_now: bool = False, under_way_ft: float = 0.0, under_way_share: float = 0.4) -> dict:
     """A one-second recorder export with seven trips of `trip_ft` whose mud is known, for the pipe SYNTHETIC_PIPE
     (0.8224 bbl of steel per 100 ft): 1 out and 2 in, read from a trip tank, each what the pipe accounts for; 3 out,
     the hole taking nothing for 800 ft (6.58 bbl short); 4 in, with 15 bbl moved into the pits in 20 s; 5 out, with
     five minutes circulating in it while the pits fall 12 bbl; 6 in, half the mud coming back (losses); 7 out, with
-    no volume moving at all. From trip 3 on the trip tank stands still and the pits are what moves. SIMULATION."""
+    no volume moving at all. From trip 3 on the trip tank stands still and the pits are what moves. With `under_way_ft`,
+    the seventh trip is instead one out of that many feet, the hole taking `under_way_share` of what the pipe
+    accounts for (0.4: a short fill; 0: nothing moves at all), and the record stops in it - a trip under way. `ends_now` dates the record so that its last sample is now. SIMULATION."""
     steel = SYNTHETIC_PIPE['weight_lb_ft'] / STEEL_LB_PER_BBL
     hdr = ['YYYY/MM/DD', 'HH:MM:SS', 'Hole Depth (feet)', 'Bit Depth (feet)', 'Rate Of Penetration (ft_per_hr)', 'Weight on Bit (klbs)', 'Rotary RPM (RPM)', 'Standpipe Pressure (psi)',
            'Hook Load (klbs)', 'Total Pump Output (gal_per_min)', 'Block Height (feet)', 'On Bottom (unitless)', 'Total Mud Volume (barrels)', 'Trip Tank Mud Volume (barrels)']
@@ -587,7 +643,7 @@ def synthetic_edr(path: str, trip_ft: float = 2000.0) -> dict:
     S = {'hole': 10000.0, 'bit': 10000.0, 'block': 105.0, 'pit': 500.0, 'tank': 40.0}
 
     def row(rop, rpm, pump, hl, on):
-        rows.append([t[0].strftime('%Y/%m/%d'), t[0].strftime('%H:%M:%S'), f"{S['hole']:.2f}", f"{S['bit']:.2f}", f'{rop:.1f}', f'{20.0 if on else 0.0:.1f}', f'{rpm:.1f}',
+        rows.append([t[0], None, f"{S['hole']:.2f}", f"{S['bit']:.2f}", f'{rop:.1f}', f'{20.0 if on else 0.0:.1f}', f'{rpm:.1f}',
                      f'{2500.0 if pump else 0.0:.0f}', f'{hl:.1f}', f'{550.0 if pump else 0.0:.0f}', f"{S['block']:.2f}", str(on), f"{S['pit']:.3f}", f"{S['tank']:.3f}"])
         t[0] += timedelta(seconds=1)
 
@@ -649,8 +705,15 @@ def synthetic_edr(path: str, trip_ft: float = 2000.0) -> dict:
     still(15)
     for _ in range(n_st): stand('IN', 'pit', 0.5)               # 6: half the mud comes back
     still(15)
-    for _ in range(n_st): stand('OUT', None)                    # 7: no volume moves
-    still(10, pump=True)
+    if under_way_ft > 0:
+        for _ in range(int(under_way_ft / 100.0)): stand('OUT', 'pit', under_way_share)     # 7: under way when the record stops
+    else:
+        for _ in range(n_st): stand('OUT', None)                # 7: no volume moves
+        still(10, pump=True)
+    shift = (datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0) - rows[-1][0]) if ends_now else timedelta(0)
+    for r_ in rows:
+        ts_ = r_[0] + shift
+        r_[0], r_[1] = ts_.strftime('%Y/%m/%d'), ts_.strftime('%H:%M:%S')
     with open(path, 'w', newline='', encoding='utf-8') as f:
         wr = csv.writer(f); wr.writerow(hdr); wr.writerows(rows)
     per = steel * trip_ft
