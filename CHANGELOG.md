@@ -5,6 +5,55 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.104.0] - 2026-11-18 - geosteering, in the office
+
+### Added
+- **The Geosteering tab.** One lateral as GEA Driller on the rig PC has
+  it, drawn from the record pulled into the well. Four pictures share the
+  distance along the plan, one measure each: the section (the pre-drill
+  model's layer, the layer as the position estimate had it at each
+  decision with its spread, the hole with a dot at every decision
+  coloured by its answer, and a line to where the last recommendation
+  points); the gamma read, with the up and down gamma, against what the
+  model's values would have a tool read; how sure the estimate is that
+  the bit is in the layer, above it or below it; and the plan view in its
+  corridor.
+- **Follow the rig PC.** While the tab is open and Follow is on, GEA
+  asks the rig PC how it stands every ten seconds: hole depth, gamma, the
+  estimate, the recommendation that is waiting and how many decisions
+  have been made since the pull. An operator may have each new decision
+  pulled into the well as it comes, so the pictures advance by
+  themselves - one pull for each new decision and no more.
+- **An answer from the office.** An operator may accept the waiting
+  recommendation or turn it down, with a note. It goes to the rig PC's
+  own record under that person's name marked `(office)`, and is audited
+  in GEA. Only the recommendation the page showed can be answered, only
+  once, and never while the closed loop is armed. GEA cannot arm or
+  disarm the loop: that is done on the rig PC.
+- **The aim point**: the hole carried 90 ft on at the build and the turn
+  a recommendation asks for, set against the layer carried on at the
+  estimate's dip. Geometry, and said to be.
+- `gea geosteer` prints the panel (`--live` asks the rig PC once,
+  `--pull` pulls first, `--write` writes the report); with no workspace
+  it runs a self-test on a layer and a hole that are known. The report
+  is `reports/geosteering/<well>/geosteering.json`, `.md` and
+  `stations.csv`, a row a decision.
+- `gea help geosteer`; lesson 37 has a step on the tab; the Drill string
+  tab's GEA Driller card links to it.
+
+### Notes
+- The layer drawn is the position estimate's, worked out on the rig PC
+  from the gamma; it is not a log's, and the page says so. "In the
+  layer" counts decisions at which the estimate put the bit there.
+- The gamma's misfit against the estimate is small by construction - the
+  estimate was fitted to that gamma - and the page says that too. The
+  misfit against the pre-drill model is the one that says something: how
+  far the model was from the hole.
+- The panel has been run on the twin as the rig and on a made record.
+  No real lateral has been drawn on it yet.
+- GEA imports nothing of the driller's program for this: the records are
+  read as files and the rig PC is asked over its own status port.
+
 ## [v0.103.0] - 2026-11-18 - what the string reads: the up and down gamma
 
 ### Added

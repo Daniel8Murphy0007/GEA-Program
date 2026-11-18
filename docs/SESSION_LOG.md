@@ -4653,3 +4653,56 @@ already hold.
 - Not done: the stick-slip rule in the Driller's vibration index. It
   stays on the plan.
 - Gate 623: section EV, three checks.
+
+## 2026-11-18 - geosteering, in the office (v0.104.0)
+
+- v0.103.0 shipped; its six kits were fetched and each matched the
+  release's hash. The Windows kit passed on its first run.
+- The plan's next step (A3) was the office's geosteering panel: the
+  independent evaluation's second priority, and the screen a directional
+  driller keeps open all day. Until now the office saw a table of
+  decisions on the Drill string tab and had to open the rig PC's own
+  screen for the picture.
+- Everything the panel needs was already on the record. Each decision
+  the rig PC writes carries where the bit was, what the tools read,
+  where the position estimate put the layer's top and base and how sure
+  it was, what the pre-drill model said, what was recommended and what
+  was answered. So the panel is a reading of the pulled record and adds
+  no channel of its own; it draws a well pulled months ago as well as
+  one drilling now.
+- Four pictures on one axis, one measure each, as the charts rule asks:
+  depth, gamma, probability, offset from the plan line. The gamma
+  picture sets what was read beside what the model's three values would
+  have a tool read where the estimate put the bit. That is the
+  correlation a geosteerer looks at, and it comes with a caution the
+  page states: the estimate was fitted to this gamma, so its small
+  misfit is what fitting does and not a test passed. The misfit against
+  the pre-drill model is the informative one.
+- Live. The rig PC already serves its standing as JSON for its own
+  screen; GEA reads that from the address the record was pulled from.
+  It asks only while a signed-in person has the tab open with Follow on,
+  every ten seconds, and several windows on one well ask once. Pulling
+  each new decision as it comes is a second switch, for operators,
+  because a pull writes into the well and is audited: one pull for each
+  new count of decisions and no more, so a rig PC whose files lag its
+  counter is not pulled in a loop.
+- The answer from the office. The evaluation asked for accept and
+  reject in the office. An answer is a record of what someone said, not
+  a command, so it can be given from anywhere it is named: it goes to
+  the rig PC under the signed-in name marked (office). Three guards: it
+  must be the recommendation the page showed (the rig PC may have moved
+  on while the page was read), it must not be answered already, and
+  nothing is posted while the loop is armed. Arming stays on the rig PC:
+  whoever arms a loop should be standing where the steering tool is.
+- Three things the first run on the twin showed. The rig PC stamps a
+  decision "unanswered" when it moves on, which the panel first printed
+  as if it were an answer. After an answer the rig PC shows no waiting
+  recommendation until the next 30 ft, so the live card now shows the
+  last one and its answer and does not go blank. And an answer aimed at
+  a twin drilling a step every half second was turned away as stale,
+  which is the guard doing its work.
+- Proof: a made record in which a flat layer is 8 ft deeper than the
+  model has it and the hole leaves through the top and is brought back,
+  every figure known; and the twin as the rig for the live read, the
+  answer and the guards. No real lateral has been drawn.
+- Gate 626: section EW, three checks.

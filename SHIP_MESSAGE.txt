@@ -1,29 +1,25 @@
-v0.103.0 — WHAT THE STRING READS: THE UP AND DOWN GAMMA
+v0.104.0 — GEOSTEERING, IN THE OFFICE
 
-Added: GEA Driller reads an azimuthal gamma tool's readings on the high
-side of the hole and on the low side (model.azimuthal_gamma_tool; WITS
-items 0826 and 0827). They say which side of the layer the bit is
-leaving on, and go to the position filter that the textbook driller's
-rules, the policy and the rig screen all read. They are in every
-decision's record and reasons, and on the screen.
+Added: the Geosteering tab draws one lateral as GEA Driller on the rig PC
+has it, from the record pulled into the well: the section with the
+pre-drill model's layer, the layer as the position estimate had it and
+the hole; the gamma read against what the model would have a tool read;
+how sure the estimate is; the plan view; and where the last
+recommendation points.
 
-Added: in the twin seven scenes in ten carry the tool, and the card says
-what it is worth: the same three hundred scenes drilled by the textbook
-driller with the tool on every string and on none - 85.3% of the hole in
-the layer against 81.7%, +3.6 points, give or take 1.0; +9.1 on strings
-without the deep resistivity. The scorecard is sorted by what the
-strings carry.
+Added: Follow the rig PC reads its standing every ten seconds while the
+tab is open, and an operator may have each new decision pulled in as it
+comes.
 
-Changed: the policy's inputs and weights are the ones shipped in
-0.102.0. Against the textbook it is +0.3 points, give or take 1.2: not
-told apart, and the program still recommends by the book. A further
-training with the tool was not told from the shipped policy and is not
-shipped.
+Added: an operator may accept the waiting recommendation or turn it
+down from the office. It lands on the rig PC's own record under that
+name marked (office), only for the recommendation the page showed, only
+once, and never while the loop is armed. The loop is armed and disarmed
+on the rig PC only.
 
-Changed: the gate's check of the public pad's background build is six
-questions and reports the job's state when one fails.
+Added: gea geosteer, gea help geosteer, and a report a well.
 
-Every figure is a simulation's. No real azimuthal gamma has been read
-yet.
+The layer drawn is the estimate's, not a log's. The panel has been run
+on the twin and on a made record; no real lateral yet.
 
-Gate 623.
+Gate 626.

@@ -2206,6 +2206,16 @@ def make_handler(app: App):
                     from . import field_pull as _FP
                     from . import recorder_link as _RL
                     return self._json(200, {'pulls': _FP.last_pulls(app.ws), 'sim': _RL.status(app.ws)})
+                if path in ('/api/geosteer', '/api/geosteer/live'):
+                    from . import geosteer as _GS
+                    wid_ = (qs.get('well') or [None])[0]
+                    if wid_ and wid_ not in [w_['id'] for w_ in app.ws.wells()]:
+                        raise ApiError(404, f'no well {wid_}')
+                    if path.endswith('/live'):
+                        if not wid_:
+                            raise ApiError(400, 'geosteer: name the well whose rig PC is asked')
+                        return self._json(200, App._cr(_GS.live, app.ws, wid_))
+                    return self._json(200, App._cr(_GS.page, app.ws, wid_))
                 if path == '/api/driller':
                     from . import driller_link as _DL
                     return self._json(200, {'wells': _DL.wells_with_records(app.ws), 'sim': _DL.status(app.ws), 'all_wells': [{'id': w['id'], 'display': w.get('display', w['id'])} for w in app.ws.wells()],
@@ -3412,6 +3422,19 @@ def make_handler(app: App):
                     if path.endswith('start'):
                         return self._json(200, _RL.start_sim(app.ws, actor=user['name']))
                     return self._json(200, _RL.stop_sim(app.ws, actor=user['name']))
+                if path in ('/api/geosteer/answer', '/api/geosteer/pull', '/api/geosteer/write'):
+                    App.require(user, 'operator')
+                    from . import geosteer as _GS
+                    from . import __version__ as _v
+                    b_ = dict(body or {}); wid_ = str(b_.get('well') or '').strip()
+                    if not wid_ or wid_ not in [w_['id'] for w_ in app.ws.wells()]:
+                        raise ApiError(404 if wid_ else 400, f'no well {wid_}' if wid_ else 'geosteer: name the well')
+                    if path.endswith('/answer'):
+                        return self._json(200, App._cr(_GS.answer, app.ws, wid_, user['name'], str(b_.get('what') or ''), str(b_.get('utc') or ''), str(b_.get('note') or '')))
+                    if path.endswith('/pull'):
+                        return self._json(200, App._cr(_GS.pull, app.ws, wid_, user['name']))
+                    r_ = App._cr(_GS.write_report, app.ws, _v, wid_, user['name'])
+                    return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
                 if path in ('/api/driller/sim/start', '/api/driller/sim/stop'):
                     App.require(user, 'operator')
                     from . import driller_link as _DL

@@ -497,6 +497,23 @@ it on every string and on none, scene by scene with a standard error - and
 sorts the scorecard by what the strings carry. No real azimuthal gamma has
 been read by the program yet.
 
+**Geosteering, in the office.** The **Geosteering** tab draws one lateral
+as the driller's program on the rig PC has it, from the record pulled into
+the well: the section - the pre-drill model's layer, the layer as the
+position estimate had it at each decision with its spread, the hole, and a
+line to where the last recommendation points - and under it, on the same
+distance along the plan, the gamma read against what the model would have
+a tool read, how sure the estimate is that the bit is in the layer, and
+the plan view in its corridor. **Follow the rig PC** asks the rig PC how
+it stands every ten seconds while the tab is open, and an operator may
+have each new decision pulled in as it comes, so the pictures advance by
+themselves. An operator may accept the waiting recommendation or turn it
+down from the office: the answer goes to the rig PC's own record under
+that name marked `(office)`, never while the loop is armed, and the loop
+is armed and disarmed on the rig PC only. `gea geosteer`, `gea help
+geosteer`. The layer drawn is the estimate's, not a log's; the panel has
+been run on the twin and on a made record, and on no real lateral yet.
+
 ### The tutorial
 
 Every step of GEA and the programs around it, as lessons on the
@@ -886,7 +903,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.103.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.104.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -2040,7 +2057,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.103.0.exe` (for 0.103.0): the
+Every release also carries `GEA-Program-Setup-0.104.0.exe` (for 0.104.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -2059,7 +2076,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.103.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.104.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

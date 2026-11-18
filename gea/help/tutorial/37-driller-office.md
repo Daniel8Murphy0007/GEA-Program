@@ -1,7 +1,8 @@
 # 37. GEA Driller from the office
 Who: office
 Where: #/drillstring
-Takes: 45 minutes
+Pages: #/geosteer
+Takes: 55 minutes
 > The directional driller's agent: what it is, the twin as the rig on this computer, its screen, and its records pulled in.
 
 ## What it is
@@ -16,11 +17,12 @@ GEA Driller is a program for the rig PC. It reads the rig's own feed and the pre
 6. **Shadow a drilled well**: choose a well with a drilling-recorder export and press it. A job replays the drilled lateral through the advisor - at every 30 ft the agent sees only what the rig had shown to that point - and sets its recommendation beside what the record did next; the table says how often the steer agreed or opposed, the weight, speed and flow, at each stretch the gamma marks as out of the layer whether the advisor called the way back at the first reading, and how often the vibration index read off the record's surface torque and weight stood over the limit and the advisor eased there; the **SHADOW MODE** report under the well's reports has the drawing. Nothing of the export leaves this computer.
 7. A real rig PC: its address in **The rig PC's address** (`http://192.168.1.60:8790`), the well, **Pull** - the same table. **Open the driller's screen** opens its screen from here. Over a modem, the rig PC joins GEA-VPN as a member of kind `driller` ({lesson:vpn}) and the address is its private one, `http://10.77.0.4:8790`.
 8. **The agent's card**, at the top of the same card, is the agent's own account of itself: the textbook driller, the agent and the oracle on three hundred held-out scenes of the twin, where each one's reward came from, the reward the agent was trained on, what it reads and what it chooses. Read the first lines before trusting a recommendation. The trained policy steers and drills by the book's weight, speed and flow; on three hundred held-out scenes its hole in the layer is not told from the textbook driller's, and the card says so. That is why the program recommends by the book as shipped - every choice the textbook driller's rules - and keeps what the policy would have steered beside each recommendation; `policy.steer` in the rig PC's config lets the policy steer instead. The weights' hash on the card is the one in a pulled record's manifest; where they differ, the page says the record was decided by another agent. Under the scorecard a second table sorts the same scenes by what their strings carry - neither tool, the up and down gamma, the deep resistivity, both - and a line of the card says what the up and down gamma is worth to the textbook driller, scene by scene: it is the tool that says which side of the layer the bit is leaving on, and `"azimuthal_gamma_tool": true` in the rig PC's config tells the program the string has one.
+9. Open **Geosteering**. It draws the well you pulled into: the section with the model's layer in green and the layer as the position estimate had it in blue, the hole with a dot at each decision, and a dashed line to where the last recommendation points; under it the gamma read against what the model would have a tool read, how sure the estimate is, and the plan view. Press **Follow the rig PC**: the card that opens is the twin as it stands now, asked every ten seconds. Tick **pull each new decision into the well as it comes** and watch the pictures advance. When a recommendation is waiting, type a note and press **Accept**: on the twin's own screen the answer is there under your name with `(office)` after it. **Write the report** keeps the panel under `reports\geosteering`.
 
 ## You know it worked when
-The table shows your three answers under your name, one armed section with its commands and none sent, and the well's folder holds `driller\decisions.jsonl` with its `.sha256`.
+The table shows your three answers under your name, one armed section with its commands and none sent, and the well's folder holds `driller\decisions.jsonl` with its `.sha256`; the Geosteering tab draws that well, and the answer you gave from it is on the twin's screen marked `(office)`.
 
 ## What the numbers are not
 The twin's figures - the hole in the layer, feet a day - are a simulation's, labelled so on the screen and in the records; `gea-driller evaluate` on the rig PC prints the policy between the textbook driller and the oracle told the layer on held-out scenes, and where it stands from the one toward the other.
 
-Help: driller, drillstring, vpn
+Help: driller, drillstring, geosteer, vpn

@@ -213,7 +213,14 @@ declared extras.
   on the office PC binds to 127.0.0.1 only. Since 0.80.0 the records carry
   the hole's azimuth and its offset from the plan line, as the surveys
   give them - a position, not a coordinate: the plan's azimuth and the
-  heel are in the rig PC's config, no surface location is.
+  heel are in the rig PC's config, no surface location is. Since 0.104.0
+  the Geosteering tab (`gea help geosteer`) reads the rig PC's live page
+  data from the address the well's record was pulled from - one request
+  every ten seconds, and only while a signed-in person has the tab open
+  with Follow on - and an operator may post an answer (accept, or turn
+  down) to the recommendation that is waiting: it goes to the rig PC's
+  record under that person's name marked `(office)`, is audited here, and
+  is not sent while the loop is armed. GEA cannot arm or disarm the loop.
 
 - **Assistant access (MCP)**: off until a person turns it on, and then it
   opens no port. `gea mcp` is a child process of the assistant program

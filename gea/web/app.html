@@ -2731,7 +2731,7 @@ function drillerCardHtml(D, wid) {
   if (recs.length) {
     h += `<table class="small"><thead><tr><th>Well</th><th>Rig PC</th><th>Pulled</th><th>Decisions</th><th>Accepted</th><th>Rejected</th><th>Done otherwise</th><th>Unanswered</th><th>Hole under advice</th><th>Armed sections</th><th>Commands (sent)</th></tr></thead><tbody>`;
     for (const r of recs) { const s_ = r.summary, a = s_.answers; h += `<tr><td><a href="#/wells/${esc(r.well)}">${esc(r.display)}</a><br><span class="muted">${esc(r.rig_well || '')}</span></td><td class="mono">${esc(r.source)}</td><td>${tz(r.pulled_utc)}</td><td>${s_.decisions}</td><td>${a.accept}</td><td>${a.reject}</td><td>${a.override}</td><td>${a.unanswered}</td><td>${s_.hole_under_advice_ft != null ? s_.hole_under_advice_ft.toFixed(0) + ' ft' : '—'}</td><td>${s_.armed_sections}</td><td>${s_.commands} (${s_.commands_sent})</td></tr>`; }
-    h += `</tbody></table>`;
+    h += `</tbody></table><p class="small"><a class="btn" href="#/geosteer">Open the geosteering panel</a> <span class="muted">the lateral as the driller's program has it: the layer, the hole, the gamma and the last recommendation, and the rig PC as it stands now</span></p>`;
     const last = recs.find(r => r.well === wid) || recs[recs.length - 1];
     if (last && last.summary.last && last.summary.last.length) h += `<p class="small muted" style="margin:6px 0 2px">The last decisions on ${esc(last.display)}:</p><table class="small"><thead><tr><th>UTC</th><th>MD ft</th><th>Recommendation</th><th>Answer</th></tr></thead><tbody>${last.summary.last.slice().reverse().map(d => `<tr><td>${esc(d.utc)}</td><td>${d.md != null ? d.md.toFixed(0) : ''}</td><td>${esc(d.words || '')}</td><td>${esc(d.answer ? d.answer + (d.by ? ' · ' + d.by : '') : '—')}</td></tr>`).join('')}</tbody></table>`;
   } else h += `<p class="small muted">Nothing pulled yet. The driller's kit (GEA-Driller-&lt;version&gt;.tar.gz) is on every release; its README says how to set the rig PC up.</p>`;
@@ -3676,6 +3676,129 @@ VIEWS.publicpad = async () => {
   if (J.state === 'running') setTimeout(() => { if (location.hash === '#/publicpad') route(); }, 3000);
 };
 
+// ---------- geosteering: the lateral as the driller's program on the rig PC has it, in the office ----------
+const GSV = {well: null, follow: false, autopull: false, timer: null, live: null, tried: null, busy: false};
+function gsPlot(layers, opt) {
+  // one measure a panel, over the distance along the plan. A layer is {band: [[x, a, b]]}, {line: [[x, y]]}, {dots: [[x, y, title, color]]}, {mark: [x, y]} or {level: y}
+  const W = 760, H = opt.h || 200, L = 64, R = 14, T = 10, B = 24, ys = [];
+  for (const l of layers) { (l.band || []).forEach(p => ys.push(p[1], p[2])); (l.line || []).forEach(p => ys.push(p[1])); (l.dots || []).forEach(p => ys.push(p[1])); if (l.mark) ys.push(l.mark[1]); if (l.level != null) ys.push(l.level); }
+  if (!ys.length || !(opt.x1 > opt.x0)) return '';
+  let lo = opt.lo != null ? opt.lo : Math.min(...ys), hi = opt.hi != null ? opt.hi : Math.max(...ys); const pad = (hi - lo) * 0.08 || 1; if (opt.lo == null) lo -= pad; if (opt.hi == null) hi += pad;
+  const sx = v => L + (v - opt.x0) / (opt.x1 - opt.x0) * (W - L - R), sy = v => { const f = (v - lo) / Math.max(1e-9, hi - lo); return T + (opt.down ? f : 1 - f) * (H - T - B); };
+  const ticks = (a, b, n) => { const raw = (b - a) / n, mag = Math.pow(10, Math.floor(Math.log10(raw))), st = [1, 2, 5, 10].map(m => m * mag).find(s => s >= raw) || raw, out = []; for (let v = Math.ceil(a / st) * st; v <= b + 1e-9; v += st) out.push(Math.round(v / st) * st); return out; };
+  const fy = v => opt.pct ? Math.round(v * 100) + '%' : (opt.dp ? v.toFixed(opt.dp) : Math.round(v).toLocaleString()), P = p => `${sx(p[0]).toFixed(1)},${sy(p[1]).toFixed(1)}`;
+  let g = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(opt.label)}" style="max-width:980px;display:block">`;
+  for (const v of ticks(lo, hi, 4)) g += `<line x1="${L}" x2="${W - R}" y1="${sy(v).toFixed(1)}" y2="${sy(v).toFixed(1)}" stroke="var(--grid)"/><text x="${L - 6}" y="${(sy(v) + 4).toFixed(1)}" font-size="11" text-anchor="end" fill="var(--muted)">${fy(v)}</text>`;
+  for (const v of ticks(opt.x0, opt.x1, 7)) g += `<line x1="${sx(v).toFixed(1)}" x2="${sx(v).toFixed(1)}" y1="${H - B}" y2="${H - B + 4}" stroke="var(--muted)"/><text x="${sx(v).toFixed(1)}" y="${H - 7}" font-size="11" text-anchor="middle" fill="var(--muted)">${Math.round(v).toLocaleString()}</text>`;
+  g += `<line x1="${L}" x2="${L}" y1="${T}" y2="${H - B}" stroke="var(--muted)"/><line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" stroke="var(--muted)"/>`;
+  for (const l of layers) {
+    if (l.band && l.band.length) g += `<polygon points="${l.band.map(p => P([p[0], p[1]])).concat(l.band.slice().reverse().map(p => P([p[0], p[2]]))).join(' ')}" fill="${l.color}" opacity="${l.opacity || .15}"><title>${esc(l.name || '')}</title></polygon>`;
+    if (l.line && l.line.length) g += `<polyline points="${l.line.map(P).join(' ')}" fill="none" stroke="${l.color}" stroke-width="${l.width || 1.4}" ${l.dash ? `stroke-dasharray="${l.dash}"` : ''} stroke-linejoin="round"><title>${esc(l.name || '')}</title></polyline>`;
+    if (l.level != null) g += `<line x1="${L}" x2="${W - R}" y1="${sy(l.level).toFixed(1)}" y2="${sy(l.level).toFixed(1)}" stroke="${l.color}" stroke-width="1" stroke-dasharray="${l.dash || '5 4'}"><title>${esc(l.name || '')}</title></line>`;
+    if (l.dots) g += l.dots.map(p => `<circle cx="${sx(p[0]).toFixed(1)}" cy="${sy(p[1]).toFixed(1)}" r="${l.r || 2.6}" fill="${p[3] || l.color}" stroke="var(--surface)" stroke-width=".6"><title>${esc(p[2] || '')}</title></circle>`).join('');
+    if (l.mark) { const x = sx(l.mark[0]), y = sy(l.mark[1]); g += `<path d="M${(x - 6).toFixed(1)},${y.toFixed(1)} L${x.toFixed(1)},${(y - 6).toFixed(1)} L${(x + 6).toFixed(1)},${y.toFixed(1)} L${x.toFixed(1)},${(y + 6).toFixed(1)} Z" fill="none" stroke="${l.color}" stroke-width="2"><title>${esc(l.name || '')}</title></path>`; }
+  }
+  const key = layers.filter(l => l.name && !l.nokey).map(l => `<span style="white-space:nowrap"><span aria-hidden="true" style="display:inline-block;width:14px;height:${l.band ? 9 : 3}px;vertical-align:middle;background:${l.color};opacity:${l.band ? (l.opacity || .15) * 2.2 : 1}"></span> ${esc(l.name)}</span>`).join(' &nbsp; ');
+  return g + `</svg><p class="small muted" style="margin:0 0 10px"><b>${esc(opt.unit)}</b> against the distance along the plan, ft. ${key}</p>`;
+}
+function gsLiveHtml(L) {
+  const op = can('operator'), n0 = v => v == null ? '—' : Math.round(v).toLocaleString();
+  if (!L) return `<p class="small muted">Asking the rig PC…</p>`;
+  if (L.status !== 'LIVE') return `<p class="small">${statusPill(L.status === 'ANOTHER WELL' ? 'serious' : 'warn', L.status === 'NOT REACHED' ? 'the rig PC was not reached' : L.status === 'ANOTHER WELL' ? 'the rig PC is on another well' : 'no rig PC to ask')} <span class="muted">${esc(L.why || '')}${L.read_utc ? ' · asked ' + tz(L.read_utc) : ''}</span></p>`;
+  const r = L.rig || {}, e = L.estimate, c = L.current;
+  let h = `<p class="small">${statusPill(L.ok ? 'good' : 'warn', L.ok ? 'the rig PC answers' : 'the rig PC answers, its feed does not')} ${L.twin ? statusPill('neutral', 'SIMULATION: the twin as the rig') : ''} ${L.armed ? statusPill('serious', 'the closed loop is ARMED on the rig PC') : ''} <span class="muted">${esc(L.feed || '')} · read ${tz(L.read_utc)} from <span class="mono">${esc(L.source)}</span></span></p>`;
+  h += `<div class="tiles">` + tile('Hole depth', n0(r.hole_depth) + ' ft', 'neutral', '#/geosteer', r.rop != null ? `${n0(r.rop)} ft/h` : '') + tile('Gamma at the bit', n0(r.gamma) + ' API', 'neutral', '#/geosteer', r.gamma_up != null && r.gamma_down != null ? `up ${n0(r.gamma_up)}, down ${n0(r.gamma_down)}` : 'no up and down gamma on the feed')
+    + tile('In the layer, by the estimate', e && e.p_in != null ? Math.round(e.p_in * 100) + '%' : '—', e && e.p_in != null ? (e.p_in >= 0.5 ? 'good' : 'warn') : 'neutral', '#/geosteer', e && e.p_above != null ? `above ${Math.round(e.p_above * 100)}%, below ${Math.round(e.p_below * 100)}%${e.sigma != null ? ', ± ' + e.sigma.toFixed(1) + ' ft' : ''}` : '')
+    + tile('Since the last pull', String(L.since_pull), L.since_pull ? 'warn' : 'good', '#/geosteer', L.since_pull ? 'decisions on the rig PC that the pictures below do not show yet' : 'the pictures below are up to the rig PC') + `</div>`;
+  if (c && c.words) {
+    h += `<p><b>It recommends, at ${n0(c.md)} ft:</b> ${esc(c.words)} <span class="small muted">${c.steer === 'book' ? 'by the book' : c.steer === 'policy' ? 'the policy steering' : ''}</span></p>`;
+    if (c.answer) h += `<p class="small">${statusPill(c.answer === 'accept' ? 'good' : 'warn', c.answer === 'accept' ? 'accepted' : c.answer === 'reject' ? 'turned down' : c.answer === 'override' ? 'done otherwise' : c.answer)} ${c.by ? 'by ' + esc(c.by) : ''}</p>`;
+    else if (L.armed) h += `<p class="small muted">While the loop is armed its commands are the answer; it is disarmed on the rig PC.</p>`;
+    else if (op) h += `<div class="row"><label>A note with the answer<input id="gsNote" maxlength="300" style="min-width:min(22em,100%)" placeholder="why, in a few words"></label><button type="button" class="gs-ans" data-w="accept" data-u="${esc(c.utc)}">Accept</button><button type="button" class="secondary gs-ans" data-w="reject" data-u="${esc(c.utc)}">Turn it down</button><span class="small muted">goes to the rig PC's record under your name, marked as the office's; what was done instead is recorded on the rig PC's own screen</span></div>`;
+    else h += `<p class="small muted">Not answered yet. The operator role answers from here.</p>`;
+    if (c.reasons && c.reasons.length) h += `<details class="small"><summary>Why</summary><ul>${c.reasons.map(x => `<li>${esc(x)}</li>`).join('')}</ul></details>`;
+  } else if (L.last && L.last.words) h += `<p class="small"><b>No recommendation is waiting.</b> The last, at ${n0(L.last.md)} ft: ${esc(L.last.words)} ${statusPill(L.last.answer === 'accept' ? 'good' : L.last.answer ? 'warn' : 'neutral', L.last.answer === 'accept' ? 'accepted' : L.last.answer === 'reject' ? 'turned down' : L.last.answer === 'override' ? 'done otherwise' : 'not answered')} ${L.last.by ? 'by ' + esc(L.last.by) : ''}</p>`;
+  else h += `<p class="small muted">The rig PC shows no recommendation yet.</p>`;
+  return h;
+}
+function gsLiveWire() {
+  document.querySelectorAll('.gs-ans').forEach(b => b.onclick = async () => { b.disabled = true; try { const r = await post('/api/geosteer/answer', {well: GSV.well, what: b.dataset.w, utc: b.dataset.u, note: ($('#gsNote') || {}).value || ''}); toast(`${r.what === 'accept' ? 'Accepted' : 'Turned down'}, on the rig PC's record as ${r.by}`, 'ok'); gsLive(); } catch (e) { toast(e.message, 'err'); b.disabled = false; } });
+}
+async function gsLive() {
+  clearTimeout(GSV.timer); GSV.timer = null;
+  if (!GSV.follow || location.hash.split('?')[0] !== '#/geosteer' || !$('#gsLive')) return;
+  let L; try { L = await get('/api/geosteer/live?well=' + encodeURIComponent(GSV.well)); } catch (e) { L = {status: 'NOT REACHED', why: e.message}; }
+  if (!GSV.follow || location.hash.split('?')[0] !== '#/geosteer' || !$('#gsLive')) return;
+  GSV.live = L;
+  if (L.status === 'LIVE' && L.since_pull > 0 && GSV.autopull && can('operator') && !GSV.busy && GSV.tried !== L.decisions) {
+    GSV.busy = true; GSV.tried = L.decisions;                       // one pull for each new count of decisions, and no more
+    try { await post('/api/geosteer/pull', {well: GSV.well}); GSV.busy = false; return route(); } catch (e) { GSV.busy = false; GSV.autopull = false; toast(e.message, 'err'); }
+  }
+  const note = $('#gsNote'), kept = note ? note.value : '', had = document.activeElement === note;
+  $('#gsLive').innerHTML = gsLiveHtml(L); gsLiveWire();
+  if (kept && $('#gsNote')) { $('#gsNote').value = kept; if (had) $('#gsNote').focus(); }
+  GSV.timer = setTimeout(gsLive, 10000);
+}
+VIEWS.geosteer = async () => {
+  const P = await get('/api/geosteer' + (GSV.well ? '?well=' + encodeURIComponent(GSV.well) : '')), op = can('operator'), pn = P.panel, n0 = v => v == null ? '—' : Math.round(v).toLocaleString(), f1 = v => v == null ? '—' : Number(v).toFixed(1);
+  let h = `<h2>Geosteering <span class="small muted">the lateral as the driller's program on the rig PC has it, in the office</span></h2>` + help('geosteer');
+  if (!pn) { clearTimeout(GSV.timer); $('#main').innerHTML = h + `<div class="card"><p class="small">${esc(P.lines[0])}</p><p><a class="btn" href="#/drillstring">Open the Drill string tab</a></p></div>`; return; }
+  if (GSV.well !== P.well) { GSV.live = null; GSV.tried = null; }
+  GSV.well = P.well;
+  h += `<div class="row">${P.wells.length > 1 ? P.wells.map(w => `<button type="button" class="secondary gs-w" data-w="${esc(w.well)}" ${w.well === P.well ? 'disabled' : ''}>${esc(w.display)}</button>`).join('') : `<b>${esc(pn.display)}</b>`}
+    <span class="small muted">${pn.rig_well ? `the rig PC's ${esc(pn.rig_well)} · ` : ''}pulled ${tz(pn.pulled_utc)} from <span class="mono">${esc(pn.source || '')}</span></span>${pn.label ? statusPill('neutral', pn.label) : ''}
+    ${op ? `<button type="button" class="secondary" id="gsPull">Pull again</button>` : ''}${pn.from_rig_pc ? `<button type="button" class="${GSV.follow ? '' : 'secondary'}" id="gsFollow" aria-pressed="${GSV.follow}">${GSV.follow ? 'Following the rig PC' : 'Follow the rig PC'}</button>` : ''}
+    ${op && pn.from_rig_pc && GSV.follow ? `<label class="small"><input type="checkbox" id="gsAuto" ${GSV.autopull ? 'checked' : ''}> pull each new decision into the well as it comes</label>` : ''}${op && pn.status === 'OK' ? `<button type="button" class="secondary" id="gsWrite">Write the report</button>` : ''}</div>`;
+  if (GSV.follow && pn.from_rig_pc) h += `<div class="card" id="gsLiveCard"><h3>The rig PC now <span class="small muted">asked every ten seconds while this tab is open and Follow is on</span></h3><div id="gsLive">${gsLiveHtml(GSV.live)}</div></div>`;
+  if (pn.status !== 'OK') h += `<div class="card"><p class="small">${esc(pn.why || '')}</p></div>`;
+  else {
+    const su = pn.summary, st = pn.stations, m = pn.model || {}, last = st[st.length - 1], w = su.where, a = su.answers, lt = pn.latest || {};
+    h += `<div class="tiles">` + tile('Decisions', String(su.decisions), 'neutral', '#/geosteer', st.length ? `${n0(su.md_from)} to ${n0(su.md_to)} ft` + (su.not_drawn ? `; ${su.not_drawn} without a position, not drawn` : '') : 'none carries a position')
+      + tile('The estimate puts the bit', lt.where === 'in' ? 'in the layer' : lt.where ? lt.where + ' it' : '—', lt.where === 'in' ? 'good' : lt.where ? 'warn' : 'neutral', '#/geosteer', lt.p_in != null ? `${Math.round(lt.p_in * 100)}% in, ${Math.round(lt.p_above * 100)}% above, ${Math.round(lt.p_below * 100)}% below${lt.sigma != null ? '; ± ' + f1(lt.sigma) + ' ft' : ''}` : '')
+      + tile('The layer against the model', su.shift_ft == null ? '—' : `${f1(Math.abs(su.shift_ft))} ft ${su.shift_ft > 0 ? 'deeper' : 'shallower'}`, 'neutral', '#/geosteer', `the estimate's top against the pre-drill model's, at the last decision`)
+      + tile('In the layer, by the estimate', su.in_layer_pct_by_estimate == null ? '—' : f1(su.in_layer_pct_by_estimate) + '%', 'neutral', '#/geosteer', `${w.in} of ${w.in + w.above + w.below} decisions; ${w.above} above, ${w.below} below - the estimate's count, not a log's`)
+      + tile('Answers', `${a.accept} accepted`, a.reject || a.override ? 'warn' : 'neutral', '#/geosteer', `${a.reject} turned down, ${a.override} done otherwise, ${a.unanswered} not answered`) + `</div>`;
+    if (st.length) {
+      const x0 = st[0].vs, aim = pn.aim, x1 = Math.max(last.vs, aim ? aim.vs : last.vs, x0 + 60) + 20;
+      const col = s => s.answer === 'accept' ? 'var(--good)' : s.answer === 'reject' ? 'var(--serious)' : s.answer === 'override' ? 'var(--warn)' : 'var(--muted)';
+      const ttl = s => `${n0(s.md)} ft MD, TVD ${f1(s.tvd)}: ${s.words || ''} - ${s.answer === 'accept' ? 'accepted' : s.answer === 'reject' ? 'turned down' : s.answer === 'override' ? 'done otherwise' : 'not answered'}${s.by ? ' by ' + s.by : ''}`;
+      const sec = [{band: st.filter(s => s.model_top != null).map(s => [s.vs, s.model_top, s.model_base]), color: 'var(--good)', opacity: .13, name: "the pre-drill model's layer"},
+        {band: st.map(s => [s.vs, s.top, s.base]), color: 'var(--s1)', opacity: .17, name: 'the layer as the position estimate has it'},
+        {band: st.filter(s => s.sigma != null).map(s => [s.vs, s.top - s.sigma, s.top + s.sigma]), color: 'var(--s1)', opacity: .22, name: "its top, give or take the estimate's spread"},
+        {line: st.map(s => [s.vs, s.tvd]), color: 'var(--ink)', width: 2, name: 'the hole'}, {dots: st.map(s => [s.vs, s.tvd, ttl(s), col(s)]), color: 'var(--muted)', name: 'a decision (green accepted, red turned down, grey not answered)', nokey: false}];
+      if (aim) sec.push({line: [[last.vs, last.tvd], [aim.vs, aim.tvd]], color: 'var(--accent)', dash: '5 4', width: 1.6, name: `where the last recommendation points, ${Math.round(aim.ahead_ft)} ft on`}, {mark: [aim.vs, aim.tvd], color: 'var(--accent)', name: 'the aim point'});
+      const gam = [];
+      if (m.gamma_above != null) gam.push({level: m.gamma_above, color: 'var(--s2)', name: `the model's rock above (${n0(m.gamma_above)})`}, {level: m.gamma_in, color: 'var(--good)', name: `the layer (${n0(m.gamma_in)})`}, {level: m.gamma_below, color: 'var(--s4)', name: `the rock below (${n0(m.gamma_below)})`});
+      if (st.some(s => s.expected != null)) gam.push({line: st.filter(s => s.expected != null).map(s => [s.vs, s.expected]), color: 'var(--s1)', width: 1.6, name: 'what those values would have a tool read where the estimate puts the bit'});
+      const ud = st.filter(s => s.gamma_up != null && s.gamma_down != null);
+      if (ud.length) gam.push({line: ud.map(s => [s.vs, s.gamma_up]), color: 'var(--s5)', width: 1, name: 'read on the high side'}, {line: ud.map(s => [s.vs, s.gamma_down]), color: 'var(--s3)', width: 1, name: 'read on the low side'});
+      gam.push({line: st.map(s => [s.vs, s.gamma]), color: 'var(--ink)', width: 1.8, name: 'the gamma read at the bit'}, {dots: st.map(s => [s.vs, s.gamma, `${n0(s.md)} ft: gamma ${f1(s.gamma)} API${s.gamma_up != null ? `, up ${f1(s.gamma_up)}, down ${f1(s.gamma_down)}` : ''}${s.expected != null ? `; the estimate's layer would read ${f1(s.expected)}` : ''}`]), color: 'var(--ink)', r: 2});
+      const cor = last.corridor, pl = [];
+      if (cor != null) pl.push({band: [[x0, -cor, cor], [x1, -cor, cor]], color: 'var(--good)', opacity: .10, name: `the corridor (± ${n0(cor)} ft)`});
+      pl.push({level: 0, color: 'var(--muted)', name: 'the plan line'}, {line: st.map(s => [s.vs, s.y]), color: 'var(--ink)', width: 2, name: 'the hole'});
+      if (aim) pl.push({line: [[last.vs, last.y], [aim.vs, aim.y]], color: 'var(--accent)', dash: '5 4', width: 1.6, name: 'where the last recommendation points'}, {mark: [aim.vs, aim.y], color: 'var(--accent)'});
+      const pr = [{line: st.filter(s => s.p_in != null).map(s => [s.vs, s.p_in]), color: 'var(--good)', width: 2, name: 'in the layer'}, {line: st.filter(s => s.p_above != null).map(s => [s.vs, s.p_above]), color: 'var(--s2)', width: 1.2, name: 'above it'}, {line: st.filter(s => s.p_below != null).map(s => [s.vs, s.p_below]), color: 'var(--s4)', width: 1.2, name: 'below it'}];
+      h += `<div class="card"><h3>The section <span class="small muted">looking across the plan: depth downward; one measure a picture, all four on the same distance along the plan</span></h3>`
+        + gsPlot(sec, {x0, x1, down: true, h: 250, dp: 0, unit: 'TVD, ft', label: 'The section: the layer by the model and by the estimate, the hole, and where the last recommendation points'})
+        + gsPlot(gam, {x0, x1, h: 190, unit: 'Gamma, API', label: 'The gamma read against what the model would have a tool read'})
+        + gsPlot(pr, {x0, x1, h: 130, lo: 0, hi: 1, pct: true, unit: "The position estimate's probability", label: 'How sure the estimate is that the bit is in the layer, above it or below it'})
+        + gsPlot(pl, {x0, x1, h: 150, unit: 'Right of the plan line, ft', label: 'The plan view: the hole right or left of the plan line in its corridor'}) + `</div>`;
+    }
+    if (lt.words) h += `<div class="card"><h3>The last recommendation pulled <span class="small muted">at ${n0(lt.md)} ft, ${tz(lt.utc)}</span></h3><p>${esc(lt.words)} ${statusPill(lt.answer === 'accept' ? 'good' : lt.answer ? 'warn' : 'neutral', lt.answer === 'accept' ? 'accepted' : lt.answer === 'reject' ? 'turned down' : lt.answer === 'override' ? 'done otherwise' : 'not answered')} ${lt.by ? `<span class="small muted">by ${esc(lt.by)}${lt.note ? ' - ' + esc(lt.note) : ''}</span>` : ''}</p>${lt.reasons && lt.reasons.length ? `<details class="small"><summary>Why</summary><ul>${lt.reasons.map(x => `<li>${esc(x)}</li>`).join('')}</ul></details>` : ''}</div>`;
+    h += `<div class="card"><h3>What it comes to</h3><ul class="small">${P.lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>`;
+    if (st.length) h += `<table class="small"><thead><tr><th>MD ft</th><th>TVD ft</th><th>Gamma</th><th>Up / down</th><th>In the layer</th><th>Top / base by the estimate</th><th>Recommendation</th><th>Decided</th><th>Answer</th></tr></thead><tbody>${st.slice(-15).reverse().map(s => `<tr><td>${n0(s.md)}</td><td>${f1(s.tvd)}</td><td>${n0(s.gamma)}</td><td>${s.gamma_up != null ? n0(s.gamma_up) + ' / ' + n0(s.gamma_down) : '<span class="muted">—</span>'}</td><td>${s.p_in != null ? Math.round(s.p_in * 100) + '%' : '—'}</td><td>${f1(s.top)} / ${f1(s.base)}</td><td>${esc(s.words || '')}</td><td>${s.armed ? 'the armed loop' : s.steer === 'book' ? 'by the book' : 'the policy'}</td><td>${s.answer === 'accept' ? statusPill('good', 'accepted') : s.answer === 'reject' ? statusPill('warn', 'turned down') : s.answer === 'override' ? statusPill('warn', 'done otherwise') : '<span class="muted">not answered</span>'}${s.by ? ` <span class="muted">${esc(s.by)}</span>` : ''}</td></tr>`).join('')}</tbody></table>`;
+    h += `<details class="small"><summary>What this page will not call a measurement</summary><ul>${P.not_a_measurement.map(x => `<li>${esc(x)}</li>`).join('')}</ul></details></div>`;
+  }
+  $('#main').innerHTML = h;
+  document.querySelectorAll('.gs-w').forEach(b => b.onclick = () => { GSV.well = b.dataset.w; GSV.live = null; route(); });
+  $('#gsPull') && ($('#gsPull').onclick = async ev => { ev.target.disabled = true; try { const r = await post('/api/geosteer/pull', {well: P.well}); toast(`Pulled: ${r.decisions} decisions${r.bad.length ? '; not taken (hash did not match): ' + r.bad.join(', ') : ''}`, r.bad.length ? 'err' : 'ok'); route(); } catch (e) { toast(e.message, 'err'); ev.target.disabled = false; } });
+  $('#gsWrite') && ($('#gsWrite').onclick = async () => { try { const r = await post('/api/geosteer/write', {well: P.well}); toast(`Written: ${r.files.join(', ')}`, 'ok'); } catch (e) { toast(e.message, 'err'); } });
+  $('#gsFollow') && ($('#gsFollow').onclick = () => { GSV.follow = !GSV.follow; if (!GSV.follow) { clearTimeout(GSV.timer); GSV.timer = null; GSV.live = null; } route(); });
+  $('#gsAuto') && ($('#gsAuto').onchange = ev => { GSV.autopull = ev.target.checked; GSV.tried = null; });
+  clearTimeout(GSV.timer); GSV.timer = null;
+  if (GSV.follow && pn.from_rig_pc) { gsLiveWire(); GSV.timer = setTimeout(gsLive, GSV.live ? 10000 : 0); }
+};
+
 // ---------- trip sheet: the mud the hole took or gave on each trip, against the pipe ----------
 const TRV = {well: null, trip: null};
 VIEWS.trips = async () => {
@@ -4613,14 +4736,14 @@ function authScreen(first, company) {
 }
 
 // ---------- routing ---------------------------------------------------------------------
-const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/publicpad', 'Public data'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/roadmap', 'Roadmap'], ['#/benchmark', 'Benchmark'], ['#/dysfunction', 'Drilling alerts'], ['#/kick', 'Kick & loss'], ['#/trips', 'Trip sheet'], ['#/collision', 'Collision'], ['#/hardline', 'Hard line'], ['#/slides', 'Slide sheet'], ['#/plan', 'Plan vs actual'], ['#/treatment', 'Frac treatment'], ['#/frac', 'Frac hits'], ['#/fluid', 'Fluid balance'], ['#/plume', 'Pressure plume'], ['#/front', 'Fluid front'], ['#/calibration', 'Calibration'], ['#/porepressure', 'Pore pressure'], ['#/torquedrag', 'Torque & drag'], ['#/hydraulics', 'Hydraulics & ECD'], ['#/casing', 'Casing & kick tolerance'], ['#/decline', 'Decline curves'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/mcp', 'Assistant access'], ['#/catalog', 'Catalogue'], ['#/rocks', 'Rocks'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/tutorial', 'Tutorial'], ['#/help', 'Help']];
+const NAV = [['#/', 'Home'], ['#/control', 'Control room'], ['#/setup', 'Setup'], ['#/sites', 'Sites'], ['#/publicpad', 'Public data'], ['#/wells', 'Wells'], ['#/map', 'Map'], ['#/3d', '3D'], ['#/simulation', 'Simulation'], ['#/drillstring', 'Drill string'], ['#/completion', 'Completion'], ['#/economics', 'Economics'], ['#/rigtime', 'Rig time'], ['#/roadmap', 'Roadmap'], ['#/benchmark', 'Benchmark'], ['#/dysfunction', 'Drilling alerts'], ['#/kick', 'Kick & loss'], ['#/trips', 'Trip sheet'], ['#/collision', 'Collision'], ['#/hardline', 'Hard line'], ['#/slides', 'Slide sheet'], ['#/plan', 'Plan vs actual'], ['#/geosteer', 'Geosteering'], ['#/treatment', 'Frac treatment'], ['#/frac', 'Frac hits'], ['#/fluid', 'Fluid balance'], ['#/plume', 'Pressure plume'], ['#/front', 'Fluid front'], ['#/calibration', 'Calibration'], ['#/porepressure', 'Pore pressure'], ['#/torquedrag', 'Torque & drag'], ['#/hydraulics', 'Hydraulics & ECD'], ['#/casing', 'Casing & kick tolerance'], ['#/decline', 'Decline curves'], ['#/invoices', 'Invoice check'], ['#/seismic', 'Seismic'], ['#/opseis', 'Operations & seismicity'], ['#/sar', 'SAR panel'], ['#/live', 'Patch panel'], ['#/files', 'Files'], ['#/alarms', 'Alarms'], ['#/approvals', 'Approvals'], ['#/config', 'Configuration'], ['#/reports', 'Reports'], ['#/verify', 'Verification'], ['#/survey', 'Survey'], ['#/tools', 'Tools & ports'], ['#/mcp', 'Assistant access'], ['#/catalog', 'Catalogue'], ['#/rocks', 'Rocks'], ['#/jobs', 'Jobs'], ['#/audit', 'Audit / Update'], ['#/admin', 'Administration'], ['#/tutorial', 'Tutorial'], ['#/help', 'Help']];
 const BADGE = {'#/alarms': b => [b.alarms_unacked, ''], '#/approvals': b => [b.approvals_pending, 'w'], '#/jobs': b => [b.jobs_failed_24h, ''], '#/live': b => [b.patches_down, ''], '#/setup': b => [b.setup_todo, 'w'], '#/control': b => [b.handover_unacked, 'w']};
 // the tabs under headings, in the order of the work: every tab of NAV under exactly one (the gate holds it so)
 const NAV_GROUPS = [
   ['Start', ['#/', '#/setup', '#/sites', '#/publicpad']],
   ['Wells & data', ['#/wells', '#/files', '#/live', '#/survey', '#/catalog', '#/rocks', '#/tools']],
   ['Watch & report', ['#/control', '#/alarms', '#/approvals', '#/reports']],
-  ['Well paths', ['#/map', '#/3d', '#/collision', '#/hardline', '#/slides', '#/plan']],
+  ['Well paths', ['#/map', '#/3d', '#/collision', '#/hardline', '#/slides', '#/plan', '#/geosteer']],
   ['Drilling', ['#/rigtime', '#/benchmark', '#/roadmap', '#/dysfunction', '#/kick', '#/trips', '#/drillstring', '#/simulation', '#/torquedrag', '#/hydraulics', '#/porepressure', '#/casing']],
   ['Completion & production', ['#/completion', '#/treatment', '#/frac', '#/decline', '#/economics', '#/invoices']],
   ['Disposal', ['#/fluid', '#/plume', '#/front', '#/calibration']],

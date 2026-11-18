@@ -686,6 +686,14 @@ def main(argv=None) -> int:
     p_bm.add_argument("--write", action="store_true", help="write reports/benchmark/benchmark.json, .md, .csv and stretches.csv")
     p_bm.add_argument("--actor", type=str, default="cli")
     p_bm.add_argument("--json", action="store_true")
+    p_gs = sub.add_parser("geosteer", help="the office's geosteering panel: one lateral as the driller's program on the rig PC has it - the layer by the model and by the position estimate, the hole, the gamma, the last recommendation and its answer - from the record pulled into the well")
+    p_gs.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (a layer and a hole that are known)")
+    p_gs.add_argument("--well", type=str, default=None, help="a well, by its name or id; without one, the well pulled last")
+    p_gs.add_argument("--live", action="store_true", help="ask the rig PC how it stands now (one read of its live page's data)")
+    p_gs.add_argument("--pull", action="store_true", help="pull the record again from where it was pulled before, first")
+    p_gs.add_argument("--write", action="store_true", help="write the report: reports/geosteering/ under the workspace, a folder a well")
+    p_gs.add_argument("--actor", type=str, default="cli", help="who is doing this, for the audit trail")
+    p_gs.add_argument("--json", action="store_true")
     p_tr = sub.add_parser("trip-sheet", help="the mud the hole took or gave on every trip against the pipe that was moved, read from the trip tank or the pits of the drilling record: short fills, losses, and the trips the record cannot read")
     p_tr.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (volumes that are known)")
     p_tr.add_argument("--well", type=str, default=None, help="a well, by its name or id: the one whose trips are listed, or whose pipe is declared")
@@ -3668,6 +3676,50 @@ def main(argv=None) -> int:
         except (_BM.BenchmarkError, WorkspaceError, ValueError, OSError) as e:
             raise SystemExit(f"benchmark: {e.args[0] if e.args else e}")
         print(_json.dumps(p, default=str) if a.json else _BM.text(p))
+        return 0
+    elif a.cmd == "geosteer":
+        import json as _json
+        from . import geosteer as _GS
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if not a.workspace:
+            r = _GS.selftest()
+            print("\n".join(f"{'PASS' if c['pass'] else 'FAIL'}  {c['name']}" for c in r["checks"]) + f"\n{'OK' if r['ok'] else 'FAILED'} - {r['label']}")
+            return 0 if r["ok"] else 1
+        try:
+            ws = Workspace(a.workspace)
+            wid = None
+            if a.well:
+                wid = next((w["id"] for w in ws.wells() if a.well in (w["id"], w.get("display"))), None)
+                if wid is None:
+                    raise SystemExit(f"geosteer: no well {a.well!r} in this workspace")
+            if a.pull:
+                if wid is None:
+                    raise SystemExit("geosteer: name the well to pull into (--well)")
+                r = _GS.pull(ws, wid, a.actor)
+                print(f"pulled: {r['decisions']} decisions ({', '.join(r['fetched']) or 'nothing new'})")
+            if a.write:
+                from . import __version__ as _ver104
+                r = _GS.write_report(ws, _ver104, wid, a.actor)
+                print(f"written: {', '.join(r['files'])} under {r['folder']}")
+            p = _GS.page(ws, wid)
+            lv = _GS.live(ws, p["well"]) if a.live and p.get("well") else None
+        except WorkspaceError as e:
+            raise SystemExit(f"geosteer: {e}")
+        except (ValueError, KeyError) as e:
+            raise SystemExit(f"geosteer: {e.args[0] if e.args else e}")
+        if a.json:
+            print(_json.dumps({**p, "live": lv} if a.live else p, default=str))
+        else:
+            print(_GS.text(p))
+            if lv is not None:
+                if lv["status"] == "LIVE":
+                    c_ = lv.get("current") or {}
+                    print(f"The rig PC now ({lv['read_utc']}): {lv['feed']}; hole depth {lv['rig'].get('hole_depth')} ft, gamma {lv['rig'].get('gamma')} API; "
+                          f"{lv['since_pull']} decisions since the pull." + (f" It recommends: {c_.get('words')}" if c_.get("words") else ""))
+                else:
+                    print(f"The rig PC now: {lv['status']} - {lv.get('why')}")
         return 0
     elif a.cmd == "trip-sheet":
         import json as _json

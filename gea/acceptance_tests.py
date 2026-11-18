@@ -19447,6 +19447,298 @@ def section_ej_frac_treatment(tmp: str) -> None:
        "page with the published figures it was checked against, the README and lesson 14" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_ew_geosteering(tmp: str) -> None:
+    """Section EW - the office's geosteering panel (0.104.0): one lateral as the driller's program has it, from the
+    record pulled into the well - the stations, the layer by the model and by the estimate, the model's gamma, the
+    aim point, the answers - on a made record whose every figure is known; the rig PC as it stands now and an answer
+    from the office, on the twin as the rig; the routes and their roles, the tab, the command, the report, the help,
+    the lesson, the README and the security page."""
+    import csv
+    import hashlib as _hl
+    import importlib
+    import math
+    import subprocess as _sp
+    from . import driller_link as DL
+    from . import geosteer as G
+    from . import helplib as H
+    from . import tutorial as TU
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ew"); d.mkdir()
+
+    def audit_actions(ws_) -> list:
+        p_ = Path(ws_.path, "records", "audit.jsonl")
+        return [json.loads(l_).get("action") for l_ in p_.read_text(encoding="utf-8").splitlines() if l_.strip()] if p_.is_file() else []
+
+    def rig_folder(name: str, dec: list, man: dict) -> Path:
+        f_ = d / name; f_.mkdir()
+        (f_ / "decisions.jsonl").write_text("".join(json.dumps(x) + "\n" for x in dec), encoding="utf-8")
+        (f_ / "commands.jsonl").write_text("", encoding="utf-8")
+        (f_ / "surveys.csv").write_text("md_ft,inclination_deg,azimuth_deg,utc,source\n", encoding="utf-8")
+        man = dict(man); man["files"] = [{"file": n_, "sha256": _hl.sha256((f_ / n_).read_bytes()).hexdigest()} for n_ in ("decisions.jsonl", "commands.jsonl", "surveys.csv")]
+        (f_ / "manifest.json").write_text(json.dumps(man), encoding="utf-8")
+        return f_
+    # -- EW1 the panel, from a record whose every figure is known ------------------------------------------------------------------
+    st_ = G.selftest()
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad EW", actor="tester")
+    for n_ in ("W-1", "W-2", "W-3"):
+        ws.add_well_records(n_, actor="tester")
+    empty = G.page(ws)
+    dec, man = G.made_record()
+    DL.pull(ws, str(rig_folder("rig1", dec, man)), "W-1", actor="tester")
+    early = [{"utc": x["utc"], "md": x["md"], "recommend": x["recommend"], "answer": x["answer"]} for x in dec[:5]]      # an early version's record: no position, no layer
+    DL.pull(ws, str(rig_folder("rig2", early, man)), "W-2", actor="tester")
+    n_audit = len(audit_actions(ws))
+    p = G.page(ws, "W-1"); pn = p["panel"]; su = pn["summary"]; sts = pn["stations"]
+    p_early = G.page(ws, "W-2")
+    p_none = G.panel(ws, "W-3")
+    wrote_nothing = len(audit_actions(ws)) == n_audit and not Path(wsp, "reports", "geosteering").exists()
+    try:
+        G.page(ws, "nope"); unknown = False
+    except KeyError:
+        unknown = True
+    live_folder = G.live(ws, "W-1")
+    try:
+        G.answer(ws, "W-1", "tester", "accept", dec[-1]["utc"]); ans_folder = False
+    except ValueError as e:
+        ans_folder = "folder" in str(e)
+    with open(Path(G.folder(ws, "W-1"), "decisions.jsonl"), "a", encoding="utf-8") as f:                                  # the record grows: the page reads it again
+        f.write(json.dumps(dec[-1] | {"md": dec[-1]["md"] + 30.0, "utc": "2026-01-01T01:00:00Z"}) + "\n")
+    grown = G.page(ws, "W-1")["panel"]["summary"]["decisions"]
+    rep = G.write_report(ws, "9.9.9", "W-1", actor="tester")
+    rd = Path(rep["folder"])
+    with open(rd / "stations.csv", newline="", encoding="utf-8") as f:
+        rows_csv = list(csv.reader(f))
+    md_txt = (rd / "geosteering.md").read_text(encoding="utf-8")
+    aim = pn["aim"]; last = sts[-1]
+    out_ix = [s_["i"] for s_ in sts if s_["where"] == "above"]
+    c1 = {
+        "selftest": st_["ok"] and len(st_["checks"]) >= 6,
+        "empty": empty["status"] == "EMPTY" and empty["panel"] is None and "Drill string" in empty["lines"][0],
+        "drawn": p["status"] == "OK" and p["well"] == "W-1" and len(sts) == 40 == su["decisions"] == su["drawn"] and su["not_drawn"] == 0 and pn["from_rig_pc"] is False,
+        "layer": su["shift_ft"] == 8.0 and su["thickness_ft"] == 30.0 and all(s_["top"] == 9008.0 and s_["base"] == 9038.0 and s_["model_top"] == 9000.0 for s_ in sts),
+        "where": su["where"] == {"in": 36, "above": 4, "below": 0} and su["in_layer_pct_by_estimate"] == 90.0 and out_ix == [7, 8, 9, 10],
+        "gamma": su["gamma_misfit_estimate_api"] == 0.0 and su["gamma_misfit_model_api"] > 10.0 and all(s_["expected"] == s_["gamma"] for s_ in sts)
+                 and sts[9]["gamma"] > 90.0 and sts[30]["gamma"] == 60.0 and su["with_up_down_gamma"] == 40 and sts[7]["gamma_up"] > sts[7]["gamma_down"] + 20.0,
+        "answers": su["answers"] == {"accept": 32, "reject": 4, "override": 0, "unanswered": 4} and su["answered_by"] == {"made": 36} and su["decided_by"] == {"book": 40}
+                   and sts[5]["answer"] == "reject" and sts[0]["answer"] is None and sts[1]["answer"] == "accept",
+        "aim": aim is not None and abs(aim["vs"] - last["vs"] - 90.0) < 0.1 and abs(aim["tvd"] - (last["tvd"] + 90.0 * math.cos(math.radians(last["inc"])))) < 0.11
+               and abs(aim["below_top_ft"] - (aim["tvd"] - 9008.0)) < 0.11 and aim["below_top_ft"] > 0 and aim["above_base_ft"] > 0,
+        "lines": len(p["lines"]) >= 6 and "8.0 ft deeper" in p["lines"][1] and "by construction" in p["lines"][2] and "32 accepted, 4 turned down" in p["lines"][3]
+                 and any("inside the layer" in l_ and "Geometry only" in l_ for l_ in p["lines"]) and len(p["not_a_measurement"]) >= 5,
+        "latest": pn["latest"]["md"] == last["md"] and pn["latest"]["reasons"] == ["a made record: the layer and the hole are known"] and pn["latest"]["answer"] == "accept",
+        "early": p_early["status"] == "OK" and p_early["panel"]["summary"]["drawn"] == 0 and p_early["panel"]["summary"]["not_drawn"] == 5 and "early version" in p_early["lines"][0]
+                 and p_early["panel"]["stations"] == [] and p_early["panel"]["aim"] is None,
+        "no_record": p_none["status"] == "NO RECORD" and "Drill string" in p_none["why"],
+        "reading_writes_nothing": wrote_nothing,
+        "unknown_well": unknown,
+        "no_rig_pc": live_folder["status"] == "NO ADDRESS" and ans_folder,
+        "grows": grown == 41,
+        "report": rep["files"] == ["geosteering.json", "geosteering.md", "stations.csv"] and all((rd / n_).is_file() for n_ in rep["files"]) and rd == Path(wsp, "reports", "geosteering", "W-1")
+                  and rows_csv[0] == [G.COLUMN_NAMES[c_] for c_ in G.COLUMNS] and len(rows_csv) == 42 and "What this will not call a measurement" in md_txt and "GEA-Program 9.9.9" in md_txt
+                  and json.loads((rd / "geosteering.json").read_text(encoding="utf-8"))["program_version"] == "9.9.9" and audit_actions(ws)[-1] == "geosteer.report",
+        "words": "turned down" in G.text(p) and "Geosteering - W-1" in G.text(p),
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "EW1 the geosteering panel on a made record - a flat layer 8 ft deeper than the model has it, a hole that climbs out through its top and is brought back: all forty decisions are "
+       "drawn with where the bit was, what was read and where the estimate had the layer; the layer stands 8 ft deeper than the model's and 30 ft thick; four decisions are above the layer "
+       "(the eighth to the eleventh) and none below; the gamma is exact against the layer as it is and more than 10 API off against the model's, and the up and down gamma stand apart at the "
+       "top; the answers are counted as given; the aim point is the hole carried 90 ft on at what was asked, set against the layer carried on at its dip; a record of an early version "
+       "without positions is counted and not drawn; a well with nothing pulled says where to pull; reading the page writes nothing, a record that grows is read again, a record pulled from "
+       "a folder has no rig PC to ask or to answer; and the report is three files, a row a decision" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- EW2 the rig PC as it stands now, and an answer from the office: the twin as the rig ------------------------------------------
+    prog = DL.program()
+    if prog is None:
+        ok(DL.card(wait=True)["status"] == "NO PROGRAM",
+           "EW2 the driller's program (gea-driller) is not installed beside GEA in this install: there is no twin to stand as the rig, and the made record above is the panel's proof here")
+    else:
+        if prog["env"] and prog["env"] not in sys.path:
+            sys.path.insert(0, prog["env"])
+        CF = importlib.import_module("gea_driller.config"); SV = importlib.import_module("gea_driller.service")
+        cfg = json.loads(json.dumps(CF.EXAMPLE)); cfg["output"]["dir"] = str(d / "rig-live"); cfg["status"]["port"] = 0; cfg["status"]["bind"] = "127.0.0.1"
+        cfg["rig"]["transport"] = "sim"; cfg["closed_loop"]["allowed"] = True; cfg["closed_loop"]["stale_s"] = 120; cfg["limits"]["vibration_index"] = 50.0
+        cfg = CF.check(cfg)
+        drl = SV.Driller(cfg, twin_seed=1000, twin_pace_s=0.4)
+        drl.start()
+        c2: dict = {}
+        try:
+            t_end = time.monotonic() + 40
+            while time.monotonic() < t_end and (drl.records.counts["decisions"] < 6 or not Path(cfg["output"]["dir"], "manifest.json").is_file()):
+                time.sleep(0.2)
+            drl.feed.pace_s = 60.0                                           # the twin all but stops: the recommendation now showing stays to be answered
+            cur_utc = None; t_end = time.monotonic() + 30
+            while time.monotonic() < t_end:                                 # the same recommendation at two looks a second and a half apart
+                c_a = drl.advisor.current; time.sleep(1.5); c_b = drl.advisor.current
+                if c_a and c_b and c_a["utc"] == c_b["utc"] and not c_b.get("answer"):
+                    cur_utc = c_b["utc"]; break
+            pulled = DL.pull(ws, drl.url, "W-3", actor="tester")
+            pn3 = G.panel(ws, "W-3")
+            L1 = G.live(ws, "W-3"); L2 = G.live(ws, "W-3")
+            try:
+                G.answer(ws, "W-3", "tester", "accept", "1999-01-01T00:00:00Z"); moved = False
+            except ValueError as e:
+                moved = "moved on" in str(e)
+            try:
+                G.answer(ws, "W-3", "tester", "override", str(cur_utc)); bad_what = False
+            except ValueError:
+                bad_what = True
+            try:
+                G.answer(ws, "W-3", "", "accept", str(cur_utc)); no_name = False
+            except ValueError:
+                no_name = True
+            n_before = len(audit_actions(ws))
+            ans = G.answer(ws, "W-3", "tester", "reject", str(cur_utc), "held for the survey")
+            audited = audit_actions(ws)[n_before:]
+            on_rig = [json.loads(l_) for l_ in Path(cfg["output"]["dir"], "decisions.jsonl").read_text(encoding="utf-8").splitlines() if l_.strip()]
+            mine = [x for x in on_rig if x["utc"] == cur_utc]
+            L3 = G.live(ws, "W-3")
+            try:
+                G.answer(ws, "W-3", "tester", "accept", str(cur_utc)); twice = False
+            except ValueError:
+                twice = True
+            md_now = drl.feed.snapshot()["state"]["hole_depth"]
+            drl._arm({"by": "tester", "to_md": md_now + 300})
+            try:
+                G.answer(ws, "W-3", "tester", "accept", str(cur_utc)); armed_stop = False
+            except ValueError as e:
+                armed_stop = "armed" in str(e)
+            L_armed = G.live(ws, "W-3", fresh=True)
+            drl._disarm({"by": "tester"})
+            lp_path = Path(G.folder(ws, "W-3"), "last_pull.json"); lp_txt = lp_path.read_text(encoding="utf-8")
+            lp_path.write_text(json.dumps(json.loads(lp_txt) | {"rig_well": "another well"}), encoding="utf-8")
+            L_other = G.live(ws, "W-3", fresh=True)
+            lp_path.write_text(lp_txt, encoding="utf-8")
+            again = G.pull(ws, "W-3", "tester")
+            c2 = {
+                "pulled": pulled["summary"]["decisions"] >= 6 and pn3["status"] == "OK" and pn3["from_rig_pc"] is True and len(pn3["stations"]) >= 6 and pn3["aim"] is not None
+                          and pn3["model"].get("azimuthal_gamma_tool") is True and pn3["summary"]["with_up_down_gamma"] == len(pn3["stations"]),
+                "recommendation_stays": cur_utc is not None,
+                "live": L1["status"] == "LIVE" and L1["twin"]["label"] == "SIMULATION" and L1["rig_well"] == cfg["well"] and isinstance(L1["rig"]["hole_depth"], float)
+                        and isinstance(L1["rig"]["gamma"], float) and isinstance(L1["rig"]["gamma_up"], float) and L1["decisions"] >= L1["pulled"] >= 6 and L1["since_pull"] == L1["decisions"] - L1["pulled"]
+                        and L1["armed"] is False and 0.0 <= L1["estimate"]["p_in"] <= 1.0,
+                "asked_once": L2 is L1,
+                "current": L1["current"] is not None and L1["current"]["utc"] == cur_utc and L1["current"]["answer"] is None and bool(L1["current"]["words"]) and L1["aim"] is not None,
+                "not_another": moved, "accept_or_reject": bad_what, "a_name": no_name,
+                "answered": ans["ok"] and ans["what"] == "reject" and ans["by"] == "tester (office)" and len(mine) == 1 and mine[0]["answer"]["what"] == "reject"
+                            and mine[0]["answer"]["by"] == "tester (office)" and "held for the survey" in mine[0]["answer"]["note"] and "through GEA" in mine[0]["answer"]["note"],
+                "audited": audited == ["geosteer.answer"],
+                "after": L3 is not L1 and L3["status"] == "LIVE" and L3["current"] is None and L3["last"]["utc"] == cur_utc and L3["last"]["answer"] == "reject" and L3["last"]["by"] == "tester (office)",
+                "once": twice,
+                "not_while_armed": armed_stop and L_armed["armed"] is True,
+                "another_well": L_other["status"] == "ANOTHER WELL" and "another well" in L_other["why"],
+                "pull_again": again["decisions"] >= pulled["summary"]["decisions"] and again["bad"] == [] and audit_actions(ws)[-1] == "driller.pull",
+            }
+        finally:
+            drl.stop()
+        L_down = G.live(ws, "W-3", fresh=True)
+        try:
+            G.pull(ws, "W-3", "tester"); pull_down = False
+        except ValueError as e:
+            pull_down = "not reached" in str(e)
+        c2["down"] = L_down["status"] == "NOT REACHED" and bool(L_down["why"]) and pull_down
+        failed2 = [k_ for k_, v in c2.items() if not v] if c2 else ["the twin did not come up"]
+        ok(not failed2,
+           "EW2 the rig PC as it stands, on the twin as the rig: the record pulled from its address is drawn with the up and down gamma at every decision; the live read gives the hole depth, "
+           "the gamma, the estimate, the recommendation that is waiting with its aim point and how many decisions were made since the pull, labelled a simulation, and two windows asking "
+           "within four seconds ask the rig PC once; an answer from the office is accept or reject, under a name, to the recommendation the page showed and no other - it lands on the rig "
+           "PC's own record as that name marked (office) with its note, is audited here, cannot be given twice, and is not sent while the loop is armed; a rig PC that has gone on to another "
+           "well is named as that; the record is pulled again from where it was pulled before; and a rig PC that is off is not reached, said so, for the read and the pull alike"
+           + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- EW3 the routes and their roles, the tab, the command, the words ------------------------------------------------------------
+    from .service import Service, Users
+    import http.cookiejar
+    import urllib.error
+    import urllib.request
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer")
+    Users(str(Path(wsp, "users.json"))).add("o", "operator-pass-1", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+
+    def session(name: str, pw: str):
+        o_ = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq_ = urllib.request.Request(svc.url.rstrip("/") + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw}).encode())
+        rq_.add_header("Content-Type", "application/json"); rq_.add_header("X-GEA-Action", "1"); o_.open(rq_, timeout=30)
+
+        def call(path: str, body=None):
+            rq2 = urllib.request.Request(svc.url.rstrip("/") + path, method="POST" if body is not None else "GET", data=json.dumps(body).encode() if body is not None else None)
+            if body is not None:
+                rq2.add_header("Content-Type", "application/json"); rq2.add_header("X-GEA-Action", "1")
+            try:
+                with o_.open(rq2, timeout=60) as r_:
+                    return r_.status, json.loads(r_.read())
+            except urllib.error.HTTPError as e:
+                return e.code, json.loads(e.read() or b"{}")
+        return call
+    try:
+        v = session("v", "viewer-pass-1"); o = session("o", "operator-pass-1")
+        s_page, api = v("/api/geosteer?well=W-1")
+        s_def, api_def = v("/api/geosteer")
+        s_nowell, _ = v("/api/geosteer?well=nope")
+        s_live0, _ = v("/api/geosteer/live")
+        s_live, api_live = v("/api/geosteer/live?well=W-1")
+        s_v_ans, _ = v("/api/geosteer/answer", {"well": "W-1", "what": "accept", "utc": "x"})
+        s_v_write, _ = v("/api/geosteer/write", {"well": "W-1"})
+        s_v_pull, _ = v("/api/geosteer/pull", {"well": "W-1"})
+        s_o_ans, o_ans = o("/api/geosteer/answer", {"well": "W-1", "what": "accept", "utc": "x"})
+        s_o_write, o_write = o("/api/geosteer/write", {"well": "W-1"})
+        s_o_pull, o_pull = o("/api/geosteer/pull", {"well": "W-1"})
+        s_o_bad, _ = o("/api/geosteer/write", {"well": "nope"})
+        s_o_none, _ = o("/api/geosteer/write", {})
+    finally:
+        svc.stop()
+    app = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    gs_js = app[app.index("// ---------- geosteering:"):app.index("// ---------- trip sheet:")]
+    env = {**os.environ, "PYTHONPATH": str(pkg.parent) + os.pathsep + os.environ.get("PYTHONPATH", "")}
+    cli_self = _sp.run([sys.executable, "-m", "gea", "geosteer"], capture_output=True, text=True, env=env, cwd=str(pkg.parent))
+    cli_ws = _sp.run([sys.executable, "-m", "gea", "geosteer", "--workspace", wsp, "--well", "W-1", "--live"], capture_output=True, text=True, env=env, cwd=str(pkg.parent))
+    cli_json = _sp.run([sys.executable, "-m", "gea", "geosteer", "--workspace", wsp, "--well", "W-1", "--json"], capture_output=True, text=True, env=env, cwd=str(pkg.parent))
+    cli_bad = _sp.run([sys.executable, "-m", "gea", "geosteer", "--workspace", wsp, "--well", "nope"], capture_output=True, text=True, env=env, cwd=str(pkg.parent))
+    hp = (pkg / "help" / "geosteer.md").read_text(encoding="utf-8")
+    lesson = (pkg / "help" / "tutorial" / "37-driller-office.md").read_text(encoding="utf-8")
+    sec_a = (pkg / "help" / "IT_SECURITY.md").read_text(encoding="utf-8")
+    root = pkg.parent
+    readme = (root / "README.md").read_text(encoding="utf-8") if (root / "README.md").is_file() else None
+    chlog = (root / "CHANGELOG.md").read_text(encoding="utf-8") if (root / "CHANGELOG.md").is_file() else None
+    sec_b = (root / "docs" / "IT_SECURITY.md").read_text(encoding="utf-8") if (root / "docs" / "IT_SECURITY.md").is_file() else None
+    cov = TU.coverage()
+    mod_src = (pkg / "geosteer.py").read_text(encoding="utf-8")
+    c3 = {
+        "page_route": s_page == 200 and api["status"] == "OK" and api["well"] == "W-1" and len(api["panel"]["stations"]) == 41 and {r_["well"] for r_ in api["wells"]} >= {"W-1", "W-2"},
+        "default_well": s_def == 200 and api_def["well"] in {r_["well"] for r_ in api_def["wells"]},
+        "unknown_well": s_nowell == 404 and s_o_bad == 404 and s_o_none == 400,
+        "live_route": s_live0 == 400 and s_live == 200 and api_live["status"] == "NO ADDRESS",
+        "viewer_reads_only": s_v_ans == 403 and s_v_write == 403 and s_v_pull == 403,
+        "operator_acts": s_o_write == 200 and o_write["files"] == ["geosteering.json", "geosteering.md", "stations.csv"] and s_o_pull == 200 and o_pull["decisions"] == 40
+                         and s_o_ans == 400 and "folder" in str(o_ans.get("error", "")),
+        "tab": "['#/geosteer', 'Geosteering']" in app and "'#/slides', '#/plan', '#/geosteer']]" in app and "VIEWS.geosteer = async" in app and "function gsPlot(" in app
+               and 'href="#/geosteer">Open the geosteering panel' in app,
+        "page_parts": all(x in gs_js for x in ("Follow the rig PC", "pull each new decision into the well as it comes", "Turn it down", "/api/geosteer/answer", "/api/geosteer/live?well=",
+                                               "The section", "Gamma, API", "Right of the plan line, ft", "What this page will not call a measurement", "setTimeout(gsLive, 10000)")),
+        "no_storage": "localStorage" not in gs_js and "sessionStorage" not in gs_js and "document.cookie" not in gs_js,
+        "one_pull_a_decision": "GSV.tried !== L.decisions" in gs_js,
+        "cli": cli_self.returncode == 0 and cli_self.stdout.strip().endswith("OK - a made record: a layer and a hole that are known") and "FAIL" not in cli_self.stdout
+               and cli_ws.returncode == 0 and "Geosteering - W-1" in cli_ws.stdout and "The rig PC now: NO ADDRESS" in cli_ws.stdout
+               and cli_json.returncode == 0 and json.loads(cli_json.stdout)["panel"]["summary"]["decisions"] == 40 and cli_bad.returncode != 0 and "no well" in cli_bad.stderr,
+        "help": H.check("geosteer") == [] and H.VIEW_TOPIC.get("geosteer") == "geosteer" and any(t_["topic"] == "geosteer" for t_ in H.topics())
+                and all(x in hp for x in ("Follow the rig PC", "(office)", "geosteer.answer", "stations.csv", "No real lateral has been drawn here yet")),
+        "lesson": "Pages: #/geosteer" in lesson and "Open **Geosteering**" in lesson and TU.check("driller-office") == [] and cov["tabs_unreached"] == [] and cov["help_untaught"] == [],
+        "security": "Since 0.104.0" in sec_a and "GEA cannot arm or disarm the loop" in sec_a and (sec_b is None or sec_b == sec_a),
+        "standalone": "gea_driller" not in mod_src and "import numpy" not in mod_src,
+        "readme": readme is None or ("**Geosteering, in the office.**" in readme and "`gea geosteer`" in readme),
+        "changelog": chlog is None or "## [v0.104.0]" in chlog,
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "EW3 the Geosteering tab: any signed-in account reads the panel and the rig PC's standing, and only the operator role answers, pulls and writes the report (a viewer is turned away "
+       "with 403, an unknown well with 404); the tab is in the menu under Well paths with a way to it from the Drill string tab, draws the section, the gamma, the estimate's probability and "
+       "the plan view, follows the rig PC every ten seconds while it is open, pulls once for each new decision and no more, and keeps nothing in the browser's storage; `gea geosteer` runs "
+       "the self-test without a workspace and prints the panel with one; the module reads the records as files and imports nothing of the driller's program; the help, the lesson, the "
+       "README and both copies of the security page say what the panel is, what an answer from the office does and that the loop is armed on the rig PC only"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def section_ev_what_the_string_reads(tmp: str) -> None:
     """Section EV - what the string reads (0.103.0): the azimuthal gamma - the gamma on the high side of the hole
     and on the low side - in the twin, the position filter, the rig's feed, the advisor's record and the card. The
@@ -21757,6 +22049,7 @@ def main() -> int:
         section_et_driller_card(tmp)
         section_eu_driller_by_the_book(tmp)
         section_ev_what_the_string_reads(tmp)
+        section_ew_geosteering(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

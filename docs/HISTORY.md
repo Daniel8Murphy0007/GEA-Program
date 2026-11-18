@@ -4,6 +4,21 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.104.0 - 2026-11-18 - geosteering, in the office
+
+- The Geosteering tab: one lateral as the driller's program has it, from
+  the record pulled into the well - the section with the model's layer,
+  the estimate's layer and the hole; the gamma against the model's; the
+  estimate's probability; the plan view; and where the last
+  recommendation points.
+- Follow the rig PC: its standing every ten seconds while the tab is
+  open, and each new decision pulled in as it comes.
+- An operator may accept or turn down the waiting recommendation from the
+  office; it lands on the rig PC's record marked (office). The loop is
+  armed and disarmed on the rig PC only.
+- `gea geosteer`, `gea help geosteer`, a report a well.
+- Gate 626.
+
 ## v0.103.0 - 2026-11-18 - what the string reads: the up and down gamma
 
 - GEA Driller reads an azimuthal gamma tool's high-side and low-side
