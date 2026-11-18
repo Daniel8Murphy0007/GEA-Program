@@ -4706,3 +4706,57 @@ already hold.
   every figure known; and the twin as the rig for the live read, the
   answer and the guards. No real lateral has been drawn.
 - Gate 626: section EW, three checks.
+
+## 2026-11-18 - the daily drilling report (v0.105.0)
+
+- v0.104.0 shipped; its six kits were fetched and each matched the
+  release's hash.
+- The plan's next step (A4) was the daily drilling report. Every part
+  of one was already in the program on a page of its own - rig time,
+  the trip sheet, the drilling alerts, kick and loss - and nothing put
+  them on the one sheet a rig sends each morning.
+- The time log is the heart of a daily report, and the record has it
+  too finely: a state for every second. A daily report is kept to the
+  quarter hour, so the sheet names each quarter hour by what the rig
+  mostly did in it and joins like quarters into lines. Two rules came
+  from reading days and not from thinking about them. A connection's
+  slips belong to the drilling or the tripping around them, or every
+  stand would break the log in two. And on real records drilling stops
+  for a quarter hour to circulate and work the pipe many times a day;
+  left alone that gave one well fifty lines in a day, where a driller
+  writes "drill from here to there". A single such quarter between two
+  of drilling is now joined to them, with its minutes kept in the line.
+  The exact hours by state stay in their own table, so nothing is lost
+  to the joining.
+- The made record was not enough to find the next thing. Run on the
+  public pad, the first sheets gave one well a day's footage of 27,557
+  ft and another 728,028 ft. The recorder's hole depth has spikes; the
+  chart cache already keeps a cleaned depth for the rig-time page, and
+  the sheet now reads that. Even cleaned, a depth is not a count of
+  footage: recorders correct their depth, wells are plugged back and
+  sidetracked, and hole is made where there is no record. So the
+  footage is the new hole the record shows being made - rises a bit can
+  make in a second - and where the day's first and last depths say
+  otherwise the sheet says so, and what it can be. That is 18 of one
+  well's 75 days.
+- Speed came from the same run. A sheet read whole arrays of millions
+  of samples to report one day; it now reads the day's own stretch of
+  them. The rig-time page's time lost is worked out over the whole pad
+  each time it is asked, which cost two seconds a sheet; it is kept for
+  as long as the record and the declared targets are the ones they
+  were. Seventy-five sheets of the longest record take seventeen
+  seconds.
+- The contract's terms already say when the report day starts and
+  whether a report is dated by the day it starts on or ends on. The
+  sheet follows both, so it carries the same date as the contractor's.
+- What a recorder cannot say is most of what a daily report is read
+  for: why. The sheet has a place for the crew's words, kept with a
+  name, and a list of what is not in the record so nobody takes its
+  silence for "nothing happened".
+- The written sheet is one page with no script, fetching nothing, so it
+  prints and can be sent. The remarks are typed by a person and are
+  written into it as text.
+- Not done: setting the sheet beside a contractor's signed report for
+  the same day. The invoice check does part of that where the reports
+  are attached; none is attached for the public pad.
+- Gate 629: section EX, three checks.

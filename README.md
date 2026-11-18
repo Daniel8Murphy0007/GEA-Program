@@ -903,7 +903,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.104.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.105.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1392,6 +1392,31 @@ another tank, or it is taking nothing, and the record cannot tell which.
 
 The **Trip sheet** tab, `gea trip-sheet`, `gea help trip-sheet`. A
 departure is a place in the record to look at, not a kick called.
+
+### Daily report
+
+The rig's morning sheet, written from the drilling record: for one well
+and one report day, the hole depth at the start and the end and the new
+hole made; the time log to the quarter hour, as a daily report is kept -
+each quarter hour named by what the rig mostly did, a connection's slips
+counted with the drilling or the tripping around them, hours with no
+record shown as that, so the lines always come to 24 hours; the exact
+hours by rig state; the weight, the speed, the torque, the flow and the
+pressures while drilling; the mud weight and pit volume where the
+recorder carries them; the trips with the trip sheet's reading; and the
+drilling alerts and kick and loss events that began in the day. The
+crew's remarks and the plan for the next day are typed in and kept with a
+name, because the crew, the cost, the mud check and the reason for
+anything are not in a recorder. The sheet is written as one page that
+prints, with its time log as a CSV. The report day starts at the hour the
+contract's terms give (06:00 until declared).
+
+On the Utah FORGE public pad the five wells' records hold 270 report
+days; 16B(78)-32's best is 2023-04-30, with 1,706 ft of new hole in 12.0
+hours on bottom. No sheet has yet been set beside a contractor's signed
+report for the same day.
+
+The **Daily report** tab, `gea daily-report`, `gea help daily-report`.
 
 ### Plan vs actual and the survey tools
 
@@ -2057,7 +2082,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.104.0.exe` (for 0.104.0): the
+Every release also carries `GEA-Program-Setup-0.105.0.exe` (for 0.105.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -2076,7 +2101,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.104.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.105.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

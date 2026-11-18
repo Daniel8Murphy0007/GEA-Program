@@ -2206,6 +2206,12 @@ def make_handler(app: App):
                     from . import field_pull as _FP
                     from . import recorder_link as _RL
                     return self._json(200, {'pulls': _FP.last_pulls(app.ws), 'sim': _RL.status(app.ws)})
+                if path == '/api/daily-report':
+                    from . import daily_report as _DR
+                    wid_ = (qs.get('well') or [None])[0]; date_ = (qs.get('date') or [None])[0]
+                    if wid_ and wid_ not in [w_['id'] for w_ in app.ws.wells()]:
+                        raise ApiError(404, f'no well {wid_}')
+                    return self._json(200, App._cr(_DR.page, app.ws, wid_, date_))
                 if path in ('/api/geosteer', '/api/geosteer/live'):
                     from . import geosteer as _GS
                     wid_ = (qs.get('well') or [None])[0]
@@ -3422,6 +3428,18 @@ def make_handler(app: App):
                     if path.endswith('start'):
                         return self._json(200, _RL.start_sim(app.ws, actor=user['name']))
                     return self._json(200, _RL.stop_sim(app.ws, actor=user['name']))
+                if path in ('/api/daily-report/remarks', '/api/daily-report/write'):
+                    App.require(user, 'operator')
+                    from . import daily_report as _DR
+                    from . import __version__ as _v
+                    b_ = dict(body or {}); wid_ = str(b_.get('well') or '').strip()
+                    if not wid_ or wid_ not in [w_['id'] for w_ in app.ws.wells()]:
+                        raise ApiError(404 if wid_ else 400, f'no well {wid_}' if wid_ else 'daily-report: name the well')
+                    if path.endswith('/remarks'):
+                        return self._json(200, App._cr(_DR.set_remarks, app.ws, user['name'], wid_, str(b_.get('date') or ''), str(b_.get('text') or ''), str(b_.get('plan') or '')))
+                    r_ = App._cr(_DR.write_report, app.ws, _v, wid_, (str(b_.get('date')) if b_.get('date') else None), user['name'], bool(b_.get('every_day')))
+                    day_ = str(b_.get('date')) if b_.get('date') and str(b_.get('date')) in r_['days'] else r_['days'][-1]
+                    return self._json(200, {'files': r_['files'], 'folder': r_['folder'], 'days': r_['days'], 'url': f'/reports/daily/{wid_}/{day_}/daily_report.html'})
                 if path in ('/api/geosteer/answer', '/api/geosteer/pull', '/api/geosteer/write'):
                     App.require(user, 'operator')
                     from . import geosteer as _GS

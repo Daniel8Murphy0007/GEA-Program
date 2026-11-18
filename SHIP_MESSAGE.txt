@@ -1,25 +1,25 @@
-v0.104.0 — GEOSTEERING, IN THE OFFICE
+v0.105.0 — THE DAILY DRILLING REPORT
 
-Added: the Geosteering tab draws one lateral as GEA Driller on the rig PC
-has it, from the record pulled into the well: the section with the
-pre-drill model's layer, the layer as the position estimate had it and
-the hole; the gamma read against what the model would have a tool read;
-how sure the estimate is; the plan view; and where the last
-recommendation points.
+Added: the Daily report tab writes the rig's morning sheet from the
+drilling record, for one well and one report day: the hole depth at the
+start and the end and the new hole made, the time log, the exact hours
+by rig state, the readings while drilling, the mud the record carries,
+the trips, and the alerts that began in the day.
 
-Added: Follow the rig PC reads its standing every ten seconds while the
-tab is open, and an operator may have each new decision pulled in as it
-comes.
+Added: the time log is kept to the quarter hour, as a daily report is.
+Each quarter hour is named by what the rig mostly did; a connection's
+slips are counted with the work around them; hours with no record are
+shown as that; the lines always come to 24 hours.
 
-Added: an operator may accept the waiting recommendation or turn it
-down from the office. It lands on the rig PC's own record under that
-name marked (office), only for the recommendation the page showed, only
-once, and never while the loop is armed. The loop is armed and disarmed
-on the rig PC only.
+Added: an operator types the crew's remarks and the plan for the next
+day; they are kept with a name. The sheet is written as one page that
+prints, with its time log as a CSV, for one day or every day.
 
-Added: gea geosteer, gea help geosteer, and a report a well.
+Added: gea daily-report, gea help daily-report.
 
-The layer drawn is the estimate's, not a log's. The panel has been run
-on the twin and on a made record; no real lateral yet.
+The footage is the new hole the record shows being made; where the
+day's depths say otherwise the sheet says so. Run over the 270 report
+days of the Utah FORGE public pad. No sheet has yet been set beside a
+contractor's signed report.
 
-Gate 626.
+Gate 629.

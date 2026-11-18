@@ -5,6 +5,50 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.105.0] - 2026-11-18 - the daily drilling report
+
+### Added
+- **The Daily report tab.** The rig's morning sheet, written from the
+  drilling record, for one well and one report day: the hole depth at
+  the start and the end and the new hole made; the time log; the exact
+  hours by rig state; the weight, the speed, the torque, the flow and the
+  pressures while drilling; the mud weight and pit volume where the
+  recorder carries them; the trips, with the trip sheet's reading; and
+  the drilling alerts and kick and loss events that began in the day.
+- **The time log is kept as a daily report is, to the quarter hour.**
+  Each quarter hour is named by what the rig mostly did in it. A
+  connection's slips are counted with the drilling or the tripping
+  around them; one quarter of circulating or working the pipe between
+  two of drilling is joined to them, its minutes kept in the line; hours
+  with no record are shown as that. The lines always come to 24 hours.
+- **Remarks.** An operator types the crew's words for the day and the
+  plan for the next; they are kept with a name and are on the sheet. The
+  crew, the cost, the mud check and the reason for anything are not in a
+  recorder, and the sheet says so.
+- **A sheet that prints.** `daily_report.html` is one page with no
+  script that fetches nothing, beside `.md`, `.json` and `time_log.csv`,
+  under `reports/daily/<well>/<date>/`; one day, or every day of a
+  well's record.
+- The report day starts at the hour the contract's terms give on the
+  Invoice check tab (06:00 until declared), and a sheet is dated by the
+  day it starts on, or the day it ends on where the terms say so.
+- `gea daily-report`, `gea help daily-report`; lesson 16 has a step on
+  the tab.
+
+### Notes
+- The footage is the new hole the record shows being made, not the
+  day's last depth less its first. Recorders correct their depth, and
+  wells are plugged back and sidetracked; where the two differ the sheet
+  says so and what it can be.
+- On the Utah FORGE public pad the five wells' records hold 270 report
+  days. Every time log of 16A(78)-32's 75 days comes to 24 hours, at a
+  middle of 15 lines a day; on 18 of them the depth and the footage
+  differ. 16B(78)-32's best day is 2023-04-30: 1,706 ft of new hole in
+  12.0 hours on bottom.
+- No sheet has yet been set beside a contractor's signed report for the
+  same day. The Invoice check tab compares the two where the
+  contractor's reports are attached.
+
 ## [v0.104.0] - 2026-11-18 - geosteering, in the office
 
 ### Added

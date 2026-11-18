@@ -4,6 +4,20 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.105.0 - 2026-11-18 - the daily drilling report
+
+- The Daily report tab: one well's report day from its drilling record -
+  depths and footage, a time log to the quarter hour that always comes
+  to 24 hours, hours by rig state, the readings while drilling, the mud
+  the record carries, trips, and the alerts that began in the day.
+- Remarks typed by an operator and kept with a name, for what a recorder
+  cannot say.
+- The sheet written as a page that prints, with its time log as a CSV;
+  one day or every day.
+- Run over the 270 report days of the Utah FORGE public pad.
+- `gea daily-report`, `gea help daily-report`.
+- Gate 629.
+
 ## v0.104.0 - 2026-11-18 - geosteering, in the office
 
 - The Geosteering tab: one lateral as the driller's program has it, from

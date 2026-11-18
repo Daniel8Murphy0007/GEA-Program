@@ -686,6 +686,16 @@ def main(argv=None) -> int:
     p_bm.add_argument("--write", action="store_true", help="write reports/benchmark/benchmark.json, .md, .csv and stretches.csv")
     p_bm.add_argument("--actor", type=str, default="cli")
     p_bm.add_argument("--json", action="store_true")
+    p_dr = sub.add_parser("daily-report", help="the daily drilling report written from the drilling record: one well, one report day - the depths, the time log to the quarter hour, the hours by rig state, the drilling, the trips, the alerts and the remarks")
+    p_dr.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (a record whose day is known)")
+    p_dr.add_argument("--well", type=str, default=None, help="a well, by its name or id; without one, the first well with a drilling record")
+    p_dr.add_argument("--date", type=str, default=None, help="the report day, by the date it starts on (2026-09-01); without one, the last day of the record")
+    p_dr.add_argument("--remarks", type=str, default=None, help="type the day's remarks (with --well and --date); an empty text takes them off")
+    p_dr.add_argument("--plan", type=str, default="", help="with --remarks: the plan for the next day")
+    p_dr.add_argument("--write", action="store_true", help="write the sheet: reports/daily/ under the workspace, a folder a well and a day; daily_report.html prints")
+    p_dr.add_argument("--every-day", action="store_true", help="with --write: every report day of the well's record")
+    p_dr.add_argument("--actor", type=str, default="cli", help="who is doing this, for the audit trail")
+    p_dr.add_argument("--json", action="store_true")
     p_gs = sub.add_parser("geosteer", help="the office's geosteering panel: one lateral as the driller's program on the rig PC has it - the layer by the model and by the position estimate, the hole, the gamma, the last recommendation and its answer - from the record pulled into the well")
     p_gs.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (a layer and a hole that are known)")
     p_gs.add_argument("--well", type=str, default=None, help="a well, by its name or id; without one, the well pulled last")
@@ -3676,6 +3686,39 @@ def main(argv=None) -> int:
         except (_BM.BenchmarkError, WorkspaceError, ValueError, OSError) as e:
             raise SystemExit(f"benchmark: {e.args[0] if e.args else e}")
         print(_json.dumps(p, default=str) if a.json else _BM.text(p))
+        return 0
+    elif a.cmd == "daily-report":
+        import json as _json
+        from . import daily_report as _DR
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if not a.workspace:
+            r = _DR.selftest()
+            print("\n".join(f"{'PASS' if c['pass'] else 'FAIL'}  {c['name']}" for c in r["checks"]) + f"\n{'OK' if r['ok'] else 'FAILED'} - {r['label']}")
+            return 0 if r["ok"] else 1
+        try:
+            ws = Workspace(a.workspace)
+            wid = None
+            if a.well:
+                wid = next((w["id"] for w in ws.wells() if a.well in (w["id"], w.get("display"))), None)
+                if wid is None:
+                    raise SystemExit(f"daily-report: no well {a.well!r} in this workspace")
+            if a.remarks is not None:
+                if wid is None or not a.date:
+                    raise SystemExit("daily-report: remarks are for one well and one day (--well and --date)")
+                r = _DR.set_remarks(ws, a.actor, wid, a.date, a.remarks, a.plan)
+                print(f"remarks for {a.well}, {a.date}: " + ("kept" if r["remarks"] else "taken off"))
+            if a.write:
+                from . import __version__ as _ver105
+                r = _DR.write_report(ws, _ver105, wid, a.date, a.actor, a.every_day)
+                print(f"written: {len(r['files'])} files for {len(r['days'])} day(s) under {r['folder']}")
+            p = _DR.page(ws, wid, a.date)
+        except WorkspaceError as e:
+            raise SystemExit(f"daily-report: {e}")
+        except (ValueError, KeyError) as e:
+            raise SystemExit(f"daily-report: {e.args[0] if e.args else e}")
+        print(_json.dumps(p, default=str) if a.json else _DR.text(p))
         return 0
     elif a.cmd == "geosteer":
         import json as _json

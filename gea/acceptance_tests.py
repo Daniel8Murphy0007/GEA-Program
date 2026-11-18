@@ -19447,6 +19447,252 @@ def section_ej_frac_treatment(tmp: str) -> None:
        "page with the published figures it was checked against, the README and lesson 14" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_ex_daily_report(tmp: str) -> None:
+    """Section EX - the daily drilling report (0.105.0): one well's report day written from its drilling record. The
+    quarter hours named and joined, the day's depths and footage where the depth is corrected, the day's date by the
+    contract's terms; the sheet of a made record in a workspace with its trips, its alerts, its readings, the
+    remarks typed in, and the files written; the routes and their roles, the tab, the command, the help, the lesson
+    and the README."""
+    import csv
+    import subprocess as _sp
+    from datetime import datetime
+    from . import daily_report as DR
+    from . import dysfunction as DY
+    from . import helplib as H
+    from . import invoice_check as IC
+    from . import rig_state as RS
+    from . import tutorial as TU
+    from .workspace import Workspace
+    import numpy as np_
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ex"); d.mkdir()
+
+    def audit_actions(ws_) -> list:
+        p_ = Path(ws_.path, "records", "audit.jsonl")
+        return [json.loads(l_).get("action") for l_ in p_.read_text(encoding="utf-8").splitlines() if l_.strip()] if p_.is_file() else []
+    # -- EX1 the day, from arrays -------------------------------------------------------------------------------------------------
+    st_ = DR.selftest()
+    t0 = datetime(2026, 3, 1, 6, 0, 0)
+
+    def made(minutes: list, hole_steps=None):
+        """A day of whole minutes: (state, minutes) in order, at one sample a second; the hole deepens 0.05 ft a second drilling."""
+        st = np_.concatenate([np_.full(int(m_ * 60), s_, dtype=np_.int64) for s_, m_ in minutes])
+        n = len(st); t = np_.arange(n, dtype=np_.float64)
+        hole = 5000.0 + np_.cumsum(np_.where((st == RS.ROT) | (st == RS.SLIDE), 0.05, 0.0))
+        for at_s, step in (hole_steps or []):
+            hole[at_s:] += step
+        return t, st, np_.ones(n), hole
+    # 06:00 drilling 20, slips 5, drilling 20 | 06:45 circulating 15 | 07:00 drilling 30 | 07:30 circulating 30 | 08:00 drilling 15, then slips 15 alone, then tripping out 30
+    t, st, dtv, hole = made([(RS.ROT, 20), (RS.SLIPS, 5), (RS.SLIDE, 20), (RS.CIRC, 15), (RS.ROT, 30), (RS.CIRC, 30), (RS.ROT, 15), (RS.SLIPS, 15), (RS.TOUT, 14), (RS.SLIPS, 14), (RS.TOUT, 2)])
+    s1 = DR.sheet_from_arrays(t, t0, st, dtv, hole, hole, [{"t_off": 1200.0, "w2w_min": 5.0}], [], 6.0, "2026-03-01")
+    log = [(l_["from"], l_["to"], l_["operation"]) for l_ in s1["time_log"]]
+    # the depth corrected up by 800 ft at 06:10 and back by 30 ft at 06:50: neither is hole drilled
+    t2, st2, dtv2, hole2 = made([(RS.ROT, 60)], hole_steps=[(600, 800.0), (3000, -30.0)])
+    s2 = DR.sheet_from_arrays(t2, t0, st2, dtv2, hole2, hole2, [], [], 6.0, "2026-03-01")
+    s_end = DR.sheet_from_arrays(t2, t0, st2, dtv2, hole2, hole2, [], [], 6.0, "2026-03-02", None, "end")
+    try:
+        DR.sheet_from_arrays(t2, t0, st2, dtv2, hole2, hole2, [], [], 6.0, "2026-03-01", None, "end"); end_named = False
+    except DR.DailyReportError:
+        end_named = True
+    gap_t = np_.concatenate([np_.arange(3600.0), 7200.0 + np_.arange(3600.0)])                       # an hour of record, an hour of none, an hour of record
+    s3 = DR.sheet_from_arrays(gap_t, t0, np_.full(7200, RS.ROT), np_.ones(7200), 5000.0 + 0.05 * np_.arange(7200), None, [], [], 6.0, "2026-03-01")
+    c1 = {
+        "selftest": st_["ok"] and len(st_["checks"]) >= 9,
+        "named": log[:6] == [("06:00", "07:30", "DRILLING"), ("07:30", "08:00", "CIRCULATING"), ("08:00", "08:15", "DRILLING"), ("08:15", "08:30", "IN SLIPS"), ("08:30", "09:00", "TRIPPING OUT"),
+                             ("09:00", "06:00", "NO RECORD")],
+        "slips_with_the_work": s1["time_log"][0]["states_h"].get("IN SLIPS") == 0.08 and s1["time_log"][4]["states_h"].get("IN SLIPS") == 0.23 and s1["time_log"][0]["connections"] == 1,
+        "one_quarter_joined": s1["time_log"][0]["states_h"].get("CIRCULATING") == 0.25 and "circulating and working the pipe" in s1["time_log"][0]["words"]
+                              and s1["time_log"][1]["hours"] == 0.5,
+        "comes_to_24": abs(sum(l_["hours"] for l_ in s1["time_log"]) - 24.0) < 1e-9 and abs(sum(s1["hours"].values()) + s1["record"]["no_record_h"] - 24.0) < 0.011
+                       and s1["record"]["hours"] == 3.0 and s1["record"]["ends_in_this_day"] and not s1["record"]["whole_day"],
+        "drilled": s1["drilling"]["rotary_ft"] == 195.0 and s1["drilling"]["slide_ft"] == 60.0 and s1["depth"]["footage_ft"] == 255.0 and s1["drilling"]["rop_on_bottom_ft_h"] == 180.0
+                   and s1["drilling"]["on_bottom_h"] == 1.42 and s1["depth"]["apart"] is False and s1["connections"]["n"] == 1,
+        "words": s1["time_log"][0]["words"].startswith("Drilled from 5,000 to 5,210 ft (210 ft)") and s1["time_log"][4]["words"].startswith("Tripped out")
+                 and s1["time_log"][-1]["words"] == "No record",
+        "depth_corrected": s2["depth"]["footage_ft"] == 180.0 and s2["depth"]["depth_moved_ft"] == 950.0 and s2["depth"]["apart"] is True and s2["depth"]["hole_to_ft"] == 5950.0,
+        "dated_by_the_end": s_end["date"] == "2026-03-02" and s_end["covers"]["from"] == "2026-03-01T06:00" and s_end["dated_by"] == "the day it ends on" and end_named
+                            and s2["dated_by"] == "the day it starts on",
+        "no_record_inside": [l_["operation"] for l_ in s3["time_log"]][:3] == ["DRILLING", "NO RECORD", "DRILLING"] and s3["time_log"][1]["hours"] == 1.0
+                            and s3["depth"]["footage_ft"] == 360.0 and s3["depth"]["bit_at_end_ft"] is None,
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "EX1 a report day from its arrays: every quarter hour is named by what the rig mostly did in it and like quarters are joined - drilling with a connection's five minutes of slips "
+       "is one line of drilling, a single quarter of circulating between two of drilling is joined to them with its minutes kept, half an hour of circulating is a line of its own, a "
+       "quarter of slips alone is the slips, and the hours after the record's end are shown as no record, so the log comes to 24 hours and so do the hours by state; the footage is the "
+       "hole the record shows being made (195 ft rotated and 60 ft slid at 180 ft/h), and where the depth is corrected by 800 ft and back by 30 the footage stays the 180 ft drilled and the "
+       "sheet says the two differ; a report is dated by the day it starts on, or by the day it ends on when the terms say so; an hour with no record inside the day is a line of its own; and "
+       "the self-test's made record gives two days whose footage, connections and trip are the record's" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- EX2 a made record in a workspace: the days, the sheet, the remarks, the files ----------------------------------------------------
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad EX", actor="tester")
+    rec = DY.synthetic_record(True)                                  # from 06:00 on 2026-09-01: 40 stands, three stalls, a washout and the trip that finds it, a hole getting tight
+    wa = ws.add_well_file(DY.write_edr(rec, str(d / "a.csv")), display="Well A", actor="tester")["id"]
+    wb = ws.add_well_records("Well B", actor="tester")["id"]
+    n_audit = len(audit_actions(ws))
+    p = DR.page(ws)
+    days = p["days"]; s = p["sheet"]
+    p1 = DR.page(ws, wa, "2026-09-01"); a1 = p1["sheet"]
+    wrote_nothing = len(audit_actions(ws)) == n_audit and not Path(wsp, "reports", "daily").exists() and not Path(wsp, "records", "daily_report.json").exists()
+    kinds1 = [x["kind"] for x in a1["alerts"]]; kinds2 = [x["kind"] for x in s["alerts"]]
+    try:
+        DR.page(ws, wb); no_record = False
+    except DR.DailyReportError:
+        no_record = True
+    try:
+        DR.page(ws, "nope"); unknown = False
+    except KeyError:
+        unknown = True
+    try:
+        DR.page(ws, wa, "2027-01-01"); far = False
+    except DR.DailyReportError:
+        far = True
+    rm = DR.set_remarks(ws, "tester", wa, "2026-09-01", "Pulled out for a washout <script>alert(1)</script>; found it in a tool joint.", "Run in and drill ahead.")
+    with_rm = DR.page(ws, wa, "2026-09-01")
+    bad = []
+    for args in ((wa, "2026-09-01", "x" * (DR.REMARK_MAX + 1), ""), (wa, "the first", "a", "")):
+        try:
+            DR.set_remarks(ws, "tester", *args); bad.append(False)
+        except DR.DailyReportError:
+            bad.append(True)
+    rep = DR.write_report(ws, "9.9.9", wa, "2026-09-01", actor="tester")
+    rd = Path(rep["folder"])
+    html_ = (rd / "daily_report.html").read_text(encoding="utf-8")
+    with open(rd / "time_log.csv", newline="", encoding="utf-8") as f:
+        rows_csv = list(csv.reader(f))
+    rep_all = DR.write_report(ws, "9.9.9", wa, None, actor="tester", every_day=True)
+    acts = audit_actions(ws)
+    gone = DR.set_remarks(ws, "tester", wa, "2026-09-01", "", "")
+    IC.set_terms(ws, "tester", "daywork contract (test)", "00:00", "end", {"operating": 20000})
+    p_mid = DR.page(ws, wa)
+    c2 = {
+        "wells": p["status"] == "OK" and [w_["well"] for w_ in p["wells"]] == [wa] and p["well"] == wa and p["day_starts"] == "06:00" and p["day_start_declared"] is False,
+        "days": [d_["date"] for d_ in days] == ["2026-09-01", "2026-09-02"] and days[0]["record_h"] == 24.0 and days[1]["record_h"] < 8.0 and days[0]["trips"] == 2 and days[1]["trips"] == 0
+                and abs(days[0]["footage_ft"] + days[1]["footage_ft"] - float(rec["ch"]["hole"][-1] - rec["ch"]["hole"][0])) <= 2.0 and days[0]["connections"] + days[1]["connections"] >= 38
+                and days[0]["hole_to_ft"] == days[1]["hole_from_ft"],
+        "last_day_by_default": s["date"] == "2026-09-02" and s["report_no"] == 2 and s["record"]["ends_in_this_day"] and s["time_log"][-1]["operation"] == "NO RECORD",
+        "the_day": a1["date"] == "2026-09-01" and a1["record"]["whole_day"] and abs(sum(l_["hours"] for l_ in a1["time_log"]) - 24.0) < 1e-9
+                   and abs(a1["depth"]["footage_ft"] - days[0]["footage_ft"]) <= 1.0 and abs(a1["drilling"]["rop_on_bottom_ft_h"] - 150.0) < 4.0 and a1["depth"]["apart"] is False,
+        "log": [l_["operation"] for l_ in a1["time_log"]][0] == "DRILLING" and "TRIPPING OUT" in [l_["operation"] for l_ in a1["time_log"]] and "TRIPPING IN" in [l_["operation"] for l_ in a1["time_log"]]
+               and "IN SLIPS" not in [l_["operation"] for l_ in a1["time_log"]] and a1["hours"]["IN SLIPS"] > 1.0,
+        "trips": [x["direction"] for x in a1["trips"]] == ["OUT", "IN"] and a1["trips"][0]["feet"] > 1900.0 and "t_start" not in a1["trips"][0],
+        "alerts": kinds1.count("stall") == 3 and "washout" in kinds1 and "tight" not in kinds1 and "tight" in kinds2 and all(x["words"] and x["page"] == "Drilling alerts" for x in a1["alerts"])
+                  and [x["time"] for x in a1["alerts"]] == sorted(x["time"] for x in a1["alerts"]),
+        "readings": {x["key"] for x in a1["parameters"]} >= {"wob", "rpm", "flow", "spp", "diff"} and abs(next(x for x in a1["parameters"] if x["key"] == "flow")["median"] - 550.0) < 3.0
+                    and a1["mud"] == [] and a1["surveys"] is None and a1["strings"] == [],
+        "lines": len(a1["lines"]) >= 6 and "dated 2026-09-01 by the day it starts on" in a1["lines"][0] and any("A trip out" in l_ for l_ in a1["lines"]) and "No remarks are typed" in a1["lines"][-1],
+        "reading_writes_nothing": wrote_nothing,
+        "no_record_no_well_no_day": no_record and unknown and far,
+        "remarks": rm["remarks"]["by"] == "tester" and with_rm["sheet"]["remarks"]["text"].startswith("Pulled out for a washout") and with_rm["sheet"]["remarks"]["plan"] == "Run in and drill ahead."
+                   and with_rm["days"][0]["remarks"] is True and with_rm["days"][1]["remarks"] is False and not any("No remarks" in l_ for l_ in with_rm["sheet"]["lines"])
+                   and bad == [True, True] and gone["remarks"] is None and DR.remarks(ws, wa, "2026-09-01") is None,
+        "files": rep["files"] == ["daily_report.html", "daily_report.md", "daily_report.json", "time_log.csv"] and rd == Path(wsp, "reports", "daily", wa, "2026-09-01")
+                 and all((rd / n_).is_file() for n_ in rep["files"]) and len(rows_csv) == len(a1["time_log"]) + 1 and abs(sum(float(r_[4]) for r_ in rows_csv[1:]) - 24.0) < 1e-9
+                 and json.loads((rd / "daily_report.json").read_text(encoding="utf-8"))["program_version"] == "9.9.9",
+        "sheet_prints": "<script" not in html_ and "&lt;script&gt;alert(1)&lt;/script&gt;" in html_ and "Daily drilling report" in html_ and "The time log" in html_ and "Run in and drill ahead." in html_
+                        and "What this sheet is not" in html_ and "http" not in html_ and "@media print" in html_,
+        "every_day": rep_all["days"] == ["2026-09-01", "2026-09-02"] and len(rep_all["files"]) == 8 and (Path(wsp, "reports", "daily", wa, "2026-09-02") / "daily_report.html").is_file(),
+        "audited": acts.count("daily_report.remarks") == 1 and acts.count("daily_report.report") == 2 and audit_actions(ws).count("daily_report.remarks_removed") == 1,
+        "by_the_terms": p_mid["day_starts"] == "00:00" and p_mid["day_start_declared"] is True and [d_["date"] for d_ in p_mid["days"]] == ["2026-09-02", "2026-09-03"]
+                        and p_mid["sheet"]["dated_by"] == "the day it ends on" and p_mid["sheet"]["covers"]["from"] == "2026-09-02T00:00" and p_mid["sheet"]["date"] == "2026-09-03"
+                        and DR.page(ws, wa, "2026-09-02")["sheet"]["time_log"][0]["operation"] == "NO RECORD" and DR.page(ws, wa, "2026-09-02")["sheet"]["time_log"][0]["hours"] == 6.0,
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "EX2 the daily report of a made record in a workspace - forty stands from 06:00, three motor stalls, a washout and the trip that finds it, a hole getting tight at the end: two "
+       "report days whose footage is the record's and whose depths meet; the last day by default, ending with the hours that have no record; the first day whole, its log 24 hours with "
+       "the trip out and in between lines of drilling and no line that is the slips alone, its two trips, its three stalls and its washout in the order they came with each one's own "
+       "words - the tight hole on the second day's sheet and not the first's - and the readings while drilling as the record was made; reading writes nothing; a well without a record, a "
+       "well that is not there and a day the record does not reach are each said; the remarks are kept with a name, shown on the sheet and in the list of days, bounded, and taken off "
+       "when emptied; the sheet is written as four files, the page that prints carrying the remarks as text and fetching nothing, the time log's rows coming to 24 hours, and every day "
+       "written on request; and with the contract's day starting at midnight and its reports dated by the day they end on, the days and their dates follow"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- EX3 the routes and their roles, the tab, the command, the words -------------------------------------------------------------
+    from .service import Service, Users
+    import http.cookiejar
+    import urllib.error
+    import urllib.request
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer")
+    Users(str(Path(wsp, "users.json"))).add("o", "operator-pass-1", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+
+    def session(name: str, pw: str):
+        o_ = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq_ = urllib.request.Request(svc.url.rstrip("/") + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw}).encode())
+        rq_.add_header("Content-Type", "application/json"); rq_.add_header("X-GEA-Action", "1"); o_.open(rq_, timeout=30)
+
+        def call(path: str, body=None, raw: bool = False):
+            rq2 = urllib.request.Request(svc.url.rstrip("/") + path, method="POST" if body is not None else "GET", data=json.dumps(body).encode() if body is not None else None)
+            if body is not None:
+                rq2.add_header("Content-Type", "application/json"); rq2.add_header("X-GEA-Action", "1")
+            try:
+                with o_.open(rq2, timeout=60) as r_:
+                    b_ = r_.read()
+                    return r_.status, (b_.decode("utf-8") if raw else json.loads(b_))
+            except urllib.error.HTTPError as e:
+                return e.code, (e.read().decode("utf-8", "replace") if raw else json.loads(e.read() or b"{}"))
+        return call
+    try:
+        v = session("v", "viewer-pass-1"); o = session("o", "operator-pass-1")
+        s_page, api = v("/api/daily-report")
+        s_day, api_day = v(f"/api/daily-report?well={wa}&date=2026-09-02")
+        s_nowell, _ = v("/api/daily-report?well=nope")
+        s_norec, _ = v(f"/api/daily-report?well={wb}")
+        s_noday, _ = v(f"/api/daily-report?well={wa}&date=2030-01-01")
+        s_v_rm, _ = v("/api/daily-report/remarks", {"well": wa, "date": "2026-09-02", "text": "x"})
+        s_v_wr, _ = v("/api/daily-report/write", {"well": wa, "date": "2026-09-02"})
+        s_o_rm, o_rm = o("/api/daily-report/remarks", {"well": wa, "date": "2026-09-02", "text": "Waited on orders two hours.", "plan": ""})
+        s_o_wr, o_wr = o("/api/daily-report/write", {"well": wa, "date": "2026-09-02"})
+        s_o_bad, _ = o("/api/daily-report/write", {"well": "nope"})
+        s_o_none, _ = o("/api/daily-report/remarks", {})
+        s_sheet, sheet_html = v(o_wr.get("url", "/nope"), raw=True) if s_o_wr == 200 else (0, "")
+    finally:
+        svc.stop()
+    app = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    dr_js = app[app.index("// ---------- daily report:"):app.index("// ---------- geosteering:")]
+    env = {**os.environ, "PYTHONPATH": str(pkg.parent) + os.pathsep + os.environ.get("PYTHONPATH", "")}
+    cli_self = _sp.run([sys.executable, "-m", "gea", "daily-report"], capture_output=True, text=True, env=env, cwd=str(pkg.parent))
+    cli_ws = _sp.run([sys.executable, "-m", "gea", "daily-report", "--workspace", wsp, "--well", "Well A", "--date", "2026-09-02"], capture_output=True, text=True, env=env, cwd=str(pkg.parent))
+    cli_bad = _sp.run([sys.executable, "-m", "gea", "daily-report", "--workspace", wsp, "--well", "Well A", "--date", "2030-01-01"], capture_output=True, text=True, env=env, cwd=str(pkg.parent))
+    hp = (pkg / "help" / "daily-report.md").read_text(encoding="utf-8")
+    lesson = (pkg / "help" / "tutorial" / "16-rig-time.md").read_text(encoding="utf-8")
+    root = pkg.parent
+    readme = (root / "README.md").read_text(encoding="utf-8") if (root / "README.md").is_file() else None
+    chlog = (root / "CHANGELOG.md").read_text(encoding="utf-8") if (root / "CHANGELOG.md").is_file() else None
+    cov = TU.coverage()
+    mod_src = (pkg / "daily_report.py").read_text(encoding="utf-8")
+    from . import client_reports as CRX
+    c3 = {
+        "page_route": s_page == 200 and api["status"] == "OK" and api["well"] == wa and api["sheet"]["date"] == "2026-09-03" and len(api["days"]) == 2,
+        "a_day": s_day == 200 and api_day["sheet"]["date"] == "2026-09-02" and abs(sum(l_["hours"] for l_ in api_day["sheet"]["time_log"]) - 24.0) < 1e-9,
+        "said": s_nowell == 404 and s_norec == 400 and s_noday == 400 and s_o_bad == 404 and s_o_none == 400,
+        "viewer_reads_only": s_v_rm == 403 and s_v_wr == 403,
+        "operator_acts": s_o_rm == 200 and o_rm["remarks"]["by"] == "o" and s_o_wr == 200 and o_wr["days"] == ["2026-09-02"] and o_wr["url"] == f"/reports/daily/{wa}/2026-09-02/daily_report.html",
+        "sheet_served": s_sheet == 200 and "Daily drilling report" in sheet_html and "Waited on orders two hours." in sheet_html,
+        "tab": "['#/daily', 'Daily report']" in app and "'#/approvals', '#/daily', '#/reports']]" in app and "VIEWS.daily = async" in app and "function drStrip(" in app,
+        "page_parts": all(x in dr_js for x in ("The days", "Write this day's sheet", "Write every day", "Open the sheet to print", "Keep the remarks", "/api/daily-report/remarks",
+                                               "What the record shows", "Hours by rig state, to the second", "What this sheet is not", "a sheet is dated by")),
+        "no_storage": "localStorage" not in dr_js and "sessionStorage" not in dr_js and "document.cookie" not in dr_js,
+        "cli": cli_self.returncode == 0 and cli_self.stdout.strip().endswith("OK - a made record: forty stands and a trip, from 06:00") and "FAIL" not in cli_self.stdout
+               and cli_ws.returncode == 0 and "Daily drilling report - Well A - 2026-09-02" in cli_ws.stdout and "The time log:" in cli_ws.stdout and "Waited on orders two hours." in cli_ws.stdout
+               and cli_bad.returncode != 0 and "no sample in the report day" in cli_bad.stderr,
+        "help": H.check("daily-report") == [] and H.VIEW_TOPIC.get("daily") == "daily-report" and any(t_["topic"] == "daily-report" for t_ in H.topics())
+                and all(x in hp for x in ("Write this day's sheet", "time_log.csv", "daily_report.remarks", "270 report days", "No sheet has yet been set beside a contractor's signed report")),
+        "lesson": "#/daily" in lesson and "Open **Daily report**" in lesson and TU.check("rig-time") == [] and cov["tabs_unreached"] == [] and cov["help_untaught"] == [],
+        "standalone": "gea_driller" not in mod_src and not [t_ for t_ in CRX.FORBIDDEN_TERMS if t_ in mod_src.lower()],
+        "readme": readme is None or ("### Daily report" in readme and "`gea daily-report`" in readme),
+        "changelog": chlog is None or "## [v0.105.0]" in chlog,
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "EX3 the Daily report tab: any signed-in account reads a well's days and a day's sheet, and only the operator role types the remarks and writes the files (a viewer is turned "
+       "away with 403; an unknown well is 404, a well without a record and a day the record does not reach are 400 with the reason); the written sheet is served as a page that prints, "
+       "with the remarks on it; the tab is in the menu under Watch & report, shows the days, the bar of the day, the time log, the hours by state and the remarks, and keeps nothing in "
+       "the browser's storage; `gea daily-report` runs the self-test without a workspace and prints a day's sheet with one; the help, the lesson and the README say what the sheet "
+       "holds and what only the crew can add" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def section_ew_geosteering(tmp: str) -> None:
     """Section EW - the office's geosteering panel (0.104.0): one lateral as the driller's program has it, from the
     record pulled into the well - the stations, the layer by the model and by the estimate, the model's gamma, the
@@ -22050,6 +22296,7 @@ def main() -> int:
         section_eu_driller_by_the_book(tmp)
         section_ev_what_the_string_reads(tmp)
         section_ew_geosteering(tmp)
+        section_ex_daily_report(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:
