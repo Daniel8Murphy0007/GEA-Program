@@ -73,6 +73,42 @@ def _row(e: dict) -> dict:
             'worst_in_layer_pct': round(e['worst_in_layer_pct'], 1), 'stuck': e['stuck'], 'lost': e['lost'], 'losses': e['losses'], 'reward': round(e['reward'], 1), 'reward_by': by_group}
 
 
+TOOL_ROWS = (('neither tool', False, False), ('the up and down gamma', True, False), ('the deep resistivity', False, True), ('both', True, True))
+
+
+def _tools(three: dict, scenes) -> dict:
+    """The hole in the layer by what the string carries, and what the up and down gamma is worth to the textbook
+    driller: the same scenes drilled with the tool on every string and on none, scene by scene."""
+    import numpy as np
+    scenes = list(scenes)
+    sc = [T.Scene(s) for s in scenes]
+    azi = np.array([x.azi_gamma for x in sc], dtype=bool); deep = np.array([x.deep_res for x in sc], dtype=bool)
+    il = {k: np.array([e['in_layer_pct'] for e in three[k]['episodes']], dtype=np.float64) for k in ('textbook', 'agent', 'oracle')}
+    rows = []
+    for name, a, d in TOOL_ROWS:
+        m = (azi == a) & (deep == d)
+        rows.append({'string': name, 'azimuthal_gamma': a, 'deep_resistivity': d, 'scenes': int(m.sum()),
+                     **{k: (round(float(il[k][m].mean()), 1) if m.any() else None) for k in il}})
+    other = np.array([e['in_layer_pct'] for e in P.evaluate(T.TextbookDriller(), scenes, 'textbook', azimuthal=[not bool(a) for a in azi])['episodes']], dtype=np.float64)
+    on = np.where(azi, il['textbook'], other); off = np.where(azi, other, il['textbook'])
+
+    def worth(m) -> dict:
+        d = (on - off)[m]
+        se = float(d.std(ddof=1) / np.sqrt(len(d))) if len(d) > 1 else 0.0
+        return {'scenes': int(len(d)), 'without': round(float(off[m].mean()), 1) if len(d) else None, 'with': round(float(on[m].mean()), 1) if len(d) else None,
+                'mean': round(float(d.mean()), 2) if len(d) else None, 'se': round(se, 2), 'better': int((d > 0).sum()), 'worse': int((d < 0).sum()), 'same': int((d == 0).sum())}
+    w = {'all': worth(np.ones(len(scenes), dtype=bool)), 'no_deep_resistivity': worth(~deep), 'deep_resistivity': worth(deep)}
+    a, n = w['all'], w['no_deep_resistivity']
+    sure = a['mean'] is not None and abs(a['mean']) >= 2.0 * a['se']
+    line = (f"What the string reads: with the up and down gamma on every string the textbook driller kept {a['with']:.1f}% of the hole in the layer, with it on none {a['without']:.1f}% - "
+            f"{a['mean']:+.1f} points, give or take {a['se']:.1f}, " + ('a difference these scenes can tell from none' if sure else 'NOT a difference these scenes can tell from none')
+            + (f"; on the {n['scenes']} strings without the deep resistivity, {n['without']:.1f}% to {n['with']:.1f}% ({n['mean']:+.1f}, give or take {n['se']:.1f})." if n['scenes'] else '.')
+            + f" {int(azi.sum())} of the {len(scenes)} scenes' strings carry the tool.")
+    return {'rows': rows, 'azimuthal_worth_textbook': w, 'told_apart': bool(sure), 'share_with_azimuthal': round(float(azi.mean()), 2), 'reach_ft': T.AZI_REACH_FT, 'noise': T.AZI_NOISE, 'line': line,
+            'reads': ("The up and down gamma goes to the position filter - the filter the textbook driller, the policy and the rig screen all read the layer through - and the policy's "
+                      f"{len(T.OBS_NAMES)} inputs are the ones they were: the filter's answers among them are better for the tool, nothing new is asked of the policy.")}
+
+
 def build(policy_path: Optional[str] = None, scenes: int = SCENES) -> dict:
     """The card of one policy file (the shipped one by default), its held-out scenes drilled now."""
     from . import service as S
@@ -89,6 +125,7 @@ def build(policy_path: Optional[str] = None, scenes: int = SCENES) -> dict:
     diff = {'in_layer_pct': paired('in_layer_pct'), 'reward': paired('reward'), 'ft_per_day': paired('ft_per_day')}
     sure = abs(diff['in_layer_pct']['mean']) >= 2.0 * diff['in_layer_pct']['se']
     tb, ag, orc = (_row(three[k]) for k in ('textbook', 'agent', 'oracle'))
+    tools = _tools(three, range(SCENE_0, SCENE_0 + int(scenes)))
     st = three['standing']
     span_days = ag['days'] / tb['days'] - 1.0 if tb['days'] > 0 else 0.0
     lines = [f"On {scenes} held-out scenes of the twin the agent kept {ag['in_layer_pct']:.1f}% of the hole in the layer, the textbook driller {tb['in_layer_pct']:.1f}% and the oracle "
@@ -103,6 +140,7 @@ def build(policy_path: Optional[str] = None, scenes: int = SCENES) -> dict:
              ('As shipped the program recommends by the book - the textbook driller\'s rules for every choice (`policy.steer` is `book` in the config) - because the policy\'s steering is not '
               'told from the book\'s on these scenes; what the policy would steer is kept beside each recommendation on the record, and `policy.steer`: `policy` lets it steer.' if not sure else
               'The policy\'s steering is told from the book\'s on these scenes; `policy.steer` in the config says which of the two the program recommends by (the default is `book`).'),
+             tools['line'],
              'SIMULATION: scenes of the twin, drawn from the ranges it was trained on but never trained on nor chosen on. No drilled lateral is in these figures.']
     n_par = int(sum(v.size for v in pol.p.values()))
     book = pol.by_the_book()
@@ -123,7 +161,7 @@ def build(policy_path: Optional[str] = None, scenes: int = SCENES) -> dict:
             'reward': reward_table(),
             'limits_in_the_twin': {'vibration_index': T.VIB_LIMIT, 'motor_dp_psi': T.DP_LIMIT, 'days': T.DAY_LIMIT, 'corridor_end_ft': T.CORRIDOR_END_FT},
             'evaluation': {'scenes': int(scenes), 'rows': [tb, ag, orc], 'standing': {k: round(float(st[k]), 1) for k in ('in_layer_pct_of_the_way', 'reward_of_the_way')}, 'note': st['note'],
-                           'first_scene': SCENE_0, 'against_textbook': diff, 'told_apart': bool(sure),
+                           'first_scene': SCENE_0, 'against_textbook': diff, 'told_apart': bool(sure), 'tools': tools,
                            'lines': lines},
             'policy': {'file': os.path.basename(path), 'file_sha256': _file_sha256(path), 'weights_sha256': pol.weights_sha256(), 'stamped_version': pol.meta.get('version')},
             'lines': lines}
@@ -141,6 +179,11 @@ def text(c: dict) -> str:
     for r in ev['rows']:
         out.append(f"  {r['driller']:<9s} {r['in_layer_pct']:>7.1f}% {r['sweet_pct']:>5.1f}% {r['ft_per_day']:>7,.0f} {r['days']:>5.2f} {r['mean_dls']:>5.2f} {r['vibration_excess']:>8.2f} {r['worst_in_layer_pct']:>5.1f}% {r['reward']:>7.1f}")
     out += ['  ' + l for l in ev['lines']]
+    tl = ev.get('tools')
+    if tl:
+        out += ['', 'By what the string carries (hole in the layer):', f"  {'the string carries':<24s} {'scenes':>6s} {'textbook':>9s} {'agent':>7s} {'oracle':>7s}"]
+        out += [f"  {r['string']:<24s} {r['scenes']:>6d} " + ' '.join((f"{r[k]:>{w}.1f}%" if r[k] is not None else f"{'-':>{w + 1}s}") for k, w in (('textbook', 8), ('agent', 6), ('oracle', 6))) for r in tl['rows']]
+        out += ['  ' + tl['reads']]
     out += ['', 'Where the reward came from, a lateral (the mean):', '  ' + f"{'driller':<9s} " + ' '.join(f'{g:>12s}' for g, _ in T.REWARD_GROUPS)]
     for r in ev['rows']:
         out.append('  ' + f"{r['driller']:<9s} " + ' '.join(f"{r['reward_by'][g]:>12.1f}" for g, _ in T.REWARD_GROUPS))

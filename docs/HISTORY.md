@@ -4,6 +4,23 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.103.0 - 2026-11-18 - what the string reads: the up and down gamma
+
+- GEA Driller reads an azimuthal gamma tool's high-side and low-side
+  gamma (`model.azimuthal_gamma_tool`; WITS items 0826 and 0827) into the
+  position filter: it says which side of the layer the bit is leaving on.
+- The twin's strings carry the tool on seven scenes in ten; the card
+  drills its scenes with the tool on every string and on none and gives
+  the difference scene by scene with its standard error (+3.6 points of
+  hole in the layer, give or take 1.0, for the textbook driller; +9.1 on
+  strings without the deep resistivity), and sorts the scorecard by what
+  the strings carry.
+- The policy's inputs and weights are unchanged; a further training with
+  the tool was not told from it and is not shipped.
+- The public pad's background build check is six questions and reports
+  the job's state when one fails.
+- Gate 623.
+
 ## v0.102.0 - 2026-11-17 - the agent retrained, and set honestly against the book
 
 - The card drills three hundred scenes and gives the agent's difference

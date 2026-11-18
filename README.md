@@ -471,8 +471,8 @@ program on the office PC with a scene drilling itself.
 Drill string tab) is the policy's model card and scorecard, worked out from
 the policy file each time: what it is for and not for, the 34 things it
 reads, the reward it was trained on printed from the table the twin pays
-from, and the agent beside the textbook driller and the oracle on sixty
-held-out scenes, with where each one's reward came from. The policy is
+from, and the agent beside the textbook driller and the oracle on three
+hundred held-out scenes, with where each one's reward came from. The policy is
 named by the hash of its weights, which is in the manifest and on every
 decision. The card sets the agent against the textbook driller scene by
 scene, on three hundred scenes, and gives the difference with its standard
@@ -484,6 +484,18 @@ the book as shipped (`policy.steer` is `book` in the rig PC's config), with
 what the policy would have steered kept beside each recommendation;
 `policy.steer`: `policy` lets the policy steer. Every figure on the card is
 a simulation's; no drilled lateral is in them.
+
+**What the string reads.** The up and down gamma - an azimuthal gamma
+tool's readings on the high and the low side of the hole - says which side
+of the layer the bit is leaving on, which the gamma at the bit cannot where
+the rock above and below reads alike. `"azimuthal_gamma_tool": true` in the
+rig PC's config tells the program the string carries one; its readings go to
+the position filter, which the textbook driller's rules, the policy and the
+screen all read the layer through, and into every decision's record. The
+card says what the tool is worth in the twin - the same scenes drilled with
+it on every string and on none, scene by scene with a standard error - and
+sorts the scorecard by what the strings carry. No real azimuthal gamma has
+been read by the program yet.
 
 ### The tutorial
 
@@ -874,7 +886,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.102.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.103.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -2028,7 +2040,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.102.0.exe` (for 0.102.0): the
+Every release also carries `GEA-Program-Setup-0.103.0.exe` (for 0.103.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -2047,7 +2059,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.102.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.103.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

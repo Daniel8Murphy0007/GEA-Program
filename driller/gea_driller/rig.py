@@ -23,9 +23,9 @@ from . import vibration as V
 STANDARD_ITEMS: Dict[str, str] = {
     '0108': 'bit_depth', '0110': 'hole_depth', '0112': 'block_height', '0113': 'rop', '0114': 'hookload', '0116': 'wob',
     '0120': 'rpm', '0121': 'torque', '0123': 'flow_in', '0130': 'spp', '0105': 'rig_date', '0106': 'rig_time',
-    '0708': 'survey_md', '0713': 'survey_inc', '0714': 'survey_azi', '0824': 'gamma', '0825': 'deep_res_dist', '0830': 'vibration', '0831': 'continuous_inc', '0832': 'continuous_azi',
+    '0708': 'survey_md', '0713': 'survey_inc', '0714': 'survey_azi', '0824': 'gamma', '0825': 'deep_res_dist', '0826': 'gamma_up', '0827': 'gamma_down', '0830': 'vibration', '0831': 'continuous_inc', '0832': 'continuous_azi',
 }
-FIELDS = ('bit_depth', 'hole_depth', 'rop', 'wob', 'rpm', 'torque', 'hookload', 'flow_in', 'spp', 'gamma', 'deep_res_dist', 'vibration', 'continuous_inc', 'continuous_azi', 'ecd')
+FIELDS = ('bit_depth', 'hole_depth', 'rop', 'wob', 'rpm', 'torque', 'hookload', 'flow_in', 'spp', 'gamma', 'deep_res_dist', 'gamma_up', 'gamma_down', 'vibration', 'continuous_inc', 'continuous_azi', 'ecd')
 
 
 class FrameParser:
@@ -208,7 +208,7 @@ class TwinFeed(Feed):
         s = self.scene; m = cfg['model']
         m.update({'layer_top_tvd_ft': round(s.model_top(0.0), 1), 'thickness_ft': round(s.model_thickness, 1), 'dip_deg': round(s.dip_deg + s.model_dip_error, 2),
                   'cross_dip_deg': round(s.model_cross_dip(), 2), 'gamma_in': round(s.g_in), 'gamma_above': round(s.g_above), 'gamma_below': round(s.g_below),
-                  'deep_resistivity_tool': s.deep_res, 'lateral_length_ft': s.length_ft, 'heel_tvd_ft': round(self.lat.tvd, 1),
+                  'deep_resistivity_tool': s.deep_res, 'azimuthal_gamma_tool': s.azi_gamma, 'lateral_length_ft': s.length_ft, 'heel_tvd_ft': round(self.lat.tvd, 1),
                   'plan_azimuth_deg': round(s.plan_azimuth, 1), 'corridor_ft': round(s.corridor_ft), 'heel_offset_ft': round(self.lat.y, 1)})
         self.last_info: dict = {}
         self.connected = True
@@ -230,6 +230,7 @@ class TwinFeed(Feed):
             self.state.update({'bit_depth': self.heel_md + lat.footage, 'hole_depth': self.heel_md + lat.footage, 'rop': lat.rop,
                                'wob': smp['wob'], 'rpm': smp['rpm'], 'flow_in': T.FLOW_CHOICES[self.action[3]], 'hookload': smp['hookload'],
                                'torque': smp['torque'], 'spp': smp['spp'], 'gamma': lat.gammas[-1], 'deep_res_dist': deep if have else None,
+                               'gamma_up': (lat.azi[0] if lat.azi else None), 'gamma_down': (lat.azi[1] if lat.azi else None),
                                'vibration': (lat.vib if self.vibration_tool else None), 'continuous_inc': lat.incl, 'continuous_azi': self._az(), 'ecd': lat.ecd})
             self.frames += 1; self.last_utc = time.time()
             self._sample(self.frames * self.window.window_s / self.frames_per_step)       # the twin's clock: a step is the window's minute

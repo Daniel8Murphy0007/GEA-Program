@@ -5,6 +5,65 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.103.0] - 2026-11-18 - what the string reads: the up and down gamma
+
+### Added
+- **The up and down gamma.** An azimuthal gamma tool reads the gamma on
+  the high side of the hole and on the low side. The two together say
+  which side of the layer the bit is leaving on, which the gamma at the
+  bit cannot where the rock above and below reads alike. GEA Driller now
+  reads them: `"azimuthal_gamma_tool": true` in the config's `model`
+  block says the string carries the tool, and its readings come on the
+  feed as WITS items `0826` (high side) and `0827` (low side), or under a
+  vendor's own numbers through `rig.items`.
+- **They go to the position filter**, the one estimate of the layer that
+  the textbook driller's rules, the policy and the rig screen all read.
+  Each is better for the tool; the policy's 34 inputs are the ones they
+  were. The readings are in every decision's record and, when they
+  differ, in its reasons; the screen shows them beside the gamma.
+- **In the twin**, seven scenes in ten carry the tool. A lateral's other
+  numbers are the same with the tool on its string or off it, so the two
+  can be set against each other step for step.
+- **The card says what the tool is worth.** The same three hundred
+  held-out scenes are drilled by the textbook driller with the tool on
+  every string and on none: 85.3% of the hole in the layer against
+  81.7%, +3.6 points, give or take 1.0. On the 127 strings without a
+  deep-resistivity tool, 79.8% against 70.6% (+9.1, give or take 1.8).
+  On the strings with one, -0.5, give or take 1.0: nothing, because that
+  tool already says which side. The scorecard is also sorted by what the
+  strings carry, on the card, on the rig PC's screen and on GEA's Drill
+  string tab.
+
+### Changed
+- The card's scenes now include strings with the tool, so its three rows
+  moved: the textbook driller 83.8% of the hole in the layer (81.7% at
+  0.102.0), the agent 84.1% (81.1%), the oracle 98.4% as before. The
+  agent against the textbook is +0.3 points, give or take 1.2: still not
+  told apart, and the program still recommends by the book as shipped.
+- The gate's check of the public pad's page building in the background
+  is now six questions where it was one, and a failure prints what the
+  build job said. It failed once on the Windows kit of 0.102.0 and passed
+  when run again; its cause is not yet known.
+
+### Notes
+- The policy is the one shipped in 0.102.0, weights unchanged. It was
+  trained on for a further 4.3 million steps in the twin with the tool;
+  on eight hundred scenes kept for choosing, the result was 1.3 points of
+  hole in the layer ahead of the shipped policy, give or take 0.7. The
+  rule set beforehand was two standard errors, so it is not shipped.
+- Where only the up and down gamma is on the string, the policy's
+  steering keeps less of the hole in the layer than the book's (74.0%
+  against 79.0% on those 90 scenes of the card); where both tools are,
+  more (92.8% against 88.3%). The book reads the filter's answer
+  directly, and so far uses the new tool better.
+- The twin's tool reads 1.5 ft above and below the bit, each reading one
+  and a half times as noisy as the whole tool's. A real tool's sectors,
+  its depth of reading and its distance behind the bit are its vendor's.
+  No real azimuthal gamma has been read by this program yet.
+- The stick-slip rule of 0.100.0 is not yet in the Driller's vibration
+  index; that part of the plan is the next release's.
+- Every figure is a simulation's. No drilled lateral is in them.
+
 ## [v0.102.0] - 2026-11-17 - the agent retrained, and set honestly against the book
 
 ### Changed

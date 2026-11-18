@@ -295,10 +295,19 @@ def train(pol: Policy, seconds: float = 60.0, iterations: Optional[int] = None, 
     return rec
 
 
-def evaluate(act_fn: Callable[[np.ndarray], Sequence[int]], scenes: Sequence[int] = range(20), label: str = '') -> dict:
+def _scene(s: int, azimuthal: Optional[Sequence[bool]] = None, i: int = 0):
+    sc = T.Scene(s)
+    if azimuthal is not None:
+        sc.azi_gamma = bool(azimuthal[i])
+    return sc
+
+
+def evaluate(act_fn: Callable[[np.ndarray], Sequence[int]], scenes: Sequence[int] = range(20), label: str = '', azimuthal: Optional[Sequence[bool]] = None) -> dict:
     """The held-out scenes, one episode each, and the means that matter. A driller with a `bind` (the textbook's
-    memory, the oracle's truth) is bound to each lateral before it drills it."""
-    res = [T.run_episode(T.Lateral(T.Scene(s)), act_fn) for s in scenes]
+    memory, the oracle's truth) is bound to each lateral before it drills it. `azimuthal`, one yes or no a scene,
+    puts the azimuthal gamma tool on a scene's string or takes it off, whatever the scene drew - for asking what the
+    tool is worth on the very same scenes."""
+    res = [T.run_episode(T.Lateral(_scene(s, azimuthal, i)), act_fn) for i, s in enumerate(scenes)]
     f = lambda k: float(np.mean([x[k] for x in res]))
     return {'label': label, 'scenes': list(scenes), 'n': len(res), 'in_layer_pct': f('in_layer_pct'), 'sweet_pct': f('sweet_pct'), 'ft_per_day': f('ft_per_day'),
             'reward': f('reward'), 'mean_dls': f('mean_dls'), 'tortuosity_deg': f('tortuosity_deg'), 'stuck': int(sum(x['stuck'] for x in res)),

@@ -4602,3 +4602,54 @@ already hold.
   that no longer stays put. Both now say what is true.
 - Section EU, three checks. Every tab opened in a window with storage
   denied. Gate 620.
+
+## 2026-11-18 - what the string reads: the up and down gamma (v0.103.0)
+
+- v0.102.0 shipped on its second run of the Windows kit: the first run
+  failed one gate check, the public pad's page building in the
+  background (EI3), and the same commit passed when the job was run
+  again. The job's log named the check and nothing more, because the
+  check asked six things under one key. It now asks them one at a time
+  and prints the build job's state when one fails, so the next failure
+  names its cause.
+- The question for this release came from the last one: the gap between
+  the textbook driller and the oracle is what the driller is not told.
+  Before building anything the scenes were drilled three more ways. Told
+  the true side whenever the bit was out of the layer, the textbook
+  driller kept 87.1% of the hole in the layer where it had kept 81.7%;
+  told its true position, 93.6%; the oracle, 98.4%. On strings without
+  the deep-resistivity tool it kept 70.6%, with it 89.9%. So the side is
+  worth five points, most of them on the strings that have no deep tool.
+- The tool that gives the side is the azimuthal gamma: the gamma on the
+  high side of the hole and on the low side. It is in the twin (1.5 ft
+  above and below the bit, one and a half times as noisy as the whole
+  tool), in the position filter (two more readings set against each
+  guess at the layer), on the feed (two WITS items), in the advisor's
+  record and reasons, and on the screen.
+- It went to the filter and not to the policy's inputs. The textbook
+  driller's rules, the policy and the screen all read the layer through
+  the filter, so one change serves all three and the shipped policy still
+  fits.
+- Measured the way the last release learned to: the same three hundred
+  scenes with the tool on every string and on none, scene by scene.
+  +3.6 points of hole in the layer, give or take 1.0, for the textbook
+  driller; +9.1, give or take 1.8, on the strings without the deep tool;
+  -0.5, give or take 1.0, on the strings with it. For the policy, +3.1,
+  give or take 1.1. The first build of the twin's tool drew its noise
+  from the lateral's own stream, which changed every other number of a
+  scene with the tool on it; it now has its own stream, so a lateral
+  with the tool and without is the same lateral, and the comparison is
+  cleaner for it.
+- The policy was trained on with the tool for 4.3 million more steps.
+  On eight hundred scenes kept for choosing it was 1.3 points ahead of
+  the shipped policy, give or take 0.7 - under the two standard errors
+  set beforehand. It is not shipped. The card's scenes were not used to
+  decide that.
+- What the sorted scorecard shows that the mean hides: with only the up
+  and down gamma on the string the policy's steering is five points
+  behind the book's; with both tools, four ahead. Neither is settled at
+  ninety and a hundred and twenty-nine scenes, but it is the place to
+  look next.
+- Not done: the stick-slip rule in the Driller's vibration index. It
+  stays on the plan.
+- Gate 623: section EV, three checks.

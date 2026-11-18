@@ -96,6 +96,12 @@ def card_text(c: dict) -> str:
     out = [f"{c['program']} {c['version']} - the agent's card ({c['label']})"] + ev['lines']
     out.append(f"  {'driller':<9s} {'in layer':>8s} {'ft/day':>7s} {'days':>5s} {'reward':>7s}")
     out += [f"  {r['driller']:<9s} {r['in_layer_pct']:>7.1f}% {r['ft_per_day']:>7,.0f} {r['days']:>5.2f} {r['reward']:>7.1f}" for r in ev['rows']]
+    tl = ev.get('tools') or {}
+    if tl.get('rows'):
+        pc = lambda v: f'{v:.1f}%' if v is not None else '-'
+        out.append('By what the string carries (hole in the layer):')
+        out.append(f"  {'the string carries':<24s} {'scenes':>6s} {'textbook':>9s} {'agent':>7s} {'oracle':>7s}")
+        out += [f"  {r['string']:<24s} {r['scenes']:>6d} {pc(r['textbook']):>9s} {pc(r['agent']):>7s} {pc(r['oracle']):>7s}" for r in tl['rows']]
     out.append(f"weights sha256 {c['policy']['weights_sha256']}; trained {c['training'].get('trained_utc')}")
     return '\n'.join(out)
 

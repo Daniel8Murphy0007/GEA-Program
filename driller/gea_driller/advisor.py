@@ -201,7 +201,9 @@ class Advisor:
             self.filter_pos = (vs, y)
         elif vs > self.filter_pos[0] or y != self.filter_pos[1]:
             self.filter.predict(vs - self.filter_pos[0], y - self.filter_pos[1]); self.filter_pos = (vs, y)
-        self.filter.update(tvd, g, float(deep) if have else None)
+        up, down = st.get('gamma_up'), st.get('gamma_down')
+        have_a = up is not None and down is not None and bool(m.get('azimuthal_gamma_tool', False))
+        self.filter.update(tvd, g, float(deep) if have else None, float(up) if have_a else None, float(down) if have_a else None)
         self.est = self.filter.estimate(tvd)
         e = self.est
         rop = float(st.get('rop') or 0.0)
@@ -219,7 +221,7 @@ class Advisor:
             az / 5.0, y / 50.0, (corridor - abs(y)) / 50.0, float(m.get('cross_dip_deg') or 0.0) / 2.0, self.last_aim / 4.0, e['cross_dip_deg'] / 2.0], dtype=np.float64)
         ctx = {'md': md, 'vs': vs, 'y': y, 'tvd': tvd, 'inc': inc, 'az': az, 'az_abs': float(az_abs), 'plan_az': self.plan_az, 'corridor': corridor,
                'model_top': model_top, 'model_base': model_top + float(m['thickness_ft']), 'gamma': g, 'trend': trend, 'estimate': dict(e),
-               'deep': deep if have else None, 'belief': belief, 'rop': rop, 'vibration': vib, 'vibration_source': vib_source, 'vibration_parts': vib_parts,
+               'deep': deep if have else None, 'gamma_up': float(up) if have_a else None, 'gamma_down': float(down) if have_a else None, 'belief': belief, 'rop': rop, 'vibration': vib, 'vibration_source': vib_source, 'vibration_parts': vib_parts,
                'ecd': ecd, 'dp': dp, 'wob': wob, 'rpm': rpm, 'flow': flow,
                'bed': self.bed, 'balling': self.balling, 'wear': self.wear}
         return obs, ctx
@@ -362,6 +364,10 @@ class Advisor:
         if e:
             where = 'in the layer' if e['p_in'] >= 0.5 else ('above the layer' if e['p_above'] > e['p_below'] else 'below the layer')
             out.append(f"the position filter puts the bit {where} ({e['p_in']:.0%} in, {e['p_above']:.0%} above, {e['p_below']:.0%} below): {e['d_top']:.1f} ft below the top, {e['d_base']:.1f} ft above the base, ±{e['sigma']:.1f} ft")
+        if ctx.get('gamma_up') is not None:
+            diff = ctx['gamma_up'] - ctx['gamma_down']
+            out.append(f"the up and down gamma reads {ctx['gamma_up']:.0f} API on the high side of the hole and {ctx['gamma_down']:.0f} on the low side: "
+                       + ('alike, as with no boundary within a foot or two of the bit' if abs(diff) < 12.0 else f"{abs(diff):.0f} API {'higher' if diff > 0 else 'lower'} above than below, as near a boundary - the position filter has read which"))
         if ctx['deep'] is not None:
             out.append(f"the deep-resistivity tool puts the {'top' if ctx['deep'] > 0 else 'base'} {abs(ctx['deep']):.1f} ft {'above' if ctx['deep'] > 0 else 'below'} the bit")
         out.append(f"gamma {ctx['gamma']:.0f} API, {'in the layer' if ctx['belief'] else 'not the layer'} by the model's values ({m['gamma_in']:.0f} in, {m['gamma_above']:.0f} above, {m['gamma_below']:.0f} below)" + (f", trending {ctx['trend']:+.1f} API a decision" if abs(ctx['trend']) >= 2 else ''))

@@ -12,7 +12,8 @@ recommendation, every answer and every command is on record with its hash, and G
 Where the bit sits in the layer is estimated the way a geosteerer does it, by a position filter: a few hundred
 guesses at how the real layer differs from the model - the top's offset, the dip's error along the plan and across
 it, the thickness - moved every decision as undulation and faults would move them and kept to the ones that explain
-the gamma and the deep-resistivity distance. The screen shows the band it puts the layer in and how sure it is; the
+the gamma, the up and down gamma when the string has an azimuthal gamma tool (it says which side of the layer the bit
+is leaving on), and the deep-resistivity distance. The screen shows the band it puts the layer in and how sure it is; the
 agent reads the same estimate.
 
 The lateral has an azimuth (since 0.80.0). The bit is placed in the plan's frame - along the plan's azimuth, right
@@ -60,7 +61,8 @@ when that is its address.
   the rig, for the office; `items` maps a rig that numbers its WITS items differently (`"0824": "gamma"`).
 - `model`: the pre-drill model from the offset wells - the target layer's top TVD at the heel, its thickness, its
   dip along the lateral, the gamma of the layer and of the rock above and below, whether a deep-resistivity tool is
-  on the string, the lateral's length, and the heel's MD and TVD from the survey.
+  on the string (`deep_resistivity_tool`) and whether an azimuthal gamma tool is (`azimuthal_gamma_tool`: its high-side and
+  low-side readings come as WITS items `0826` and `0827`, or a vendor's own numbers through `rig.items`), the lateral's length, and the heel's MD and TVD from the survey.
 - `tool`: the steering tool's cap in °/100 ft and what it builds or drops on its own.
 - `limits`: what no recommendation and no command may go outside - the dogleg, the vibration index, the fracture
   gradient and the mud weight, the motor's differential, and the ranges of WOB, rpm and flow.
@@ -73,7 +75,7 @@ when that is its address.
 
 The section: the model's layer window in green and the hole drilled through it in blue from the surveys and the
 continuous inclination, the bit, and where the recommendation points. The recommendation in words with its
-reasons - what the deep-resistivity tool says, what the gamma says against the model's values, the model's
+reasons - what the deep-resistivity tool says, what the up and down gamma says, what the gamma says against the model's values, the model's
 bracket, the limits - and the confidence of each choice. The rig's numbers against the limits. Accept, Reject,
 or Did something else (with what); the operator's name goes on every answer. The closed-loop panel when the
 config allows it. The last decisions. The same at `/live` from any browser on the rig network; the plain status at

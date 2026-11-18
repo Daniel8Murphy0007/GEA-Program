@@ -26,6 +26,8 @@ import numpy as np
 
 N_PARTICLES = 400
 TRANSITION_FT = 3.0
+AZI_REACH_FT = 1.5              # how far above and below the bit the azimuthal gamma's upper and lower readings are taken
+AZI_NOISE = 1.5                 # a sector counts fewer rays than the whole tool: its reading is this much noisier
 
 
 class PositionFilter:
@@ -92,13 +94,21 @@ class PositionFilter:
         g[near_base] = self.g_in + f * (self.g_below - self.g_in)
         return g
 
-    def update(self, tvd: float, gamma: float, deep: Optional[float] = None) -> None:
-        """The readings at the bit: the gamma, and the deep-resistivity distance when there is one (signed: + the
-        top is above the bit by that much, - the base is below)."""
+    def update(self, tvd: float, gamma: float, deep: Optional[float] = None, up: Optional[float] = None, down: Optional[float] = None,
+               reach_ft: float = AZI_REACH_FT) -> None:
+        """The readings at the bit: the gamma, the deep-resistivity distance when there is one (signed: + the
+        top is above the bit by that much, - the base is below), and - when the string carries an azimuthal gamma
+        tool - its upper and lower readings, taken `reach_ft` above and below the bit. Near a boundary the two
+        differ, and which is the higher says which boundary it is: the one thing the gamma at the bit cannot say
+        where the rock above and below read alike."""
         top = self.tops()
         d_top = float(tvd) - top                        # positive inside, below the top
         d_base = top + self.thick - float(tvd)          # positive inside, above the base
         ll = -0.5 * ((self._expected_gamma(d_top, d_base) - float(gamma)) / self.g_sigma) ** 2
+        if up is not None and down is not None:
+            sg = self.g_sigma * AZI_NOISE
+            ll = ll - 0.5 * ((self._expected_gamma(d_top - reach_ft, d_base + reach_ft) - float(up)) / sg) ** 2
+            ll = ll - 0.5 * ((self._expected_gamma(d_top + reach_ft, d_base - reach_ft) - float(down)) / sg) ** 2
         if deep is not None:
             # the tool reports the nearer boundary when it is within range; each particle's nearer boundary
             near_top = np.abs(d_top) <= np.abs(d_base)

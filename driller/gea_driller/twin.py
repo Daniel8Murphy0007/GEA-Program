@@ -24,7 +24,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from .geometry import dls_of, min_curvature
-from .position import PositionFilter
+from .position import AZI_NOISE, AZI_REACH_FT, PositionFilter
 
 STEP_FT = 30.0
 BUILD_CHOICES = (-3.0, -1.5, 0.0, 1.5, 3.0)            # deg per 100 ft asked of the tool
@@ -72,6 +72,7 @@ REWARD_WORDS = {'in_layer': 'each 30 ft step drilled in the layer', 'out_of_laye
 REWARD_GROUPS = (('the layer', ('in_layer', 'out_of_layer', 'sweet_spot')), ('the hole', ('dogleg',)), ('rig time', ('hour', 'conditioning_needed', 'conditioning_idle', 'finished', 'finished_per_day', 'out_of_days', 'out_of_steps')),
                  ('the limits', ('vibration_over', 'ecd_over', 'losses', 'motor_dp_over', 'motor_stall', 'stuck_pipe')), ('the corridor', ('off_plan_line', 'off_plan_azimuth', 'outside_corridor', 'lateral_lost')))
 CORRIDOR_END_FT = 150.0
+AZI_SHARE = 0.7                                        # the share of scenes whose string carries an azimuthal gamma tool
 # What a policy may leave to the book: the weight, the rotary speed, the flow and whether to drill or condition the hole
 # are then the textbook driller's own rules, and the policy steers (the build and the aim).
 BOOK_HEADS = ('wob', 'rpm', 'flow', 'conditioning')
@@ -127,6 +128,8 @@ class Scene:
         self.hard_in = r.uniform(0.8, 1.05)
         self.frac_gradient = r.uniform(11.8, 12.8)     # ppg
         self.mud_weight = r.uniform(10.0, 10.8)
+        # the azimuthal gamma tool, drawn apart so that every scene's other numbers are the ones they were before the tool was in the twin
+        self.azi_gamma = bool(np.random.RandomState((self.seed * 7 + 104729) % (2 ** 32 - 1)).rand() < AZI_SHARE)
         self.model_top_error = r.normal(0.0, 10.0)      # the pre-drill model's error at the heel
         self.model_dip_error = r.normal(0.0, 0.7)
         self.model_thickness = self.thickness * r.uniform(0.85, 1.15)
@@ -191,6 +194,15 @@ class Scene:
             g = self.g_below
         return float(g + r.normal(0, self.g_noise))
 
+    def azimuthal_gamma(self, vs: float, tvd: float, r: np.random.RandomState, y: float = 0.0) -> Tuple[float, float, bool]:
+        """The azimuthal gamma tool's upper and lower readings - the gamma a little above the bit and a little below
+        it, each noisier than the whole tool's - when the string carries the tool."""
+        if not self.azi_gamma:
+            return 0.0, 0.0, False
+        up = self.gamma(vs, tvd - AZI_REACH_FT, r, y); down = self.gamma(vs, tvd + AZI_REACH_FT, r, y)
+        more = self.g_noise * math.sqrt(max(AZI_NOISE ** 2 - 1.0, 0.0))      # so that each reading's scatter is AZI_NOISE times the whole tool's
+        return float(up + r.normal(0, more)), float(down + r.normal(0, more)), True
+
     def deep_distance(self, vs: float, tvd: float, r: np.random.RandomState, y: float = 0.0) -> Tuple[float, bool]:
         """The deep azimuthal resistivity tool's distance to the nearest boundary, signed (+ the top is above, - the
         base is below), when the tool is on the string and the boundary is within its range."""
@@ -220,6 +232,8 @@ class Lateral:
     def __init__(self, scene: Scene, seed: Optional[int] = None):
         self.scene = scene
         self.r = np.random.RandomState((scene.seed * 7919 + 1) % (2 ** 32 - 1) if seed is None else seed)
+        # the azimuthal gamma's own draws, kept apart: a lateral's other numbers are the same with the tool on the string or off it
+        self.r_azi = np.random.RandomState((scene.seed * 7919 + 3) % (2 ** 32 - 1) if seed is None else (int(seed) + 3) % (2 ** 32 - 1))
         self.reset()
 
     def reset(self) -> np.ndarray:
@@ -266,7 +280,9 @@ class Lateral:
                                      deep_range=s.deep_range, seed=(s.seed * 31 + 7) % (2 ** 32 - 1), model_cross_dip_deg=s.model_cross_dip())
         self.filter.y = self.y
         deep, have = s.deep_distance(self.vs, self.tvd, self.r, self.y)
-        self.filter.update(self.tvd, self.gammas[-1], deep if have else None)
+        up, down, have_a = s.azimuthal_gamma(self.vs, self.tvd, self.r_azi, self.y)
+        self.azi = (up, down) if have_a else None
+        self.filter.update(self.tvd, self.gammas[-1], deep if have else None, up if have_a else None, down if have_a else None)
         self.est = self.filter.estimate(self.tvd)
         return self.observe()
 
@@ -421,7 +437,9 @@ class Lateral:
         self.gammas.append(s.gamma(self.vs, self.tvd, self.r, self.y)); self.gammas = self.gammas[-5:]
         self.filter.predict(dx, dy)
         deep_r, have_r = s.deep_distance(self.vs, self.tvd, self.r, self.y)
-        self.filter.update(self.tvd, self.gammas[-1], deep_r if have_r else None)
+        up, down, have_a = s.azimuthal_gamma(self.vs, self.tvd, self.r_azi, self.y)
+        self.azi = (up, down) if have_a else None
+        self.filter.update(self.tvd, self.gammas[-1], deep_r if have_r else None, up if have_a else None, down if have_a else None)
         self.est = self.filter.estimate(self.tvd)
         info.update({'hours': hrs, 'rop': rop, 'estimate': dict(self.est), 'in_layer': in_layer, 'sweet': sweet, 'in_corridor': in_corridor, 'dls': dls, 'lithology': new_lith,
                      'tvd': self.tvd, 'vs': self.vs, 'y': self.y, 'az': self.az, 'incl': self.incl, 'layer_top': top, 'layer_base': base, 'vibration': self.vib, 'ecd': self.ecd,

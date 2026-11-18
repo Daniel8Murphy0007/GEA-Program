@@ -168,7 +168,7 @@ def main(argv=None) -> int:
         from . import service as S
         cfg = json.loads(json.dumps(_config.EXAMPLE)); cfg['rig']['transport'] = 'sim'; cfg['status']['port'] = a.port; cfg['status']['bind'] = a.bind
         cfg['output']['dir'] = a.dir or tempfile.mkdtemp(prefix='gea-driller-sim-'); cfg['closed_loop']['allowed'] = bool(a.closed_loop); cfg['well'] = f'Twin scene {a.seed}'
-        cfg['model']['deep_resistivity_tool'] = True
+        cfg['model']['deep_resistivity_tool'] = True; cfg['model']['azimuthal_gamma_tool'] = True
         cfg = _config.check(cfg)
         print(f'{NAME} {__version__}: the twin as the rig (scene {a.seed}, a step every {a.pace} s); the screen at http://{a.bind}:{a.port}/live; records in {cfg["output"]["dir"]}; a STOP file there stops it', flush=True)
         return S.Driller(cfg, twin_seed=a.seed, twin_pace_s=a.pace).run_forever()

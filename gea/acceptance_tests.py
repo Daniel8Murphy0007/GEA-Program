@@ -19147,10 +19147,15 @@ def section_ei_public_pad_benchmark(tmp: str) -> None:
     lesson = TU.course_text()
     c3 = {
         "api_benchmark": s_vb == 200 and vb["status"] == "OK" and len(vb["wells"]) == 5 and s_vw == 403 and s_ow == 200 and "stretches.csv" in ow["files"],
-        "api_public": s_vp == 200 and vp["folder"] == "" and len(vp["files"]) == 5 and vp["this_site"]["name"] == "Utah FORGE" and s_vf == 403 and s_af == 200 and af["present"] == 5 and s_ob == 403 and s_ab == 200
-                      and "suggest" not in vp and af["suggest"]["site_exists"] is True and os.path.normcase(af["suggest"]["path"]) == os.path.normcase(os.path.abspath(site)) and PP.suggest(str(d / "plain"))["path"].endswith("forge-site")
-                      and ab["state"] == "running" and job.get("state") == "done" and job["result"]["wells"] == ["58-32", "16A(78)-32", "56-32", "78B-32", "16B(78)-32"] and len(Workspace(str(d / "forge-api")).wells()) == 5
-                      and Path(d / "forge-api", "users.json").is_file() and job_bad.get("state") == "failed" and "no such folder" in job_bad.get("error", ""),
+        # one question a key (0.102.0's Windows kit failed "api_public" once and passed when run again; sixteen conditions under one name could not say which)
+        "api_public_read": s_vp == 200 and vp["folder"] == "" and len(vp["files"]) == 5 and vp["this_site"]["name"] == "Utah FORGE" and "suggest" not in vp,
+        "api_public_roles": s_vf == 403 and s_af == 200 and af["present"] == 5 and s_ob == 403 and s_ab == 200,
+        "api_public_suggest": af.get("suggest", {}).get("site_exists") is True and os.path.normcase(af["suggest"]["path"]) == os.path.normcase(os.path.abspath(site))
+                              and PP.suggest(str(d / "plain"))["path"].endswith("forge-site"),
+        "api_public_started": ab.get("state") == "running",
+        "api_public_built": job.get("state") == "done" and (job.get("result") or {}).get("wells") == ["58-32", "16A(78)-32", "56-32", "78B-32", "16B(78)-32"]
+                            and len(Workspace(str(d / "forge-api")).wells()) == 5 and Path(d / "forge-api", "users.json").is_file(),
+        "api_public_bad_folder": job_bad.get("state") == "failed" and "no such folder" in job_bad.get("error", ""),
         "cli": cli_l.returncode == 0 and "Well_58-32_raw_pason_log.csv" in cli_l.stdout and "doi:10.15121/1998591" in cli_l.stdout and cli_f.returncode == 0 and "5 of 5 recorder files" in cli_f.stdout
                and cli_v.returncode == 0 and json.loads(cli_v.stdout)["files"][0]["hash_matches"] is False and cli_b.returncode == 0 and "added 58-32, 16A(78)-32, 56-32, 78B-32, 16B(78)-32" in cli_b.stdout
                and "RECONSTRUCTED" in cli_b.stdout and cli_n.returncode != 0 and "--site" in cli_n.stderr and cli_bm.returncode == 0 and "Benchmark: the wells against one another" in cli_bm.stdout
@@ -19169,7 +19174,10 @@ def section_ei_public_pad_benchmark(tmp: str) -> None:
        "EI3 on the API (anyone reads the benchmark and the list of public files; only an operator writes the benchmark's report; only an administrator has a folder of the computer looked into or a "
        "site made - made in the background with its progress asked after, the accounts copied, and a folder that is not there a failure that says so), the commands (the list with where each file "
        "is published, the folder, the hashes as JSON, the site built with what was done to each well, a build with no site named stopped; the benchmark, as JSON, its report), the Benchmark and "
-       "Public data tabs, the help pages, the README and lesson 13" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+       "Public data tabs, the help pages, the README and lesson 13" + (f" [failed: {', '.join(failed3)}]" if failed3 else "")
+       + ((" [the build: " + str({k_: (str(v)[:300] if k_ in ("error", "at") else v) for k_, v in job.items() if k_ in ("state", "error", "at", "started_utc", "finished_utc")})
+           + "; the build that should fail: " + str({k_: str(v)[:300] for k_, v in job_bad.items() if k_ in ("state", "error")}) + f"; started as {ab.get('state')!r}; suggested {af.get('suggest')}]")
+          if any(k_.startswith("api_public") for k_ in failed3) else ""))
 
 
 def section_ej_frac_treatment(tmp: str) -> None:
@@ -19439,6 +19447,161 @@ def section_ej_frac_treatment(tmp: str) -> None:
        "page with the published figures it was checked against, the README and lesson 14" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_ev_what_the_string_reads(tmp: str) -> None:
+    """Section EV - what the string reads (0.103.0): the azimuthal gamma - the gamma on the high side of the hole
+    and on the low side - in the twin, the position filter, the rig's feed, the advisor's record and the card. The
+    filter told which side of the layer the bit left on; the twin's strings carrying the tool on seven scenes in ten
+    and a lateral's other numbers the same with it or without; the readings from the feed to the filter and into
+    every decision's record only when the config says the string has the tool; the card saying what the tool is
+    worth scene by scene; the page, the help, the lesson and the README."""
+    import importlib
+    from . import driller_link as DL
+    from . import helplib as H
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ev"); d.mkdir()
+    prog = DL.program()
+    if prog is None:
+        ok(DL.card(wait=True)["status"] == "NO PROGRAM",
+           "EV the driller's program (gea-driller) is not installed beside GEA in this install: there is nothing of the string's tools to check here")
+        return
+    if prog["env"] and prog["env"] not in sys.path:
+        sys.path.insert(0, prog["env"])
+    import numpy as np_
+    T = importlib.import_module("gea_driller.twin"); P = importlib.import_module("gea_driller.policy"); S = importlib.import_module("gea_driller.service")
+    PF = importlib.import_module("gea_driller.position"); A = importlib.import_module("gea_driller.advisor"); CF = importlib.import_module("gea_driller.config")
+    R = importlib.import_module("gea_driller.rig"); C = importlib.import_module("gea_driller.card"); ST = importlib.import_module("gea_driller.status")
+    # -- EV1 the filter and the twin ---------------------------------------------------------------------------------------------
+    def sides(side: str, azi: bool, seed: int) -> dict:
+        # mid-layer by the model; the real top 16 ft deeper (the bit 1 ft above it) or 16 ft shallower (1 ft below the
+        # base); the rock above and below reads alike, so the gamma at the bit says "out" and not which way
+        f = PF.PositionFilter(9000.0, 0.0, 30.0, 60.0, 120.0, 120.0, seed=seed)
+        up, dn = (120.0, 60.0) if side == "above" else (60.0, 120.0)
+        f.update(9015.0, 120.0, None, up if azi else None, dn if azi else None)
+        return f.estimate(9015.0)
+    plain = [sides(s_, False, k_) for s_ in ("above", "below") for k_ in (1, 2, 3)]
+    told_a = [sides("above", True, k_) for k_ in (1, 2, 3)]; told_b = [sides("below", True, k_) for k_ in (1, 2, 3)]
+    flags = [(T.Scene(s_).azi_gamma, T.Scene(s_).deep_res) for s_ in range(1000, 1300)]
+    s_on = next(s_ for s_ in range(1000, 1300) if T.Scene(s_).azi_gamma); s_off = next(s_ for s_ in range(1000, 1300) if not T.Scene(s_).azi_gamma)
+
+    def drilled(seed: int, tool: bool):
+        sc = T.Scene(seed); sc.azi_gamma = tool
+        lat = T.Lateral(sc); lat.reset(); azis = [lat.azi]
+        for k_ in range(25):
+            lat.step((2, 1, 1, 1, 0, 1) if k_ % 3 else (1, 1, 1, 1, 0, 1)); azis.append(lat.azi)
+        return lat, azis
+    l_on, a_on = drilled(s_on, True); l_off, a_off = drilled(s_on, False)
+    sc = T.Scene(s_on); sc.azi_gamma = True
+    rr = np_.random.RandomState(5); top = sc.layer_top(500.0, 0.0); mid = top + sc.thickness / 2.0
+    at_mid = np_.array([sc.azimuthal_gamma(500.0, mid, rr)[:2] for _ in range(3000)]); at_top = np_.array([sc.azimuthal_gamma(500.0, top, rr)[:2] for _ in range(3000)])
+    step_top = (sc.g_in - sc.g_above) * (2.0 * PF.AZI_REACH_FT) / 6.0          # across the 6 ft the tool sees a boundary over
+    c1 = {
+        "plain_cannot_say": all(0.3 < e["p_above"] < 0.7 and 0.3 < e["p_below"] < 0.7 for e in plain),
+        "told_above": all(e["p_above"] > 0.9 and e["p_below"] < 0.05 for e in told_a),
+        "told_below": all(e["p_below"] > 0.9 and e["p_above"] < 0.05 for e in told_b),
+        "share": sum(a for a, _ in flags) == 219 and T.AZI_SHARE == 0.7,
+        "others_as_before": sum(b for _, b in flags) == 173,
+        "same_lateral": l_on.gammas == l_off.gammas and l_on.tvd == l_off.tvd and l_on.summary()["in_layer_pct"] == l_off.summary()["in_layer_pct"],
+        "readings": all(isinstance(a, tuple) and len(a) == 2 for a in a_on) and all(a is None for a in a_off) and sc.azimuthal_gamma(0.0, top, rr)[2] is True
+                    and T.Scene(s_off).azimuthal_gamma(0.0, top, rr) == (0.0, 0.0, False),
+        "alike_in_the_middle": abs(float(at_mid[:, 0].mean() - at_mid[:, 1].mean())) < 0.15 * sc.g_noise * PF.AZI_NOISE + 1.0 and abs(float(at_mid.mean()) - sc.g_in) < 1.5,
+        "apart_at_the_top": abs(float((at_top[:, 1] - at_top[:, 0]).mean()) - step_top) < 0.15 * abs(step_top) + 1.0,
+        "noisier": abs(float(at_mid[:, 0].std()) / (sc.g_noise * PF.AZI_NOISE) - 1.0) < 0.1 and PF.AZI_NOISE == T.AZI_NOISE == 1.5 and PF.AZI_REACH_FT == T.AZI_REACH_FT == 1.5,
+        "inputs_as_they_were": T.OBS_SIZE == 34 == len(T.OBS_NAMES) and not any("up" in n.split("_") or "down" in n.split("_") for n in T.OBS_NAMES),
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "EV1 the up and down gamma tells the side: where the rock above the layer and the rock below it read alike, the gamma at the bit leaves the position filter between the two (each side "
+       "between 0.3 and 0.7), and one pair of readings from the high and the low side of the hole puts it over 0.9 on the right one, above and below alike; in the twin seven scenes in ten carry "
+       "the tool (219 of the card's 300, and the 173 that carry the deep resistivity are the 173 they were), a lateral drilled with the tool on its string and off it has the same gamma, the same "
+       "depth and the same hole in the layer step for step, the two readings agree in the middle of the layer and stand apart across a boundary by what 3 ft of it is worth, each is one and a "
+       "half times as noisy as the whole tool's, and the policy's 34 inputs are the ones they were" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- EV2 the rig's feed, the advisor, the record ------------------------------------------------------------------------------
+    pol = P.Policy.load(S.SHIPPED_POLICY)
+
+    def rig(tool: bool, up=None, down=None, tag=""):
+        cfg = json.loads(json.dumps(CF.EXAMPLE)); cfg["output"]["dir"] = str(d / f"rig-{tool}-{tag}"); cfg["model"]["azimuthal_gamma_tool"] = tool
+        cfg = CF.check(cfg)
+        feed = R.Feed(cfg)
+        feed.state.update({"hole_depth": float(cfg["model"].get("heel_md_ft", 10200.0)) + 600.0, "gamma": float(cfg["model"]["gamma_above"]), "continuous_inc": 90.0,
+                           "continuous_azi": float(cfg["model"].get("plan_azimuth_deg") or 0.0), "gamma_up": up, "gamma_down": down})
+        feed.last_utc = time.time(); feed.connected = True
+        adv = A.Advisor(cfg, pol, feed, A.Records(cfg))
+        rec = adv.decide(feed.snapshot())
+        return cfg, adv, rec
+    m0 = CF.EXAMPLE["model"]
+    g_a, g_i = float(m0["gamma_above"]), float(m0["gamma_in"])
+    _, adv_t, rec_t = rig(True, g_a, g_i, "apart")              # the high side reads the rock above, the low side the layer
+    _, adv_n, rec_n = rig(True, None, None, "none")             # the tool declared, nothing read yet
+    _, adv_f, rec_f = rig(False, g_a, g_i, "off")               # the readings on the feed, the tool not declared
+    wf = R.Wits0Feed(CF.check(json.loads(json.dumps(CF.EXAMPLE)) | {"output": {**CF.EXAMPLE["output"], "dir": str(d / "wits")}}))
+    wf.handle({"0824": "71.5", "0826": "88.5", "0827": "61.0"})
+    cfg_on = json.loads(json.dumps(CF.EXAMPLE)); cfg_on["rig"]["transport"] = "sim"; cfg_on["output"]["dir"] = str(d / "twin-on"); cfg_on = CF.check(cfg_on)
+    cfg_off = json.loads(json.dumps(CF.EXAMPLE)); cfg_off["rig"]["transport"] = "sim"; cfg_off["output"]["dir"] = str(d / "twin-off"); cfg_off = CF.check(cfg_off)
+    tw_on = R.TwinFeed(cfg_on, seed=s_on); tw_off = R.TwinFeed(cfg_off, seed=s_off)
+    main_src = Path(importlib.import_module("gea_driller").__file__).with_name("__main__.py").read_text(encoding="utf-8")
+    why_t = " | ".join(rec_t["reasons"]) if rec_t else ""
+    c2 = {
+        "items": R.STANDARD_ITEMS.get("0826") == "gamma_up" and R.STANDARD_ITEMS.get("0827") == "gamma_down" and {"gamma_up", "gamma_down"} <= set(R.FIELDS),
+        "wits": wf.state.get("gamma_up") == 88.5 and wf.state.get("gamma_down") == 61.0 and wf.state.get("gamma") == 71.5,
+        "config": m0.get("azimuthal_gamma_tool") is False,
+        "decided": all(r is not None for r in (rec_t, rec_n, rec_f)),
+        "record": rec_t is not None and rec_t["context"]["gamma_up"] == g_a and rec_t["context"]["gamma_down"] == g_i
+                  and rec_n is not None and rec_n["context"]["gamma_up"] is None and rec_f is not None and rec_f["context"]["gamma_up"] is None,
+        "reasons": "up and down gamma" in why_t and "above than below" in why_t and rec_n is not None and not any("up and down gamma" in x for x in rec_n["reasons"])
+                   and rec_f is not None and not any("up and down gamma" in x for x in rec_f["reasons"]),
+        "to_the_filter": rec_t is not None and rec_f is not None and rec_n is not None and rec_f["context"]["estimate"] == rec_n["context"]["estimate"]
+                         and rec_t["context"]["estimate"]["p_above"] > rec_f["context"]["estimate"]["p_above"] + 0.03,
+        "twin_as_rig": cfg_on["model"]["azimuthal_gamma_tool"] is True and isinstance(tw_on.state.get("gamma_up"), float) and isinstance(tw_on.state.get("gamma_down"), float)
+                       and cfg_off["model"]["azimuthal_gamma_tool"] is False and tw_off.state.get("gamma_up") is None and tw_off.state.get("gamma_down") is None,
+        "screen": "gamma up / down API" in ST.LIVE_PAGE and "azimuthal_gamma_tool" in ST.LIVE_PAGE,
+        "sim": "cfg['model']['azimuthal_gamma_tool'] = True" in main_src,
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "EV2 on the rig: the feed's items 0826 and 0827 are the gamma on the high and the low side (a vendor's own numbers go in the config's `rig.items`, like every item), a WITS frame puts them "
+       "in the state, and the pre-drill model's block says whether the string carries the tool - not, until it is said; with it declared the two readings go to the position filter (the same "
+       "bit, the same gamma: the filter leans above when the high side reads the rock above), into the decision's record and into its reasons, and with it not declared - or nothing read - the "
+       "decision is the one it would have been; the twin as the rig publishes them for a scene whose string has the tool and not for one whose string has not; the rig screen shows them"
+       + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- EV3 the card, the page, the words ----------------------------------------------------------------------------------------
+    gc = DL.card(wait=True)
+    tl = (gc.get("evaluation") or {}).get("tools") or {}
+    w = tl.get("azimuthal_worth_textbook") or {}
+    rows = tl.get("rows") or []
+    gtxt = DL.card_text(gc) if gc.get("status") == "OK" else ""
+    app = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    hp = (pkg / "help" / "driller.md").read_text(encoding="utf-8")
+    lesson = (pkg / "help" / "tutorial" / "37-driller-office.md").read_text(encoding="utf-8")
+    root = pkg.parent
+    readme = (root / "README.md").read_text(encoding="utf-8") if (root / "README.md").is_file() else None
+    chlog = (root / "CHANGELOG.md").read_text(encoding="utf-8") if (root / "CHANGELOG.md").is_file() else None
+    c3 = {
+        "card": gc.get("status") == "OK" and len(rows) == 4 and sum(r["scenes"] for r in rows) == gc["evaluation"]["scenes"] == 300
+                and [(r["azimuthal_gamma"], r["deep_resistivity"]) for r in rows] == [(False, False), (True, False), (False, True), (True, True)]
+                and sum(r["scenes"] for r in rows if r["azimuthal_gamma"]) == 219,
+        "worth": bool(w) and w["all"]["scenes"] == 300 and w["all"]["se"] > 0 and w["all"]["mean"] > 1.0 and w["all"]["with"] > w["all"]["without"]
+                 and w["no_deep_resistivity"]["scenes"] + w["deep_resistivity"]["scenes"] == 300 and w["no_deep_resistivity"]["mean"] > w["deep_resistivity"]["mean"]
+                 and w["no_deep_resistivity"]["mean"] > 3.0,
+        "said": bool(tl) and tl["line"] in gc["evaluation"]["lines"] and "give or take" in tl["line"] and "textbook driller" in tl["line"] and len(gc["evaluation"]["lines"]) == 7
+                and "inputs are the ones they were" in tl["reads"],
+        "text": "By what the string carries (hole in the layer):" in gtxt and "the up and down gamma" in gtxt and "It reads 34 things" in C.text(gc),
+        "page": "Hole in the layer by what the string carries" in app and "ev.tools.rows" in app,
+        "help": "**What the string reads** (since 0.103.0)" in hp and "azimuthal_gamma_tool" in hp and "0826" in hp and H.check("driller") == [],
+        "lesson": "up and down gamma" in lesson,
+        "readme": readme is None or "up and down gamma" in readme,
+        "changelog": chlog is None or "## [v0.103.0]" in chlog,
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "EV3 the card says what the tool is worth: the 300 held-out scenes sorted by what their strings carry (neither tool, the up and down gamma, the deep resistivity, both - 219 with the up "
+       "and down gamma), and the textbook driller drilling every one of them with the tool on its string and without - the difference given scene by scene with its standard error, over a point "
+       "of hole in the layer on all of them and over three on the strings without the deep resistivity, where it is worth the most; the card says the readings go to the filter and the "
+       "policy's inputs are the ones they were; the table is on the Drill string tab, and the help, the lesson and the README say what the tool is and how the config names it"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def section_eu_driller_by_the_book(tmp: str) -> None:
     """Section EU - the agent retrained and set honestly against the book (0.102.0): a policy that steers and
     leaves the weight, the speed, the flow and the conditioning to the textbook driller's rules, in the twin, in
@@ -19614,7 +19777,7 @@ def section_et_driller_card(tmp: str) -> None:
                  and c["network"]["parameters"] == sum(v.size for v in pol.p.values()) and c["training"]["trained_steps"] == pol.meta["trained_steps"] and "1000 and up" in c["training"]["scenes"] and c["evaluation"]["first_scene"] == 1000,
         "scorecard": c["evaluation"]["scenes"] == 8 and set(rows) == {"textbook", "agent", "oracle"} and rows["oracle"]["in_layer_pct"] > rows["agent"]["in_layer_pct"]
                      and rows["oracle"]["in_layer_pct"] > rows["textbook"]["in_layer_pct"] and all(abs(sum(r["reward_by"].values()) - r["reward"]) < 0.3 for r in rows.values())
-                     and set(rows["agent"]["reward_by"]) == {g for g, _ in T.REWARD_GROUPS} and len(c["evaluation"]["lines"]) == 6 and "No drilled lateral" in c["evaluation"]["lines"][-1]
+                     and set(rows["agent"]["reward_by"]) == {g for g, _ in T.REWARD_GROUPS} and len(c["evaluation"]["lines"]) == 7 and "No drilled lateral" in c["evaluation"]["lines"][-1]
                      and "give or take" in c["evaluation"]["lines"][1],
         "hashes": len(sha_w) == 64 and c["policy"]["weights_sha256"] == sha_w and c_re["policy"]["weights_sha256"] == sha_w and c_re["policy"]["file_sha256"] != c["policy"]["file_sha256"]
                   and c_other["policy"]["weights_sha256"] != sha_w and c_re["policy"]["stamped_version"] == "9.9.9",
@@ -21593,6 +21756,7 @@ def main() -> int:
         section_es_stickslip_sticking(tmp)
         section_et_driller_card(tmp)
         section_eu_driller_by_the_book(tmp)
+        section_ev_what_the_string_reads(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:
