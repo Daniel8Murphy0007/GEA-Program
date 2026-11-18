@@ -5,6 +5,55 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.102.0] - 2026-11-17 - the agent retrained, and set honestly against the book
+
+### Changed
+- **The scorecard was too small to rank two drillers.** The first card
+  drilled sixty held-out scenes and showed the agent 4.6 points ahead of
+  the textbook driller in hole in the layer. Scene by scene that
+  difference has a standard error of 2.9 points, and on six hundred
+  further scenes the same agent was 0.7 ahead, give or take 0.9: no
+  lead. The card now drills three hundred scenes (1000 and up, never
+  trained on nor chosen on), sets the agent against the textbook scene by
+  scene, gives the difference with its standard error, and says in words
+  whether the scenes can tell the two apart.
+- **A day of rig time is priced five times higher** in the reward: at
+  what about 195 ft of hole in the layer earns, where it was 50. Under
+  the old price the first policy learned to drill at the lightest weight
+  always and took half again as many days.
+- **The policy steers, and drills by the book.** The new policy makes the
+  build and the aim its own and leaves the weight, the rotary speed, the
+  flow and the conditioning to the textbook driller's rules; it was
+  trained with those rules in force. It keeps the textbook's pace.
+- **As shipped the program recommends by the book.** On the card's three
+  hundred scenes the new policy's hole in the layer is not told from the
+  textbook's (-0.6 points, give or take 1.3). So `policy.steer` in the
+  rig PC's config is `book`: every choice is the textbook driller's
+  rules, and what the policy would have steered is kept beside each
+  recommendation on the record and in its reasons. `policy.steer`:
+  `policy` lets the policy steer.
+
+### Added
+- **A command's step.** Armed, a command moves the build and the turn at
+  most `closed_loop.max_steer_change_deg_100ft` (3) from the command
+  before it, and says so when it was held.
+- `gea-driller train` makes a policy that steers and leaves the rest to
+  the book; `--all-six` makes one that learns all six choices.
+
+### Notes
+- The target set for this release was an agent at least halfway from the
+  textbook driller to the oracle in hole in the layer, at no fewer feet a
+  day than the textbook. The pace is met. The hole in the layer is not:
+  several policies were trained - all six choices under the new price,
+  and steering alone - and none is told from the book on fresh scenes.
+  The textbook-to-oracle gap is what the driller is not told, not how he
+  steers: the oracle is the textbook driller told the layer. Closing it
+  is a matter of what the tools read, which is the next release's work.
+- Policies that looked ahead on the scenes they were chosen on did not
+  stay ahead on scenes they had not seen. The card's scenes start above
+  every scene a policy has been chosen on for that reason.
+- Every figure is a simulation's. No drilled lateral is in them.
+
 ## [v0.101.0] - 2026-11-17 - the agent's card
 
 ### Added

@@ -4547,3 +4547,58 @@ already hold.
   the next time it is opened.
 - Section ET, three checks. Every tab opened in a window with storage
   denied. Gate 617.
+
+## 2026-11-17 - the agent retrained, and set honestly against the book (v0.102.0)
+
+- v0.101.0 shipped and its kits were fetched and checked. The plan's next
+  step had a stated target: an agent at least halfway from the textbook
+  driller to the oracle in hole in the layer, at no fewer feet a day
+  than the textbook - and a stated fallback if it could not be reached:
+  say so, and recommend by the book.
+- Why the first policy was slow. It chose the lightest weight on every
+  step of every scene. Nothing in the twin makes a light weight steer
+  better; a day of rig time simply cost about what 50 ft of hole in the
+  layer earned, so drilling gently lost nothing worth a gradient. The
+  day is now priced at about 195 ft.
+- Fine-tuning the first policy under the new price did not move it: its
+  choice of weight was saturated, and its steering had been learned in
+  the slow regime - given the book's weight and speed it kept 63 % of the
+  hole in the layer where it had kept 83 %. Policies trained from
+  nothing under the new price drilled fast early and then drifted slow
+  again: the pace is worth a few hundredths of a point a step against a
+  whole point for the layer, too faint to hold against the noise.
+- So the choices were divided. The policy steers; the weight, the speed,
+  the flow and the conditioning are the textbook driller's rules, in
+  training as on the rig. The pace is then the textbook's by
+  construction, and all of the learning goes to the steering.
+- What that found was not what was hoped. Two such policies, twelve
+  million steps each, looked five to eight points of reward ahead of the
+  textbook on the eighty scenes they were chosen on. On two hundred
+  fresh scenes the lead was two points of hole in the layer; on six
+  hundred, 2.0 give or take 0.9 - by then those scenes had been used to
+  choose between four candidates; on three hundred scenes no choice had
+  touched, -0.6 give or take 1.3. The same measure put to the first
+  policy: 0.7 give or take 0.9 on six hundred scenes. Its 4.6-point lead
+  on the card of the release before was sixty scenes' noise. That card
+  said what it had worked out and no more, but it gave no standard
+  error, and it should have.
+- The card now drills three hundred scenes, starting above every scene a
+  policy has been chosen on, gives the scene-by-scene difference with
+  its standard error, and says in words whether the two can be told
+  apart.
+- The target is not met and the fallback is taken: the program
+  recommends by the book as shipped. The policy's own steering is kept
+  beside every recommendation, so a real well can later judge it; a
+  switch in the config lets it steer.
+- Why steering alone cannot close the gap: the oracle is the textbook
+  driller told the layer. The twenty points between them are what the
+  driller does not know, and no way of steering supplies it. What the
+  tools read is the next thing to change.
+- A command's step, asked for by the evaluation: armed, the build and
+  the turn move at most a set amount from the command before.
+- Two tests were the first policy's habits and not the program's: the
+  self-test's "the policy beats the textbook" on ten scenes, and a
+  derived vibration index set against one step's own under a weight
+  that no longer stays put. Both now say what is true.
+- Section EU, three checks. Every tab opened in a window with storage
+  denied. Gate 620.

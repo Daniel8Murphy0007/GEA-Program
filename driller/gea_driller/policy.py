@@ -74,14 +74,26 @@ class Policy:
             acts.append(a); logp += math.log(max(p[a], 1e-12))
         return tuple(acts), logp, float(v[0])
 
-    def explain(self, obs: np.ndarray) -> dict:
+    def by_the_book(self) -> Tuple[str, ...]:
+        """The choices this policy leaves to the textbook driller's rules (none, for a policy that makes all six)."""
+        return tuple(n for n in (self.meta.get('by_the_book') or ()) if n in T.ACTION_NAMES)
+
+    def explain(self, obs: np.ndarray, book_action=None, heads=None) -> dict:
         """The decision in operational units with the confidence of each choice and the value the agent puts on
-        the state - what the advisory screen shows."""
+        the state - what the advisory screen shows. `book_action`: the textbook driller's action from the same
+        observation; the choices this policy leaves to the book are taken from it and marked."""
         logits, v, _, _ = self.forward(obs)
         out = {'value': float(v[0]), 'choices': {}}
-        for name, sl, choices in zip(T.ACTION_NAMES, HEAD_SLICES, T.ACTION_CHOICES):
+        heads = (tuple(heads) if heads is not None else self.by_the_book()) if book_action is not None else ()
+        book = T.full_action(book_action) if book_action is not None else None
+        for k, (name, sl, choices) in enumerate(zip(T.ACTION_NAMES, HEAD_SLICES, T.ACTION_CHOICES)):
             p = _softmax(logits[0, sl]); a = int(np.argmax(p))
-            out['choices'][name] = {'choice': choices[a], 'confidence': float(p[a]), 'distribution': [float(x) for x in p], 'index': a}
+            if name in heads:
+                own = a; a = int(book[k])
+                out['choices'][name] = {'choice': choices[a], 'confidence': 1.0, 'distribution': [1.0 if i == a else 0.0 for i in range(len(choices))], 'index': a, 'by': 'the book',
+                                        'policy_choice': choices[own], 'policy_confidence': float(p[own])}
+            else:
+                out['choices'][name] = {'choice': choices[a], 'confidence': float(p[a]), 'distribution': [float(x) for x in p], 'index': a, 'by': 'the policy'}
         return out
 
     # -- the file ---------------------------------------------------------------------------------------------------------
@@ -224,13 +236,15 @@ def train(pol: Policy, seconds: float = 60.0, iterations: Optional[int] = None, 
         envs = [T.Lateral(T.Scene(scene_counter + k)) for k in range(n_envs)]
         scene_counter += n_envs
         obs_cur = [e.reset() for e in envs]
+        heads = pol.by_the_book()
+        books = [T.TextbookDriller() for _ in envs] if heads else None      # a policy that steers only: the rest drilled by the book while it learns
         B_obs, B_act, B_logp, B_val, B_rew, B_done = [], [], [], [], [], []
         ep_returns: List[float] = []; ep_inlayer: List[float] = []; ep_cur = [0.0] * n_envs
         steps = 0
         while steps < batch_steps:
             for k, e in enumerate(envs):
                 a, lp, v = pol.act(obs_cur[k], r)
-                o2, rew, done, _ = e.step(a)
+                o2, rew, done, _ = e.step(T.with_book(a, books[k](obs_cur[k]), heads) if books else a)
                 B_obs.append(obs_cur[k]); B_act.append(a); B_logp.append(lp); B_val.append(v); B_rew.append(rew); B_done.append(1.0 if done else 0.0)
                 ep_cur[k] += rew
                 steps += 1
@@ -238,6 +252,8 @@ def train(pol: Policy, seconds: float = 60.0, iterations: Optional[int] = None, 
                     ep_returns.append(ep_cur[k]); ep_inlayer.append(e.summary()['in_layer_pct']); ep_cur[k] = 0.0
                     envs[k] = T.Lateral(T.Scene(scene_counter)); scene_counter += 1
                     o2 = envs[k].reset()
+                    if books:
+                        books[k].reset()
                 obs_cur[k] = o2
                 if steps >= batch_steps:
                     break
@@ -303,6 +319,23 @@ def evaluate_all(pol: Policy, scenes: Sequence[int] = range(20)) -> dict:
                          'note': 'how far the agent stands from the textbook toward the oracle, in the hole in the layer and in reward; 0 is the textbook, 100 the oracle'}}
 
 
+class PolicyDriller:
+    """The policy as a driller: its own choices, and - for a policy that leaves the weight, the speed, the flow and the
+    conditioning to the book - the textbook driller's rules for those, with the textbook's own short memory."""
+
+    def __init__(self, pol: Policy, greedy: bool = True, seed: int = 0):
+        self.pol = pol; self.greedy = greedy; self.r = np.random.RandomState(seed)
+        self.heads = pol.by_the_book()
+        self.book = T.TextbookDriller() if self.heads else None
+
+    def bind(self, lat) -> None:                 # a new lateral: the book's memory starts again
+        if self.book is not None:
+            self.book.reset()
+
+    def __call__(self, o: np.ndarray) -> Tuple[int, ...]:
+        a = self.pol.act(o, self.r, greedy=self.greedy)[0]
+        return T.with_book(a, self.book(o), self.heads) if self.book is not None else a
+
+
 def policy_act_fn(pol: Policy, greedy: bool = True, seed: int = 0) -> Callable[[np.ndarray], Tuple[int, ...]]:
-    r = np.random.RandomState(seed)
-    return lambda o: pol.act(o, r, greedy=greedy)[0]
+    return PolicyDriller(pol, greedy, seed)

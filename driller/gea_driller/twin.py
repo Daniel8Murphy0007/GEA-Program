@@ -57,7 +57,7 @@ DLS_MAX_TOOL = 6.0
 AZ_LIMIT = 30.0                                        # the lateral is not asked further than this off the plan
 # The reward, as the agent was trained on it: every number the step below pays or charges, by name. The model card
 # prints this table, so what is written of the reward and what is paid are one thing.
-REWARD = {'in_layer': 1.0, 'out_of_layer': -0.2, 'sweet_spot': 0.4, 'dogleg': -0.25, 'hour': -0.05, 'vibration_over': -1.2, 'ecd_over': -1.0, 'losses': -3.0,
+REWARD = {'in_layer': 1.0, 'out_of_layer': -0.2, 'sweet_spot': 0.4, 'dogleg': -0.25, 'hour': -0.25, 'vibration_over': -1.2, 'ecd_over': -1.0, 'losses': -3.0,
           'motor_dp_over': -0.8, 'motor_stall': -1.0, 'stuck_pipe': -8.0, 'off_plan_line': -0.15, 'off_plan_azimuth': -0.01, 'outside_corridor': -0.6, 'lateral_lost': -5.0,
           'conditioning_needed': -0.1, 'conditioning_idle': -0.6, 'finished': 10.0, 'finished_per_day': -0.5, 'out_of_days': -5.0, 'out_of_steps': -5.0}
 REWARD_WORDS = {'in_layer': 'each 30 ft step drilled in the layer', 'out_of_layer': 'each step drilled outside it', 'sweet_spot': 'more, for a step in the middle half of the layer',
@@ -71,7 +71,19 @@ REWARD_WORDS = {'in_layer': 'each 30 ft step drilled in the layer', 'out_of_laye
                 'out_of_days': 'when the days run out first', 'out_of_steps': 'when 400 steps run out first'}
 REWARD_GROUPS = (('the layer', ('in_layer', 'out_of_layer', 'sweet_spot')), ('the hole', ('dogleg',)), ('rig time', ('hour', 'conditioning_needed', 'conditioning_idle', 'finished', 'finished_per_day', 'out_of_days', 'out_of_steps')),
                  ('the limits', ('vibration_over', 'ecd_over', 'losses', 'motor_dp_over', 'motor_stall', 'stuck_pipe')), ('the corridor', ('off_plan_line', 'off_plan_azimuth', 'outside_corridor', 'lateral_lost')))
-CORRIDOR_END_FT = 150.0                                # this far outside the corridor the lateral is lost
+CORRIDOR_END_FT = 150.0
+# What a policy may leave to the book: the weight, the rotary speed, the flow and whether to drill or condition the hole
+# are then the textbook driller's own rules, and the policy steers (the build and the aim).
+BOOK_HEADS = ('wob', 'rpm', 'flow', 'conditioning')
+
+
+def with_book(action, book_action, heads=BOOK_HEADS) -> Tuple[int, ...]:
+    """`action` with the choices named in `heads` taken from `book_action` (both as full six-choice actions)."""
+    a = list(full_action(action)); b = full_action(book_action)
+    for k, n in enumerate(ACTION_NAMES):
+        if n in heads:
+            a[k] = b[k]
+    return tuple(a)                                # this far outside the corridor the lateral is lost
 
 
 def full_action(action) -> Tuple[int, ...]:

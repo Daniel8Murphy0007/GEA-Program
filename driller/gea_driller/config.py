@@ -29,9 +29,9 @@ EXAMPLE: Dict = {
                "wob_klb": [10.0, 40.0], "rpm": [60.0, 180.0], "flow_gpm": [350.0, 650.0],
                "note": "what no recommendation and no command may go outside; the agent is penalized for them in the twin and stopped by them on the rig"},
     "decision": {"every_ft": 30.0, "every_s": 60.0, "note": "a decision every 30 ft of new hole, and at least every 60 s while drilling"},
-    "policy": {"file": "", "note": "empty: the policy shipped inside the program"},
-    "closed_loop": {"allowed": False, "downlink": "null", "max_section_ft": 500.0, "stale_s": 120.0,
-                    "note": "allowed false: the switch is not on the screen at all; downlink null: commands are logged and never sent (no vendor protocol ships); max_section_ft: an arming lasts at most this much hole"},
+    "policy": {"file": "", "steer": "book", "note": "file empty: the policy shipped inside the program; steer book: every recommendation is the textbook driller's rules, with what the trained policy would steer kept beside it on the record - policy: the policy steers (the weight, the speed, the flow and the conditioning stay the book's)"},
+    "closed_loop": {"allowed": False, "downlink": "null", "max_section_ft": 500.0, "stale_s": 120.0, "max_steer_change_deg_100ft": 3.0,
+                    "note": "allowed false: the switch is not on the screen at all; downlink null: commands are logged and never sent (no vendor protocol ships); max_section_ft: an arming lasts at most this much hole; max_steer_change_deg_100ft: how far a command may move the build or the turn from the command before it"},
     "output": {"dir": "/var/lib/gea-driller/data", "note": "decisions.jsonl, commands.jsonl, surveys.csv, manifest.json; GEA pulls them"},
     "status": {"port": 8790, "bind": "0.0.0.0"},
 }
@@ -86,12 +86,17 @@ def check(cfg: dict) -> dict:
             raise ConfigError(f'limits.{k} is [low, high]')
     cl = cfg.setdefault('closed_loop', {})
     cl.setdefault('allowed', False); cl.setdefault('downlink', 'null'); cl.setdefault('max_section_ft', 500.0); cl.setdefault('stale_s', 120.0)
+    cl.setdefault('max_steer_change_deg_100ft', 3.0)
+    if not (0.5 <= float(cl['max_steer_change_deg_100ft']) <= 12.0):
+        raise ConfigError('closed_loop.max_steer_change_deg_100ft is 0.5 to 12 deg/100 ft a command')
     if cl['downlink'] not in DOWNLINKS:
         raise ConfigError(f'closed_loop.downlink is one of {", ".join(DOWNLINKS)}: no vendor protocol ships with this version')
     d = cfg.setdefault('decision', {})
     d.setdefault('every_ft', 30.0); d.setdefault('every_s', 60.0)
     cfg.setdefault('tool', {}).setdefault('max_dls_deg_100ft', 6.0); cfg['tool'].setdefault('tendency_deg_100ft', 0.0)
-    cfg.setdefault('policy', {}).setdefault('file', '')
+    cfg.setdefault('policy', {}).setdefault('file', ''); cfg['policy'].setdefault('steer', 'book')
+    if cfg['policy']['steer'] not in ('book', 'policy'):
+        raise ConfigError('policy.steer is "book" (the textbook driller\'s rules decide; the default) or "policy" (the trained policy steers)')
     cfg.setdefault('survey', {}).setdefault('file', 'surveys.csv')
     m.setdefault('heel_md_ft', 10200.0); m.setdefault('heel_tvd_ft', float(m['layer_top_tvd_ft']) + 0.5 * float(m['thickness_ft']))
     cfg['rig'].setdefault('sim_follows_agent', True); cfg['rig'].setdefault('vibration_window_s', 60.0); cfg['rig'].setdefault('vibration_tool', False)

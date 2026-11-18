@@ -4,6 +4,20 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.102.0 - 2026-11-17 - the agent retrained, and set honestly against the book
+
+- The card drills three hundred scenes and gives the agent's difference
+  from the textbook driller scene by scene with its standard error; the
+  sixty-scene card had shown a lead that was not one.
+- A rig day priced five times higher; the policy steers and leaves the
+  weight, the speed, the flow and the conditioning to the textbook's
+  rules, and keeps its pace.
+- Its hole in the layer is not told from the textbook's, so the program
+  recommends by the book as shipped (`policy.steer`), the policy's own
+  steering kept beside each recommendation.
+- A command moves the steering at most a set step from the one before.
+- Gate 620.
+
 ## v0.101.0 - 2026-11-17 - the agent's card
 
 - GEA Driller's policy has a model card and a scorecard, worked out from

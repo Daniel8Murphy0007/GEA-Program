@@ -1,25 +1,28 @@
-v0.101.0 — THE AGENT'S CARD
+v0.102.0 — THE AGENT RETRAINED, AND SET HONESTLY AGAINST THE BOOK
 
-Added: GEA Driller's policy has a model card and a scorecard, worked out
-from the policy file each time. What it is for and not for, the 34
-things it reads, the six it chooses between, how it was trained, the
-reward it was trained on, and the agent beside the textbook driller and
-the oracle on sixty held-out scenes of the twin - with where each
-driller's reward came from.
+Changed: the scorecard drills three hundred held-out scenes, sets the
+agent against the textbook driller scene by scene and gives the
+difference with its standard error. The sixty-scene card had shown the
+agent 4.6 points ahead; on six hundred further scenes it was 0.7 ahead,
+give or take 0.9 - no lead.
 
-It is on the rig PC (gea-driller card, and the screen) and on the GEA
-Driller card of GEA's Drill string tab.
+Changed: a day of rig time is priced five times higher in the reward.
+The new policy steers - the build and the aim - and leaves the weight,
+the speed, the flow and the conditioning to the textbook driller's
+rules. It keeps the textbook's pace, where the first policy took half
+again as many days.
 
-Added: the policy is named by the hash of its weights, in the rig PC's
-manifest and on every decision; GEA marks a pulled record decided by
-other weights than the card's.
+Changed: on the card's scenes the new policy's hole in the layer is not
+told from the textbook's (-0.6 points, give or take 1.3). So as shipped
+the program recommends by the book (policy.steer is book), with what the
+policy would have steered kept beside each recommendation; policy.steer:
+policy lets the policy steer.
 
-Changed: the twin's reward is one table the step pays from, and the card
-prints it. Every episode comes out exactly as it did.
+Added: armed, a command moves the build and the turn at most a set step
+from the command before it.
 
-As shipped the card says: about 84 % of the hole in the layer against
-the textbook's 79 % and the oracle's 98 %, and about half again as many
-days a lateral. Nothing was retrained; this is the measure the next
-release is held to. Every figure is a simulation's.
+The target of halfway to the oracle is not met: the gap is what the
+driller is not told, which is the next release's work. Every figure is a
+simulation's.
 
-Gate 617.
+Gate 620.

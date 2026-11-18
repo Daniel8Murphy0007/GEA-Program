@@ -22,7 +22,8 @@ from typing import Dict, List, Optional
 from . import NAME, __version__, twin as T
 from . import policy as P
 
-SCENES = 60
+SCENES = 300
+SCENE_0 = 1000                  # the card's scenes start here: below it are the scenes policies have been chosen on
 OBS_WORDS: Dict[str, str] = {
     'gamma_now': 'the gamma at the bit', 'gamma_1': 'the gamma one step back', 'gamma_2': 'two steps back', 'gamma_3': 'three steps back', 'gamma_4': 'four steps back',
     'gamma_trend': 'how the gamma has moved over those five readings', 'inclination_minus_90': 'the inclination, from horizontal',
@@ -77,28 +78,52 @@ def build(policy_path: Optional[str] = None, scenes: int = SCENES) -> dict:
     from . import service as S
     path = policy_path or S.SHIPPED_POLICY
     pol = P.Policy.load(path)
-    three = P.evaluate_all(pol, range(int(scenes)))
+    three = P.evaluate_all(pol, range(SCENE_0, SCENE_0 + int(scenes)))
+    import numpy as np
+
+    def paired(key: str, a: str = 'agent', b: str = 'textbook') -> dict:
+        """One driller less another on the same scenes: the mean difference and its standard error."""
+        d = np.array([x[key] - y[key] for x, y in zip(three[a]['episodes'], three[b]['episodes'])], dtype=np.float64)
+        se = float(d.std(ddof=1) / np.sqrt(len(d))) if len(d) > 1 else 0.0
+        return {'mean': round(float(d.mean()), 2), 'se': round(se, 2), 'better': int((d > 0).sum()), 'worse': int((d < 0).sum()), 'same': int((d == 0).sum())}
+    diff = {'in_layer_pct': paired('in_layer_pct'), 'reward': paired('reward'), 'ft_per_day': paired('ft_per_day')}
+    sure = abs(diff['in_layer_pct']['mean']) >= 2.0 * diff['in_layer_pct']['se']
     tb, ag, orc = (_row(three[k]) for k in ('textbook', 'agent', 'oracle'))
     st = three['standing']
     span_days = ag['days'] / tb['days'] - 1.0 if tb['days'] > 0 else 0.0
     lines = [f"On {scenes} held-out scenes of the twin the agent kept {ag['in_layer_pct']:.1f}% of the hole in the layer, the textbook driller {tb['in_layer_pct']:.1f}% and the oracle "
              f"{orc['in_layer_pct']:.1f}%: the agent stands {st['in_layer_pct_of_the_way']:.0f}% of the way from the textbook to the oracle in hole in the layer, "
              f"{st['reward_of_the_way']:.0f}% in reward.",
+             f"Scene by scene against the textbook driller, the agent's hole in the layer is {diff['in_layer_pct']['mean']:+.1f} points, give or take {diff['in_layer_pct']['se']:.1f} (one standard error; "
+             f"better on {diff['in_layer_pct']['better']} scenes, worse on {diff['in_layer_pct']['worse']}): "
+             + ('a difference these scenes can tell from none.' if sure else 'NOT a difference these scenes can tell from none.')
+             + f" Its reward is {diff['reward']['mean']:+.1f}, give or take {diff['reward']['se']:.1f}.",
              f"It made {ag['ft_per_day']:,.0f} ft a day against the textbook's {tb['ft_per_day']:,.0f}: " + (f"{abs(span_days) * 100:.0f}% {'more' if span_days > 0 else 'fewer'} days a lateral." if abs(span_days) >= 0.005 else 'the same days a lateral.'),
              f"Its worst scene kept {ag['worst_in_layer_pct']:.1f}% in the layer; the textbook's worst, {tb['worst_in_layer_pct']:.1f}%.",
+             ('As shipped the program recommends by the book - the textbook driller\'s rules for every choice (`policy.steer` is `book` in the config) - because the policy\'s steering is not '
+              'told from the book\'s on these scenes; what the policy would steer is kept beside each recommendation on the record, and `policy.steer`: `policy` lets it steer.' if not sure else
+              'The policy\'s steering is told from the book\'s on these scenes; `policy.steer` in the config says which of the two the program recommends by (the default is `book`).'),
              'SIMULATION: scenes of the twin, drawn from the ranges it was trained on but never trained on nor chosen on. No drilled lateral is in these figures.']
     n_par = int(sum(v.size for v in pol.p.values()))
+    book = pol.by_the_book()
+    day_ft = round(-(24.0 * T.REWARD['hour'] + T.REWARD['finished_per_day']) / T.REWARD['in_layer'] * T.STEP_FT)
     return {'program': NAME, 'version': __version__, 'made_utc': _utc(), 'label': 'SIMULATION', 'name': 'the directional driller\'s policy',
             'for': FOR, 'not_for': list(NOT_FOR),
             'reads': [{'name': n, 'what': OBS_WORDS.get(n, '')} for n in T.OBS_NAMES],
-            'chooses': [{'name': n, 'what': CHOICE_WORDS.get(n, ''), 'between': list(T.ACTION_CHOICES[i])} for i, n in enumerate(T.ACTION_NAMES)],
+            'chooses': [{'name': n, 'what': CHOICE_WORDS.get(n, ''), 'between': list(T.ACTION_CHOICES[i]), 'by': 'the book' if n in book else 'the policy'} for i, n in enumerate(T.ACTION_NAMES)],
+            'by_the_book': list(book),
+            'division': ("The policy steers: the build or drop and where to aim the azimuth are its own, learned. The weight, the rotary speed, the flow and whether to drill on or condition the hole "
+                         "are the textbook driller's rules - the same rules the bar is drilled by - and the policy was trained with them in force." if book else
+                         'The policy makes all six choices itself.'),
             'network': {'layers': [pol.obs_size, pol.hidden, pol.hidden], 'activation': 'tanh', 'parameters': n_par,
                         'how': f"two hidden layers of {pol.hidden}; {n_par:,} numbers; one decision every {T.STEP_FT:g} ft"},
             'training': {'method': 'proximal policy optimization (Schulman et al., 2017), in the twin, on scenes drawn fresh for every batch', **{k: pol.meta.get(k) for k in ('trained_steps', 'iterations', 'trained_utc', 'note')},
-                         'scenes': 'Trained on seeds 100000 and up; the checkpoint chosen on scenes 100-139; judged on scenes 0-59, which it never trained on nor was chosen on'},
+                         'scenes': f"Trained on seeds 100000 and up; the checkpoint chosen on scenes {pol.meta.get('selected_on') or '100-139'}; judged on scenes {SCENE_0} and up, which it never trained on nor was chosen on"},
+            'rig_day_ft': day_ft,
             'reward': reward_table(),
             'limits_in_the_twin': {'vibration_index': T.VIB_LIMIT, 'motor_dp_psi': T.DP_LIMIT, 'days': T.DAY_LIMIT, 'corridor_end_ft': T.CORRIDOR_END_FT},
             'evaluation': {'scenes': int(scenes), 'rows': [tb, ag, orc], 'standing': {k: round(float(st[k]), 1) for k in ('in_layer_pct_of_the_way', 'reward_of_the_way')}, 'note': st['note'],
+                           'first_scene': SCENE_0, 'against_textbook': diff, 'told_apart': bool(sure),
                            'lines': lines},
             'policy': {'file': os.path.basename(path), 'file_sha256': _file_sha256(path), 'weights_sha256': pol.weights_sha256(), 'stamped_version': pol.meta.get('version')},
             'lines': lines}
@@ -108,8 +133,10 @@ def text(c: dict) -> str:
     ev = c['evaluation']
     out = [f"{c['program']} {c['version']} - the agent's card ({c['label']})", '=' * 60, 'For: ' + c['for'] + '.', 'Not for:'] + [f'  - {x}' for x in c['not_for']]
     out += ['', f"The policy: {c['network']['how']}; trained {c['training'].get('trained_utc')} over {int(c['training'].get('trained_steps') or 0):,} steps ({c['training']['method']}).",
-            f"  {c['training']['scenes']}.", f"  weights sha256 {c['policy']['weights_sha256']}", f"  file    sha256 {c['policy']['file_sha256']} ({c['policy']['file']})", '',
+            f"  {c['training']['scenes']}.", '  ' + c['division'],
+            f"  A day of rig time is priced at what {c['rig_day_ft']:,} ft of hole in the layer earns.", f"  weights sha256 {c['policy']['weights_sha256']}", f"  file    sha256 {c['policy']['file_sha256']} ({c['policy']['file']})", '',
             f"The scorecard - {ev['scenes']} held-out scenes of the twin, the same for all three:"]
+    out.append(f"  (scenes {ev.get('first_scene', 0)} to {ev.get('first_scene', 0) + ev['scenes'] - 1})")
     out.append(f"  {'driller':<9s} {'in layer':>8s} {'sweet':>6s} {'ft/day':>7s} {'days':>5s} {'DLS':>5s} {'vib over':>8s} {'worst':>6s} {'reward':>7s}")
     for r in ev['rows']:
         out.append(f"  {r['driller']:<9s} {r['in_layer_pct']:>7.1f}% {r['sweet_pct']:>5.1f}% {r['ft_per_day']:>7,.0f} {r['days']:>5.2f} {r['mean_dls']:>5.2f} {r['vibration_excess']:>8.2f} {r['worst_in_layer_pct']:>5.1f}% {r['reward']:>7.1f}")
@@ -122,7 +149,7 @@ def text(c: dict) -> str:
         out.append(f'  {g}')
         out += [f"    {T.REWARD[k]:>+6.2f}  {T.REWARD_WORDS[k]}" for k in ks]
     out += ['', f"It reads {len(c['reads'])} things:"] + [f"  {r['name']:<24s} {r['what']}" for r in c['reads']]
-    out += ['', 'It chooses:'] + [f"  {r['name']:<13s} {r['what']}: {', '.join(str(x) for x in r['between'])}" for r in c['chooses']]
+    out += ['', 'The choices:'] + [f"  {r['name']:<13s} ({r['by']}) {r['what']}: {', '.join(str(x) for x in r['between'])}" for r in c['chooses']]
     return '\n'.join(out)
 
 
@@ -144,27 +171,27 @@ _CACHE: Dict[str, dict] = {}
 _BUSY: Dict[str, bool] = {}
 
 
-def ready(policy_path: Optional[str] = None, wait: bool = False) -> Optional[dict]:
+def ready(policy_path: Optional[str] = None, wait: bool = False, scenes: int = SCENES) -> Optional[dict]:
     """The card of a policy file, worked out once and kept. The scenes take seconds to drill, so a screen asks, is
     answered None while they are drilled in the background, and asks again; `wait` drills them now."""
     import threading
     from . import service as S
     path = os.path.abspath(policy_path or S.SHIPPED_POLICY)
     try:
-        key = f'{path}|{os.path.getmtime(path)}|{os.path.getsize(path)}'
+        key = f'{path}|{os.path.getmtime(path)}|{os.path.getsize(path)}|{int(scenes)}'
     except OSError:
         key = path
     if key in _CACHE:
         return _CACHE[key]
     if wait:
-        _CACHE[key] = build(path)
+        _CACHE[key] = build(path, scenes)
         return _CACHE[key]
     if not _BUSY.get(key):
         _BUSY[key] = True
 
         def work():
             try:
-                _CACHE[key] = build(path)
+                _CACHE[key] = build(path, scenes)
             except Exception as e:                           # a policy file that cannot be read: say so on the card, once
                 _CACHE[key] = {'program': NAME, 'version': __version__, 'label': 'NOT READ', 'error': f'{type(e).__name__}: {e}'}
             finally:

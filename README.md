@@ -474,10 +474,16 @@ reads, the reward it was trained on printed from the table the twin pays
 from, and the agent beside the textbook driller and the oracle on sixty
 held-out scenes, with where each one's reward came from. The policy is
 named by the hash of its weights, which is in the manifest and on every
-decision. As shipped it says plainly where the agent stands: a little more
-of the hole in the layer than a driller working by the book, under a
-quarter of the way to the oracle, and half again as many days a lateral.
-Every figure on it is a simulation's; no drilled lateral is in them.
+decision. The card sets the agent against the textbook driller scene by
+scene, on three hundred scenes, and gives the difference with its standard
+error. The shipped policy steers and leaves the weight, the speed, the flow
+and the conditioning to the textbook's rules, so it keeps the textbook's
+pace; its hole in the layer cannot be told from the textbook's on those
+scenes, and the card says so in words. The program therefore recommends by
+the book as shipped (`policy.steer` is `book` in the rig PC's config), with
+what the policy would have steered kept beside each recommendation;
+`policy.steer`: `policy` lets the policy steer. Every figure on the card is
+a simulation's; no drilled lateral is in them.
 
 ### The tutorial
 
@@ -868,7 +874,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.101.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.102.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -2022,7 +2028,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.101.0.exe` (for 0.101.0): the
+Every release also carries `GEA-Program-Setup-0.102.0.exe` (for 0.102.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -2041,7 +2047,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.101.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.102.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

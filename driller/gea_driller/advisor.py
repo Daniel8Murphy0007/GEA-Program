@@ -129,8 +129,13 @@ def make_downlink(cfg: dict) -> Downlink:
 class Advisor:
     def __init__(self, cfg: dict, policy: Policy, feed, records: Records, downlink: Optional[Downlink] = None):
         self.cfg = cfg; self.policy = policy; self.feed = feed; self.records = records
+        # who decides what: `policy.steer` book (the default) - every choice is the textbook driller's rules and the policy's own steering is kept beside it; policy - the
+        # policy steers and leaves to the book what it was trained to leave to it
+        self.steer = str((cfg.get('policy') or {}).get('steer') or 'book')
+        self.heads = tuple(T.ACTION_NAMES) if self.steer == 'book' else policy.by_the_book()
+        self.book = T.TextbookDriller() if self.heads else None
         self.policy_sha = policy.weights_sha256()             # which agent decided: the weights' own hash, in the manifest and on every decision
-        records.policy = {'weights_sha256': self.policy_sha, **{k: policy.meta.get(k) for k in ('trained_steps', 'iterations', 'trained_utc', 'version')}}
+        records.policy = {'weights_sha256': self.policy_sha, 'steer': str((cfg.get('policy') or {}).get('steer') or 'book'), **{k: policy.meta.get(k) for k in ('trained_steps', 'iterations', 'trained_utc', 'version')}}
         self.downlink = downlink or make_downlink(cfg)
         self.lock = threading.Lock()
         self.gammas: List[float] = []
@@ -273,7 +278,7 @@ class Advisor:
         obs, ctx = self.observation(snap)
         if obs is None:
             return None
-        ex = self.policy.explain(obs)
+        ex = self.policy.explain(obs, self.book(obs) if self.book is not None else None, self.heads)
         ch = ex['choices']
         build = float(ch['build']['choice']); wob = float(ch['wob']['choice']); rpm = float(ch['rpm']['choice']); flow = float(ch['flow']['choice']); cond = ch['conditioning']['choice']
         aim = float(ch['aim']['choice'])
@@ -299,7 +304,8 @@ class Advisor:
             },
             'confidence': {k: round(v['confidence'], 3) for k, v in ch.items()}, 'value': round(ex['value'], 2),
             'reasons': self._reasons(ctx, ch), 'context': {k: (round(v, 2) if isinstance(v, float) else ({kk: (round(vv, 3) if isinstance(vv, float) else vv) for kk, vv in v.items()} if isinstance(v, dict) else v)) for k, v in ctx.items()},
-            'action': [ch[n]['index'] for n in T.ACTION_NAMES], 'clipped': clipped, 'answer': None, 'armed': bool(self.armed), 'policy': self.policy.meta.get('trained_utc'), 'policy_sha': self.policy_sha[:16],
+            'action': [ch[n]['index'] for n in T.ACTION_NAMES], 'clipped': clipped, 'answer': None, 'armed': bool(self.armed), 'policy': self.policy.meta.get('trained_utc'), 'policy_sha': self.policy_sha[:16], 'steer': self.steer,
+            'policy_steer': {n: ch[n].get('policy_choice', ch[n]['choice']) for n in ('build', 'aim')},
         }
         with self.lock:
             if self.current is not None and self.current.get('answer') is None:
@@ -342,6 +348,15 @@ class Advisor:
 
     def _reasons(self, ctx, ch) -> List[str]:
         out = []
+        book = [n for n, c in ch.items() if c.get('by') == 'the book']
+        if 'build' in book:
+            pb, pa = ch['build'].get('policy_choice'), ch['aim'].get('policy_choice')
+            same = pb == ch['build']['choice'] and pa == ch['aim']['choice']
+            out.append("by the book: every choice here is the textbook driller's rules (policy.steer is book); the trained policy "
+                       + ('would steer the same' if same else f"would steer otherwise - build {pb:+g} deg/100 ft, aim {pa:+g} deg off the plan"))
+        elif book:
+            out.append("the steering is the policy's; the " + ', '.join({'wob': 'weight', 'rpm': 'rotary speed', 'flow': 'flow', 'conditioning': 'drill-or-condition'}.get(n, n) for n in book)
+                       + " are the textbook driller's rules")
         m = self.cfg['model']
         e = ctx.get('estimate')
         if e:
@@ -471,10 +486,27 @@ class Advisor:
 
     def _command(self, rec: dict) -> None:
         r = rec['recommend']
+        build, turn = float(r['build_deg_100ft']), float(r.get('turn_deg_100ft', 0.0))
+        toolface, ratio = r['toolface_deg'], float(r['steering_ratio'])
+        # a command may move the steering only so far from the command before it: the tool is not thrown from one side to the other in one step
+        step = float(self.cfg['closed_loop'].get('max_steer_change_deg_100ft', 3.0))
+        last = self.armed.get('last_steer')
+        limited = None
+        if last is not None:
+            b2 = min(max(build, last[0] - step), last[0] + step); t2 = min(max(turn, last[1] - step), last[1] + step)
+            if b2 != build or t2 != turn:
+                limited = (f"the steering moved at most {step:g} deg/100 ft from the command before it: build {b2:+.1f} where {build:+.1f} was recommended, "
+                           f"turn {t2:+.1f} where {turn:+.1f} was")
+                build, turn = b2, t2
+                toolface = toolface_of(build, turn, float(rec['inc']))
+                ratio = min(1.0, dls_of(build, turn, float(rec['inc'])) / max(float(self.cfg['tool']['max_dls_deg_100ft']), 0.1))
+        self.armed['last_steer'] = (build, turn)
         cmd = {'utc': _utc(), 'md': rec['md'], 'by': self.armed['by'], 'section': [self.armed['from_md'], self.armed['to_md']],
-               'command': {'toolface_deg': r['toolface_deg'], 'steering_ratio': round(r['steering_ratio'], 3), 'build_deg_100ft': r['build_deg_100ft'], 'turn_deg_100ft': r.get('turn_deg_100ft', 0.0),
+               'command': {'toolface_deg': toolface, 'steering_ratio': round(ratio, 3), 'build_deg_100ft': build, 'turn_deg_100ft': turn,
                            'aim_azimuth_deg': r.get('aim_azimuth_deg'),
                            'wob_klb': r['wob_klb'], 'rpm': r['rpm'], 'flow_gpm': r['flow_gpm'], 'conditioning': r['conditioning']}}
+        if limited:
+            cmd['limited'] = limited
         result = self.downlink.send(cmd)
         cmd['result'] = result
         with self.lock:
@@ -491,4 +523,4 @@ class Advisor:
                     'arm_log': self.arm_log[-10:], 'closed_loop_allowed': bool(self.cfg['closed_loop'].get('allowed')), 'downlink': self.downlink.describe(),
                     'hole_model': {'bed': self.bed, 'balling': self.balling, 'wear': self.wear}, 'decisions': self.records.counts['decisions'], 'estimate': dict(self.est) if self.est else None,
                     'position': dict(self.pos) if self.pos else None, 'plan_azimuth_deg': self.plan_az,
-                    'policy': {'weights_sha256': self.policy_sha, **{k: self.policy.meta.get(k) for k in ('trained_steps', 'iterations', 'trained_utc', 'version')}}}
+                    'policy': {'weights_sha256': self.policy_sha, 'steer': self.steer, **{k: self.policy.meta.get(k) for k in ('trained_steps', 'iterations', 'trained_utc', 'version')}}}

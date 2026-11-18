@@ -17142,7 +17142,7 @@ def section_dy_vibration(tmp: str) -> None:
     decs = [json.loads(l) for l in open(d / "rig" / "decisions.jsonl", encoding="utf-8")]
     c2 = {
         "twin_rig": snap["state"].get("torque") is not None and snap["state"].get("hookload") is not None and snap["state"].get("vibration") is None and snap.get("vibration") is not None
-                    and snap["vibration"]["index"] > 0 and snap.get("window_n", 0) >= 10 and abs(snap["vibration"]["index"] - drl.feed.lat.vib) < 0.25,
+                    and snap["vibration"]["index"] > 0 and snap.get("window_n", 0) >= 10 and abs(snap["vibration"]["index"] - drl.feed.lat.vib) < 0.6,      # a window of several steps against the last step's own: the book changes the weight between them
         "advisor": cur is not None and cur["context"]["vibration_source"] == V.SOURCE and cur["context"]["vibration"] > 0 and any("derived from the surface data" in r_ for r_ in cur["reasons"])
                    and live["vibration"]["source"] == V.SOURCE and live["vibration"]["parts"]["kind"] in ("stick-slip", "lateral"),
         "wins": v_tool[0] == 1.7 and v_tool[1] == "the downhole tool" and v_der[1] == V.SOURCE and 0 < v_der[0] < 1.0,
@@ -19439,6 +19439,126 @@ def section_ej_frac_treatment(tmp: str) -> None:
        "page with the published figures it was checked against, the README and lesson 14" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_eu_driller_by_the_book(tmp: str) -> None:
+    """Section EU - the agent retrained and set honestly against the book (0.102.0): a policy that steers and
+    leaves the weight, the speed, the flow and the conditioning to the textbook driller's rules, in the twin, in
+    training and on the rig; the recommendation by the book as shipped with the policy's own steering kept beside
+    it, and the switch that lets the policy steer; a command held to a step from the one before it; the card's
+    scenes, its scene-by-scene difference with a standard error and what it says when the two cannot be told
+    apart; the config, the screen, the help, the README and the lesson."""
+    import importlib
+    from . import driller_link as DL
+    from . import helplib as H
+    pkg = Path(__file__).parent
+    d = Path(tmp, "eu"); d.mkdir()
+    prog = DL.program()
+    if prog is None:
+        ok(True, "EU the driller's program (gea-driller) is not installed beside GEA in this install; nothing to check here")
+        return
+    if prog["env"] and prog["env"] not in sys.path:
+        sys.path.insert(0, prog["env"])
+    T = importlib.import_module("gea_driller.twin"); P = importlib.import_module("gea_driller.policy"); S = importlib.import_module("gea_driller.service")
+    C = importlib.import_module("gea_driller.card"); A = importlib.import_module("gea_driller.advisor"); CF = importlib.import_module("gea_driller.config")
+    np_ = importlib.import_module("numpy")
+    pol = P.Policy.load(S.SHIPPED_POLICY)
+    # -- EU1 by the book, in the twin and in training --------------------------------------------------------------------------
+    merged = T.with_book((4, 0, 0, 0, 1, 2), (0, 2, 1, 2, 0, 0))
+    lat = T.Lateral(T.Scene(5)); o = lat.reset()
+    drl = P.policy_act_fn(pol); drl.bind(lat); tb = T.TextbookDriller(); tb.bind(lat)
+    same_params = True; own_steer = 0
+    for _ in range(40):
+        a = drl(o); b = T.full_action(tb(o)); raw = pol.act(o, np_.random.RandomState(0), greedy=True)[0]
+        same_params = same_params and tuple(a[1:5]) == tuple(b[1:5]) and (a[0], a[5]) == (raw[0], raw[5])
+        own_steer += int((a[0], a[5]) != (b[0], b[5]))
+        o, _, done, _ = lat.step(a)
+        if done:
+            break
+    ex_all = pol.explain(o, tb(o), T.ACTION_NAMES); ex_own = pol.explain(o, tb(o)); ex_none = pol.explain(o)
+    fresh = P.Policy(seed=3); fresh.meta["by_the_book"] = list(T.BOOK_HEADS)
+    P.train(fresh, iterations=2, batch_steps=1024, n_envs=8)
+    e_ag = P.evaluate(P.policy_act_fn(pol), range(1000, 1012), "agent"); e_tb = P.evaluate(T.TextbookDriller(), range(1000, 1012), "textbook")
+    c1 = {
+        "merge": merged == (4, 2, 1, 2, 0, 2) and T.BOOK_HEADS == ("wob", "rpm", "flow", "conditioning"),
+        "policy": pol.by_the_book() == T.BOOK_HEADS and pol.meta.get("selected_on") == "100-979" and T.REWARD["hour"] == -0.25,
+        "drills": same_params and own_steer >= 1,
+        "explain": all(ex_all["choices"][n]["by"] == "the book" and "policy_choice" in ex_all["choices"][n] for n in T.ACTION_NAMES)
+                   and [n for n in T.ACTION_NAMES if ex_own["choices"][n]["by"] == "the book"] == list(T.BOOK_HEADS) and ex_own["choices"]["build"]["by"] == "the policy"
+                   and all(ex_none["choices"][n]["by"] == "the policy" for n in T.ACTION_NAMES),
+        "trains": fresh.meta["trained_steps"] >= 2048 and fresh.by_the_book() == T.BOOK_HEADS,
+        "pace": abs(e_ag["ft_per_day"] / e_tb["ft_per_day"] - 1.0) < 0.08 and e_ag["stuck"] == 0 and e_ag["lost"] == 0,
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "EU1 a policy may leave choices to the book: the shipped one steers - the build and the aim are its own - and drills with the textbook driller's weight, speed, flow and conditioning, step "
+       "for step, so it keeps the textbook's pace (within 8 % in feet a day on twelve held-out scenes, no pipe stuck, no lateral lost); the explanation of a decision says who made each choice and, "
+       "for a choice taken from the book, what the policy would have chosen; a new policy trains with the book's choices in force; a day of rig time is priced at five times what it was"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- EU2 on the rig: the default, the switch, the command's step, the card ---------------------------------------------------
+    def advisor(steer=None, step=None):
+        cfg = json.loads(json.dumps(CF.EXAMPLE)); cfg["output"]["dir"] = str(d / f"rig-{steer}-{step}"); cfg["closed_loop"]["allowed"] = True
+        if steer is not None:
+            cfg["policy"]["steer"] = steer
+        if step is not None:
+            cfg["closed_loop"]["max_steer_change_deg_100ft"] = step
+        cfg = CF.check(cfg)
+        recs = A.Records(cfg)
+        return A.Advisor(cfg, pol, None, recs), recs, cfg
+    a_book, r_book, cfg_book = advisor()
+    a_pol, r_pol, _ = advisor("policy")
+    bad_steer = bad_step = ""
+    try:
+        advisor("oracle")
+    except Exception as e:
+        bad_steer = str(e)
+    try:
+        advisor(None, 0.1)
+    except Exception as e:
+        bad_step = str(e)
+    cmds = []
+    a_book.armed = {"by": "tester", "from_md": 0.0, "to_md": 500.0, "utc": "", "note": "", "commands": 0}
+    for b_, t_ in ((3.0, 0.0), (-3.0, 2.0), (-3.0, 2.0)):
+        rec = {"md": 100.0, "inc": 90.0, "recommend": {"toolface_deg": A.toolface_of(b_, t_, 90.0), "steering_ratio": 0.5, "build_deg_100ft": b_, "turn_deg_100ft": t_, "aim_azimuth_deg": 90.0,
+                                                       "wob_klb": 25, "rpm": 120, "flow_gpm": 500, "conditioning": "drill"}}
+        a_book._command(rec); cmds.append(rec["command"])
+    card = C.build(None, 12)
+    ev = card["evaluation"]
+    c2 = {
+        "default_book": cfg_book["policy"]["steer"] == "book" and a_book.steer == "book" and a_book.heads == tuple(T.ACTION_NAMES) and r_book.manifest()["policy"]["steer"] == "book",
+        "switch": a_pol.steer == "policy" and a_pol.heads == T.BOOK_HEADS and r_pol.manifest()["policy"]["steer"] == "policy" and "policy.steer" in bad_steer and "max_steer_change_deg_100ft" in bad_step,
+        "step": cmds[0]["command"]["build_deg_100ft"] == 3.0 and "limited" not in cmds[0] and cmds[1]["command"]["build_deg_100ft"] == 0.0 and cmds[1]["command"]["turn_deg_100ft"] == 2.0
+                and "at most 3 deg/100 ft" in cmds[1]["limited"] and abs(cmds[1]["command"]["toolface_deg"] - 90.0) < 1e-6 and cmds[2]["command"]["build_deg_100ft"] == -3.0 and "limited" not in cmds[2]
+                and all(c_["result"]["sent"] is False for c_ in cmds),
+        "card": card["by_the_book"] == list(T.BOOK_HEADS) and "The policy steers" in card["division"] and card["rig_day_ft"] == 195 and ev["first_scene"] == 1000
+                and [r_["by"] for r_ in card["chooses"]] == ["the policy", "the book", "the book", "the book", "the book", "the policy"]
+                and set(ev["against_textbook"]) == {"in_layer_pct", "reward", "ft_per_day"} and ev["against_textbook"]["in_layer_pct"]["better"] + ev["against_textbook"]["in_layer_pct"]["worse"]
+                + ev["against_textbook"]["in_layer_pct"]["same"] == 12 and ev["told_apart"] == (abs(ev["against_textbook"]["in_layer_pct"]["mean"]) >= 2.0 * ev["against_textbook"]["in_layer_pct"]["se"])
+                and ("NOT a difference" in ev["lines"][1]) == (not ev["told_apart"]) and "policy.steer" in ev["lines"][4],
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "EU2 on the rig the program recommends by the book as shipped - every choice the textbook driller's rules, the manifest saying so - and `policy.steer`: `policy` lets the policy steer, the rest "
+       "staying the book's; any other word, or a step outside its bounds, is named and stops the config; a command moves the build and the turn at most the config's step from the command before "
+       "it, says so when it was held, and is not held when the step is within it; the card names who makes each choice, prices the rig day, starts its scenes at 1000, sets the agent against the "
+       "textbook scene by scene with a standard error, and says in words whether the scenes can tell the two apart" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- EU3 the pages and the words -------------------------------------------------------------------------------------------
+    page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    st_src = Path(importlib.import_module("gea_driller.status").__file__).read_text(encoding="utf-8")
+    readme = (pkg.parent / "README.md").read_text(encoding="utf-8") if (pkg.parent / "README.md").is_file() else ""
+    hp = H.page("driller") or ""
+    lesson = TU.lesson("driller-office")["markdown"]
+    c3 = {
+        "page": all(x in page_src for x in ("c.division", "c.rig_day_ft", "r.by || 'the policy'")) and "policy.steer is book" in st_src,
+        "help": not H.check("driller") and all(x in hp for x in ("policy.steer", "by the book", "give or take", "max_steer_change_deg_100ft", "three hundred")),
+        "readme_lesson": (not readme or ("`policy.steer`" in readme and "cannot be told" in readme)) and "by the book" in lesson and not TU.check("driller-office"),
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "EU3 the card on GEA's Drill string tab says who makes each choice and what a rig day is priced at; the rig PC's screen says whether the book or the policy steers; the help page, the README "
+       "and lesson 37 say that the program recommends by the book, why, and how to let the policy steer" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def section_et_driller_card(tmp: str) -> None:
     """Section ET - the agent's card (0.101.0): the reward as a table the twin pays from, adding up to what was
     paid and leaving every episode as it was; the card's parts and its two hashes; the card kept ready without
@@ -19479,27 +19599,28 @@ def section_et_driller_card(tmp: str) -> None:
     c_other = C.build(str(d / "other.json"), 2)
     rows = {r["driller"]: r for r in c["evaluation"]["rows"]}
     txt = C.text(c)
-    first = C.ready(str(d / "restamped.json"))
+    first = C.ready(str(d / "restamped.json"), scenes=6)
     t_end = time.time() + 120.0
-    while C.ready(str(d / "restamped.json")) is None and time.time() < t_end:
+    while C.ready(str(d / "restamped.json"), scenes=6) is None and time.time() < t_end:
         time.sleep(0.5)
-    kept = C.ready(str(d / "restamped.json"))
+    kept = C.ready(str(d / "restamped.json"), scenes=6)
     names = C.write(c, str(d / "card"))
     c1 = {
         "table": set(T.REWARD) == set(T.REWARD_WORDS) == {k for _, ks in T.REWARD_GROUPS for k in ks} and len([k for _, ks in T.REWARD_GROUPS for k in ks]) == len(T.REWARD)
-                 and T.REWARD["in_layer"] == 1.0 and T.REWARD["hour"] == -0.05 and T.REWARD["stuck_pipe"] == -8.0,
+                 and T.REWARD["in_layer"] == 1.0 and T.REWARD["hour"] == -0.25 and T.REWARD["stuck_pipe"] == -8.0,
         "adds_up": max(sums) < 1e-6 and abs(paid1 - r1) < 1e-9 and all(set(e["reward_terms"]) == set(T.REWARD) for e in tb["episodes"]),
         "parts": c["label"] == "SIMULATION" and [r["name"] for r in c["reads"]] == list(T.OBS_NAMES) and all(r["what"] for r in c["reads"]) and [r["name"] for r in c["chooses"]] == list(T.ACTION_NAMES)
                  and all(r["what"] and r["between"] for r in c["chooses"]) and {r["term"]: r["weight"] for r in c["reward"]} == dict(T.REWARD) and len(c["not_for"]) >= 4
-                 and c["network"]["parameters"] == sum(v.size for v in pol.p.values()) and c["training"]["trained_steps"] == pol.meta["trained_steps"] and "0-59" in c["training"]["scenes"],
+                 and c["network"]["parameters"] == sum(v.size for v in pol.p.values()) and c["training"]["trained_steps"] == pol.meta["trained_steps"] and "1000 and up" in c["training"]["scenes"] and c["evaluation"]["first_scene"] == 1000,
         "scorecard": c["evaluation"]["scenes"] == 8 and set(rows) == {"textbook", "agent", "oracle"} and rows["oracle"]["in_layer_pct"] > rows["agent"]["in_layer_pct"]
                      and rows["oracle"]["in_layer_pct"] > rows["textbook"]["in_layer_pct"] and all(abs(sum(r["reward_by"].values()) - r["reward"]) < 0.3 for r in rows.values())
-                     and set(rows["agent"]["reward_by"]) == {g for g, _ in T.REWARD_GROUPS} and len(c["evaluation"]["lines"]) == 4 and "No drilled lateral" in c["evaluation"]["lines"][-1],
+                     and set(rows["agent"]["reward_by"]) == {g for g, _ in T.REWARD_GROUPS} and len(c["evaluation"]["lines"]) == 6 and "No drilled lateral" in c["evaluation"]["lines"][-1]
+                     and "give or take" in c["evaluation"]["lines"][1],
         "hashes": len(sha_w) == 64 and c["policy"]["weights_sha256"] == sha_w and c_re["policy"]["weights_sha256"] == sha_w and c_re["policy"]["file_sha256"] != c["policy"]["file_sha256"]
                   and c_other["policy"]["weights_sha256"] != sha_w and c_re["policy"]["stamped_version"] == "9.9.9",
         "text": all(x in txt for x in ("the agent's card (SIMULATION)", "Not for:", "The scorecard", "Where the reward came from", "The reward it was trained on", "weights sha256 " + sha_w, "It reads 34 things"))
                 and names == ["model_card.json", "model_card.md"] and json.loads((d / "card" / "model_card.json").read_text(encoding="utf-8"))["policy"]["weights_sha256"] == sha_w,
-        "ready": first is None and kept is not None and kept["policy"]["weights_sha256"] == sha_w and C.ready(str(d / "restamped.json")) is kept,
+        "ready": first is None and kept is not None and kept["policy"]["weights_sha256"] == sha_w and C.ready(str(d / "restamped.json"), scenes=6) is kept,
     }
     failed1 = [k_ for k_, v in c1.items() if not v]
     ok(not failed1,
@@ -19542,10 +19663,11 @@ def section_et_driller_card(tmp: str) -> None:
     cj = json.loads(cli.stdout[cli.stdout.index("{"):]) if cli.returncode == 0 and "{" in cli.stdout else {}
     c2 = {
         "manifest": cfg is None or ((man.get("policy") or {}).get("weights_sha256") == sha_w and dec_sha == sha_w and man["policy"].get("trained_utc") == pol.meta.get("trained_utc")),
-        "gea_card": gc["status"] == "OK" and gc["policy"]["weights_sha256"] == sha_w and gc["evaluation"]["scenes"] == 60 and gc2 is gc and gc["label"] == "SIMULATION"
+        "gea_card": gc["status"] == "OK" and gc["policy"]["weights_sha256"] == sha_w and gc["evaluation"]["scenes"] == 300 and gc2 is gc and gc["label"] == "SIMULATION"
                     and {r["driller"] for r in gc["evaluation"]["rows"]} == {"textbook", "agent", "oracle"},
-        "standing": next(r for r in gc["evaluation"]["rows"] if r["driller"] == "oracle")["in_layer_pct"] > next(r for r in gc["evaluation"]["rows"] if r["driller"] == "agent")["in_layer_pct"]
-                    > next(r for r in gc["evaluation"]["rows"] if r["driller"] == "textbook")["in_layer_pct"] and 0.0 < gc["evaluation"]["standing"]["in_layer_pct_of_the_way"] < 100.0,
+        "standing": next(r for r in gc["evaluation"]["rows"] if r["driller"] == "oracle")["in_layer_pct"] > max(next(r for r in gc["evaluation"]["rows"] if r["driller"] == k_)["in_layer_pct"] for k_ in ("agent", "textbook")) + 5.0
+                    and gc["evaluation"]["against_textbook"]["in_layer_pct"]["se"] > 0 and isinstance(gc["evaluation"]["told_apart"], bool)
+                    and abs(gc["evaluation"]["against_textbook"]["in_layer_pct"]["mean"]) < 10.0,
         "gea_text": "the agent's card (SIMULATION)" in gtxt and "weights sha256 " + sha_w in gtxt and "No drilled lateral" in gtxt,
         "api": api.get("card", {}).get("status") == "OK" and api["card"]["policy"]["weights_sha256"] == sha_w and "reward" in api["card"] and "reads" in api["card"],
         "cli": cli.returncode == 0 and cj.get("evaluation", {}).get("scenes") == 4 and cj.get("policy", {}).get("weights_sha256") == sha_w,
@@ -19553,8 +19675,8 @@ def section_et_driller_card(tmp: str) -> None:
     failed2 = [k_ for k_, v in c2.items() if not v]
     ok(not failed2,
        "ET2 the policy is named where it decides and where it is read: the weights' hash in the rig PC's manifest and on the advisor that stamps every decision; GEA gets the card by running the "
-       "driller's own program, keeps it, and gives the same one to the page (any signed-in user reads it); on sixty held-out scenes the oracle is above the agent and the agent above the textbook "
-       "driller, the agent's standing somewhere between the two; `gea-driller card --json` answers with the same weights" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+       "driller's own program, keeps it, and gives the same one to the page (any signed-in user reads it); on three hundred held-out scenes the oracle is well above the agent and the textbook driller, and "
+       "the agent is set against the textbook scene by scene with the standard error of the difference; `gea-driller card --json` answers with the same weights" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
 
     # -- ET3 the tab, the screen, the help ---------------------------------------------------------------------------------------
     page_src = (pkg / "web" / "app.html").read_text(encoding="utf-8")
@@ -21470,6 +21592,7 @@ def main() -> int:
         section_er_trip_alerts(tmp)
         section_es_stickslip_sticking(tmp)
         section_et_driller_card(tmp)
+        section_eu_driller_by_the_book(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:
