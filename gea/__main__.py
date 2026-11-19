@@ -874,6 +874,16 @@ def main(argv=None) -> int:
     p_cs.add_argument("--actor", type=str, default="cli")
     p_cs.add_argument("--json", action="store_true")
 
+    p_sb = sub.add_parser("stability", help="wellbore stability: the mud-weight window along a well with the hole's direction in it - the collapse pressure, the pore pressure, the least stress, and the mud weight and circulating density against them")
+    p_sb.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (the cases with an answer in closed form)")
+    p_sb.add_argument("--well", type=str, default=None, help="a well, by its name or id")
+    p_sb.add_argument("--example", action="store_true", help="the worked example: Volve 15/9-F-10's survey with example stresses")
+    p_sb.add_argument("--declare", action="append", default=[], metavar="NAME=VALUE", help="declare a value for the well (repeat): sv_ppg, pp_ppg, shmin_ppg, shmax_ppg or shmax_k, shmax_azimuth_deg, ucs_psi, friction_deg, tensile_psi, poisson, breakout_deg, mw_ppg, top_md_ft, step_ft; an empty value takes it off")
+    p_sb.add_argument("--source", type=str, default="", help="with --declare: where the values came from (the leak-off tests, the core, the drilling program)")
+    p_sb.add_argument("--now", action="store_true", help="where the rig is against the window, from the end of the well's drilling record")
+    p_sb.add_argument("--write", action="store_true", help="write the report: reports/stability/ under the workspace, a folder a well")
+    p_sb.add_argument("--actor", type=str, default="cli", help="who is doing this, for the audit trail")
+    p_sb.add_argument("--json", action="store_true")
     p_hy = sub.add_parser("hydraulics", help="the pressures the mud makes while it circulates - the standpipe, the bit, the annulus, the ECD against the pore pressure and fracture gradient, surge and swab - and the standpipe pressure the rig measured")
     p_hy.add_argument("--workspace", type=str, default=None)
     p_hy.add_argument("--well", type=str, default=None)
@@ -3268,6 +3278,64 @@ def main(argv=None) -> int:
         except (KeyError, ValueError, OSError, WorkspaceError) as e:
             raise SystemExit(f"casing: {e.args[0] if e.args else e}")
         print(_json.dumps(r, default=str) if a.json else _CSG.text(r))
+        return 0
+    elif a.cmd == "stability":
+        import json as _json
+        from . import stability as _SB
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if a.example:
+            p = _SB.page(None, "example")
+            print(_json.dumps(p, default=str) if a.json else _SB.text(p))
+            return 0
+        if not a.workspace:
+            r = _SB.selftest()
+            print("\n".join(f"{'PASS' if c['pass'] else 'FAIL'}  {c['name']}" for c in r["checks"]) + f"\n{'OK' if r['ok'] else 'FAILED'} - {r['label']}")
+            return 0 if r["ok"] else 1
+        try:
+            ws = Workspace(a.workspace)
+            wid = None
+            if a.well:
+                wid = next((w["id"] for w in ws.wells() if a.well in (w["id"], w.get("display"))), None)
+                if wid is None:
+                    raise SystemExit(f"stability: no well {a.well!r} in this workspace")
+            if a.declare:
+                if wid is None:
+                    raise SystemExit("stability: name the well the values are for (--well)")
+                vals = {}
+                for d_ in a.declare:
+                    if "=" not in d_:
+                        raise SystemExit(f"stability: --declare takes NAME=VALUE, as in ucs_psi=6000 (got {d_!r})")
+                    k_, v_ = d_.split("=", 1)
+                    if k_.strip() not in _SB.LIMITS:
+                        raise SystemExit(f"stability: {k_.strip()!r} is not a value this page takes; they are {', '.join(_SB.LIMITS)}")
+                    vals[k_.strip()] = v_.strip()
+                _SB.set_well(ws, a.actor, wid, a.source, **vals)
+                print(f"declared for {a.well}: {', '.join(sorted(vals))}")
+            if a.write:
+                from . import __version__ as _ver106
+                r = _SB.write_report(ws, _ver106, wid, a.actor)
+                print(f"written: {', '.join(r['files'])} under {r['folder']}")
+            p = _SB.page(ws, "workspace", wid)
+            nw = _SB.now(ws, p["well"]) if a.now and p.get("well") else None
+        except WorkspaceError as e:
+            raise SystemExit(f"stability: {e}")
+        except (ValueError, KeyError) as e:
+            raise SystemExit(f"stability: {e.args[0] if e.args else e}")
+        if a.json:
+            print(_json.dumps({**p, "now": nw} if a.now else p, default=str))
+        else:
+            print(_SB.text(p))
+            if nw is not None:
+                if nw.get("status") != "OK":
+                    print(f"The rig now: {nw.get('status')} - {nw.get('why')}")
+                else:
+                    e_ = nw.get("ecd"); m_ = nw.get("mud_below")
+                    print(f"The rig now (the record's end, {nw['record_end']}): bit at {nw['bit_ft']} ft, hole {nw['hole_ft']} ft, pumps {nw['pumps']}"
+                          + (f" at {nw['flow_gpm']:,.0f} gal/min" if nw.get("pumps") == "on" else "")
+                          + (f"; ECD {e_['ecd_ppg']:.2f} ppg at {e_['md_ft']:,.0f} ft, {abs(e_['margin_ppg']):.2f} ppg {'OVER' if e_['over'] else 'under'} the least stress" if e_ else f"; {nw['ecd_how']}")
+                          + (f"; the mud is BELOW the floor at {m_['stations']} station(s) from {m_['from_md_ft']:,.0f} ft" if m_ else "; the mud is not below the floor in the hole drilled"))
         return 0
     elif a.cmd == "hydraulics":
         import json as _json

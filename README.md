@@ -538,9 +538,9 @@ who do not sit at the screen. From a terminal: `gea tutorial`,
 
 ### The top bar, under headings
 
-The control panel's tabs sit under ten headings in the order of the work -
-Start; Wells & data; Watch & report; Well paths; Drilling; Completion &
-production; Disposal; Seismic; Keep it running; Learn - so the bar is two
+The control panel's tabs sit under eleven headings in the order of the work -
+Start; Wells & data; Watch & report; Well paths; Drilling; Well design;
+Completion & production; Disposal; Seismic; Keep it running; Learn - so the bar is two
 rows where it had been five to seven: the headings, and the tabs of the
 one that is open. A heading opens its tabs without leaving the page, the
 heading of the tab you are on is marked, and a heading carries the count
@@ -903,7 +903,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.105.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.106.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -989,6 +989,39 @@ that fits the tests, and the mud weight used flagged where it falls outside
 the window. The Dutch offshore well L07-01 (NLOG open data) is the worked
 example. The **Pore pressure** tab, `gea pore-pressure`,
 `gea help pore-pressure`.
+
+
+### Wellbore stability
+
+The Pore pressure tab gives two sides of the mud-weight window, and they
+are the same whichever way a hole points. The third is not: the rock at
+the wall carries the stress the removed rock carried, and where that
+passes the rock's strength the wall fails and falls in. The **Wellbore
+stability** tab works out, at every station of the open hole, the mud
+pressure that holds the wall up - from the overburden and the two
+horizontal stresses, the rock's unconfined strength and friction angle,
+and the hole's inclination and azimuth (Kirsch's stresses at the wall,
+Mohr-Coulomb's rule) - with or without a breakout the operator accepts.
+The window runs from the greater of that and the pore pressure up to the
+least stress, above which mud is lost. Against it stand the mud weight
+and, where the Hydraulics tab has the mud and the string, the circulating
+density at each depth. A second picture gives the collapse mud weight at
+the narrowest depth for a hole pointing every way.
+
+The overburden, the pore pressure and the least horizontal stress come
+from the Pore pressure tab where it reads the well, or are declared; the
+greatest horizontal stress and the strength are declared, each with its
+source. On a record still being written the service raises
+`stability.mud` when the mud weight is below the window's floor in the
+hole drilled so far and `stability.ecd` when the circulating density at
+the record's own pump rate is over the least stress above the bit.
+
+Every figure is a model's on declared values: the caliper and the image
+log say whether a hole stood, and no hole's caliper has yet been set
+against this page. The worked example is Volve 15/9-F-10's survey with
+stresses declared for the example.
+
+The **Wellbore stability** tab, `gea stability`, `gea help stability`.
 
 ### Frac treatment
 
@@ -2082,7 +2115,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.105.0.exe` (for 0.105.0): the
+Every release also carries `GEA-Program-Setup-0.106.0.exe` (for 0.106.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -2101,7 +2134,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.105.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.106.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

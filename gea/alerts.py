@@ -34,6 +34,10 @@ worth an event, for the conditions the operator does not watch by hand:
 - `hardline.warn`, `hardline.setback`, `hardline.crossed` - in a drilling record still being written, the bit within
   the warning distance of a declared boundary's hard line, inside its setback, or over the boundary (the Hard line
   tab; checked every 15 minutes, once a well, a boundary and a level);
+- `stability.mud`, `stability.ecd` - in a drilling record still being written, on a well whose stresses and strength
+  are declared: the mud weight below the mud-weight window's floor somewhere in the hole drilled so far, or the
+  circulating density at the record's own pump rate over the least stress somewhere above the bit (the Wellbore
+  stability tab; checked every 15 minutes, once for each 500 ft of hole it is first met in);
 - `tls.expiring` - the dashboard's HTTPS certificate is in its last 30 days, or has expired (checked every 15
   minutes while HTTPS is on);
 - `condition.cleared` - one of motor.due, penetrator.outside, dossier.changed, invoice.differs or tls.expiring is no
@@ -52,7 +56,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 EVENTS = ('seismic.protocol', 'seismic.event', 'seismic.watch_down', 'seismic.watch_up', 'motor.due', 'penetrator.outside',
-          'dossier.changed', 'invoice.differs', 'frac.hit', 'drilling.washout', 'drilling.stall', 'drilling.tight', 'drilling.stickslip', 'drilling.bounce', 'drilling.sticking', 'kick.flowback', 'kick.gain', 'kick.loss', 'trip.fill', 'trip.loss', 'trip.unread', 'hardline.warn', 'hardline.setback', 'hardline.crossed', 'tls.expiring', 'condition.cleared')
+          'dossier.changed', 'invoice.differs', 'frac.hit', 'drilling.washout', 'drilling.stall', 'drilling.tight', 'drilling.stickslip', 'drilling.bounce', 'drilling.sticking', 'kick.flowback', 'kick.gain', 'kick.loss', 'trip.fill', 'trip.loss', 'trip.unread', 'hardline.warn', 'hardline.setback', 'hardline.crossed', 'stability.mud', 'stability.ecd', 'tls.expiring', 'condition.cleared')
 CONDITIONS_EVERY_S = 900          # motors and penetrators: every 15 minutes
 DOSSIERS_EVERY_S = 86400          # dossiers: once a day
 _LOCK = threading.Lock()
@@ -241,6 +245,18 @@ def check_conditions(ws, notifier, now: Optional[datetime] = None, force: bool =
                 st['hardline_seen'] = sorted(done)[-1000:]
         except Exception as ex:
             last['hardline_error'] = f'{type(ex).__name__}: {ex}'
+        try:
+            from . import stability as SB
+            done = set(st.setdefault('stability_seen', []))
+            for e in SB.live_events(ws, now):
+                if e['key'] in done:
+                    continue
+                done.add(e['key'])
+                raised.append(raise_alert(ws, notifier, {'event': e['event'], 'key': e['key'], 'well_id': e['well_id'], 'well': e['well'], 'what': f"the hole of {e['well']}",
+                                                         'depth_ft': e.get('depth_ft'), 'time': e['time'], 'detail': e['detail']}, now))
+            st['stability_seen'] = sorted(done)[-1000:]
+        except Exception as ex:
+            last['stability_error'] = f'{type(ex).__name__}: {ex}'
         try:
             from . import tls as TLS
             ts = TLS.status(ws, now)

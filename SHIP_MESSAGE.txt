@@ -1,25 +1,27 @@
-v0.105.0 — THE DAILY DRILLING REPORT
+v0.106.0 — WELLBORE STABILITY: THE THIRD SIDE OF THE MUD-WEIGHT WINDOW
 
-Added: the Daily report tab writes the rig's morning sheet from the
-drilling record, for one well and one report day: the hole depth at the
-start and the end and the new hole made, the time log, the exact hours
-by rig state, the readings while drilling, the mud the record carries,
-the trips, and the alerts that began in the day.
+Added: the Wellbore stability tab works out, at every station of the
+open hole, the mud pressure that holds the wall up - from the three
+stresses, the rock's strength and the way the hole points (Kirsch's
+stresses at the wall, Mohr-Coulomb's rule) - with or without a breakout
+the operator accepts. The window runs from the greater of that and the
+pore pressure up to the least stress, above which mud is lost.
 
-Added: the time log is kept to the quarter hour, as a daily report is.
-Each quarter hour is named by what the rig mostly did; a connection's
-slips are counted with the work around them; hours with no record are
-shown as that; the lines always come to 24 hours.
+Added: the mud weight stands against the floor and the Hydraulics tab's
+circulating density against the top, at each depth. A second picture
+gives the collapse mud weight for a hole pointing every way.
 
-Added: an operator types the crew's remarks and the plan for the next
-day; they are kept with a name. The sheet is written as one page that
-prints, with its time log as a CSV, for one day or every day.
+Added: for a well with a drilling record, the rig at the end of the
+record against the window; on a record still being written, two alerts,
+stability.mud and stability.ecd.
 
-Added: gea daily-report, gea help daily-report.
+Changed: the top bar has an eleventh heading, Well design, for the five
+tabs that are models run on declared values.
 
-The footage is the new hole the record shows being made; where the
-day's depths say otherwise the sheet says so. Run over the 270 report
-days of the Utah FORGE public pad. No sheet has yet been set beside a
-contractor's signed report.
+Added: gea stability, gea help stability, a worked example.
 
-Gate 629.
+None of it is a measurement: the stresses and the strength are declared
+or estimated. Proved against its closed forms and on a made well; no
+hole's caliper has yet been set against it.
+
+Gate 632.

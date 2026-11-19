@@ -19447,6 +19447,286 @@ def section_ej_frac_treatment(tmp: str) -> None:
        "page with the published figures it was checked against, the README and lesson 14" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_ey_wellbore_stability(tmp: str) -> None:
+    """Section EY - wellbore stability (0.106.0): the mud-weight window along a well with the hole's direction in it.
+    The wall's stresses and the collapse and breakdown pressures against their closed forms, the window along a made
+    path and what the direction is worth; a made well in a workspace - its stresses declared, its mud and circulating
+    density from the Hydraulics tab, the rig at the end of its record, the two alerts; the routes and their roles,
+    the tab under its new heading, the command, the help, the lesson and the README."""
+    import csv
+    import math
+    import subprocess as _sp
+    from . import alerts as AL
+    from . import dysfunction as DY
+    from . import helplib as H
+    from . import hydraulics as HYD
+    from . import notify as NT
+    from . import rig_state as RS
+    from . import series_cache as SCH
+    from . import stability as SB
+    from . import sticking as SK
+    from . import tutorial as TU
+    from . import well3d as W3
+    from .workspace import Workspace
+    import numpy as np_
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ey"); d.mkdir()
+
+    def audit_actions(ws_) -> list:
+        p_ = Path(ws_.path, "records", "audit.jsonl")
+        return [json.loads(l_).get("action") for l_ in p_.read_text(encoding="utf-8").splitlines() if l_.strip()] if p_.is_file() else []
+    # -- EY1 the wall, the window along a path, the direction ------------------------------------------------------------------------
+    st_ = SB.selftest()
+    q = math.tan(math.radians(60.0)) ** 2
+    sv, sH, sh, pp, ucs = 10000.0, 8500.0, 7000.0, 4500.0, 3000.0
+    any_ = SB.hole_stress(sv, sH, sh, 37.0, 63.0, 211.0)
+    vert = SB.hole_stress(sv, sH, sh, 30.0, 0.0, 0.0)
+    cfg = {**SB.DEFAULTS, "ucs_psi": 5000.0, "shmax_k": 0.5, "shmax_azimuth_deg": 60.0}
+    md = np_.arange(4000.0, 12001.0, 500.0); inc = np_.clip((md - 4000.0) / 4000.0 * 90.0, 0.0, 90.0); tvd = 4000.0 + np_.cumsum(np_.r_[0.0, np_.diff(md) * np_.cos(np_.radians(inc[1:]))])
+    stress = lambda z: (18.5, 9.0, 13.5)
+    ecd = {"md_ft": [4000.0, 12000.0], "ecd_ppg": [11.4, 11.9]}
+    a_e = SB.analyse(md, tvd, inc, np_.full(len(md), 150.0), cfg, stress, 11.0, ecd)                # along the least stress (the greatest at 60 degrees)
+    a_h = SB.analyse(md, tvd, inc, np_.full(len(md), 60.0), cfg, stress, 11.0, ecd)                 # along the greatest
+    a_hi = SB.analyse(md, tvd, inc, np_.full(len(md), 60.0), cfg, stress, 13.0, {"md_ft": [4000.0, 12000.0], "ecd_ppg": [13.4, 13.9]})
+    a_bo = SB.analyse(md, tvd, inc, np_.full(len(md), 60.0), {**cfg, "breakout_deg": 60.0}, stress, 11.0, ecd)
+    a_weak = SB.analyse(md, tvd, inc, np_.full(len(md), 60.0), {**cfg, "ucs_psi": 300.0}, stress, 11.0, ecd)
+    a_part = SB.analyse(md, tvd, inc, np_.full(len(md), 60.0), cfg, lambda z: (18.5, 9.0, 13.5) if z > 5500.0 else (18.5, None, 13.5), 11.0, ecd)
+    iso_cfg = {**SB.DEFAULTS, "ucs_psi": 5000.0}
+    a_iso = SB.analyse(md, tvd, inc, None, iso_cfg, stress, 11.0, None)
+    errs = []
+    for c_, az_ in (({**SB.DEFAULTS}, np_.zeros(len(md))), ({**cfg, "shmax_azimuth_deg": None}, np_.zeros(len(md))), (cfg, None)):
+        try:
+            SB.analyse(md, tvd, inc, az_, c_, stress, 11.0, None); errs.append(False)
+        except SB.StabilityError:
+            errs.append(True)
+    pl = SB.polar(9000.0, 18.5, 9.0, 13.5, 16.0, 60.0, cfg)
+    pl_iso = SB.polar(9000.0, 18.5, 9.0, 13.5, 13.5, None, iso_cfg)
+    Pe, Ph = a_e["profile"], a_h["profile"]
+    c1 = {
+        "selftest": st_["ok"] and len(st_["checks"]) >= 11,
+        "turned": abs(any_["xx"] + any_["yy"] + any_["zz"] - (sv + sH + sh)) < 1e-6 and abs(vert["zz"] - sv) < 1e-9 and abs(vert["xx"] + vert["yy"] - sH - sh) < 1e-9,
+        "closed_forms": abs(SB.collapse(vert, pp, ucs, 30.0, 0.25) - (3 * sH - sh - ucs + pp * (q - 1)) / (1 + q)) < 0.5 and abs(SB.breakdown(vert, pp, 0.0, 0.25) - (3 * sh - sH - pp)) < 0.5,
+        "window": a_h["stations"] == len(md) == 17 and all(Ph["upper_ppg"][i] == 13.5 and Ph["lower_ppg"][i] == max(Ph["pp_ppg"][i], Ph["collapse_ppg"][i]) for i in range(17))
+                  and all(abs(Ph["width_ppg"][i] - (Ph["upper_ppg"][i] - Ph["lower_ppg"][i])) < 0.002 for i in range(17)) and Ph["shmax_ppg"][0] == 16.0,
+        "direction": abs(Pe["collapse_ppg"][0] - Ph["collapse_ppg"][0]) < 0.002 and Ph["collapse_ppg"][-1] > Pe["collapse_ppg"][-1] + 0.3 and Ph["collapse_ppg"][-1] > Ph["collapse_ppg"][0] + 1.0,
+        "narrowest": a_h["narrowest"]["width_ppg"] == min(Ph["width_ppg"]) and a_h["narrowest"]["set_by"] == "collapse" and a_h["highest_lower"]["ppg"] == max(Ph["lower_ppg"]),
+        "mud_below": a_h["status"] == "MUD BELOW THE WINDOW" and a_h["mud"]["below_at"] >= 1 and a_h["mud"]["static"]["margin_ppg"] < 0
+                     and abs(a_h["mud"]["static"]["margin_ppg"] - (11.0 - max(Ph["lower_ppg"]))) < 0.002 and a_h["mud"]["circulating"]["margin_ppg"] > 0 and a_h["mud"]["ecd_over_at"] == 0,
+        "ecd_over": a_hi["status"] == "ABOVE THE WINDOW" and a_hi["mud"]["ecd_over_at"] >= 1 and a_hi["mud"]["circulating"]["margin_ppg"] < 0 and a_hi["mud"]["below_at"] == 0
+                    and abs(a_hi["profile"]["ecd_ppg"][-1] - 13.9) < 1e-9,
+        "breakout_takes_less": all(b_ <= a_ for a_, b_ in zip(Ph["collapse_ppg"], a_bo["profile"]["collapse_ppg"])) and a_bo["profile"]["collapse_ppg"][-1] < Ph["collapse_ppg"][-1] - 0.3
+                               and a_bo["profile"]["collapse0_ppg"] == Ph["collapse0_ppg"],
+        "no_window": a_weak["status"] == "NO WINDOW" and a_weak["closed"]["stations"] >= 1 and any("no window" in l_ for l_ in SB._lines({**a_weak, "top_md_ft": 4000.0, "td_md_ft": 12000.0,
+                                                                                                                                   "top_from": "declared", "mud_how": "x", "ecd_how": "x"})),
+        "not_known": a_part["skipped"] >= 3 and a_part["stations"] == 17 - a_part["skipped"] and a_part["profile"]["tvd_ft"][0] > 5500.0,
+        "equal_stresses": a_iso["anisotropic"] is False and "not declared" in a_iso["shmax_how"] and a_iso["profile"]["azi_deg"][0] is None and a_iso["profile"]["shmax_ppg"][0] == 13.5,
+        "said": errs == [True, True, True],
+        "every_way": len(pl["collapse_ppg"]) == 7 and all(len(r_) == 24 for r_ in pl["collapse_ppg"]) and len(set(pl["collapse_ppg"][0])) == 1
+                     and all(abs(pl["collapse_ppg"][i][j] - pl["collapse_ppg"][i][j + 12]) < 0.011 for i in range(7) for j in range(12)) and pl["max_ppg"] > pl["min_ppg"] + 0.5
+                     and pl["hardest"]["inc_deg"] == 90 and pl["hardest"]["azi_deg"] % 180 == 60 and abs(pl["collapse_ppg"][6][4] - pl["max_ppg"]) < 0.011,
+        "every_way_equal": all(max(r_) - min(r_) < 0.011 for r_ in pl_iso["collapse_ppg"]),
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "EY1 the wall of a hole: the three stresses turned into the hole's axes keep their sum; a vertical hole collapses and parts at the closed forms' pressures, and the self-test's "
+       "eleven cases agree with theirs; along a path building from vertical to horizontal the window at each station is from the greater of the pore pressure and the collapse pressure "
+       "to the least stress, and the same path pointed along the greatest horizontal stress needs more mud at the horizontal than pointed along the least; an 11 ppg mud is below the "
+       "floor and says where, a 13 ppg mud circulating at 13.9 is over the top; accepting 60 degrees of breakout a side takes less mud and never more; a rock of 300 psi has no window "
+       "and the page says so; stations where a stress is not known are counted and left out; with equal horizontal stresses no azimuth is needed, and unequal ones without the "
+       "azimuth of the greatest, or of the hole, are said; and for a hole pointing every way the collapse mud weight is the same at an azimuth and its opposite, hardest for a "
+       "horizontal hole along the greatest stress" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- EY2 a made well in a workspace: the declarations, the mud, the rig at the end of its record, the alerts -----------------------------
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Pad EY", actor="tester")
+    hole = SK.made_hole()                                            # vertical to 3,000 ft, 60 degrees by 4,500 ft, to 16,500 ft
+    rec = DY.synthetic_record(False, stands=30, ends_now=True)      # thirty stands from 10,000 ft, ending now: a record still being written
+    wa = ws.add_well_file(DY.write_edr(rec, str(d / "a.csv")), display="Well A", actor="tester")["id"]
+    wb = ws.add_well_records("Well B", actor="tester")["id"]
+    sv_ = hole["survey"]
+    (d / "s.csv").write_text("MD (ft),Inc (deg),Azi (deg)\n" + "".join(f"{m_:.1f},{i_:.3f},{z_:.1f}\n" for m_, i_, z_ in zip(sv_["md_ft"], sv_["inc_deg"], sv_["azi_deg"])), encoding="utf-8")
+    W3.attach_trajectory(ws, wa, "s.csv", (d / "s.csv").read_bytes(), "tester", "true", "ft", None, None, None, "test survey")
+    RS.set_casing(ws, "tester", wa, "9-5/8", 4000, "tally (test)")
+    p_bare = SB.page(ws, "workspace", wa)
+    p_nopath = SB.page(ws, "workspace", wb)
+    bad = []
+    for kw, src in (({"ucs_psi": 5.0}, "x"), ({"ucs_psi": 5000.0}, ""), ({"shmax_ppg": 16.0, "shmax_k": 0.5}, "x"), ({"ucs_psi": "strong"}, "x")):
+        try:
+            SB.set_well(ws, "tester", wa, src, **kw); bad.append(False)
+        except SB.StabilityError:
+            bad.append(True)
+    SB.set_well(ws, "tester", wa, "leak-off tests and core (test)", sv_ppg=18.5, pp_ppg=9.0, shmin_ppg=13.5, shmax_k=0.5, shmax_azimuth_deg=60.0, ucs_psi=5000.0, mw_ppg=10.0)
+    p_nomud = SB.page(ws, "workspace", wa)                          # the Hydraulics tab has nothing yet: the mud declared here is the mud
+    HYD.set_well(ws, "tester", wa, "mud report (test)", string=[{"what": "BHA", "length_ft": 400, "od_in": 6.75, "id_in": 2.81}, {"what": "5 in drill pipe", "length_ft": None, "od_in": 5.0, "id_in": 4.276}],
+                 hole=[{"what": "9-5/8 casing", "bottom_md_ft": 4000.0, "id_in": 8.681}, {"what": "8-1/2 open hole", "bottom_md_ft": None, "id_in": 8.5}],
+                 fann={"600": 56, "300": 36, "200": 28, "100": 20, "6": 6, "3": 5}, nozzles_32=[13] * 6, mw_ppg=11.0, flow_gpm=550.0, bit_in=8.5)
+    n_audit = len(audit_actions(ws))
+    p = SB.page(ws, "workspace", wa); x = p["result"]; P = x["profile"]
+    nw = SB.now(ws, wa)
+    wrote_nothing = len(audit_actions(ws)) == n_audit and not Path(wsp, "reports", "stability").exists()
+    ev1 = SB.live_events(ws)
+    raised = [e_ for e_ in AL.check_conditions(ws, None, force=True) if e_["event"].startswith("stability.")]
+    again = [e_ for e_ in AL.check_conditions(ws, None, force=True) if e_["event"].startswith("stability.")]
+    SB.set_well(ws, "tester", wa, "a lower leak-off (test)", shmin_ppg=11.5)                  # the least stress under the circulating density
+    nw_lo = SB.now(ws, wa); ev_lo = SB.live_events(ws)
+    SB.set_well(ws, "tester", wa, "leak-off tests and core (test)", shmin_ppg=13.5)
+    HYD.set_well(ws, "tester", wa, "mud report (test)", mw_ppg=12.4)                           # weighted up: above the floor everywhere, its circulating density still under the least stress
+    p_ok = SB.page(ws, "workspace", wa); nw_ok = SB.now(ws, wa); ev_ok = SB.live_events(ws)
+    rep = SB.write_report(ws, "9.9.9", wa, actor="tester"); rd = Path(rep["folder"])
+    with open(rd / "window.csv", newline="", encoding="utf-8") as f:
+        rows_csv = list(csv.reader(f))
+    HYD.set_well(ws, "tester", wa, "mud report (test)", mw_ppg=11.0)
+    src_path = SCH.source_path(ws, wa); old = time.time() - 4 * 3600.0
+    os.utime(src_path, (old, old))                                    # the file last written four hours ago: not a record still being written
+    ev_old = SB.live_events(ws)
+    hole_ft = float(rec["ch"]["hole"][-1])
+    # a well the Pore pressure tab reads (the Dutch offshore well L07-01, its sonic and gamma ray; a vertical survey for the test): its three stresses are that tab's
+    import gzip as _gz
+    from . import pore_pressure as PPM
+    las = d / "l0701.las"; las.write_bytes(_gz.open(PPM.EXAMPLE).read())
+    wl = ws.add_well_file(str(las), display="L07-01", actor="tester")["id"]
+    W3.attach_trajectory(ws, wl, "v.csv", b"MD (m),Inc (deg),Azi (deg)\n0,0,0\n2000,0,0\n3916,0,0\n", "tester", "true", "m", None, None, None, "vertical (test)")
+    SB.set_well(ws, "tester", wl, "core (test)", ucs_psi=6000.0)
+    xl = SB.page(ws, "workspace", wl)["result"]
+    cv = (PPM.page(ws, well=wl) or {}).get("result", {}).get("curves") or {}
+    read_ft = [cv["tvd_m"][i_] / 0.3048 for i_ in range(len(cv.get("tvd_m", []))) if None not in (cv["pp_ppg"][i_], cv["fg_ppg"][i_], cv["ob_ppg"][i_])]
+    c2 = {
+        "from_the_pore_pressure_tab": xl is not None and xl["stress_how"]["sv_ppg"] == "the Pore pressure tab" and "fracture gradient" in xl["stress_how"]["shmin_ppg"] and xl["status"] == "NO MUD WEIGHT"
+                                      and xl["skipped"] > 0 and any("left out" in l_ for l_ in xl["lines"]) and len(read_ft) > 20
+                                      and min(xl["profile"]["tvd_ft"]) >= min(read_ft) - 1.0 and max(xl["profile"]["tvd_ft"]) <= max(read_ft) + 1.0
+                                      and all(a_ > b_ for a_, b_ in zip(xl["profile"]["sv_ppg"], xl["profile"]["shmin_ppg"])) and xl["anisotropic"] is False,
+        "not_declared": p_bare["result"] is None and p_bare["status"] == "NOT DECLARED" and "unconfined compressive strength" in p_bare["detail"] and "the overburden" in p_bare["detail"],
+        "no_path": p_nopath["result"] is None and p_nopath["status"] == "NO PATH",
+        "bounds_and_source": bad == [True, True, True, True],
+        "own_mud_without_hydraulics": p_nomud["result"]["mud"]["mw_ppg"] == 10.0 and p_nomud["result"]["mud"]["circulating"] is None and p_nomud["result"]["mud_how"] == "declared here"
+                                      and p_nomud["result"]["profile"]["ecd_ppg"][0] is None,
+        "the_well": x["status"] == "MUD BELOW THE WINDOW" and x["path_from"] == "survey" and x["top_md_ft"] == 4000.0 and x["top_from"] == "the deepest casing shoe" and x["td_md_ft"] == 16500.0
+                    and P["md_ft"][0] == 4000.0 and P["inc_deg"][-1] == 60.0 and P["azi_deg"][-1] is not None and x["anisotropic"] is True,
+        "hydraulics_mud": x["mud"]["mw_ppg"] == 11.0 and "the Hydraulics tab" in x["mud_how"] and x["mud"]["circulating"] is not None and x["mud"]["circulating"]["margin_ppg"] > 0
+                          and any(v is not None and v > 11.0 for v in P["ecd_ppg"]) and P["ecd_ppg"][-1] is None,
+        "stresses_declared": x["stress_how"] == {"sv_ppg": "declared", "pp_ppg": "declared", "shmin_ppg": "declared"} and all(v == 16.0 for v in P["shmax_ppg"]) and all(v == 13.5 for v in P["upper_ppg"]),
+        "lines": len(x["lines"]) >= 6 and "the deepest casing shoe" in x["lines"][0] and any("BELOW the floor" in l_ for l_ in x["lines"]) and any("Circulating, the ECD" in l_ for l_ in x["lines"])
+                 and x["polar"] is not None and x["polar"]["hole"]["inc_deg"] == 60.0,
+        "reading_writes_nothing": wrote_nothing,
+        "now": nw["status"] == "OK" and abs(nw["bit_ft"] - hole_ft) <= 1.0 and abs(nw["hole_ft"] - hole_ft) <= 1.0 and nw["pumps"] == "on" and abs(nw["flow_gpm"] - 550.0) <= 3.0
+               and nw["mud_below"] is not None and nw["mud_below"]["worst_md_ft"] <= hole_ft and nw["mud_below"]["mw_ppg"] == 11.0 and nw["mud_below"]["by_ppg"] > 0.3
+               and nw["ecd"] is not None and nw["ecd"]["over"] is False and nw["ecd"]["at_bit_ppg"] > 11.3 and nw["ecd"]["md_ft"] <= hole_ft,
+        "mud_alert": [e_["event"] for e_ in ev1] == ["stability.mud"] and ev1[0]["key"] == f"stability.mud:{wa}:{int(nw['mud_below']['from_md_ft'] // 500)}" and "below the window's floor" in ev1[0]["detail"]
+                     and [e_["event"] for e_ in raised] == ["stability.mud"] and again == [],
+        "ecd_alert": nw_lo["ecd"]["over"] is True and "stability.ecd" in [e_["event"] for e_ in ev_lo] and "over the least stress" in next(e_ for e_ in ev_lo if e_["event"] == "stability.ecd")["detail"],
+        "weighted_up": p_ok["result"]["status"] == "INSIDE" and p_ok["result"]["mud"]["mw_ppg"] == 12.4 and p_ok["result"]["mud"]["below_at"] == 0 and nw_ok["mud_below"] is None
+                       and nw_ok["ecd"]["over"] is False and ev_ok == [],
+        "not_live_no_alert": ev_old == [],
+        "events_known": {"stability.mud", "stability.ecd"} <= set(AL.EVENTS) and {"stability.mud", "stability.ecd"} <= set(NT.EVENTS)
+                        and NT._subject({"event": "stability.ecd", "well": "W", "detail": "x"}).startswith("[GEA] the circulating density over the least stress on W"),
+        "report": rep["files"] == ["stability.json", "stability.md", "window.csv"] and all((rd / n_).is_file() for n_ in rep["files"]) and len(rows_csv) == p_ok["result"]["stations"] + 1
+                  and rows_csv[0][:3] == ["md_ft", "tvd_ft", "inc_deg"] and "What this will not call a measurement" in (rd / "stability.md").read_text(encoding="utf-8")
+                  and "stability.report" in audit_actions(ws) and audit_actions(ws).count("stability.settings") == 4,
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "EY2 a made well in a workspace - a hole to 60 degrees, casing to 4,000 ft, a record of thirty stands still being written: with nothing declared the page says what to declare, "
+       "and a well with no path says that; a strength out of bounds, a value with no source, the greatest stress declared twice and a word for a number are each turned away; with the "
+       "stresses and the strength declared the open hole runs from the deepest casing shoe along the survey, the mud is the one declared here until the Hydraulics tab has one and then "
+       "that one, with its circulating density; reading writes nothing; at the end of the record the bit, the hole and the pump rate are the record's, the 11 ppg mud is below the floor "
+       "in the hole drilled and the ECD under the least stress; that raises stability.mud once and not again; a least stress declared under the circulating density raises "
+       "stability.ecd; weighted up to 12.4 ppg the mud is inside the window and nothing is raised; a file last written four hours ago raises nothing; the report is three files, a "
+       "row a station; and for a well the Pore pressure tab reads, the overburden, the pore pressure and the least stress are that tab's, only at the depths it read" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- EY3 the routes and their roles, the tab, the command, the words -------------------------------------------------------------
+    from .service import Service, Users
+    import http.cookiejar
+    import urllib.error
+    import urllib.request
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer")
+    Users(str(Path(wsp, "users.json"))).add("o", "operator-pass-1", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+
+    def session(name: str, pw: str):
+        o_ = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq_ = urllib.request.Request(svc.url.rstrip("/") + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw}).encode())
+        rq_.add_header("Content-Type", "application/json"); rq_.add_header("X-GEA-Action", "1"); o_.open(rq_, timeout=30)
+
+        def call(path: str, body=None):
+            rq2 = urllib.request.Request(svc.url.rstrip("/") + path, method="POST" if body is not None else "GET", data=json.dumps(body).encode() if body is not None else None)
+            if body is not None:
+                rq2.add_header("Content-Type", "application/json"); rq2.add_header("X-GEA-Action", "1")
+            try:
+                with o_.open(rq2, timeout=90) as r_:
+                    return r_.status, json.loads(r_.read())
+            except urllib.error.HTTPError as e:
+                return e.code, json.loads(e.read() or b"{}")
+        return call
+    try:
+        v = session("v", "viewer-pass-1"); o = session("o", "operator-pass-1")
+        s_page, api = v(f"/api/stability?well={wa}")
+        s_ex, api_ex = v("/api/stability?scene=example")
+        s_now, api_now = v(f"/api/stability/now?well={wa}")
+        s_now0, _ = v("/api/stability/now")
+        s_nowell, _ = v("/api/stability?well=nope")
+        s_v_set, _ = v("/api/stability/settings", {"well": wa, "ucs_psi": 6000, "source": "x"})
+        s_v_wr, _ = v("/api/stability/write", {"well": wa})
+        s_o_set, o_set = o("/api/stability/settings", {"well": wa, "breakout_deg": 30, "source": "the operator's practice (test)"})
+        s_o_bad, o_bad = o("/api/stability/settings", {"well": wa, "friction_deg": 80, "source": "x"})
+        s_o_wr, o_wr = o("/api/stability/write", {"well": wa})
+        s_o_nowell, _ = o("/api/stability/settings", {"well": "nope", "ucs_psi": 6000, "source": "x"})
+        s_after, api_after = v(f"/api/stability?well={wa}")
+    finally:
+        svc.stop()
+    app = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    sb_js = app[app.index("// ---------- wellbore stability:"):app.index("// ---------- daily report:")]
+    env = {**os.environ, "PYTHONPATH": str(pkg.parent) + os.pathsep + os.environ.get("PYTHONPATH", "")}
+    run = lambda *a_: _sp.run([sys.executable, "-m", "gea", "stability", *a_], capture_output=True, text=True, env=env, cwd=str(pkg.parent))
+    cli_self = run(); cli_ex = run("--example"); cli_ws = run("--workspace", wsp, "--well", "Well A", "--now")
+    cli_dec = run("--workspace", wsp, "--well", "Well A", "--declare", "tensile_psi=200", "--source", "core (test)")
+    cli_bad = run("--workspace", wsp, "--well", "Well A", "--declare", "strength=1")
+    hp = (pkg / "help" / "stability.md").read_text(encoding="utf-8")
+    hp_al = (pkg / "help" / "alerts.md").read_text(encoding="utf-8")
+    lesson = (pkg / "help" / "tutorial" / "19-well-design.md").read_text(encoding="utf-8")
+    les2 = (pkg / "help" / "tutorial" / "02-sign-in.md").read_text(encoding="utf-8")
+    root = pkg.parent
+    readme = (root / "README.md").read_text(encoding="utf-8") if (root / "README.md").is_file() else None
+    chlog = (root / "CHANGELOG.md").read_text(encoding="utf-8") if (root / "CHANGELOG.md").is_file() else None
+    cov = TU.coverage()
+    mod_src = (pkg / "stability.py").read_text(encoding="utf-8")
+    from . import client_reports as CRX
+    c3 = {
+        "page_route": s_page == 200 and api["result"]["well"] == wa and api["result"]["status"] in ("MUD BELOW THE WINDOW", "INSIDE") and len(api["result"]["profile"]["md_ft"]) == api["result"]["stations"]
+                      and set(api["limits"]) == set(SB.LIMITS) and len(api["not_a_measurement"]) >= 5,
+        "example": s_ex == 200 and api_ex["scene"] == "example" and api_ex["result"]["status"] == "INSIDE" and "Volve" in api_ex["result"]["attribution"]
+                   and api_ex["result"]["narrowest"]["set_by"] == "collapse" and api_ex["result"]["polar"]["hardest"]["ppg"] > api_ex["result"]["polar"]["easiest"]["ppg"],
+        "now_route": s_now == 200 and api_now["status"] == "OK" and api_now["pumps"] == "on" and s_now0 == 400,
+        "said": s_nowell == 404 and s_o_nowell == 404 and s_o_bad == 400 and "friction" in str(o_bad.get("error", "")),
+        "viewer_reads_only": s_v_set == 403 and s_v_wr == 403,
+        "operator_acts": s_o_set == 200 and o_set["breakout_deg"] == 30.0 and s_o_wr == 200 and o_wr["files"] == ["stability.json", "stability.md", "window.csv"]
+                         and s_after == 200 and api_after["result"]["config"]["breakout_deg"] == 30.0
+                         and api_after["result"]["profile"]["collapse_ppg"][-1] < api_after["result"]["profile"]["collapse0_ppg"][-1],
+        "tab": "['#/stability', 'Wellbore stability']" in app and "['Well design', ['#/torquedrag', '#/hydraulics', '#/porepressure', '#/stability', '#/casing']]" in app
+               and "VIEWS.stability = async" in app and "function sbPolar(" in app and "'stability.mud': 'Mud weight below the window'" in app,
+        "page_parts": all(x_ in sb_js for x_ in ("The window", "Which way the hole points", "Station by station", "The stresses and the rock of", "At the end of the record", "/api/stability/now?well=",
+                                                 "Equivalent mud weight, ppg", "Inclination, degrees", "What this page will not call a measurement", "the least stress: the mud is lost above it")),
+        "no_storage": "localStorage" not in sb_js and "sessionStorage" not in sb_js and "document.cookie" not in sb_js,
+        "cli": cli_self.returncode == 0 and cli_self.stdout.strip().endswith("OK - the cases with an answer in closed form") and "FAIL" not in cli_self.stdout
+               and cli_ex.returncode == 0 and "Worked example: Volve 15/9-F-10" in cli_ex.stdout and cli_ws.returncode == 0 and "Wellbore stability - Well A" in cli_ws.stdout
+               and "The rig now" in cli_ws.stdout and cli_dec.returncode == 0 and "declared for Well A: tensile_psi" in cli_dec.stdout and cli_bad.returncode != 0 and "is not a value this page takes" in cli_bad.stderr,
+        "help": H.check("stability") == [] and H.check("alerts") == [] and H.VIEW_TOPIC.get("stability") == "stability" and any(t_["topic"] == "stability" for t_ in H.topics())
+                and all(x_ in hp for x_ in ("Mohr-Coulomb", "Kirsch", "6,125 psi", "stability.ecd", "window.csv", "No hole's caliper has yet been set against this page"))
+                and "`stability.mud`, `stability.ecd`" in hp_al,
+        "lesson": "#/stability" in lesson and "Open **Wellbore stability**" in lesson and TU.check("well-design") == [] and TU.check("sign-in") == [] and "Well design;" in les2
+                  and cov["tabs_unreached"] == [] and cov["help_untaught"] == [],
+        "standalone": "gea_driller" not in mod_src and not [t_ for t_ in CRX.FORBIDDEN_TERMS if t_ in mod_src.lower()],
+        "readme": readme is None or ("### Wellbore stability" in readme and "`gea stability`" in readme and "eleven headings" in readme and "Well design;" in readme),
+        "changelog": chlog is None or "## [v0.106.0]" in chlog,
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "EY3 the Wellbore stability tab: any signed-in account reads a well's window, the worked example and the rig's place at the end of the record, and only the operator role "
+       "declares and writes the report (a viewer is turned away with 403; an unknown well is 404, a value out of bounds 400 with the reason); a breakout declared through the route is "
+       "in the next reading and takes less mud; the tab is under a new heading, Well design, with the torque and drag, hydraulics, pore pressure and casing tabs, draws the window, "
+       "the inclination, the collapse mud weight for a hole pointing every way and the stations, and keeps nothing in the browser's storage; `gea stability` runs the self-test, "
+       "prints the worked example, a well's window with the rig's place, and declares a value; the two alerts are named on the Alerts page; the help, the lessons and the README say "
+       "what the page works out and that none of it is a measurement" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def section_ex_daily_report(tmp: str) -> None:
     """Section EX - the daily drilling report (0.105.0): one well's report day written from its drilling record. The
     quarter hours named and joined, the day's depths and footage where the depth is corrected, the day's date by the
@@ -22297,6 +22577,7 @@ def main() -> int:
         section_ev_what_the_string_reads(tmp)
         section_ew_geosteering(tmp)
         section_ex_daily_report(tmp)
+        section_ey_wellbore_stability(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

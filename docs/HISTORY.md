@@ -4,6 +4,20 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.106.0 - 2026-11-18 - wellbore stability: the third side of the mud-weight window
+
+- The Wellbore stability tab: at every station of the open hole, the
+  collapse pressure from the stresses, the rock's strength and the hole's
+  direction (Kirsch, Mohr-Coulomb), the breakdown, and the window from
+  the greater of pore pressure and collapse up to the least stress.
+- The mud weight and the Hydraulics tab's circulating density against
+  it; the collapse mud weight for a hole pointing every way.
+- The rig at the end of its record against the window, and two alerts,
+  `stability.mud` and `stability.ecd`, on a record still being written.
+- An eleventh heading on the top bar, Well design.
+- `gea stability`, `gea help stability`.
+- Gate 632.
+
 ## v0.105.0 - 2026-11-18 - the daily drilling report
 
 - The Daily report tab: one well's report day from its drilling record -

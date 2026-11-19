@@ -5,6 +5,64 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.106.0] - 2026-11-18 - wellbore stability: the third side of the mud-weight window
+
+### Added
+- **The Wellbore stability tab.** The Pore pressure tab gives two sides
+  of the mud-weight window, and they are the same whichever way a hole
+  points. The third is not: where the stress at the wall of a hole
+  passes the rock's strength, the wall fails and falls in. At every
+  station of the open hole the new tab works out the mud pressure that
+  holds the wall up - from the overburden and the two horizontal
+  stresses, the rock's unconfined strength and friction angle, and the
+  hole's inclination and azimuth (Kirsch's stresses at the wall,
+  Mohr-Coulomb's rule) - with or without a breakout the operator
+  accepts, and the pressure at which the wall parts.
+- **The window, and the mud against it.** The window runs from the
+  greater of the pore pressure and the collapse pressure up to the least
+  stress, above which mud is lost; every line is an equivalent mud
+  weight. The mud weight stands against the floor (pumps off) and, where
+  the Hydraulics tab has the mud and the string, the circulating density
+  stands against the top at each depth (pumps on).
+- **Which way the hole points.** A second picture gives the collapse mud
+  weight at the narrowest depth for a hole pointing every way: the
+  middle a vertical hole, the rim a horizontal one.
+- **At the end of the record.** For a well with a drilling record the
+  page reads the bit, the hole depth and the pump rate of the record's
+  last five minutes, and says whether the mud is below the floor in the
+  hole drilled and whether the circulating density at that rate is over
+  the least stress above the bit.
+- **Two alerts** on a record still being written: `stability.mud` and
+  `stability.ecd`, each once for every 500 ft of hole it is first met
+  in.
+- The stresses come from the Pore pressure tab where it reads the well
+  (its overburden, its pore pressure, and its fracture gradient as the
+  least stress) or are declared; the greatest horizontal stress, its
+  azimuth and the strength are declared, each with its source.
+- `gea stability`, `gea help stability`; a worked example on Volve
+  15/9-F-10's survey with stresses declared for the example; lesson 19
+  has a step on the tab.
+
+### Changed
+- **The top bar has an eleventh heading, Well design**: torque and drag,
+  hydraulics, pore pressure, wellbore stability and casing. They were
+  under Drilling, which keeps what reads the drilling record.
+
+### Notes
+- The self-test's cases have answers in closed form: a vertical hole
+  with unequal horizontal stresses collapses at (3 SHmax - Shmin - UCS +
+  Pp (q - 1)) / (1 + q) and parts at 3 Shmin - SHmax - Pp; a horizontal
+  hole along the least stress has the overburden and the greatest stress
+  across it; the breakout's width at a mud pressure is the closed form's
+  to a degree.
+- None of it is a measurement. The stresses and the strength are
+  declared or estimated; the model is elastic, the wall impermeable, the
+  rock the same in every direction, and time, temperature and the mud's
+  chemistry are not in it. A caliper and an image log say whether a hole
+  stood, and no hole's caliper has yet been set against this page.
+- The strength is one figure for the whole open hole. A strength read
+  from the sonic log bed by bed is not in this release.
+
 ## [v0.105.0] - 2026-11-18 - the daily drilling report
 
 ### Added

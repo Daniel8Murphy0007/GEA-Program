@@ -2291,6 +2291,16 @@ def make_handler(app: App):
                 if path == '/api/decline':
                     from . import decline as DCA
                     return self._json(200, App._cr(DCA.page, app.ws, (qs.get('well') or [None])[0], (qs.get('as_of') or [None])[0]))
+                if path in ('/api/stability', '/api/stability/now'):
+                    from . import stability as _SB
+                    wid_ = (qs.get('well') or [None])[0]
+                    if wid_ and wid_ not in [w_['id'] for w_ in app.ws.wells()]:
+                        raise ApiError(404, f'no well {wid_}')
+                    if path.endswith('/now'):
+                        if not wid_:
+                            raise ApiError(400, 'stability: name the well')
+                        return self._json(200, App._cr(_SB.now, app.ws, wid_))
+                    return self._json(200, App._cr(_SB.page, app.ws, (qs.get('scene') or ['workspace'])[0], wid_))
                 if path == '/api/hydraulics':
                     from . import hydraulics as HYD
                     return self._json(200, App._cr(HYD.page, app.ws, (qs.get('scene') or ['workspace'])[0], (qs.get('well') or [None])[0]))
@@ -3045,6 +3055,17 @@ def make_handler(app: App):
                         return self._json(200, App._cr(DCA.set_config, app.ws, user['name'], wid, str(b_.get('source') or ''), **cfg))
                     r_ = App._cr(DCA.write_report, app.ws, _v, wid or None, user['name'])
                     return self._json(200, {'report_id': r_['report_id']})
+                if path in ('/api/stability/settings', '/api/stability/write'):
+                    from . import stability as _SB
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    b_ = dict(body or {}); wid_ = str(b_.get('well') or '').strip()
+                    if path.endswith('/settings'):
+                        if not wid_ or wid_ not in [w_['id'] for w_ in app.ws.wells()]:
+                            raise ApiError(404 if wid_ else 400, f'no well {wid_}' if wid_ else 'stability: name the well')
+                        return self._json(200, App._cr(_SB.set_well, app.ws, user['name'], wid_, str(b_.get('source') or ''), **{k: b_.get(k) for k in _SB.LIMITS if k in b_}))
+                    r_ = App._cr(_SB.write_report, app.ws, _v, wid_ or None, user['name'], str(b_.get('scene') or 'workspace'))
+                    return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
                 if path in ('/api/hydraulics/settings', '/api/hydraulics/write'):
                     from . import hydraulics as HYD
                     from . import __version__ as _v

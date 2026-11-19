@@ -4760,3 +4760,62 @@ already hold.
   the same day. The invoice check does part of that where the reports
   are attached; none is attached for the public pad.
 - Gate 629: section EX, three checks.
+
+## 2026-11-18 - wellbore stability: the third side of the mud-weight window (v0.106.0)
+
+- v0.105.0 shipped; its six kits were fetched and each matched the
+  release's hash.
+- The plan called the next step (A5) "the one real engineering gap". On
+  reading the program again the gap was narrower than the plan had it:
+  the Pore pressure tab already gives the pore pressure and the fracture
+  gradient, and the Hydraulics tab already sets the circulating density
+  against them. What was missing was the side of the window that those
+  two cannot give - the mud that holds the wall of the hole up - which
+  is the only side that depends on which way the hole points. A lateral
+  is where that matters most.
+- The model is the standard one and is stated as that: three stresses,
+  one vertical; Kirsch's stresses at the wall of a hole at any angle to
+  them; Mohr-Coulomb on the effective stresses; the collapse pressure as
+  the least mud pressure at which no point of the wall has failed, or
+  no more than a breakout the operator accepts.
+- It was written against its closed forms before anything was built on
+  it, and two of the first "failures" were the closed forms being the
+  wrong ones. With a heavy overburden the greatest stress at the wall of
+  a vertical hole is the one along the hole, not the hoop stress, and
+  the collapse pressure has another form; the numbers were right and the
+  check was not. And a horizontal hole along the greatest horizontal
+  stress came back with no stable pressure at all, because the shear
+  rule was being applied to a point of the wall already in tension. That
+  point is the tensile rule's to judge. With the confining stress not
+  taken below zero in the shear rule, the two failures are told apart:
+  that hole needs more mud against collapse than it can take before the
+  wall parts, which is the true and useful answer for it.
+- The top of the window is the least stress, not the breakdown. The wall
+  can part without the mud being lost, and can hold above the least
+  stress only until a fracture finds its way; the least stress is where
+  mud is lost and stays lost. The breakdown is drawn beside it.
+- Where the figures come from decides what the page is worth, so each
+  says. The overburden, the pore pressure and the least stress are the
+  Pore pressure tab's where it reads the well, or declared. The greatest
+  horizontal stress is always declared, because nothing in a drilling
+  record measures it; undeclared, it is taken equal to the least and the
+  page says so. The strength is declared.
+- One mud for both tabs. The first draft let a mud weight be declared
+  here that differed from the Hydraulics tab's, whose circulating
+  density was then worked out with another mud than the one it was drawn
+  beside. The Hydraulics tab's mud is now the mud wherever it is
+  declared.
+- "Live ECD against it" in the plan became: the pump rate of the
+  record's last five minutes, the circulating density at that rate from
+  the Hydraulics tab's own model, against the least stress above the
+  bit; and the mud against the floor in the hole drilled so far. On a
+  record still being written each raises an alert once for every 500 ft
+  of hole it is first met in.
+- The Drilling heading was full at twelve tabs. The five tabs that are
+  models run on declared values, and not readings of the record, are now
+  under a heading of their own, Well design.
+- What is not there, and is said: a strength that changes bed by bed,
+  time, temperature, the mud's chemistry, bedding. And no hole's caliper
+  has been set against the page: it is proved against its closed forms
+  and on a made well, and on nothing drilled.
+- Gate 632: section EY, three checks.
