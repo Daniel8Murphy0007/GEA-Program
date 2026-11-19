@@ -1,27 +1,25 @@
-v0.107.0 — PROCEDURES: EVERY CONNECTION AND TRIP AGAINST THE RULES DECLARED
+v0.108.0 — CHANNELS: WHAT A RECORD CARRIES, HOW GOOD IT IS, AND WHO READS IT
 
-Added: the Procedures tab reads, at every drilling connection of a
-drilling record, the seconds the pumps ran off bottom before the slips,
-the reaming passes, whether the pumps were off when the slips were set,
-the seconds taken to bring them back up, and the weight-to-weight time;
-and at every trip the pipe's speed, with the circulating and the flow
-check before a trip out off bottom.
+Added: the Channels tab, under Wells & data. For each channel of a
+well's drilling record: the share of samples with a reading, the middle
+value and its range, whether it reads one value throughout, readings
+dropped, spikes, and where in the record it reads. Four checks of the
+record as a whole: the clock, the bit against the hole, the hole depth
+stepping back, and the pump rate after the pumps stop.
 
-Added: rules declared with where each came from. Each connection or
-trip is met, not met or not read; the count is by rule and by tour, and
-the ones that did not meet a rule are listed with time and depth. With
-no rule declared the page gives what the crews do now.
+Added: every tab and alert rule that reads a drilling record, with the
+channels it looks for, and the ones that cannot read this record, with
+what is missing. The page to open when a tab cannot read a well.
 
-Added: on a record still being written, the alert procedure.departed.
+Changed: the Procedures tab reads the pumps more carefully. v0.107.0
+called pumps stopped when they had only been slowed; now the pumps are
+off from where the standpipe pressure comes down to the level it holds
+with them off. And the pumps have ten seconds at the slips: a pump
+spinning down is not a pump running.
 
-Added: gea procedures, gea help procedures.
+Added: gea channels, gea help channels.
 
-Note: a recorder's pump rate can go on reading for most of a minute
-after the pumps stop. Where the record has the standpipe pressure, the
-pumps are taken as stopped when the pressure falls.
+Not a calibration: a channel that reads steadily can still be wrong by
+a constant. Run over the five public Utah FORGE records.
 
-It is the part of a procedure a recorder can see. Run over 580
-connections and 547 trips of the public Utah FORGE records; no
-operator's written procedure has yet been declared on it.
-
-Gate 635.
+Gate 638.

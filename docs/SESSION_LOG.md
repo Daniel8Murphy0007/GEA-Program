@@ -4877,3 +4877,79 @@ already hold.
   No operator's written procedure has been declared on it against a
   real well.
 - Gate 635: section EZ, three checks.
+
+## 2026-11-19 - channels: what a record carries, how good it is, and who reads it (v0.108.0)
+
+- v0.107.0 shipped; its six kits were fetched and each matched the
+  release's hash.
+- The plan's next step (A7) had two halves, a channel view and model
+  cards for the alert rules. They are two releases: this is the channel
+  view, and the cards follow, built on the list this release makes of
+  what each rule reads.
+- "Each channel's source, quality, latency and users" was settled as
+  what a file can answer. Source: the file, its layout, each channel as
+  the file names it. Quality: readings against no-values, the middle
+  value and its range, one value throughout, readings dropped for a
+  second or two, single readings unlike both neighbours. Latency: how
+  far behind the record's end a channel stops, and how long ago the file
+  was written - the file's delay, which is all a file has. Users: which
+  tabs and alert rules look for it.
+- The list of who reads what is not a second copy of the tabs' names. It
+  points at the tabs' own lists where they keep one (the Kick & loss
+  tab's names for a pit volume, the Trip sheet's for a trip tank), and
+  the gate holds every other name to its module's source. A reader is
+  marked as unable to read a record only where the tab says so itself,
+  and the gate sets the two side by side on a made record: Kick & loss
+  says NO PIT VOLUME where this page says it cannot read; stick-slip
+  says NO CHANNELS.
+- A channel reading one value throughout was given its own verdict. On
+  the public pad one well's trip tank reads zero from first sample to
+  last: found, by name, and nothing in it. A tab that needs it has
+  nothing to read, which is not the same as not finding it.
+- Run on the five public records before the documents were written, the
+  page's check of the pump rate after the pumps stop said that a fifth
+  to two thirds of all stops were "held" rates, most of them of
+  thirteen to twenty seconds. A recorder holding its last figure does
+  not do that. The
+  samples showed pumps being slowed over ten or twenty seconds, the
+  pressure falling with the rate - and v0.107.0's rule, the pressure
+  under a quarter of its recent greatest, calls that stopped, because a
+  quarter of the pressure is half the rate.
+- So the Procedures tab's reading of the pumps, shipped a release ago,
+  was wrong in a way its made record could not show: the made record
+  stopped its pumps at once. Three rules were tried against the samples.
+  Setting the rate against the pressure it would give failed on a rate
+  channel with spikes of eighty thousand gallons a minute, two samples
+  long and more, and on rates held at a low figure after a slow-down. What held
+  up reads the pressure against itself: each time the rate comes to read
+  nothing, the pressure just after is the level it holds with the pumps
+  off - not always zero; one gauge sat at 120 psi - and the pumps are
+  off from the second the pressure came down to that level, to within
+  25 psi or a twentieth of what the pumps had added.
+- "The pumps off when the slips are set" was a yes or no asked of one
+  second, and the samples showed that second is often mid-way through a
+  pump spinning down. The pumps now have ten seconds. With that and the
+  new rule the pumps are off at the slips at 94 to 100 in 100 of each
+  well's connections, and the ones left were read one by one: the hook
+  load falls with the pumps at full pressure, which is gone ten to
+  twenty seconds later. Those are what the rule is for.
+- The made record now has pumps slowed to three tenths, pumps started a
+  minute after stopping, pumps slowed and then a held rate, and a gauge
+  off its zero, each with its right answer.
+- The page's check of the pump rate now counts what it is: the rate
+  reading on after the pressure is at its pumps-off level. That is so on
+  every public well at more than half the stops, for 13 to 30 seconds:
+  a property of a rate worked out from strokes, to know and not a fault.
+  It is marked to look at only when the middle case is thirty seconds
+  or more.
+- Not done, and said on the page: it is not a calibration, and a
+  channel under a name no tab knows is listed with no reader and not
+  matched to one. The Rig time tab still reads the pumps from the rate
+  alone.
+- One check of the link relay, from long before, failed once in this
+  release's gate on one of the two Pythons and passed on the other. The
+  relay counts a block after it has sent it on, so the answer can be
+  back at the test before the count is; the test read the count at
+  once. It now waits for the count, and says which of its seven
+  questions failed when one does. Nothing in the relay is changed.
+- Gate 638: section FA, three checks.

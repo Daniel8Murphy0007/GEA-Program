@@ -12,8 +12,8 @@ WHAT IS MEASURED, at every drilling connection the Rig time tab finds (weight to
 the first second drilling again):
 - the seconds the pumps ran after the bit came off bottom and before the slips were set;
 - the reaming passes in that time: each time the bit was run back down 20 ft or more with the pumps and the rotary on;
-- whether the pumps were off at the second the slips were set, and how far off bottom the bit was at the last second
-  they ran;
+- whether the pumps were off when the slips were set, or within ten seconds of it, and how far off bottom the bit was
+  at the last second they ran;
 - the seconds the pump rate took, the last time the pumps were started before drilling again, from stopped to nine
   tenths of the rate drilling resumed at;
 - the weight-to-weight minutes.
@@ -24,10 +24,11 @@ And at every trip of 1,000 ft or more:
   the pipe still - a flow check, as far as a recorder can see one.
 
 WHEN THE PUMPS ARE ON. The pump rate above 50 gal/min - but a recorder works its pump rate out from the strokes, and
-some hold the last figure for most of a minute after the strokes stop. Read as it stands, that makes every connection
-look as if it were made with the pumps running. So where the standpipe pressure is recorded too, the pumps are off
-from the second the pressure began a fall that took it under a quarter of its greatest in the two minutes before
-(pumps_on). A reading or two dropped by the recorder is not a stop.
+some go on reading the last figure for most of a minute after the strokes stop. Read as it stands, that makes
+connections look as if they were made with the pumps running. So where the standpipe pressure is recorded too, each
+time the rate comes to read nothing the pressure just after is taken as the level it holds with the pumps off, and
+the pumps are off from the second the pressure came down to that level (pumps_on). Pumps slowed down are running:
+their pressure is above it. A reading or two dropped by the recorder is not a stop.
 
 A RULE is one of those measures with a figure and where it came from: "at least 60 s circulating off bottom before
 the slips are set (the drilling program, section 4.2)". It may be kept to one well and to a stretch of hole. Each
@@ -53,11 +54,13 @@ import numpy as np
 from . import rig_state as RS
 
 REAM_PASS_FT = 20.0             # the bit run back down this far, pumps and rotary on, is one reaming pass
+SLIPS_ALLOW_S = 10.0            # the pumps are off at the slips if they are off within this long of the slips being set
 RAMP_SHARE = 0.9                # the pumps are "up" at this share of the rate drilling resumes at
 DROPOUT_S = 3.0                 # a reading that drops out for this long or less, between two that read, is the recorder and not the rig
-HELD_LOOK_S = 120.0             # a pump rate still reading while the standpipe pressure has gone is a held figure: the pressure against its greatest in this long before
-HELD_SHARE = 0.25
-HELD_MIN_PSI = 60.0
+HELD_LOOK_S = 120.0             # a pump rate is looked at this far back from where it comes to read nothing
+HELD_AFTER_S = 10.0             # the standpipe pressure over this long after the rate reads nothing is the level it holds with the pumps off
+HELD_TOL_PSI = 25.0             # ... and the pumps are off where the pressure is within this of that level
+HELD_TOL_SHARE = 0.05           # ... or within this share of what the pumps had added to it, where that is more
 TRIP_FROM_BOTTOM_FT = 500.0     # a trip out that starts this close to bottom is a trip off bottom: what came before it is asked of that one
 LOOK_BACK_S = 6 * 3600.0        # before a trip out: back to the last second drilling, and no further than this
 SPEED_WINDOW_S = 10.0
@@ -75,7 +78,7 @@ KINDS: Dict[str, dict] = {
     'conn.off_bottom_ft': {'on': 'connection', 'name': 'off bottom when the pumps stop', 'ask': 'the bit at least {v} ft off bottom when the pumps are stopped',
                            'words': 'how far off bottom the bit was at the last second the pumps ran before the slips', 'unit': 'ft', 'sense': 'min', 'bounds': (1.0, 200.0)},
     'conn.pumps_off_before_slips': {'on': 'connection', 'name': 'pumps off at the slips', 'ask': 'the pumps off when the slips are set',
-                                    'words': 'whether the pumps were off at the second the slips were set', 'unit': '', 'sense': 'yes', 'bounds': None},
+                                    'words': 'whether the pumps were off when the slips were set, or within ten seconds of it: a pump spinning down, its pressure bleeding off, is not a pump running', 'unit': '', 'sense': 'yes', 'bounds': None},
     'conn.pump_ramp_s': {'on': 'connection', 'name': 'bringing the pumps up', 'ask': 'at least {v} s to bring the pumps up after a connection',
                          'words': 'the seconds the pump rate took, the last time the pumps were started before drilling again, from stopped to nine tenths of the rate drilling resumed at', 'unit': 's', 'sense': 'min', 'bounds': (2.0, 1800.0)},
     'conn.w2w_max_min': {'on': 'connection', 'name': 'weight to weight', 'ask': 'weight to weight in no more than {v} min',
@@ -117,48 +120,51 @@ def _r(v, n: int = 1):
 
 # -- what a record shows at a connection and at a trip -------------------------------------------------------------------------
 
-def _rollmax(x: np.ndarray, k: int) -> np.ndarray:
-    """The greatest of each sample and the k-1 before it (blocks' running maxima from both ends: one pass, no window copied)."""
-    n = len(x); k = max(1, int(k))
-    if k == 1 or n == 0:
-        return x.copy()
-    pad = (-n) % k
-    y = np.concatenate([x, np.full(pad, -np.inf)]).reshape(-1, k)
-    pre = np.maximum.accumulate(y, axis=1).ravel()
-    suf = np.maximum.accumulate(y[:, ::-1], axis=1)[:, ::-1].ravel()
-    out = pre[:n].copy()
-    out[k - 1:] = np.maximum(suf[:n - k + 1], pre[k - 1:n])
-    return out
-
-
 def _rate_on(t: np.ndarray, flow: np.ndarray) -> np.ndarray:
     """The pump rate above 50 gal/min, a reading or two dropped by the recorder not taken as a stop."""
     return RS._clean(np.nan_to_num(np.asarray(flow, dtype=np.float64)) > RS.P['flow_gpm'], t, 0.0, DROPOUT_S)
 
 
+def _med5(x: np.ndarray) -> np.ndarray:
+    """Each sample as the middle one of itself and the two either side: a spike or a dropout of one or two samples is gone, a step stays where it is."""
+    y = x.copy()
+    if len(x) >= 5:
+        a, b, c, d, e = x[:-4], x[1:-3], x[2:-2], x[3:-1], x[4:]
+        lo = np.maximum(np.minimum(a, b), np.minimum(d, e)); hi = np.minimum(np.maximum(a, b), np.maximum(d, e))      # the least of the four and the greatest of them are not the middle of the five
+        y[2:-2] = np.maximum(np.minimum(lo, hi), np.minimum(np.maximum(lo, hi), c))
+    return y
+
+
 def pumps_on(t: np.ndarray, flow: Optional[np.ndarray], spp: Optional[np.ndarray]) -> Optional[np.ndarray]:
     """Whether the pumps are running, sample by sample. The pump rate above 50 gal/min - but a recorder works its
-    pump rate out from the strokes and may hold the last figure for a minute after the strokes stop, so where the
-    standpipe pressure is recorded too, the pumps are off from the second the pressure began a fall that took it under
-    a quarter of its greatest in the two minutes before, for as long as it stays there. A reading or two dropped
-    (three seconds or less) is not a stop. With no pump rate: the standpipe pressure above 100 psi."""
+    pump rate out from the strokes and may go on reading its last figure for a minute after the strokes stop. So where
+    the standpipe pressure is recorded too, each time the rate comes to read nothing the pressure just after is taken
+    as the level it holds with the pumps off, and the pumps are off from the second the pressure came down to within
+    25 psi of that level - or within a twentieth of what the pumps had added to it in the two minutes before, where
+    that is more: the last of a pressure bleeding off is not pumping - however long the rate went on reading. Pumps
+    slowed down are pumps running: their pressure is above that. Pumping that adds less than that cannot be told from
+    pumps off. A reading or two dropped (three seconds or less) is not a stop. With no pump rate: the standpipe
+    pressure above 100 psi."""
     if flow is None:
         return None if spp is None else (np.nan_to_num(np.asarray(spp, dtype=np.float64)) > RS.P['spp_psi'])
     on = _rate_on(t, flow)
-    if spp is None or len(on) < 3:
+    if spp is None or len(on) < 5:
         return on
-    p = np.nan_to_num(np.asarray(spp, dtype=np.float64))
+    p = _med5(np.nan_to_num(np.asarray(spp, dtype=np.float64)))
     cad = float(np.median(np.diff(t))) if len(t) > 1 else 1.0
-    k = max(2, int(round(HELD_LOOK_S / max(cad, 1e-6))))
-    top = _rollmax(p, k)
-    low = on & (top >= HELD_MIN_PSI) & (p < HELD_SHARE * top)
-    low = ~RS._clean(~low, t, 0.0, DROPOUT_S)                    # a pressure reading or two dropped is not the pumps stopping
-    out = on & ~low
-    for a, _b in RS._runs(low):
-        j = a
-        while j > 0 and a - j < k and on[j - 1] and p[j - 1] < 0.9 * top[a]:
-            j -= 1
-        out[j:a] = False
+    k = max(2, int(round(HELD_LOOK_S / max(cad, 1e-6)))); w = max(3, int(round(HELD_AFTER_S / max(cad, 1e-6)))); skip = 2 if cad < 5.0 else 0
+    out = on.copy()
+    for s in (np.flatnonzero(on[:-1] & ~on[1:]) + 1).tolist():                       # each first sample at which the rate reads nothing
+        a, b = s + skip, s + skip + w
+        after = p[a:b][~on[a:b]]
+        if len(after) < 2:
+            continue                                                                 # the pumps were started again at once: nothing to take the level from
+        lo = max(s - k, 0)
+        off = float(np.median(after))
+        level = off + max(HELD_TOL_PSI, HELD_TOL_SHARE * (float(p[lo:s].max()) - off))     # what is left of a pressure bleeding off is not pumping
+        up = np.flatnonzero((p[lo:s][::-1] > level) | ~on[lo:s][::-1])
+        m = int(up[0]) if len(up) else s - lo
+        out[s - m:s] = False
     return out
 
 
@@ -187,9 +193,11 @@ def measure_connections(t: np.ndarray, ch: Dict[str, Optional[np.ndarray]], rs: 
         a, b = i0 + 1, i_set                                                            # off bottom, before the slips
         if pumps is not None:
             m['circ_before_s'] = float(dtv[a:b][pumps[a:b]].sum()) if b > a else 0.0
-            m['pumps_off_at_slips'] = bool(not pumps[i_set])
-            if bit is not None and bot is not None and not pumps[i_set]:
-                on = np.flatnonzero(pumps[i0:i_set + 1])
+            i_al = min(int(np.searchsorted(t, t[i_set] + SLIPS_ALLOW_S, 'right')) - 1, len(t) - 1)      # a pump spinning down and its pressure bleeding off are not pumps running
+            i_al = max(i_al, i_set)
+            m['pumps_off_at_slips'] = bool(not pumps[i_set:i_al + 1].all())
+            if bit is not None and bot is not None and m['pumps_off_at_slips']:
+                on = np.flatnonzero(pumps[i0:i_al + 1])
                 j = i0 + int(on[-1]) if len(on) else i0                                 # the last second the pumps ran
                 m['off_bottom_ft'] = max(float(bot[j] - bit[j]), 0.0)
         if flow is not None and i1 > i_set:                                             # the last time the pumps were started before drilling again
@@ -711,6 +719,17 @@ def selftest() -> dict:
        len(H) == n and all(abs(H[i]['circ_before_s'] - C[i]['circ_before_s']) <= 2.0 and H[i]['pumps_off_at_slips'] == C[i]['pumps_off_at_slips']
                            and (H[i]['off_bottom_ft'] is None) == (C[i]['off_bottom_ft'] is None) and abs((H[i]['off_bottom_ft'] or 0.0) - (C[i]['off_bottom_ft'] or 0.0)) <= 1.0 for i in range(n))
        and abs(ht['flow_check_min'] - 12.0) <= 0.6 and [x['met'] for x in held['rules']] == [x['met'] for x in a['rules']])
+    tt = np.arange(900.0)
+    slow_f = np.where(tt < 300, 600.0, np.where(tt < 600, 180.0, 0.0)); slow_p = 2700.0 * (slow_f / 600.0) ** 1.8          # slowed to three tenths for five minutes, then stopped
+    again_f = np.where(tt < 300, 600.0, np.where(tt < 360, 0.0, np.minimum((tt - 359.0) * 120.0, 600.0)))                   # stopped for a minute, brought back up in five seconds ...
+    again_p = np.where(tt < 300, 2700.0, np.where(tt < 360, 0.0, np.minimum((tt - 359.0) * 67.5, 2700.0)))                  # ... the pressure taking forty to build
+    spiky_f = np.where(tt < 340, 600.0, 0.0); spiky_f[[250, 280, 281]] = 2000.0; spiky_f[290:292] = 80000.0; spiky_p = np.where(tt < 300, 2700.0, 0.0)       # a rate held forty seconds, with spikes of one and two samples just before
+    eased_f = np.where(tt < 200, 600.0, np.where(tt < 340, 240.0, 0.0)); eased_p = np.where(tt < 300, 2700.0 * (np.where(tt < 200, 600.0, 240.0) / 600.0) ** 1.8, 0.0)   # slowed to four tenths, stopped at 300, the rate held to 340
+    on_slow = pumps_on(tt, slow_f, slow_p); on_again = pumps_on(tt, again_f, again_p); on_spiky = pumps_on(tt, spiky_f, spiky_p); on_eased = pumps_on(tt, eased_f, eased_p)
+    ck("pumps slowed to three tenths of their rate are pumps running, though the pressure is a ninth of what it was; pumps brought back up a minute after stopping are running while their pressure builds",
+       bool(on_slow[:600].all()) and not on_slow[600:].any() and bool(on_again[:300].all()) and not on_again[300:360].any() and bool(on_again[361:].all()))
+    ck("a held rate is found with spikes in it, and when the pumps were slowed to four tenths before they stopped", bool(on_spiky[:299].all()) and not on_spiky[301:].any()
+       and bool(on_eased[:299].all()) and not on_eased[301:].any())
     tr = a['_trips']
     out_ = next(x for x in tr if x['direction'] == 'OUT'); in_ = next(x for x in tr if x['direction'] == 'IN')
     ck("before the trip out: twenty-five minutes circulated and a twelve-minute flow check, each to half a minute",

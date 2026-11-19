@@ -2291,6 +2291,9 @@ def make_handler(app: App):
                 if path == '/api/decline':
                     from . import decline as DCA
                     return self._json(200, App._cr(DCA.page, app.ws, (qs.get('well') or [None])[0], (qs.get('as_of') or [None])[0]))
+                if path == '/api/channels':
+                    from . import channels as _CHN
+                    return self._json(200, App._cr(_CHN.page, app.ws, (qs.get('well') or [None])[0]))
                 if path == '/api/procedures':
                     from . import procedures as _PRC
                     return self._json(200, App._cr(_PRC.page, app.ws, (qs.get('well') or [None])[0]))
@@ -3058,6 +3061,12 @@ def make_handler(app: App):
                         return self._json(200, App._cr(DCA.set_config, app.ws, user['name'], wid, str(b_.get('source') or ''), **cfg))
                     r_ = App._cr(DCA.write_report, app.ws, _v, wid or None, user['name'])
                     return self._json(200, {'report_id': r_['report_id']})
+                if path == '/api/channels/write':
+                    from . import channels as _CHN
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    r_ = App._cr(_CHN.write_report, app.ws, _v, str(dict(body or {}).get('well') or '') or None, user['name'])
+                    return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
                 if path in ('/api/procedures/rule', '/api/procedures/rule/remove', '/api/procedures/write'):
                     from . import procedures as _PRC
                     from . import __version__ as _v

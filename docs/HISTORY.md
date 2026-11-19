@@ -4,6 +4,24 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.108.0 - 2026-11-19 - channels: what a record carries, how good it is, and who reads it
+
+- The Channels tab: each channel of a well's drilling record as the file
+  names it - readings, the middle value and its range, one value
+  throughout, dropped readings, spikes, where in the record it reads -
+  and four checks of the record as a whole (clock, bit against hole,
+  hole depth stepping back, the pump rate after the pumps stop).
+- Every tab and alert rule that reads a drilling record, with the
+  channels it looks for by its own names, and the ones that cannot read
+  a record, with what is missing.
+- The Procedures tab's reading of the pumps corrected: pumps slowed down
+  and pumps just started are running; the pumps are off from where the
+  pressure comes down to its pumps-off level; ten seconds allowed at the
+  slips.
+- Run over the five records of the Utah FORGE public pad.
+- `gea channels`, `gea help channels`.
+- Gate 638.
+
 ## v0.107.0 - 2026-11-19 - procedures: every connection and trip against the rules declared
 
 - The Procedures tab: at every drilling connection and every trip of a

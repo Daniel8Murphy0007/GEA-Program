@@ -903,7 +903,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.107.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.108.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1484,6 +1484,36 @@ it is the part of a procedure a recorder can see: a survey taken, a pill
 pumped, the flow line watched are not in it.
 
 The **Procedures** tab, `gea procedures`, `gea help procedures`.
+
+### Channels
+
+What a well's drilling record carries, how good each channel is, and who
+reads it. Every tab that reads a drilling record reads it through a few
+channels, and says little when one is missing or is not what its name
+says. This page looks at the record itself. For each channel, as the
+file names it: the share of samples that carry a reading, the middle
+value and the range nineteen in twenty fall in, whether it reads one
+value throughout (wired and dead), the readings dropped for a second or
+two and the single readings unlike both neighbours, where in the record
+it reads, and how far before the record's end it stops. For the record
+as a whole: its cadence and breaks, time standing still, the bit reading
+below the hole, the hole depth stepping back, and the pump rate going on
+reading after the standpipe pressure says the pumps have stopped. And
+for every tab and alert rule that reads a drilling record: the channels
+it looks for, by the names it knows, and whether this record has them -
+with the ones that cannot read it, and what they are missing.
+
+On the Utah FORGE public pad it reads the five wells' records of 10 to
+24 channels: a trip tank that reads zero for a whole well, a gamma ray
+column with no reading, a clock that stands still at 3,616 samples of
+one record, and on every well a pump rate that reads on for 13 to 30
+seconds after the pressure says the pumps have stopped, at more than
+half of the stops.
+
+It is not a calibration: a channel that reads steadily can still be
+wrong by a constant, and nothing in a record says so.
+
+The **Channels** tab, `gea channels`, `gea help channels`.
 
 ### Plan vs actual and the survey tools
 
@@ -2149,7 +2179,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.107.0.exe` (for 0.107.0): the
+Every release also carries `GEA-Program-Setup-0.108.0.exe` (for 0.108.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -2168,7 +2198,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.107.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.108.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

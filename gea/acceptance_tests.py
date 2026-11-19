@@ -6055,10 +6055,18 @@ def section_bn_soak(tmp: str) -> None:
     threading.Thread(target=echo_once, daemon=True).start()
     rl.restore(); time.sleep(0.3)
     cl2 = _socket.create_connection(("127.0.0.1", rl.port), timeout=5); cl2.sendall(b"again"); back2 = cl2.recv(16); cl2.close()
+    t_end = time.time() + 5.0
+    while rl.stats["bytes_to_target"] < 9 and time.time() < t_end:          # the relay counts a block after it has sent it on: the answer can be back before the count
+        time.sleep(0.02)
+    st_bn = dict(rl.stats)
     rl.stop(); echo.close()
-    ok(back == b"PING" and severed and refused and back2 == b"AGAIN" and rl.stats["cuts"] >= 1 and rl.stats["connections"] == 2 and rl.stats["bytes_to_target"] >= 9,
+    c_bn = {"bytes_both_ways": back == b"PING", "cut_severs": severed, "cut_turns_away": refused, "restored": back2 == b"AGAIN", "cuts_counted": st_bn["cuts"] >= 1,
+            "connections_counted": st_bn["connections"] == 2, "bytes_counted": st_bn["bytes_to_target"] >= 9}
+    failed_bn = [k_ for k_, v_ in c_bn.items() if not v_]
+    ok(not failed_bn,
        "BN1 the link relay: bytes flow both ways to the target; a cut closes the listener and severs every carried connection (a client's next "
-       "read sees the link gone and a new connection is refused); a restore listens again on the same port and carries a new connection")
+       "read sees the link gone and a new connection is refused); a restore listens again on the same port and carries a new connection"
+       + (f" [failed: {', '.join(failed_bn)}; back {back!r}, back2 {back2!r}, stats {st_bn}]" if failed_bn else ""))
 
     # -- the soak itself, short: two WITS0 patches, the ETP store, the SeedLink station, two outages, the page ----------
     res = SK.run(seconds=75, patches=2, etp=True, seedlink=True, outage_every_s=22, outage_s=5, interval_s=0.5, with_service=True, out_dir=str(d / "out"),
@@ -19447,6 +19455,270 @@ def section_ej_frac_treatment(tmp: str) -> None:
        "page with the published figures it was checked against, the README and lesson 14" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_fa_channels(tmp: str) -> None:
+    """Section FA - channels (0.108.0): what a well's drilling record carries, how good each channel is, and who reads
+    it. One channel's samples with known faults read back; the record's own checks of its clock, its depths and its
+    pump rate; every tab and alert rule with the channels it looks for, and the ones that cannot read a record - set
+    against what those tabs say themselves; a workspace; the routes and their roles, the tab, the command, the help,
+    the lesson and the README."""
+    import csv
+    import subprocess as _sp
+    from . import alerts as AL
+    from . import channels as CH
+    from . import dysfunction as DY
+    from . import helplib as H
+    from . import kick as KD
+    from . import procedures as PR
+    from . import series_cache as SCH
+    from . import trip_sheet as TS
+    from . import tutorial as TU
+    from .workspace import Workspace
+    import numpy as np_
+    pkg = Path(__file__).parent
+    d = Path(tmp, "fa"); d.mkdir()
+
+    def audit_actions(ws_) -> list:
+        p_ = Path(ws_.path, "records", "audit.jsonl")
+        return [json.loads(l_).get("action") for l_ in p_.read_text(encoding="utf-8").splitlines() if l_.strip()] if p_.is_file() else []
+    # -- FA1 one channel, the record's own checks, who reads what -------------------------------------------------------------------------
+    st_ = CH.selftest()
+    t = np_.arange(4000.0)
+    base = 600.0 + 20.0 * np_.sin(t / 50.0)
+    q0 = CH.quality(t, base)
+    x = base.copy(); x[[100, 900]] = 0.0; x[1500:1502] = np_.nan; x[2000:2010] = 0.0
+    q1 = CH.quality(t, x)
+    y = base.copy(); y[[300, 1200, 2500]] = 2000.0; y[3000:3200] = 900.0
+    q2 = CH.quality(t, y)
+    q3 = CH.quality(t, np_.full(4000, 39.7)); q4 = CH.quality(t, np_.full(4000, np_.nan))
+    z = base.copy(); z[3400:] = np_.nan
+    q5 = CH.quality(t, z)
+    flow = np_.where((t % 1000) < 700, 600.0, 0.0); spp = flow * 4.5
+    held = flow.copy()
+    for k in range(4):
+        held[k * 1000 + 700:k * 1000 + 740] = 600.0
+    hole = 9000.0 + np_.cumsum(np_.where(flow > 0, 0.05, 0.0)); bit = np_.minimum(hole, hole - np_.where(flow > 0, 0.0, 30.0))
+    c0 = {c_["id"]: c_ for c_ in CH.record_checks(t, {"hole": hole, "bit": bit, "flow": flow, "spp": spp})}
+    c1 = {c_["id"]: c_ for c_ in CH.record_checks(t, {"hole": hole, "bit": bit, "flow": held, "spp": spp})}
+    stepped = hole.copy(); stepped[2000:] -= 40.0
+    bad_bit = np_.minimum(stepped, stepped - np_.where(flow > 0, 0.0, 30.0)); bad_bit[500:700] = stepped[500:700] + 12.0
+    tg = t.copy(); tg[2000:] += 7200.0; tb = t.copy(); tb[3000] = tb[2999]
+    c2 = {c_["id"]: c_ for c_ in CH.record_checks(tg, {"hole": stepped, "bit": bad_bit, "flow": None, "spp": None})}
+    c3 = {c_["id"]: c_ for c_ in CH.record_checks(tb, {"hole": None, "bit": None, "flow": None, "spp": None})}
+    full = ["Hole Depth", "Bit Depth", "Hook Load", "Block Height", "Total Pump Output", "Standpipe Pressure", "Rotary RPM", "Differential Pressure", "Convertible Torque", "Weight on Bit",
+            "Rate Of Penetration", "Pit Volume Active", "Return Flow", "Trip Volume Active", "Gamma", "Interpolated TVD"]
+    rd, users = CH.read_by(full); V = {r_["id"]: r_ for r_ in rd}
+    less = [n_ for n_ in full if n_ not in ("Pit Volume Active", "Trip Volume Active", "Convertible Torque", "Differential Pressure")] + ["Mud Motor Temp"]
+    rd2, users2 = CH.read_by(less); V2 = {r_["id"]: r_ for r_ in rd2}
+    rd3, _u3 = CH.read_by(["hole depth", "BIT DEPTH", "Pit Volume Active", "Flow In", "Trip Tank 1 Volume", "Tool Face"], {"Trip Tank 1 Volume": 0.0}); V3 = {r_["id"]: r_ for r_ in rd3}
+    rd4, _u4 = CH.read_by(["Bit Depth", "Trip Tank 1 Volume"], {"Trip Tank 1 Volume": 0.0}); V4 = {r_["id"]: r_ for r_ in rd4}
+    app = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    regs = CH.readers()
+    src = {m_: (pkg / f"{m_}.py").read_text(encoding="utf-8").lower() for m_ in {r_["module"] for r_ in regs} | {"rig_state", "edr"}}
+    adrift = [(r_["id"], lab) for r_ in regs for lab, names in r_["needs"] + r_["reads"] + r_["either"]
+              if not any(n_.lower() in src[r_["module"]] or n_.lower() in src["rig_state"] or n_.lower() in src["edr"] for n_ in names)]
+    c1_ = {
+        "selftest": st_["ok"] and len(st_["checks"]) >= 13,
+        "reads_throughout": q0["readings"] == 4000 and q0["missing"] == 0 and q0["dropouts"] == 0 and q0["spikes"] == 0 and q0["behind_s"] == 0.0 and q0["constant"] is None
+                            and abs(q0["median"] - 600.0) < 5.0 and q0["p025"] < q0["median"] < q0["p975"] and q0["cover"] == [1.0] * CH.COVER_BINS,
+        "dropouts": q1["dropouts"] == 3 and q1["missing"] == 2 and q1["spikes"] == 0,
+        "spikes": q2["spikes"] == 3 and q2["dropouts"] == 0,
+        "one_value": q3["constant"] == 39.7 and q3["readings"] == 4000 and q3["spikes"] == 0,
+        "no_readings": q4["readings"] == 0 and q4["median"] is None and q4["constant"] is None and q4["cover"] == [0.0] * CH.COVER_BINS and q4["behind_s"] is None,
+        "stops_early": q5["behind_s"] == 600.0 and q5["readings"] == 3400 and q5["cover"][0] == 1.0 and q5["cover"][-1] == 0.0,
+        "coarse_record": CH.quality(t[::10], x[::10])["dropouts"] == 0,
+        "pump_rate_true": c0["held_rate"]["status"] == "OK" and c0["held_rate"]["holds"] == 0 and c0["held_rate"]["stops"] == 4,
+        "pump_rate_held": c1["held_rate"]["status"] == "LOOK" and c1["held_rate"]["holds"] == 4 and abs(c1["held_rate"]["median_s"] - 40.0) <= 2.0 and "40 s" in c1["held_rate"]["detail"],
+        "bit_below_hole": c2["depths"]["status"] == "LOOK" and c2["depths"]["samples"] == 200 and c2["depths"]["worst_ft"] == 12.0 and c0["depths"]["status"] == "OK",
+        "hole_steps_back": c2["hole_steps"]["status"] == "LOOK" and c2["hole_steps"]["steps"] == 1 and c2["hole_steps"]["largest_ft"] == 40.0 and c0["hole_steps"]["status"] == "OK",
+        "the_clock": c2["clock"]["gaps"] == 1 and c2["clock"]["gap_hours"] == 2.0 and c2["clock"]["status"] == "OK" and c0["clock"]["cadence_s"] == 1.0 and c3["clock"]["status"] == "LOOK"
+                     and c3["clock"]["backwards"] == 1,
+        "not_read": [c3[k_]["status"] for k_ in ("depths", "hole_steps", "held_rate")] == ["NOT READ"] * 3 and c2["held_rate"]["status"] == "NOT READ",
+        "every_reader_reads_a_full_record": all(r_["verdict"] == "READS" for r_ in rd) and len(rd) >= 24 and all(users[n_] for n_ in full),
+        "cannot_read": [V2[k_]["verdict"] for k_ in ("kick", "trips", "stickslip", "stall")] == ["CANNOT READ"] * 4 and V2["kick"]["missing"] == ["active pit volume"]
+                       and V2["trips"]["missing"] == ["trip tank or pits"] and V2["stall"]["missing"] == ["differential pressure"] and V2["stickslip"]["missing"] == ["surface torque"]
+                       and V2["kick"]["words"] == "cannot read this record: it has no active pit volume",
+        "the_rest_still_read": all(V2[k_]["verdict"] == "READS" for k_ in ("record", "rigtime", "benchmark", "daily", "procedures", "washout", "tight", "bounce", "sticking", "hydraulics", "torquedrag")),
+        "no_reader": users2["Mud Motor Temp"] == [] and "Rig time" in users2["Hook Load"] and "Kick & loss" not in users2["Hook Load"],
+        "by_the_names_it_knows": V3["kick"]["verdict"] == "READS" and next(q_ for q_ in V3["kick"]["needs"] if q_["what"] == "the pump rate")["channel"] == "Flow In"
+                                 and next(q_ for q_ in V3["rigtime"]["reads"] if q_["what"] == "the pump rate")["channel"] is None
+                                 and next(q_ for q_ in V3["rigtime"]["reads"] if q_["what"] == "the hole depth")["channel"] == "hole depth"
+                                 and next(q_ for q_ in V3["slides"]["reads"] if q_["what"] == "the gravity toolface")["channel"] == "Tool Face",
+        "dead_beside_live": V3["trips"]["verdict"] == "READS" and V3["trips"]["dead"] == ["the trip tank"],
+        "dead_alone": V4["trips"]["verdict"] == "NOTHING TO READ" and "one value throughout" in V4["trips"]["words"],
+        "the_lists_are_the_tabs_own": adrift == [] and next(r_ for r_ in regs if r_["id"] == "kick")["needs"][1][1] is KD.NAMES["pit"]
+                                      and next(r_ for r_ in regs if r_["id"] == "trips")["either"][0][1] is TS.TANK_NAMES,
+        "readers_are_tabs": all(f"['{r_['tab']}', " in app for r_ in regs) and len({r_["id"] for r_ in regs}) == len(regs),
+        "alert_rules_are_events": all(e_.strip() in AL.EVENTS for r_ in regs if r_["event"] for e_ in r_["event"].split(",")) and sum(1 for r_ in regs if r_["kind"] == "alert rule") == 9,
+    }
+    failed1 = [k_ for k_, v in c1_.items() if not v]
+    ok(not failed1,
+       "FA1 one channel's samples read back with their faults: two readings dropped for a second and one for two seconds are three dropouts and ten seconds of nothing is none, three "
+       "single readings far from both neighbours are three spikes and a step that stays is none, a channel at 39.7 throughout reads one value, a column of no values has no reading, "
+       "and a channel that stops 600 s early is that far behind the record's end; the record's own checks find a pump rate reading on for forty seconds after each of four stops, the "
+       "bit twelve feet below the hole for two hundred samples, a hole depth stepping back forty feet, a two-hour break and a clock standing still, and say NOT READ where the "
+       "channels are not there; every tab and alert rule reads a record that has every channel, and without a pit volume, a trip tank, a torque and a differential pressure Kick & "
+       "loss, the Trip sheet, stick-slip and the motor stall say which they have not while the rest still read; a channel is found by the names a tab knows, whatever their case, "
+       "and a channel no tab knows has no reader; a trip tank at one value is dead beside pits that move and nothing to read alone; and the lists of names are the tabs' own, every "
+       "reader a tab of the bar, every alert rule an event the service knows" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- FA2 a workspace: a record with known faults, set against what the tabs say themselves -----------------------------------------------
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Made pad", actor="tester")
+    empty = CH.page(ws)
+
+    def write(rec_, path_, extra):
+        DY.write_edr(rec_, str(path_))
+        rows = Path(path_).read_text(encoding="utf-8").splitlines()
+        out_ = [rows[0] + "".join("," + h_ for h_, _v in extra)] + [r_ + "".join("," + v_ for _h, v_ in extra) for r_ in rows[1:]]
+        Path(path_).write_text("\n".join(out_) + "\n", encoding="utf-8")
+        return str(path_)
+    rec = PR.made_record(stands=12, circ_s=(60, 120, 45), passes=(1, 2, 0), ramp_s=(30, 8, 60), off_ft=(30.0, 40.0, 30.0), held_s=40.0)
+    dr = np_.flatnonzero(rec["drilling"])
+    rec["ch"]["flow"][dr[[500, 900]]] = 0.0                              # two readings of the pump rate dropped while drilling
+    rec["ch"]["hookload"][dr[[300, 700, 1100]]] += 300.0                 # three spikes in the hook load
+    extra = (("Trip Tank Mud Volume (barrels)", "0.00"), ("Gamma (api)", "-999.25"), ("Mud Motor Temp (degf)", "151.5"))
+    wa = ws.add_well_file(write(rec, d / "a.csv", extra), display="Well A", actor="tester")["id"]
+    live_rec = PR.made_record(stands=4, trip_after=None, ends_now=True)
+    wb = ws.add_well_file(write(live_rec, d / "b.csv", (("Pit Volume Active (barrels)", "500.00"),)), display="Well B", actor="tester")["id"]
+    wc = ws.add_well_records("Well C", actor="tester")["id"]
+    n_audit = len(audit_actions(ws))
+    p = CH.page(ws, wa); r = p["result"]; C = {c_["name"]: c_ for c_ in r["channels"]}; K = {c_["id"]: c_ for c_ in r["checks"]}; RD = {x_["id"]: x_ for x_ in r["readers"]}
+    wrote_nothing = len(audit_actions(ws)) == n_audit and not Path(wsp, "reports", "channels").exists()
+    pb = CH.page(ws, wb); rb = pb["result"]; RB = {x_["id"]: x_ for x_ in rb["readers"]}; CB = {c_["name"]: c_ for c_ in rb["channels"]}
+    pc = CH.page(ws, wc)
+    dy = DY.well(ws, wa); kd = KD.well(ws, wa); ts = TS.well(ws, wa); kdb = KD.well(ws, wb)
+    rep = CH.write_report(ws, "9.9.9", wa, actor="tester"); rdir = Path(rep["folder"])
+    with open(rdir / "channels.csv", newline="", encoding="utf-8") as f:
+        rows_csv = list(csv.reader(f))
+    src_path = SCH.source_path(ws, wb); old = time.time() - 4 * 3600.0
+    os.utime(src_path, (old, old))                                    # the file last written four hours ago: not a record still being written
+    rb_old = CH.page(ws, wb)["result"]
+    stops = K["held_rate"]["stops"]
+    c2_ = {
+        "no_record": empty["status"] == "NO DRILLING RECORD" and empty["result"] is None and empty["wells"] == [] and len(empty["not_a_measurement"]) >= 5,
+        "wells": [w_["display"] for w_ in p["wells"]] == ["Well A", "Well B"] and p["well"] == wa and pc["well"] == wa and "Well C has no drilling record" in pc["lines"][0],
+        "the_file": r["source"]["file"] == "a.csv" and "drilling recorder" in r["source"]["layout"] and r["source"]["being_written"] is False and r["record"]["samples"] == len(rec["t"])
+                    and r["record"]["start"] == "2026-09-01T06:00:00" and r["record"]["clock"].startswith("the drilling recorder"),
+        "as_the_file_names_them": len(C) == 14 and C["Hole Depth"]["unit"] == "ft" and C["Total Pump Output"]["unit"] == "gal/min" and C["Trip Tank Mud Volume"]["unit"] == "bbl",
+        "dropped": C["Total Pump Output"]["dropouts"] == 2 and C["Total Pump Output"]["mark"] == "OK" and C["Standpipe Pressure"]["dropouts"] == 0,
+        "spikes": C["Hook Load"]["spikes"] == 3 and C["Hook Load"]["mark"] == "OK" and C["Hole Depth"]["spikes"] == 0,
+        "one_value": C["Trip Tank Mud Volume"]["mark"] == "ONE VALUE" and C["Trip Tank Mud Volume"]["constant"] == 0.0 and C["Differential Pressure"]["mark"] == "ONE VALUE"
+                     and C["Mud Motor Temp"]["mark"] == "ONE VALUE" and C["Mud Motor Temp"]["constant"] == 151.5,
+        "no_readings": C["Gamma"]["mark"] == "NO READINGS" and C["Gamma"]["readings"] == 0 and C["Gamma"]["missing"] == r["record"]["samples"] and C["Gamma"]["last"] is None,
+        "middle_and_range": abs(C["Total Pump Output"]["median"] - 600.0) <= 1.0 and C["Total Pump Output"]["p025"] == 0.0 and C["Hook Load"]["readings_pct"] == 100.0
+                            and C["Hole Depth"]["behind_s"] == 0.0 and len(C["Hole Depth"]["cover"]) == CH.COVER_BINS,
+        "read_by": "Rig time" in C["Hook Load"]["readers"] and "Procedures" in C["Standpipe Pressure"]["readers"] and C["Mud Motor Temp"]["readers"] == []
+                   and "Trip sheet" in C["Trip Tank Mud Volume"]["readers"] and "The drilling record itself" in C["On Bottom"]["readers"],
+        "the_record_as_a_whole": K["clock"]["status"] == "OK" and K["clock"]["cadence_s"] == 1.0 and K["depths"]["status"] == "OK" and K["hole_steps"]["status"] == "OK"
+                                 and K["held_rate"]["status"] == "LOOK" and stops >= 11 and K["held_rate"]["holds"] == stops and abs(K["held_rate"]["median_s"] - 40.0) <= 2.0,
+        "kick_says_so_itself": RD["kick"]["verdict"] == "CANNOT READ" and RD["kick"]["missing"] == ["active pit volume"] and kd["status"] == "NO PIT VOLUME"
+                               and RB["kick"]["verdict"] == "NOTHING TO READ" and CB["Pit Volume Active"]["mark"] == "ONE VALUE" and kdb["status"] != "NO PIT VOLUME",
+        "stickslip_says_so_itself": RD["stickslip"]["verdict"] == "CANNOT READ" and dy["stickslip"]["status"] == "NO CHANNELS",
+        "the_alert_rules_that_read": all(RD[k_]["verdict"] == "READS" for k_ in ("washout", "tight", "bounce")) and all(dy[k_]["status"] != "NO CHANNELS" for k_ in ("washout", "tight", "bounce")),
+        "dead_channels": RD["stall"]["verdict"] == "NOTHING TO READ" and "the differential pressure reads one value throughout" in RD["stall"]["words"]
+                         and RD["trips"]["verdict"] == "NOTHING TO READ" and ts["status"] != "NO VOLUME" and not any(x_.get("source") for x_ in ts.get("trips", [])),
+        "lines": "14 channels in a.csv" in p["lines"][0] and any("read one value throughout" in l_ and "Trip Tank Mud Volume" in l_ for l_ in p["lines"])
+                 and any(l_.startswith("Cannot read this record: ") and "Kick & loss (no active pit volume)" in l_ for l_ in p["lines"])
+                 and any(l_.startswith("Nothing in this record for: ") for l_ in p["lines"]) and any("no tab looks for by that name: Mud Motor Temp" in l_ for l_ in p["lines"])
+                 and any("The pump rate after the pumps stop" in l_ for l_ in p["lines"]),
+        "reading_writes_nothing": wrote_nothing,
+        "being_written": rb["source"]["being_written"] is True and rb["source"]["written_ago_s"] is not None and rb["source"]["written_ago_s"] < 3600.0
+                         and any("still being written" in l_ for l_ in pb["lines"]) and rb_old["source"]["being_written"] is False and rb_old["source"]["written_ago_s"] >= 4 * 3600.0 - 5.0
+                         and rb_old["channels"] == rb["channels"],
+        "report": rep["files"] == ["channels.json", "channels.md", "channels.csv"] and all((rdir / n_).is_file() for n_ in rep["files"]) and len(rows_csv) == 15
+                  and rows_csv[0][:3] == ["name", "unit", "samples"] and rows_csv[0][-1] == "read_by" and "What this will not call a measurement" in (rdir / "channels.md").read_text(encoding="utf-8")
+                  and "channels.report" in audit_actions(ws) and len(json.loads((rdir / "channels.json").read_text(encoding="utf-8"))["result"]["readers"]) == len(r["readers"]),
+    }
+    failed2 = [k_ for k_, v in c2_.items() if not v]
+    ok(not failed2,
+       "FA2 a workspace: with no drilling record the page says so; a made record written as a recorder's export with three columns added - a trip tank at 0.0, a gamma ray of no "
+       "values, a temperature no tab knows - is read channel by channel as the file names them: the two readings of the pump rate dropped and the three spikes put in the hook load "
+       "are counted, the dead columns read one value, the empty one has no reading, the temperature has no reader; the pump rate made to read on for forty seconds after every stop "
+       "is found at every stop; Kick & loss cannot read the record and says so itself (NO PIT VOLUME), stick-slip cannot and says so itself (NO CHANNELS), the washout, tight-hole "
+       "and bit-bounce rules read it and do not say otherwise, and the motor stall and the Trip sheet find their channels reading one value and have nothing to read; reading "
+       "writes nothing; a record whose file is being written is said to be, with how long ago, and four hours later is not - its channels the same; the report is three files, a "
+       "row a channel" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- FA3 the routes and their roles, the tab, the command, the words -------------------------------------------------------------
+    from .service import Service, Users
+    import http.cookiejar
+    import urllib.error
+    import urllib.request
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer")
+    Users(str(Path(wsp, "users.json"))).add("o", "operator-pass-1", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+
+    def session(name: str, pw: str):
+        o_ = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq_ = urllib.request.Request(svc.url.rstrip("/") + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw}).encode())
+        rq_.add_header("Content-Type", "application/json"); rq_.add_header("X-GEA-Action", "1"); o_.open(rq_, timeout=30)
+
+        def call(path: str, body=None):
+            rq2 = urllib.request.Request(svc.url.rstrip("/") + path, method="POST" if body is not None else "GET", data=json.dumps(body).encode() if body is not None else None)
+            if body is not None:
+                rq2.add_header("Content-Type", "application/json"); rq2.add_header("X-GEA-Action", "1")
+            try:
+                with o_.open(rq2, timeout=90) as r_:
+                    return r_.status, json.loads(r_.read())
+            except urllib.error.HTTPError as e:
+                return e.code, json.loads(e.read() or b"{}")
+        return call
+    try:
+        v = session("v", "viewer-pass-1"); o = session("o", "operator-pass-1")
+        s_page, api = v(f"/api/channels?well={wa}")
+        s_first, api_first = v("/api/channels")
+        s_norec, api_norec = v(f"/api/channels?well={wc}")
+        s_nowell, _ = v("/api/channels?well=nope")
+        s_v_wr, _ = v("/api/channels/write", {"well": wa})
+        s_o_wr, o_wr = o("/api/channels/write", {"well": wb})
+        s_o_nowell, _ = o("/api/channels/write", {"well": "nope"})
+    finally:
+        svc.stop()
+    ch_js = app[app.index("// ---------- channels:"):app.index("// ---------- procedures:")]
+    env = {**os.environ, "PYTHONPATH": str(pkg.parent) + os.pathsep + os.environ.get("PYTHONPATH", "")}
+    run = lambda *a_: _sp.run([sys.executable, "-m", "gea", "channels", *a_], capture_output=True, text=True, env=env, cwd=str(pkg.parent))
+    cli_self = run(); cli_ws = run("--workspace", wsp, "--well", "Well A"); cli_wr = run("--workspace", wsp, "--well", "Well A", "--write"); cli_nowell = run("--workspace", wsp, "--well", "nope")
+    cli_json = run("--workspace", wsp, "--json")
+    hp = (pkg / "help" / "channels.md").read_text(encoding="utf-8")
+    lesson = (pkg / "help" / "tutorial" / "05-add-well.md").read_text(encoding="utf-8")
+    root = pkg.parent
+    readme = (root / "README.md").read_text(encoding="utf-8") if (root / "README.md").is_file() else None
+    chlog = (root / "CHANGELOG.md").read_text(encoding="utf-8") if (root / "CHANGELOG.md").is_file() else None
+    cov = TU.coverage()
+    mod_src = (pkg / "channels.py").read_text(encoding="utf-8")
+    from . import client_reports as CRX
+    c3_ = {
+        "page_route": s_page == 200 and api["well"] == wa and len(api["result"]["channels"]) == 14 and len(api["result"]["checks"]) == 4 and len(api["result"]["readers"]) == len(regs)
+                      and len(api["not_a_measurement"]) >= 5 and api["limits"]["dropout_s"] == CH.DROPOUT_S and "mtime" not in api["result"]["source"],
+        "first_well": s_first == 200 and api_first["well"] == wa,
+        "a_well_with_no_record": s_norec == 200 and api_norec["well"] == wa and "Well C has no drilling record" in api_norec["lines"][0],
+        "said": s_nowell == 404 and s_o_nowell == 404,
+        "viewer_reads_only": s_v_wr == 403,
+        "operator_writes": s_o_wr == 200 and o_wr["files"] == ["channels.json", "channels.md", "channels.csv"] and Path(o_wr["folder"]).name == wb,
+        "tab": "['#/channels', 'Channels']" in app and "['Wells & data', ['#/wells', '#/channels', '#/files'," in app and "VIEWS.channels = async" in app and "function chCover(" in app,
+        "page_parts": all(x_ in ch_js for x_ in ("Channel by channel", "The record as a whole", "Who reads it", "Where it reads", "19 in 20 between", "Cannot do without", "Reads when it is there",
+                                                 "no tab looks for this name", "Write the report", "What this page will not call a measurement", "not being written")),
+        "no_storage": "localStorage" not in ch_js and "sessionStorage" not in ch_js and "document.cookie" not in ch_js,
+        "cli_selftest": cli_self.returncode == 0 and cli_self.stdout.strip().endswith("OK - made channels with known faults, and made lists of channel names") and "FAIL" not in cli_self.stdout,
+        "cli_page": cli_ws.returncode == 0 and "Channels - Well A" in cli_ws.stdout and "Who reads it:" in cli_ws.stdout and "CANNOT READ" in cli_ws.stdout and "ONE VALUE" in cli_ws.stdout,
+        "cli_writes": cli_wr.returncode == 0 and "written: channels.json, channels.md, channels.csv" in cli_wr.stdout,
+        "cli_says": cli_nowell.returncode != 0 and "no well 'nope'" in cli_nowell.stderr,
+        "cli_json": cli_json.returncode == 0 and json.loads(cli_json.stdout)["well"] == wa,
+        "help": H.check("channels") == [] and H.VIEW_TOPIC.get("channels") == "channels" and any(t_["topic"] == "channels" for t_ in H.topics())
+                and all(x_ in hp for x_ in ("**Channel by channel**", "**The record as a whole**", "**Who reads it**", "one value", "channels.csv", "not in a file", "a calibration")),
+        "lesson": "#/channels" in lesson and "open **Channels**" in lesson and TU.check("add-well") == [] and cov["tabs_unreached"] == [] and cov["help_untaught"] == [],
+        "standalone": "gea_driller" not in mod_src and not [t_ for t_ in CRX.FORBIDDEN_TERMS if t_ in mod_src.lower()],
+        "readme": readme is None or ("### Channels" in readme and "`gea channels`" in readme and "not a calibration" in readme),
+        "changelog": chlog is None or "## [v0.108.0]" in chlog,
+    }
+    failed3 = [k_ for k_, v in c3_.items() if not v]
+    ok(not failed3,
+       "FA3 the Channels tab: any signed-in account reads a well's channels, the record's checks and who reads it, and only the operator role writes the report (a viewer is "
+       "turned away with 403; an unknown well is 404; a well with no drilling record shows the first that has one and says so); the tab is under Wells & data, shows each channel "
+       "with where in the record it reads, the checks of the record as a whole and every reader with what it cannot do without, and keeps nothing in the browser's storage; "
+       "`gea channels` runs the self-test, prints a well's page, writes the report and says when a well is not there; the help, the lesson and the README say what is read and "
+       "that it is not a calibration" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def section_ez_procedures(tmp: str) -> None:
     """Section EZ - procedures (0.107.0): every connection and every trip of a drilling record against the rules the
     operator declares. What a record shows of how a connection was made and a trip started, read back from a record
@@ -19484,6 +19756,13 @@ def section_ez_procedures(tmp: str) -> None:
     on_true = PR.pumps_on(t, flow, spp); on_held = PR.pumps_on(t, held, spp); on_bleed = PR.pumps_on(t, held, bleed); on_rate_only = PR.pumps_on(t, held, None)
     drop = flow.copy(); drop[100:102] = 0.0; drop_p = spp.copy(); drop_p[200:202] = 0.0; long_ = flow.copy(); long_[100:110] = 0.0
     shallow = PR.pumps_on(t, np_.full(600, 300.0), np_.full(600, 80.0))   # a big hole near surface: 300 gal/min at 80 psi is pumping
+    tt = np_.arange(900.0)
+    slow_f = np_.where(tt < 300, 600.0, np_.where(tt < 600, 180.0, 0.0)); on_slow = PR.pumps_on(tt, slow_f, 2700.0 * (slow_f / 600.0) ** 1.8)        # slowed to three tenths for five minutes, then stopped
+    again_f = np_.where(tt < 300, 600.0, np_.where(tt < 360, 0.0, np_.minimum((tt - 359.0) * 120.0, 600.0)))                                      # stopped a minute, back up in five seconds ...
+    on_again = PR.pumps_on(tt, again_f, np_.where(tt < 300, 2700.0, np_.where(tt < 360, 0.0, np_.minimum((tt - 359.0) * 67.5, 2700.0))))          # ... the pressure taking forty to build
+    eased_f = np_.where(tt < 200, 600.0, np_.where(tt < 340, 240.0, 0.0))                                                                         # slowed to four tenths, stopped at 300, the rate held to 340
+    on_eased = PR.pumps_on(tt, eased_f, np_.where(tt < 300, 2700.0 * (np_.where(tt < 200, 600.0, 240.0) / 600.0) ** 1.8, 0.0))
+    on_offset = PR.pumps_on(tt, np_.where(tt < 340, 300.0, 0.0), np_.where(tt < 300, 270.0, 120.0))                                               # a gauge that reads 120 psi with the pumps off, the rate held forty seconds
     no_pumps = {k_: (None if k_ in ("flow", "spp") else v) for k_, v in rec["ch"].items()}
     rs_ = RS.analyse_arrays(rec["t"], rec["t0"], rec["ch"], rec["drilling"], rec["ch"]["hole"], rec.get("block_weight"))
     blind = PR.analyse_arrays(rec["t"], rec["t0"], no_pumps, rs_, [mk("conn.circulate_before_s", 60, id="B1"), mk("conn.w2w_max_min", 6.0, id="B2"), mk("trip.flow_check_min", 10, id="B3")])
@@ -19519,7 +19798,11 @@ def section_ez_procedures(tmp: str) -> None:
         "pipe_speed": abs(out_["speed_ft_min"] - 120.0) <= 5.0 and abs(in_["speed_ft_min"] - 90.0) <= 5.0,
         "pumps_true": bool(on_true[:300].all()) and not on_true[300:].any(),
         "held_rate": bool((on_held == on_true).all()) and bool(on_rate_only[300:340].all()) and not on_rate_only[340:].any(),
-        "pressure_bleeding": bool(on_bleed[:299].all()) and not on_bleed[301:].any(),
+        "pressure_bleeding": bool(on_bleed[:306].all()) and not on_bleed[310:].any(),
+        "slowed_is_running": bool(on_slow[:600].all()) and not on_slow[600:].any(),
+        "starting_is_running": bool(on_again[:300].all()) and not on_again[300:360].any() and bool(on_again[361:].all()),
+        "slowed_then_held": bool(on_eased[:299].all()) and not on_eased[301:].any(),
+        "a_gauge_off_its_zero": bool(on_offset[:299].all()) and not on_offset[301:].any(),
         "dropout_is_not_a_stop": bool(PR.pumps_on(t, drop, spp)[:300].all()) and bool(PR.pumps_on(t, flow, drop_p)[:300].all()) and not PR.pumps_on(t, long_, spp)[100:110].any(),
         "low_pressure_is_pumping": bool(shallow.all()),
         "no_pump_channels": PR.pumps_on(t, None, None) is None and bool((PR.pumps_on(t, None, spp) == on_true).all()),
@@ -19551,7 +19834,9 @@ def section_ez_procedures(tmp: str) -> None:
        "EZ1 a record made a known way - twelve stands, ten connections and a trip - is read back: the seconds circulated off bottom before the slips to three, the reaming passes "
        "exactly, the one connection made with the pumps on, the bit's distance off bottom when the pumps stopped to a foot, the pumps' ramp to three seconds, the 25 minutes "
        "circulated and the 12-minute flow check before the trip out to half a minute, the pipe pulled at 120 ft/min and run at 90 to five; a pump rate that reads on for forty "
-       "seconds after the pumps stop is overruled by the standpipe pressure from the second it began to fall, a reading or two dropped is not a stop and ten seconds of none is, and "
+       "seconds after the pumps stop is overruled by the standpipe pressure from the second it came down to the level it holds with the pumps off - also on a gauge that reads 120 psi "
+       "with them off, and when the pumps were slowed first; pumps slowed to three tenths of their rate are running, and so are pumps just started whose pressure is still building; "
+       "a reading or two dropped is not a stop and ten seconds of none is, and "
        "300 gal/min at 80 psi is pumping; with no pump channels the rules that need them are NOT READ and the weight-to-weight rule is still judged; there are nine kinds of rule, "
        "each said in words; a figure out of bounds, a word for a number, a rule that is not one, a stretch of hole that ends above its start, a direction that is not one and a "
        "rule with no source are each turned away; and twelve rules are counted as the record was made - by connection, by trip, by direction and by stretch of hole, the furthest "
@@ -19730,7 +20015,7 @@ def section_ez_procedures(tmp: str) -> None:
         "cli_declares": cli_add.returncode == 0 and "at least 2 reaming passes before the slips are set" in cli_add.stdout and new_id.startswith("R") and cli_rm.returncode == 0 and f"taken off: {new_id}" in cli_rm.stdout,
         "cli_says": cli_bad.returncode != 0 and "between 1 and 10 passes" in cli_bad.stderr and cli_nowell.returncode != 0 and "no well 'nope'" in cli_nowell.stderr,
         "help": H.check("procedures") == [] and H.check("alerts") == [] and H.VIEW_TOPIC.get("procedures") == "procedures" and any(t_["topic"] == "procedures" for t_ in H.topics())
-                and all(x_ in hp for x_ in ("**When the pumps are on**", "MET, NOT MET, or NOT READ", "procedure.departed", "departures.csv", "580 drilling connections", "not a crew"))
+                and all(x_ in hp for x_ in ("**When the pumps are on**", "MET, NOT MET, or NOT READ", "procedure.departed", "departures.csv", "580 drilling connections", "not a crew", "within ten seconds"))
                 and "`procedure.departed`" in hp_al,
         "lesson": "#/procedures" in lesson and "Open **Procedures**" in lesson and TU.check("rig-time") == [] and cov["tabs_unreached"] == [] and cov["help_untaught"] == [],
         "standalone": "gea_driller" not in mod_src and not [t_ for t_ in CRX.FORBIDDEN_TERMS if t_ in mod_src.lower()],
@@ -22880,6 +23165,7 @@ def main() -> int:
         section_ex_daily_report(tmp)
         section_ey_wellbore_stability(tmp)
         section_ez_procedures(tmp)
+        section_fa_channels(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

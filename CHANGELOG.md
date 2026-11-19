@@ -5,6 +5,79 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.108.0] - 2026-11-19 - channels: what a record carries, how good it is, and who reads it
+
+### Added
+- **The Channels tab**, under Wells & data. Every tab that reads a
+  drilling record reads it through a few channels, and says little when
+  one is missing or is not what its name says. This page looks at the
+  record itself. For each channel, as the file names it: the share of
+  samples that carry a reading, the middle value and the range nineteen
+  in twenty fall in, whether it reads one value throughout (wired and
+  dead), readings dropped for a second or two, single readings unlike
+  both neighbours, where in the record it reads, and how far before the
+  record's end it stops.
+- **The record as a whole.** Four checks of what the channels say of
+  each other: the clock (cadence, breaks, time standing still), the bit
+  reading below the hole, the hole depth stepping back, and the pump
+  rate going on reading after the standpipe pressure says the pumps have
+  stopped.
+- **Who reads it.** Every tab and every alert rule that reads a drilling
+  record, with the channels each looks for by the names it knows - the
+  lists are the tabs' own - and whether this record has them. A reader
+  that says itself it cannot do without a channel and does not find it
+  is marked, with what is missing; one that finds it reading one value
+  throughout has nothing to read. It is the page to open when a tab
+  says it cannot read a well.
+- For a record still being written: how long ago the file was last
+  written, and each channel's last reading against the record's end.
+- `gea channels` (the page, `--write`; with no workspace, the
+  self-test), `gea help channels`, a step in lesson 5, a README section.
+
+### Changed
+- **The Procedures tab reads the pumps more carefully.** v0.107.0 took
+  the pumps as stopped wherever the standpipe pressure had fallen under
+  a quarter of its recent greatest. That found the pump rate reading on
+  after a stop, but it also called pumps stopped when they had only been
+  slowed to under half their rate, and pumps just started whose pressure
+  was still building. Now, each time the rate comes to read nothing, the
+  pressure just after is taken as the level it holds with the pumps off,
+  and the pumps are off from the second the pressure came down to that
+  level. Slowed pumps and starting pumps read as running. A gauge that
+  does not read zero with the pumps off is allowed for.
+- **Ten seconds at the slips.** The pumps count as off when the slips
+  are set if they are off within ten seconds of it: a pump spinning
+  down, its pressure bleeding off, is not a pump running. On the record
+  sampled every ten seconds, v0.107.0 read 79 in 100 connections as made
+  with the pumps off; it is 98.
+- On the public Utah FORGE records the pumps are now read as off at the
+  slips at 94 to 100 in 100 of each well's connections (v0.107.0: 79 to
+  100). The connections that are left were looked at sample by sample:
+  the weight came off the hook with the pumps still at pressure. The
+  seconds circulated before the slips read longer on the wells that
+  slow their pumps as they pick up: a middle value of 19 s on one where
+  v0.107.0 read 2.
+
+### Notes
+- Found by this release's own page. Its check of the pump rate counted
+  far more "held" rates than there could be, and reading the samples
+  showed why: most were pumps being slowed down, which v0.107.0's rule
+  could not tell from pumps stopped.
+- On the five public records the Channels page reads 10 to 24 channels a
+  well: a trip tank that reads zero for a whole well, a gamma ray column
+  with no reading, a clock that stands still at 3,616 samples of one
+  record, and on every well a pump rate that reads on for 13 to 30
+  seconds after the pressure says the pumps have stopped.
+- It is not a calibration. A channel that reads steadily and plausibly
+  can still be wrong by a constant, and nothing in a record says so. The
+  delay it gives is the file's, not the sensor's.
+- The alert rules' model cards, the second half of this step of the
+  plan, are the next release.
+- A gate check of the link relay could read the relay's count of bytes
+  before the relay had made it, and failed once in this release's gate
+  for that. It now waits for the count. The relay is not changed.
+- Gate 638: section FA, three checks.
+
 ## [v0.107.0] - 2026-11-19 - procedures: every connection and trip against the rules declared
 
 ### Added

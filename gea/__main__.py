@@ -874,6 +874,12 @@ def main(argv=None) -> int:
     p_cs.add_argument("--actor", type=str, default="cli")
     p_cs.add_argument("--json", action="store_true")
 
+    p_chn = sub.add_parser("channels", help="channels: what a well's drilling record carries - each channel's source, how many samples read, dropped readings and spikes, a channel reading one value throughout, how far behind the record's end it stops - and which tabs and alert rules read it")
+    p_chn.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (made channels with known faults)")
+    p_chn.add_argument("--well", type=str, default=None, help="a well, by its name or id")
+    p_chn.add_argument("--write", action="store_true", help="write the report: reports/channels/ under the workspace, a folder a well")
+    p_chn.add_argument("--actor", type=str, default="cli", help="who is doing this, for the audit trail")
+    p_chn.add_argument("--json", action="store_true")
     p_prc = sub.add_parser("procedures", help="procedures: every connection and every trip of a drilling record against the rules the operator declares - circulating before a connection, reaming, the pumps off before the slips, the pumps brought up slowly, a flow check before a trip out, the pipe's speed")
     p_prc.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (a made record whose connections and trip were made a known way)")
     p_prc.add_argument("--well", type=str, default=None, help="a well, by its name or id")
@@ -3292,6 +3298,34 @@ def main(argv=None) -> int:
         except (KeyError, ValueError, OSError, WorkspaceError) as e:
             raise SystemExit(f"casing: {e.args[0] if e.args else e}")
         print(_json.dumps(r, default=str) if a.json else _CSG.text(r))
+        return 0
+    elif a.cmd == "channels":
+        import json as _json
+        from . import channels as _CHN
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if not a.workspace:
+            r = _CHN.selftest()
+            print("\n".join(f"{'PASS' if c['pass'] else 'FAIL'}  {c['name']}" for c in r["checks"]) + f"\n{'OK' if r['ok'] else 'FAILED'} - {r['label']}")
+            return 0 if r["ok"] else 1
+        try:
+            ws = Workspace(a.workspace)
+            wid = None
+            if a.well:
+                wid = next((w["id"] for w in ws.wells() if a.well in (w["id"], w.get("display"))), None)
+                if wid is None:
+                    raise SystemExit(f"channels: no well {a.well!r} in this workspace")
+            if a.write:
+                from . import __version__ as _ver108
+                r = _CHN.write_report(ws, _ver108, wid, a.actor)
+                print(f"written: {', '.join(r['files'])} under {r['folder']}")
+            p = _CHN.page(ws, wid)
+        except WorkspaceError as e:
+            raise SystemExit(f"channels: {e}")
+        except (ValueError, KeyError) as e:
+            raise SystemExit(f"channels: {e.args[0] if e.args else e}")
+        print(_json.dumps(p, default=str) if a.json else _CHN.text(p))
         return 0
     elif a.cmd == "procedures":
         import json as _json

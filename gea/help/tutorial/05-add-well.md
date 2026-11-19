@@ -1,7 +1,7 @@
 # 5. Add a well from a file
 Who: office
 Where: #/wells
-Pages: #/files
+Pages: #/files, #/channels
 Takes: 20 minutes
 > A file becomes a well with the same reports as any other: a gauge history, a drilling recorder's export, a well log, a catalogue entry.
 
@@ -15,11 +15,12 @@ A CSV from a historian (one timestamp column, then the channels); a drilling rec
 4. Open **Wells**. The new well is listed with a state; click it for its page. The first reports are written by **Refresh** (on Home, or the well page): the drilling record for a recorder's export, the drift and quality reports for a gauge history, the strata survey for a log.
 5. A well from a public dataset: **Wells**, **Add a catalogue well**, choose an entry that carries a downhole gauge series (the Volve production excerpt), name the well inside it and the gauge depth. The Catalogue tab is the map of the 52 datasets the program ships with their provenance.
 6. For a drilling recorder's well, confirm its **depth events** against the daily drilling reports: on the Setup tab, the item names the well; tick it with a note saying which reports you checked. The well report prints who confirmed them.
+7. For a drilling recorder's well, open **Channels** before trusting any tab that reads it. **Channel by channel** lists what the file carries as the file names it: the share of samples with a reading, the middle value and the range nineteen in twenty fall in, a channel that reads one value throughout, the readings dropped and the spikes, and where in the record each channel reads. **The record as a whole** checks the clock, the bit against the hole, and whether the pump rate goes on reading after the pumps stop. **Who reads it** names every tab and alert rule with the channels each looks for, and marks the ones that cannot read this record, with what is missing. When a tab says it cannot read a well, the reason is here.
 
 ## You know it worked when
 The well page shows the file under **Sources** with its SHA-256, and the first report under **Reports**.
 
 ## The same from a terminal
-`gea workspace --path C:\site --action add-file --file C:\site\_incoming\30636033.csv --name "Well 30636033"` then `gea workspace --path C:\site --action refresh`.
+`gea workspace --path C:\site --action add-file --file C:\site\_incoming\30636033.csv --name "Well 30636033"` then `gea workspace --path C:\site --action refresh`. `gea channels --workspace C:\site` prints the Channels page.
 
-Help: data-in, files, edr, dlis, catalog
+Help: data-in, files, edr, channels, dlis, catalog
