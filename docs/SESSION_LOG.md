@@ -4819,3 +4819,61 @@ already hold.
   has been set against the page: it is proved against its closed forms
   and on a made well, and on nothing drilled.
 - Gate 632: section EY, three checks.
+
+## 2026-11-19 - procedures: every connection and trip against the rules declared (v0.107.0)
+
+- v0.106.0 shipped; its six kits were fetched and each matched the
+  release's hash.
+- The plan's next step (A6) was procedure compliance, and the list had
+  it waiting on the owner's written procedures. It does not have to
+  wait: the page is built on rules declared in the program, each with
+  its source, and with none declared it still shows what the crews do.
+  The written procedures, when they come, are typed in as rules.
+- What a recorder can see of a procedure was settled first, as measures
+  at each connection and each trip that the Rig time tab already finds:
+  time with the pumps on off bottom before the slips, reaming passes,
+  the pumps at the slips, the bit's distance off bottom when they
+  stopped, the pumps' ramp, weight to weight; and for a trip, the pipe's
+  speed, and before a trip out off bottom the circulating and the
+  longest still stretch with the pumps off. A tenth, the rotary turning
+  before the bit is back on bottom, was dropped: on the real records it
+  was met at all but one of some four hundred connections, because the
+  first second of rotary drilling has the rotary turning. A measure
+  that all but cannot fail measures nothing.
+- A made record was written to test against - stands whose connections
+  are made a known way, one with the pumps on, one stand ending in a
+  trip - and the reading agreed with it. Then the page was run on the
+  five public FORGE records on the owner's machine, before any figure
+  was written down, and it said that on 16A(78)-32 four connections in
+  five were made with the pumps running.
+- They were not. That record's pump rate is worked out from the strokes
+  and goes on reading its last figure for most of a minute after the
+  strokes stop; the standpipe pressure in the same record falls within
+  seconds. Read as it stands, the pump rate made the pumps look on at
+  the slips, added up to a minute to every circulating time and put the
+  bit in the wrong place when "the pumps stopped". The same records
+  drop a reading now and then, pump rate or pressure, for a second.
+- So the pumps are told from both channels where both are there: on
+  where the rate reads, but off from the second the pressure began a
+  fall that took it under a quarter of its greatest in the two minutes
+  before; and a reading dropped for three seconds or less is not a
+  stop. With that, the pumps are off at the slips at 95 to 100 in 100
+  connections on the four wells sampled every second. The made record
+  now has a version whose pump rate reads on for forty seconds after
+  each stop, and nothing read from it may change.
+- The Rig time tab reads the pumps from the rate alone and is not
+  changed here; that is a change to a shipped tab's hours and wants its
+  own release and its own check.
+- The flow check and the circulating before a trip are asked only of a
+  trip out that starts within 500 ft of bottom, and are measured back
+  to the last second drilling or the trip before. A trip the Rig time
+  tab splits in two would otherwise have its circulating counted twice.
+- Tours are halves of the report day. The page says a tour is not a
+  crew.
+- What was measured at a well's connections and trips is kept until its
+  record changes, and the rules are applied on each reading, so
+  declaring a rule does not read the record again.
+- Not done, and said on the page: anything a recorder does not carry.
+  No operator's written procedure has been declared on it against a
+  real well.
+- Gate 635: section EZ, three checks.

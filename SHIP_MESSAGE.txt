@@ -1,27 +1,27 @@
-v0.106.0 — WELLBORE STABILITY: THE THIRD SIDE OF THE MUD-WEIGHT WINDOW
+v0.107.0 — PROCEDURES: EVERY CONNECTION AND TRIP AGAINST THE RULES DECLARED
 
-Added: the Wellbore stability tab works out, at every station of the
-open hole, the mud pressure that holds the wall up - from the three
-stresses, the rock's strength and the way the hole points (Kirsch's
-stresses at the wall, Mohr-Coulomb's rule) - with or without a breakout
-the operator accepts. The window runs from the greater of that and the
-pore pressure up to the least stress, above which mud is lost.
+Added: the Procedures tab reads, at every drilling connection of a
+drilling record, the seconds the pumps ran off bottom before the slips,
+the reaming passes, whether the pumps were off when the slips were set,
+the seconds taken to bring them back up, and the weight-to-weight time;
+and at every trip the pipe's speed, with the circulating and the flow
+check before a trip out off bottom.
 
-Added: the mud weight stands against the floor and the Hydraulics tab's
-circulating density against the top, at each depth. A second picture
-gives the collapse mud weight for a hole pointing every way.
+Added: rules declared with where each came from. Each connection or
+trip is met, not met or not read; the count is by rule and by tour, and
+the ones that did not meet a rule are listed with time and depth. With
+no rule declared the page gives what the crews do now.
 
-Added: for a well with a drilling record, the rig at the end of the
-record against the window; on a record still being written, two alerts,
-stability.mud and stability.ecd.
+Added: on a record still being written, the alert procedure.departed.
 
-Changed: the top bar has an eleventh heading, Well design, for the five
-tabs that are models run on declared values.
+Added: gea procedures, gea help procedures.
 
-Added: gea stability, gea help stability, a worked example.
+Note: a recorder's pump rate can go on reading for most of a minute
+after the pumps stop. Where the record has the standpipe pressure, the
+pumps are taken as stopped when the pressure falls.
 
-None of it is a measurement: the stresses and the strength are declared
-or estimated. Proved against its closed forms and on a made well; no
-hole's caliper has yet been set against it.
+It is the part of a procedure a recorder can see. Run over 580
+connections and 547 trips of the public Utah FORGE records; no
+operator's written procedure has yet been declared on it.
 
-Gate 632.
+Gate 635.

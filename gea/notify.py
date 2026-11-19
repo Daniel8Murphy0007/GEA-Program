@@ -68,7 +68,7 @@ EXAMPLE = {
 }
 EVENTS = ('alarm.activated', 'alarm.shelved', 'job.failed', 'patch.down', 'patch.up', 'approval.pending', 'file.imported', 'test',
           'seismic.protocol', 'seismic.event', 'seismic.watch_down', 'seismic.watch_up', 'motor.due', 'penetrator.outside', 'dossier.changed',
-          'condition.cleared', 'pad.summary', 'invoice.differs', 'frac.hit', 'tls.expiring', 'drilling.washout', 'drilling.stall', 'drilling.tight', 'drilling.stickslip', 'drilling.bounce', 'drilling.sticking', 'kick.flowback', 'kick.gain', 'kick.loss', 'trip.fill', 'trip.loss', 'trip.unread', 'hardline.warn', 'hardline.setback', 'hardline.crossed', 'stability.mud', 'stability.ecd')
+          'condition.cleared', 'pad.summary', 'invoice.differs', 'frac.hit', 'tls.expiring', 'drilling.washout', 'drilling.stall', 'drilling.tight', 'drilling.stickslip', 'drilling.bounce', 'drilling.sticking', 'kick.flowback', 'kick.gain', 'kick.loss', 'trip.fill', 'trip.loss', 'trip.unread', 'hardline.warn', 'hardline.setback', 'hardline.crossed', 'stability.mud', 'stability.ecd', 'procedure.departed')
 _LOCK = threading.Lock()
 
 
@@ -197,6 +197,8 @@ def _subject(ev: dict) -> str:
         return f"[GEA] {dict(flowback='flowback above its fingerprint', gain='pit gain with the returns up', loss='pit fall with the returns down')[k.split('.')[1]]} on {w}: {ev.get('detail', '')}"
     if k in ('trip.fill', 'trip.loss', 'trip.unread'):
         return f"[GEA] {dict(fill='a trip with more mud at surface than the pipe accounts for', loss='a trip with losses', unread='a trip under way that is not read')[k.split('.')[1]]} on {w}: {ev.get('detail', '')}"
+    if k == 'procedure.departed':
+        return f"[GEA] a declared procedure not met on {w}: {ev.get('detail', '')}"
     if k in ('stability.mud', 'stability.ecd'):
         return f"[GEA] {dict(mud='the mud weight below the mud-weight window', ecd='the circulating density over the least stress')[k.split('.')[1]]} on {w}: {ev.get('detail', '')}"
     if k in ('hardline.warn', 'hardline.setback', 'hardline.crossed'):

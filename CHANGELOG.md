@@ -5,6 +5,60 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.107.0] - 2026-11-19 - procedures: every connection and trip against the rules declared
+
+### Added
+- **The Procedures tab.** A drilling program says how a connection is to
+  be made and how a trip is to be started; whether the crews did is in
+  the drilling recorder second by second, and nobody reads it. The new
+  tab does, for the part of a procedure a recorder can see. At every
+  drilling connection it reads the seconds the pumps ran off bottom
+  before the slips were set, the reaming passes, whether the pumps were
+  off when the slips were set and how far off bottom the bit was when
+  they stopped, the seconds taken to bring the pumps back up, and the
+  weight-to-weight time. At every trip it reads the pipe's speed, and
+  before a trip out off bottom the minutes circulated and the longest
+  stretch with the pumps off and the pipe still.
+- **Rules, declared with their source.** A rule is one of those measures
+  with a figure and where it came from - the drilling program and its
+  section. It is for every well or one, for the whole hole or a stretch
+  of it. Each connection or trip a rule covers is met, not met, or not
+  read where the record cannot give the measure. The count is given by
+  rule and by tour, each rule's measured values are drawn in the order
+  they were made against its line, and the ones that did not meet a
+  rule are listed with their time and depth.
+- **What the crews do now.** With no rule declared the page still gives
+  the middle value of each measure and the range eight in ten fall in,
+  which is where a rule usually starts.
+- **One alert** on a record still being written: `procedure.departed`,
+  for a connection or trip that began in the record's last two hours
+  and did not meet a rule, once for the rule and the connection or
+  trip.
+- `gea procedures` (the page, `--kinds`, `--add`, `--remove`,
+  `--write`; with no workspace, the self-test), `gea help procedures`,
+  a step in lesson 16, a README section.
+
+### Notes
+- **A pump rate that reads on after the pumps stop.** Run on the public
+  Utah FORGE records before anything was written about it, the first
+  draft said four connections in five on one well were made with the
+  pumps running. They were not: that recorder holds its last pump rate
+  for most of a minute after the strokes stop, while the standpipe
+  pressure falls at once. Where the record has the standpipe pressure
+  the pumps are now taken as stopped from the second the pressure began
+  its fall; a reading or two dropped by the recorder is not a stop. The
+  Rig time tab's own reading of the pumps is not changed in this
+  release.
+- On those records, with no rule declared, the page reads 580 drilling
+  connections and 547 trips over five wells, 149 of the trips out and
+  off bottom.
+- It is the part of a procedure a recorder can see. A survey taken, a
+  pill pumped, the pipe filled, the flow line watched are not in a
+  recorder; a flow check here is the pumps off and the pipe still. No
+  operator's written procedure has yet been declared on it against a
+  real well.
+- Gate 635: section EZ, three checks.
+
 ## [v0.106.0] - 2026-11-18 - wellbore stability: the third side of the mud-weight window
 
 ### Added

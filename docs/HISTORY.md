@@ -4,6 +4,24 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.107.0 - 2026-11-19 - procedures: every connection and trip against the rules declared
+
+- The Procedures tab: at every drilling connection and every trip of a
+  drilling record, what the record shows of how it was made - the
+  circulating before the slips, the reaming passes, the pumps at the
+  slips, the pumps' ramp, the weight to weight, the flow check and the
+  circulating before a trip out, the pipe's speed.
+- Rules declared with their source, for every well or one and for the
+  whole hole or a stretch; each connection or trip met, not met or not
+  read, counted by rule and by tour.
+- The pumps told from the standpipe pressure where a recorder's pump
+  rate goes on reading after they stop.
+- One alert, `procedure.departed`, on a record still being written.
+- Run over the 580 drilling connections and 547 trips of the Utah FORGE
+  public pad.
+- `gea procedures`, `gea help procedures`.
+- Gate 635.
+
 ## v0.106.0 - 2026-11-18 - wellbore stability: the third side of the mud-weight window
 
 - The Wellbore stability tab: at every station of the open hole, the

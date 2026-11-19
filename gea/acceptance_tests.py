@@ -19447,6 +19447,307 @@ def section_ej_frac_treatment(tmp: str) -> None:
        "page with the published figures it was checked against, the README and lesson 14" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_ez_procedures(tmp: str) -> None:
+    """Section EZ - procedures (0.107.0): every connection and every trip of a drilling record against the rules the
+    operator declares. What a record shows of how a connection was made and a trip started, read back from a record
+    made a known way; the pumps told from a pump rate that goes on reading after they stop; the rules, their bounds
+    and their count; a workspace - the rules declared, the record judged by rule and by tour, the report, the alert;
+    the routes and their roles, the tab, the command, the help, the lesson and the README."""
+    import csv
+    import subprocess as _sp
+    from . import alerts as AL
+    from . import dysfunction as DY
+    from . import helplib as H
+    from . import notify as NT
+    from . import procedures as PR
+    from . import rig_state as RS
+    from . import series_cache as SCH
+    from . import tutorial as TU
+    from .workspace import Workspace
+    import numpy as np_
+    pkg = Path(__file__).parent
+    d = Path(tmp, "ez"); d.mkdir()
+
+    def audit_actions(ws_) -> list:
+        p_ = Path(ws_.path, "records", "audit.jsonl")
+        return [json.loads(l_).get("action") for l_ in p_.read_text(encoding="utf-8").splitlines() if l_.strip()] if p_.is_file() else []
+    mk = lambda kind, value=None, **kw: {"id": kw.pop("id", "R1"), **PR.check_rule(kind, value, source="the drilling program (test)", **kw)}
+    # -- EZ1 what a record shows, the pumps, the rules -------------------------------------------------------------------------------
+    st_ = PR.selftest()
+    made = dict(stands=12, circ_s=(60, 120, 45), passes=(1, 2, 0), ramp_s=(30, 8, 60), off_ft=(30.0, 40.0, 30.0), pumps_on_slips=(4,))
+    rec = PR.made_record(**made); T = rec["truth"]
+    a = PR.analyse_record(rec); C = a["_conns"]; TR = a["_trips"]
+    t = np_.arange(600.0)
+    flow = np_.where(t < 300, 600.0, 0.0); spp = flow * 4.5
+    held = np_.where(t < 340, 600.0, 0.0)                                  # the rate reads on for forty seconds after the pumps stop
+    bleed = np_.where(t < 300, 2700.0, np_.maximum(2700.0 - 300.0 * (t - 299.0), 30.0))      # and the pressure takes nine seconds to bleed away
+    on_true = PR.pumps_on(t, flow, spp); on_held = PR.pumps_on(t, held, spp); on_bleed = PR.pumps_on(t, held, bleed); on_rate_only = PR.pumps_on(t, held, None)
+    drop = flow.copy(); drop[100:102] = 0.0; drop_p = spp.copy(); drop_p[200:202] = 0.0; long_ = flow.copy(); long_[100:110] = 0.0
+    shallow = PR.pumps_on(t, np_.full(600, 300.0), np_.full(600, 80.0))   # a big hole near surface: 300 gal/min at 80 psi is pumping
+    no_pumps = {k_: (None if k_ in ("flow", "spp") else v) for k_, v in rec["ch"].items()}
+    rs_ = RS.analyse_arrays(rec["t"], rec["t0"], rec["ch"], rec["drilling"], rec["ch"]["hole"], rec.get("block_weight"))
+    blind = PR.analyse_arrays(rec["t"], rec["t0"], no_pumps, rs_, [mk("conn.circulate_before_s", 60, id="B1"), mk("conn.w2w_max_min", 6.0, id="B2"), mk("trip.flow_check_min", 10, id="B3")])
+    B = {x_["id"]: x_ for x_ in blind["rules"]}
+    rl = [mk("conn.circulate_before_s", 60, id="R1"), mk("conn.ream_passes", 2, id="R2"), mk("conn.pumps_off_before_slips", id="R3"), mk("conn.pump_ramp_s", 15, id="R4"),
+          mk("conn.w2w_max_min", 6.0, id="R5"), mk("trip.flow_check_min", 10, id="R6"), mk("trip.circulate_before_min", 30, id="R7"), mk("trip.max_speed_ft_min", 100, id="R8"),
+          mk("trip.max_speed_ft_min", 100, direction="in", id="R9"), mk("conn.off_bottom_ft", 35, id="R10"), mk("conn.circulate_before_s", 60, from_md_ft=9500.0, id="R11"),
+          mk("trip.max_speed_ft_min", 100, from_md_ft=20000.0, id="R12")]
+    j = PR.analyse_record(rec, rl); R = {x_["id"]: x_ for x_ in j["rules"]}
+    turned = []
+    for args, kw in ((("conn.circulate_before_s", 1), {}), (("conn.ream_passes", "two"), {}), (("nothing", 5), {}), (("trip.max_speed_ft_min", 5000), {}),
+                     (("conn.w2w_max_min", 10), {"from_md_ft": 9000.0, "to_md_ft": 8000.0}), (("trip.max_speed_ft_min", 100), {"direction": "sideways"})):
+        try:
+            PR.check_rule(*args, source="x", **kw); turned.append(False)
+        except PR.ProcedureError:
+            turned.append(True)
+    try:
+        PR.check_rule("conn.w2w_max_min", 10, source=" "); turned.append(False)
+    except PR.ProcedureError:
+        turned.append(True)
+    n = len(T); out_ = next(x_ for x_ in TR if x_["direction"] == "OUT"); in_ = next(x_ for x_ in TR if x_["direction"] == "IN")
+    c1 = {
+        "selftest": st_["ok"] and len(st_["checks"]) >= 15,
+        "connections_found": a["connections"] == n == 10 and a["trips"] == 2 and a["trips_off_bottom"] == 1,
+        "circulated": all(abs(C[i]["circ_before_s"] - T[i]["circ_before_s"]) <= 3.0 for i in range(n)),
+        "passes": [c_["ream_passes"] for c_ in C] == [t_["ream_passes"] for t_ in T],
+        "pumps_at_slips": [c_["pumps_off_at_slips"] for c_ in C] == [t_["pumps_off_at_slips"] for t_ in T] and sum(1 for c_ in C if not c_["pumps_off_at_slips"]) == 1,
+        "off_bottom": all((C[i]["off_bottom_ft"] is None) == (T[i]["off_bottom_ft"] is None) and abs((C[i]["off_bottom_ft"] or 0.0) - (T[i]["off_bottom_ft"] or 0.0)) <= 1.0 for i in range(n)),
+        "ramp": all((C[i]["pump_ramp_s"] is None) == (T[i]["pump_ramp_s"] is None) for i in range(n))
+                and all(abs(C[i]["pump_ramp_s"] - (PR.RAMP_SHARE - RS.P["flow_gpm"] / 600.0) * T[i]["pump_ramp_s"]) <= 3.0 for i in range(n) if T[i]["pump_ramp_s"] is not None),
+        "before_the_trip": abs(out_["circ_before_min"] - 25.0) <= 0.6 and abs(out_["flow_check_min"] - 12.0) <= 0.6 and out_["off_bottom"] is True and in_["off_bottom"] is False
+                           and in_["flow_check_min"] is None,
+        "pipe_speed": abs(out_["speed_ft_min"] - 120.0) <= 5.0 and abs(in_["speed_ft_min"] - 90.0) <= 5.0,
+        "pumps_true": bool(on_true[:300].all()) and not on_true[300:].any(),
+        "held_rate": bool((on_held == on_true).all()) and bool(on_rate_only[300:340].all()) and not on_rate_only[340:].any(),
+        "pressure_bleeding": bool(on_bleed[:299].all()) and not on_bleed[301:].any(),
+        "dropout_is_not_a_stop": bool(PR.pumps_on(t, drop, spp)[:300].all()) and bool(PR.pumps_on(t, flow, drop_p)[:300].all()) and not PR.pumps_on(t, long_, spp)[100:110].any(),
+        "low_pressure_is_pumping": bool(shallow.all()),
+        "no_pump_channels": PR.pumps_on(t, None, None) is None and bool((PR.pumps_on(t, None, spp) == on_true).all()),
+        "not_read": B["B1"]["not_read"] == n and B["B1"]["judged"] == 0 and B["B1"]["met_pct"] is None and B["B2"]["judged"] == n and B["B3"]["not_read"] == B["B3"]["covered"],
+        "kinds": len(PR.KINDS) == 9 and set(PR.MEASURE) == set(PR.KINDS) and all((k_["bounds"] is None) == (k_["sense"] == "yes") for k_ in PR.KINDS.values())
+                 and {k_["on"] for k_ in PR.KINDS.values()} == {"connection", "trip", "trip off bottom"},
+        "words": PR.words(rl[0]) == "at least 60 s circulating off bottom before the slips are set" and PR.words(mk("conn.ream_passes", 1)) == "at least 1 reaming pass before the slips are set"
+                 and PR.words(rl[1]) == "at least 2 reaming passes before the slips are set" and PR.words(rl[8]) == "the pipe no faster than 100 ft/min on a trip in"
+                 and PR.words(rl[10]).endswith(", between 9,500 ft and the bottom") and PR.words(rl[2]) == "the pumps off when the slips are set",
+        "turned_away": turned == [True] * 7,
+        "counted": (R["R1"]["met"], R["R1"]["not_met"]) == (sum(1 for t_ in T if t_["circ_before_s"] >= 60), sum(1 for t_ in T if t_["circ_before_s"] < 60)) and R["R1"]["not_met"] == 2
+                   and (R["R2"]["met"], R["R2"]["not_met"]) == (sum(1 for t_ in T if t_["ream_passes"] >= 2), sum(1 for t_ in T if t_["ream_passes"] < 2))
+                   and (R["R3"]["met"], R["R3"]["not_met"], R["R3"]["not_read"]) == (9, 1, 0),
+        "ramp_rule": (R["R4"]["met"], R["R4"]["not_met"], R["R4"]["not_read"]) == (sum(1 for t_ in T if t_["pump_ramp_s"] in (30.0, 60.0)), sum(1 for t_ in T if t_["pump_ramp_s"] == 8.0), 1),
+        "w2w_rule": R["R5"]["met"] == sum(1 for c_ in C if c_["w2w_min"] <= 6.0) and R["R5"]["not_met"] == sum(1 for c_ in C if c_["w2w_min"] > 6.0) and 0 < R["R5"]["not_met"] < n
+                    and R["R5"]["worst"][0]["measured"] == max(round(c_["w2w_min"], 1) for c_ in C),
+        "trip_rules": (R["R6"]["met"], R["R6"]["not_met"]) == (1, 0) and (R["R7"]["met"], R["R7"]["not_met"]) == (0, 1) and (R["R8"]["met"], R["R8"]["not_met"]) == (1, 1)
+                      and R["R8"]["worst"][0]["what"] == "trip out" and (R["R9"]["met"], R["R9"]["not_met"], R["R9"]["covered"]) == (1, 0, 1),
+        "off_bottom_rule": R["R10"]["not_met"] == sum(1 for t_ in T if t_["off_bottom_ft"] == 30.0) and R["R10"]["not_read"] == 1,
+        "a_stretch_of_hole": R["R11"]["covered"] == sum(1 for c_ in C if c_["depth_ft"] >= 9500.0) and 0 < R["R11"]["covered"] < n and R["R12"]["not_read"] == 2 and R["R12"]["judged"] == 0,
+        "worst_first": R["R1"]["worst"][0]["measured"] <= 48.0 and len(R["R1"]["series"]) == n and all(len(s_) == 4 for s_ in R["R1"]["series"])
+                       and [s_[2] for s_ in R["R1"]["series"]].count(False) == R["R1"]["not_met"],
+        "what_the_crews_do": len(j["practice"]) == 9 and next(p_ for p_ in j["practice"] if p_["kind"] == "conn.pumps_off_before_slips")["yes"] == 9
+                             and next(p_ for p_ in j["practice"] if p_["kind"] == "conn.ream_passes")["median"] == 1.0
+                             and next(p_ for p_ in j["practice"] if p_["kind"] == "trip.flow_check_min")["events"] == 1,
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "EZ1 a record made a known way - twelve stands, ten connections and a trip - is read back: the seconds circulated off bottom before the slips to three, the reaming passes "
+       "exactly, the one connection made with the pumps on, the bit's distance off bottom when the pumps stopped to a foot, the pumps' ramp to three seconds, the 25 minutes "
+       "circulated and the 12-minute flow check before the trip out to half a minute, the pipe pulled at 120 ft/min and run at 90 to five; a pump rate that reads on for forty "
+       "seconds after the pumps stop is overruled by the standpipe pressure from the second it began to fall, a reading or two dropped is not a stop and ten seconds of none is, and "
+       "300 gal/min at 80 psi is pumping; with no pump channels the rules that need them are NOT READ and the weight-to-weight rule is still judged; there are nine kinds of rule, "
+       "each said in words; a figure out of bounds, a word for a number, a rule that is not one, a stretch of hole that ends above its start, a direction that is not one and a "
+       "rule with no source are each turned away; and twelve rules are counted as the record was made - by connection, by trip, by direction and by stretch of hole, the furthest "
+       "from a rule first" + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- EZ2 a workspace: the rules declared, the record judged by rule and by tour, the report, the alert -----------------------------------
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Made pad", actor="tester")
+    empty = PR.page(ws)
+    long_rec = PR.made_record(stands=30, circ_s=(60, 120, 45), passes=(1, 2, 0), ramp_s=(30, 8, 60), off_ft=(30.0, 40.0, 30.0), pumps_on_slips=(4, 22), held_s=40.0, trip_after=14)
+    DY.write_edr(long_rec, str(d / "a.csv")); wa = ws.add_well_file(str(d / "a.csv"), display="Well A", actor="tester")["id"]
+    live_rec = PR.made_record(stands=6, circ_s=(120, 45), passes=(1, 0), ramp_s=(30, 8), off_ft=(30.0,), trip_after=None, ends_now=True)
+    DY.write_edr(live_rec, str(d / "b.csv")); wb = ws.add_well_file(str(d / "b.csv"), display="Well B", actor="tester")["id"]
+    wc = ws.add_well_records("Well C", actor="tester")["id"]
+    n_audit = len(audit_actions(ws))
+    p0 = PR.page(ws, wa); x0 = p0["result"]
+    wrote_nothing = len(audit_actions(ws)) == n_audit and not Path(wsp, "records", "procedures.json").exists() and not Path(wsp, "reports", "procedures").exists()
+    ev_none = PR.live_events(ws)
+    TA = long_rec["truth"]; na = len(TA)
+    r1 = PR.add_rule(ws, "tester", "conn.circulate_before_s", 60, source="the drilling program, section 4.2 (test)")
+    r2 = PR.add_rule(ws, "tester", "conn.pumps_off_before_slips", source="the drilling program, section 4.2 (test)")
+    r3 = PR.add_rule(ws, "tester", "conn.pump_ramp_s", 15, source="the drilling program, section 4.3 (test)")
+    r4 = PR.add_rule(ws, "tester", "trip.flow_check_min", 10, source="the well control standard (test)")
+    r5 = PR.add_rule(ws, "tester", "trip.max_speed_ft_min", 100, direction="out", source="the drilling program, section 6 (test)")
+    r6 = PR.add_rule(ws, "tester", "conn.ream_passes", 1, well=wb, source="for Well B alone (test)")
+    bad = []
+    for fn in (lambda: PR.add_rule(ws, "tester", "conn.circulate_before_s", 60, source=""), lambda: PR.add_rule(ws, "tester", "conn.circulate_before_s", 99999, source="x"),
+               lambda: PR.add_rule(ws, "tester", "conn.w2w_max_min", 10, well="nope", source="x"), lambda: PR.remove_rule(ws, "tester", "R99")):
+        try:
+            fn(); bad.append(False)
+        except (PR.ProcedureError, KeyError):
+            bad.append(True)
+    p = PR.page(ws, wa); x = p["result"]; XR = {r_["id"]: r_ for r_ in x["rules"]}
+    pb = PR.page(ws, wb); xb = pb["result"]; BR = {r_["id"]: r_ for r_ in xb["rules"]}
+    deps = XR["R1"]["departures"]
+    ev1 = PR.live_events(ws)
+    raised = [e_ for e_ in AL.check_conditions(ws, None, force=True) if e_["event"] == "procedure.departed"]
+    again = [e_ for e_ in AL.check_conditions(ws, None, force=True) if e_["event"] == "procedure.departed"]
+    rep = PR.write_report(ws, "9.9.9", wa, actor="tester"); rd = Path(rep["folder"])
+    with open(rd / "departures.csv", newline="", encoding="utf-8") as f:
+        rows_csv = list(csv.reader(f))
+    gone = PR.remove_rule(ws, "tester", r3["id"])
+    p_after = PR.page(ws, wa)
+    r7 = PR.add_rule(ws, "tester", "conn.w2w_max_min", 30, source="the contract (test)")
+    src_path = SCH.source_path(ws, wb); old = time.time() - 4 * 3600.0
+    os.utime(src_path, (old, old))                                    # the file last written four hours ago: not a record still being written
+    ev_old = PR.live_events(ws)
+    c2 = {
+        "no_record": empty["status"] == "NO DRILLING RECORD" and empty["result"] is None and empty["wells"] == [] and len(empty["kinds"]) == 9 and len(empty["not_a_measurement"]) >= 5,
+        "wells_listed": [w_["display"] for w_ in p0["wells"]] == ["Well A", "Well B"] and all(w_["status"] == "OK" for w_ in p0["wells"]) and {w_["id"] for w_ in p0["all_wells"]} == {wa, wb, wc}
+                        and p0["well"] == wa,
+        "before_any_rule": x0["rules"] == [] and x0["connections"] == na == 28 and x0["trips"] == 2 and x0["trips_off_bottom"] == 1 and any("No rule is declared" in l_ for l_ in p0["lines"])
+                           and len(x0["practice"]) == 9 and next(q_ for q_ in x0["practice"] if q_["kind"] == "conn.pumps_off_before_slips")["yes"] == na - 2,
+        "reading_writes_nothing": wrote_nothing and ev_none == [],
+        "declared": [r_["id"] for r_ in (r1, r2, r3, r4, r5, r6)] == ["R1", "R2", "R3", "R4", "R5", "R6"] and r1["by"] == "tester" and r6["well"] == wb and r5["direction"] == "out"
+                    and audit_actions(ws).count("procedures.rule") == 7 and json.loads(Path(wsp, "records", "procedures.json").read_text(encoding="utf-8"))["rules"][0]["source"].startswith("the drilling program"),
+        "turned_away": bad == [True, True, True, True],
+        "held_rate_through_the_file": (XR["R2"]["met"], XR["R2"]["not_met"]) == (na - 2, 2) and XR["R2"]["not_read"] == 0,
+        "circulating_rule": (XR["R1"]["met"], XR["R1"]["not_met"]) == (sum(1 for t_ in TA if t_["circ_before_s"] >= 60), sum(1 for t_ in TA if t_["circ_before_s"] < 60)) and XR["R1"]["not_met"] >= 8
+                            and XR["R1"]["worst"][0]["measured"] <= 48.0 and XR["R1"]["source"].endswith("section 4.2 (test)"),
+        "ramp_rule": XR["R3"]["not_met"] == sum(1 for t_ in TA if t_["pump_ramp_s"] == 8.0) and XR["R3"]["not_read"] == 2 and XR["R3"]["met"] == na - 2 - XR["R3"]["not_met"],
+        "trip_rules": (XR["R4"]["met"], XR["R4"]["not_met"]) == (1, 0) and (XR["R5"]["met"], XR["R5"]["not_met"], XR["R5"]["covered"]) == (0, 1, 1) and XR["R5"]["departures"][0]["what"] == "trip out",
+        "by_tour": all(d_["tour"] == ("day" if 6 <= int(d_["time"][11:13]) < 18 else "night") for d_ in deps) and {d_["tour"] for d_ in deps} == {"day", "night"}
+                   and all(XR[k_]["by_tour"]["day"]["MET"] + XR[k_]["by_tour"]["night"]["MET"] == XR[k_]["met"] and XR[k_]["by_tour"]["day"]["NOT MET"] + XR[k_]["by_tour"]["night"]["NOT MET"] == XR[k_]["not_met"]
+                           for k_ in ("R1", "R2", "R3")) and XR["R1"]["by_tour"]["day"]["met_pct"] is not None and XR["R1"]["by_tour"]["night"]["met_pct"] is not None,
+        "one_wells_rule": "R6" not in XR and "R6" in BR and len(x["rules"]) == 5 and len(xb["rules"]) == 6 and (BR["R6"]["met"], BR["R6"]["not_met"]) == (3, 2),
+        "the_wells_row": next(w_ for w_ in p["wells"] if w_["well"] == wa)["judged"] == sum(r_["judged"] for r_ in x["rules"]) and next(w_ for w_ in p["wells"] if w_["well"] == wa)["met"] == sum(r_["met"] for r_ in x["rules"])
+                         and 0 < next(w_ for w_ in p["wells"] if w_["well"] == wa)["met_pct"] < 100,
+        "lines": len(p["lines"]) == 6 and "28 drilling connections and 2 trips" in p["lines"][0] and p["lines"][1].startswith("R1, at least 60 s circulating") and "the day tour" in p["lines"][1]
+                 and "The furthest from it: 45 s" in p["lines"][1] and "2 not read" in p["lines"][3],
+        "alert": len(ev1) >= 2 and all(e_["event"] == "procedure.departed" and e_["well_id"] == wb and e_["key"].startswith(f"procedure.departed:{wb}:R") for e_ in ev1)
+                 and any("did not meet R1 (at least 60 s circulating off bottom before the slips are set): 45 s" in e_["detail"] for e_ in ev1)
+                 and len({e_["key"] for e_ in ev1}) == len(ev1) and len(raised) == len(ev1) and again == [],
+        "not_live_no_alert": ev_old == [],
+        "events_known": "procedure.departed" in AL.EVENTS and "procedure.departed" in NT.EVENTS
+                        and NT._subject({"event": "procedure.departed", "well": "W", "detail": "x"}).startswith("[GEA] a declared procedure not met on W"),
+        "report": rep["files"] == ["procedures.json", "procedures.md", "departures.csv"] and all((rd / n_).is_file() for n_ in rep["files"])
+                  and len(rows_csv) == 1 + sum(len(r_["departures"]) for r_ in x["rules"]) and rows_csv[0][:4] == ["well", "rule", "the_rule", "source"] and rows_csv[1][0] == "Well A"
+                  and "What this will not call a measurement" in (rd / "procedures.md").read_text(encoding="utf-8") and "procedures.report" in audit_actions(ws)
+                  and len(json.loads((rd / "procedures.json").read_text(encoding="utf-8"))["result"]["rules"]) == 5,
+        "taken_off": gone["id"] == "R3" and "R3" not in [r_["id"] for r_ in p_after["rules"]] and len(p_after["result"]["rules"]) == 4 and "procedures.rule_removed" in audit_actions(ws)
+                     and r7["id"] == "R7",
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "EZ2 a workspace: with no drilling record the page says so; a made record of thirty stands written as a recorder's export, its pump rate reading on for forty seconds after "
+       "every stop, is read with no rule declared - what the crews do, and nothing written; five rules declared with their sources and a sixth for one well alone are kept with an "
+       "audit line each, and a rule with no source, a figure out of bounds, a well that is not there and a rule that is not there are turned away; the record is then counted as it "
+       "was made - the two connections made with the pumps on and no others, the connections that circulated 45 s under the 60 s rule, the 8 s ramps, the flow check met and the "
+       "pipe pulled too fast - by the day tour and the night tour, which add up; the one well's rule is judged on that well only; on a record still being written the connections "
+       "of its last two hours that did not meet a rule raise procedure.departed once each and not again, and a file last written four hours ago raises nothing; the report is three "
+       "files with a row for each connection or trip that did not meet a rule; and a rule taken off is gone from the next reading" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- EZ3 the routes and their roles, the tab, the command, the words -------------------------------------------------------------
+    from .service import Service, Users
+    import http.cookiejar
+    import urllib.error
+    import urllib.request
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer")
+    Users(str(Path(wsp, "users.json"))).add("o", "operator-pass-1", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+
+    def session(name: str, pw: str):
+        o_ = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq_ = urllib.request.Request(svc.url.rstrip("/") + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw}).encode())
+        rq_.add_header("Content-Type", "application/json"); rq_.add_header("X-GEA-Action", "1"); o_.open(rq_, timeout=30)
+
+        def call(path: str, body=None):
+            rq2 = urllib.request.Request(svc.url.rstrip("/") + path, method="POST" if body is not None else "GET", data=json.dumps(body).encode() if body is not None else None)
+            if body is not None:
+                rq2.add_header("Content-Type", "application/json"); rq2.add_header("X-GEA-Action", "1")
+            try:
+                with o_.open(rq2, timeout=90) as r_:
+                    return r_.status, json.loads(r_.read())
+            except urllib.error.HTTPError as e:
+                return e.code, json.loads(e.read() or b"{}")
+        return call
+    try:
+        v = session("v", "viewer-pass-1"); o = session("o", "operator-pass-1")
+        s_page, api = v(f"/api/procedures?well={wa}")
+        s_first, api_first = v("/api/procedures")
+        s_nowell, _ = v("/api/procedures?well=nope")
+        s_v_rule, _ = v("/api/procedures/rule", {"kind": "conn.w2w_max_min", "value": 10, "source": "x"})
+        s_v_rm, _ = v("/api/procedures/rule/remove", {"id": "R1"})
+        s_v_wr, _ = v("/api/procedures/write", {"well": wa})
+        s_o_rule, o_rule = o("/api/procedures/rule", {"kind": "conn.off_bottom_ft", "value": "35", "well": "", "from_md_ft": "", "to_md_ft": "", "direction": "both", "source": "the drilling program, section 4.2 (test)"})
+        s_o_bad, o_bad = o("/api/procedures/rule", {"kind": "conn.off_bottom_ft", "value": "9999", "source": "x"})
+        s_o_nosrc, o_nosrc = o("/api/procedures/rule", {"kind": "conn.off_bottom_ft", "value": "35", "source": ""})
+        s_o_nowell, _ = o("/api/procedures/rule", {"kind": "conn.off_bottom_ft", "value": "35", "well": "nope", "source": "x"})
+        s_after, api_after = v(f"/api/procedures?well={wa}")
+        s_o_wr, o_wr = o("/api/procedures/write", {"well": wa})
+        s_o_rm, o_rm = o("/api/procedures/rule/remove", {"id": o_rule.get("id", "")})
+        s_o_rm2, _ = o("/api/procedures/rule/remove", {"id": o_rule.get("id", "")})
+        s_end, api_end = v(f"/api/procedures?well={wa}")
+    finally:
+        svc.stop()
+    app = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    pr_js = app[app.index("// ---------- procedures:"):app.index("// ---------- wellbore stability:")]
+    env = {**os.environ, "PYTHONPATH": str(pkg.parent) + os.pathsep + os.environ.get("PYTHONPATH", "")}
+    run = lambda *a_: _sp.run([sys.executable, "-m", "gea", "procedures", *a_], capture_output=True, text=True, env=env, cwd=str(pkg.parent))
+    cli_self = run(); cli_kinds = run("--kinds"); cli_ws = run("--workspace", wsp, "--well", "Well A")
+    cli_add = run("--workspace", wsp, "--add", "conn.ream_passes=2", "--source", "the drilling program (test)")
+    new_id = cli_add.stdout.split("declared: ")[1].split(",")[0] if "declared: " in cli_add.stdout else ""
+    cli_rm = run("--workspace", wsp, "--remove", new_id)
+    cli_bad = run("--workspace", wsp, "--add", "conn.ream_passes=200", "--source", "x")
+    cli_nowell = run("--workspace", wsp, "--well", "nope")
+    hp = (pkg / "help" / "procedures.md").read_text(encoding="utf-8")
+    hp_al = (pkg / "help" / "alerts.md").read_text(encoding="utf-8")
+    lesson = (pkg / "help" / "tutorial" / "16-rig-time.md").read_text(encoding="utf-8")
+    root = pkg.parent
+    readme = (root / "README.md").read_text(encoding="utf-8") if (root / "README.md").is_file() else None
+    chlog = (root / "CHANGELOG.md").read_text(encoding="utf-8") if (root / "CHANGELOG.md").is_file() else None
+    cov = TU.coverage()
+    mod_src = (pkg / "procedures.py").read_text(encoding="utf-8")
+    from . import client_reports as CRX
+    AR = {r_["id"]: r_ for r_ in (api_after.get("result") or {}).get("rules", [])}
+    c3 = {
+        "page_route": s_page == 200 and api["well"] == wa and api["result"]["connections"] == 28 and len(api["result"]["rules"]) == 5 and len(api["kinds"]) == 9 and len(api["rules"]) == 6
+                      and all("words" in r_ for r_ in api["rules"]) and len(api["not_a_measurement"]) >= 5 and len(api["result"]["practice"]) == 9,
+        "first_well": s_first == 200 and api_first["well"] == wa,
+        "said": s_nowell == 404 and s_o_nowell == 404 and s_o_bad == 400 and "between 1 and 200 ft" in str(o_bad.get("error", "")) and s_o_nosrc == 400 and "where the rule came from" in str(o_nosrc.get("error", ""))
+                and s_o_rm2 == 404,
+        "viewer_reads_only": s_v_rule == 403 and s_v_rm == 403 and s_v_wr == 403,
+        "operator_declares": s_o_rule == 200 and o_rule["kind"] == "conn.off_bottom_ft" and o_rule["value"] == 35.0 and o_rule["by"] == "o" and o_rule["well"] is None and o_rule["from_md_ft"] is None
+                             and s_after == 200 and o_rule["id"] in AR and AR[o_rule["id"]]["judged"] == 26 and AR[o_rule["id"]]["not_read"] == 2 and AR[o_rule["id"]]["not_met"] >= 8,
+        "operator_writes": s_o_wr == 200 and o_wr["files"] == ["procedures.json", "procedures.md", "departures.csv"],
+        "operator_takes_off": s_o_rm == 200 and o_rm["id"] == o_rule["id"] and s_end == 200 and o_rule["id"] not in [r_["id"] for r_ in api_end["rules"]],
+        "tab": "['#/procedures', 'Procedures']" in app and "'#/roadmap', '#/procedures', '#/dysfunction'" in app and "VIEWS.procedures = async" in app
+               and "'procedure.departed': 'A declared procedure not met'" in app,
+        "page_parts": all(x_ in pr_js for x_ in ("Against the rules", "What the crews do now", "The rules", "Declare the rule", "Take off", "Write the report", "Not met", "Day tour", "Night tour",
+                                                 "in the order they were made", "/api/procedures/rule/remove", "What this page will not call a measurement", "Where it came from")),
+        "one_measure_a_panel": pr_js.count("gsPlot(") == 1 and "level: r.value" in pr_js,
+        "no_storage": "localStorage" not in pr_js and "sessionStorage" not in pr_js and "document.cookie" not in pr_js,
+        "cli_selftest": cli_self.returncode == 0 and cli_self.stdout.strip().endswith("OK - a made record: twelve stands and a trip, each connection made a known way") and "FAIL" not in cli_self.stdout,
+        "cli_kinds": cli_kinds.returncode == 0 and len(cli_kinds.stdout.strip().splitlines()) == 9 and "conn.pumps_off_before_slips" in cli_kinds.stdout and "yes or no" in cli_kinds.stdout,
+        "cli_page": cli_ws.returncode == 0 and "Procedures - Well A" in cli_ws.stdout and "What the crews do now" in cli_ws.stdout and "R1, at least 60 s circulating" in cli_ws.stdout,
+        "cli_declares": cli_add.returncode == 0 and "at least 2 reaming passes before the slips are set" in cli_add.stdout and new_id.startswith("R") and cli_rm.returncode == 0 and f"taken off: {new_id}" in cli_rm.stdout,
+        "cli_says": cli_bad.returncode != 0 and "between 1 and 10 passes" in cli_bad.stderr and cli_nowell.returncode != 0 and "no well 'nope'" in cli_nowell.stderr,
+        "help": H.check("procedures") == [] and H.check("alerts") == [] and H.VIEW_TOPIC.get("procedures") == "procedures" and any(t_["topic"] == "procedures" for t_ in H.topics())
+                and all(x_ in hp for x_ in ("**When the pumps are on**", "MET, NOT MET, or NOT READ", "procedure.departed", "departures.csv", "580 drilling connections", "not a crew"))
+                and "`procedure.departed`" in hp_al,
+        "lesson": "#/procedures" in lesson and "Open **Procedures**" in lesson and TU.check("rig-time") == [] and cov["tabs_unreached"] == [] and cov["help_untaught"] == [],
+        "standalone": "gea_driller" not in mod_src and not [t_ for t_ in CRX.FORBIDDEN_TERMS if t_ in mod_src.lower()],
+        "readme": readme is None or ("### Procedures" in readme and "`gea procedures`" in readme and "procedure.departed" in readme),
+        "changelog": chlog is None or "## [v0.107.0]" in chlog,
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "EZ3 the Procedures tab: any signed-in account reads a well's connections and trips against the rules, and only the operator role declares a rule, takes one off and writes "
+       "the report (a viewer is turned away with 403; an unknown well is 404, a figure out of bounds 400 with the bounds, a rule with no source 400 with the reason, a rule that is "
+       "not there 404); a rule declared through the route is judged in the next reading; the tab is under Drilling, shows the count by rule and by tour, each rule's measured values "
+       "in the order they were made against its line - one measure a panel - the ones not met, what the crews do now and the rules with their sources, and keeps nothing in the "
+       "browser's storage; `gea procedures` runs the self-test, lists the nine kinds, prints a well's page, declares a rule and takes it off, and says why a figure is turned away; "
+       "the alert is named on the Alerts page; the help, the lesson and the README say what is measured and that it is the part of a procedure a recorder can see"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def section_ey_wellbore_stability(tmp: str) -> None:
     """Section EY - wellbore stability (0.106.0): the mud-weight window along a well with the hole's direction in it.
     The wall's stresses and the collapse and breakdown pressures against their closed forms, the window along a made
@@ -22578,6 +22879,7 @@ def main() -> int:
         section_ew_geosteering(tmp)
         section_ex_daily_report(tmp)
         section_ey_wellbore_stability(tmp)
+        section_ez_procedures(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

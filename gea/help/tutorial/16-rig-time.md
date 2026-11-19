@@ -1,7 +1,7 @@
-# 16. What the rig did: rig time, the benchmark, the roadmap, the daily report
+# 16. What the rig did: rig time, the benchmark, the roadmap, the daily report, the procedures
 Who: office
 Where: #/rigtime
-Pages: #/benchmark, #/roadmap, #/daily
+Pages: #/benchmark, #/roadmap, #/daily, #/procedures
 Takes: 40 minutes
 > Three pages read the drilling record for time: where each well's hours went, how the wells of the pad compare, and what the fastest stands were drilled with.
 
@@ -16,6 +16,7 @@ The same shape each time: pick the well; the tiles at the top; the charts; a **d
 5. Open **Roadmap**. With two or more wells' records attached, every well is cut into stands of 100 ft and each stand put in its stretch of hole - 1,000 ft of TVD down to the heel, 1,000 ft of lateral beyond it. For each stretch the table gives the weight on bit, rotary speed, flow and differential pressure the fastest quarter of the stands were drilled with, and which well was fastest there.
 6. Read **The check** before using the table: each well is set against the roadmap made from the others. Drill the next well from the table only as far as the check supports it.
 7. Open **Daily report** (under Watch & report). It writes the rig's morning sheet from the same record: pick the well and a day in **The days**. The bar is the day's 24 hours by operation; under it the time log, to the quarter hour as a daily report is kept, each line with its depths; then the exact hours by rig state, the readings while drilling, the trips and the places in the day's record to look at. Type the crew's words in **Remarks** - what the record cannot say - and press **Keep the remarks**; press **Write this day's sheet**, then **Open the sheet to print**.
+8. Open **Procedures** (under Drilling). It reads how every connection was made and how every trip was started. **What the crews do now** needs nothing from you: for each measure - the seconds circulated before the slips, the reaming passes, whether the pumps were off when the slips were set, the seconds to bring the pumps up, the flow check before a trip out, the pipe's speed - the middle value and the range eight in ten fall in. To hold the record to the drilling program, declare a rule in **The rules** (the operator role): what it is about, its figure, and where it came from. The page then counts the rule connection by connection, by tour, and lists the ones that did not meet it with their time and depth. It is the part of a procedure a recorder can see, and no more.
 
 ## On the practice pad
 On the public site ({lesson:practice-pad}) the Benchmark ranks five real wells drilled in the same granite between 2017 and 2023: 56-32 made 487 ft a day from its first stand to its last, and 58-32, the first of them, 156. Against the pad's best the five spent 823 of their 1,270 hours on bottom beyond it. The Roadmap's check there is a hard test of the idea: wells years apart, in different hole sizes.
@@ -24,6 +25,6 @@ On the public site ({lesson:practice-pad}) the Benchmark ranks five real wells d
 The Rig time tiles for a well add up to the length of its record, and the Benchmark lists every well with a drilling record on the same rows.
 
 ## The same from a terminal
-`gea rig-time --workspace C:\site`, `gea benchmark --workspace C:\site`, `gea roadmap --workspace C:\site`, `gea daily-report --workspace C:\site`.
+`gea rig-time --workspace C:\site`, `gea benchmark --workspace C:\site`, `gea roadmap --workspace C:\site`, `gea daily-report --workspace C:\site`, `gea procedures --workspace C:\site`.
 
-Help: rig-time, benchmark, roadmap, daily-report
+Help: rig-time, benchmark, roadmap, daily-report, procedures

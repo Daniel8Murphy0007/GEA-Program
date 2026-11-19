@@ -903,7 +903,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.106.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.107.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1450,6 +1450,40 @@ hours on bottom. No sheet has yet been set beside a contractor's signed
 report for the same day.
 
 The **Daily report** tab, `gea daily-report`, `gea help daily-report`.
+
+### Procedures
+
+Every connection and every trip of a drilling record against the rules
+the operator declares. A drilling program says how a connection is to be
+made and how a trip is to be started; whether the crews did is in the
+recorder second by second, and nobody reads it. At each drilling
+connection the page reads the seconds the pumps ran off bottom before
+the slips were set, the reaming passes, whether the pumps were off when
+the slips were set and how far off bottom the bit was when they stopped,
+the seconds taken to bring the pumps back up, and the weight-to-weight
+time; at each trip, the pipe's speed, and before a trip out off bottom
+the minutes circulated and the longest stretch with the pumps off and the
+pipe still. A rule is one of those with a figure and where it came from,
+for every well or one, for the whole hole or a stretch of it. Each
+connection or trip is met, not met, or not read; the count is given by
+rule and by tour, and the ones that did not meet a rule are listed with
+their time and depth. With no rule declared the page still gives what
+the crews do now. On a record still being written, a connection or trip
+that does not meet a rule raises the `procedure.departed` alert.
+
+A recorder that works its pump rate out from the strokes can go on
+reading the last figure for most of a minute after the pumps stop, which
+makes every connection look as if it were made with the pumps running.
+Where the record has the standpipe pressure, the pumps are taken as
+stopped when the pressure falls.
+
+On the Utah FORGE public pad, with no rule declared, the page reads 580
+drilling connections and 547 trips over five wells. No operator's
+written procedure has yet been declared on it against a real well, and
+it is the part of a procedure a recorder can see: a survey taken, a pill
+pumped, the flow line watched are not in it.
+
+The **Procedures** tab, `gea procedures`, `gea help procedures`.
 
 ### Plan vs actual and the survey tools
 
@@ -2115,7 +2149,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.106.0.exe` (for 0.106.0): the
+Every release also carries `GEA-Program-Setup-0.107.0.exe` (for 0.107.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -2134,7 +2168,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.106.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.107.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

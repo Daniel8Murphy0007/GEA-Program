@@ -874,6 +874,20 @@ def main(argv=None) -> int:
     p_cs.add_argument("--actor", type=str, default="cli")
     p_cs.add_argument("--json", action="store_true")
 
+    p_prc = sub.add_parser("procedures", help="procedures: every connection and every trip of a drilling record against the rules the operator declares - circulating before a connection, reaming, the pumps off before the slips, the pumps brought up slowly, a flow check before a trip out, the pipe's speed")
+    p_prc.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (a made record whose connections and trip were made a known way)")
+    p_prc.add_argument("--well", type=str, default=None, help="a well, by its name or id")
+    p_prc.add_argument("--kinds", action="store_true", help="list what a rule can be")
+    p_prc.add_argument("--add", type=str, default=None, metavar="KIND=FIGURE", help="declare a rule, as in conn.circulate_before_s=60 (a yes-or-no rule takes no figure: conn.pumps_off_before_slips); --kinds lists them")
+    p_prc.add_argument("--source", type=str, default="", help="with --add: where the rule came from (the drilling program and its section)")
+    p_prc.add_argument("--only-well", action="store_true", help="with --add and --well: the rule is for that well alone")
+    p_prc.add_argument("--from-md", type=float, default=None, help="with --add: the rule starts at this depth, ft MD")
+    p_prc.add_argument("--to-md", type=float, default=None, help="with --add: the rule ends at this depth, ft MD")
+    p_prc.add_argument("--direction", type=str, default=None, choices=["in", "out", "both"], help="with --add trip.max_speed_ft_min: trips in, trips out, or both")
+    p_prc.add_argument("--remove", type=str, default=None, metavar="RULE", help="take a rule off, by its id (R1, R2, ...)")
+    p_prc.add_argument("--write", action="store_true", help="write the report: reports/procedures/ under the workspace, a folder a well")
+    p_prc.add_argument("--actor", type=str, default="cli", help="who is doing this, for the audit trail")
+    p_prc.add_argument("--json", action="store_true")
     p_sb = sub.add_parser("stability", help="wellbore stability: the mud-weight window along a well with the hole's direction in it - the collapse pressure, the pore pressure, the least stress, and the mud weight and circulating density against them")
     p_sb.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (the cases with an answer in closed form)")
     p_sb.add_argument("--well", type=str, default=None, help="a well, by its name or id")
@@ -3278,6 +3292,46 @@ def main(argv=None) -> int:
         except (KeyError, ValueError, OSError, WorkspaceError) as e:
             raise SystemExit(f"casing: {e.args[0] if e.args else e}")
         print(_json.dumps(r, default=str) if a.json else _CSG.text(r))
+        return 0
+    elif a.cmd == "procedures":
+        import json as _json
+        from . import procedures as _PRC
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if a.kinds:
+            print("\n".join(f"{k:<30s} {v['on']:<16s} {('at least, ' + v['unit']) if v['sense'] == 'min' else ('no more than, ' + v['unit']) if v['sense'] == 'max' else 'yes or no':<22s} {v['words']}" for k, v in _PRC.KINDS.items()))
+            return 0
+        if not a.workspace:
+            r = _PRC.selftest()
+            print("\n".join(f"{'PASS' if c['pass'] else 'FAIL'}  {c['name']}" for c in r["checks"]) + f"\n{'OK' if r['ok'] else 'FAILED'} - {r['label']}")
+            return 0 if r["ok"] else 1
+        try:
+            ws = Workspace(a.workspace)
+            wid = None
+            if a.well:
+                wid = next((w["id"] for w in ws.wells() if a.well in (w["id"], w.get("display"))), None)
+                if wid is None:
+                    raise SystemExit(f"procedures: no well {a.well!r} in this workspace")
+            if a.remove:
+                h_ = _PRC.remove_rule(ws, a.actor, a.remove)
+                print(f"taken off: {a.remove}, {_PRC.words(h_)}")
+            if a.add:
+                k_, _, v_ = a.add.partition("=")
+                if a.only_well and wid is None:
+                    raise SystemExit("procedures: --only-well needs the well (--well)")
+                rule_ = _PRC.add_rule(ws, a.actor, k_.strip(), v_.strip() or None, wid if a.only_well else None, a.from_md, a.to_md, a.direction, a.source)
+                print(f"declared: {rule_['id']}, {_PRC.words(rule_)}")
+            if a.write:
+                from . import __version__ as _ver107
+                r = _PRC.write_report(ws, _ver107, wid, a.actor)
+                print(f"written: {', '.join(r['files'])} under {r['folder']}")
+            p = _PRC.page(ws, wid)
+        except WorkspaceError as e:
+            raise SystemExit(f"procedures: {e}")
+        except (ValueError, KeyError) as e:
+            raise SystemExit(f"procedures: {e.args[0] if e.args else e}")
+        print(_json.dumps(p, default=str) if a.json else _PRC.text(p))
         return 0
     elif a.cmd == "stability":
         import json as _json

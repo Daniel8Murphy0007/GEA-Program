@@ -2291,6 +2291,9 @@ def make_handler(app: App):
                 if path == '/api/decline':
                     from . import decline as DCA
                     return self._json(200, App._cr(DCA.page, app.ws, (qs.get('well') or [None])[0], (qs.get('as_of') or [None])[0]))
+                if path == '/api/procedures':
+                    from . import procedures as _PRC
+                    return self._json(200, App._cr(_PRC.page, app.ws, (qs.get('well') or [None])[0]))
                 if path in ('/api/stability', '/api/stability/now'):
                     from . import stability as _SB
                     wid_ = (qs.get('well') or [None])[0]
@@ -3055,6 +3058,18 @@ def make_handler(app: App):
                         return self._json(200, App._cr(DCA.set_config, app.ws, user['name'], wid, str(b_.get('source') or ''), **cfg))
                     r_ = App._cr(DCA.write_report, app.ws, _v, wid or None, user['name'])
                     return self._json(200, {'report_id': r_['report_id']})
+                if path in ('/api/procedures/rule', '/api/procedures/rule/remove', '/api/procedures/write'):
+                    from . import procedures as _PRC
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    b_ = dict(body or {})
+                    if path.endswith('/remove'):
+                        return self._json(200, App._cr(_PRC.remove_rule, app.ws, user['name'], str(b_.get('id') or '')))
+                    if path.endswith('/rule'):
+                        return self._json(200, App._cr(_PRC.add_rule, app.ws, user['name'], str(b_.get('kind') or ''), b_.get('value'), str(b_.get('well') or '') or None,
+                                                       b_.get('from_md_ft'), b_.get('to_md_ft'), str(b_.get('direction') or '') or None, str(b_.get('source') or '')))
+                    r_ = App._cr(_PRC.write_report, app.ws, _v, str(b_.get('well') or '') or None, user['name'])
+                    return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
                 if path in ('/api/stability/settings', '/api/stability/write'):
                     from . import stability as _SB
                     from . import __version__ as _v
