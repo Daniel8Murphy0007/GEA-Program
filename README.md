@@ -903,7 +903,7 @@ unsigned, the key hand-overs - and shows the reports as they were signed. A
 reader made from the workspace knows the site's key fingerprints, so it
 says whether a dossier is the site's; it allows no network request, and it
 leaves the trusted time-stamp to `verify_dossier.py`. For a client who wants
-it installed, every release also carries `GEA-Reader-Setup-0.108.0.exe`: GEA
+it installed, every release also carries `GEA-Reader-Setup-0.109.0.exe`: GEA
 Reader as a Windows program of its own - its own icon and taskbar button,
 Check with GEA Reader on a dossier's right-click menu, fingerprints the client
 saves kept on that computer, nothing of GEA-Program. `gea help reader`.
@@ -1514,6 +1514,30 @@ It is not a calibration: a channel that reads steadily can still be
 wrong by a constant, and nothing in a record says so.
 
 The **Channels** tab, `gea channels`, `gea help channels`.
+
+### Alert rules
+
+A card for each rule that raises an alert from a drilling record:
+off-bottom pressure falling, the motor stall, the pick-up weight off its
+trend, stick-slip, the hook load jumping, the friction factor rising, a
+flowback above its fingerprint, the pits leaving their trend, a trip
+whose mud departs from the pipe moved, the bit near a hard line, the mud
+against the mud-weight window, a declared procedure not met. Each card
+says what the rule is for; how it decides, in the words of the module
+that applies it, taken from that module when the card is made; the
+channels it cannot do without and what must be declared; its thresholds
+as they stand in the workspace, with their defaults, their bounds and
+the source of any change; when the alert is raised and how often it has
+been here; on which of the workspace's wells it can run; its own checks,
+run again on request; what it will not call a measurement; and the file
+that holds it, with a hash.
+
+They are rules with thresholds set by hand, not models fitted to data,
+and the page says so first. None has been set against field events that
+someone confirmed, so no card gives a hit rate or a false-alarm rate: a
+card says what a rule does, not how often it is right.
+
+The **Alert rules** tab, `gea alert-rules`, `gea help alert-rules`.
 
 ### Plan vs actual and the survey tools
 
@@ -2179,7 +2203,7 @@ attaches the zips to the GitHub release of that tag.
 
 ### The Windows installer
 
-Every release also carries `GEA-Program-Setup-0.108.0.exe` (for 0.108.0): the
+Every release also carries `GEA-Program-Setup-0.109.0.exe` (for 0.109.0): the
 same Windows kit installed like any Windows program, for the signed-in user
 alone and with no administrator rights (`%LOCALAPPDATA%\Programs\GEA-Program`).
 It asks for the site workspace (an existing one such as `C:\site` is used as
@@ -2198,7 +2222,7 @@ it, removes the program and leaves the workspace. Silent, for a site's
 software deployment:
 
 ```
-GEA-Program-Setup-0.108.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
+GEA-Program-Setup-0.109.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /WORKSPACE="C:\site" /SITENAME="Pad 3" /TASKS="desktopicon"
 ```
 
 The setup is built by Inno Setup 6 from `tools/installer.iss` in the same

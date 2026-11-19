@@ -874,6 +874,13 @@ def main(argv=None) -> int:
     p_cs.add_argument("--actor", type=str, default="cli")
     p_cs.add_argument("--json", action="store_true")
 
+    p_arc = sub.add_parser("alert-rules", help="alert rules: a card for each rule that raises an alert from a drilling record - what it is for, how it decides, what it reads, its settings as they stand, when it is raised, its checks run again, and what it will not call a measurement")
+    p_arc.add_argument("--workspace", type=str, default=None, help="the workspace folder: its settings, its wells and the alerts raised in it are on the cards; without one (and without --cards) the self-test runs")
+    p_arc.add_argument("--cards", action="store_true", help="print the cards with no workspace: the rules as the program ships them")
+    p_arc.add_argument("--checks", action="store_true", help="run every rule's checks first, and print them with the cards")
+    p_arc.add_argument("--write", action="store_true", help="write the report (every rule's checks run first): reports/alert_rules/ under the workspace")
+    p_arc.add_argument("--actor", type=str, default="cli", help="who is doing this, for the audit trail")
+    p_arc.add_argument("--json", action="store_true")
     p_chn = sub.add_parser("channels", help="channels: what a well's drilling record carries - each channel's source, how many samples read, dropped readings and spikes, a channel reading one value throughout, how far behind the record's end it stops - and which tabs and alert rules read it")
     p_chn.add_argument("--workspace", type=str, default=None, help="the workspace folder; without one the self-test runs (made channels with known faults)")
     p_chn.add_argument("--well", type=str, default=None, help="a well, by its name or id")
@@ -3298,6 +3305,34 @@ def main(argv=None) -> int:
         except (KeyError, ValueError, OSError, WorkspaceError) as e:
             raise SystemExit(f"casing: {e.args[0] if e.args else e}")
         print(_json.dumps(r, default=str) if a.json else _CSG.text(r))
+        return 0
+    elif a.cmd == "alert-rules":
+        import json as _json
+        from . import alert_cards as _ARC
+        from .cli import _safe_stdout
+        from .workspace import Workspace, WorkspaceError
+        _safe_stdout()
+        if not a.workspace and not a.cards:
+            r = _ARC.selftest()
+            print("\n".join(f"{'PASS' if c['pass'] else 'FAIL'}  {c['name']}" for c in r["checks"]) + f"\n{'OK' if r['ok'] else 'FAILED'} - {r['label']}")
+            return 0 if r["ok"] else 1
+        try:
+            ws = Workspace(a.workspace) if a.workspace else None
+            if a.write:
+                if ws is None:
+                    raise SystemExit("alert-rules: --write needs the workspace (--workspace)")
+                from . import __version__ as _ver109
+                r = _ARC.write_report(ws, _ver109, a.actor)
+                print(f"written: {', '.join(r['files'])} under {r['folder']}")
+            if a.checks:
+                for s_ in _ARC.SPECS:
+                    _ARC.run_checks(s_["id"])
+            p = _ARC.page(ws)
+        except WorkspaceError as e:
+            raise SystemExit(f"alert-rules: {e}")
+        except (ValueError, KeyError) as e:
+            raise SystemExit(f"alert-rules: {e.args[0] if e.args else e}")
+        print(_json.dumps(p, default=str) if a.json else _ARC.text(p, checks=a.checks))
         return 0
     elif a.cmd == "channels":
         import json as _json

@@ -4,6 +4,22 @@ The development record of GEA-Program, newest first. Every entry names what
 shipped and what the acceptance gate counted at the time. Nothing here is a
 claim the gate does not re-verify on every run.
 
+## v0.109.0 - 2026-11-19 - alert rules: a card for each rule that raises an alert
+
+- The Alert rules tab: a card for each of the twelve rules that raise
+  eighteen alerts from a drilling record - what it is for, how it
+  decides in its own module's words, when it is raised, what it reads
+  and what must be declared, its settings as they stand, the wells it
+  can read, how often it has been raised, what it will not call a
+  measurement, and its file's hash.
+- Each rule's own checks run again on request, and carried by the
+  report.
+- The other alerts listed with their tabs.
+- Said first: rules with thresholds set by hand, no labelled data
+  behind them, no hit rate.
+- `gea alert-rules`, `gea help alert-rules`.
+- Gate 641.
+
 ## v0.108.0 - 2026-11-19 - channels: what a record carries, how good it is, and who reads it
 
 - The Channels tab: each channel of a well's drilling record as the file

@@ -5,6 +5,51 @@ headed by its tag and date; `ship.ps1` refuses to ship a tag that has no
 section here. The long-form record, by layer, is `docs/HISTORY.md`; the
 session-by-session working record is `docs/SESSION_LOG.md`.
 
+## [v0.109.0] - 2026-11-19 - alert rules: a card for each rule that raises an alert
+
+### Added
+- **The Alert rules tab**, under Watch & report beside Alarms. An alert
+  is worth what the person who gets it knows of the rule behind it. The
+  page gives a card to each rule that raises an alert from a drilling
+  record: off-bottom pressure falling, the motor stall, the pick-up
+  weight off its trend, stick-slip, the hook load jumping, the friction
+  factor rising, a flowback above its fingerprint, the pits leaving
+  their trend, a trip whose mud departs from the pipe moved, the bit
+  near a hard line, the mud against the mud-weight window, a declared
+  procedure not met. Twelve cards for eighteen alerts.
+- **What a card says.** What the rule is for. How it decides, as the
+  module that applies it states it - the passage is taken from that
+  module when the card is made, so a card cannot describe a rule other
+  than the one that runs. When its alert is raised. The channels it
+  cannot do without, and what must be declared for it. Its thresholds
+  as they stand in the workspace, with their defaults, their bounds and
+  the source of any change. On which of the workspace's wells it can
+  run, and what the others lack. How often it has been raised here.
+  What it will not call a measurement. The file that holds it, with a
+  hash.
+- **Its checks, run again.** Each card can run its rule's own self-test
+  on request - records made with the fault in them and without - and
+  shows every check in words. The report runs them all and carries
+  them.
+- The alerts that are not rules read from a drilling record are listed
+  under the cards with their tabs, so every alert the service can raise
+  is on the page.
+- `gea alert-rules` (`--cards`, `--checks`, `--write`; with no
+  workspace, the self-test), `gea help alert-rules`, a step in lesson
+  11, a README section.
+
+### Notes
+- These are rules with thresholds set by hand, not models fitted to
+  data, and the page says so first. None has been set against field
+  events that someone confirmed, so no card gives a hit rate or a
+  false-alarm rate. The count of alerts raised says how often a rule
+  spoke, not how often it should have.
+- No rule is changed by this release.
+- This is the second half of the plan's channel view and model cards;
+  the cards stand on the list the Channels tab makes of what each rule
+  reads.
+- Gate 641: section FB, three checks.
+
 ## [v0.108.0] - 2026-11-19 - channels: what a record carries, how good it is, and who reads it
 
 ### Added

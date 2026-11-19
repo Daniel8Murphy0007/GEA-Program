@@ -1,25 +1,22 @@
-v0.108.0 — CHANNELS: WHAT A RECORD CARRIES, HOW GOOD IT IS, AND WHO READS IT
+v0.109.0 — ALERT RULES: A CARD FOR EACH RULE THAT RAISES AN ALERT
 
-Added: the Channels tab, under Wells & data. For each channel of a
-well's drilling record: the share of samples with a reading, the middle
-value and its range, whether it reads one value throughout, readings
-dropped, spikes, and where in the record it reads. Four checks of the
-record as a whole: the clock, the bit against the hole, the hole depth
-stepping back, and the pump rate after the pumps stop.
+Added: the Alert rules tab, under Watch & report. A card for each of
+the twelve rules that raise an alert from a drilling record: what it is
+for, how it decides in the words of the module that applies it, when
+its alert is raised, the channels it cannot do without, its thresholds
+as they stand with the source of any change, the wells it can read, how
+often it has been raised, and what it will not call a measurement.
 
-Added: every tab and alert rule that reads a drilling record, with the
-channels it looks for, and the ones that cannot read this record, with
-what is missing. The page to open when a tab cannot read a well.
+Added: each rule's own checks, run again on request and carried by the
+report.
 
-Changed: the Procedures tab reads the pumps more carefully. v0.107.0
-called pumps stopped when they had only been slowed; now the pumps are
-off from where the standpipe pressure comes down to the level it holds
-with them off. And the pumps have ten seconds at the slips: a pump
-spinning down is not a pump running.
+Added: the other alerts listed with their tabs, so every alert the
+service can raise is on one page.
 
-Added: gea channels, gea help channels.
+Added: gea alert-rules, gea help alert-rules.
 
-Not a calibration: a channel that reads steadily can still be wrong by
-a constant. Run over the five public Utah FORGE records.
+These are rules with thresholds set by hand, not models fitted to data.
+None has been set against confirmed field events, so no card gives a
+hit rate. No rule is changed by this release.
 
-Gate 638.
+Gate 641.

@@ -19455,6 +19455,244 @@ def section_ej_frac_treatment(tmp: str) -> None:
        "page with the published figures it was checked against, the README and lesson 14" + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
 
 
+def section_fb_alert_rules(tmp: str) -> None:
+    """Section FB - alert rules (0.109.0): a card for each rule that raises an alert from a drilling record, made from
+    the modules that apply the rules. The cards against those modules - the alerts they cover, how each decides, what
+    it reads, its settings, its checks; a workspace - a threshold changed with its source, the wells a rule can and
+    cannot read, the alerts raised; the routes and their roles, the tab, the command, the help, the lesson and the
+    README."""
+    import hashlib
+    import subprocess as _sp
+    from . import alert_cards as AC
+    from . import alerts as AL
+    from . import channels as CH
+    from . import dysfunction as DY
+    from . import helplib as H
+    from . import kick as KD
+    from . import procedures as PR
+    from . import stickslip as VB
+    from . import trip_sheet as TS
+    from . import tutorial as TU
+    from .workspace import Workspace
+    pkg = Path(__file__).parent
+    d = Path(tmp, "fb"); d.mkdir()
+
+    def audit_actions(ws_) -> list:
+        p_ = Path(ws_.path, "records", "audit.jsonl")
+        return [json.loads(l_).get("action") for l_ in p_.read_text(encoding="utf-8").splitlines() if l_.strip()] if p_.is_file() else []
+    # -- FB1 the cards against the modules they describe ------------------------------------------------------------------------------------
+    st_ = AC.selftest()
+    p0 = AC.page(None); C = {c_["id"]: c_ for c_ in p0["cards"]}
+    covered = [e_ for c_ in p0["cards"] for e_ in c_["events"]]
+    doc = "Heading.\n\n- FIRST. One thing\n  on two lines.\n- SECOND. Another\n  thing.\n\nThe rule: a paragraph\nof two lines.\n\nAfter."
+    ran = {s_["id"]: AC.run_checks(s_["id"]) for s_ in AC.SPECS}
+    p1 = AC.page(None)
+    R = {r_["id"]: r_ for r_ in CH.readers()}
+    txt = AC.text(p1, checks=True)
+    sha = lambda m_: hashlib.sha256((pkg / f"{m_}.py").read_bytes()).hexdigest()[:16]
+    unknown = []
+    for fn in (lambda: AC.run_checks("nothing"), lambda: AC.checks_kept("nothing")):
+        try:
+            fn(); unknown.append(False)
+        except KeyError:
+            unknown.append(True)
+    c1 = {
+        "selftest": st_["ok"] and len(st_["checks"]) >= 12,
+        "every_alert_on_the_page": p0["unlisted"] == [] and set(covered) | {o_["event"] for o_ in p0["others"]} == set(AL.EVENTS) and len(covered) == len(set(covered)) == 18
+                                   and len(p0["cards"]) == 12 and len(p0["others"]) == len(AL.EVENTS) - 18,
+        "others_have_tabs": all(o_["words"] and o_["tab"].startswith("#/") for o_ in p0["others"]) and "tls.expiring" in [o_["event"] for o_ in p0["others"]],
+        "a_passage": AC._passage(doc, "- FIRST.", "- SECOND.") == "FIRST. One thing on two lines." and AC._passage(doc, "- SECOND.") == "SECOND. Another thing."
+                     and AC._passage(doc, "The rule:") == "The rule: a paragraph of two lines." and AC._passage(doc, "- THIRD.") == "",
+        "how_is_the_modules_own": all(c_["how"] and c_["how"] in AC._flat(AC._mod(s_["module"]).__doc__).replace("- ", "") or AC._flat(c_["how"])[:120] in AC._flat(AC._mod(s_["module"]).__doc__)
+                                      for c_, s_ in zip(p0["cards"], AC.SPECS)) and all(len(c_["how"]) > 150 for c_ in p0["cards"]),
+        "the_numbers_agree": "6 % and 100 psi" in C["washout"]["how"] and [(s_["setting"], s_["value"]) for s_ in C["washout"]["settings"]] == [("washout_fall", DY.DEFAULTS["washout_fall"]), ("washout_min_psi", DY.DEFAULTS["washout_min_psi"])]
+                             and "300 psi and 60 %" in C["stall"]["how"] and C["stall"]["settings"][0]["value"] == 0.6 and "10 % or more" in C["stickslip"]["how"]
+                             and C["stickslip"]["settings"][0]["value"] == VB.DEFAULTS["stickslip_swing"] == 0.10 and "four of its scatters and 4 bbl" in C["flowback"]["how"]
+                             and [s_["value"] for s_ in C["flowback"]["settings"]] == [4.0, 4.0],
+        "settings_whole": all(s_["words"] and s_["default"] == s_["value"] and not s_["changed"] for c_ in p0["cards"] for s_ in c_["settings"])
+                          and all(s_["bounds"] == list(DY.BOUNDS[s_["setting"]]) for s_ in C["tight"]["settings"]) and [s_["setting"] for s_ in C["pits"]["settings"]] == ["gain_sigma", "gain_min_bbl", "returns_change"],
+        "fixed_in_the_program": [s_["setting"] for s_ in C["trips"]["settings"]][:3] == ["MIN_BBL", "SHARE", "SIGMA"] and C["trips"]["settings"][0]["value"] == TS.MIN_BBL
+                                and all(s_["bounds"] is None and s_["where"] == "fixed in the program" for s_ in C["trips"]["settings"]) and C["hardline"]["settings"] == [],
+        "reads_the_channels_list": all(len(c_["reads"]["needs"]) == sum(len(R[r_]["needs"]) for r_ in s_["readers"]) and len(c_["reads"]["reads"]) == sum(len(R[r_]["reads"]) for r_ in s_["readers"])
+                                       for c_, s_ in zip(p0["cards"], AC.SPECS)) and [x_["what"] for x_ in C["flowback"]["reads"]["needs"]] == ["the pump rate", "the active pit volume"]
+                                   and [x_["what"] for x_ in C["stickslip"]["reads"]["needs"]] == ["the surface torque"] and C["stickslip"]["reads"]["needs"][0]["looks_for"] == list(VB.TORQUE_NAMES)
+                                   and len(C["trips"]["reads"]["either"]) == 2 and all(c_["tab"] == R[s_["readers"][0]]["tab"] for c_, s_ in zip(p0["cards"], AC.SPECS)),
+        "when_raised": all(c_["raised"][0].isupper() and "still being written" in c_["raised"] and c_["raised"].endswith(f"({AC.CADENCE}).") for c_ in p0["cards"])
+                       and "raised for" not in C["washout"]["raised"] and "500 ft" in C["stability"]["raised"] and "last two hours" in C["procedure"]["raised"],
+        "declared": all(C[k_]["declared"] for k_ in ("sticking", "trips", "hardline", "stability", "procedure")) and all(C[k_]["declared"] is None for k_ in ("washout", "stall", "tight", "stickslip", "bounce", "flowback", "pits"))
+                    and "Torque & drag" in C["sticking"]["declared"],
+        "not_a_measurement": all(len(c_["not_a_measurement"]) >= 2 and c_["not_a_measurement"][-1] == AC.SILENCE for c_ in p0["cards"]) and C["washout"]["not_a_measurement"][0].startswith("a washout")
+                             and C["stall"]["not_a_measurement"][0].startswith("a stall") and C["tight"]["not_a_measurement"][0].startswith("stuck pipe")
+                             and C["bounce"]["not_a_measurement"][0].startswith("bit bounce") and not any(x_.startswith("stick-slip") for x_ in C["bounce"]["not_a_measurement"]),
+        "not_a_model": all(c_["kind"] == AC.KIND and c_["labelled_data"] == AC.LABELLED for c_ in p0["cards"]) and "not a model fitted to data" in AC.KIND and p0["lines"][-1].endswith("not how often it is right."),
+        "the_files_hash": all(x_["sha256"] == sha(Path(x_["file"]).stem) for c_ in p0["cards"] for x_ in c_["components"]) and [x_["file"] for x_ in C["stickslip"]["components"]] == ["gea/stickslip.py", "gea/dysfunction.py"],
+        "no_check_until_asked": all(c_["checks"] is None for c_ in p0["cards"] if c_["id"] not in ("stickslip", "bounce")),
+        "every_rules_checks_pass": all(k_["ok"] and k_["passed"] == k_["of"] >= 6 and all(x_["name"] for x_ in k_["checks"]) for k_ in ran.values()) and len(ran) == 12,
+        "checks_are_the_modules": ran["washout"] is ran["stall"] is ran["tight"] and ran["washout"]["module"] == "gea/dysfunction.py" and ran["washout"]["of"] == len(DY.selftest()["checks"])
+                                  and ran["flowback"] is ran["pits"] and ran["sticking"]["module"] == "gea/sticking.py" and ran["procedure"]["of"] == len(PR.selftest()["checks"]),
+        "kept_on_the_cards": all(c_["checks"] is not None and c_["checks"]["ok"] for c_ in p1["cards"]) and AC.checks_kept("trips") is ran["trips"],
+        "said": unknown == [True, True],
+        "as_text": txt.startswith("Alert rules") and txt.count("  what it is for: ") == 12 and "    PASS  " in txt and "FAIL" not in txt and "The other alerts: " in txt and "gea/kick.py (" in txt,
+    }
+    failed1 = [k_ for k_, v in c1.items() if not v]
+    ok(not failed1,
+       "FB1 the cards against the modules they describe: twelve cards cover eighteen of the alerts the service can raise, none twice, and the rest are listed with their tabs; how "
+       "each rule decides is a passage of its own module's description, found there now, and the numbers in it are the settings beside it (6 % and 100 psi for the washout, 300 psi "
+       "and 60 % for the stall, 10 % for stick-slip, four scatters and 4 bbl for the flowback); every setting has its meaning, default and bounds, and the Trip sheet's are said to "
+       "be fixed in the program; what a rule reads is the Channels tab's own list for it; when its alert is raised is its module's own statement; a rule that needs something "
+       "declared says what; each says what it will not call a measurement and that its silence is not a clean bill; each says it is not a fitted model and has no labelled data "
+       "behind it; the hash on a card is its file's; no check is run until asked, every rule's checks then pass and are its module's self-test, shared by the rules of one module"
+       + (f" [failed: {', '.join(failed1)}]" if failed1 else ""))
+
+    # -- FB2 a workspace: a threshold changed, the wells a rule can read, the alerts raised ---------------------------------------------------
+    wsp = str(d / "ws"); ws = Workspace.create(wsp, "Made pad", actor="tester")
+    p_empty = AC.page(ws)
+
+    def write(rec_, path_, extra):
+        DY.write_edr(rec_, str(path_))
+        rows = Path(path_).read_text(encoding="utf-8").splitlines()
+        Path(path_).write_text("\n".join([rows[0] + "".join("," + h_ for h_, _v in extra)] + [r_ + "".join("," + v_ for _h, v_ in extra) for r_ in rows[1:]]) + "\n", encoding="utf-8")
+        return str(path_)
+    rec = PR.made_record(stands=6, trip_after=None)
+    wa = ws.add_well_file(write(rec, d / "a.csv", ()), display="Well A", actor="tester")["id"]                                       # no pit volume, no trip tank, no torque
+    wb = ws.add_well_file(write(rec, d / "b.csv", (("Pit Volume Active (barrels)", "500.00"), ("Convertible Torque (kft_lb)", "9.5"))), display="Well B", actor="tester")["id"]
+    ws.add_well_records("Well C", actor="tester")
+    n_audit = len(audit_actions(ws))
+    p = AC.page(ws); W = {c_["id"]: c_ for c_ in p["cards"]}
+    wrote_nothing = len(audit_actions(ws)) == n_audit and not Path(wsp, "reports", "alert_rules").exists()
+    by_ch = {wid_: {r_["id"]: r_ for r_ in CH.page(ws, wid_)["result"]["readers"]} for wid_ in (wa, wb)}
+    DY.set_settings(ws, "tester", "the operator's standard, rev 3 (test)", washout_fall=0.08)
+    KD.set_settings(ws, "tester", "the well control standard (test)", flowback_min_bbl=6.0)
+    p2 = AC.page(ws); W2 = {c_["id"]: c_ for c_ in p2["cards"]}
+    for ev_ in ({"event": "drilling.washout", "well": "Well A", "detail": "x"}, {"event": "drilling.washout", "well": "Well A", "detail": "y"}, {"event": "trip.fill", "well": "Well B", "detail": "z"},
+                {"event": "trip.unread", "well": "Well B", "detail": "z"}, {"event": "tls.expiring", "detail": "z"}):
+        AL.raise_alert(ws, None, ev_)
+    p3 = AC.page(ws); W3 = {c_["id"]: c_ for c_ in p3["cards"]}
+    rep = AC.write_report(ws, "9.9.9", actor="tester"); rdir = Path(rep["folder"])
+    rep_json = json.loads((rdir / "alert_rules.json").read_text(encoding="utf-8")); rep_md = (rdir / "alert_rules.md").read_text(encoding="utf-8")
+    wells_of = lambda c_: {w_["display"]: w_ for w_ in c_["wells"]}
+    c2 = {
+        "no_record_yet": p_empty["wells"] == [] and len(p_empty["cards"]) == 12 and all(c_["wells"] == [] and c_["raised_here"]["n"] == 0 for c_ in p_empty["cards"])
+                         and any("has a drilling record yet" in l_ for l_ in p_empty["lines"]),
+        "the_wells": [w_["display"] for w_ in p["wells"]] == ["Well A", "Well B"] and all(len(c_["wells"]) == 2 for c_ in p["cards"]),
+        "can_and_cannot": wells_of(W["flowback"])["Well A"]["can_read"] is False and wells_of(W["flowback"])["Well A"]["missing"] == ["active pit volume"] and wells_of(W["flowback"])["Well B"]["can_read"] is True
+                          and wells_of(W["stickslip"])["Well A"]["missing"] == ["surface torque"] and wells_of(W["stickslip"])["Well B"]["can_read"] is True
+                          and wells_of(W["trips"])["Well A"]["missing"] == ["trip tank or pits"] and wells_of(W["trips"])["Well B"]["can_read"] is True
+                          and all(w_["can_read"] for k_ in ("washout", "tight", "bounce", "procedure", "hardline") for w_ in W[k_]["wells"]),
+        "as_the_channels_tab_says": all(wells_of(c_)[disp]["can_read"] == all(by_ch[wid_][r_]["verdict"] != "CANNOT READ" for r_ in s_["readers"])
+                                        for c_, s_ in zip(p["cards"], AC.SPECS) for wid_, disp in ((wa, "Well A"), (wb, "Well B"))),
+        "lines": "12 rules raise 18 of the" in p["lines"][0] and "2 well(s) of this workspace have a drilling record" in p["lines"][1] and "0 alert(s)" in p["lines"][2],
+        "reading_writes_nothing": wrote_nothing,
+        "a_threshold_changed": next(s_ for s_ in W2["washout"]["settings"] if s_["setting"] == "washout_fall") == {**next(s_ for s_ in W["washout"]["settings"] if s_["setting"] == "washout_fall"), "value": 0.08, "changed": True,
+                                                                                                                  "source": "the operator's standard, rev 3 (test)"}
+                               and next(s_ for s_ in W2["washout"]["settings"] if s_["setting"] == "washout_min_psi")["changed"] is False
+                               and all(not s_["changed"] for s_ in W2["stall"]["settings"]),
+        "the_kick_threshold_too": next(s_ for s_ in W2["flowback"]["settings"] if s_["setting"] == "flowback_min_bbl")["value"] == 6.0
+                                  and next(s_ for s_ in W2["flowback"]["settings"] if s_["setting"] == "flowback_min_bbl")["source"] == "the well control standard (test)"
+                                  and all(not s_["changed"] for s_ in W2["pits"]["settings"]),
+        "the_card_still_states_the_default": "6 % and 100 psi" in W2["washout"]["how"] and "default 0.06, changed: the operator's standard, rev 3 (test)" in AC.text(p2),
+        "raised_here": W3["washout"]["raised_here"]["n"] == 2 and W3["washout"]["raised_here"]["last_utc"] and W3["trips"]["raised_here"]["n"] == 2
+                       and W3["trips"]["raised_here"]["by_event"] == {"trip.fill": 1, "trip.loss": 0, "trip.unread": 1} and W3["stall"]["raised_here"]["n"] == 0
+                       and next(o_ for o_ in p3["others"] if o_["event"] == "tls.expiring")["raised_here"] == 1 and "4 alert(s) from these rules" in p3["lines"][2],
+        "report": rep["files"] == ["alert_rules.json", "alert_rules.md"] and all((rdir / n_).is_file() for n_ in rep["files"]) and rep_json["program_version"] == "9.9.9" and len(rep_json["cards"]) == 12
+                  and all(c_["checks"] and c_["checks"]["ok"] for c_ in rep_json["cards"]) and "    PASS  " in rep_md and "FAIL" not in rep_md and "changed: the operator's standard, rev 3 (test)" in rep_md
+                  and "alert_rules.report" in audit_actions(ws),
+    }
+    failed2 = [k_ for k_, v in c2.items() if not v]
+    ok(not failed2,
+       "FB2 a workspace: with no drilling record the cards are there and say there is nothing to read; with two wells - one with no pit volume, trip tank or torque, one with a pit "
+       "volume and a torque - each card says on which it finds what it cannot do without and what the other lacks, as the Channels tab says of the same wells; reading writes "
+       "nothing; a washout threshold changed on the Drilling alerts tab's settings and a flowback threshold on Kick & loss's are on their cards as they stand, marked changed, with "
+       "the source given, the defaults beside them and the other settings untouched; alerts raised in the workspace are counted on the card of the rule that raised them, by alert, "
+       "and a condition's among the others; the report is two files that carry every rule's checks" + (f" [failed: {', '.join(failed2)}]" if failed2 else ""))
+
+    # -- FB3 the routes and their roles, the tab, the command, the words -------------------------------------------------------------
+    from .service import Service, Users
+    import http.cookiejar
+    import urllib.error
+    import urllib.request
+    Users(str(Path(wsp, "users.json"))).add("v", "viewer-pass-1", "viewer")
+    Users(str(Path(wsp, "users.json"))).add("o", "operator-pass-1", "operator")
+    svc = Service(wsp, port=0, scheduler=False).start()
+
+    def session(name: str, pw: str):
+        o_ = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        rq_ = urllib.request.Request(svc.url.rstrip("/") + "/api/login", method="POST", data=json.dumps({"name": name, "password": pw}).encode())
+        rq_.add_header("Content-Type", "application/json"); rq_.add_header("X-GEA-Action", "1"); o_.open(rq_, timeout=30)
+
+        def call(path: str, body=None):
+            rq2 = urllib.request.Request(svc.url.rstrip("/") + path, method="POST" if body is not None else "GET", data=json.dumps(body).encode() if body is not None else None)
+            if body is not None:
+                rq2.add_header("Content-Type", "application/json"); rq2.add_header("X-GEA-Action", "1")
+            try:
+                with o_.open(rq2, timeout=120) as r_:
+                    return r_.status, json.loads(r_.read())
+            except urllib.error.HTTPError as e:
+                return e.code, json.loads(e.read() or b"{}")
+        return call
+    try:
+        v = session("v", "viewer-pass-1"); o = session("o", "operator-pass-1")
+        s_page, api = v("/api/alert-rules")
+        s_chk, api_chk = v("/api/alert-rules/check?id=hardline")
+        s_bad, _ = v("/api/alert-rules/check?id=nothing")
+        s_none, _ = v("/api/alert-rules/check")
+        s_v_wr, _ = v("/api/alert-rules/write", {})
+        s_o_wr, o_wr = o("/api/alert-rules/write", {})
+    finally:
+        svc.stop()
+    app = (pkg / "web" / "app.html").read_text(encoding="utf-8")
+    ar_js = app[app.index("// ---------- alert rules:"):app.index("// ---------- channels:")]
+    env = {**os.environ, "PYTHONPATH": str(pkg.parent) + os.pathsep + os.environ.get("PYTHONPATH", "")}
+    run = lambda *a_: _sp.run([sys.executable, "-m", "gea", "alert-rules", *a_], capture_output=True, text=True, env=env, cwd=str(pkg.parent))
+    cli_self = run(); cli_cards = run("--cards"); cli_ws = run("--workspace", wsp); cli_chk = run("--cards", "--checks"); cli_wr = run("--workspace", wsp, "--write"); cli_nows = run("--write", "--cards")
+    cli_json = run("--cards", "--json")
+    hp = (pkg / "help" / "alert-rules.md").read_text(encoding="utf-8")
+    lesson = (pkg / "help" / "tutorial" / "11-alarms.md").read_text(encoding="utf-8")
+    root = pkg.parent
+    readme = (root / "README.md").read_text(encoding="utf-8") if (root / "README.md").is_file() else None
+    chlog = (root / "CHANGELOG.md").read_text(encoding="utf-8") if (root / "CHANGELOG.md").is_file() else None
+    cov = TU.coverage()
+    mod_src = (pkg / "alert_cards.py").read_text(encoding="utf-8")
+    from . import client_reports as CRX
+    A = {c_["id"]: c_ for c_ in api.get("cards", [])}
+    c3 = {
+        "page_route": s_page == 200 and len(api["cards"]) == 12 and len(api["others"]) == len(AL.EVENTS) - 18 and [w_["display"] for w_ in api["wells"]] == ["Well A", "Well B"]
+                      and next(s_ for s_ in A["washout"]["settings"] if s_["setting"] == "washout_fall")["changed"] is True and A["washout"]["raised_here"]["n"] == 2 and api["unlisted"] == [],
+        "checks_route": s_chk == 200 and api_chk["ok"] is True and api_chk["passed"] == api_chk["of"] >= 6 and api_chk["module"] == "gea/hardline.py",
+        "said": s_bad == 404 and s_none == 404,
+        "viewer_reads_and_checks_only": s_v_wr == 403,
+        "operator_writes": s_o_wr == 200 and o_wr["files"] == ["alert_rules.json", "alert_rules.md"],
+        "tab": "['#/rules', 'Alert rules']" in app and "['Watch & report', ['#/control', '#/alarms', '#/rules', '#/approvals', '#/daily', '#/reports']]" in app and "VIEWS.rules = async" in app
+               and "function arChecks(" in app,
+        "page_parts": all(x_ in ar_js for x_ in ("What it is for:", "How it decides", "When the alert is raised:", "Cannot do without:", "Reads when it is there:", "Must be declared:", "As it stands",
+                                                 "May be set between", "Where a change came from", "In this workspace:", "Its checks:", "Run its checks", "Run every rule's checks", "Write the report",
+                                                 "What it will not call a measurement", "a rule, not a fitted model", "Labelled data:", "The other alerts", "Held in ", "/api/alert-rules/check?id=")),
+        "no_storage": "localStorage" not in ar_js and "sessionStorage" not in ar_js and "document.cookie" not in ar_js,
+        "cli_selftest": cli_self.returncode == 0 and cli_self.stdout.strip().endswith("OK - the cards against the modules they describe") and "FAIL" not in cli_self.stdout,
+        "cli_cards": cli_cards.returncode == 0 and cli_cards.stdout.startswith("Alert rules") and cli_cards.stdout.count("  what it is for: ") == 12 and "its checks: not run in this session" in cli_cards.stdout
+                     and "on this workspace" not in cli_cards.stdout,
+        "cli_workspace": cli_ws.returncode == 0 and "default 0.06, changed: the operator's standard, rev 3 (test)" in cli_ws.stdout and "cannot read Well A (no active pit volume)" in cli_ws.stdout
+                         and "raised 2 time(s)" in cli_ws.stdout,
+        "cli_checks": cli_chk.returncode == 0 and "    PASS  " in cli_chk.stdout and "FAIL" not in cli_chk.stdout and "its checks: not run" not in cli_chk.stdout,
+        "cli_writes": cli_wr.returncode == 0 and "written: alert_rules.json, alert_rules.md" in cli_wr.stdout and cli_nows.returncode != 0 and "needs the workspace" in cli_nows.stderr,
+        "cli_json": cli_json.returncode == 0 and len(json.loads(cli_json.stdout)["cards"]) == 12,
+        "help": H.check("alert-rules") == [] and H.VIEW_TOPIC.get("rules") == "alert-rules" and any(t_["topic"] == "alert-rules" for t_ in H.topics())
+                and all(x_ in hp for x_ in ("**What a card says**", "**The rules**", "**The other alerts**", "not models fitted to data", "no hit rate", "alert_rules.report", "Twelve cards for eighteen alerts")),
+        "lesson": "#/rules" in lesson and "Open **Alert rules**" in lesson and TU.check("alarms") == [] and cov["tabs_unreached"] == [] and cov["help_untaught"] == [],
+        "standalone": "gea_driller" not in mod_src and not [t_ for t_ in CRX.FORBIDDEN_TERMS if t_ in mod_src.lower()],
+        "readme": readme is None or ("### Alert rules" in readme and "`gea alert-rules`" in readme and "not models fitted to data" in readme and "hit rate" in readme),
+        "changelog": chlog is None or "## [v0.109.0]" in chlog,
+    }
+    failed3 = [k_ for k_, v in c3.items() if not v]
+    ok(not failed3,
+       "FB3 the Alert rules tab: any signed-in account reads the cards and runs a rule's checks, and only the operator role writes the report (a viewer is turned away with 403; a "
+       "rule that is not one is 404); the tab is under Watch & report beside Alarms, gives each rule its card - what it is for, how it decides, when it is raised, what it cannot do "
+       "without, its settings as they stand, the wells it can read, its checks, what it will not call a measurement, the file that holds it - with the other alerts listed under "
+       "them, and keeps nothing in the browser's storage; `gea alert-rules` runs the self-test, prints the cards with or without a workspace, runs every rule's checks, writes the "
+       "report and says when it has no workspace to write to; the help, the lesson and the README say that these are rules and not fitted models, and that no card gives a hit rate"
+       + (f" [failed: {', '.join(failed3)}]" if failed3 else ""))
+
+
 def section_fa_channels(tmp: str) -> None:
     """Section FA - channels (0.108.0): what a well's drilling record carries, how good each channel is, and who reads
     it. One channel's samples with known faults read back; the record's own checks of its clock, its depths and its
@@ -23166,6 +23404,7 @@ def main() -> int:
         section_ey_wellbore_stability(tmp)
         section_ez_procedures(tmp)
         section_fa_channels(tmp)
+        section_fb_alert_rules(tmp)
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

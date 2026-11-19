@@ -4953,3 +4953,46 @@ already hold.
   once. It now waits for the count, and says which of its seven
   questions failed when one does. Nothing in the relay is changed.
 - Gate 638: section FA, three checks.
+
+## 2026-11-19 - alert rules: a card for each rule that raises an alert (v0.109.0)
+
+- v0.108.0 shipped; its six kits were fetched and each matched the
+  release's hash.
+- The second half of the plan's A7: model cards for the alert rules. The
+  program already had model cards, for the gauge side - six of them,
+  written by hand into a module, each with its inputs, settings,
+  calibration data and evaluation. The alert rules are a different
+  thing and the cards say so before anything else: nothing in them was
+  fitted to data. A card that copied the gauge cards' headings would
+  have had a "calibration data" line to fill and an "evaluation" line
+  to dress up.
+- So the question a card answers was put as the reader's: I have an
+  alert - what looked, where is its line, what else looks the same, can
+  it even run on my well. What it is for; how it decides; when it is
+  raised; what it cannot do without; its thresholds as they stand
+  here; on which wells; its checks; what it is not.
+- "How it decides" is not written on the card. Each module that applies
+  a rule already states the rule in its own description, with its
+  numbers, and that text has been kept true through every change to the
+  rule. The card takes the passage from the module when it is made. The
+  gate holds the passage to be there, and holds its numbers to the
+  settings beside it: the washout's "6 % and 100 psi" against 0.06 and
+  100. A threshold changed in a workspace shows as changed, with the
+  source given for it, beside a passage that still states the default -
+  which is what the card should show, and it says which is which.
+- "What it reads" is the Channels tab's list from the release before,
+  not a second one. A card's "on this workspace" line is that list
+  against each well's channel names; the gate sets it against what the
+  Channels tab says of the same wells.
+- The evaluation is the rule's own self-test, run when asked and not
+  before: opening the page runs nothing. It says the rule finds the
+  fault put into a made record and is quiet without it. It is called
+  "its checks", not an evaluation.
+- What is not on a card, and is said on it: how often the rule is
+  right. No washout here has been confirmed at a trip, no flowback by a
+  flow check. The count of alerts raised in a workspace is given as how
+  often the rule spoke.
+- Every alert the service can raise is on the page: eighteen under the
+  twelve cards, the other eleven listed as conditions with their tabs.
+  The gate holds the two lists to add up to the service's own.
+- Gate 641: section FB, three checks.

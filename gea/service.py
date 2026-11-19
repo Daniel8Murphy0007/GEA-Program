@@ -2291,6 +2291,11 @@ def make_handler(app: App):
                 if path == '/api/decline':
                     from . import decline as DCA
                     return self._json(200, App._cr(DCA.page, app.ws, (qs.get('well') or [None])[0], (qs.get('as_of') or [None])[0]))
+                if path in ('/api/alert-rules', '/api/alert-rules/check'):
+                    from . import alert_cards as _ARC
+                    if path.endswith('/check'):
+                        return self._json(200, App._cr(_ARC.run_checks, (qs.get('id') or [''])[0]))
+                    return self._json(200, App._cr(_ARC.page, app.ws))
                 if path == '/api/channels':
                     from . import channels as _CHN
                     return self._json(200, App._cr(_CHN.page, app.ws, (qs.get('well') or [None])[0]))
@@ -3061,6 +3066,12 @@ def make_handler(app: App):
                         return self._json(200, App._cr(DCA.set_config, app.ws, user['name'], wid, str(b_.get('source') or ''), **cfg))
                     r_ = App._cr(DCA.write_report, app.ws, _v, wid or None, user['name'])
                     return self._json(200, {'report_id': r_['report_id']})
+                if path == '/api/alert-rules/write':
+                    from . import alert_cards as _ARC
+                    from . import __version__ as _v
+                    App.require(user, 'operator')
+                    r_ = App._cr(_ARC.write_report, app.ws, _v, user['name'])
+                    return self._json(200, {'files': r_['files'], 'folder': r_['folder']})
                 if path == '/api/channels/write':
                     from . import channels as _CHN
                     from . import __version__ as _v
